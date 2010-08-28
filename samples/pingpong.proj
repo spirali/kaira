@@ -1,0 +1,5 @@
+<project name="empty"><net id="101"><area count_expr="3" id="102" sx="174" sy="176" x="279" y="51" /><area count_expr="3" id="103" sx="159" sy="180" x="56" y="44" /><place id="104" init_string="0" place_type="Int" radius="20" x="124" y="88" /><place id="105" init_string="" place_type="Int" radius="20" x="359" y="177" /><transition id="106" name="ping" sx="64" sy="32" x="121" y="176"><code>	printf("%i: Ping %i\n", ctx-&gt;node(), var.x);
+	var.y = var.x + 1;
+</code></transition><transition id="107" name="pong" sx="74" sy="30" x="360" y="88"><code>	printf("%i: Pong %i\n", ctx-&gt;node(), var.x);
+	var.y = var.x + 1;
+</code></transition><arc from_item="104" id="108" inscription="x" inscription_x="128" inscription_y="124" to_item="106" /><arc from_item="106" id="109" inscription="y@iid()" inscription_x="233" inscription_y="183" to_item="105" /><arc from_item="105" id="110" inscription="x" inscription_x="338" inscription_y="126" to_item="107" /><arc from_item="107" id="111" inscription="y@iid()" inscription_x="224" inscription_y="94" to_item="104" /></net></project>

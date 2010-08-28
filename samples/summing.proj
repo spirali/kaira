@@ -1,0 +1,10 @@
+<project name="empty"><net id="101"><area count_expr="16" id="102" sx="338" sy="304" x="129" y="56" /><place id="103" init_string="" place_type="Int" radius="20" x="347" y="119"><code>	place-&gt;push_back(ctx-&gt;node());
+</code></place><place id="104" init_string="(0,0)" place_type="(Int,Int)" radius="20" x="196" y="109" /><place id="105" init_string="0" place_type="Int" radius="20" x="291" y="297" /><transition id="106" name="add" sx="70" sy="35" x="284" y="201"><code>	var.t = ctx-&gt;iid() + (1 &lt;&lt; var.c);
+	var.t %= ctx-&gt;instances();	
+	var.c++;
+	var.r = var.x + var.y;		
+	if (var.t == ctx-&gt;iid()) {
+		printf("Result(%i): %i\n", ctx-&gt;iid(), var.r);
+		ctx-&gt;halt();
+	}	
+</code></transition><arc from_item="104" id="107" inscription="(y, c)" inscription_x="239" inscription_y="155" to_item="106" /><arc from_item="103" id="108" inscription="x" inscription_x="329" inscription_y="160" to_item="106" /><arc from_item="106" id="109" inscription="r" inscription_x="363" inscription_y="191" to_item="103"><point x="390" y="201" /></arc><arc from_item="106" id="110" inscription="(r,c)@t" inscription_x="207" inscription_y="206" to_item="104"><point x="175" y="200" /></arc><arc from_item="105" id="111" inscription="c" inscription_x="248" inscription_y="252" to_item="106"><point x="255" y="239" /></arc><arc from_item="106" id="112" inscription="c" inscription_x="315" inscription_y="255" to_item="105"><point x="314" y="247" /></arc></net></project>
