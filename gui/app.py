@@ -5,10 +5,13 @@ from mainwindow import MainWindow
 from netview import NetView
 from codeedit import TransitionCodeEditor
 from codeedit import PlaceCodeEditor
+from parameters import ParametersWidget
 
 class App:
 	
 	def __init__(self):
+		self.builder = gtk.Builder()
+		self.builder.add_from_file("gui.glade")
 		self.window = MainWindow(self)
 		self.nv = None
 		self.tabtable = {}
@@ -117,9 +120,7 @@ class App:
 		else:
 			name = "T: <unnamed" + str(transition.get_id()) + ">"
 		editor = TransitionCodeEditor(transition)
-		self.tabtable[transition] = editor
-		self.window.add_tab(name, editor, lambda w: self.close_tab_for_obj(transition))
-		self.switch_to_tab(editor)
+		self.add_tab(name, editor, transition)
 
 	def place_edit(self, place):
 		if place in self.tabtable:
@@ -128,10 +129,21 @@ class App:
 
 		name = "P: " + str(place.get_id())
 		editor = PlaceCodeEditor(place)
-		self.tabtable[place] = editor
-		self.window.add_tab(name, editor, lambda w: self.close_tab_for_obj(place))
-		self.switch_to_tab(editor)
+		self.add_tab(name, editor, place)
 
+	def parameters_edit(self):
+		if "params" in self.tabtable:
+			self.switch_to_tab(self.tabtable["params"])
+			return
+		w = ParametersWidget(self.builder, self.project)
+		self.add_tab("Parameters", w, "params")
+
+	def add_tab(self, name, w, obj):
+		""" Open new tab labeled with "name" with content "w" and register this tab for "obj" """
+		self.tabtable[obj] = w
+		self.window.add_tab("Parameters", w, lambda x: self.close_tab_for_obj(obj))
+		self.switch_to_tab(w)
+	
 	def close_tab_for_obj(self, obj):
 		if obj in self.tabtable:
 			self.window.close_tab(self.tabtable[obj])
