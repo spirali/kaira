@@ -2,7 +2,7 @@
 import gtk
 import gtkutils
 
-def parameters_dialog(builder, parameter):
+def parameters_dialog(builder, parameter, mainwindow):
 
 	dlg = builder.get_object("parameter-dialog")
 	try:
@@ -14,6 +14,7 @@ def parameters_dialog(builder, parameter):
 		wdesc.set_text(parameter.get_description())
 
 		dlg.set_title("Parameter")
+		dlg.set_transient_for(mainwindow)
 		if dlg.run() == gtk.RESPONSE_OK:
 			parameter.set_name(wname.get_text())
 			parameter.set_description(wdesc.get_text())
@@ -24,10 +25,11 @@ def parameters_dialog(builder, parameter):
 
 class ParametersWidget(gtk.VBox):
 	
-	def __init__(self, builder, project):
+	def __init__(self, builder, project, mainwindow):
 		gtk.VBox.__init__(self)
 		self.builder = builder
 		self.project = project
+		self.mainwindow = mainwindow
 		self.pack_start(self._buttons(), False, False)
 		
 		self.list = gtkutils.SimpleList(
@@ -58,14 +60,14 @@ class ParametersWidget(gtk.VBox):
 
 	def _add_parameter(self,w):
 		param = self.project.new_parameter()
-		if parameters_dialog(self.builder, param):
+		if parameters_dialog(self.builder, param, self.mainwindow):
 			self.list.append(self._param_as_list(param))
 
 	def _edit_parameter(self, w):
 		param = self.list.get_selection(0)
 		if param is None:
 			return
-		if parameters_dialog(self.builder, param):
+		if parameters_dialog(self.builder, param, self.mainwindow):
 			self.list.set_selection_all(self._param_as_list(param))
 
 	def _remove_parameter(self, w):

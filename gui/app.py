@@ -135,7 +135,7 @@ class App:
 		if "params" in self.tabtable:
 			self.switch_to_tab(self.tabtable["params"])
 			return
-		w = ParametersWidget(self.builder, self.project)
+		w = ParametersWidget(self.builder, self.project, self.window)
 		self.add_tab("Parameters", w, "params")
 
 	def add_tab(self, name, w, obj):
