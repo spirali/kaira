@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sched.h>
 
 #include "cailie.h"
 #include "cailie_internal.h"
@@ -114,4 +115,8 @@ int CaThreadsModule::main(int nodes, MainFn *main_fn)
 
 	// TODO: destroy nonempty places
 	return 0;
+}
+
+void CaThreadsModule::idle() {
+	sched_yield();
 }

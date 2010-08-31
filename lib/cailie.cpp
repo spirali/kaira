@@ -39,7 +39,7 @@ void ca_start(CaContext *ctx, void *data, TransitionFn **wtransitions, RecvFn *r
 				}
 				ca_recv(ctx, recv_fn, data);
 			} else {
-				while(!ca_recv(ctx, recv_fn, data)) {}	
+				while(!ca_recv(ctx, recv_fn, data)) { ctx->_get_module()->idle(); }	
 			}
 		} else {
 			if ((*wt)(ctx, data)) {

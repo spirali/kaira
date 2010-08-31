@@ -14,6 +14,7 @@ class CaThreadsModule : public CaModule {
 		int main(int nodes_count, MainFn *main_fn);
 		void send(CaContext *ctx, int target, int data_id, void *data, size_t size);
 		int recv(CaContext *ctx, RecvFn *recv, void *places);
+		void idle();
 
 	protected:
 		CaThreadsNodeQueue *_queues;
