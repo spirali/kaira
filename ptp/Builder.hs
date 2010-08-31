@@ -12,23 +12,23 @@ import Project
 import Codegen
 import Utils
 
-tupleToVars :: 
+tupleToVars ::
 	[VarDeclaration] ->
 	VarSet ->
-	String -> 
-	[Expression] -> 
-	(VarSet -> String -> Expression -> ([VarDeclaration], [Instruction])) -> 
+	String ->
+	[Expression] ->
+	(VarSet -> String -> Expression -> ([VarDeclaration], [Instruction])) ->
 	([VarDeclaration], [Instruction])
-tupleToVars decls binded var exprs fn = 
+tupleToVars decls binded var exprs fn =
 	( declarations' ++ declarations, instructions )
-	where 
+	where
 		(declarations, instructions) = processExpr varNames exprs binded 0
 		declarations' = zip varNames $ map (exprType decls) exprs
 		varNames = take (length exprs) (newVars' var)
 		processExpr :: [String] -> [Expression] -> VarSet -> Int -> ([VarDeclaration], [Instruction])
 		processExpr [] _ _ _ = ([], [])
-		processExpr (v:names) (e:exprs) b n = 
-			let 
+		processExpr (v:names) (e:exprs) b n =
+			let
 				(d', i') = processExpr names exprs (Set.union b (freeVariables e)) (n + 1)
 				(d, i) = fn b v e in
 				(d ++ d', [ (ISet (ExprVar v) (ExprAt (ExprInt n) (ExprVar var))) ] ++ i ++ i')
@@ -36,21 +36,21 @@ tupleToVars decls binded var exprs fn =
 caContext = TPointer (TData "CaContext")
 
 patternCheck :: [VarDeclaration] -> VarSet -> String -> Expression -> Instruction -> ([VarDeclaration], [Instruction])
-patternCheck decls binded var (ExprTuple exprs) errEvent = 
+patternCheck decls binded var (ExprTuple exprs) errEvent =
 	tupleToVars decls binded var exprs (\b v e -> patternCheck decls b v e errEvent)
 patternCheck decls binded var (ExprVar v) errEvent | not (Set.member v binded) = ([], [ISet (ExprVar v) (ExprVar var)])
 patternCheck decls binded var x errEvent = ([], [(IIf (ExprCall "!=" [x, (ExprVar var)]) errEvent INoop)])
 
 patternCheckStatement :: [VarDeclaration] -> VarSet -> String -> Expression -> Instruction -> Instruction
-patternCheckStatement decls binded var expr errEvent = 
+patternCheckStatement decls binded var expr errEvent =
 	IStatement decl instructions
 	where
 		(decl, instructions) = patternCheck decls binded var expr errEvent
 
 unionsVariableTypes :: [Map.Map String Type] -> Map.Map String Type
-unionsVariableTypes decls = 
+unionsVariableTypes decls =
 	Map.unionsWith unionFn decls
-	where 
+	where
 		unionFn a b =  if a == b then a else error "Type inference failed"
 
 
@@ -80,35 +80,36 @@ transitionVarType :: Project -> Transition -> Type
 transitionVarType project transition = TStruct ("Vars_t" ++ show (transitionId transition)) $ transitionFreeVariables project transition
 
 transportType :: Project -> Transition -> [Edge] -> Int -> Type
-transportType project transition edges helpId = 
-	TStruct ("Transport_" ++ show (transitionId transition) ++ "_" ++ show helpId) types 
-	where 
+transportType project transition edges helpId =
+	TStruct ("Transport_" ++ show (transitionId transition) ++ "_" ++ show helpId) types
+	where
 		types = edgesFreeVariables project edges
 
 processEdge ::  Network -> Edge -> String -> [String] -> [Instruction] -> Instruction
-processEdge network (Edge placeId expr _) var restrictions body = 
-		IForeach var (var ++ "_i") (ExprAt (ExprInt seq) (ExprVar "places")) (prefix:body)
+processEdge network (Edge placeId expr _) var restrictions body =
+		IForeach var counterVar (ExprAt (ExprInt seq) (ExprVar "places")) (prefix:body)
 	where 	
+		counterVar = var ++ "_i"
 		seq = placeSeqById network placeId
 		t = placeTypeById network placeId
-		prefix = if restrictions == [] then INoop else 
-			IIf (callIfMore "||" [ ExprCall "==" [(ExprVar v), (ExprVar var)] | v <- restrictions ]) IContinue INoop
+		prefix = if restrictions == [] then INoop else
+			IIf (callIfMore "||" [ ExprCall "==" [(ExprVar v), (ExprVar counterVar)] | v <- restrictions ]) IContinue INoop
 
 
 checkEdges :: Network -> [VarDeclaration] -> VarSet -> [Edge] -> [Edge] -> Int -> Instruction -> Instruction
 checkEdges network decls binded processedEdges [] level okEvent = okEvent
-checkEdges network decls binded processedEdges (edge:rest) level okEvent = 
+checkEdges network decls binded processedEdges (edge:rest) level okEvent =
 	processEdge network edge var (compRestrictions processedEdges 0) [
 		 	patternCheckStatement decls binded var expr IContinue,
 			checkEdges network decls (Set.union binded $ freeVariables expr) (edge:processedEdges) rest (level + 1) okEvent
 		]
-	where 
+	where
 		Edge _ expr _ = edge
 		varCounterName level = "c_" ++ show level ++ "_i"
 		var = "c_" ++ show level
 		compRestrictions :: [Edge] -> Int -> [String]
 		compRestrictions [] _ = []
-		compRestrictions (e:es) level 
+		compRestrictions (e:es) level
 			| edgePlaceId edge == edgePlaceId e = (varCounterName level):compRestrictions es (level + 1)
 			| otherwise = compRestrictions es (level + 1)
 
@@ -118,28 +119,28 @@ transitionFunctionName transition = "transition_" ++ show (transitionId transiti
 edgesFreeVariables :: Project -> [Edge] -> [VarDeclaration]
 edgesFreeVariables project edges =
 	Map.toList declsMap
-	where 
+	where
 		exprs = map edgeExpr edges
-		placeTypes = map ((placeTypeById' project).edgePlaceId) edges 
+		placeTypes = map ((placeTypeById' project).edgePlaceId) edges
 		declsMap = unionsVariableTypes $ (map vtypes (zip exprs placeTypes)) ++ Maybe.catMaybes (map (targetType . edgeTarget) edges)
 		vtypes (e, t) = variableTypes e t
 		targetType m = do { x <- m; return (variableTypes x TInt) }
 
 {- On edges in & out -}
 transitionFreeVariables :: Project -> Transition -> [VarDeclaration]
-transitionFreeVariables project transition = 
+transitionFreeVariables project transition =
 	edgesFreeVariables project $ (edgesIn transition) ++ (edgesOut transition)
 
 transitionFreeVariablesIn :: Project-> Transition -> [VarDeclaration]
-transitionFreeVariablesIn project transition = 
+transitionFreeVariablesIn project transition =
 	edgesFreeVariables project (edgesIn transition)
 
 transitionFreeVariablesOut :: Project -> Transition -> [VarDeclaration]
-transitionFreeVariablesOut project transition = 
+transitionFreeVariablesOut project transition =
 	edgesFreeVariables project (edgesOut transition)
 
 transitionFilterEdges :: Network -> [Edge] -> [Edge]
-transitionFilterEdges network edges = 
+transitionFilterEdges network edges =
 	filter edgeFromNetwork edges
 	where edgeFromNetwork edge = List.elem (edgePlaceId edge) (map placeId (places network))
 
@@ -157,8 +158,8 @@ transitionFunction project network transition = Function {
 		decls = transitionFreeVariablesIn project transition
 		instructions = checkEdges network decls Set.empty [] (edgesIn transition) 0 (transitionOkEvent project network transition)
 
-transitionOkEvent project network transition = IStatement [ ("var", transitionVarType project transition) ] body 
-	where 
+transitionOkEvent project network transition = IStatement [ ("var", transitionVarType project transition) ] body
+	where
 		body = countedMap erase (edgesIn transition) ++ map setVar decls ++ [ call ] ++ applyResult ++ (sendInstructions project network transition) ++ [ IReturn (ExprInt 1) ]
 		{-sendInstructions _ _ _ = []-}
 		localOutEdges = filter (Maybe.isNothing . edgeTarget) $ transitionFilterEdges network (edgesOut transition)
@@ -167,7 +168,7 @@ transitionOkEvent project network transition = IStatement [ ("var", transitionVa
 		erase i edge = IExpr $ ExprCall "List.eraseAt" [ ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places"), ExprVar ("c_" ++ show i ++ "_i") ]
 		call = IExpr $ ExprCall (workerFunctionName transition) [ ExprVar "ctx", ExprVar "var" ]
 		applyResult = map addToPlace localOutEdges
-		addToPlace edge = IExpr $ ExprCall "List.append" [ 
+		addToPlace edge = IExpr $ ExprCall "List.append" [
 			ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places"), (preprocess . edgeExpr) edge ] {-ExprAt (varStrFromEdge edge) (ExprVar "var")-}
 		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
 {-		varStrFromEdge edge = let ExprVar x = edgeExpr edge in ExprString x {- Ugly hack, need flexibile code -}-}
@@ -175,7 +176,7 @@ transitionOkEvent project network transition = IStatement [ ("var", transitionVa
 sendInstructions :: Project -> Network -> Transition -> [Instruction]
 sendInstructions project network transition =
 	[ sendStatement project network (edgeNetwork project edge) transition edge | edge <- foreignEdges ]
-	where 
+	where
 		foreignEdges = filter (Maybe.isJust . edgeTarget) (edgesOut transition)
 
 		{- Disabled as premature optimization
@@ -184,24 +185,24 @@ sendInstructions project network transition =
 
 sendStatement :: Project -> Network -> Network -> Transition -> Edge -> Instruction
 sendStatement project fromNetwork toNetwork transition edge =
-	IStatement [ ("data", exprType decls expr) ] [ ISet (ExprVar "data") (preprocess expr), 
-	IExpr (ExprCall "ca_send" [ 
+	IStatement [ ("data", exprType decls expr) ] [ ISet (ExprVar "data") (preprocess expr),
+	IExpr (ExprCall "ca_send" [
 		ExprVar "ctx",
-		target, 
-		dataId, 
-		ExprAddr $ ExprVar "data", 
+		target,
+		dataId,
+		ExprAddr $ ExprVar "data",
 		ExprCall "sizeof" [ExprVar (typeString placeType)]
 	])]
-	where 
+	where
 		expr = edgeExpr edge
 		decls = transitionFreeVariables project transition
 		placeType = placeTypeById' project (edgePlaceId edge)
 		dataId = ExprInt $ edgePlaceId edge
 		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
-		target =  ExprCall "+" [ ExprInt (address toNetwork), 
+		target =  ExprCall "+" [ ExprInt (address toNetwork),
 			((processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var")))) . Maybe.fromJust . edgeTarget) edge ]
 
-{- Disables as premature optimization 
+{- Disables as premature optimization
 sendStatement :: Project -> Network -> Network -> Transition -> [Edge] -> Int -> Instruction
 sendStatement project fromNetwork toNetwork transition edges helpId =
 	IStatement [ ("transport", transportType project transition edges helpId) ] ((map addToTransport filteredEdges) ++ [callSend])
@@ -236,12 +237,12 @@ recvFunction project network = Function {
 }
 
 recvStatement :: Network -> Place -> Instruction
-recvStatement network place = 
+recvStatement network place =
 	IIf condition ifStatement INoop
 	where
 		condition = ExprCall "==" [ ExprVar "data_id", ExprInt (placeId place) ]
-		ifStatement = IStatement [ ("transport", TPointer (placeType place)) ] [ 
-			IInline ("transport = (" ++ typeString (TPointer (placeType place)) ++ ") data;"), 
+		ifStatement = IStatement [ ("transport", TPointer (placeType place)) ] [
+			IInline ("transport = (" ++ typeString (TPointer (placeType place)) ++ ") data;"),
 			IExpr (ExprCall "List.append" [ ExprAt (ExprInt (placeSeq network place)) (ExprVar "places"),  ExprDeref (ExprVar "transport") ])]
 
 workerFunctionName :: Transition -> String
@@ -284,28 +285,28 @@ startFunction network = Function {
 	instructions = [ initCtx ] ++ initPlaces,
 	extraCode = startCode,
 	returnType = TVoid
-	} where 
+	} where
 		nodeExpr = ExprCall ".node" [ ExprVar "ctx" ]
-		initCtx = IExpr $ ExprCall "._init" [ 
+		initCtx = IExpr $ ExprCall "._init" [
 			(ExprVar "ctx"), (ExprCall "-" [nodeExpr, (ExprInt (address network))]),
 			ExprInt (instances network) ]
 		ps p = placeSeq network p
 		initPlaces = (map initPlaceFromExpr (places network)) ++ (map callInitPlace (placesWithInit network))
 		initPlace p = [	initPlaceFromExpr p, callInitPlace p ]
 		placeVar p = ExprAt (ExprInt (ps p)) (ExprVar "places")
-		callInitPlace p = 
+		callInitPlace p =
 			 IExpr $ ExprCall (initFunctionName p) [ ExprVar "ctx", ExprAddr (placeVar p) ]
-		initPlaceFromExpr p = 
+		initPlaceFromExpr p =
 			case placeInitExpr p of
 				Nothing -> INoop
 				Just x -> IExpr $ ExprCall "List.append" [ placeVar p, x ]
-		startCode = "TransitionFn *tf[] = {" ++ concat [ "(TransitionFn*) " ++ transitionFunctionName t ++ "," | t <- (transitions network) ] ++ 
+		startCode = "TransitionFn *tf[] = {" ++ concat [ "(TransitionFn*) " ++ transitionFunctionName t ++ "," | t <- (transitions network) ] ++
 						"NULL};\n\tca_start(ctx, &places, tf, (RecvFn*) " ++ recvFunctionName network ++ ");"
 	
 createNetworkFunctions :: Project -> Network -> [Function]
-createNetworkFunctions project network = 
+createNetworkFunctions project network =
 	workerF ++ transitionF ++ initF ++ [ recvFunction project network, startFunction network ]
-	where 
+	where
 		transitionF = [ transitionFunction project network t | t <- transitions network ]
 		initF = map initFunction (placesWithInit network)
 		workerF =  [ workerFunction project t | t <- transitions network ] {- workerFunction -}
@@ -313,7 +314,7 @@ createNetworkFunctions project network =
 instancesCount :: Project -> Int
 instancesCount project = sum $ map instances (networks project)
 
-createMainFunction :: Project -> Function 
+createMainFunction :: Project -> Function
 createMainFunction project = Function {
 	functionName = "main",
 	parameters = [ ("argc", TData "int"), ("argv", (TPointer . TPointer . TData) "char") ],
@@ -334,7 +335,7 @@ createMainInitFunction project = Function {
 	extraCode = [],
 	returnType = TVoid
 	}
-	where 
+	where
 		node = ExprCall ".node" [ ExprVar "ctx" ]
 		startNetworks = map startNetwork (networks project)
 		test1 n = ExprCall ">=" [ node, ExprInt (address n) ]
@@ -343,9 +344,9 @@ createMainInitFunction project = Function {
 		startNetwork n = IIf (ExprCall "&&" [ test1 n, test2 n ]) (startI n) INoop
 		
 createProgram :: Project -> String
-createProgram project = 
+createProgram project =
 	emitProgram $ netF ++ [mainInitF, mainF]
-	where 
+	where
 		netF = concat [ createNetworkFunctions project n | n <- networks project ]
 		mainInitF = createMainInitFunction project
 		mainF = createMainFunction project
