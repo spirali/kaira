@@ -40,4 +40,7 @@ void ca_main(int nodes_count, MainFn *main);
 /* Communications */
 void ca_send(CaContext *ctx, int node, int data_id, void *data, size_t data_size);
 
+/* Others */
+void ca_parse_args(int argc, char **argv, int params_count, const char **param_names, int **param_data, const char **param_descs);
+
 #endif

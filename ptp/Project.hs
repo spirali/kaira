@@ -7,11 +7,13 @@ module Project (
 	placeTypeById,
 	placeTypeById',
 	edgeNetwork,
+	parameterTypeByName,
 ) where
 
 import Declarations
 import Parser
 import qualified Data.Map as Map
+import qualified Data.Maybe as Maybe
 import qualified Data.List as List
 import qualified Text.XML.Light as Xml
 
@@ -110,28 +112,30 @@ transitionsFromElement :: Xml.Element -> [Transition]
 transitionsFromElement e = 
 	map transitionFromElement $ Xml.findElements (qstr "transition") e
 
-networkFromElement :: Int -> Xml.Element -> Network
+networkFromElement :: Expression -> Xml.Element -> Network
 networkFromElement addr e =
 	Network {
-		networkId = id,
-		places = places,
-		transitions = transitions,
+		networkId = idFromElement e,
+		places = placesFromElement e,
+		transitions = transitionsFromElement e,
 		address = addr,
-		instances = instances
+		instances = parseExpr $ xmlAttr "instances" e
 	}
-	where 
-		id = idFromElement e
-		instances = xmlAttrInt "instances" e
-		places = placesFromElement e
-		transitions = transitionsFromElement e
 
-addressesFromElement :: Xml.Element -> [Int]
+addressesFromElement :: Xml.Element -> [Expression]
 addressesFromElement e = 
-	getAddress (Xml.findElements (qstr "net") e) 0
+	getAddress (Xml.findElements (qstr "net") e) (ExprInt 0)
 	where 
-		networkSize e = xmlAttrInt "instances" e
+		networkSize e = parseExpr $ xmlAttr "instances" e
 		getAddress [] _ = []
-		getAddress (e:es) n = n:(getAddress es (n + (networkSize e)))
+		getAddress (e:es) n = n:(getAddress es $ ExprCall "+" [ n,networkSize e])
+
+parameterFromElement :: Xml.Element -> Parameter
+parameterFromElement e = Parameter {
+	parameterName = xmlAttr "name" e,
+	parameterType = parseType (xmlAttr "type" e),
+	parameterDescription = xmlAttr' "description" e ""
+}
 
 idFromElement :: Xml.Element -> ID
 idFromElement = xmlAttrInt "id"
@@ -149,12 +153,20 @@ edgeNetwork project edge =
 	where 
 		edgeOfNetwork n = List.elem (edgePlaceId edge) (map placeId (places n))
 
+parameterTypeByName :: Project -> String -> Type
+parameterTypeByName project paramName = 
+	case List.find (\p -> parameterName p == paramName) (projectParameters project) of
+		Just x -> parameterType x
+		Nothing -> error $ "Parameter '" ++ paramName ++ "' not defined"
+
 projectFromXml :: String -> Project
 projectFromXml xml =
-	Project { projectName = "project", networks = networks }
+	Project { projectName = "project", networks = networks, projectParameters = params }
 	where
 		root = head $ Xml.onlyElems (Xml.parseXML xml)
 		addresses = addressesFromElement root
 		networkElements = Xml.findElements (qstr "net") root
 		networks = map loadNet $ zip addresses networkElements
 		loadNet (a,e) = networkFromElement a e
+		configuration = Maybe.fromJust $ Xml.findElement (qstr "configuration") root
+		params = map parameterFromElement $ Xml.findElements (qstr "parameter") configuration

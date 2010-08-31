@@ -65,8 +65,9 @@ emitCall scope "List.eraseAt" [e1,e2] =
 	emitExpression scope e1 ++ ".erase(" ++ emitExpression scope e1 ++ ".begin()+" ++ emitExpression scope e2 ++ ")"
 emitCall scope "List.append" [e1,e2] = 
 	emitExpression scope e1 ++ ".push_back(" ++ emitExpression scope e2 ++ ")"
-emitCall scope name [e1,e2]	| name `elem` infixFunctions = 
-	"(" ++ emitExpression scope e1 ++ " " ++ name ++ " " ++ emitExpression scope e2 ++ ")"
+emitCall scope name [e1] | name `elem` infixFunctions = 	emitExpression scope e1
+emitCall scope name (e:rest) | name `elem` infixFunctions = 
+	"(" ++ emitExpression scope e ++ " " ++ name ++ " " ++ emitCall scope name rest ++ ")"
 emitCall scope name params = 
 	name ++ "(" ++ (addDelimiter "," $ map (emitExpression scope) params) ++ ")"
 
@@ -120,7 +121,7 @@ emitInstruction scope (IForeach var counterVar expr body) =
 		varDecl = "int " ++ counterVar ++ " = 0"
 		cycleTest = counterVar ++ " < " ++ arrayLen
 		emit = emitInstruction (addDeclarations scope [ (counterVar, TInt), (var, elementType) ])
-emitInstruction scope (IInline str) = Text str
+emitInstruction scope (IInline str) = Text str <+> Eol
 emitInstruction scope (IIf expr branch1 branch2) =
 	Text ("if (" ++ emitExpression scope expr ++ ") ") <+> emitInstruction scope branch1
 
@@ -176,9 +177,14 @@ emitFunction function =
 				"" -> [INoop]
 				x -> [IInline x]
 
-emitProgram :: [Function] -> String
-emitProgram functions = 
-	prolog ++ typeDeclarations ++ "\n\n" ++ concatMap emitFunction (extraFunctions ++ functions) 
+emitGlobals :: [VarDeclaration] -> String
+emitGlobals [] = ""
+emitGlobals ((name, t):rest) = 
+	typeString t ++ " " ++ name ++ ";\n" ++ emitGlobals rest
+
+emitProgram :: [VarDeclaration] -> [Function] -> String
+emitProgram globals functions = 
+	prolog ++ typeDeclarations ++ "\n\n" ++ emitGlobals globals ++ "\n\n" ++ concatMap emitFunction (extraFunctions ++ functions) 
 	where 
 		typeDeclarations = concatMap emitTypeDeclaration orderedTypes
 		allTypes = Set.fold (\t s -> Set.union s $ subTypes' t) Set.empty (Set.unions (map gatherTypes functions))

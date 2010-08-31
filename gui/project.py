@@ -56,6 +56,8 @@ class Project:
 		root = xml.Element("project")
 		root.set("name", self.name)
 
+		root.append(self._configuration_element())
+
 		xml_nets = self.net.export_xml()
 		for e in xml_nets:
 			root.append(e)

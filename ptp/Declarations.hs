@@ -23,6 +23,7 @@ type ID = Int
 data Expression = 
 	ExprCall String [Expression] |
 	ExprVar String |
+	ExprParam String | 
 	ExprInt Int |
 	ExprString String |
 	ExprTuple [Expression] |
@@ -82,13 +83,20 @@ data Network = Network {
 	networkId :: ID,
 	places :: [Place],
 	transitions :: [Transition],
-	address :: Int,
-	instances :: Int
+	address :: Expression, {- address is considered as input expression, but in fact it is computed from "instances" and calling "+" -}
+	instances :: Expression 
 } deriving (Show) 
 
 instance Eq Network where n1 == n2 = networkId n1 == networkId n2
 
 data Project = Project {
 	projectName :: String,
-	networks :: [Network]
+	networks :: [Network],
+	projectParameters :: [Parameter]
+} deriving (Show)
+
+data Parameter = Parameter {
+	parameterName :: String,
+	parameterType :: Type,
+	parameterDescription :: String
 } deriving (Show)

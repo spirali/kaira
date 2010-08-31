@@ -27,6 +27,11 @@ identifierParser = do
 		return (ExprCall ds exprs)
 	} <|> return (ExprVar ds)
 
+parameterParser = do
+	char '#'
+	ls <- many1 letter
+	return (ExprParam ls)
+
 separatorParser = do 
 	skipMany space
 	skipMany (char ',')
@@ -44,7 +49,7 @@ tupleParser = do
 
 expressionParser :: Parser Expression
 expressionParser = do
-	intParser <|> identifierParser <|> tupleParser
+	intParser <|> parameterParser <|> identifierParser <|> tupleParser
 
 intTypeParser :: Parser Type
 intTypeParser = do
@@ -78,7 +83,9 @@ typeParser = do
 
 parseSimple :: Parser a -> String -> a
 parseSimple parser str = 
-	let Right e = parse parser "" str in e
+	case parse parser "" str of
+		Left x -> error $ "Parsing error of " ++ str ++ ": " ++ show x
+		Right x -> x
 
 parseType :: String -> Type
 parseType = parseSimple typeParser

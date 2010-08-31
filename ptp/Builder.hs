@@ -54,17 +54,18 @@ unionsVariableTypes decls =
 		unionFn a b =  if a == b then a else error "Type inference failed"
 
 
-variableTypes :: Expression -> Type -> Map.Map String Type
-variableTypes (ExprVar string) ctype = Map.singleton string ctype
-variableTypes (ExprInt _) (TInt) = Map.empty
-variableTypes (ExprTuple []) (TTuple []) = Map.empty
-variableTypes (ExprTuple exprs) (TTuple types)
+variableTypes :: Project -> Expression -> Type -> Map.Map String Type
+variableTypes project (ExprVar string) ctype = Map.singleton string ctype
+variableTypes project (ExprParam paramName) t | (parameterTypeByName project paramName) == t = Map.empty
+variableTypes project (ExprInt _) (TInt) = Map.empty
+variableTypes project (ExprTuple []) (TTuple []) = Map.empty
+variableTypes project (ExprTuple exprs) (TTuple types)
 	| length exprs == length types =
 		unionsVariableTypes $ map vtypes (zip exprs types)
-	where vtypes (e, t) = variableTypes e t
+	where vtypes (e, t) = variableTypes project e t
 {- THIS REALLY NEED FIX! Function call result has to be checked -}
-variableTypes (ExprCall _ []) _ = Map.empty
-variableTypes x y = error $ "Type inference failed: " ++ show x ++ "/" ++ show y
+variableTypes project (ExprCall _ []) _ = Map.empty
+variableTypes project x y = error $ "Type inference failed: " ++ show x ++ "/" ++ show y
 
 placesTuple :: Network -> Type
 placesTuple network = TTuple $ map (TArray . placeType) (places network)
@@ -72,9 +73,18 @@ placesTuple network = TTuple $ map (TArray . placeType) (places network)
 processInputExpr :: (String -> Expression) -> Expression -> Expression
 processInputExpr fn (ExprInt x) = ExprInt x
 processInputExpr fn (ExprVar x) = fn x
+processInputExpr fn (ExprParam x) = ExprVar $ parameterGlobalName x
 processInputExpr fn (ExprCall "iid" []) = ExprCall ".iid" [ ExprVar "ctx" ]
+processInputExpr fn (ExprCall "+" exprs) = ExprCall "+" [ processInputExpr fn expr | expr <- exprs ]
 processInputExpr fn (ExprTuple exprs) = ExprTuple [ processInputExpr fn expr | expr <- exprs ]
 processInputExpr fn x = error $ "Input expression contains: " ++ show x
+
+{- FIXME: Forbid calling iid() etc -}
+processInputExprParamsOnly :: Expression -> Expression
+processInputExprParamsOnly = processInputExpr (\x -> error "Variables are not allowed in this expression")
+
+parameterGlobalName :: String -> String
+parameterGlobalName x = "__parameter_" ++ x
 
 transitionVarType :: Project -> Transition -> Type
 transitionVarType project transition = TStruct ("Vars_t" ++ show (transitionId transition)) $ transitionFreeVariables project transition
@@ -100,11 +110,11 @@ checkEdges :: Network -> [VarDeclaration] -> VarSet -> [Edge] -> [Edge] -> Int -
 checkEdges network decls binded processedEdges [] level okEvent = okEvent
 checkEdges network decls binded processedEdges (edge:rest) level okEvent =
 	processEdge network edge var (compRestrictions processedEdges 0) [
-		 	patternCheckStatement decls binded var expr IContinue,
+		 	patternCheckStatement decls binded var (processInputExpr ExprVar expr) IContinue,
 			checkEdges network decls (Set.union binded $ freeVariables expr) (edge:processedEdges) rest (level + 1) okEvent
 		]
 	where
-		Edge _ expr _ = edge
+		expr = edgeExpr edge
 		varCounterName level = "c_" ++ show level ++ "_i"
 		var = "c_" ++ show level
 		compRestrictions :: [Edge] -> Int -> [String]
@@ -123,8 +133,8 @@ edgesFreeVariables project edges =
 		exprs = map edgeExpr edges
 		placeTypes = map ((placeTypeById' project).edgePlaceId) edges
 		declsMap = unionsVariableTypes $ (map vtypes (zip exprs placeTypes)) ++ Maybe.catMaybes (map (targetType . edgeTarget) edges)
-		vtypes (e, t) = variableTypes e t
-		targetType m = do { x <- m; return (variableTypes x TInt) }
+		vtypes (e, t) = variableTypes project e t
+		targetType m = do { x <- m; return (variableTypes project x TInt) }
 
 {- On edges in & out -}
 transitionFreeVariables :: Project -> Transition -> [VarDeclaration]
@@ -199,8 +209,8 @@ sendStatement project fromNetwork toNetwork transition edge =
 		placeType = placeTypeById' project (edgePlaceId edge)
 		dataId = ExprInt $ edgePlaceId edge
 		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
-		target =  ExprCall "+" [ ExprInt (address toNetwork),
-			((processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var")))) . Maybe.fromJust . edgeTarget) edge ]
+		target =  ExprCall "+" [ (processedAddress toNetwork),
+			(preprocess . Maybe.fromJust . edgeTarget) edge ]
 
 {- Disables as premature optimization
 sendStatement :: Project -> Network -> Network -> Transition -> [Edge] -> Int -> Instruction
@@ -288,8 +298,8 @@ startFunction network = Function {
 	} where
 		nodeExpr = ExprCall ".node" [ ExprVar "ctx" ]
 		initCtx = IExpr $ ExprCall "._init" [
-			(ExprVar "ctx"), (ExprCall "-" [nodeExpr, (ExprInt (address network))]),
-			ExprInt (instances network) ]
+			(ExprVar "ctx"), (ExprCall "-" [nodeExpr, (processedAddress network)]),
+			(processedInstances network) ]
 		ps p = placeSeq network p
 		initPlaces = (map initPlaceFromExpr (places network)) ++ (map callInitPlace (placesWithInit network))
 		initPlace p = [	initPlaceFromExpr p, callInitPlace p ]
@@ -311,20 +321,33 @@ createNetworkFunctions project network =
 		initF = map initFunction (placesWithInit network)
 		workerF =  [ workerFunction project t | t <- transitions network ] {- workerFunction -}
 
-instancesCount :: Project -> Int
-instancesCount project = sum $ map instances (networks project)
+instancesCount :: Project -> Expression
+instancesCount project = ExprCall "+" $ map (processedInstances) (networks project)
 
 createMainFunction :: Project -> Function
 createMainFunction project = Function {
 	functionName = "main",
 	parameters = [ ("argc", TData "int"), ("argv", (TPointer . TPointer . TData) "char") ],
 	declarations = [ ("nodes", TInt) ],
-	instructions = [ i1, i2 ],
+	instructions = parseArgs ++ [ i1, i2 ],
 	extraCode = [],
 	returnType = TInt
 } where
-	i1 = ISet (ExprVar "nodes") (ExprInt (instancesCount project))
+	i1 = ISet (ExprVar "nodes") (instancesCount project)
 	i2 = IInline "ca_main(nodes, main_run);"
+	parameters = projectParameters project
+	parseArgs = [ 
+		IInline $ "const char *p_names[] = {" ++ addDelimiter "," [ "\"" ++ parameterName p ++ "\"" | p <- parameters ] ++ "};",
+		IInline $ "const char *p_descs[] = {" ++ addDelimiter "," [ "\"" ++ parameterDescription p ++ "\"" | p <- parameters ] ++ "};",
+		IInline $ "int *p_data[] = {" ++ addDelimiter "," [ "&" ++ (parameterGlobalName . parameterName) p | p <- parameters ] ++ "};",
+		IExpr $ ExprCall "ca_parse_args" [ ExprVar "argc", ExprVar "argv", ExprInt (length parameters), ExprVar "p_names", ExprVar "p_data", ExprVar "p_descs" ]
+	 ]
+
+processedInstances :: Network -> Expression
+processedInstances = processInputExprParamsOnly . instances
+
+processedAddress :: Network -> Expression
+processedAddress = processInputExprParamsOnly . address
 
 createMainInitFunction :: Project -> Function
 createMainInitFunction project = Function {
@@ -338,15 +361,16 @@ createMainInitFunction project = Function {
 	where
 		node = ExprCall ".node" [ ExprVar "ctx" ]
 		startNetworks = map startNetwork (networks project)
-		test1 n = ExprCall ">=" [ node, ExprInt (address n) ]
-		test2 n = ExprCall "<" [ node, ExprInt (instances n + address n) ]
+		test1 n = ExprCall ">=" [ node, processedAddress n]
+		test2 n = ExprCall "<" [ node, ExprCall "+" [processedInstances n, processedAddress n]]
 		startI n = IExpr $ ExprCall (startFunctionName n) [ ExprVar "ctx" ]
 		startNetwork n = IIf (ExprCall "&&" [ test1 n, test2 n ]) (startI n) INoop
 		
 createProgram :: Project -> String
 createProgram project =
-	emitProgram $ netF ++ [mainInitF, mainF]
+	emitProgram globals $ netF ++ [mainInitF, mainF]
 	where
+		globals = [ (parameterGlobalName $ parameterName p, parameterType p) | p <- projectParameters project ]
 		netF = concat [ createNetworkFunctions project n | n <- networks project ]
 		mainInitF = createMainInitFunction project
 		mainF = createMainFunction project
