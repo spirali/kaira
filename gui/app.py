@@ -141,7 +141,7 @@ class App:
 	def add_tab(self, name, w, obj):
 		""" Open new tab labeled with "name" with content "w" and register this tab for "obj" """
 		self.tabtable[obj] = w
-		self.window.add_tab("Parameters", w, lambda x: self.close_tab_for_obj(obj))
+		self.window.add_tab(name, w, lambda x: self.close_tab_for_obj(obj))
 		self.switch_to_tab(w)
 	
 	def close_tab_for_obj(self, obj):
