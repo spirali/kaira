@@ -39,7 +39,10 @@ class App:
 		self.window.add_tab("Network", self.nv)
 		self.tabtable = {}
 
-	def load_project(self, widget):
+	def new_project(self):
+		self.set_project(project.new_empty_project())
+
+	def load_project(self):
 		dialog = gtk.FileChooserDialog("Open project", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
 				(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                  gtk.STOCK_OPEN, gtk.RESPONSE_OK))
@@ -60,7 +63,7 @@ class App:
 			dialog.destroy()
 
 
-	def save_project_as(self, widget):
+	def save_project_as(self):
 		dialog = gtk.FileChooserDialog("Save net", self.window, gtk.FILE_CHOOSER_ACTION_SAVE,
 				(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                  gtk.STOCK_SAVE, gtk.RESPONSE_OK))
@@ -80,7 +83,7 @@ class App:
 		finally:
 			dialog.destroy()
 
-	def build_project(self, widget):
+	def build_project(self):
 		self.project.export("../out/project.xml")
 		print "Exported"
 

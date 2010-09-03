@@ -50,18 +50,19 @@ class MainWindow(gtk.Window):
 		file_menu = gtk.Menu()
 		
 		item = gtk.MenuItem("_New project")
+		item.connect("activate", lambda w: self.app.new_project())
 		file_menu.append(item)
 
 		item = gtk.MenuItem("_Open project")
-		item.connect("activate", self.app.load_project)
+		item.connect("activate", lambda w: self.app.load_project())
 		file_menu.append(item)
 
 		item = gtk.MenuItem("_Save project")
-		item.connect("activate", self.app.save_project_as)
+		item.connect("activate", lambda w: self.app.save_project_as())
 		file_menu.append(item)
 
 		item = gtk.MenuItem("Save project _as")
-		item.connect("activate", self.app.save_project_as)
+		item.connect("activate", lambda w: self.app.save_project_as())
 		file_menu.append(item)
 
 		item = gtk.MenuItem("_Quit")
@@ -71,7 +72,7 @@ class MainWindow(gtk.Window):
 		build_menu = gtk.Menu()
 
 		item = gtk.MenuItem("B_uild project")
-		item.connect("activate", self.app.build_project)
+		item.connect("activate", lambda w: self.app.build_project())
 		build_menu.append(item)
 
 		edit_menu = gtk.Menu()
