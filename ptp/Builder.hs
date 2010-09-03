@@ -168,14 +168,21 @@ transitionFunction project network transition = Function {
 		decls = transitionFreeVariablesIn project transition
 		instructions = checkEdges network decls Set.empty [] (edgesIn transition) 0 (transitionOkEvent project network transition)
 
+{-
+	Erasing dependancy is added for reasen that { List.eraseAt(l, x); List.eraseAt(l, y); } is problem if x < y
+-}
 transitionOkEvent project network transition = IStatement [ ("var", transitionVarType project transition) ] body
 	where
-		body = countedMap erase (edgesIn transition) ++ map setVar decls ++ [ call ] ++ applyResult ++ (sendInstructions project network transition) ++ [ IReturn (ExprInt 1) ]
+		body = map erase eraseDependancy ++ map setVar decls ++ [ call ] ++ applyResult ++
+				(sendInstructions project network transition) ++ [ IReturn (ExprInt 1) ]
 		{-sendInstructions _ _ _ = []-}
 		localOutEdges = filter (Maybe.isNothing . edgeTarget) $ transitionFilterEdges network (edgesOut transition)
 		setVar (name, _) = ISet (ExprAt (ExprString name) (ExprVar "var")) (ExprVar name)
 		decls = transitionFreeVariablesIn project transition
-		erase i edge = IExpr $ ExprCall "List.eraseAt" [ ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places"), ExprVar ("c_" ++ show i ++ "_i") ]
+		counterName i = "c_" ++ show i ++ "_i"
+		placeExprOfEdge edge = ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places")
+		erase ((i, edge), dep) = safeErase (placeExprOfEdge edge) (counterName i) (map (counterName . fst) dep)
+		eraseDependancy = triangleDependancy (\(i1,e1) (i2,e2) -> edgePlaceId e1 == edgePlaceId e2) (zip [0..] (edgesIn transition))
 		call = IExpr $ ExprCall (workerFunctionName transition) [ ExprVar "ctx", ExprVar "var" ]
 		applyResult = map addToPlace localOutEdges
 		addToPlace edge = IExpr $ ExprCall "List.append" [
@@ -254,6 +261,15 @@ recvStatement network place =
 		ifStatement = IStatement [ ("transport", TPointer (placeType place)) ] [
 			IInline ("transport = (" ++ typeString (TPointer (placeType place)) ++ ") data;"),
 			IExpr (ExprCall "List.append" [ ExprAt (ExprInt (placeSeq network place)) (ExprVar "places"),  ExprDeref (ExprVar "transport") ])]
+
+{- This is not good aproach if there are more vars, but it now works -}
+safeErase :: Expression -> String -> [String] -> Instruction
+safeErase list v [] = IExpr $ ExprCall "List.eraseAt" [ list, ExprVar v ]
+safeErase list v deps = IStatement [ ("tmp", TInt) ] $ [ ISet (ExprVar "tmp") (ExprVar v) ] ++ erase deps
+	where 
+		erase [] = [ safeErase list "tmp" [] ]
+		erase (d:ds) = 
+			(IIf (ExprCall "<" [ ExprVar d, ExprVar v ]) (ISet (ExprVar "tmp") (ExprCall "-" [ ExprVar "tmp", ExprInt 1 ])) INoop):(erase ds)
 
 workerFunctionName :: Transition -> String
 workerFunctionName transition = "worker_" ++ show (transitionId transition)

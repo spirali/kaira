@@ -123,3 +123,10 @@ mapExprs' fn decls (IStatement d is) = IStatement d $ map (mapExprs' fn (d++decl
 mapExprs' fn decls (IForeach a b e is) = IForeach a b (fn decls e) $ map (mapExprs' fn decls) is
 mapExprs' fn decls x = x
 
+
+triangleDependancy :: (a -> a -> Bool) -> [a] -> [(a, [a])]
+triangleDependancy fn list =
+	makeTriangle list []
+	where 
+		makeTriangle [] _ = []
+		makeTriangle (a:as) b = (a, filter (fn a) b) : (makeTriangle as (a:b))
