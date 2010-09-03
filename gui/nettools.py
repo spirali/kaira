@@ -146,6 +146,8 @@ class EdgeTool(NetTool):
 			if self.from_item:
 				item = self.net.get_transition_or_place(position)
 				if item:
+					if (item.is_place() and self.from_item.is_place()) or (item.is_transition() and self.from_item.is_transition()):
+						return # Edge can only place-transition or transition-place
 					edge = self.net.add_edge(self.from_item, item, self.points)
 					self.select_item(edge)
 					self.from_item = None
@@ -161,6 +163,12 @@ class EdgeTool(NetTool):
 					if action_tuple and action_tuple[0].is_edge():
 						item, action = action_tuple
 						self.select_item(item)
+
+	def right_button(self, event, position):
+		self.from_item = None
+		self.action = None
+		NetTool.right_button(self, event, position)
+		self.netview.redraw()
 
 	def mouse_move(self, position):
 		if self.from_item:
