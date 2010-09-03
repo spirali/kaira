@@ -86,7 +86,7 @@ class NetView(gtk.VBox):
 		button4.set_icon_widget(icon4)
 
 		button5 = gtk.RadioToolButton(button1,None)
-		button5.connect("toggled", lambda w: self.set_tool(nettools.ArcTool(self)))
+		button5.connect("toggled", lambda w: self.set_tool(nettools.EdgeTool(self)))
 		button5.set_icon_widget(icon5)
 
 		toolbar = gtk.Toolbar()

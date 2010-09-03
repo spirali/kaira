@@ -47,10 +47,10 @@ class Net:
 		self.add_item(transition)
 		return transition
 
-	def add_arc(self, item1, item2, points):
-		arc = Arc(self, item1, item2, points)
-		self.add_item(arc)
-		return arc
+	def add_edge(self, item1, item2, points):
+		edge = Edge(self, item1, item2, points)
+		self.add_item(edge)
+		return edge
 
 	def add_area(self, position, size):
 		area = NetArea(self, position, size)
@@ -146,14 +146,14 @@ class Net:
 		self.items.remove(item)
 		self.changed()
 
-	def arcs_from(self, item):
-		return [ i for i in self.items if i.is_arc() and i.from_item == item ]
+	def edges_from(self, item):
+		return [ i for i in self.items if i.is_edge() and i.from_item == item ]
 
-	def arcs_to(self, item):
-		return [ i for i in self.items if i.is_arc() and i.to_item == item ]
+	def edges_to(self, item):
+		return [ i for i in self.items if i.is_edge() and i.to_item == item ]
 
-	def arcs_of(self, item):
-		return [ i for i in self.items if i.is_arc() and (i.to_item == item or i.from_item == item) ]
+	def edges_of(self, item):
+		return [ i for i in self.items if i.is_edge() and (i.to_item == item or i.from_item == item) ]
 
 
 class NetItem(object):
@@ -183,7 +183,7 @@ class NetItem(object):
 	def is_transition(self):
 		return False
 
-	def is_arc(self):
+	def is_edge(self):
 		return False
 
 	def is_area(self):
@@ -218,18 +218,18 @@ class NetElement(NetItem):
 	def get_position(self):
 		return self.position
 
-	def arcs(self):
-		return self.net.arcs_of(self)
+	def edges(self):
+		return self.net.edges_of(self)
 
-	def arcs_from(self):
-		return self.net.arcs_from(self)
+	def edges_from(self):
+		return self.net.edges_from(self)
 
-	def arcs_to(self):
-		return self.net.arcs_to(self)
+	def edges_to(self):
+		return self.net.edges_to(self)
 
 	def delete(self):
-		for arc in self.arcs():
-			arc.delete()
+		for edge in self.edges():
+			edge.delete()
 		NetItem.delete(self)
 
 	def xml_code_element(self):
@@ -270,15 +270,15 @@ class Transition(NetElement):
 
 	def export_xml(self):
 
-		def make_edge(name, arc, place):
+		def make_edge(name, edge, place):
 			ea = xml.Element(name)
 			ea.set("place-id", str(place.get_id()))
-			if "@" in arc.inscription:
-				a, b = arc.inscription.split("@")
+			if "@" in edge.inscription:
+				a, b = edge.inscription.split("@")
 				ea.set("expr", a)
 				ea.set("target", b)
 			else:
-				ea.set("expr", arc.inscription)
+				ea.set("expr", edge.inscription)
 			return ea
 		
 
@@ -287,12 +287,12 @@ class Transition(NetElement):
 		if self.has_code():
 			e.append(self.xml_code_element())
 
-		for arc in self.arcs_to():
-			ea = make_edge("edge-in", arc, arc.from_item);
+		for edge in self.edges_to():
+			ea = make_edge("edge-in", edge, edge.from_item);
 			e.append(ea)
 
-		for arc in self.arcs_from():
-			ea = make_edge("edge-out", arc, arc.to_item);
+		for edge in self.edges_from():
+			ea = make_edge("edge-out", edge, edge.to_item);
 			e.append(ea)
 		return e
 
@@ -505,7 +505,7 @@ class Place(NetElement):
 		return [ ("Type", self.get_place_type, self.set_place_type), 
 				("Init", self.get_init_string, self.set_init_string) ]
 
-class Arc(NetItem):
+class Edge(NetItem):
 
 	def __init__(self, net, from_item, to_item, points):
 		NetItem.__init__(self, net)
@@ -543,11 +543,11 @@ class Arc(NetItem):
 		vec = (vec[1], -vec[0])
 		return utils.vector_add(utils.middle_point(bp1, bp2), vec)
 	
-	def is_arc(self):
+	def is_edge(self):
 		return True
 
 	def as_xml(self):
-		e = self.create_xml_element("arc")
+		e = self.create_xml_element("edge")
 		e.set("from_item", str(self.from_item.id))
 		e.set("to_item", str(self.to_item.id))
 		if self.inscription:
@@ -732,19 +732,19 @@ def load_transition(element, net, idtable):
 	transition.code = load_code(element)
 	idtable[xml_int(element, "id")] = transition.id
 
-def load_arc(element, net, idtable):
+def load_edge(element, net, idtable):
 	fitem = net.item_by_id(idtable[xml_int(element, "from_item")])
 	titem = net.item_by_id(idtable[xml_int(element, "to_item")])
 	points = [ (xml_int(e, "x"), xml_int(e,"y")) for e in element.findall("point") ]
-	arc = net.add_arc(fitem, titem, points)
+	edge = net.add_edge(fitem, titem, points)
 
 	if element.get("inscription"):
-		arc.inscription = xml_str(element, "inscription")
+		edge.inscription = xml_str(element, "inscription")
 		ix = xml_int(element, "inscription_x")
 		iy = xml_int(element, "inscription_y")
-		arc.inscription_position = (ix, iy)
+		edge.inscription_position = (ix, iy)
 
-	idtable[xml_int(element, "id")] = arc.id
+	idtable[xml_int(element, "id")] = edge.id
 
 def load_area(element, net, idtable):
 	sx = xml_int(element,"sx")
@@ -768,7 +768,7 @@ def load_net(element, project):
 	for e in element.findall("transition"):
 		load_transition(e, net, idtable)
 
-	for e in element.findall("arc"):
-		load_arc(e, net, idtable)
+	for e in element.findall("edge"):
+		load_edge(e, net, idtable)
 
 	return net

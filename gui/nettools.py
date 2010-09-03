@@ -120,7 +120,7 @@ class TransitionTool(NetItemTool):
 	def create_new(self, position):
 		return self.net.add_transition(position)
 
-class ArcTool(NetTool):
+class EdgeTool(NetTool):
 
 	def __init__(self, netview):
 		NetTool.__init__(self, netview)
@@ -146,8 +146,8 @@ class ArcTool(NetTool):
 			if self.from_item:
 				item = self.net.get_transition_or_place(position)
 				if item:
-					arc = self.net.add_arc(self.from_item, item, self.points)
-					self.select_item(arc)
+					edge = self.net.add_edge(self.from_item, item, self.points)
+					self.select_item(edge)
 					self.from_item = None
 				else:
 					self.points.append(position)
@@ -158,7 +158,7 @@ class ArcTool(NetTool):
 					self.points = []
 				else:
 					action_tuple = self.net.get_action(position)
-					if action_tuple and action_tuple[0].is_arc():
+					if action_tuple and action_tuple[0].is_edge():
 						item, action = action_tuple
 						self.select_item(item)
 
