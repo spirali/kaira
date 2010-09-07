@@ -11,6 +11,8 @@
 #include "cailie_sim.h"
 #include "cailie_internal.h"
 
+static std::string module_name = "threads";
+
 CaContext::CaContext(int node, CaModule *module) 
 {
 	_node = node;
@@ -78,9 +80,17 @@ void CaModule::start_sheduler(CaContext *ctx) {
 }
 
 void ca_main(int nodes_count, InitFn *init_fn) {
-	CaModule *m;
-	//m = new CaThreadsModule();
-	m = new CaSimModule();
+	CaModule *m = NULL;
+	if (module_name == "threads") {
+		m = new CaThreadsModule();
+	}
+	if (module_name == "sim") {
+		m = new CaSimModule();
+	}
+	if (m == NULL) {
+		fprintf(stderr, "Unknown module '%s'\n", module_name.c_str());
+		exit(-1);
+	}
 	m->main(nodes_count, init_fn);
 }
 
@@ -121,8 +131,11 @@ void ca_parse_args(int argc, char **argv, int params_count, const char **param_n
 		setted[t] = false;
 	}
 
-	while ((c = getopt_long (argc, argv, "hp:", longopts, NULL)) != -1)
+	while ((c = getopt_long (argc, argv, "hp:m:", longopts, NULL)) != -1)
 		switch (c) {
+			case 'm': {
+				module_name = optarg;
+			} break;
 			case 'h': {
 				int max_len = 0;
 				for (t = 0; t < params_count; t++) {

@@ -53,6 +53,7 @@ int CaSimModule::run_listener()
 			}
 			CaOutputBlock *block = output.back();
 			block->write(stdout);
+			printf("\n");
 			continue;
 		}
 		error("Unknown command");
