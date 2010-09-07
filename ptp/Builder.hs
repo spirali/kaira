@@ -154,6 +154,32 @@ transitionFilterEdges network edges =
 	filter edgeFromNetwork edges
 	where edgeFromNetwork edge = List.elem (edgePlaceId edge) (map placeId (places network))
 
+reportFunctionName :: Network -> String
+reportFunctionName network = "report_" ++ show (networkId network)
+
+reportFunction :: Project -> Network -> Function
+reportFunction project network = Function {
+	functionName = reportFunctionName network,
+	parameters = [ ("ctx", caContext), ("places", TPointer $ (placesTuple network)), ("out", TPointer $ TData "CaOutput") ],
+	declarations = [],
+	instructions = header ++ concat (countedMap reportPlace (places network)),
+	extraCode = "",
+	returnType = TVoid
+	}
+	where
+		header = [ 
+			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "node", ExprCall ".node" [ ExprVar "ctx" ] ],
+			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "iid", ExprCall ".iid" [ ExprVar "ctx" ] ],
+			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "network-id", ExprInt (networkId network) ] ]
+		reportPlace i p = [
+			IExpr $ ExprCall ".child" [ ExprVar "out", ExprString "place" ],
+			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "id", ExprInt (placeId p) ],
+			IForeach "x" "x_c" (ExprAt (ExprInt i) (ExprVar "places")) [
+				IExpr $ ExprCall ".child" [ ExprVar "out", ExprString "token" ],
+				IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "value", ExprCall "Base.asString" [ ExprVar "x" ] ],
+				IExpr $ ExprCall ".back" [ ExprVar "out" ]
+			],
+			IExpr $ ExprCall ".back" [ ExprVar "out"]] 
 
 transitionFunction :: Project -> Network -> Transition -> Function
 transitionFunction project network transition = Function {
@@ -301,21 +327,25 @@ placesWithInit :: Network -> [Place]
 placesWithInit network = [ p | p <- places network, placeInitCode p /= "" ]
 
 startFunctionName :: Network -> String
-startFunctionName network = "start_network_" ++ show (networkId network)
+startFunctionName network = "init_network_" ++ show (networkId network)
 
 startFunction :: Network -> Function
 startFunction network = Function {
 	functionName = startFunctionName network,
 	parameters = [ ("ctx", caContext) ],
-	declarations = [ ("places", placesTuple network) ],
-	instructions = [ initCtx ] ++ initPlaces,
-	extraCode = startCode,
+	declarations = [ ("places", TPointer $ placesTuple network) ],
+	instructions = [ allocPlaces, tfnList, initCtx ] ++ initPlaces,
+	extraCode = "",
 	returnType = TVoid
 	} where
+	{-	allocPlaces = ISet (ExprVar "places") $ ExprCall "new" [ ExprCall (typeString (TPointer $ placesTuple network))  [] ]-}
+		allocPlaces = IInline $ "places = new " ++ (typeSafeString (placesTuple network)) ++ "();"
 		nodeExpr = ExprCall ".node" [ ExprVar "ctx" ]
+		tfnList = IInline $ "TransitionFn *tf[] = {" ++ concat [ "(TransitionFn*) " ++ transitionFunctionName t ++ "," | t <- (transitions network) ] ++ "NULL};"
 		initCtx = IExpr $ ExprCall "._init" [
 			(ExprVar "ctx"), (ExprCall "-" [nodeExpr, (processedAddress network)]),
-			(processedInstances network) ]
+			(processedInstances network), ExprVar "(void*) places", ExprVar "tf", 
+			{- This is ugly hack -} ExprVar ("(RecvFn*)" ++ (recvFunctionName network)),  ExprVar ("(ReportFn*)" ++ (reportFunctionName network)) ]
 		ps p = placeSeq network p
 		initPlaces = (map initPlaceFromExpr (places network)) ++ (map callInitPlace (placesWithInit network))
 		initPlace p = [	initPlaceFromExpr p, callInitPlace p ]
@@ -326,15 +356,15 @@ startFunction network = Function {
 			case placeInitExpr p of
 				Nothing -> INoop
 				Just x -> IExpr $ ExprCall "List.append" [ placeVar p, x ]
-		startCode = "TransitionFn *tf[] = {" ++ concat [ "(TransitionFn*) " ++ transitionFunctionName t ++ "," | t <- (transitions network) ] ++
-						"NULL};\n\tca_start(ctx, &places, tf, (RecvFn*) " ++ recvFunctionName network ++ ");"
+	{-	startCode = \n\t(ctx, &places, tf, (RecvFn*) " ++ recvFunctionName network ++ ");"-}
 	
 createNetworkFunctions :: Project -> Network -> [Function]
 createNetworkFunctions project network =
-	workerF ++ transitionF ++ initF ++ [ recvFunction project network, startFunction network ]
+	workerF ++ transitionF ++ reportF ++ initF ++ [ recvFunction project network, startFunction network ]
 	where
 		transitionF = [ transitionFunction project network t | t <- transitions network ]
 		initF = map initFunction (placesWithInit network)
+		reportF = [ reportFunction project network ]
 		workerF =  [ workerFunction project t | t <- transitions network ] {- workerFunction -}
 
 instancesCount :: Project -> Expression
@@ -350,7 +380,7 @@ createMainFunction project = Function {
 	returnType = TInt
 } where
 	i1 = ISet (ExprVar "nodes") (instancesCount project)
-	i2 = IInline "ca_main(nodes, main_run);"
+	i2 = IInline "ca_main(nodes, main_init);"
 	parameters = projectParameters project
 	parseArgs = [ 
 		IInline $ "const char *p_names[] = {" ++ addDelimiter "," [ "\"" ++ parameterName p ++ "\"" | p <- parameters ] ++ "};",
@@ -367,7 +397,7 @@ processedAddress = processInputExprParamsOnly . address
 
 createMainInitFunction :: Project -> Function
 createMainInitFunction project = Function {
-	functionName = "main_run",
+	functionName = "main_init",
 	parameters = [("ctx", caContext)],
 	declarations = [],
 	instructions = startNetworks,

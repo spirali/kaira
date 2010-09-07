@@ -1,10 +1,14 @@
 
+#include <iostream>
+#include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include <assert.h>
 #include "cailie.h"
 #include "cailie_threads.h"
+#include "cailie_sim.h"
 #include "cailie_internal.h"
 
 CaContext::CaContext(int node, CaModule *module) 
@@ -14,10 +18,28 @@ CaContext::CaContext(int node, CaModule *module)
 	_halt_flag = false;
 }
 
-void CaContext::_init(int iid, int instances) 
+static void ** copy_until_null(void **src)
+{
+	int size = 1;
+	void **s = src;
+	while ((*s)) {
+		size++;
+		s++;
+	}
+	void **t = (void**) malloc(sizeof(void*) * size);
+	// FIXME: Alloc test
+	memcpy(t, src, sizeof(void*) * size);
+	return t;
+}
+
+void CaContext::_init(int iid, int instances, void *places, TransitionFn **transition_fns, RecvFn *recv_fn, ReportFn *report_fn) 
 {
 	_iid = iid;
 	_instances = instances;
+	_recv_fn = recv_fn;
+	_places = places;
+	_transition_fns = (TransitionFn**) copy_until_null((void**)transition_fns);
+	_report_fn = report_fn;
 }
 
 static int ca_recv(CaContext *ctx, RecvFn *recv_fn, void *data)
@@ -25,7 +47,11 @@ static int ca_recv(CaContext *ctx, RecvFn *recv_fn, void *data)
 	return ctx->_get_module()->recv(ctx, recv_fn, data);
 }
 
-void ca_start(CaContext *ctx, void *data, TransitionFn **wtransitions, RecvFn *recv_fn) {
+void CaModule::start_sheduler(CaContext *ctx) {
+	void *data = ctx->_get_places();
+	TransitionFn **wtransitions = ctx->_get_transition_fns();
+	RecvFn *recv_fn = ctx->_get_recv_fn();
+	
 	TransitionFn **wt = wtransitions + 1;
 	TransitionFn **last_executed = wtransitions;
 	for(;;) {
@@ -51,9 +77,11 @@ void ca_start(CaContext *ctx, void *data, TransitionFn **wtransitions, RecvFn *r
 	}
 }
 
-void ca_main(int nodes_count, MainFn *main_fn) {
-	CaModule *m = new CaThreadsModule();
-	m->main(nodes_count, main_fn);
+void ca_main(int nodes_count, InitFn *init_fn) {
+	CaModule *m;
+	//m = new CaThreadsModule();
+	m = new CaSimModule();
+	m->main(nodes_count, init_fn);
 }
 
 void ca_send(CaContext *ctx, int node, int data_id, void *data, size_t data_size)
@@ -137,4 +165,84 @@ void ca_parse_args(int argc, char **argv, int params_count, const char **param_n
 		}
 	}
 	if (exit_f) { exit(1); }
+}
+
+std::string ca_int_to_string(int i) 
+{
+	std::stringstream osstream;
+	osstream << i;
+	return osstream.str();
+}
+
+CaOutput::~CaOutput() 
+{
+	while (!_stack.empty()) {
+		delete _stack.top();
+		_stack.pop();
+	}
+}
+
+void CaOutput::child(std::string name) 
+{
+	CaOutputBlock *block = new CaOutputBlock(name);
+	_stack.push(block);
+}
+
+CaOutputBlock * CaOutput::back() 
+{
+	CaOutputBlock *block = _stack.top();
+	_stack.pop();
+	if (!_stack.empty()) {
+		CaOutputBlock *parent = _stack.top();
+		parent->add_child(block);
+	}
+	return block;
+}
+
+void CaOutput::set(std::string name, std::string value) 
+{
+	assert(!_stack.empty());
+	CaOutputBlock *block = _stack.top();
+	block->set(name, value);
+	
+}
+
+void CaOutput::set(std::string name, int value)
+{
+	set(name, ca_int_to_string(value));
+}
+
+void CaOutputBlock::set(std::string name, std::string value)
+{
+	std::pair<std::string,std::string> p(name, value);
+	_attributes.push_back(p);
+}
+
+void CaOutputBlock::write(FILE *file)
+{
+	fprintf(file,"<%s", _name.c_str());
+
+	std::vector<std::pair<std::string, std::string> >::iterator i;
+	for (i = _attributes.begin(); i != _attributes.end(); i++) {
+		printf(" %s='%s'", (*i).first.c_str(), (*i).second.c_str());
+	}
+
+	if (_children.size() > 0) {
+		fprintf(file,">");
+		std::vector<CaOutputBlock*>::iterator i;
+		for (i = _children.begin(); i != _children.end(); i++) {
+			(*i)->write(file);
+		}
+		fprintf(file,"</%s>", _name.c_str());
+	} else {
+		fprintf(file, " />");
+	}
+}
+
+CaOutputBlock::~CaOutputBlock()
+{
+		std::vector<CaOutputBlock*>::iterator i;
+		for (i = _children.begin(); i != _children.end(); i++) {
+			delete (*i);
+		}
 }

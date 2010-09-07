@@ -14,6 +14,7 @@ varType decls vname =
 
 exprType :: [VarDeclaration] -> Expression -> Type
 exprType declarations (ExprInt _) = TInt
+exprType declarations (ExprString _) = TString
 exprType declarations (ExprVar x) = varType declarations x
 exprType declarations (ExprTuple exprs) = TTuple $ map (exprType declarations) exprs
 exprType declarations (ExprAt (ExprInt i) place) = 
@@ -39,7 +40,7 @@ exprType declarations (ExprAt index place) =
 		x -> error $ "exprType: Unsuported type for ExprAt: " ++ show x ++ "/" ++ show index
 exprType declarations (ExprAddr t) = TPointer $ exprType declarations t
 exprType declarations (ExprCall _ _) = TUndefined
-exprType declarations x = error $ "exprType unimplemented:" ++ show x
+exprType declarations x = error $ "exprType unimplemented: " ++ show x
 
 newVars' :: String -> [String]
 newVars' prefix = map (\x -> prefix ++ "_" ++ show x) [1 .. ]

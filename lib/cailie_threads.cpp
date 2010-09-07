@@ -22,7 +22,7 @@ struct CaThreadsNodeQueue {
 
 struct CaThreadsData {
 	int node;
-	MainFn *main_fn;
+	InitFn *init_fn;
 	CaModule *module;
 };
 
@@ -45,16 +45,17 @@ void CaThreadsModule::send(CaContext *ctx, int target, int data_id, void *data, 
 	queue_add(target, packet);
 }
 
-static void ca_threads_start_main(MainFn *main_fn, int node, CaModule *module)
+static void ca_threads_start_main(InitFn *init_fn, int node, CaModule *module)
 {
 	CaContext ctx(node, module);
-	main_fn(&ctx);
+	init_fn(&ctx);
+	ctx._get_module()->start_sheduler(&ctx);
 }
 
 static void * ca_threads_starter(void *data)
 {
 	CaThreadsData *d = (CaThreadsData*) data;
-	ca_threads_start_main(d->main_fn, d->node, d->module);
+	ca_threads_start_main(d->init_fn, d->node, d->module);
 	return NULL;
 }
 
@@ -81,7 +82,7 @@ int CaThreadsModule::recv(CaContext *ctx, RecvFn *recv_fn, void *places)
 	return 1;
 }
 
-int CaThreadsModule::main(int nodes, MainFn *main_fn)
+int CaThreadsModule::main(int nodes, InitFn *init_fn)
 {
 	assert(nodes > 0);
 	int t;
@@ -98,7 +99,7 @@ int CaThreadsModule::main(int nodes, MainFn *main_fn)
 
 	for (t = 0; t < nodes; t++) {
 		data[t].node = t;
-		data[t].main_fn = main_fn;
+		data[t].init_fn = init_fn;
 		data[t].module = this;
 
 		/* FIXME: Check returns code */

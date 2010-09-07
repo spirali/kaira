@@ -11,7 +11,7 @@ struct CaThreadsPacket;
 class CaThreadsModule : public CaModule {
 
 	public:
-		int main(int nodes_count, MainFn *main_fn);
+		int main(int nodes_count, InitFn *init_fn);
 		void send(CaContext *ctx, int target, int data_id, void *data, size_t size);
 		int recv(CaContext *ctx, RecvFn *recv, void *places);
 		void idle();

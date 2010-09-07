@@ -4,6 +4,7 @@ module Codegen (
 	callPrint,
 	callPrintfStr,
 	typeString,
+	typeSafeString,
 ) where
 
 import qualified Data.Map as Map
@@ -59,8 +60,9 @@ emitCall scope ('.':name) (obj:params) =
 		case exprType (scopeDeclarations scope) obj of
 			TStruct _ _ -> "."
 			TPointer _ -> "->"
-			_ -> error $ "Invalid type for calling method"				
+			_ -> error $ "Invalid type for calling method " ++ show obj
 
+emitCall scope "Base.asString" [x] = emitExpression scope $ exprAsString (scopeDeclarations scope) x
 emitCall scope "List.eraseAt" [e1,e2] = 
 	emitExpression scope e1 ++ ".erase(" ++ emitExpression scope e1 ++ ".begin()+" ++ emitExpression scope e2 ++ ")"
 emitCall scope "List.append" [e1,e2] = 
@@ -318,3 +320,16 @@ addConstructors decls i =
 		addConstr decls (ExprDeref e) = ExprDeref $ addConstr decls e
 		addConstr decls (ExprAddr e) = ExprAddr $ addConstr decls e
 		addConstr decls x = x
+
+exprAsString :: [VarDeclaration] -> Expression -> Expression
+exprAsString decls (ExprString x) = ExprString x
+exprAsString decls (ExprInt x) = ExprString $ show x
+exprAsString decls x = 
+	case exprType decls x of
+		TInt -> ExprCall "ca_int_to_string" [x]
+		TTuple [] -> ExprString "()"
+		TTuple types -> ExprCall "+" $ [ ExprCall "std::string" [ ExprString "(" ], ExprCall "Base.asString" [ ExprAt (ExprInt 0) x ]]
+			++ concat [ [ExprString ",", ExprCall "Base.asString" [ ExprAt (ExprInt i) x ]] | i <- [1..(length types)-1]] ++ [ ExprString ")" ]
+		x -> error $ "exprAsString: " ++ show x
+
+
