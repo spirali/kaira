@@ -22,6 +22,7 @@ class App:
 
 	def run(self):
 		gtk.gdk.threads_init()
+		self.console_write("Welcome to Kaira 0.1")
 		try:
 			self.window.show()
 			gtk.main()
@@ -177,6 +178,9 @@ class App:
 			error_dlg.run()
 		finally:
 			error_dlg.destroy()
+
+	def console_write(self, text):
+		self.window.console.write(text)
 
 	def _project_changed(self, project):
 		self.nv.net_changed()

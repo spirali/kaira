@@ -10,11 +10,18 @@ class MainWindow(gtk.Window):
 
 		vbox = gtk.VBox()
 		self.add(vbox)
-
-		self.notebook = gtk.Notebook()
 		vbox.pack_start(self._create_main_menu(), False, False)
-		vbox.pack_start(self.notebook)
+
+		paned = gtk.VPaned()
+		vbox.pack_start(paned)
+		self.notebook = gtk.Notebook()
+		paned.pack1(self.notebook, True)
+
+		self.console = Console()
+		paned.pack2(self.console, False)
+
 		vbox.show_all()
+
 
 	def add_tab(self, name, widget, close_callback = None):
 		if close_callback:
@@ -107,3 +114,18 @@ class MainWindow(gtk.Window):
 
 	def _dummy(self):
 		pass
+
+
+class Console(gtk.ScrolledWindow):
+
+	def __init__(self):
+		gtk.ScrolledWindow.__init__(self)
+		self.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_ALWAYS)
+		self.set_shadow_type(gtk.SHADOW_IN)
+		self.textview = gtk.TextView()
+		self.textview.set_editable(False)
+		self.buffer = self.textview.get_buffer()
+		self.add(self.textview)
+
+	def write(self, text):
+		self.buffer.insert(self.buffer.get_end_iter(), text)
