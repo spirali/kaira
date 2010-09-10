@@ -1,6 +1,7 @@
 from net import Net, load_net
 import xml.etree.ElementTree as xml
 import utils
+import copy
 
 class Project:
 	
@@ -18,6 +19,9 @@ class Project:
 		self.net = net
 		net.set_change_callback(self._net_changed)
 		self.changed()
+
+	def copy(self):
+		return load_project_from_xml(self.as_xml())
 
 	def get_name(self):
 		return name
@@ -37,7 +41,7 @@ class Project:
 	def _net_changed(self, net):
 		self.changed()
 
-	def save(self, filename):
+	def as_xml(self):
 		root = xml.Element("project")
 		root.set("name", self.name)
 
@@ -45,10 +49,12 @@ class Project:
 
 		xml_net = self.net.as_xml()
 		root.append(xml_net)
+		return root
 
+	def save(self, filename):
 		f = open(filename, "w")
 		try:
-			f.write(xml.tostring(root))
+			f.write(xml.tostring(self.as_xml()))
 		finally:
 			f.close()
 
@@ -122,6 +128,9 @@ class Parameter:
 def load_project(filename):
 	doc = xml.parse(filename)
 	root = doc.getroot()
+	return load_project_from_xml(root)
+
+def load_project_from_xml(root):
 	project = Project(utils.xml_str(root,"name"))
 	if root.find("configuration"):
 		load_configuration(root.find("configuration"), project)

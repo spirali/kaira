@@ -3,9 +3,12 @@ import gtk
 import project
 from mainwindow import MainWindow
 from netview import NetView
+from simview import SimView
 from codeedit import TransitionCodeEditor
 from codeedit import PlaceCodeEditor
 from parameters import ParametersWidget
+from simulation import Simulation
+import process
 
 class App:
 	
@@ -18,8 +21,12 @@ class App:
 		self.set_project(project.new_empty_project())
 
 	def run(self):
-		self.window.show()
-		gtk.main()
+		gtk.gdk.threads_init()
+		try:
+			self.window.show()
+			gtk.main()
+		finally:
+			process.terminate_all_processes()
 
 	def set_project(self, project):
 		self.project = project
@@ -141,13 +148,21 @@ class App:
 		w = ParametersWidget(self.builder, self.project, self.window)
 		self.add_tab("Parameters", w, "params")
 
-	def add_tab(self, name, w, obj):
+	def simulation_start(self):
+		project = self.project.copy()
+		simulation = Simulation(project)
+		w = SimView(simulation)
+		self.add_tab("Simulation", w, simulation, lambda s: simulation.shutdown())
+
+	def add_tab(self, name, w, obj, callback = None):
 		""" Open new tab labeled with "name" with content "w" and register this tab for "obj" """
 		self.tabtable[obj] = w
-		self.window.add_tab(name, w, lambda x: self.close_tab_for_obj(obj))
+		self.window.add_tab(name, w, lambda x: self.close_tab_for_obj(obj, callback))
 		self.switch_to_tab(w)
 	
-	def close_tab_for_obj(self, obj):
+	def close_tab_for_obj(self, obj, callback):
+		if callback:
+			callback(obj)
 		if obj in self.tabtable:
 			self.window.close_tab(self.tabtable[obj])
 			del self.tabtable[obj]

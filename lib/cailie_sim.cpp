@@ -32,6 +32,7 @@ int CaSimModule::run_listener()
 {
 	char line[LINE_LENGTH_LIMIT];
 	for(;;) {
+		fflush(stdout);
 		char *s = fgets(line, LINE_LENGTH_LIMIT, stdin);
 		if (s == NULL) {
 			error("Read failed");

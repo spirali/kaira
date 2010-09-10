@@ -75,6 +75,10 @@ class MainWindow(gtk.Window):
 		item.connect("activate", lambda w: self.app.build_project())
 		build_menu.append(item)
 
+		item = gtk.MenuItem("Run _simulation")
+		item.connect("activate", lambda w: self.app.simulation_start())
+		build_menu.append(item)
+
 		edit_menu = gtk.Menu()
 
 		item = gtk.MenuItem("Edit _parameters")
@@ -93,7 +97,7 @@ class MainWindow(gtk.Window):
 		item = gtk.MenuItem("_Edit")
 		item.set_submenu(edit_menu)
 		main_menu.append(item)
-		item = gtk.MenuItem("_Build")
+		item = gtk.MenuItem("_Run")
 		item.set_submenu(build_menu)
 		main_menu.append(item)
 		item = gtk.MenuItem("_Tools")

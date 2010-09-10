@@ -2,6 +2,7 @@
 import gtk
 import gtkutils
 import nettools
+from netcanvas import NetCanvas
 
 action_cursor = { 
 	"none" : None,
@@ -32,7 +33,7 @@ class NetView(gtk.VBox):
 
 		self.pack_start(self._controls(), False)
 		self.pack_start(self._editarea(), False)
-		self.drawarea = self._drawarea()
+		self.drawarea = self._net_canvas()
 		self.pack_start(self.drawarea)
 
 		self.transition_edit_callback = None
@@ -50,7 +51,7 @@ class NetView(gtk.VBox):
 
 
 	def redraw(self):
-		self.drawarea.queue_draw()
+		self.drawarea.redraw()
 
 	def set_cursor(self,action_name):
 		self.drawarea.window.set_cursor(get_cursor(action_name))
@@ -102,16 +103,17 @@ class NetView(gtk.VBox):
 
 		return vbox
 
-	def _drawarea(self):
-		area = gtk.DrawingArea()
-		area.set_events(gtk.gdk.BUTTON_PRESS_MASK | gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.POINTER_MOTION_MASK)
-		area.connect("expose_event", self._expose_area)
-		area.connect("button_press_event", self._button_down)
-		area.connect("button_release_event", self._button_up)
-		area.connect("motion_notify_event", self._mouse_move)
-		area.show()
-		return area
+	def _net_canvas(self):
+		c = NetCanvas(self.net, self._draw)
+		c.connect("button_press_event", self._button_down)
+		c.connect("button_release_event", self._button_up)
+		c.connect("motion_notify_event", self._mouse_move)
+		c.show()
+		return c
 
+	def _draw(self, cr, w, h):
+		if self.tool:
+			self.tool.draw(cr)
 
 	def _editarea(self):
 		vbox = gtk.VBox()
@@ -129,20 +131,6 @@ class NetView(gtk.VBox):
 		vbox.show_all()
 		return vbox
 
-	def _expose_area(self, w, event):
-		cr = self.drawarea.window.cairo_create()
-		cr.rectangle(event.area.x, event.area.y,
-				event.area.width, event.area.height)
-		cr.clip()
-		self._draw(cr, *self.drawarea.window.get_size())
-
-	def _draw(self, cr, width, height):
-		cr.set_source_rgb(0.8, 0.8, 0.8)
-		cr.rectangle(0, 0, width, height)
-		cr.fill()
-		self.net.draw(cr)
-		if self.tool:
-			self.tool.draw(cr)
 
 	def _button_down(self, w, event):
 		if self.tool:

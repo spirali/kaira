@@ -37,6 +37,10 @@ class Net:
 			if not item.is_area():
 				item.draw(cr)
 
+		for item in self.items:
+			item.draw_top(cr)
+
+
 	def add_place(self, position):
 		place = Place(self, position)
 		self.add_item(place)
@@ -65,6 +69,12 @@ class Net:
 		for item in self.items:
 			e.append(item.as_xml())
 		return e
+
+	def get_item(self, id):
+		for i in self.items:
+			if i.get_id() == id:
+				return i
+		return None
 
 	def places(self):
 		return [ item for item in self.items if item.is_place() ]
@@ -155,6 +165,13 @@ class Net:
 	def edges_of(self, item):
 		return [ i for i in self.items if i.is_edge() and (i.to_item == item or i.from_item == item) ]
 
+	def set_tokens(self, id, tokens):
+		item = self.get_item(id)
+		if item is not None and item.is_place():
+			item.set_tokens(tokens)
+		else:
+			raise Exception("Place '" + str(id) + "' not found")
+
 
 class NetItem(object):
 
@@ -197,6 +214,8 @@ class NetItem(object):
 		element.set("id", str(self.id))
 		return element
 
+	def draw_top(self, cr):
+		pass
 
 class NetElement(NetItem):
 
@@ -392,6 +411,11 @@ class Place(NetElement):
 		self.radius = 20
 		self.place_type = ""
 		self.init_string = ""
+		self.tokens = []
+
+	def set_tokens(self, tokens):
+		self.tokens = tokens
+		self.changed()
 
 	def get_init_string(self):
 		return self.init_string
@@ -463,6 +487,38 @@ class Place(NetElement):
 			cr.move_to(self.position[0] + x, self.position[1] + x)
 			cr.show_text(self.place_type)
 
+	def draw_top(self, cr):
+		if self.tokens:
+			# Draw green circle
+			px, py = self.position
+			x = math.sqrt((self.radius * self.radius) / 2) + 15
+			cr.set_source_rgb(0.2,0.45,0)
+			cr.arc(px + self.radius,py,8, 0, 2 * math.pi)
+			cr.fill()
+
+			cr.set_line_width(0.5)
+			cr.arc(px + self.radius,py,8, 0, 2 * math.pi)
+			cr.set_source_rgb(0,0,0)
+			cr.stroke()
+
+			count_text = str(len(self.tokens))
+			w, h = utils.text_size(cr, count_text)
+			cr.set_source_rgb(0.8,0.8,0.8)
+			cr.move_to(px + self.radius - w/2, py + h/2)
+			cr.show_text(count_text)
+
+			# Print token names
+			texts = [ (t, utils.text_size(cr, t)) for t in self.tokens ]
+			text_height = sum([ x[1][1] for x in texts ])
+
+			cr.set_source_rgb(0.2,0.45,0)
+			text_x = px + self.radius + 15
+			text_y = py - text_height / 2
+
+			for (t, (x, y)) in texts:
+				cr.move_to(text_x, text_y)
+				cr.show_text(t)
+				text_y += y + 1
 
 	def _arc(self, cr):
 		px, py = self.position
