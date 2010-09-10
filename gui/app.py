@@ -22,12 +22,9 @@ class App:
 
 	def run(self):
 		gtk.gdk.threads_init()
-		self.console_write("Welcome to Kaira 0.1")
-		try:
-			self.window.show()
-			gtk.main()
-		finally:
-			process.terminate_all_processes()
+		self.console_write("Welcome to Kaira 0.1\n")
+		self.window.show()
+		gtk.main()
 
 	def set_project(self, project):
 		self.project = project
@@ -40,7 +37,10 @@ class App:
 		if self.nv:
 			self.window.close_tab(self.nv)
 		for t in self.tabtable:
-			self.window.close_tab(self.tabtable[t])
+			widget, callback = self.tabtable[t]
+			self.window.close_tab(widget)
+			if callback:
+				callback(t)
 		self.nv = NetView(self.project.net)
 		self.nv.transition_edit_callback = self.transition_edit
 		self.nv.place_edit_callback = self.place_edit
@@ -91,9 +91,18 @@ class App:
 		finally:
 			dialog.destroy()
 
-	def build_project(self):
+	def build_project(self, build_ok_callback = None):
+		def on_exit(code):
+			if build_ok_callback and code == 0:
+				build_ok_callback()
+		def on_line(line):
+			self.console_write(line)
+			return True
 		self.project.export("../out/project.xml")
-		print "Exported"
+
+		p = process.Process("make",on_line, on_exit)
+		p.cwd = "../out"
+		p.start()
 
 	def _catch_io_error(self, fcn, filename, return_on_ok = None, return_on_err = None):
 		try:
@@ -150,23 +159,26 @@ class App:
 		self.add_tab("Parameters", w, "params")
 
 	def simulation_start(self):
-		project = self.project.copy()
-		simulation = Simulation(project)
-		w = SimView(simulation)
-		self.add_tab("Simulation", w, simulation, lambda s: simulation.shutdown())
+		def project_builded():
+			project = self.project.copy()
+			simulation = Simulation(project)
+			w = SimView(simulation)
+			self.add_tab("Simulation", w, simulation, lambda s: simulation.shutdown())
+		self.build_project(project_builded)
 
 	def add_tab(self, name, w, obj, callback = None):
 		""" Open new tab labeled with "name" with content "w" and register this tab for "obj" """
-		self.tabtable[obj] = w
-		self.window.add_tab(name, w, lambda x: self.close_tab_for_obj(obj, callback))
+		self.tabtable[obj] = (w, callback)
+		self.window.add_tab(name, w, lambda x: self.close_tab_for_obj(obj))
 		self.switch_to_tab(w)
 	
-	def close_tab_for_obj(self, obj, callback):
-		if callback:
-			callback(obj)
+	def close_tab_for_obj(self, obj):
 		if obj in self.tabtable:
-			self.window.close_tab(self.tabtable[obj])
+			widget, callback = self.tabtable[obj]
+			self.window.close_tab(widget)
 			del self.tabtable[obj]
+			if callback:
+				callback(obj)
 
 	def show_error_dialog(self, text):
 		error_dlg = gtk.MessageDialog( \

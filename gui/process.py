@@ -1,15 +1,18 @@
 
 import gtk
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, STDOUT
 from threading import Thread, Lock
 
+
 class ProcessThread(Thread):
-	def __init__(self, process, callback):
+	def __init__(self, process, line_callback, exit_callback):
 		Thread.__init__(self)
 		self.process = process
-		self.callback = callback
+		self.line_callback = line_callback
+		self.exit_callback = exit_callback
 		self.lock = Lock()
 		self.exit_flag = False
+		self.daemon = True
 
 	def start(self):
 		Thread.start(self)
@@ -18,14 +21,23 @@ class ProcessThread(Thread):
 		while True:
 			line = self.process.stdout.readline()
 			if line == "":
+				self.process.wait()
+				gtk.gdk.threads_enter()
+				try:
+					if self.exit_callback:
+						self.exit_callback(self.process.returncode)
+				finally:
+					gtk.gdk.threads_leave()
+				with process_list_lock:
+					process_list.remove(self.process)
 				return
 			with self.lock:
 				if self.exit_flag:
 					return
 			gtk.gdk.threads_enter()
 			try:
-				if not self.callback(line):
-					self.processes.terminate()
+				if not self.line_callback(line):
+					self.process.terminate()
 					return
 			finally:
 				gtk.gdk.threads_leave()
@@ -36,31 +48,31 @@ class ProcessThread(Thread):
 
 class Process:
 	
-	def __init__(self, filename, callback):
+	def __init__(self, filename, line_callback, exit_callback):
 		self.filename = filename
-		self.callback = callback
+		self.line_callback = line_callback
+		self.exit_callback = exit_callback
+		self.cwd = None
 
-	def start(self, params):
-		self.process = Popen([ self.filename ] + params, bufsize = 0, stdin = PIPE, stdout = PIPE)
+	def start(self, params = []):
+		self.process = Popen([ self.filename ] + params, bufsize = 0, stdin = PIPE, stdout = PIPE, stderr = STDOUT, cwd = self.cwd)
 		with process_list_lock:
 			process_list.append(self.process)
 		self.pipe_in = self.process.stdin
-		self.thread = ProcessThread(self.process, self.callback)
+		self.thread = ProcessThread(self.process, self.line_callback, self.exit_callback)
 		self.thread.start()
 
 	def _write(self, string):
 		self.pipe_in.write(string)
 
 	def shutdown(self):
-		with process_list_lock:
-			self.process_list_lock.remove(self.process)
 		self.thread.set_exit_flag()
 		self.process.terminate()
 
 class CommandProcess(Process):
 
 	def __init__(self, filename):
-		Process.__init__(self,filename, self._callback)
+		Process.__init__(self,filename, self._callback, None)
 		self.callbacks = []
 		self.lock = Lock()
 

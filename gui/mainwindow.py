@@ -1,4 +1,5 @@
 import gtk
+import pango
 
 class MainWindow(gtk.Window):
 
@@ -124,8 +125,12 @@ class Console(gtk.ScrolledWindow):
 		self.set_shadow_type(gtk.SHADOW_IN)
 		self.textview = gtk.TextView()
 		self.textview.set_editable(False)
+		font_desc = pango.FontDescription('monospace')
+		if font_desc:
+			self.textview.modify_font(font_desc)
 		self.buffer = self.textview.get_buffer()
 		self.add(self.textview)
 
 	def write(self, text):
 		self.buffer.insert(self.buffer.get_end_iter(), text)
+		self.textview.scroll_to_iter(self.buffer.get_end_iter(),0.0)
