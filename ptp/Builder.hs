@@ -162,7 +162,7 @@ reportFunction project network = Function {
 	functionName = reportFunctionName network,
 	parameters = [ ("ctx", caContext), ("places", TPointer $ (placesTuple network)), ("out", TPointer $ TData "CaOutput") ],
 	declarations = [],
-	instructions = header ++ concat (countedMap reportPlace (places network)),
+	instructions = header ++ concat (countedMap reportPlace (places network)) ++ concatMap reportTransition (transitions network),
 	extraCode = "",
 	returnType = TVoid
 	}
@@ -180,6 +180,15 @@ reportFunction project network = Function {
 				IExpr $ ExprCall ".back" [ ExprVar "out" ]
 			],
 			IExpr $ ExprCall ".back" [ ExprVar "out"]] 
+		reportTransition t = [
+			IExpr $ ExprCall ".child" [ ExprVar "out", ExprString "transition" ],
+			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "id", ExprInt (transitionId t) ],
+			IIf (ExprCall (transitionEnableTestFunctionName t) [ ExprVar "ctx", ExprVar "places" ])
+				(IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "enable", ExprString "true" ])
+				(IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "enable", ExprString "false"]),
+			IExpr $ ExprCall ".back" [ ExprVar "out" ]
+			]
+
 
 transitionFunction :: Project -> Network -> Transition -> Function
 transitionFunction project network transition = Function {
@@ -193,6 +202,22 @@ transitionFunction project network transition = Function {
 	where
 		decls = transitionFreeVariablesIn project transition
 		instructions = checkEdges network decls Set.empty [] (edgesIn transition) 0 (transitionOkEvent project network transition)
+
+transitionEnableTestFunctionName :: Transition -> String
+transitionEnableTestFunctionName transition = "transition_enable_" ++ show (transitionId transition)
+
+transitionEnableTestFunction :: Project -> Network -> Transition -> Function
+transitionEnableTestFunction project network transition = Function {
+	functionName = transitionEnableTestFunctionName transition,
+	parameters = [ ("ctx", caContext), ("places", TPointer $ placesTuple network)],
+	declarations = decls,
+	instructions = [ instructions, IReturn (ExprInt 0) ],
+	extraCode = "",
+	returnType = TInt
+	} 
+	where
+		decls = transitionFreeVariablesIn project transition
+		instructions = checkEdges network decls Set.empty [] (edgesIn transition) 0 (IReturn $ ExprInt 1)
 
 {-
 	Erasing dependancy is added for reasen that { List.eraseAt(l, x); List.eraseAt(l, y); } is problem if x < y
@@ -360,9 +385,10 @@ startFunction network = Function {
 	
 createNetworkFunctions :: Project -> Network -> [Function]
 createNetworkFunctions project network =
-	workerF ++ transitionF ++ reportF ++ initF ++ [ recvFunction project network, startFunction network ]
+	workerF ++ transitionF ++ transitionTestF ++ reportF ++ initF ++ [ recvFunction project network, startFunction network ]
 	where
 		transitionF = [ transitionFunction project network t | t <- transitions network ]
+		transitionTestF = [ transitionEnableTestFunction project network t | t <- transitions network ]
 		initF = map initFunction (placesWithInit network)
 		reportF = [ reportFunction project network ]
 		workerF =  [ workerFunction project t | t <- transitions network ] {- workerFunction -}

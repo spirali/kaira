@@ -91,18 +91,8 @@ class App:
 		finally:
 			dialog.destroy()
 
-	def build_project(self, build_ok_callback = None):
-		def on_exit(code):
-			if build_ok_callback and code == 0:
-				build_ok_callback()
-		def on_line(line):
-			self.console_write(line)
-			return True
-		self.project.export("../out/project.xml")
-
-		p = process.Process("make",on_line, on_exit)
-		p.cwd = "../out"
-		p.start()
+	def build_project(self):
+		self._start_project_build(self.project, None)
 
 	def _catch_io_error(self, fcn, filename, return_on_ok = None, return_on_err = None):
 		try:
@@ -159,12 +149,12 @@ class App:
 		self.add_tab("Parameters", w, "params")
 
 	def simulation_start(self):
-		def project_builded():
-			project = self.project.copy()
+		def project_builded(project):
 			simulation = Simulation(project)
 			w = SimView(simulation)
 			self.add_tab("Simulation", w, simulation, lambda s: simulation.shutdown())
-		self.build_project(project_builded)
+		project = self.project.copy()
+		self._start_project_build(project, project_builded)
 
 	def add_tab(self, name, w, obj, callback = None):
 		""" Open new tab labeled with "name" with content "w" and register this tab for "obj" """
@@ -196,6 +186,20 @@ class App:
 
 	def _project_changed(self, project):
 		self.nv.net_changed()
+
+	def _start_project_build(self, project, build_ok_callback = None):
+		def on_exit(code):
+			if build_ok_callback and code == 0:
+				build_ok_callback(project)
+		def on_line(line):
+			self.console_write(line)
+			return True
+		project.export("../out/project.xml")
+		p = process.Process("make",on_line, on_exit)
+		p.cwd = "../out"
+		p.start()
+
+
 
 app = App()
 app.run()

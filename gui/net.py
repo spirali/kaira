@@ -172,6 +172,14 @@ class Net:
 		else:
 			raise Exception("Place '" + str(id) + "' not found")
 
+	def set_enable(self, id, value):
+		item = self.get_item(id)
+		if item is not None and item.is_transition():
+			item.set_enable(value)
+		else:
+			raise Exception("Transition '" + str(id) + "' not found")
+
+
 
 class NetItem(object):
 
@@ -262,6 +270,11 @@ class Transition(NetElement):
 		NetElement.__init__(self, net, position)
 		self.size = (70, 35)
 		self.name = ""
+		self.enable = False
+
+	def set_enable(self, value):
+		self.enable = value
+		self.changed()
 
 	def get_name(self):
 		return self.name
@@ -326,6 +339,12 @@ class Transition(NetElement):
 			self._rect(cr)
 			cr.set_line_width(4.5)
 			cr.set_source_rgb(0.86,0.86,0.0)
+			cr.stroke()
+
+		if self.enable:
+			self._rect(cr)
+			cr.set_line_width(8.5)
+			cr.set_source_rgba(0.1,0.90,0.1, 0.5)
 			cr.stroke()
 
 		self._rect(cr)

@@ -135,6 +135,14 @@ def xml_int(element, attr, default = None):
 			raise Exception("Element has no attribute: " + attr)
 	return int(float(element.get(attr)))
 
+def xml_bool(element, attr, default = None):
+	if element.get(attr) is None:
+		if default is None:
+			return default
+		else:
+			raise Exception("Element has no attribute: " + attr)
+	return element.get(attr).lower() == "true"
+
 def xml_str(element, attr, default = None):
 	if element.get(attr) is None:
 		if default is None:

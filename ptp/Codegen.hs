@@ -124,9 +124,10 @@ emitInstruction scope (IForeach var counterVar expr body) =
 		cycleTest = counterVar ++ " < " ++ arrayLen
 		emit = emitInstruction (addDeclarations scope [ (counterVar, TInt), (var, elementType) ])
 emitInstruction scope (IInline str) = Text str <+> Eol
-emitInstruction scope (IIf expr branch1 branch2) =
+emitInstruction scope (IIf expr branch1 INoop) =
 	Text ("if (" ++ emitExpression scope expr ++ ") ") <+> emitInstruction scope branch1
-
+emitInstruction scope (IIf expr branch1 branch2) =
+	Text ("if (" ++ emitExpression scope expr ++ ") ") <+> emitInstruction scope branch1 <+> Text "else " <+> emitInstruction scope branch2
 emitTupleMember index = "t_" ++ show index
 
 initialScope :: Function -> Scope
