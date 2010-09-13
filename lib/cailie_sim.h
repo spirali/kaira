@@ -13,10 +13,12 @@ class CaSimModule : public CaModule {
 		int recv(CaContext *ctx, RecvFn *recv, void *places);
 
 		int run_listener();
-		void error(const char *str) { printf("%s\n", str); }
+		void error(const char *str) { fprintf(comm_out, "%s\n", str); }
 
 	protected:
 		std::vector<CaContext> ctxs;
+		FILE *comm_in;
+		FILE *comm_out;
 };
 
 #endif // CAILIE_SIM

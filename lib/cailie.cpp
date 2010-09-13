@@ -237,7 +237,7 @@ void CaOutputBlock::write(FILE *file)
 
 	std::vector<std::pair<std::string, std::string> >::iterator i;
 	for (i = _attributes.begin(); i != _attributes.end(); i++) {
-		printf(" %s='%s'", (*i).first.c_str(), (*i).second.c_str());
+		fprintf(file, " %s='%s'", (*i).first.c_str(), (*i).second.c_str());
 	}
 
 	if (_children.size() > 0) {
