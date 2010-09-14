@@ -14,20 +14,15 @@
 
 static int init_socket_listen_and_accept()
 {
-	int port = 14700;
 	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sock == -1) {
 		perror("ERROR");
 		exit(-1);
 	}
 
-	// For testing purpose
-	int one = 1;
-	setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,&one,sizeof(one));
-
 	struct sockaddr_in sockname;
 	sockname.sin_family = AF_INET;
-	sockname.sin_port = htons(port);
+	sockname.sin_port = htons(0); // pick free port
 	sockname.sin_addr.s_addr = INADDR_ANY;
 	if (bind(sock, (struct sockaddr *)&sockname, sizeof(sockname)) == -1) {
 		perror("ERROR");
@@ -37,7 +32,12 @@ static int init_socket_listen_and_accept()
 		perror("ERROR");
 		exit(-1);
 	}
-	printf("%i\n", port);
+	socklen_t len = sizeof(sockname);
+	if (getsockname(sock, (struct sockaddr *) &sockname, &len) == -1) {
+		perror("ERROR");
+		exit(-1);
+	}
+	printf("%i\n", ntohs(sockname.sin_port));
 	fflush(stdout);
 	int client = accept(sock, NULL, NULL);
 	if (client == -1) {
