@@ -129,8 +129,11 @@ class Console(gtk.ScrolledWindow):
 		if font_desc:
 			self.textview.modify_font(font_desc)
 		self.buffer = self.textview.get_buffer()
+		self.buffer.create_tag("output", foreground="blue")
+		self.buffer.create_tag("success", foreground="darkgreen")
+		self.buffer.create_tag("normal")
 		self.add(self.textview)
 
-	def write(self, text):
-		self.buffer.insert(self.buffer.get_end_iter(), text)
+	def write(self, text, tag_name="normal"):
+		self.buffer.insert_with_tags_by_name(self.buffer.get_end_iter(), text, tag_name)
 		self.textview.scroll_to_iter(self.buffer.get_end_iter(),0.0)

@@ -11,7 +11,7 @@ class SimView(gtk.VBox):
 		self.pack_start(self.canvas)
 
 		simulation.set_callback("changed", self.redraw)
-		simulation.set_callback("output", lambda line: app.console_write(line))
+		simulation.set_callback("output", lambda line: app.console_write(line, "output"))
 
 	def redraw(self):
 		self.canvas.redraw()

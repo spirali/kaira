@@ -92,7 +92,7 @@ class App:
 			dialog.destroy()
 
 	def build_project(self):
-		self._start_project_build(self.project, None)
+		self._start_project_build(self.project, lambda p: self.console_write("Build OK\n", "success"))
 
 	def _catch_io_error(self, fcn, filename, return_on_ok = None, return_on_err = None):
 		try:
@@ -181,8 +181,8 @@ class App:
 		finally:
 			error_dlg.destroy()
 
-	def console_write(self, text):
-		self.window.console.write(text)
+	def console_write(self, text, tag_name = "normal"):
+		self.window.console.write(text, tag_name)
 
 	def _project_changed(self, project):
 		self.nv.net_changed()
