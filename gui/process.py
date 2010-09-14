@@ -66,6 +66,7 @@ class ConnectionThread(ReadLineThread):
 		self.exit_callback = exit_callback
 
 	def on_exit(self):
+		self.stream.close()
 		return self.safe_call(self.exit_callback)
 
 	def on_line(self, line):
@@ -125,9 +126,6 @@ class Connection:
 	def write(self, text):
 		self.sock.send(text)
 
-	def shutdown(self):
-		self.sock.close()
-
 class CommandWrapper:
 
 	def __init__(self, backend):
@@ -143,6 +141,12 @@ class CommandWrapper:
 		with self.lock:
 			self.callbacks.append(callback)
 		self.backend.write(command + "\n")
+
+	def run_command_expect_ok(self, command):
+		def expect_ok(line):
+			if line != "Ok\n":
+				print "Command '" + command + "' returns: " + line
+		self.run_command(command, expect_ok)
 
 	def shutdown(self):
 		self.backend.shutdown()

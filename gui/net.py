@@ -152,6 +152,11 @@ class Net:
 			if (item.is_transition() or item.is_place()) and item.is_inside(position):
 				return item
 
+	def get_transition(self, position):
+		for item in self.items:
+			if (item.is_transition()) and item.is_inside(position):
+				return item
+
 	def delete_item(self, item):
 		self.items.remove(item)
 		self.changed()

@@ -20,28 +20,31 @@ CaContext::CaContext(int node, CaModule *module)
 	_halt_flag = false;
 }
 
-static void ** copy_until_null(void **src)
-{
-	int size = 1;
-	void **s = src;
-	while ((*s)) {
-		size++;
-		s++;
-	}
-	void **t = (void**) malloc(sizeof(void*) * size);
-	// FIXME: Alloc test
-	memcpy(t, src, sizeof(void*) * size);
-	return t;
-}
-
-void CaContext::_init(int iid, int instances, void *places, TransitionFn **transition_fns, RecvFn *recv_fn, ReportFn *report_fn) 
+void CaContext::_init(int iid, int instances, void *places, RecvFn *recv_fn, ReportFn *report_fn) 
 {
 	_iid = iid;
 	_instances = instances;
 	_recv_fn = recv_fn;
 	_places = places;
-	_transition_fns = (TransitionFn**) copy_until_null((void**)transition_fns);
 	_report_fn = report_fn;
+}
+
+void CaContext::_register_transition(int id, TransitionFn *fn)
+{
+	_transitions.push_back(CaTransition(id, fn));
+}
+
+
+bool CaContext::_find_transition(int id, CaTransition &transition)
+{
+	std::vector<CaTransition>::iterator i;
+	for (i = _transitions.begin(); i != _transitions.end(); i++) {
+		if (id == i->get_id()) {
+			transition = *i;
+			return true;
+		}
+	}
+	return false;
 }
 
 static int ca_recv(CaContext *ctx, RecvFn *recv_fn, void *data)
@@ -51,17 +54,18 @@ static int ca_recv(CaContext *ctx, RecvFn *recv_fn, void *data)
 
 void CaModule::start_sheduler(CaContext *ctx) {
 	void *data = ctx->_get_places();
-	TransitionFn **wtransitions = ctx->_get_transition_fns();
+	std::vector<CaTransition> transitions = ctx->_get_transitions();
+	std::vector<CaTransition>::iterator wt, last_executed;
+
 	RecvFn *recv_fn = ctx->_get_recv_fn();
-	
-	TransitionFn **wt = wtransitions + 1;
-	TransitionFn **last_executed = wtransitions;
+	wt = transitions.begin() + 1;
+	last_executed = transitions.begin();
 	for(;;) {
-		if ((*wt) == NULL) {
-			wt = wtransitions;
+		if (wt == transitions.end()) {
+			wt = transitions.begin();
 		}
 		if (wt == last_executed) {
-			if ((*wt)(ctx, data)) {
+			if (wt->call(ctx, data)) {
 				if (ctx->_check_halt_flag()) {
 					return;
 				}
@@ -70,7 +74,7 @@ void CaModule::start_sheduler(CaContext *ctx) {
 				while(!ca_recv(ctx, recv_fn, data)) { ctx->_get_module()->idle(); }	
 			}
 		} else {
-			if ((*wt)(ctx, data)) {
+			if (wt->call(ctx, data)) {
 				ca_recv(ctx, recv_fn, data);
 				last_executed = wt;
 			}

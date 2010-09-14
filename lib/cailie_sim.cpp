@@ -112,6 +112,29 @@ int CaSimModule::run_listener()
 			fprintf(comm_out, "\n");
 			continue;
 		}
+		if (strcmp(line, "FIRE") > 0) {
+			int transition_id, iid;
+			if (2 != sscanf(line, "FIRE %i %i", &transition_id, &iid)) {
+				fprintf(comm_out, "Invalid parameters\n");
+				continue;
+			}
+			fire_transition(transition_id, iid);
+			fprintf(comm_out, "Ok\n");
+			continue;
+		}
 		error("Unknown command");
 	}
 }
+
+void CaSimModule::fire_transition(int transition_id, int iid)
+{
+	std::vector<CaContext>::iterator i;
+	CaTransition t;
+	for (i = ctxs.begin(); i != ctxs.end(); i++) {
+		if (i->iid() == iid && i->_find_transition(transition_id, t) && !i->_check_halt_flag()) {
+				t.call(&(*i), i->_get_places());
+		}
+	}
+}
+
+

@@ -16,6 +16,9 @@ class CaSimModule : public CaModule {
 		void error(const char *str) { fprintf(comm_out, "%s\n", str); }
 
 	protected:
+
+		void fire_transition(int transition_id, int iid);
+
 		std::vector<CaContext> ctxs;
 		FILE *comm_in;
 		FILE *comm_out;

@@ -17,6 +17,7 @@ typedef void(RecvFn)(void *places,  int data_id, void *data, size_t size);
 typedef void(ReportFn)(CaContext * ctx, void *data, CaOutput *out);
 
 class CaModule;
+class CaTransition;
 
 class CaContext {
 	
@@ -31,11 +32,13 @@ class CaContext {
 		
 		/* Internal */
 		CaModule * _get_module() { return _module; }
-		void _init(int iid, int instances, void * places, TransitionFn **transition_fns, RecvFn *recv_fn, ReportFn *report_fn);
+		void _init(int iid, int instances, void * places, RecvFn *recv_fn, ReportFn *report_fn);
+		void _register_transition(int id, TransitionFn *fn);
 		int _check_halt_flag() { return _halt_flag; }
 		void * _get_places() { return _places; }
 		RecvFn * _get_recv_fn() { return _recv_fn; }
-		TransitionFn ** _get_transition_fns() { return _transition_fns; }
+		std::vector<CaTransition> _get_transitions() { return _transitions; }
+		bool _find_transition(int id, CaTransition &transition);
 		ReportFn * _get_report_fn() { return _report_fn; }
 	protected:
 		int _node;
@@ -45,15 +48,13 @@ class CaContext {
 		CaModule *_module;
 		RecvFn *_recv_fn;
 		void *_places;
-		TransitionFn **_transition_fns;
+		std::vector<CaTransition> _transitions;
 		ReportFn * _report_fn;
 };
 
 class CaOutputBlock;
 
 class CaOutput {
-	
-
 	public:
 		~CaOutput();
 
@@ -64,6 +65,17 @@ class CaOutput {
 
 	private:	
 		std::stack<CaOutputBlock*> _stack;
+};
+
+class CaTransition {
+	public:
+		CaTransition() {} 
+		CaTransition(int id, TransitionFn *fn) { this->id = id; this->function = fn; }
+		int call(CaContext *ctx, void *places) { return function(ctx, places); }
+		int get_id() { return id; }
+	protected:
+		TransitionFn *function;
+		int id;
 };
 
 

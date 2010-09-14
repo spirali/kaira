@@ -12,6 +12,8 @@ import Project
 import Codegen
 import Utils
 
+icall name params = IExpr $ ExprCall name params
+
 tupleToVars ::
 	[VarDeclaration] ->
 	VarSet ->
@@ -170,7 +172,10 @@ reportFunction project network = Function {
 		header = [ 
 			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "node", ExprCall ".node" [ ExprVar "ctx" ] ],
 			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "iid", ExprCall ".iid" [ ExprVar "ctx" ] ],
-			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "network-id", ExprInt (networkId network) ] ]
+			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "network-id", ExprInt (networkId network) ],
+			IIf (ExprCall "._check_halt_flag" [ ExprVar "ctx" ])
+				(IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "running", ExprString "false" ])
+				(IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "running", ExprString "true"])]
 		reportPlace i p = [
 			IExpr $ ExprCall ".child" [ ExprVar "out", ExprString "place" ],
 			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "id", ExprInt (placeId p) ],
@@ -359,24 +364,25 @@ startFunction network = Function {
 	functionName = startFunctionName network,
 	parameters = [ ("ctx", caContext) ],
 	declarations = [ ("places", TPointer $ placesTuple network) ],
-	instructions = [ allocPlaces, tfnList, initCtx ] ++ initPlaces,
+	instructions = [ allocPlaces, initCtx ] ++ registerTransitions ++ initPlaces,
 	extraCode = "",
 	returnType = TVoid
 	} where
 	{-	allocPlaces = ISet (ExprVar "places") $ ExprCall "new" [ ExprCall (typeString (TPointer $ placesTuple network))  [] ]-}
 		allocPlaces = IInline $ "places = new " ++ (typeSafeString (placesTuple network)) ++ "();"
 		nodeExpr = ExprCall ".node" [ ExprVar "ctx" ]
-		tfnList = IInline $ "TransitionFn *tf[] = {" ++ concat [ "(TransitionFn*) " ++ transitionFunctionName t ++ "," | t <- (transitions network) ] ++ "NULL};"
-		initCtx = IExpr $ ExprCall "._init" [
+		initCtx = icall "._init" [
 			(ExprVar "ctx"), (ExprCall "-" [nodeExpr, (processedAddress network)]),
-			(processedInstances network), ExprVar "(void*) places", ExprVar "tf", 
-			{- This is ugly hack -} ExprVar ("(RecvFn*)" ++ (recvFunctionName network)),  ExprVar ("(ReportFn*)" ++ (reportFunctionName network)) ]
+			(processedInstances network), ExprVar "(void*) places", 
+			{- This is ugly hack -} ExprVar ("(RecvFn*)" ++ (recvFunctionName network)),  ExprVar ("(ReportFn*)" ++ reportFunctionName network) ]
 		ps p = placeSeq network p
 		initPlaces = (map initPlaceFromExpr (places network)) ++ (map callInitPlace (placesWithInit network))
 		initPlace p = [	initPlaceFromExpr p, callInitPlace p ]
+		registerTransitions = [ icall "._register_transition" [ 
+			ExprVar "ctx", ExprInt (transitionId t), ExprVar ("(TransitionFn*)" ++ transitionFunctionName t) ] | t <- transitions network ]
 		placeVar p = ExprAt (ExprInt (ps p)) (ExprVar "places")
 		callInitPlace p =
-			 IExpr $ ExprCall (initFunctionName p) [ ExprVar "ctx", ExprAddr (placeVar p) ]
+			 icall (initFunctionName p) [ ExprVar "ctx", ExprAddr (placeVar p) ]
 		initPlaceFromExpr p =
 			case placeInitExpr p of
 				Nothing -> INoop

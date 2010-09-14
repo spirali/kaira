@@ -24,7 +24,7 @@ class Simulation(EventSource):
 
 	def shutdown(self):
 		self.process.shutdown()
-		self.controller.shutdown()
+		# Shutdown of the controller is not necessary because when the simulator is terminated then socket is closed
 
 	def get_net(self):
 		return self.project.net
@@ -34,11 +34,22 @@ class Simulation(EventSource):
 			self._process_report(xml.fromstring(line))
 		self.controller.run_command("REPORTS", reports_callback)
 
+	def fire_transition(self, transition, iid):
+		self.controller.run_command_expect_ok("FIRE " + str(transition.get_id()) + " " + str(iid))
+		self.query_reports()
+
+	def fire_transition_random_instance(self, transition):
+		enabled_iids = self.enabled_transitions[transition.get_id()]
+		if len(enabled_iids) > 0:
+			iid = self.random.choice(enabled_iids)
+			self.fire_transition(transition, iid)
+
 	def _process_report(self, root):
 		places = {}
 		transitions = {}
 		for node_e in root.findall("node"):
 			iid = utils.xml_int(node_e,"iid")
+			running = utils.xml_bool(node_e, "running")
 			for place_e in node_e.findall("place"):
 				tokens = self._process_tokens(place_e, iid)
 				place_id = utils.xml_int(place_e,"id")
@@ -47,7 +58,7 @@ class Simulation(EventSource):
 			for transition_e in node_e.findall("transition"):
 				transition_id = utils.xml_int(transition_e, "id")
 				transitions.setdefault(transition_id,[])
-				if utils.xml_bool(transition_e, "enable"):
+				if utils.xml_bool(transition_e, "enable") and running:
 					transitions[transition_id].append(iid)
 
 		net = self.get_net()
