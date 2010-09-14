@@ -53,6 +53,11 @@ int CaSimModule::main(int nodes_count, InitFn *init_fn)
 	comm_in = fdopen(socket, "r");
 	comm_out = fdopen(socket, "w");
 
+	setlinebuf(stdout); 
+	/* Because simulator typically runs with redirected stdout, 
+	we need to switch back to more expected behavior as in normal
+	 run of program in console */
+
 	if (comm_in == NULL || comm_out == NULL) {
 		perror("ERROR");
 		exit(-1);

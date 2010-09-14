@@ -75,3 +75,4 @@ class Simulation(EventSource):
 
 	def _simulator_output(self, line):
 		self.emit_event("output", "OUTPUT: " + line)
+		return True
