@@ -1,15 +1,15 @@
 
 import gtk
+import os
+import socket
 from subprocess import Popen, PIPE, STDOUT
 from threading import Thread, Lock
 
 
-class ProcessThread(Thread):
-	def __init__(self, process, line_callback, exit_callback):
+class ReadLineThread(Thread):
+	def __init__(self, stream):
 		Thread.__init__(self)
-		self.process = process
-		self.line_callback = line_callback
-		self.exit_callback = exit_callback
+		self.stream = stream
 		self.lock = Lock()
 		self.exit_flag = False
 		self.daemon = True
@@ -19,83 +19,142 @@ class ProcessThread(Thread):
 
 	def run(self):
 		while True:
-			line = self.process.stdout.readline()
+			line = self.stream.readline()
 			if line == "":
-				self.process.wait()
-				gtk.gdk.threads_enter()
-				try:
-					if self.exit_callback:
-						self.exit_callback(self.process.returncode)
-				finally:
-					gtk.gdk.threads_leave()
-				with process_list_lock:
-					process_list.remove(self.process)
+				self.on_exit()
 				return
 			with self.lock:
 				if self.exit_flag:
 					return
-			gtk.gdk.threads_enter()
-			try:
-				if not self.line_callback(line):
-					self.process.terminate()
-					return
-			finally:
-				gtk.gdk.threads_leave()
+			if not self.on_line(line):
+				return
+
+	def safe_call(self, callback, *params):
+		if callback is None:
+			return
+		gtk.gdk.threads_enter()
+		try:
+			return callback(*params)
+		finally:
+			gtk.gdk.threads_leave()
 
 	def set_exit_flag(self):
 		with self.lock:
 			self.exit_flag = True
 
+class ProcessThread(ReadLineThread):
+
+	def __init__(self, process, line_callback, exit_callback):
+		ReadLineThread.__init__(self, process.stdout)
+		self.process = process
+		self.line_callback = line_callback
+		self.exit_callback = exit_callback
+
+	def on_exit(self):
+		self.process.wait()
+		return self.safe_call(self.exit_callback, self.process.returncode)
+
+	def on_line(self, line):
+		return self.safe_call(self.line_callback, line)
+
+
+class ConnectionThread(ReadLineThread):
+
+	def __init__(self, stream, line_callback, exit_callback):
+		ReadLineThread.__init__(self, stream)
+		self.line_callback = line_callback
+		self.exit_callback = exit_callback
+
+	def on_exit(self):
+		return self.safe_call(self.exit_callback)
+
+	def on_line(self, line):
+		return self.safe_call(self.line_callback, line)
+
+
+
 class Process:
 	
-	def __init__(self, filename, line_callback, exit_callback):
+	def __init__(self, filename, line_callback = None, exit_callback = None):
 		self.filename = filename
 		self.line_callback = line_callback
 		self.exit_callback = exit_callback
 		self.cwd = None
 
 	def start(self, params = []):
-		self.process = Popen([ self.filename ] + params, bufsize = 0, stdin = PIPE, stdout = PIPE, stderr = STDOUT, cwd = self.cwd)
-		with process_list_lock:
-			process_list.append(self.process)
+		self._start_process(params)
 		self.pipe_in = self.process.stdin
+		self._start_thread()
+
+	def start_and_get_first_line(self, params = []):
+		self._start_process(params)
+		self.pipe_in = self.process.stdin
+		line = self.process.stdout.readline()
+		self._start_thread()
+		return line
+
+	def _start_process(self, params):
+		self.process = Popen([ self.filename ] + params, bufsize = 0, stdin = PIPE, stdout = PIPE, stderr = STDOUT, cwd = self.cwd)
+
+	def _start_thread(self):
 		self.thread = ProcessThread(self.process, self.line_callback, self.exit_callback)
 		self.thread.start()
 
-	def _write(self, string):
+	def write(self, string):
 		self.pipe_in.write(string)
 
 	def shutdown(self):
 		self.thread.set_exit_flag()
 		self.process.terminate()
 
-class CommandProcess(Process):
+class Connection:
 
-	def __init__(self, filename):
-		Process.__init__(self,filename, self._callback, None)
+	def __init__(self, hostname, port, line_callback = None, exit_callback = None):
+		self.hostname = hostname
+		self.port = port
+		self.line_callback = line_callback
+		self.exit_callback = exit_callback
+
+	def start(self):
+		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.sock.connect((self.hostname, self.port))
+		stream = os.fdopen(self.sock.fileno(),"r")
+		self.thread = ConnectionThread(stream, self.line_callback, self.exit_callback)
+		self.thread.start()
+
+	def write(self, text):
+		self.sock.send(text)
+
+	def shutdown(self):
+		self.sock.close()
+
+class CommandWrapper:
+
+	def __init__(self, backend):
+		self.backend = backend
 		self.callbacks = []
 		self.lock = Lock()
+
+	def start(self, *params):
+		self.backend.line_callback = self._line_callback
+		self.backend.start(*params)
 
 	def run_command(self, command, callback):
 		with self.lock:
 			self.callbacks.append(callback)
-		self._write(command + "\n")
+		self.backend.write(command + "\n")
 
-	def _callback(self, line):
+	def shutdown(self):
+		self.backend.shutdown()
+
+	def _line_callback(self, line):
 		if line.startswith("ERROR:"):
-			print "Process " + self.filename + ": " + line
+			print line
 			return False
+
 		with self.lock:
 			assert self.callbacks
 			cb = self.callbacks[0]
 			del self.callbacks[0]
 		cb(line)
 		return True
-
-def terminate_all_processes():
-	with process_list_lock:
-		for process in process_list:
-			process.terminate()
-
-process_list_lock = Lock()
-process_list = []

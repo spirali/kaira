@@ -151,7 +151,7 @@ class App:
 	def simulation_start(self):
 		def project_builded(project):
 			simulation = Simulation(project)
-			w = SimView(simulation)
+			w = SimView(self, simulation)
 			self.add_tab("Simulation", w, simulation, lambda s: simulation.shutdown())
 		project = self.project.copy()
 		self._start_project_build(project, project_builded)

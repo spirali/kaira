@@ -2,6 +2,7 @@
 import xml.etree.ElementTree as xml
 import process
 import utils
+import random
 from events import EventSource
 
 class Simulation(EventSource):
@@ -12,12 +13,18 @@ class Simulation(EventSource):
 	def __init__(self, project):
 		EventSource.__init__(self)
 		self.project = project
-		self.process = process.CommandProcess("../out/project")
-		self.process.start( ["-msim"] )
+		self.enabled_transitions = {}
+		self.random = random.Random()
+		self.process = process.Process("../out/project",self._simulator_output)
+		# FIXME: Timeout
+		port = int(self.process.start_and_get_first_line( ["-msim"] ))
+		self.controller = process.CommandWrapper(process.Connection("localhost", port))
+		self.controller.start()
 		self.query_reports()
 
 	def shutdown(self):
 		self.process.shutdown()
+		self.controller.shutdown()
 
 	def get_net(self):
 		return self.project.net
@@ -25,7 +32,7 @@ class Simulation(EventSource):
 	def query_reports(self):
 		def reports_callback(line):
 			self._process_report(xml.fromstring(line))
-		self.process.run_command("REPORTS", reports_callback)
+		self.controller.run_command("REPORTS", reports_callback)
 
 	def _process_report(self, root):
 		places = {}
@@ -43,13 +50,17 @@ class Simulation(EventSource):
 				if utils.xml_bool(transition_e, "enable"):
 					transitions[transition_id].append(iid)
 
+		net = self.get_net()
 		for p in places:
-			self.get_net().set_tokens(p, places[p])
+			net.set_tokens(p, places[p])
 
 		for t in transitions:
-			self.get_net().set_enable(t, len(transitions[t]) > 0)
-
+			net.set_enable(t, len(transitions[t]) > 0)
+		self.enabled_transitions = transitions
 		self.emit_event("changed")
 
 	def _process_tokens(self, place_e, iid):
 		return [ e.get("value") + "@" + str(iid) for e in place_e.findall("token") ]
+
+	def _simulator_output(self, line):
+		self.emit_event("output", "OUTPUT: " + line)
