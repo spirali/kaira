@@ -170,28 +170,28 @@ reportFunction project network = Function {
 	}
 	where
 		header = [ 
-			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "node", ExprCall ".node" [ ExprVar "ctx" ] ],
-			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "iid", ExprCall ".iid" [ ExprVar "ctx" ] ],
-			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "network-id", ExprInt (networkId network) ],
+			icall ".set" [ ExprVar "out", ExprString "node", ExprCall ".node" [ ExprVar "ctx" ] ],
+			icall ".set" [ ExprVar "out", ExprString "iid", ExprCall ".iid" [ ExprVar "ctx" ] ],
+			icall ".set" [ ExprVar "out", ExprString "network-id", ExprInt (networkId network) ],
 			IIf (ExprCall "._check_halt_flag" [ ExprVar "ctx" ])
-				(IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "running", ExprString "false" ])
-				(IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "running", ExprString "true"])]
+				(icall ".set" [ ExprVar "out", ExprString "running", ExprString "false" ])
+				(icall ".set" [ ExprVar "out", ExprString "running", ExprString "true"])]
 		reportPlace i p = [
-			IExpr $ ExprCall ".child" [ ExprVar "out", ExprString "place" ],
-			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "id", ExprInt (placeId p) ],
+			icall ".child" [ ExprVar "out", ExprString "place" ],
+			icall ".set" [ ExprVar "out", ExprString "id", ExprInt (placeId p) ],
 			IForeach "x" "x_c" (ExprAt (ExprInt i) (ExprVar "places")) [
-				IExpr $ ExprCall ".child" [ ExprVar "out", ExprString "token" ],
-				IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "value", ExprCall "Base.asString" [ ExprVar "x" ] ],
-				IExpr $ ExprCall ".back" [ ExprVar "out" ]
+				icall ".child" [ ExprVar "out", ExprString "token" ],
+				icall ".set" [ ExprVar "out", ExprString "value", ExprCall "Base.asString" [ ExprVar "x" ] ],
+				icall ".back" [ ExprVar "out" ]
 			],
-			IExpr $ ExprCall ".back" [ ExprVar "out"]] 
+			icall ".back" [ ExprVar "out"]] 
 		reportTransition t = [
-			IExpr $ ExprCall ".child" [ ExprVar "out", ExprString "transition" ],
-			IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "id", ExprInt (transitionId t) ],
+			icall ".child" [ ExprVar "out", ExprString "transition" ],
+			icall ".set" [ ExprVar "out", ExprString "id", ExprInt (transitionId t) ],
 			IIf (ExprCall (transitionEnableTestFunctionName t) [ ExprVar "ctx", ExprVar "places" ])
-				(IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "enable", ExprString "true" ])
-				(IExpr $ ExprCall ".set" [ ExprVar "out", ExprString "enable", ExprString "false"]),
-			IExpr $ ExprCall ".back" [ ExprVar "out" ]
+				(icall ".set" [ ExprVar "out", ExprString "enable", ExprString "true" ])
+				(icall ".set" [ ExprVar "out", ExprString "enable", ExprString "false"]),
+			icall ".back" [ ExprVar "out" ]
 			]
 
 
@@ -239,9 +239,9 @@ transitionOkEvent project network transition = IStatement [ ("var", transitionVa
 		placeExprOfEdge edge = ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places")
 		erase ((i, edge), dep) = safeErase (placeExprOfEdge edge) (counterName i) (map (counterName . fst) dep)
 		eraseDependancy = triangleDependancy (\(i1,e1) (i2,e2) -> edgePlaceId e1 == edgePlaceId e2) (zip [0..] (edgesIn transition))
-		call = IExpr $ ExprCall (workerFunctionName transition) [ ExprVar "ctx", ExprVar "var" ]
+		call = icall (workerFunctionName transition) [ ExprVar "ctx", ExprVar "var" ]
 		applyResult = map addToPlace localOutEdges
-		addToPlace edge = IExpr $ ExprCall "List.append" [
+		addToPlace edge = icall "List.append" [
 			ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places"), (preprocess . edgeExpr) edge ] {-ExprAt (varStrFromEdge edge) (ExprVar "var")-}
 		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
 {-		varStrFromEdge edge = let ExprVar x = edgeExpr edge in ExprString x {- Ugly hack, need flexibile code -}-}
@@ -320,7 +320,7 @@ recvStatement network place =
 
 {- This is not good aproach if there are more vars, but it now works -}
 safeErase :: Expression -> String -> [String] -> Instruction
-safeErase list v [] = IExpr $ ExprCall "List.eraseAt" [ list, ExprVar v ]
+safeErase list v [] = icall "List.eraseAt" [ list, ExprVar v ]
 safeErase list v deps = IStatement [ ("tmp", TInt) ] $ [ ISet (ExprVar "tmp") (ExprVar v) ] ++ erase deps
 	where 
 		erase [] = [ safeErase list "tmp" [] ]
@@ -386,7 +386,7 @@ startFunction network = Function {
 		initPlaceFromExpr p =
 			case placeInitExpr p of
 				Nothing -> INoop
-				Just x -> IExpr $ ExprCall "List.append" [ placeVar p, x ]
+				Just x -> icall "List.append" [ placeVar p, x ]
 	{-	startCode = \n\t(ctx, &places, tf, (RecvFn*) " ++ recvFunctionName network ++ ");"-}
 	
 createNetworkFunctions :: Project -> Network -> [Function]
@@ -418,7 +418,7 @@ createMainFunction project = Function {
 		IInline $ "const char *p_names[] = {" ++ addDelimiter "," [ "\"" ++ parameterName p ++ "\"" | p <- parameters ] ++ "};",
 		IInline $ "const char *p_descs[] = {" ++ addDelimiter "," [ "\"" ++ parameterDescription p ++ "\"" | p <- parameters ] ++ "};",
 		IInline $ "int *p_data[] = {" ++ addDelimiter "," [ "&" ++ (parameterGlobalName . parameterName) p | p <- parameters ] ++ "};",
-		IExpr $ ExprCall "ca_parse_args" [ ExprVar "argc", ExprVar "argv", ExprInt (length parameters), ExprVar "p_names", ExprVar "p_data", ExprVar "p_descs" ]
+		icall "ca_parse_args" [ ExprVar "argc", ExprVar "argv", ExprInt (length parameters), ExprVar "p_names", ExprVar "p_data", ExprVar "p_descs" ]
 	 ]
 
 processedInstances :: Network -> Expression
@@ -441,7 +441,7 @@ createMainInitFunction project = Function {
 		startNetworks = map startNetwork (networks project)
 		test1 n = ExprCall ">=" [ node, processedAddress n]
 		test2 n = ExprCall "<" [ node, ExprCall "+" [processedInstances n, processedAddress n]]
-		startI n = IExpr $ ExprCall (startFunctionName n) [ ExprVar "ctx" ]
+		startI n = icall (startFunctionName n) [ ExprVar "ctx" ]
 		startNetwork n = IIf (ExprCall "&&" [ test1 n, test2 n ]) (startI n) INoop
 		
 createProgram :: Project -> String
