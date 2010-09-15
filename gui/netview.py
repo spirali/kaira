@@ -3,6 +3,7 @@ import gtk
 import gtkutils
 import nettools
 from netcanvas import NetCanvas
+from net import EmptyVisualConfig
 
 action_cursor = { 
 	"none" : None,
@@ -104,7 +105,7 @@ class NetView(gtk.VBox):
 		return vbox
 
 	def _net_canvas(self):
-		c = NetCanvas(self.net, self._draw)
+		c = NetCanvas(self.net, self._draw, EmptyVisualConfig())
 		c.connect("button_press_event", self._button_down)
 		c.connect("button_release_event", self._button_up)
 		c.connect("motion_notify_event", self._mouse_move)

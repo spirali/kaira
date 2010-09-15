@@ -5,15 +5,18 @@ import utils
 import random
 from events import EventSource
 
+
 class Simulation(EventSource):
 	"""
-		Events: changed
+		Events: changed, output
 	"""
 
 	def __init__(self, project):
 		EventSource.__init__(self)
 		self.project = project
 		self.enabled_transitions = {}
+		self.areas_intances = {}
+		self.places_content = {}
 		self.random = random.Random()
 		self.process = process.Process("../out/project",self._simulator_output)
 		# FIXME: Timeout
@@ -28,6 +31,15 @@ class Simulation(EventSource):
 
 	def get_net(self):
 		return self.project.net
+
+	def get_area_instances_number(self, area):
+		return self.areas_intances[area.get_id()]
+
+	def is_transition_enabled(self, transition, iid):
+		return iid in self.enabled_transitions[transition.get_id()]
+
+	def get_tokens_of_place(self, place):
+		return self.places_content[place.get_id()]
 
 	def query_reports(self):
 		def reports_callback(line):
@@ -48,33 +60,30 @@ class Simulation(EventSource):
 		return self.enabled_transitions[transition.get_id()]
 
 	def _process_report(self, root):
-		places = {}
+		places_content = {}
 		transitions = {}
+		areas_intances = {}
 		for node_e in root.findall("node"):
+			area_id = utils.xml_int(node_e, "network-id")
+			areas_intances.setdefault(area_id,0)
+			areas_intances[area_id] += 1
 			iid = utils.xml_int(node_e,"iid")
 			running = utils.xml_bool(node_e, "running")
 			for place_e in node_e.findall("place"):
-				tokens = self._process_tokens(place_e, iid)
+				tokens = [ utils.xml_str(e,"value") for e in place_e.findall("token") ]
 				place_id = utils.xml_int(place_e,"id")
-				lst = places.setdefault(place_id, [])
-				lst += tokens
+				place_content = places_content.setdefault(place_id, {})
+				place_content[iid] = tokens
 			for transition_e in node_e.findall("transition"):
 				transition_id = utils.xml_int(transition_e, "id")
 				transitions.setdefault(transition_id,[])
 				if utils.xml_bool(transition_e, "enable") and running:
 					transitions[transition_id].append(iid)
 
-		net = self.get_net()
-		for p in places:
-			net.set_tokens(p, places[p])
-
-		for t in transitions:
-			net.set_enable(t, len(transitions[t]) > 0)
 		self.enabled_transitions = transitions
+		self.areas_intances = areas_intances
+		self.places_content = places_content
 		self.emit_event("changed")
-
-	def _process_tokens(self, place_e, iid):
-		return [ e.get("value") + "@" + str(iid) for e in place_e.findall("token") ]
 
 	def _simulator_output(self, line):
 		self.emit_event("output", "OUTPUT: " + line)

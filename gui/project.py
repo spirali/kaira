@@ -148,7 +148,7 @@ def load_configuration(element, project):
 		load_parameter(e, project)
 
 def new_empty_project():
-	#p = load_project("test1.proj")
+	#p = load_project("../samples/pingpong.proj")
 	#p.export("export.xml")
 	#return p
 

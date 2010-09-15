@@ -28,17 +28,17 @@ class Net:
 	def changed(self):
 		self.change_callback(self)
 
-	def draw(self, cr):
+	def draw(self, cr, vconfig):
 		for item in self.items:
 			if item.is_area():
-				item.draw(cr)
+				item.draw(cr, vconfig)
 
 		for item in self.items:
 			if not item.is_area():
-				item.draw(cr)
+				item.draw(cr, vconfig)
 
 		for item in self.items:
-			item.draw_top(cr)
+			item.draw_top(cr, vconfig)
 
 
 	def add_place(self, position):
@@ -69,6 +69,10 @@ class Net:
 		for item in self.items:
 			e.append(item.as_xml())
 		return e
+
+	def copy(self):
+		xml = self.as_xml()
+		return load_net(xml, self.project)
 
 	def get_item(self, id):
 		for i in self.items:
@@ -170,21 +174,6 @@ class Net:
 	def edges_of(self, item):
 		return [ i for i in self.items if i.is_edge() and (i.to_item == item or i.from_item == item) ]
 
-	def set_tokens(self, id, tokens):
-		item = self.get_item(id)
-		if item is not None and item.is_place():
-			item.set_tokens(tokens)
-		else:
-			raise Exception("Place '" + str(id) + "' not found")
-
-	def set_enable(self, id, value):
-		item = self.get_item(id)
-		if item is not None and item.is_transition():
-			item.set_enable(value)
-		else:
-			raise Exception("Transition '" + str(id) + "' not found")
-
-
 
 class NetItem(object):
 
@@ -227,7 +216,7 @@ class NetItem(object):
 		element.set("id", str(self.id))
 		return element
 
-	def draw_top(self, cr):
+	def draw_top(self, cr, vconfig):
 		pass
 
 class NetElement(NetItem):
@@ -275,11 +264,6 @@ class Transition(NetElement):
 		NetElement.__init__(self, net, position)
 		self.size = (70, 35)
 		self.name = ""
-		self.enable = False
-
-	def set_enable(self, value):
-		self.enable = value
-		self.changed()
 
 	def get_name(self):
 		return self.name
@@ -333,7 +317,7 @@ class Transition(NetElement):
 			e.append(ea)
 		return e
 
-	def draw(self, cr):
+	def draw(self, cr, vconfig):
 		#cr.move_to(self.position[0], self.position[1])
 		self._rect(cr)
 		cr.set_source_rgb(1.0,1.0,1.0)
@@ -346,7 +330,7 @@ class Transition(NetElement):
 			cr.set_source_rgb(0.86,0.86,0.0)
 			cr.stroke()
 
-		if self.enable:
+		if vconfig.is_transition_enabled(self):
 			self._rect(cr)
 			cr.set_line_width(8.5)
 			cr.set_source_rgba(0.1,0.90,0.1, 0.5)
@@ -435,11 +419,6 @@ class Place(NetElement):
 		self.radius = 20
 		self.place_type = ""
 		self.init_string = ""
-		self.tokens = []
-
-	def set_tokens(self, tokens):
-		self.tokens = tokens
-		self.changed()
 
 	def get_init_string(self):
 		return self.init_string
@@ -478,7 +457,7 @@ class Place(NetElement):
 			e.append(self.xml_code_element())
 		return e
 
-	def draw(self, cr):
+	def draw(self, cr, vconfig):
 		self._arc(cr)
 		cr.set_source_rgb(1,1,1)
 		cr.fill()
@@ -511,8 +490,9 @@ class Place(NetElement):
 			cr.move_to(self.position[0] + x, self.position[1] + x)
 			cr.show_text(self.place_type)
 
-	def draw_top(self, cr):
-		if self.tokens:
+	def draw_top(self, cr, vconfig):
+		tokens = vconfig.get_token_strings(self)
+		if tokens:
 			# Draw green circle
 			px, py = self.position
 			x = math.sqrt((self.radius * self.radius) / 2) + 15
@@ -525,14 +505,14 @@ class Place(NetElement):
 			cr.set_source_rgb(0,0,0)
 			cr.stroke()
 
-			count_text = str(len(self.tokens))
+			count_text = str(len(tokens))
 			w, h = utils.text_size(cr, count_text)
 			cr.set_source_rgb(0.8,0.8,0.8)
 			cr.move_to(px + self.radius - w/2, py + h/2)
 			cr.show_text(count_text)
 
 			# Print token names
-			texts = [ (t, utils.text_size(cr, t)) for t in self.tokens ]
+			texts = [ (t, utils.text_size(cr, t)) for t in tokens ]
 			text_height = sum([ x[1][1] for x in texts ])
 
 			cr.set_source_rgb(0.2,0.45,0)
@@ -641,7 +621,7 @@ class Edge(NetItem):
 			e.append(pe)
 		return e
 
-	def draw(self, cr):
+	def draw(self, cr, vconfig):
 		points = self.get_all_points()
 
 		if self.highlight:
@@ -712,6 +692,12 @@ class NetArea(NetItem):
 		self.size = size
 		self.count_expr = ""
 
+	def get_size(self):
+		return self.size
+
+	def get_position(self):
+		return self.position
+
 	def set_count_expr(self, count_expr):
 		self.count_expr = count_expr
 		self.changed()
@@ -719,7 +705,7 @@ class NetArea(NetItem):
 	def get_count_expr(self):
 		return self.count_expr
 
-	def draw(self, cr):
+	def draw(self, cr, vconfig):
 		cr.set_source_rgb(0.6,0.7,0.9)
 		self._rect(cr)
 		cr.fill()
@@ -788,6 +774,13 @@ class NetArea(NetItem):
 	def transitions(self):
 		return [ transition for transition in self.net.transitions() if self.is_inside(transition) ]
 
+class EmptyVisualConfig:
+
+	def is_transition_enabled(self, t):
+		return False
+
+	def get_token_strings(self, p):
+		return []
 
 def load_code(element):
 	if element.find("code") is not None:
