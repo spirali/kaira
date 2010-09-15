@@ -1,5 +1,6 @@
 from net import Place, Transition
 import utils
+import gtkutils
 
 class NetTool:
 
@@ -54,7 +55,7 @@ class NetTool:
 			if type(self.selected_item) in actions_dict:
 				menu_actions = actions_dict[type(self.selected_item)] + menu_actions
 			
-			self.netview.show_context_menu(event, menu_actions)
+			gtkutils.show_context_menu(menu_actions, event)
 
 	def net_changed(self):
 		if self.selected_item and not self.net.contains(self.selected_item):

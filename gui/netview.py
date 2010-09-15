@@ -170,12 +170,6 @@ class NetView(gtk.VBox):
 			if e[0] == text:
 				return e
 
-	def show_context_menu(self, event, menu_actions):
-		menu = gtkutils.build_menu(menu_actions)
-		menu.show_all()
-		menu.popup(None, None, None, event.button, event.get_time())
-
-
 	def _entry_changed(self, w):
 		if self.entry_types and self.entry_switch.get_active_text():
 			name, get, set = self.active_entry_type()

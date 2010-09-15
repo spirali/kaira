@@ -39,10 +39,13 @@ class Simulation(EventSource):
 		self.query_reports()
 
 	def fire_transition_random_instance(self, transition):
-		enabled_iids = self.enabled_transitions[transition.get_id()]
+		enabled_iids = self.enabled_instances_of_transition(transition)
 		if len(enabled_iids) > 0:
 			iid = self.random.choice(enabled_iids)
 			self.fire_transition(transition, iid)
+
+	def enabled_instances_of_transition(self, transition):
+		return self.enabled_transitions[transition.get_id()]
 
 	def _process_report(self, root):
 		places = {}

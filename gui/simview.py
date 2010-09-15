@@ -2,6 +2,7 @@ import gtk
 
 import project
 from netcanvas import NetCanvas
+import gtkutils
 
 class SimView(gtk.VBox):
 	def __init__(self, app, simulation):
@@ -25,11 +26,25 @@ class SimView(gtk.VBox):
 		return c
 
 	def _button_down(self, w, event):
+		if event.button == 3:
+			self._context_menu(event)
+			return
 		position = (event.x, event.y)
 		net = self.simulation.get_net()
 		t = net.get_transition(position)
 		if t:
 			self.simulation.fire_transition_random_instance(t)
+
+	def _context_menu(self, event):
+		def fire_fn(i):
+			return lambda w: self.simulation.fire_transition(t, i)
+		position = (event.x, event.y)
+		net = self.simulation.get_net()
+		t = net.get_transition(position)
+		if t:
+			iids = self.simulation.enabled_instances_of_transition(t)
+			if iids:
+				gtkutils.show_context_menu([("Fire " + str(i), fire_fn(i)) for i in iids ], event)
 
 	def _button_up(self, w, event):
 		pass

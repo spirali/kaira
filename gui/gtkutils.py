@@ -8,6 +8,11 @@ def build_menu(description):
 		menu.append(item)
 	return menu
 
+def show_context_menu(menu_actions, event):
+	menu = build_menu(menu_actions)
+	menu.show_all()
+	menu.popup(None, None, None, event.button, event.get_time())
+
 
 class SimpleList(gtk.ScrolledWindow):
 	
