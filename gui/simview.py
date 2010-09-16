@@ -1,7 +1,7 @@
 import gtk
 
 import project
-from netcanvas import NetCanvas, MultiCanvas
+from canvas import NetCanvas, MultiCanvas
 from net import EmptyVisualConfig
 import gtkutils
 import utils

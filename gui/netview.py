@@ -2,7 +2,7 @@
 import gtk
 import gtkutils
 import nettools
-from netcanvas import NetCanvas
+from canvas import NetCanvas
 from net import EmptyVisualConfig
 
 action_cursor = { 
