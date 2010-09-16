@@ -29,6 +29,7 @@ class SimView(gtk.VBox):
 		simulation.set_callback("output", lambda line: app.console_write(line, "output"))
 
 	def redraw(self):
+		self.instance_canvas.redraw()
 		self.canvas.redraw()
 
 	def get_net(self):
@@ -78,14 +79,23 @@ class SimView(gtk.VBox):
 		pos = utils.vector_diff(area.get_position(), (40, 40))
 		return (sz, pos)
 
+	def _on_instance_click(self, position, area, i):
+		net = self.simulation.get_net()
+		t = net.get_transition(position)
+		# FIXME: Only transitions inside area can be clicked
+		if t:
+			self.simulation.fire_transition(t, i)
+
 	def _simulation_changed(self):
-		def draw_callback(area, i):
+		def area_callbacks(area, i):
 			vconfig = InstanceVisualConfig(self.simulation, i)
-			return lambda cr: self.simulation.get_net().draw(cr, vconfig)
+			draw_fn = lambda cr: self.simulation.get_net().draw(cr, vconfig)
+			click_fn = lambda position: self._on_instance_click(position, area, i)
+			return (draw_fn, click_fn)
 		if not self.registered:
 			self.registered = True
 			for area in self.get_net().areas():
-				callbacks = [ draw_callback(area, i) for i in xrange(self.simulation.get_area_instances_number(area)) ]
+				callbacks = [ area_callbacks(area, i) for i in xrange(self.simulation.get_area_instances_number(area)) ]
 				sz, pos = self._view_for_area(area)
 				self.instance_canvas.register_line(sz, pos, callbacks)
 			self.instance_canvas.end_of_registration()

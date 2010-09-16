@@ -40,9 +40,15 @@ class MultiCanvas(gtk.DrawingArea):
 		self.lines = []
 		self.set_events(gtk.gdk.BUTTON_PRESS_MASK | gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.POINTER_MOTION_MASK)
 		self.connect("expose_event", self._expose)
+		self.connect("button_press_event", self._button_down)
 
-	def register_line(self, view_size, view_pos, draw_callbacks):
-		self.lines.append( (view_size, view_pos, draw_callbacks) )
+	def register_line(self, view_size, view_pos, callbacks):
+		""" callbacks is list of tuple for each area in line,
+			first element of tuple is draw_callback, second is click_callback """
+		self.lines.append( (view_size, view_pos, callbacks) )
+
+	def redraw(self):
+		self.queue_draw()
 
 	def end_of_registration(self):
 		if self.lines:
@@ -52,6 +58,25 @@ class MultiCanvas(gtk.DrawingArea):
 			self.size_x = 0
 			self.size_y = 0
 		self.set_size_request(self.size_x, self.size_y)
+
+	def _button_down(self, w, event):
+		position = (event.x, event.y)
+		pos_and_callbacks = self._find_area_callbacks(position)
+		if pos_and_callbacks is not None:
+			p, callbacks = pos_and_callbacks
+			callbacks[1](p)
+
+	def _find_area_callbacks(self, position):
+		""" Returns relative position and callbacks of area """
+		px, py = position
+		y = 0
+		for (sx, sy),(vx, vy),cbs in self.lines:
+			y += sy
+			if py < y:
+				i = int(px / sx)
+				if i < 0 or i >= len(cbs):
+					return None
+				return ((px % sx + vx, py - (y - sy) + vy), cbs[i])
 
 	def _expose(self, w, event):
 		cr = self.window.cairo_create()
@@ -70,12 +95,12 @@ class MultiCanvas(gtk.DrawingArea):
 
 		y = 0
 		for (sx,sy), (vx, vy), callbacks in self.lines:
-			for i,callback in enumerate(callbacks):
+			for i,(draw_cb, click_cb) in enumerate(callbacks):
 				cr.save()
 				cr.rectangle(sx * i, y, sx, sy)
 				cr.clip()
 				cr.translate(sx * i - vx, y - vy)
-				callback(cr)
+				draw_cb(cr)
 				cr.restore()
 			y += sy
 
