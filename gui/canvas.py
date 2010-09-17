@@ -100,7 +100,7 @@ class MultiCanvas(gtk.DrawingArea):
 				cr.rectangle(sx * i, y, sx, sy)
 				cr.clip()
 				cr.translate(sx * i - vx, y - vy)
-				draw_cb(cr)
+				draw_cb(cr, sx, sy, vx, vy)
 				cr.restore()
 			y += sy
 

@@ -6,6 +6,7 @@ from net import EmptyVisualConfig
 import gtkutils
 import utils
 
+
 class SimView(gtk.VBox):
 	def __init__(self, app, simulation):
 		gtk.VBox.__init__(self)
@@ -26,6 +27,7 @@ class SimView(gtk.VBox):
 		notebook.show_all()
 
 		simulation.set_callback("changed", self._simulation_changed)
+		simulation.set_callback("inited", self._simulation_inited)
 		simulation.set_callback("output", lambda line: app.console_write(line, "output"))
 
 	def redraw(self):
@@ -75,8 +77,8 @@ class SimView(gtk.VBox):
 		pass
 
 	def _view_for_area(self, area):
-		sz = utils.vector_add(area.get_size(), (80, 80))
-		pos = utils.vector_diff(area.get_position(), (40, 40))
+		sz = utils.vector_add(area.get_size(), (80, 95))
+		pos = utils.vector_diff(area.get_position(), (40, 55))
 		return (sz, pos)
 
 	def _on_instance_click(self, position, area, i):
@@ -86,10 +88,28 @@ class SimView(gtk.VBox):
 		if t:
 			self.simulation.fire_transition(t, i)
 
-	def _simulation_changed(self):
+	def _instance_draw(self, cr, width, height, vx, vy, vconfig, area, i):
+		self.simulation.get_net().draw(cr, vconfig)
+		cr.set_source_rgba(0.3,0.3,0.3,0.5)
+		cr.rectangle(vx,vy,width, 15)
+		cr.fill()
+		cr.move_to(vx + 10, vy + 11)
+		cr.set_source_rgb(1.0,1.0,1.0)
+		cr.show_text("node=%s   iid=%s" % (self.simulation.get_instance_node(area, i), i))
+		cr.stroke()
+
+		if not self.simulation.is_instance_running(area, i):
+			cr.move_to(vx + 10, vy + 26)
+			cr.set_source_rgb(1.0,0.1,0.1)
+			cr.show_text("HALTED")
+			cr.stroke()
+
+
+
+	def _simulation_inited(self):
 		def area_callbacks(area, i):
 			vconfig = InstanceVisualConfig(self.simulation, i)
-			draw_fn = lambda cr: self.simulation.get_net().draw(cr, vconfig)
+			draw_fn = lambda cr,w,h,vx,vy: self._instance_draw(cr, w, h, vx, vy, vconfig, area, i)
 			click_fn = lambda position: self._on_instance_click(position, area, i)
 			return (draw_fn, click_fn)
 		if not self.registered:
@@ -100,6 +120,9 @@ class SimView(gtk.VBox):
 				self.instance_canvas.register_line(sz, pos, callbacks)
 			self.instance_canvas.end_of_registration()
 			self.canvas.set_vconfig(OverviewVisualConfig(self.simulation))
+		self.redraw()
+
+	def _simulation_changed(self):
 		self.redraw()
 
 class OverviewVisualConfig:
