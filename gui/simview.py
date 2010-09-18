@@ -13,18 +13,17 @@ class SimView(gtk.VBox):
 		self.simulation = simulation
 		self.registered = False
 
-		notebook = gtk.Notebook()
-		notebook.set_tab_pos(gtk.POS_BOTTOM)
-		self.pack_start(notebook)
-
+		self.pack_start(self._buttons(), False, False)
 		self.canvas = self._create_canvas()
-		notebook.append_page(self.canvas, gtk.Label("Overview"))
 
-		sc = gtk.ScrolledWindow()
+		self.instance_canvas_sc = gtk.ScrolledWindow()
 		self.instance_canvas = self._create_instances_canvas()
-		sc.add_with_viewport(self.instance_canvas)
-		notebook.append_page(sc, gtk.Label("Instances"))
-		notebook.show_all()
+		self.instance_canvas_sc.add_with_viewport(self.instance_canvas)
+		self.instance_canvas.show_all()
+
+		self.pack_start(self.canvas)
+		self.show_all()
+		self.pack_start(self.instance_canvas_sc)
 
 		simulation.set_callback("changed", self._simulation_changed)
 		simulation.set_callback("inited", self._simulation_inited)
@@ -36,6 +35,23 @@ class SimView(gtk.VBox):
 
 	def get_net(self):
 		return self.simulation.get_net()
+
+	def _buttons(self):
+		button1 = gtk.ToggleButton("Instances")
+		button1.connect("toggled", self._view_change)
+
+		toolbar = gtk.Toolbar()
+		toolbar.add(button1)
+		toolbar.show_all()
+		return toolbar
+
+	def _view_change(self, button):
+		if button.get_active():
+			self.instance_canvas_sc.show()
+			self.canvas.hide()
+		else:
+			self.instance_canvas_sc.hide()
+			self.canvas.show()
 
 	def _create_canvas(self):
 		c = NetCanvas(self.get_net(), None, EmptyVisualConfig())
