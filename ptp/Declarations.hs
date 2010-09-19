@@ -16,9 +16,15 @@ data Type = TUndefined |
 	deriving (Show, Eq, Ord)
 
 type VarDeclaration = (String, Type) 
+type FunDeclaration = (String, Type, [Type])
 type VarSet = Set.Set String
 type TypeSet = Set.Set Type
 type ID = Int
+
+data Declarations = Declarations {
+	varDeclarations :: [VarDeclaration],
+	funDeclarations :: [FunDeclaration] 
+} deriving (Show, Eq)
 
 data Expression = 
 	ExprCall String [Expression] |
@@ -69,6 +75,7 @@ data Edge = Edge {
 	edgeExpr :: Expression, 
 	edgeTarget :: Maybe Expression
 } deriving (Show,Eq)
+
 
 data Transition = Transition { 
 	transitionId :: ID, 

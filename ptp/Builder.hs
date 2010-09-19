@@ -14,6 +14,23 @@ import Utils
 
 icall name params = IExpr $ ExprCall name params
 
+nelaFunctions = [
+	( "+", TInt, [TInt, TInt]),
+	( "*", TInt, [TInt, TInt ]),
+	( "iid", TInt, [])]
+
+nelaFunctionReturnType :: String -> Type
+nelaFunctionReturnType name =
+	case List.find (\(n, r, p) -> n == name) nelaFunctions of
+		Just (n, r, p) -> r
+		Nothing -> error $ "Unknown function: " ++ name
+
+nelaFunctionParams :: String -> [Type]
+nelaFunctionParams name =
+	case List.find (\(n, r, p) -> n == name) nelaFunctions of
+		Just (n, r, p) -> p
+		Nothing -> error $ "Unknown function: " ++ name
+
 tupleToVars ::
 	[VarDeclaration] ->
 	VarSet ->
@@ -21,11 +38,11 @@ tupleToVars ::
 	[Expression] ->
 	(VarSet -> String -> Expression -> ([VarDeclaration], [Instruction])) ->
 	([VarDeclaration], [Instruction])
-tupleToVars decls binded var exprs fn =
+tupleToVars vdecls binded var exprs fn =
 	( declarations' ++ declarations, instructions )
 	where
 		(declarations, instructions) = processExpr varNames exprs binded 0
-		declarations' = zip varNames $ map (exprType decls) exprs
+		declarations' = zip varNames $ map (exprType (makeDeclarations vdecls [])) exprs
 		varNames = take (length exprs) (newVars' var)
 		processExpr :: [String] -> [Expression] -> VarSet -> Int -> ([VarDeclaration], [Instruction])
 		processExpr [] _ _ _ = ([], [])
@@ -63,10 +80,11 @@ variableTypes project (ExprInt _) (TInt) = Map.empty
 variableTypes project (ExprTuple []) (TTuple []) = Map.empty
 variableTypes project (ExprTuple exprs) (TTuple types)
 	| length exprs == length types =
-		unionsVariableTypes $ map vtypes (zip exprs types)
-	where vtypes (e, t) = variableTypes project e t
+		unionsVariableTypes $ zipWith (variableTypes project) exprs types
 {- THIS REALLY NEED FIX! Function call result has to be checked -}
-variableTypes project (ExprCall _ []) _ = Map.empty
+variableTypes project (ExprCall name params) t 
+	| (nelaFunctionReturnType name == t) && (length params == length (nelaFunctionParams name)) = 
+		unionsVariableTypes $ zipWith (variableTypes project) params (nelaFunctionParams name)
 variableTypes project x y = error $ "Type inference failed: " ++ show x ++ "/" ++ show y
 
 placesTuple :: Network -> Type
@@ -78,6 +96,7 @@ processInputExpr fn (ExprVar x) = fn x
 processInputExpr fn (ExprParam x) = ExprVar $ parameterGlobalName x
 processInputExpr fn (ExprCall "iid" []) = ExprCall ".iid" [ ExprVar "ctx" ]
 processInputExpr fn (ExprCall "+" exprs) = ExprCall "+" [ processInputExpr fn expr | expr <- exprs ]
+processInputExpr fn (ExprCall "*" exprs) = ExprCall "*" [ processInputExpr fn expr | expr <- exprs ]
 processInputExpr fn (ExprTuple exprs) = ExprTuple [ processInputExpr fn expr | expr <- exprs ]
 processInputExpr fn x = error $ "Input expression contains: " ++ show x
 
@@ -258,7 +277,7 @@ sendInstructions project network transition =
 
 sendStatement :: Project -> Network -> Network -> Transition -> Edge -> Instruction
 sendStatement project fromNetwork toNetwork transition edge =
-	IStatement [ ("data", exprType decls expr) ] [ ISet (ExprVar "data") (preprocess expr),
+	IStatement [ ("data", placeTypeByEdge project edge) ] [ ISet (ExprVar "data") (preprocess expr),
 	IExpr (ExprCall "ca_send" [
 		ExprVar "ctx",
 		target,
@@ -268,7 +287,6 @@ sendStatement project fromNetwork toNetwork transition edge =
 	])]
 	where
 		expr = edgeExpr edge
-		decls = transitionFreeVariables project transition
 		placeType = placeTypeById' project (edgePlaceId edge)
 		dataId = ExprInt $ edgePlaceId edge
 		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e

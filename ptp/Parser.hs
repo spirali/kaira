@@ -5,14 +5,18 @@ module Parser (
 ) where
 
 import Text.ParserCombinators.Parsec
+import Text.ParserCombinators.Parsec.Expr
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.List as List
 
 import Declarations
 
+skipSpaces = skipMany space
+
 rawIntParser = do
 	ds <- many1 digit
+	skipSpaces
 	return (read ds)
 
 intParser = do
@@ -21,35 +25,48 @@ intParser = do
 
 identifierParser = do
 	ds <- many1 letter
-	skipMany space
+	skipSpaces
 	do {
 		exprs <- parenParamsParser;
+ 		skipSpaces;
 		return (ExprCall ds exprs)
 	} <|> return (ExprVar ds)
 
 parameterParser = do
 	char '#'
 	ls <- many1 letter
+	skipSpaces
 	return (ExprParam ls)
 
 separatorParser = do 
-	skipMany space
 	skipMany (char ',')
-	skipMany space
+	skipSpaces
 
 parenParamsParser = do
-	char '('
-	exprs <- sepBy expressionParser separatorParser
-	char ')'
+	exprs <- parens (sepBy expressionParser separatorParser)
+	skipSpaces
 	return exprs
 
 tupleParser = do
 	exprs <- parenParamsParser
-	return (ExprTuple exprs)
+	case exprs of
+		[x] -> return x
+		_ -> return (ExprTuple exprs)
+
+parens p = do
+	char '('
+	skipSpaces
+	x <- p
+	char ')'
+	skipSpaces
+	return x
 
 expressionParser :: Parser Expression
-expressionParser = do
-	intParser <|> parameterParser <|> identifierParser <|> tupleParser
+expressionParser = buildExpressionParser optable baseExpr
+optable = [ [ Infix opTimes AssocLeft ], [ Infix opAdd AssocLeft ] ]
+baseExpr    = intParser <|> parameterParser <|> identifierParser <|> tupleParser 
+opTimes   = string "*" >> skipSpaces >> return (\x y -> (ExprCall "*") [x, y])
+opAdd     = string "+" >> skipSpaces >> return (\x y -> (ExprCall "+") [x, y])
 
 intTypeParser :: Parser Type
 intTypeParser = do
@@ -91,7 +108,7 @@ parseType :: String -> Type
 parseType = parseSimple typeParser
 
 parseExpr :: String -> Expression
-parseExpr = parseSimple expressionParser
+parseExpr = parseSimple (skipSpaces >> expressionParser)
 
 parseExpr' :: String -> Maybe Expression
 parseExpr' "" = Nothing

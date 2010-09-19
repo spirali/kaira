@@ -14,11 +14,14 @@ import Declarations
 import Utils
 
 data Scope = Scope {
-	scopeDeclarations :: [VarDeclaration]
-}
+	scopeDeclarations :: Declarations
+} deriving (Show)
 
 data SourceCode = Text String | Join SourceCode SourceCode | Block SourceCode | Eol | Empty
 
+stdFunctions = [
+	("+", TInt, [TInt, TInt]),
+	("*", TInt, [TInt, TInt])]
 
 sourceCodeToStr :: SourceCode -> String
 sourceCodeToStr code = 
@@ -50,9 +53,9 @@ joinMap f (a:rest) = f a <+> joinMap f rest
 
 infixFunctions = [ "+", "-", "/", "*", "!=", "==", "||", "&&", ">=", "<=", ">", "<" ]
 
-addDeclarations :: Scope -> [VarDeclaration] -> Scope
+addDeclarations :: Scope -> Declarations -> Scope
 addDeclarations scope decls = 
-	Scope $ decls ++ (scopeDeclarations scope)
+	Scope $ decls `declarationsJoin` (scopeDeclarations scope)
 
 emitCall scope ('.':name) (obj:params) = 
 	emitExpression scope obj ++ dotOrArrow ++ name ++ "(" ++ (addDelimiter "," $ map (emitExpression scope) params) ++ ")"
@@ -95,9 +98,9 @@ emitExpression scope (ExprAddr expr) = "&(" ++ emitExpression scope expr ++ ")"
 emitExpression scope (ExprDeref expr) = "*(" ++ emitExpression scope expr ++ ")"
 emitExpression scope x = error $ "EmitExpression: " ++ (show x)
 
-emitDeclarations :: Scope -> [VarDeclaration] -> SourceCode
-emitDeclarations scope decls = 
-	joinMap declare decls 
+emitVarDeclarations :: Scope -> [VarDeclaration] -> SourceCode
+emitVarDeclarations scope vdecls = 
+	joinMap declare vdecls
 	where declare (name, t) = Text (typeString t ++ " " ++ name ++ ";") <+> Eol
 
 emitInstruction :: Scope -> Instruction -> SourceCode
@@ -106,8 +109,8 @@ emitInstruction scope (ISet expr1 expr2) = Text (emitExpression scope expr1 ++ "
 emitInstruction scope (IStatement decls instructions) = 
 	(Text "{") <+> Block (declarations <+> joinMap emit instructions) <+> (Text "}") <+> Eol
 	where 
-		emit i = emitInstruction (addDeclarations scope decls) i
-		declarations = emitDeclarations scope decls
+		emit i = emitInstruction (addDeclarations scope (declarationsFromVarList decls)) i
+		declarations = emitVarDeclarations scope decls
 emitInstruction scope (IReturn expr) = Text ("return " ++ emitExpression scope expr ++ ";") <+> Eol
 emitInstruction scope IContinue = Text "continue;" <+> Eol
 emitInstruction scope INoop = Empty
@@ -122,7 +125,8 @@ emitInstruction scope (IForeach var counterVar expr body) =
 		setVar = Text ((typeString elementType) ++ " " ++ var ++ " = " ++ emitExpression scope expr ++ "[" ++ counterVar ++ "];") <+> Eol
 		varDecl = "int " ++ counterVar ++ " = 0"
 		cycleTest = counterVar ++ " < " ++ arrayLen
-		emit = emitInstruction (addDeclarations scope [ (counterVar, TInt), (var, elementType) ])
+		emit = emitInstruction 
+			(addDeclarations scope (declarationsFromVarList [ (counterVar, TInt), (var, elementType) ]))
 emitInstruction scope (IInline str) = Text str <+> Eol
 emitInstruction scope (IIf expr branch1 INoop) =
 	Text ("if (" ++ emitExpression scope expr ++ ") ") <+> emitInstruction scope branch1
@@ -132,7 +136,7 @@ emitTupleMember index = "t_" ++ show index
 
 initialScope :: Function -> Scope
 initialScope function = Scope { scopeDeclarations = decls }
-	where decls = parameters function ++ declarations function
+	where decls = declarationsFromVarList $ parameters function ++ declarations function
 
 typeString :: Type -> String
 typeString (TArray t) = "std::vector<" ++ typeString t ++ ">"
@@ -152,8 +156,9 @@ typeSafeString (TPointer t) = "Ptr_" ++ typeSafeString t
 typeSafeString (TStruct name _) = name
 typeSafeString x = error $ "typeSafeString: " ++ show x
 
+declareVar :: Scope -> String -> String
 declareVar scope varName = 
-	case varType (declarations scope) varName of
+	case varType (scopeDeclarations scope) varName of
 		TUndefined -> error "Undefined variable cannot be defined"
 		t -> typeString t ++ " " ++ varName
 
@@ -171,7 +176,8 @@ emitFunction :: Function -> String
 emitFunction function = 
 	typeString (returnType function) ++ " " ++ (functionName function) ++ "(" ++ paramString ++ ")\n" ++ body
 	where 
-		body = sourceCodeToStr(emitInstruction scope (addConstructors (declarations function) statement))
+		decls = makeDeclarations (declarations function) stdFunctions
+		body = sourceCodeToStr(emitInstruction scope (addConstructors decls statement))
 		scope = initialScope function
 		paramString = addDelimiter "," $ declareParam (parameters function)
 		statement = IStatement (declarations function) $ (instructions function) ++ extraInstructions
@@ -216,8 +222,8 @@ emitTypeDeclaration (TStruct name decls) =
 		innerPart ((name, t):ts) = "\t" ++ typeString t ++ " " ++ name ++ ";\n" ++ innerPart ts
 emitTypeDeclaration _ = ""
 
-declarationTypes :: [VarDeclaration] -> TypeSet
-declarationTypes decls = Set.fromList $ [ t | (n,t) <- decls ]
+varDeclarationTypes :: [VarDeclaration] -> TypeSet
+varDeclarationTypes decls = Set.fromList $ [ t | (n,t) <- decls ]
 
 gatherExprTypes :: Expression -> TypeSet
 gatherExprTypes x = 
@@ -225,7 +231,7 @@ gatherExprTypes x =
 		Set.empty 
 	else 
 		Set.singleton t 
-	where t = exprType [] x  {- FIXME -}
+	where t = exprType (emptyDeclarations) x  {- FIXME -}
 
 gatherInstructionTypes :: Instruction -> TypeSet
 gatherInstructionTypes (IExpr expr) = gatherExprTypes expr
@@ -233,7 +239,7 @@ gatherInstructionTypes (ISet _ expr) = gatherExprTypes expr
 gatherInstructionTypes (IIf expr i1 i2) = 
 	Set.unions [ gatherExprTypes expr, gatherInstructionTypes i1, gatherInstructionTypes i2 ]
 gatherInstructionTypes (IStatement decls instrs) = 
-	Set.union (declarationTypes decls) $ Set.unions (map gatherInstructionTypes instrs)
+	Set.union (varDeclarationTypes decls) $ Set.unions (map gatherInstructionTypes instrs)
 gatherInstructionTypes (IForeach _ _ expr instrs) = 
 	Set.union (gatherExprTypes expr) $ Set.unions (map gatherInstructionTypes instrs)
 gatherInstructionTypes INoop = Set.empty
@@ -241,7 +247,7 @@ gatherInstructionTypes _ = Set.empty
 
 gatherTypes :: Function -> TypeSet 
 gatherTypes f = 
-	Set.unions $ [ declarationTypes (declarations f), declarationTypes (parameters f)] ++ 
+	Set.unions $ [ varDeclarationTypes (declarations f), varDeclarationTypes (parameters f)] ++ 
 		map gatherInstructionTypes (instructions f)
 
 {- 
@@ -311,18 +317,18 @@ printFunction (TArray t) =
 
 printFunction x = printFunctionHelper x []
 
-addConstructors :: [VarDeclaration] -> Instruction -> Instruction
-addConstructors decls i = 
-	mapExprs' addConstr decls i 
-	where 
-		addConstr decls (ExprTuple xs) = ExprCall (typeSafeString (exprType decls (ExprTuple xs))) $ map (addConstr decls) xs
-		addConstr decls (ExprCall name exprs) = ExprCall name $ map (addConstr decls) exprs
-		addConstr decls (ExprAt a b) = ExprAt (addConstr decls a) (addConstr decls b)
-		addConstr decls (ExprDeref e) = ExprDeref $ addConstr decls e
-		addConstr decls (ExprAddr e) = ExprAddr $ addConstr decls e
-		addConstr decls x = x
+addConstructors :: Declarations -> Instruction -> Instruction
+addConstructors decls i =
+	mapExprs' addConstr decls i
+	where
+       addConstr decls (ExprTuple xs) = ExprCall (typeSafeString (exprType decls (ExprTuple xs))) $ map (addConstr decls) xs
+       addConstr decls (ExprCall name exprs) = ExprCall name $ map (addConstr decls) exprs
+       addConstr decls (ExprAt a b) = ExprAt (addConstr decls a) (addConstr decls b)
+       addConstr decls (ExprDeref e) = ExprDeref $ addConstr decls e
+       addConstr decls (ExprAddr e) = ExprAddr $ addConstr decls e
+       addConstr decls x = x
 
-exprAsString :: [VarDeclaration] -> Expression -> Expression
+exprAsString :: Declarations -> Expression -> Expression
 exprAsString decls (ExprString x) = ExprString x
 exprAsString decls (ExprInt x) = ExprString $ show x
 exprAsString decls x = 

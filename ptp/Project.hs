@@ -6,6 +6,7 @@ module Project (
 	placeType,
 	placeTypeById,
 	placeTypeById',
+	placeTypeByEdge,
 	edgeNetwork,
 	parameterTypeByName,
 ) where
@@ -49,6 +50,9 @@ placeTypeById network id = placeType $ placeById network id
 
 placeTypeById' :: Project -> ID -> Type
 placeTypeById' project id = placeType $ placeById' project id
+
+placeTypeByEdge :: Project -> Edge -> Type
+placeTypeByEdge project edge = placeTypeById' project (edgePlaceId edge)
 
 qstr :: String -> Xml.QName
 qstr str = Xml.QName str Nothing Nothing

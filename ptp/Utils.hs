@@ -6,13 +6,35 @@ import qualified Data.Set as Set
 import qualified Data.Map as Map
 import Declarations
 
-varType :: [VarDeclaration] -> String -> Type
-varType decls vname = 
-	case List.lookup vname decls of
-	Just x -> x 
+declarationsJoin :: Declarations -> Declarations -> Declarations
+declarationsJoin da db = Declarations {
+	varDeclarations = varDeclarations da ++ varDeclarations db,
+	funDeclarations = funDeclarations da ++ funDeclarations db
+} 
+
+returnTypeOfFunction :: Declarations -> String -> Type
+returnTypeOfFunction declarations name =
+	case List.find (\(n, r, p) -> n == name) (funDeclarations declarations) of
+		Just (n, r, p) -> r
+		Nothing -> TUndefined
+
+makeDeclarations :: [VarDeclaration] -> [FunDeclaration] -> Declarations
+makeDeclarations vars funs = Declarations {
+	varDeclarations = vars,
+	funDeclarations = funs
+}
+
+declarationsFromVarList :: [VarDeclaration] -> Declarations 
+declarationsFromVarList vars = makeDeclarations vars []
+
+emptyDeclarations = makeDeclarations [] []
+
+varType :: Declarations -> String -> Type
+varType decls vname = case List.lookup vname (varDeclarations decls) of
+	Just x -> x
 	Nothing -> TUndefined
 
-exprType :: [VarDeclaration] -> Expression -> Type
+exprType :: Declarations -> Expression -> Type
 exprType declarations (ExprInt _) = TInt
 exprType declarations (ExprString _) = TString
 exprType declarations (ExprVar x) = varType declarations x
@@ -31,7 +53,7 @@ exprType declarations (ExprAt (ExprString s) place) =
 						Nothing -> error $ "exprType, item of struct not found"
 						Just y -> y
 		TUndefined -> TUndefined
-		x -> error $ "exprType: Unsuported type for ExprAt (string): " ++ show declarations
+		x -> error $ "exprType: Unsuported type for ExprAt (string): " ++ show x
 
 exprType declarations (ExprAt index place) = 
 	case exprType declarations place of
@@ -39,7 +61,7 @@ exprType declarations (ExprAt index place) =
 		TUndefined -> TUndefined
 		x -> error $ "exprType: Unsuported type for ExprAt: " ++ show x ++ "/" ++ show index
 exprType declarations (ExprAddr t) = TPointer $ exprType declarations t
-exprType declarations (ExprCall _ _) = TUndefined
+exprType declarations (ExprCall name _) = returnTypeOfFunction declarations name
 exprType declarations x = error $ "exprType unimplemented: " ++ show x
 
 newVars' :: String -> [String]
@@ -116,14 +138,14 @@ mapExprs fn (IStatement decls is) = IStatement decls $ map (mapExprs fn) is
 mapExprs fn (IForeach a b e is) = IForeach a b (fn e) $ map (mapExprs fn) is
 mapExprs fn x = x
 
-mapExprs' :: ([VarDeclaration] -> Expression -> Expression) -> [VarDeclaration] -> Instruction -> Instruction
+mapExprs' :: (Declarations -> Expression -> Expression) -> Declarations -> Instruction -> Instruction
 mapExprs' fn decls (IExpr e) = IExpr $ fn decls e
 mapExprs' fn decls (ISet e1 e2) = ISet (fn decls e1) (fn decls e2)
 mapExprs' fn decls (IIf e i1 i2) = IIf (fn decls e) (mapExprs' fn decls i1) (mapExprs' fn decls i2)
-mapExprs' fn decls (IStatement d is) = IStatement d $ map (mapExprs' fn (d++decls)) is
+mapExprs' fn decls (IStatement d is) = 
+	IStatement d $ map (mapExprs' fn ((declarationsFromVarList d) `declarationsJoin` decls)) is
 mapExprs' fn decls (IForeach a b e is) = IForeach a b (fn decls e) $ map (mapExprs' fn decls) is
 mapExprs' fn decls x = x
-
 
 triangleDependancy :: (a -> a -> Bool) -> [a] -> [(a, [a])]
 triangleDependancy fn list =
