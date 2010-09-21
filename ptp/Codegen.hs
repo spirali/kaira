@@ -12,6 +12,7 @@ import qualified Data.Set as Set
 import qualified Data.List as List
 import Declarations
 import Utils
+import ProjectTools
 
 data Scope = Scope {
 	scopeDeclarations :: Declarations
