@@ -8,6 +8,8 @@ module Project (
 	placeTypeById',
 	placeTypeByEdge,
 	edgeNetwork,
+	edgePlaceType,
+	isNormalEdge,
 	parameterTypeByName,
 ) where
 
@@ -88,7 +90,7 @@ edgeFromElement :: Xml.Element -> Edge
 edgeFromElement e = 
 	Edge { 
 		edgePlaceId = xmlAttrInt "place-id" e, 
-		edgeExpr = parseExpr $ xmlAttr "expr" e,
+		edgeInscription = parseEdgeInscription $ xmlAttr "expr" e,
 		edgeTarget = parseExpr' $ xmlAttr' "target" e ""
 	}
 
@@ -156,6 +158,14 @@ edgeNetwork project edge =
 		Nothing -> error "edgeNetwork: Network not found"
 	where 
 		edgeOfNetwork n = List.elem (edgePlaceId edge) (map placeId (places n))
+
+edgePlaceType :: Project -> Edge -> Type
+edgePlaceType project edge = placeTypeById' project (edgePlaceId edge)
+
+isNormalEdge :: Edge -> Bool
+isNormalEdge edge = case edgeInscription edge of
+	EdgeExpression _ -> True
+	_ -> False
 
 parameterTypeByName :: Project -> String -> Type
 parameterTypeByName project paramName = 

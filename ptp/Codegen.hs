@@ -63,6 +63,7 @@ emitCall scope ('.':name) (obj:params) =
 		case exprType (scopeDeclarations scope) obj of
 			TStruct _ _ -> "."
 			TPointer _ -> "->"
+			TData _ -> "."
 			_ -> error $ "Invalid type for calling method " ++ show obj
 
 emitCall scope "Base.asString" [x] = emitExpression scope $ exprAsString (scopeDeclarations scope) x

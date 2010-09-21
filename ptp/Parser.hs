@@ -2,6 +2,7 @@ module Parser (
 	parseType,
 	parseExpr,
 	parseExpr',
+	parseEdgeInscription,
 ) where
 
 import Text.ParserCombinators.Parsec
@@ -98,6 +99,17 @@ typeParser :: Parser Type
 typeParser = do
 	intTypeParser <|> dataTypeParser <|> tupleTypeParser
 
+edgePackingParser :: Parser (String, Maybe Expression)
+edgePackingParser = do
+	char '~'
+	s <- many1 letter
+	skipSpaces
+	do { x <- (parens expressionParser); return (s, Just x) } <|> return (s, Nothing)
+
+edgeInscriptionParser :: Parser EdgeInscription
+edgeInscriptionParser = 
+	do { (name, limit) <- edgePackingParser; return (EdgePacking name limit) } <|> (expressionParser >>= (return . EdgeExpression))
+
 parseSimple :: Parser a -> String -> a
 parseSimple parser str = 
 	case parse parser "" str of
@@ -113,3 +125,6 @@ parseExpr = parseSimple (skipSpaces >> expressionParser)
 parseExpr' :: String -> Maybe Expression
 parseExpr' "" = Nothing
 parseExpr' x = Just $ parseExpr x
+
+parseEdgeInscription :: String -> EdgeInscription 
+parseEdgeInscription = parseSimple (skipSpaces >> edgeInscriptionParser)

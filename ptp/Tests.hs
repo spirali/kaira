@@ -3,7 +3,7 @@ import Test.HUnit
 import Parser
 import Declarations
 
-testParser = TestCase $ do
+testExprParser = TestCase $ do
 	exprTest "  x   " (ExprVar "x")
 	exprTest "  10  " (ExprInt 10)
 	exprTest "(x,20,(30, y ) ) " 
@@ -19,6 +19,15 @@ testParser = TestCase $ do
 	where exprTest str result = 
 		assertEqual str (parseExpr str) result
 
-tests = TestList [ testParser ]
+testEdgeInscriptionParser = TestCase $ do
+	exprTest "~name" (EdgePacking "name" Nothing)
+	exprTest "  ~name   " (EdgePacking "name" Nothing)
+	exprTest " ~xx (5)  " (EdgePacking "xx" (Just (ExprInt 5)))
+	exprTest " ~xx ( 5)  " (EdgePacking "xx" (Just (ExprInt 5)))
+	exprTest "5 * v" (EdgeExpression (ExprCall "*" [ ExprInt 5, ExprVar "v" ]))
+	where exprTest str result = 
+		assertEqual str (parseEdgeInscription str) result
+
+tests = TestList [ testExprParser, testEdgeInscriptionParser ]
 
 main = runTestTT tests

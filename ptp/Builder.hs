@@ -14,20 +14,21 @@ import Utils
 
 icall name params = IExpr $ ExprCall name params
 
-nelaFunctions = [
+-- |Function allowed in inscription language
+nelFunctions = [
 	( "+", TInt, [TInt, TInt]),
 	( "*", TInt, [TInt, TInt ]),
 	( "iid", TInt, [])]
 
-nelaFunctionReturnType :: String -> Type
-nelaFunctionReturnType name =
-	case List.find (\(n, r, p) -> n == name) nelaFunctions of
+nelFunctionReturnType :: String -> Type
+nelFunctionReturnType name =
+	case List.find (\(n, r, p) -> n == name) nelFunctions of
 		Just (n, r, p) -> r
 		Nothing -> error $ "Unknown function: " ++ name
 
-nelaFunctionParams :: String -> [Type]
-nelaFunctionParams name =
-	case List.find (\(n, r, p) -> n == name) nelaFunctions of
+nelFunctionParams :: String -> [Type]
+nelFunctionParams name =
+	case List.find (\(n, r, p) -> n == name) nelFunctions of
 		Just (n, r, p) -> p
 		Nothing -> error $ "Unknown function: " ++ name
 
@@ -83,8 +84,8 @@ variableTypes project (ExprTuple exprs) (TTuple types)
 		unionsVariableTypes $ zipWith (variableTypes project) exprs types
 {- THIS REALLY NEED FIX! Function call result has to be checked -}
 variableTypes project (ExprCall name params) t 
-	| (nelaFunctionReturnType name == t) && (length params == length (nelaFunctionParams name)) = 
-		unionsVariableTypes $ zipWith (variableTypes project) params (nelaFunctionParams name)
+	| (nelFunctionReturnType name == t) && (length params == length (nelFunctionParams name)) = 
+		unionsVariableTypes $ zipWith (variableTypes project) params (nelFunctionParams name)
 variableTypes project x y = error $ "Type inference failed: " ++ show x ++ "/" ++ show y
 
 placesTuple :: Network -> Type
@@ -135,7 +136,7 @@ checkEdges network decls binded processedEdges (edge:rest) level okEvent =
 			checkEdges network decls (Set.union binded $ freeVariables expr) (edge:processedEdges) rest (level + 1) okEvent
 		]
 	where
-		expr = edgeExpr edge
+		EdgeExpression expr = edgeInscription edge
 		varCounterName level = "c_" ++ show level ++ "_i"
 		var = "c_" ++ show level
 		compRestrictions :: [Edge] -> Int -> [String]
@@ -147,15 +148,22 @@ checkEdges network decls binded processedEdges (edge:rest) level okEvent =
 transitionFunctionName :: Transition -> String
 transitionFunctionName transition = "transition_" ++ show (transitionId transition)
 
+-- |Return all variables in edge (main expression, target, limit)
+extractEdgeVariables :: Project -> Edge -> [Map.Map String Type]
+extractEdgeVariables project edge =
+	case edgeInscription edge of
+		EdgeExpression x -> (variableTypes project x (edgePlaceType project edge)) : targetExpr
+		EdgePacking name (Just x) -> [ Map.singleton name $ TArray (edgePlaceType project edge), (variableTypes project x TInt) ] ++ targetExpr
+		EdgePacking name Nothing -> (Map.singleton name $ TArray (edgePlaceType project edge)) : targetExpr
+	where targetExpr = case edgeTarget edge of
+		Just x -> [(variableTypes project x TInt)]
+		Nothing -> []
+
 edgesFreeVariables :: Project -> [Edge] -> [VarDeclaration]
 edgesFreeVariables project edges =
 	Map.toList declsMap
 	where
-		exprs = map edgeExpr edges
-		placeTypes = map ((placeTypeById' project).edgePlaceId) edges
-		declsMap = unionsVariableTypes $ (map vtypes (zip exprs placeTypes)) ++ Maybe.catMaybes (map (targetType . edgeTarget) edges)
-		vtypes (e, t) = variableTypes project e t
-		targetType m = do { x <- m; return (variableTypes project x TInt) }
+		declsMap = unionsVariableTypes $ concatMap (extractEdgeVariables project) edges
 
 {- On edges in & out -}
 transitionFreeVariables :: Project -> Transition -> [VarDeclaration]
@@ -170,6 +178,7 @@ transitionFreeVariablesOut :: Project -> Transition -> [VarDeclaration]
 transitionFreeVariablesOut project transition =
 	edgesFreeVariables project (edgesOut transition)
 
+-- |Remove edges that has not place in network
 transitionFilterEdges :: Network -> [Edge] -> [Edge]
 transitionFilterEdges network edges =
 	filter edgeFromNetwork edges
@@ -244,13 +253,12 @@ transitionEnableTestFunction project network transition = Function {
 		instructions = checkEdges network decls Set.empty [] (edgesIn transition) 0 (IReturn $ ExprInt 1)
 
 {-
-	Erasing dependancy is added for reasen that { List.eraseAt(l, x); List.eraseAt(l, y); } is problem if x < y
+	Erasing dependancy is added for reason that { List.eraseAt(l, x); List.eraseAt(l, y); } is problem if x < y
 -}
 transitionOkEvent project network transition = IStatement [ ("var", transitionVarType project transition) ] body
 	where
 		body = map erase eraseDependancy ++ map setVar decls ++ [ call ] ++ applyResult ++
 				(sendInstructions project network transition) ++ [ IReturn (ExprInt 1) ]
-		{-sendInstructions _ _ _ = []-}
 		localOutEdges = filter (Maybe.isNothing . edgeTarget) $ transitionFilterEdges network (edgesOut transition)
 		setVar (name, _) = ISet (ExprAt (ExprString name) (ExprVar "var")) (ExprVar name)
 		decls = transitionFreeVariablesIn project transition
@@ -260,10 +268,14 @@ transitionOkEvent project network transition = IStatement [ ("var", transitionVa
 		eraseDependancy = triangleDependancy (\(i1,e1) (i2,e2) -> edgePlaceId e1 == edgePlaceId e2) (zip [0..] (edgesIn transition))
 		call = icall (workerFunctionName transition) [ ExprVar "ctx", ExprVar "var" ]
 		applyResult = map addToPlace localOutEdges
-		addToPlace edge = icall "List.append" [
-			ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places"), (preprocess . edgeExpr) edge ] {-ExprAt (varStrFromEdge edge) (ExprVar "var")-}
+		addToPlace edge = case edgeInscription edge of
+			EdgeExpression expr -> addToPlaceOne edge expr
+			EdgePacking name _ -> addToPlaceMany edge name
+		addToPlaceOne edge expr = icall "List.append" [ placeExpr edge, (preprocess expr) ]
+		addToPlaceMany edge name = IForeach "token" "token_c" (ExprAt (ExprString name) (ExprVar "var")) 
+			[ icall "List.append" [ placeExpr edge, ExprVar "token" ]]
+		placeExpr edge = ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places")
 		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
-{-		varStrFromEdge edge = let ExprVar x = edgeExpr edge in ExprString x {- Ugly hack, need flexibile code -}-}
 
 sendInstructions :: Project -> Network -> Transition -> [Instruction]
 sendInstructions project network transition =
@@ -276,18 +288,36 @@ sendInstructions project network transition =
 		networkAndEdges = filter (\(_, x, _) -> x /= []) networkAndEdgesAll -}
 
 sendStatement :: Project -> Network -> Network -> Transition -> Edge -> Instruction
-sendStatement project fromNetwork toNetwork transition edge =
+{- Version for normal edges -}
+sendStatement project fromNetwork toNetwork transition edge | isNormalEdge edge =
 	IStatement [ ("data", placeTypeByEdge project edge) ] [ ISet (ExprVar "data") (preprocess expr),
 	IExpr (ExprCall "ca_send" [
 		ExprVar "ctx",
 		target,
 		dataId,
 		ExprAddr $ ExprVar "data",
-		ExprCall "sizeof" [ExprVar (typeString placeType)]
+		ExprCall "sizeof" [ExprVar (typeString $ placeTypeByEdge project edge)]
 	])]
 	where
-		expr = edgeExpr edge
-		placeType = placeTypeById' project (edgePlaceId edge)
+		EdgeExpression expr = edgeInscription edge
+		dataId = ExprInt $ edgePlaceId edge
+		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
+		target =  ExprCall "+" [ (processedAddress toNetwork),
+			(preprocess . Maybe.fromJust . edgeTarget) edge ]
+{- Version for packing edge -}
+sendStatement project fromNetwork toNetwork transition edge =
+	IStatement [ ("target", TInt) ]
+	 [ ISet (ExprVar "target") target,
+	IForeach "data" "i" (ExprAt (ExprString name) (ExprVar "var")) [
+	icall "ca_send" [
+		ExprVar "ctx",
+		ExprVar "target",
+		dataId,
+		ExprAddr $ ExprVar "data",
+		ExprCall "sizeof" [ExprVar (typeString (edgePlaceType project edge))]
+	]]]
+	where
+		EdgePacking name limit = edgeInscription edge
 		dataId = ExprInt $ edgePlaceId edge
 		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
 		target =  ExprCall "+" [ (processedAddress toNetwork),
@@ -472,3 +502,4 @@ createProgram project =
 		mainF = createMainFunction project
 
 test = readFile "../out/project.xml" >>= return . createProgram . projectFromXml >>= writeFile "../out/project.cpp"
+test2 = readFile "../out/project.xml" >>= return . projectFromXml

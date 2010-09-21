@@ -72,10 +72,11 @@ instance Eq Place where p1 == p2 = placeId p1 == placeId p2
 
 data Edge = Edge { 
 	edgePlaceId :: ID,
-	edgeExpr :: Expression, 
+	edgeInscription :: EdgeInscription, 
 	edgeTarget :: Maybe Expression
 } deriving (Show,Eq)
 
+data EdgeInscription = EdgeExpression Expression | EdgePacking String (Maybe Expression) deriving (Show, Eq)
 
 data Transition = Transition { 
 	transitionId :: ID, 
