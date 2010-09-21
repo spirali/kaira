@@ -9,6 +9,7 @@ import qualified Data.List as List
 import qualified Data.Maybe as Maybe
 import Parser
 import Project
+import ProjectTools
 import Codegen
 import Utils
 

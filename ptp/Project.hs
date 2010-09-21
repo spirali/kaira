@@ -15,6 +15,7 @@ module Project (
 
 import Declarations
 import Parser
+import ProjectTools
 import qualified Data.Map as Map
 import qualified Data.Maybe as Maybe
 import qualified Data.List as List
@@ -99,7 +100,7 @@ transitionFromElement e =
 	Transition { 
 		transitionName = name, 
 		transitionId = id, 
-		edgesIn = edgesIn, 
+		edgesIn = orderEdgesByDependancy edgesIn, 
 		edgesOut = edgesOut, 
 		transitionCode = codeContent e,
 		target = ExprInt 0
@@ -161,11 +162,6 @@ edgeNetwork project edge =
 
 edgePlaceType :: Project -> Edge -> Type
 edgePlaceType project edge = placeTypeById' project (edgePlaceId edge)
-
-isNormalEdge :: Edge -> Bool
-isNormalEdge edge = case edgeInscription edge of
-	EdgeExpression _ -> True
-	_ -> False
 
 parameterTypeByName :: Project -> String -> Type
 parameterTypeByName project paramName = 

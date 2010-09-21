@@ -67,12 +67,6 @@ exprType declarations x = error $ "exprType unimplemented: " ++ show x
 newVars' :: String -> [String]
 newVars' prefix = map (\x -> prefix ++ "_" ++ show x) [1 .. ]
 
-freeVariables :: Expression -> VarSet
-freeVariables (ExprVar x) = Set.singleton x
-freeVariables (ExprInt _) = Set.empty
-freeVariables (ExprTuple exprs) = Set.unions $ map freeVariables exprs
-freeVariables (ExprCall _ exprs) = Set.unions $ map freeVariables exprs
-
 mapVars :: (String -> Expression) -> Expression -> Expression
 mapVars fn (ExprVar x) = fn x
 mapVars fn (ExprTuple exprs) = ExprTuple [ mapVars fn e | e <- exprs ]
@@ -92,9 +86,6 @@ isDefined t = not $ isUndefined t
 freeVarsFromStruct :: Expression -> Expression -> Expression
 freeVarsFromStruct structExpr expr =
 	mapVars (\varName -> ExprAt (ExprString varName) structExpr) expr
-
-freeVariablesList :: Expression -> [String]
-freeVariablesList = Set.toList . freeVariables
 
 callIfMore :: String -> [Expression] -> Expression
 callIfMore _ [] = error "callIfMore called with empty list"

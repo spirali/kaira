@@ -2,6 +2,7 @@
 import Test.HUnit
 import Parser
 import Declarations
+import ProjectTools
 
 testExprParser = TestCase $ do
 	exprTest "  x   " (ExprVar "x")
@@ -28,6 +29,13 @@ testEdgeInscriptionParser = TestCase $ do
 	where exprTest str result = 
 		assertEqual str (parseEdgeInscription str) result
 
-tests = TestList [ testExprParser, testEdgeInscriptionParser ]
+testEdgeOrdering = TestCase $ do
+	assertEqual "ordering" (orderEdgesByDependancy edges1) edges2
+	where 
+		e x = Edge { edgePlaceId = 0, edgeInscription = parseEdgeInscription x, edgeTarget = Nothing }
+		edges1 = [ e "(x + 1, y + 1, z + 1)", e "~x", e "(x, z + 1)", e "(y, z)", e "y + 2", e "~ff(y)" ]
+		edges2 = [ e "(y, z)", e "(x, z + 1)", e "y + 2", e "(x + 1, y + 1, z + 1)", e "~x", e "~ff(y)" ] 
+
+tests = TestList [ testExprParser, testEdgeInscriptionParser, testEdgeOrdering ]
 
 main = runTestTT tests
