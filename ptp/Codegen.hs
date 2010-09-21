@@ -68,6 +68,8 @@ emitCall scope ('.':name) (obj:params) =
 			_ -> error $ "Invalid type for calling method " ++ show obj
 
 emitCall scope "Base.asString" [x] = emitExpression scope $ exprAsString (scopeDeclarations scope) x
+emitCall scope "List.size" [e1] = emitExpression scope e1 ++ ".size()"
+emitCall scope "List.clear" [e1] = emitExpression scope e1 ++ ".clear()"
 emitCall scope "List.eraseAt" [e1,e2] = 
 	emitExpression scope e1 ++ ".erase(" ++ emitExpression scope e1 ++ ".begin()+" ++ emitExpression scope e2 ++ ")"
 emitCall scope "List.append" [e1,e2] = 

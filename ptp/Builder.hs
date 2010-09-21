@@ -131,7 +131,8 @@ processEdge network (Edge placeId expr _) var restrictions body =
 
 checkEdges :: Network -> [VarDeclaration] -> VarSet -> [Edge] -> [Edge] -> Int -> Instruction -> Instruction
 checkEdges network decls binded processedEdges [] level okEvent = okEvent
-checkEdges network decls binded processedEdges (edge:rest) level okEvent =
+{- Variant for normal edges -}
+checkEdges network decls binded processedEdges (edge:rest) level okEvent | isNormalEdge edge =
 	processEdge network edge var (compRestrictions processedEdges 0) [
 		 	patternCheckStatement decls binded var (processInputExpr ExprVar expr) IContinue,
 			checkEdges network decls (Set.union binded $ freeVariables expr) (edge:processedEdges) rest (level + 1) okEvent
@@ -145,6 +146,21 @@ checkEdges network decls binded processedEdges (edge:rest) level okEvent =
 		compRestrictions (e:es) level
 			| edgePlaceId edge == edgePlaceId e = (varCounterName level):compRestrictions es (level + 1)
 			| otherwise = compRestrictions es (level + 1)
+
+{- Variant for packing edges -}
+checkEdges network decls binded processedEdges (edge:rest) level okEvent =
+	IStatement [] [
+		IIf (ExprCall "<" [ ExprCall "List.size" [ placeExpr ], ExprCall "-" [ limitExpr, ExprInt (length edgesWithSamePlace)]])
+			(IReturn (ExprInt 0)) INoop,
+		(checkEdges network decls binded (edge:processedEdges) rest (level + 1) okEvent)
+	]
+	where
+		edgesWithSamePlace = [ e | e <- processedEdges, edgePlaceId e == edgePlaceId edge ]
+		EdgePacking name limit = edgeInscription edge
+		limitExpr = case limit of
+			Just x -> x
+			Nothing -> error "Limit on input edge is not defined"
+		placeExpr = ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places")
 
 transitionFunctionName :: Transition -> String
 transitionFunctionName transition = "transition_" ++ show (transitionId transition)
@@ -258,7 +274,7 @@ transitionEnableTestFunction project network transition = Function {
 -}
 transitionOkEvent project network transition = IStatement [ ("var", transitionVarType project transition) ] body
 	where
-		body = map erase eraseDependancy ++ map setVar decls ++ [ call ] ++ applyResult ++
+		body = map erase eraseDependancy ++ packing ++ map setVar decls ++ [ call ] ++ applyResult ++
 				(sendInstructions project network transition) ++ [ IReturn (ExprInt 1) ]
 		localOutEdges = filter (Maybe.isNothing . edgeTarget) $ transitionFilterEdges network (edgesOut transition)
 		setVar (name, _) = ISet (ExprAt (ExprString name) (ExprVar "var")) (ExprVar name)
@@ -266,7 +282,7 @@ transitionOkEvent project network transition = IStatement [ ("var", transitionVa
 		counterName i = "c_" ++ show i ++ "_i"
 		placeExprOfEdge edge = ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places")
 		erase ((i, edge), dep) = safeErase (placeExprOfEdge edge) (counterName i) (map (counterName . fst) dep)
-		eraseDependancy = triangleDependancy (\(i1,e1) (i2,e2) -> edgePlaceId e1 == edgePlaceId e2) (zip [0..] (edgesIn transition))
+		eraseDependancy = triangleDependancy (\(i1,e1) (i2,e2) -> edgePlaceId e1 == edgePlaceId e2) (zip [0..] [ e | e <- edgesIn transition, isNormalEdge e ])
 		call = icall (workerFunctionName transition) [ ExprVar "ctx", ExprVar "var" ]
 		applyResult = map addToPlace localOutEdges
 		addToPlace edge = case edgeInscription edge of
@@ -277,6 +293,10 @@ transitionOkEvent project network transition = IStatement [ ("var", transitionVa
 			[ icall "List.append" [ placeExpr edge, ExprVar "token" ]]
 		placeExpr edge = ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places")
 		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
+		packing = concat [ packingEdge e | e <- edgesIn transition, not (isNormalEdge e) ]
+		packingEdge e = let EdgePacking name _ = edgeInscription e in
+			[ ISet (ExprVar name) (placeExprOfEdge e),
+			  icall "List.clear" [ placeExprOfEdge e ] ]
 
 sendInstructions :: Project -> Network -> Transition -> [Instruction]
 sendInstructions project network transition =
