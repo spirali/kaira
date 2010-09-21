@@ -124,7 +124,7 @@ class SimView(gtk.VBox):
 
 	def _simulation_inited(self):
 		def area_callbacks(area, i):
-			vconfig = InstanceVisualConfig(self.simulation, i)
+			vconfig = InstanceVisualConfig(self.simulation, area, i)
 			draw_fn = lambda cr,w,h,vx,vy: self._instance_draw(cr, w, h, vx, vy, vconfig, area, i)
 			click_fn = lambda position: self._on_instance_click(position, area, i)
 			return (draw_fn, click_fn)
@@ -158,13 +158,17 @@ class OverviewVisualConfig:
 
 class InstanceVisualConfig:
 
-	def __init__(self, simulation, iid):
+	def __init__(self, simulation, area, iid):
 		self.simulation = simulation
+		self.area = area
 		self.iid = iid
 
 	def get_token_strings(self, place):
-		tokens = self.simulation.get_tokens_of_place(place)
-		return tokens[self.iid]
+		if self.area.is_inside(place):
+			tokens = self.simulation.get_tokens_of_place(place)
+			return tokens[self.iid]
+		else:
+			return []
 
 	def is_transition_enabled(self, transition):
 		return self.simulation.is_transition_enabled(transition, self.iid)
