@@ -150,7 +150,7 @@ checkEdges network decls binded processedEdges (edge:rest) level okEvent | isNor
 {- Variant for packing edges -}
 checkEdges network decls binded processedEdges (edge:rest) level okEvent =
 	IStatement [] [
-		IIf (ExprCall "<" [ ExprCall "List.size" [ placeExpr ], ExprCall "-" [ limitExpr, ExprInt (length edgesWithSamePlace)]])
+		IIf (ExprCall "<" [ ExprCall "List.size" [ placeExpr ], ExprCall "+" [ limitExpr, ExprInt (length edgesWithSamePlace)]])
 			(IReturn (ExprInt 0)) INoop,
 		(checkEdges network decls binded (edge:processedEdges) rest (level + 1) okEvent)
 	]
