@@ -264,12 +264,20 @@ class Transition(NetElement):
 		NetElement.__init__(self, net, position)
 		self.size = (70, 35)
 		self.name = ""
+		self.guard = ""
 
 	def get_name(self):
 		return self.name
 
 	def set_name(self, name):
 		self.name = name
+		self.changed()
+
+	def get_guard(self):
+		return self.guard
+
+	def set_guard(self, guard):
+		self.guard = guard
 		self.changed()
 
 	def get_size(self):
@@ -281,6 +289,7 @@ class Transition(NetElement):
 	def as_xml(self):
 		e = self.create_xml_element("transition")
 		e.set("name", self.name)
+		e.set("guard", self.guard)
 		e.set("x", str(self.position[0]))
 		e.set("y", str(self.position[1]))
 		e.set("sx", str(self.size[0]))
@@ -305,6 +314,7 @@ class Transition(NetElement):
 
 		e = self.create_xml_element("transition")
 		e.set("name", self.name)
+		e.set("guard", self.guard)
 		if self.has_code():
 			e.append(self.xml_code_element())
 
@@ -352,6 +362,12 @@ class Transition(NetElement):
 			cr.set_source_rgb(0,0,0)
 			cr.move_to(self.position[0] - sx / 2, self.position[1] + sy / 2)
 			cr.show_text(self.name)
+
+		if self.guard:
+			sx, sy = utils.text_size(cr, self.guard)
+			cr.set_source_rgb(0.3,0.3,0.3)
+			cr.move_to(self.position[0] - sx / 2, self.position[1] - self.size[1]/2 - sy/2 - 2)
+			cr.show_text(self.guard)
 
 	def _rect(self, cr):
 		px, py = self.position
@@ -410,7 +426,8 @@ class Transition(NetElement):
 		return (x, y)
 
 	def get_text_entries(self):
-		return [ ("Name", self.get_name, self.set_name) ]
+		return [ ("Name", self.get_name, self.set_name), 
+				("Guard", self.get_guard, self.set_guard) ]
 
 class Place(NetElement):
 
@@ -802,6 +819,7 @@ def load_transition(element, net, idtable):
 	sy = xml_int(element,"sy")
 	transition.size = (sx, sy)
 	transition.name = xml_str(element,"name", "")
+	transition.guard = xml_str(element,"guard", "")
 	transition.code = load_code(element)
 	idtable[xml_int(element, "id")] = transition.id
 
