@@ -103,7 +103,6 @@ transitionFromElement e =
 		edgesIn = orderEdgesByDependancy edgesIn, 
 		edgesOut = edgesOut, 
 		transitionCode = codeContent e,
-		target = ExprInt 0,
 		guard = parseGuard $ xmlAttr' "guard" e ""
 	} 
 	where

@@ -86,7 +86,6 @@ data Transition = Transition {
 	edgesIn :: [Edge], 
 	edgesOut :: [Edge],
 	transitionCode :: String,
-	target :: Expression,
 	guard :: Expression
 } deriving (Show)
 
