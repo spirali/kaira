@@ -129,7 +129,7 @@ def find_by_first(lst, key):
 
 def xml_int(element, attr, default = None):
 	if element.get(attr) is None:
-		if default is None:
+		if default is not None:
 			return default
 		else:
 			raise Exception("Element has no attribute: " + attr)
@@ -137,7 +137,7 @@ def xml_int(element, attr, default = None):
 
 def xml_bool(element, attr, default = None):
 	if element.get(attr) is None:
-		if default is None:
+		if default is not None:
 			return default
 		else:
 			raise Exception("Element has no attribute: " + attr)
@@ -145,7 +145,7 @@ def xml_bool(element, attr, default = None):
 
 def xml_str(element, attr, default = None):
 	if element.get(attr) is None:
-		if default is None:
+		if default is not None:
 			return default
 		else:
 			raise Exception("Element has no attribute: " + attr)
