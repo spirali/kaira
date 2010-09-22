@@ -8,45 +8,51 @@ module Parser (
 
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
+import Text.ParserCombinators.Parsec.Language
+import qualified Text.ParserCombinators.Parsec.Token as Token
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.List as List
 
 import Declarations
 
-skipSpaces = skipMany space
+languageDef = emptyDef { Token.commentStart    = "/*"
+	, Token.commentEnd      = "*/"
+	, Token.commentLine     = "//"
+	, Token.identStart      = letter
+	, Token.identLetter     = alphaNum
+	, Token.reservedNames   = []
+	, Token.caseSensitive   = True
+	, Token.reservedOpNames = ["+", "-", "*", "/", "==", "!="
+	, "<", ">", "<=", ">=", "&&", "||" ]
+}
+lexer = Token.makeTokenParser languageDef
 
-rawIntParser = do
-	ds <- many1 digit
-	skipSpaces
-	return (read ds)
+parens = Token.parens lexer
+identifier = Token.identifier lexer
+reservedOp = Token.reservedOp lexer
+integer = do { i <- Token.integer lexer; return (fromInteger i) }
+whiteSpace = Token.whiteSpace lexer
+comma = Token.comma lexer
 
 intParser = do
-	i <- rawIntParser
+	i <- integer
 	return (ExprInt i)
 
 identifierParser = do
-	ds <- many1 letter
-	skipSpaces
+	ds <- identifier
 	do {
 		exprs <- parenParamsParser;
- 		skipSpaces;
 		return (ExprCall ds exprs)
 	} <|> return (ExprVar ds)
 
 parameterParser = do
 	char '#'
-	ls <- many1 letter
-	skipSpaces
+	ls <- identifier
 	return (ExprParam ls)
 
-separatorParser = do 
-	skipMany (char ',')
-	skipSpaces
-
 parenParamsParser = do
-	exprs <- parens (sepBy expressionParser separatorParser)
-	skipSpaces
+	exprs <- parens (sepBy expressionParser comma)
 	return exprs
 
 tupleParser = do
@@ -55,36 +61,26 @@ tupleParser = do
 		[x] -> return x
 		_ -> return (ExprTuple exprs)
 
-parens p = do
-	char '('
-	skipSpaces
-	x <- p
-	char ')'
-	skipSpaces
-	return x
-
 expressionParser :: Parser Expression
 expressionParser = buildExpressionParser optable baseExpr
 optable = [ 
 	[ Infix (opBinary "*") AssocLeft ], 
 	[ Infix (opBinary "+") AssocLeft ], 
 	[ Infix (opBinary ">") AssocLeft ],
-	[ Infix (opBinary "<") AssocLeft ]]
+	[ Infix (opBinary "<") AssocLeft ],
+	[ Infix (opBinary "==") AssocLeft ],
+	[ Infix (opBinary "!=") AssocLeft ],
+	[ Infix (opBinary ">=") AssocLeft ],
+	[ Infix (opBinary "<=") AssocLeft ],
+	[ Infix (opBinary "||") AssocLeft ],
+	[ Infix (opBinary "&&") AssocLeft ]]
 baseExpr    = intParser <|> parameterParser <|> identifierParser <|> tupleParser 
-opBinary name   = string name >> skipSpaces >> return (\x y -> (ExprCall name) [x, y])
+opBinary name   = reservedOp name >> return (\x y -> (ExprCall name) [x, y])
 
 intTypeParser :: Parser Type
 intTypeParser = do
 	string "Int"
-	skipMany space
-	do {
-		char '('
-		; i1 <- rawIntParser
-		; separatorParser
-		; i2 <- rawIntParser
-		; char ')'
-		; return TInt
-	} <|> return TInt
+	return TInt
 
 dataTypeParser = do
 	string "Data"
@@ -94,9 +90,7 @@ dataTypeParser = do
 	return (TData s)
 
 tupleTypeParser = do
-	char '('
-	exprs <- sepBy1 typeParser separatorParser
-	char ')'
+	exprs <- parens $ sepBy1 typeParser comma
 	return (TTuple exprs)
 
 typeParser :: Parser Type
@@ -106,8 +100,7 @@ typeParser = do
 edgePackingParser :: Parser (String, Maybe Expression)
 edgePackingParser = do
 	char '~'
-	s <- many1 letter
-	skipSpaces
+	s <- identifier 
 	do { x <- (parens expressionParser); return (s, Just x) } <|> return (s, Nothing)
 
 edgeInscriptionParser :: Parser EdgeInscription
@@ -127,14 +120,14 @@ parseType :: String -> Type
 parseType = parseSimple typeParser
 
 parseExpr :: String -> Expression
-parseExpr = parseSimple (skipSpaces >> expressionParser)
+parseExpr = parseSimple (whiteSpace >> expressionParser)
 
 parseExpr' :: String -> Maybe Expression
 parseExpr' "" = Nothing
 parseExpr' x = Just $ parseExpr x
 
 parseEdgeInscription :: String -> EdgeInscription 
-parseEdgeInscription = parseSimple (skipSpaces >> edgeInscriptionParser)
+parseEdgeInscription = parseSimple (whiteSpace >> edgeInscriptionParser)
 
 parseGuard :: String -> Expression
-parseGuard = parseSimple (skipSpaces >> guardParser)
+parseGuard = parseSimple (whiteSpace >> guardParser)

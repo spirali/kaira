@@ -21,6 +21,12 @@ nelFunctions = [
 	( "*", TInt, [TInt, TInt ]),
 	( ">", TBool, [TInt, TInt ]),
 	( "<", TBool, [TInt, TInt ]),
+	( ">=", TBool, [TInt, TInt ]),
+	( "<=", TBool, [TInt, TInt ]),
+	( "==", TBool, [TInt, TInt ]),
+	( "!=", TBool, [TInt, TInt ]),
+	( "&&", TBool, [TBool, TBool ]),
+	( "||", TBool, [TBool, TBool ]),
 	( "iid", TInt, [])]
 
 nelFunctionReturnType :: String -> Type
