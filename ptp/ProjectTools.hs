@@ -33,6 +33,10 @@ orderEdgesByDependancy edges =
 	let (normal, packing) = List.partition isNormalEdge edges in
 		(orderNormalEdgesByDependancy normal) ++ packing
 
+-- | Returns true if all free variables in expression is in set of vars
+isCovered :: VarSet -> Expression -> Bool
+isCovered vars expr = Set.empty == Set.difference (freeVariables expr) vars
+
 isNormalEdge :: Edge -> Bool
 isNormalEdge edge = case edgeInscription edge of
 	EdgeExpression _ -> True

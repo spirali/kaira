@@ -8,6 +8,7 @@ data Type = TUndefined |
 			TVoid | 
 			TInt | 
 			TString | 
+			TBool |
 			TTuple [Type] | 
 			TArray Type | 
 			TData String |
@@ -35,7 +36,8 @@ data Expression =
 	ExprTuple [Expression] |
 	ExprAddr Expression |
 	ExprAt Expression Expression {- index container -} |
-	ExprDeref Expression
+	ExprDeref Expression |
+	ExprTrue | ExprFalse
 	deriving (Show, Eq, Ord)
 	
 data Instruction = 
@@ -84,7 +86,8 @@ data Transition = Transition {
 	edgesIn :: [Edge], 
 	edgesOut :: [Edge],
 	transitionCode :: String,
-	target :: Expression
+	target :: Expression,
+	guard :: Expression
 } deriving (Show)
 
 data Network = Network {

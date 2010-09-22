@@ -36,6 +36,16 @@ testEdgeOrdering = TestCase $ do
 		edges1 = [ e "(x + 1, y + 1, z + 1)", e "~x", e "(x, z + 1)", e "(y, z)", e "y + 2", e "~ff(y)" ]
 		edges2 = [ e "(y, z)", e "(x, z + 1)", e "y + 2", e "(x + 1, y + 1, z + 1)", e "~x", e "~ff(y)" ] 
 
-tests = TestList [ testExprParser, testEdgeInscriptionParser, testEdgeOrdering ]
+testGuardParser = TestCase $ do
+	exprTest "" ExprTrue
+	exprTest "   " ExprTrue
+	exprTest " x  " $ ExprVar "x"
+	exprTest "   m + 5 > 2 + n" $ ExprCall ">" [ ExprCall "+" [ ExprVar "m", ExprInt 5 ], ExprCall "+" [ ExprInt 2, ExprVar "n" ]]
+	where exprTest str result = 
+		assertEqual str (parseGuard str) result
+
+
+
+tests = TestList [ testExprParser, testEdgeInscriptionParser, testEdgeOrdering, testGuardParser ]
 
 main = runTestTT tests

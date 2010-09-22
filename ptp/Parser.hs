@@ -3,6 +3,7 @@ module Parser (
 	parseExpr,
 	parseExpr',
 	parseEdgeInscription,
+	parseGuard,
 ) where
 
 import Text.ParserCombinators.Parsec
@@ -64,10 +65,13 @@ parens p = do
 
 expressionParser :: Parser Expression
 expressionParser = buildExpressionParser optable baseExpr
-optable = [ [ Infix opTimes AssocLeft ], [ Infix opAdd AssocLeft ] ]
+optable = [ 
+	[ Infix (opBinary "*") AssocLeft ], 
+	[ Infix (opBinary "+") AssocLeft ], 
+	[ Infix (opBinary ">") AssocLeft ],
+	[ Infix (opBinary "<") AssocLeft ]]
 baseExpr    = intParser <|> parameterParser <|> identifierParser <|> tupleParser 
-opTimes   = string "*" >> skipSpaces >> return (\x y -> (ExprCall "*") [x, y])
-opAdd     = string "+" >> skipSpaces >> return (\x y -> (ExprCall "+") [x, y])
+opBinary name   = string name >> skipSpaces >> return (\x y -> (ExprCall name) [x, y])
 
 intTypeParser :: Parser Type
 intTypeParser = do
@@ -110,6 +114,9 @@ edgeInscriptionParser :: Parser EdgeInscription
 edgeInscriptionParser = 
 	do { (name, limit) <- edgePackingParser; return (EdgePacking name limit) } <|> (expressionParser >>= (return . EdgeExpression))
 
+guardParser :: Parser Expression 
+guardParser = do { eof; return ExprTrue; } <|> expressionParser
+
 parseSimple :: Parser a -> String -> a
 parseSimple parser str = 
 	case parse parser "" str of
@@ -128,3 +135,6 @@ parseExpr' x = Just $ parseExpr x
 
 parseEdgeInscription :: String -> EdgeInscription 
 parseEdgeInscription = parseSimple (skipSpaces >> edgeInscriptionParser)
+
+parseGuard :: String -> Expression
+parseGuard = parseSimple (skipSpaces >> guardParser)

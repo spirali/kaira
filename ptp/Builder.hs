@@ -19,6 +19,8 @@ icall name params = IExpr $ ExprCall name params
 nelFunctions = [
 	( "+", TInt, [TInt, TInt]),
 	( "*", TInt, [TInt, TInt ]),
+	( ">", TBool, [TInt, TInt ]),
+	( "<", TBool, [TInt, TInt ]),
 	( "iid", TInt, [])]
 
 nelFunctionReturnType :: String -> Type
@@ -129,15 +131,18 @@ processEdge network (Edge placeId expr _) var restrictions body =
 			IIf (callIfMore "||" [ ExprCall "==" [(ExprVar v), (ExprVar counterVar)] | v <- restrictions ]) IContinue INoop
 
 
-checkEdges :: Network -> [VarDeclaration] -> VarSet -> [Edge] -> [Edge] -> Int -> Instruction -> Instruction
-checkEdges network decls binded processedEdges [] level okEvent = okEvent
+checkEdges :: Network -> [VarDeclaration] -> VarSet -> [Edge] -> [Edge] -> Int -> Instruction -> [Expression] -> Instruction
+checkEdges network decls binded processedEdges [] level okEvent guards = okEvent
 {- Variant for normal edges -}
-checkEdges network decls binded processedEdges (edge:rest) level okEvent | isNormalEdge edge =
-	processEdge network edge var (compRestrictions processedEdges 0) [
-		 	patternCheckStatement decls binded var (processInputExpr ExprVar expr) IContinue,
-			checkEdges network decls (Set.union binded $ freeVariables expr) (edge:processedEdges) rest (level + 1) okEvent
-		]
+checkEdges network decls binded processedEdges (edge:rest) level okEvent guards | isNormalEdge edge =
+	processEdge network edge var (compRestrictions processedEdges 0) $ [
+		 	patternCheckStatement decls binded var (processInputExpr ExprVar expr) IContinue ] ++
+			map guardCode coveredGuards ++ 
+			[ checkEdges network decls newVars (edge:processedEdges) rest (level + 1) okEvent uncoveredGuards ]
 	where
+		newVars = Set.union binded $ freeVariables expr
+		(coveredGuards, uncoveredGuards) = List.partition (isCovered newVars) guards
+		guardCode guard = if guard == ExprTrue then INoop else IIf (ExprCall "!" [ guard ]) IContinue INoop
 		EdgeExpression expr = edgeInscription edge
 		varCounterName level = "c_" ++ show level ++ "_i"
 		var = "c_" ++ show level
@@ -148,11 +153,11 @@ checkEdges network decls binded processedEdges (edge:rest) level okEvent | isNor
 			| otherwise = compRestrictions es (level + 1)
 
 {- Variant for packing edges -}
-checkEdges network decls binded processedEdges (edge:rest) level okEvent =
+checkEdges network decls binded processedEdges (edge:rest) level okEvent guards =
 	IStatement [] [
 		IIf (ExprCall "<" [ ExprCall "List.size" [ placeExpr ], ExprCall "+" [ limitExpr, ExprInt (length edgesWithSamePlace)]])
 			(IReturn (ExprInt 0)) INoop,
-		(checkEdges network decls binded (edge:processedEdges) rest (level + 1) okEvent)
+		(checkEdges network decls binded (edge:processedEdges) rest (level + 1) okEvent guards)
 	]
 	where
 		edgesWithSamePlace = [ e | e <- processedEdges, edgePlaceId e == edgePlaceId edge ]
@@ -251,7 +256,7 @@ transitionFunction project network transition = Function {
 	}
 	where
 		decls = transitionFreeVariablesIn project transition
-		instructions = checkEdges network decls Set.empty [] (edgesIn transition) 0 (transitionOkEvent project network transition)
+		instructions = checkEdges network decls Set.empty [] (edgesIn transition) 0 (transitionOkEvent project network transition) [ guard transition ]
 
 transitionEnableTestFunctionName :: Transition -> String
 transitionEnableTestFunctionName transition = "transition_enable_" ++ show (transitionId transition)
@@ -267,7 +272,7 @@ transitionEnableTestFunction project network transition = Function {
 	} 
 	where
 		decls = transitionFreeVariablesIn project transition
-		instructions = checkEdges network decls Set.empty [] (edgesIn transition) 0 (IReturn $ ExprInt 1)
+		instructions = checkEdges network decls Set.empty [] (edgesIn transition) 0 (IReturn $ ExprInt 1) [ guard transition ]
 
 {-
 	Erasing dependancy is added for reason that { List.eraseAt(l, x); List.eraseAt(l, y); } is problem if x < y
