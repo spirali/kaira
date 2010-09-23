@@ -23,7 +23,6 @@ class MainWindow(gtk.Window):
 
 		vbox.show_all()
 
-
 	def add_tab(self, name, widget, close_callback = None):
 		if close_callback:
 			button = gtk.Button()
@@ -66,7 +65,7 @@ class MainWindow(gtk.Window):
 		file_menu.append(item)
 
 		item = gtk.MenuItem("_Save project")
-		item.connect("activate", lambda w: self.app.save_project_as())
+		item.connect("activate", lambda w: self.app.save_project())
 		file_menu.append(item)
 
 		item = gtk.MenuItem("Save project _as")

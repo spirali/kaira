@@ -1,5 +1,5 @@
-<project name="empty"><configuration /><net id="101"><area count_expr="16" id="102" sx="338" sy="304" x="129" y="56" /><place id="103" init_string="" place_type="Int" radius="20" x="347" y="119"><code>	place-&gt;push_back(ctx-&gt;node());
-</code></place><place id="104" init_string="(0,0)" place_type="(Int,Int)" radius="20" x="196" y="109" /><place id="105" init_string="0" place_type="Int" radius="20" x="291" y="297" /><transition id="106" name="add" sx="70" sy="35" x="284" y="201"><code>	var.t = ctx-&gt;iid() + (1 &lt;&lt; var.c);
+<project><configuration /><net id="101"><area count_expr="16" id="102" sx="338" sy="304" x="129" y="56" /><place id="103" init_string="" place_type="Int" radius="20" x="347" y="119"><code>	place-&gt;push_back(ctx-&gt;node());
+</code></place><place id="104" init_string="(0,0)" place_type="(Int,Int)" radius="20" x="196" y="109" /><place id="105" init_string="0" place_type="Int" radius="20" x="291" y="297" /><transition guard="" id="106" name="add" sx="70" sy="35" x="284" y="201"><code>	var.t = ctx-&gt;iid() + (1 &lt;&lt; var.c);
 	var.t %= ctx-&gt;instances();
 	var.r = var.x + var.y;		
 	if (var.t == ctx-&gt;iid()) {

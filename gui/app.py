@@ -28,10 +28,11 @@ class App:
 
 	def set_project(self, project):
 		self.project = project
-		self.project.set_change_callback(self._project_changed)
+		self.project.set_callback("changed", self._project_changed)
+		self.project.set_callback("filename_changed", self._project_filename_changed)
 		self.init_tabs()
-
-		self._project_changed(self.project)
+		self._project_changed()
+		self._project_filename_changed()
 
 	def init_tabs(self):
 		if self.nv:
@@ -63,13 +64,19 @@ class App:
 				if filename[-5:] != ".proj":
 					filename = filename + ".proj"
 					
-				p = self._catch_io_error(project.load_project, filename)		
+				p = self._catch_io_error(lambda: project.load_project(filename))
 				if p:
 					# TODO: set statusbar
 					self.set_project(p)
 		finally:
 			dialog.destroy()
 
+	def save_project(self):
+		if self.project.get_filename() is None:
+			self.save_project_as()
+		else:
+			self.project.save()
+			self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
 
 	def save_project_as(self):
 		dialog = gtk.FileChooserDialog("Save net", self.window, gtk.FILE_CHOOSER_ACTION_SAVE,
@@ -84,19 +91,20 @@ class App:
 				filename = dialog.get_filename()
 				if filename[-5:] != ".proj":
 					filename = filename + ".proj"
-			
-				if self._catch_io_error(self.project.save, filename, True, False):
+				self.project.set_filename(filename)
+				if self._catch_io_error(self.project.save, True, False):
 					# TODO: set status bar
 					pass
+				self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
 		finally:
 			dialog.destroy()
 
 	def build_project(self):
 		self._start_project_build(self.project, lambda p: self.console_write("Build OK\n", "success"))
 
-	def _catch_io_error(self, fcn, filename, return_on_ok = None, return_on_err = None):
+	def _catch_io_error(self, fcn, return_on_ok = None, return_on_err = None):
 		try:
-			result = fcn(filename)	
+			result = fcn()	
 			if return_on_ok == None:
 				return result
 			else:
@@ -184,8 +192,11 @@ class App:
 	def console_write(self, text, tag_name = "normal"):
 		self.window.console.write(text, tag_name)
 
-	def _project_changed(self, project):
+	def _project_changed(self):
 		self.nv.net_changed()
+
+	def _project_filename_changed(self):
+		self.window.set_title("Kaira (" + self.project.get_name() + ")")
 
 	def _start_project_build(self, project, build_ok_callback = None):
 		def on_exit(code):

@@ -2,14 +2,19 @@ from net import Net, load_net
 import xml.etree.ElementTree as xml
 import utils
 import copy
+import os
+from events import EventSource
 
-class Project:
+class Project(EventSource):
+	""" 
+		Events: changed, filename_changed
+	"""
 	
-	def __init__(self, project_name):
+	def __init__(self, file_name):
+		EventSource.__init__(self)
 		self.id_counter = 100
-		self.name = project_name
+		self.filename = file_name
 		self.parameters = []
-		self.change_callback = lambda p: None
 
 	def new_id(self):
 		self.id_counter += 1
@@ -21,38 +26,40 @@ class Project:
 		self.changed()
 
 	def copy(self):
-		return load_project_from_xml(self.as_xml())
+		return load_project_from_xml(self.as_xml(), self.filename)
 
 	def get_name(self):
-		return name
+		if self.filename is None:
+			return "<unnamed>"
+		else:
+			d, fname = os.path.split(self.filename)
+			name, ext = os.path.splitext(fname)
+			return name
 
-	def save(self, filename):
-		pass
+	def get_filename(self):
+		return self.filename
 
-	def load(self, filename):
-		pass
-
-	def set_change_callback(self, callback):
-		self.change_callback = callback
+	def set_filename(self, filename):
+		self.filename = filename
+		self.emit_event("filename_changed")
 
 	def changed(self):
-		self.change_callback(self)
+		self.emit_event("changed")
 
 	def _net_changed(self, net):
 		self.changed()
 
 	def as_xml(self):
 		root = xml.Element("project")
-		root.set("name", self.name)
-
 		root.append(self._configuration_element())
 
 		xml_net = self.net.as_xml()
 		root.append(xml_net)
 		return root
 
-	def save(self, filename):
-		f = open(filename, "w")
+	def save(self):
+		assert self.filename is not None
+		f = open(self.filename, "w")
 		try:
 			f.write(xml.tostring(self.as_xml()))
 		finally:
@@ -60,7 +67,6 @@ class Project:
 
 	def export(self, filename):
 		root = xml.Element("project")
-		root.set("name", self.name)
 
 		root.append(self._configuration_element())
 
@@ -128,10 +134,10 @@ class Parameter:
 def load_project(filename):
 	doc = xml.parse(filename)
 	root = doc.getroot()
-	return load_project_from_xml(root)
+	return load_project_from_xml(root, filename)
 
-def load_project_from_xml(root):
-	project = Project(utils.xml_str(root,"name"))
+def load_project_from_xml(root, filename):
+	project = Project(filename)
 	if root.find("configuration"):
 		load_configuration(root.find("configuration"), project)
 	project.set_net(load_net(root.find("net"), project))
@@ -152,7 +158,7 @@ def new_empty_project():
 	#p.export("export.xml")
 	#return p
 
-	project = Project("empty")
+	project = Project(None)
 	net = Net(project)
 	project.set_net(net)
 	return project
