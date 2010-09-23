@@ -1,0 +1,24 @@
+<project><configuration /><net id="101"><area count_expr="5" id="102" sx="136" sy="185" x="284" y="73" /><place id="103" init_string="0" place_type="Int" radius="20" x="109" y="207" /><place id="104" init_string="" place_type="Int" radius="20" x="182" y="208"><code>	int t;
+	for (t = 0; t &lt; 5; t++) {
+		place-&gt;push_back(t);
+	}
+</code></place><place id="105" init_string="" place_type="Int" radius="20" x="339" y="108" /><place id="106" init_string="" place_type="Int" radius="20" x="218" y="356" /><transition guard="num &lt; 120" id="107" name="divide" sx="90" sy="35" x="184" y="107" /><transition guard="" id="108" name="compute" sx="70" sy="35" x="337" y="206"><code>	int t;
+	for (t=var.num; t &lt; var.num + 10; t++) {
+		if (t &lt; 2) continue;
+		int s;
+		s = 2;
+		while( (s*s) &lt;= t) {
+			if ((t % s) == 0) {
+				break;
+			}
+			s++;
+		}
+		if (s*s &gt; t) {
+			var.results.push_back(t);
+		}
+	}
+</code></transition><transition guard="" id="109" name="write result" sx="70" sy="35" x="134" y="357"><code>	int t;
+	for (t=0; t &lt; var.results.size(); t++) {
+		printf("%i\n", var.results[t]);
+	}
+</code></transition><edge from_item="103" id="110" inscription="num" inscription_x="124" inscription_y="151" to_item="107" /><edge from_item="107" id="111" inscription="num + 10" inscription_x="67" inscription_y="89" to_item="103"><point x="94" y="107" /></edge><edge from_item="104" id="112" inscription="worker" inscription_x="175" inscription_y="153" to_item="107" /><edge from_item="107" id="113" inscription="num@worker" inscription_x="240" inscription_y="92" to_item="105" /><edge from_item="105" id="114" inscription="num" inscription_x="343" inscription_y="160" to_item="108" /><edge from_item="103" id="115" inscription="100" inscription_x="94.0" inscription_y="276.0" to_item="109" /><edge from_item="104" id="116" inscription="~workers(5)" inscription_x="177" inscription_y="283" to_item="109" /><edge from_item="106" id="117" inscription="~results(0)" inscription_x="150" inscription_y="378" to_item="109" /><edge from_item="108" id="118" inscription="iid()@0" inscription_x="240" inscription_y="189" to_item="104" /><edge from_item="108" id="119" inscription="~results@0" inscription_x="343" inscription_y="311" to_item="106"><point x="338" y="357" /></edge></net></project>
