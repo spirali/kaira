@@ -33,6 +33,13 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 	def redraw(self):
 		self.queue_draw()
 
+	def set_size_and_viewport_by_net(self):
+		((l, t), (r, b)) = self.net.corners()
+		sizex = r - l + 100
+		sizey = b - t + 100
+		self.set_size_request(sizex, sizey)
+		self.set_viewport((l , t ))
+
 	def _expose(self, w, event):
 		cr = self.window.cairo_create()
 		cr.rectangle(event.area.x, event.area.y,

@@ -174,6 +174,20 @@ class Net:
 	def edges_of(self, item):
 		return [ i for i in self.items if i.is_edge() and (i.to_item == item or i.from_item == item) ]
 
+	def corners(self):
+		""" Returns bounding box as left-top and right-bottom points """
+		t = 0
+		l = 0
+		r = 100
+		b = 100
+		for i in self.items:
+			(il, it), (ir, ib) = i.corners()
+			t = min(t, it)
+			l = min(l, il)
+			r = max(r, ir)
+			b = max(b, ib)
+		return ((l,t), (r, b))
+
 
 class NetItem(object):
 
@@ -429,6 +443,11 @@ class Transition(NetElement):
 		return [ ("Name", self.get_name, self.set_name), 
 				("Guard", self.get_guard, self.set_guard) ]
 
+	def corners(self):
+		px, py = self.position
+		sx, sy = self.size
+		return ((px - sx, py - sy), (px + sx, py + sy))
+
 class Place(NetElement):
 
 	def __init__(self, net, position):
@@ -582,6 +601,12 @@ class Place(NetElement):
 		return [ ("Type", self.get_place_type, self.set_place_type), 
 				("Init", self.get_init_string, self.set_init_string) ]
 
+	def corners(self):
+		px, py = self.position
+		r = self.radius
+		return ((px - r, py - r), (px + r, py + r))
+
+
 class Edge(NetItem):
 
 	def __init__(self, net, from_item, to_item, points):
@@ -700,6 +725,10 @@ class Edge(NetItem):
 	def get_text_entries(self):
 		return [ ("Inscription", self.get_inscription, self.set_inscription) ]
 
+	def corners(self):
+		# FIXME
+		return ((0,0), (0,0))
+
 
 class NetArea(NetItem):
 
@@ -790,6 +819,11 @@ class NetArea(NetItem):
 
 	def transitions(self):
 		return [ transition for transition in self.net.transitions() if self.is_inside(transition) ]
+
+	def corners(self):
+		px, py = self.position
+		sx, sy = self.size
+		return (self.position, (sx + px, sy + py))
 
 class EmptyVisualConfig:
 

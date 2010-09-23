@@ -14,14 +14,17 @@ class SimView(gtk.VBox):
 		self.registered = False
 
 		self.pack_start(self._buttons(), False, False)
+		self.canvas_sc = gtk.ScrolledWindow()
 		self.canvas = self._create_canvas()
+		self.canvas.set_size_and_viewport_by_net()
+		self.canvas_sc.add_with_viewport(self.canvas)
 
 		self.instance_canvas_sc = gtk.ScrolledWindow()
 		self.instance_canvas = self._create_instances_canvas()
 		self.instance_canvas_sc.add_with_viewport(self.instance_canvas)
 		self.instance_canvas.show_all()
 
-		self.pack_start(self.canvas)
+		self.pack_start(self.canvas_sc)
 		self.show_all()
 		self.pack_start(self.instance_canvas_sc)
 
@@ -48,10 +51,10 @@ class SimView(gtk.VBox):
 	def _view_change(self, button):
 		if button.get_active():
 			self.instance_canvas_sc.show()
-			self.canvas.hide()
+			self.canvas_sc.hide()
 		else:
 			self.instance_canvas_sc.hide()
-			self.canvas.show()
+			self.canvas_sc.show()
 
 	def _create_canvas(self):
 		c = NetCanvas(self.get_net(), None, EmptyVisualConfig())
