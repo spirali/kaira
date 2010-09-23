@@ -1,15 +1,30 @@
 
 import gtk
+from events import EventSource
 
-class NetCanvas(gtk.DrawingArea):
-
+class NetCanvas(gtk.DrawingArea, EventSource):
+	"""
+		Events: button_down, button_up, mouse_move
+	"""
 	def __init__(self, net, draw_cb, vconfig):
 		gtk.DrawingArea.__init__(self);
+		EventSource.__init__(self)
 		self.net = net
+		self.viewport = (0,0)
 		self.vconfig = vconfig
 		self.draw_cb = draw_cb
 		self.set_events(gtk.gdk.BUTTON_PRESS_MASK | gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.POINTER_MOTION_MASK)
 		self.connect("expose_event", self._expose)
+		self.connect("button_press_event", self._button_down)
+		self.connect("button_release_event", self._button_up)
+		self.connect("motion_notify_event", self._mouse_move)
+
+	def set_viewport(self, viewport):
+		self.viewport = viewport
+		self.redraw()
+
+	def get_viewport(self):
+		return self.viewport
 
 	def set_vconfig(self, vconfig):
 		self.vconfig = vconfig
@@ -29,9 +44,23 @@ class NetCanvas(gtk.DrawingArea):
 		cr.set_source_rgb(0.8, 0.8, 0.8)
 		cr.rectangle(0, 0, width, height)
 		cr.fill()
+		cr.translate(self.viewport[0], self.viewport[1])
 		self.net.draw(cr, self.vconfig)
 		if self.draw_cb:
 			self.draw_cb(cr, width, height)
+
+	def _button_down(self, w, event):
+		position = (event.x - self.viewport[0], event.y - self.viewport[1])
+		self.emit_event("button_down", event, position)
+
+	def _button_up(self, w, event):
+		position = (event.x - self.viewport[0], event.y - self.viewport[1])
+		self.emit_event("button_up", event, position)
+
+	def _mouse_move(self, w, event):
+		position = (event.x - self.viewport[0], event.y - self.viewport[1])
+		self.emit_event("mouse_move", event, position)
+
 
 class MultiCanvas(gtk.DrawingArea):
 

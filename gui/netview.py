@@ -10,6 +10,7 @@ action_cursor = {
 	"move" : gtk.gdk.FLEUR, 
 	"resize" : gtk.gdk.BOTTOM_RIGHT_CORNER,
 	"select" : gtk.gdk.CROSSHAIR,
+	"scroll" : gtk.gdk.HAND2,
 }
 
 def get_cursor(name):
@@ -50,6 +51,11 @@ class NetView(gtk.VBox):
 	def focus_entry(self):
 		self.entry.grab_focus()
 
+	def set_viewport(self, viewport):
+		self.drawarea.set_viewport(viewport)
+
+	def get_viewport(self):
+		return self.drawarea.get_viewport()
 
 	def redraw(self):
 		self.drawarea.redraw()
@@ -106,9 +112,9 @@ class NetView(gtk.VBox):
 
 	def _net_canvas(self):
 		c = NetCanvas(self.net, self._draw, EmptyVisualConfig())
-		c.connect("button_press_event", self._button_down)
-		c.connect("button_release_event", self._button_up)
-		c.connect("motion_notify_event", self._mouse_move)
+		c.set_callback("button_down", self._button_down)
+		c.set_callback("button_up", self._button_up)
+		c.set_callback("mouse_move", self._mouse_move)
 		c.show()
 		return c
 
@@ -133,23 +139,23 @@ class NetView(gtk.VBox):
 		return vbox
 
 
-	def _button_down(self, w, event):
+	def _button_down(self, event, position):
 		if self.tool:
-			position = (event.x, event.y)
 			if event.button == 1:
-				self.tool.button_down(position)
+				self.tool.left_button_down(event, position)
 			elif event.button == 3:
-				self.tool.right_button(event, position)
+				self.tool.right_button_down(event, position)
 
-	def _button_up(self, w, event):
-		position = (event.x, event.y)
+	def _button_up(self, event, position):
 		if self.tool:
-			self.tool.button_up(position)
+			if event.button == 1:
+				self.tool.left_button_up(event, position)
+			elif event.button == 3:
+				self.tool.right_button_up(event, position)
 
-	def _mouse_move(self, w, event):
-		position = (event.x, event.y)
+	def _mouse_move(self, event, position):
 		if self.tool:
-			self.tool.mouse_move(position)
+			self.tool.mouse_move(event, position)
 
 	def set_entry_types(self, etypes):
 		self.entry_types = etypes

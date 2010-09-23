@@ -7,6 +7,7 @@ class NetTool:
 	def __init__(self, netview):
 		self.netview = netview
 		self.net = netview.net
+		self.scroll_point = None
 
 	def start(self):
 		self.selected_item = None
@@ -16,14 +17,16 @@ class NetTool:
 	def stop(self):
 		self.deselect_item()
 
-	def button_down(self, position):
+	def left_button_down(self, event, position):
 		pass
 
-	def button_up(self, position):
-		pass
-
-	def mouse_move(self, position):
-		pass
+	def mouse_move(self, event, position):
+		if self.scroll_point:
+			p = (event.x, event.y)
+			diff = utils.vector_diff(self.scroll_point, p)
+			viewport = self.netview.get_viewport()
+			self.netview.set_viewport(utils.vector_diff(viewport,diff))
+			self.scroll_point = p
 
 	def set_cursor(self, action_name):
 		self.netview.set_cursor(action_name)
@@ -42,12 +45,14 @@ class NetTool:
 	def deselect_item(self):
 		self.select_item(None)
 
-	def right_button(self, event, position):
+	def right_button_down(self, event, position):
 		if self.selected_item in self.net.pick_items(position):
 
 			actions_dict = {
-				Transition: [("Edit code", lambda w: self.netview.transition_edit_callback(self.selected_item))],
-				Place: [("Edit init code", lambda w: self.netview.place_edit_callback(self.selected_item))]
+				Transition: [("Edit code", 
+					lambda w: self.netview.transition_edit_callback(self.selected_item))],
+				Place: [("Edit init code", 
+					lambda w: self.netview.place_edit_callback(self.selected_item))]
 			}
 
 			menu_actions = [("Delete", lambda w: self.selected_item.delete())]
@@ -56,6 +61,14 @@ class NetTool:
 				menu_actions = actions_dict[type(self.selected_item)] + menu_actions
 			
 			gtkutils.show_context_menu(menu_actions, event)
+		else:
+			self.scroll_point = (event.x, event.y)
+			self.set_cursor("scroll")
+
+	def right_button_up(self, event, position):
+		if self.scroll_point is not None:
+			self.scroll_point = None
+			self.set_cursor(None)
 
 	def net_changed(self):
 		if self.selected_item and not self.net.contains(self.selected_item):
@@ -76,7 +89,7 @@ class NetItemTool(NetTool):
 	def stop(self):
 		NetTool.stop(self)
 
-	def button_down(self, position):
+	def left_button_down(self, event, position):
 		if self.selected_item:
 			action = self.selected_item.get_action(position)
 			if action:
@@ -93,12 +106,13 @@ class NetItemTool(NetTool):
 		else:
 			item = self.create_new(position)
 			self.select_item(item)
-		self.mouse_move(position)
+		self.mouse_move(event, position)
 
-	def button_up(self, position):
+	def left_button_up(self, event, position):
 		self.action = None
 
-	def mouse_move(self, position):
+	def mouse_move(self, event, position):
+		NetTool.mouse_move(self, event, position)
 		if self.selected_item:
 			if self.action:
 				rel = utils.vector_diff(position, self.action_last_pos)
@@ -134,13 +148,13 @@ class EdgeTool(NetTool):
 		self.action_start = None
 
 
-	def button_down(self, position):
+	def left_button_down(self, event, position):
 		if self.selected_item and not self.from_item:
 			self.action = self.selected_item.get_action(position)
 			self.last_position = position
 			self.action_start = position
 
-	def button_up(self, position):
+	def left_button_up(self, event, position):
 		if self.action:
 			self.action = None
 		else:
@@ -171,7 +185,8 @@ class EdgeTool(NetTool):
 		NetTool.right_button(self, event, position)
 		self.netview.redraw()
 
-	def mouse_move(self, position):
+	def mouse_move(self, event, position):
+		NetTool.mouse_move(self, event, position)
 		if self.from_item:
 			self.netview.redraw()
 		if self.selected_item:
@@ -203,7 +218,7 @@ class AreaTool(NetTool):
 		self.action = None
 		self.action_start = None
 
-	def button_down(self, position):
+	def left_button_down(self, event, position):
 		if self.selected_item:
 			action = self.selected_item.get_action(position)
 			if action:
@@ -216,7 +231,7 @@ class AreaTool(NetTool):
 		if action_tuple is not None:
 			item, action = action_tuple
 			self.select_item(item)
-			self.mouse_move(position)
+			self.mouse_move(event, position)
 		else:
 			if self.point1:
 				pass
@@ -224,7 +239,8 @@ class AreaTool(NetTool):
 				self.point1 = position
 				self.point2 = position
 
-	def mouse_move(self, position):
+	def mouse_move(self, event, position):
+		NetTool.mouse_move(self, event, position)
 		if self.point1:
 			self.netview.redraw()
 		if self.selected_item:
@@ -237,7 +253,7 @@ class AreaTool(NetTool):
 		self.point2 = position
 
 
-	def button_up(self, position):
+	def left_button_up(self, event, position):
 		if self.action:
 			self.action = None
 			self.set_cursor(None)
