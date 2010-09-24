@@ -78,6 +78,14 @@ void CaSimModule::send(CaContext *ctx, int target, int data_id, void *data, size
 	f(ctxs[target]._get_places(), data_id, data, size); 
 }
 
+void CaSimModule::quit(CaContext *ctx)
+{
+	std::vector<CaContext>::iterator i;
+	for (i = ctxs.begin(); i != ctxs.end(); i++) {
+		i->halt();
+	}
+}
+
 int CaSimModule::recv(CaContext *ctx, RecvFn *recv, void *places)
 {
 	/* We dont need this function in simulator, because

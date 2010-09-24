@@ -29,6 +29,7 @@ class CaContext {
 		int iid() { return _iid; }
 		int instances() { return _instances; }
 		int halt() { return _halt_flag = true; }
+		void quit();
 		
 		/* Internal */
 		CaModule * _get_module() { return _module; }

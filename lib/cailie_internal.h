@@ -10,6 +10,7 @@ class CaModule {
 		virtual void send(CaContext *ctx, int target, int data_id, void *data, size_t size) = 0;
 		virtual int recv(CaContext *ctx, RecvFn *recv, void *places) = 0;
 		virtual void idle() {};
+		virtual void quit(CaContext *ctx) = 0;
 
 		void start_sheduler(CaContext *ctx);
 };

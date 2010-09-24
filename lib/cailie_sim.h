@@ -11,6 +11,7 @@ class CaSimModule : public CaModule {
 		int main(int nodes_count, InitFn *init_fn);
 		void send(CaContext *ctx, int target, int data_id, void *data, size_t size);
 		int recv(CaContext *ctx, RecvFn *recv, void *places);
+		void quit(CaContext *ctx);
 
 		int run_listener();
 		void error(const char *str) { fprintf(comm_out, "%s\n", str); }

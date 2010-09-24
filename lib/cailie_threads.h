@@ -15,10 +15,12 @@ class CaThreadsModule : public CaModule {
 		void send(CaContext *ctx, int target, int data_id, void *data, size_t size);
 		int recv(CaContext *ctx, RecvFn *recv, void *places);
 		void idle();
+		void quit(CaContext *ctx);
 
 	protected:
 		CaThreadsNodeQueue *_queues;
 		void queue_add(int node, CaThreadsPacket *packet);
+		int nodes_count;
 };
 
 #endif 

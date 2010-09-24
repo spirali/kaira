@@ -9,6 +9,8 @@
 #include "cailie_internal.h"
 #include "cailie_threads.h"
 
+#define HALT_COMMAND -1
+
 struct CaThreadsPacket {
 	int data_id;
 	size_t size;
@@ -45,6 +47,18 @@ void CaThreadsModule::send(CaContext *ctx, int target, int data_id, void *data, 
 	queue_add(target, packet);
 }
 
+void CaThreadsModule::quit(CaContext *ctx)
+{
+	int t;
+	for (t=0; t < nodes_count; t++) {
+		if (t == ctx->node()) {
+			continue; // Don't send the message to self
+		}
+		int i;
+		send(ctx, t, HALT_COMMAND, &i, sizeof(int));
+	}
+}
+
 static void ca_threads_start_main(InitFn *init_fn, int node, CaModule *module)
 {
 	CaContext ctx(node, module);
@@ -73,6 +87,10 @@ int CaThreadsModule::recv(CaContext *ctx, RecvFn *recv_fn, void *places)
 	}
 
 	while(packet) {
+		if (packet->data_id == HALT_COMMAND) {
+			ctx->halt();
+			break;
+		}
 		recv_fn(places, packet->data_id, packet + 1, packet->size);
 
 		CaThreadsPacket *p = packet->next;
@@ -85,6 +103,7 @@ int CaThreadsModule::recv(CaContext *ctx, RecvFn *recv_fn, void *places)
 int CaThreadsModule::main(int nodes, InitFn *init_fn)
 {
 	assert(nodes > 0);
+	nodes_count = nodes;
 	int t;
 	pthread_t threads[nodes];
 	CaThreadsData data[nodes];

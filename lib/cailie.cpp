@@ -29,6 +29,12 @@ void CaContext::_init(int iid, int instances, void *places, RecvFn *recv_fn, Rep
 	_report_fn = report_fn;
 }
 
+void CaContext::quit() 
+{
+	halt();
+	_module->quit(this);
+}
+
 void CaContext::_register_transition(int id, TransitionFn *fn)
 {
 	_transitions.push_back(CaTransition(id, fn));
@@ -66,16 +72,22 @@ void CaModule::start_sheduler(CaContext *ctx) {
 		}
 		if (wt == last_executed) {
 			if (wt->call(ctx, data)) {
+				ca_recv(ctx, recv_fn, data);
 				if (ctx->_check_halt_flag()) {
 					return;
 				}
-				ca_recv(ctx, recv_fn, data);
 			} else {
 				while(!ca_recv(ctx, recv_fn, data)) { ctx->_get_module()->idle(); }	
+				if (ctx->_check_halt_flag()) {
+					return;
+				}
 			}
 		} else {
 			if (wt->call(ctx, data)) {
 				ca_recv(ctx, recv_fn, data);
+				if (ctx->_check_halt_flag()) {
+					return;
+				}
 				last_executed = wt;
 			}
 		}
