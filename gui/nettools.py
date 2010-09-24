@@ -113,6 +113,8 @@ class NetItemTool(NetTool):
 
 	def mouse_move(self, event, position):
 		NetTool.mouse_move(self, event, position)
+		if self.scroll_point is not None:
+			return
 		if self.selected_item:
 			if self.action:
 				rel = utils.vector_diff(position, self.action_last_pos)
@@ -187,6 +189,8 @@ class EdgeTool(NetTool):
 
 	def mouse_move(self, event, position):
 		NetTool.mouse_move(self, event, position)
+		if self.scroll_point is not None:
+			return
 		if self.from_item:
 			self.netview.redraw()
 		if self.selected_item:
