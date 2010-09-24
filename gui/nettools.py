@@ -181,10 +181,10 @@ class EdgeTool(NetTool):
 						item, action = action_tuple
 						self.select_item(item)
 
-	def right_button(self, event, position):
+	def right_button_down(self, event, position):
 		self.from_item = None
 		self.action = None
-		NetTool.right_button(self, event, position)
+		NetTool.right_button_down(self, event, position)
 		self.netview.redraw()
 
 	def mouse_move(self, event, position):
