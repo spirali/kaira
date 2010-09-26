@@ -40,6 +40,7 @@ class NetView(gtk.VBox):
 
 		self.transition_edit_callback = None
 		self.place_edit_callback = None
+		self.set_tool(nettools.TransitionTool(self))
 
 	def set_tool(self, tool):
 		if self.tool:
@@ -61,7 +62,8 @@ class NetView(gtk.VBox):
 		self.drawarea.redraw()
 
 	def set_cursor(self,action_name):
-		self.drawarea.window.set_cursor(get_cursor(action_name))
+		if self.drawarea.window:
+			self.drawarea.window.set_cursor(get_cursor(action_name))
 
 	def net_changed(self):
 		self.redraw()
@@ -69,40 +71,32 @@ class NetView(gtk.VBox):
 			self.tool.net_changed()
 
 	def _controls(self):
-		icon1 = gtk.image_new_from_file("icons/select.png")
-		icon2 = gtk.image_new_from_file("icons/area.png")
-		icon3 = gtk.image_new_from_file("icons/place.png")
-		icon4 = gtk.image_new_from_file("icons/transition.png")
-		icon5 = gtk.image_new_from_file("icons/arc.png")
-		#hbox = gtk.HBox()
-		#hbox.pack_start(gtk.Button("test"), False)
-		#hbox.show_all()
+		icon_transition = gtk.image_new_from_file("icons/transition.png")
+		icon_place = gtk.image_new_from_file("icons/place.png")
+		icon_arc = gtk.image_new_from_file("icons/arc.png")
+		icon_area = gtk.image_new_from_file("icons/area.png")
+ 
 		button1 = gtk.RadioToolButton(None,None)
-		#button1.connect("toggled", lambda w: view.set_tool(tools.SelectTool(self)))
-		button1.set_icon_widget(icon1)
+		button1.connect("toggled", lambda w: self.set_tool(nettools.TransitionTool(self)))
+		button1.set_icon_widget(icon_transition)
 
 		button2 = gtk.RadioToolButton(button1,None)
-		button2.connect("toggled", lambda w: self.set_tool(nettools.AreaTool(self)))
-		button2.set_icon_widget(icon2)
+		button2.connect("toggled", lambda w: self.set_tool(nettools.PlaceTool(self)))
+		button2.set_icon_widget(icon_place)
 
 		button3 = gtk.RadioToolButton(button1,None)
-		button3.connect("toggled", lambda w: self.set_tool(nettools.PlaceTool(self)))
-		button3.set_icon_widget(icon3)
+		button3.connect("toggled", lambda w: self.set_tool(nettools.EdgeTool(self)))
+		button3.set_icon_widget(icon_arc)
 
 		button4 = gtk.RadioToolButton(button1,None)
-		button4.connect("toggled", lambda w: self.set_tool(nettools.TransitionTool(self)))
-		button4.set_icon_widget(icon4)
-
-		button5 = gtk.RadioToolButton(button1,None)
-		button5.connect("toggled", lambda w: self.set_tool(nettools.EdgeTool(self)))
-		button5.set_icon_widget(icon5)
+		button4.connect("toggled", lambda w: self.set_tool(nettools.AreaTool(self)))
+		button4.set_icon_widget(icon_area)
 
 		toolbar = gtk.Toolbar()
-		toolbar.insert(button1, 0)
-		toolbar.insert(button2, 1)
-		toolbar.insert(button3, 2)
-		toolbar.insert(button4, 3)
-		toolbar.insert(button5, 4)
+		toolbar.add(button1)
+		toolbar.add(button2)
+		toolbar.add(button3)
+		toolbar.add(button4)
 
 		vbox = gtk.VBox()
 		vbox.pack_start(toolbar)
