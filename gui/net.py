@@ -549,16 +549,24 @@ class Place(NetElement):
 
 			# Print token names
 			texts = [ (t, utils.text_size(cr, t)) for t in tokens ]
+			texts = [ (t, (x, y + 1)) for (t, (x, y)) in texts ]
 			text_height = sum([ x[1][1] for x in texts ])
+			text_width = max([ x[1][0] for x in texts ])
 
-			cr.set_source_rgb(0.2,0.45,0)
-			text_x = px + self.radius + 15
+			text_x = px + self.radius + 12
 			text_y = py - text_height / 2
 
+			cr.set_source_rgba(0.2,0.45,0,0.5)
+			cr.rectangle(text_x - 3, text_y - 3, text_width + 6, text_height + 6)
+			cr.fill()
+
+			cr.set_source_rgb(0.0,0.0,0.0)
+			cr.set_source_rgb(1.0,1.0,1.0)
+
 			for (t, (x, y)) in texts:
+				text_y += y
 				cr.move_to(text_x, text_y)
 				cr.show_text(t)
-				text_y += y + 1
 
 	def _arc(self, cr):
 		px, py = self.position
