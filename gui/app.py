@@ -6,8 +6,8 @@ from netview import NetView
 from simview import SimView
 from codeedit import TransitionCodeEditor
 from codeedit import PlaceCodeEditor
-from parameters import ParametersWidget
-from simulation import Simulation
+from parameters import ParametersWidget, ParametersValueDialog
+from simulation import Simulation, SimulationException
 import process
 
 class App:
@@ -158,10 +158,25 @@ class App:
 
 	def simulation_start(self):
 		def project_builded(project):
-			simulation = Simulation(project)
-			w = SimView(self, simulation)
-			self.add_tab("Simulation", w, simulation, lambda s: simulation.shutdown())
+			try:
+				simulation = Simulation(project, param_values)
+				w = SimView(self, simulation)
+				self.add_tab("Simulation", w, simulation, lambda s: simulation.shutdown())
+			except SimulationException as e:
+				self.console_write(str(e), "error")
 		project = self.project.copy()
+
+		if project.get_parameters():
+			dialog = ParametersValueDialog(self.window, project.get_parameters())
+			try:
+				if dialog.run() == gtk.RESPONSE_OK:
+					param_values = dialog.get_values()
+				else:
+					return
+			finally:
+				dialog.destroy()
+		else:
+			param_values = {}
 		self._start_project_build(project, project_builded)
 
 	def add_tab(self, name, w, obj, callback = None):

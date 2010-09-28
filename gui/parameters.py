@@ -77,3 +77,44 @@ class ParametersWidget(gtk.VBox):
 
 	def _param_as_list(self, parameter):
 		return [parameter, parameter.get_name(), "Mandatory", parameter.get_type(), "", parameter.get_description()]
+
+class ParametersValueDialog(gtk.Dialog):
+
+	def __init__(self, parent, parameters):
+		gtk.Dialog.__init__(self, "Parameters", parent)
+		self.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
+		self.ok_button = self.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
+		self.ok_button.set_sensitive(False)
+
+		self.table = gtk.Table()
+		self.table.set_row_spacings(5)
+		self.table.set_col_spacings(10)
+		self.entries = {}
+		self.param_counter = 0
+		self.vbox.pack_start(self.table)
+
+		for p in parameters:
+			self._add_parameter(p)
+
+		self.table.show_all()
+
+	def get_values(self):
+		result = {}
+		for e in self.entries:
+			result[e] = self.entries[e].get_text()
+		return result
+
+	def _add_parameter(self,param):
+		label = gtk.Label(param.get_name() + " (" + param.get_type() + ")")
+		self.table.attach(label, 0, 1, self.param_counter, self.param_counter + 1)
+
+		entry = gtk.Entry()
+		self.table.attach(entry, 1, 2, self.param_counter, self.param_counter + 1)
+		entry.connect("changed", self._entry_changed)
+		self.entries[param.get_name()] = entry
+
+		self.param_counter += 1
+
+	def _entry_changed(self, w):
+		texts = [ entry.get_text() for entry in self.entries.values() ]
+		self.ok_button.set_sensitive(all( (t.strip() != "" for t in texts) ))

@@ -5,13 +5,15 @@ import utils
 import random
 from events import EventSource
 
+class SimulationException(Exception):
+	pass
 
 class Simulation(EventSource):
 	"""
 		Events: changed, inited, output
 	"""
 
-	def __init__(self, project):
+	def __init__(self, project, param_values):
 		EventSource.__init__(self)
 		self.project = project
 		self.enabled_transitions = {}
@@ -20,7 +22,14 @@ class Simulation(EventSource):
 		self.random = random.Random()
 		self.process = process.Process("../out/project",self._simulator_output)
 		# FIXME: Timeout
-		port = int(self.process.start_and_get_first_line( ["-msim"] ))
+
+		other_params = [ "-p%s=%s" % (p,param_values[p]) for p in param_values ]
+		first_line = self.process.start_and_get_first_line( ["-msim"] + other_params )
+		try:
+			port = int(first_line)
+		except ValueError:
+			raise SimulationException("Simulation failed: " + first_line)
+
 		self.controller = process.CommandWrapper(process.Connection("localhost", port))
 		self.controller.start()
 		self.query_first_reports()
@@ -56,8 +65,6 @@ class Simulation(EventSource):
 		def reports_callback(line):
 			self._process_first_report(xml.fromstring(line))
 		self.controller.run_command("REPORTS", reports_callback)
-
-
 
 	def fire_transition(self, transition, iid):
 		self.controller.run_command_expect_ok("FIRE " + str(transition.get_id()) + " " + str(iid))
