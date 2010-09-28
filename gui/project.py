@@ -15,6 +15,7 @@ class Project(EventSource):
 		self.id_counter = 100
 		self.filename = file_name
 		self.parameters = []
+		self.param_values_cache = None
 
 	def new_id(self):
 		self.id_counter += 1
@@ -42,6 +43,16 @@ class Project(EventSource):
 	def set_filename(self, filename):
 		self.filename = filename
 		self.emit_event("filename_changed")
+
+	# Cache is used for rerunning simulation with same parameters
+	def get_param_value_cache(self):
+		return self.param_values_cache
+
+	def set_param_values_cache(self, param_values):
+		self.param_values_cache = param_values
+
+	def reset_param_values_cache(self):
+		self.param_values_cache = None
 
 	def changed(self):
 		self.emit_event("changed")
@@ -81,7 +92,9 @@ class Project(EventSource):
 			f.close()
 
 	def new_parameter(self):
+		self.reset_param_values_cache()
 		p = Parameter()
+		p.set_callback("changed", self.reset_param_values_cache)
 		self.parameters.append(p)
 		self.changed()
 		return p
@@ -90,6 +103,7 @@ class Project(EventSource):
 		return self.parameters
 
 	def remove_parameter(self, parameter):
+		self.reset_param_values_cache()
 		self.parameters.remove(parameter)
 		self.changed()
 
@@ -99,21 +113,27 @@ class Project(EventSource):
 			e.append(p.as_xml())
 		return e
 
-class Parameter:
+class Parameter(EventSource):
+	"""
+		Events: changed
+	"""
 
 	def __init__(self):
+		EventSource.__init__(self)
 		self.name = ""
 		self.type = "Int"
 		self.description = ""
 
 	def set_name(self, name):
 		self.name = name
+		self.changed()
 
 	def get_name(self):
 		return self.name
 
 	def set_type(self, type):
 		self.type = type
+		self.changed()
 
 	def get_type(self):
 		return self.type
@@ -123,6 +143,10 @@ class Parameter:
 
 	def set_description(self, description):
 		self.description = description
+		self.changed()
+
+	def changed(self):
+		self.emit_event("changed")
 
 	def as_xml(self):
 		e = xml.Element("parameter")

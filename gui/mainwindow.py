@@ -83,7 +83,11 @@ class MainWindow(gtk.Window):
 		build_menu.append(item)
 
 		item = gtk.MenuItem("Run _simulation")
-		item.connect("activate", lambda w: self.app.simulation_start())
+		item.connect("activate", lambda w: self.app.simulation_start(False))
+		build_menu.append(item)
+
+		item = gtk.MenuItem("R_e-run simulation")
+		item.connect("activate", lambda w: self.app.simulation_start(True))
 		build_menu.append(item)
 
 		edit_menu = gtk.Menu()

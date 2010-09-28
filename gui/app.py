@@ -156,7 +156,7 @@ class App:
 		w = ParametersWidget(self.builder, self.project, self.window)
 		self.add_tab("Parameters", w, "params")
 
-	def simulation_start(self):
+	def simulation_start(self, try_reuse_params):
 		def project_builded(project):
 			try:
 				simulation = Simulation(project, param_values)
@@ -164,17 +164,23 @@ class App:
 				self.add_tab("Simulation", w, simulation, lambda s: simulation.shutdown())
 			except SimulationException as e:
 				self.console_write(str(e), "error")
+
 		project = self.project.copy()
 
-		if project.get_parameters():
-			dialog = ParametersValueDialog(self.window, project.get_parameters())
-			try:
-				if dialog.run() == gtk.RESPONSE_OK:
-					param_values = dialog.get_values()
-				else:
-					return
-			finally:
-				dialog.destroy()
+		if project.get_parameters(): # Project has parameters
+			cache = self.project.get_param_value_cache()
+			if try_reuse_params and cache is not None:
+				param_values = cache
+			else:
+				dialog = ParametersValueDialog(self.window, project.get_parameters())
+				try:
+					if dialog.run() == gtk.RESPONSE_OK:
+						param_values = dialog.get_values()
+						self.project.set_param_values_cache(param_values)
+					else:
+						return
+				finally:
+					dialog.destroy()
 		else:
 			param_values = {}
 		self._start_project_build(project, project_builded)
