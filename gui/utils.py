@@ -151,3 +151,33 @@ def xml_str(element, attr, default = None):
 			raise Exception("Element has no attribute: " + attr)
 	return element.get(attr)
 
+
+class Makefile:
+	""" Simple class for emitting makefile """
+
+	def __init__(self):
+		self.variables = []
+		self.rules = []
+
+	def set(self, variable, value):
+		self.variables.append((variable, value))
+
+	def rule(self, target, deps, command):
+		self.rules.append((target, deps, command))
+
+	def write(self, out):
+		for (var, value) in self.variables:
+			out.write(var)
+			out.write(" = ")
+			out.write(value)
+			out.write("\n")
+
+		for (t, deps, c) in self.rules:
+			out.write(t + ":")
+			for d in deps:
+				out.write(" " + d)
+			out.write("\n\t" + c + "\n")
+
+	def write_to_file(self, filename):
+		with open(filename,"w") as f:
+			self.write(f)
