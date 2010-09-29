@@ -1,6 +1,7 @@
 import gtk
 
 import project
+import os
 from mainwindow import MainWindow
 from netview import NetView
 from simview import SimView
@@ -16,13 +17,14 @@ class App:
 		self.builder = gtk.Builder()
 		self.builder.add_from_file("gui.glade")
 		self.window = MainWindow(self)
+		self.window.project_is_active(False)
 		self.nv = None
 		self.tabtable = {}
-		self.set_project(project.new_empty_project())
+		self._open_welcome_tab()
+		#self.set_project(project.new_empty_project())
 
 	def run(self):
 		gtk.gdk.threads_init()
-		self.console_write("Welcome to Kaira 0.1\n")
 		self.window.show()
 		gtk.main()
 
@@ -33,6 +35,7 @@ class App:
 		self.init_tabs()
 		self._project_changed()
 		self._project_filename_changed()
+		self.window.project_is_active(True)
 
 	def init_tabs(self):
 		if self.nv:
@@ -42,6 +45,7 @@ class App:
 			self.window.close_tab(widget)
 			if callback:
 				callback(t)
+		self.window.close_all_tabs()
 		self.nv = NetView(self.project.net)
 		self.nv.transition_edit_callback = self.transition_edit
 		self.nv.place_edit_callback = self.place_edit
@@ -49,7 +53,32 @@ class App:
 		self.tabtable = {}
 
 	def new_project(self):
-		self.set_project(project.new_empty_project())
+		def project_name_changed(w = None):
+			name = self.builder.get_object("newproject-name").get_text().strip()
+			self.builder.get_object("newproject-dir").set_text(os.path.join(directory[0], name))
+			self.builder.get_object("newproject-ok").set_sensitive(name != "")
+		def change_directory(w):
+			d = self._directory_choose_dialog("Select project directory")
+			if d is not None:
+				directory[0] = d
+				project_name_changed()
+		dlg = self.builder.get_object("newproject-dialog")
+		dlg.set_transient_for(self.window)
+		self.builder.get_object("newproject-name").connect("changed", project_name_changed)
+		directory = [os.getcwd()]
+		project_name_changed()
+		self.builder.get_object("newproject-dirbutton").connect("clicked", change_directory)
+		try:
+			if dlg.run() == gtk.RESPONSE_OK:
+				dirname = self.builder.get_object("newproject-dir").get_text()
+				if os.path.exists(dirname):
+					self.show_error_dialog("Path '%s' already exists" % dirname)
+					return
+				p = self._catch_io_error(lambda: project.new_empty_project(dirname))
+				if p is not None:
+					self.set_project(p)
+		finally:
+			dlg.hide()
 
 	def load_project(self):
 		dialog = gtk.FileChooserDialog("Open project", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
@@ -109,7 +138,10 @@ class App:
 				return result
 			else:
 				return return_on_ok
-		except IOError, e:
+		except IOError as e:
+			self.show_error_dialog(str(e))
+			return return_on_err
+		except OSError as e:
 			self.show_error_dialog(str(e))
 			return return_on_err
 
@@ -231,7 +263,24 @@ class App:
 		p.cwd = "../out"
 		p.start()
 
+	def _directory_choose_dialog(self, title):
+		dialog = gtk.FileChooserDialog(title, self.window, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+				(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                 gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+		dialog.set_default_response(gtk.RESPONSE_OK)
+		try:
+			if dialog.run() == gtk.RESPONSE_OK:
+				return dialog.get_filename()
+			else:
+				return None
+		finally:
+			dialog.destroy()
 
-
+	def _open_welcome_tab(self):
+		label = gtk.Label()
+		label.set_markup("<span size='xx-large'>Kaira</span>\nv0.1\n\nNews &amp; documentation can be found at\nhttp://TODO")
+		label.set_justify(gtk.JUSTIFY_CENTER)
+		label.set_size_request(400,300)
+		self.window.add_tab("Welcome", label)
 app = App()
 app.run()

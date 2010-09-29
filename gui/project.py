@@ -177,13 +177,14 @@ def load_configuration(element, project):
 	for e in element.findall("parameter"):
 		load_parameter(e, project)
 
-def new_empty_project():
-	#p = load_project("../samples/pingpong.proj")
-	#p.export("export.xml")
-	#return p
-
+def new_empty_project(directory):
+	os.mkdir(directory)
+	name = os.path.basename(directory)
+	project_filename = os.path.join(directory,name + ".proj")
 	project = Project(None)
 	net = Net(project)
 	project.set_net(net)
+	project.set_filename(project_filename)
+	project.save()
 	return project
 

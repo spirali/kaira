@@ -23,6 +23,10 @@ class MainWindow(gtk.Window):
 
 		vbox.show_all()
 
+	def project_is_active(self, value):
+		for w in self.project_sensitives:
+			w.set_sensitive(value)
+
 	def add_tab(self, name, widget, close_callback = None):
 		if close_callback:
 			button = gtk.Button()
@@ -53,7 +57,12 @@ class MainWindow(gtk.Window):
 		num = self.notebook.page_num(widget)
 		self.notebook.remove_page(num)
 
+	def close_all_tabs(self):
+		for w in self.notebook.get_children():
+			self.close_tab(w)
+
 	def _create_main_menu(self):
+		self.project_sensitives = []
 		file_menu = gtk.Menu()
 		
 		item = gtk.MenuItem("_New project")
@@ -66,10 +75,12 @@ class MainWindow(gtk.Window):
 
 		item = gtk.MenuItem("_Save project")
 		item.connect("activate", lambda w: self.app.save_project())
+		self.project_sensitives.append(item)
 		file_menu.append(item)
 
 		item = gtk.MenuItem("Save project _as")
 		item.connect("activate", lambda w: self.app.save_project_as())
+		self.project_sensitives.append(item)
 		file_menu.append(item)
 
 		item = gtk.MenuItem("_Quit")
@@ -107,17 +118,17 @@ class MainWindow(gtk.Window):
 		main_menu.append(item)
 		item = gtk.MenuItem("_Edit")
 		item.set_submenu(edit_menu)
+		self.project_sensitives.append(item)
 		main_menu.append(item)
 		item = gtk.MenuItem("_Run")
 		item.set_submenu(build_menu)
+		self.project_sensitives.append(item)
 		main_menu.append(item)
 		item = gtk.MenuItem("_Tools")
 		item.set_submenu(tool_menu)
+		self.project_sensitives.append(item)
 		main_menu.append(item)
 		return main_menu
-
-	def _dummy(self):
-		pass
 
 
 class Console(gtk.ScrolledWindow):
