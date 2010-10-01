@@ -134,6 +134,7 @@ class Project(EventSource):
 		deps = [ self.get_name() + ".o" ]
 		makefile.rule(self.get_name(), deps, "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIB) " )
 		makefile.rule(".cpp.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
+		makefile.rule("clean", [], "rm -f *.o " + self.get_name() + " ")
 		makefile.write_to_file(os.path.join(self.get_directory(), "makefile"))
 
 	def _configuration_element(self):
