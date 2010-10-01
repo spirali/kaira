@@ -1,5 +1,6 @@
 import gtk
 import os
+import paths
 
 def build_menu(description):
 	menu = gtk.Menu()
@@ -16,7 +17,7 @@ def show_context_menu(menu_actions, event):
 
 def load_ui(filename):
 	builder = gtk.Builder()
-	builder.add_from_file(os.path.join("ui", filename + ".glade"))
+	builder.add_from_file(os.path.join(paths.UI_DIR, filename + ".glade"))
 	return builder
 
 class SimpleList(gtk.ScrolledWindow):
