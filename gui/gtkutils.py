@@ -1,4 +1,5 @@
 import gtk
+import os
 
 def build_menu(description):
 	menu = gtk.Menu()
@@ -13,6 +14,10 @@ def show_context_menu(menu_actions, event):
 	menu.show_all()
 	menu.popup(None, None, None, event.button, event.get_time())
 
+def load_ui(filename):
+	builder = gtk.Builder()
+	builder.add_from_file(os.path.join("ui", filename + ".glade"))
+	return builder
 
 class SimpleList(gtk.ScrolledWindow):
 	

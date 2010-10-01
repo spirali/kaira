@@ -2,6 +2,7 @@ import gtk
 
 import project
 import os
+import gtkutils
 from mainwindow import MainWindow
 from netview import NetView
 from simview import SimView
@@ -14,8 +15,6 @@ import process
 class App:
 	
 	def __init__(self):
-		self.builder = gtk.Builder()
-		self.builder.add_from_file("gui.glade")
 		self.window = MainWindow(self)
 		self.window.project_is_active(False)
 		self.nv = None
@@ -54,23 +53,24 @@ class App:
 
 	def new_project(self):
 		def project_name_changed(w = None):
-			name = self.builder.get_object("newproject-name").get_text().strip()
-			self.builder.get_object("newproject-dir").set_text(os.path.join(directory[0], name))
-			self.builder.get_object("newproject-ok").set_sensitive(name != "")
+			name = builder.get_object("newproject-name").get_text().strip()
+			builder.get_object("newproject-dir").set_text(os.path.join(directory[0], name))
+			builder.get_object("newproject-ok").set_sensitive(name != "")
 		def change_directory(w):
 			d = self._directory_choose_dialog("Select project directory")
 			if d is not None:
 				directory[0] = d
 				project_name_changed()
-		dlg = self.builder.get_object("newproject-dialog")
+		builder = gtkutils.load_ui("newproject-dialog")
+		dlg = builder.get_object("newproject-dialog")
 		dlg.set_transient_for(self.window)
-		self.builder.get_object("newproject-name").connect("changed", project_name_changed)
+		builder.get_object("newproject-name").connect("changed", project_name_changed)
 		directory = [os.getcwd()]
 		project_name_changed()
-		self.builder.get_object("newproject-dirbutton").connect("clicked", change_directory)
+		builder.get_object("newproject-dirbutton").connect("clicked", change_directory)
 		try:
 			if dlg.run() == gtk.RESPONSE_OK:
-				dirname = self.builder.get_object("newproject-dir").get_text()
+				dirname = builder.get_object("newproject-dir").get_text()
 				if os.path.exists(dirname):
 					self.show_error_dialog("Path '%s' already exists" % dirname)
 					return
@@ -185,7 +185,7 @@ class App:
 		if "params" in self.tabtable:
 			self.switch_to_tab(self.tabtable["params"])
 			return
-		w = ParametersWidget(self.builder, self.project, self.window)
+		w = ParametersWidget(self.project, self.window)
 		self.add_tab("Parameters", w, "params")
 
 	def simulation_start(self, try_reuse_params):
