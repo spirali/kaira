@@ -3,6 +3,7 @@ import gtk
 import project
 import os
 import gtkutils
+import paths
 from mainwindow import MainWindow
 from netview import NetView
 from simview import SimView
@@ -251,17 +252,32 @@ class App:
 	def _project_filename_changed(self):
 		self.window.set_title("Kaira (" + self.project.get_name() + ")")
 
-	def _start_project_build(self, project, build_ok_callback = None):
+	def _run_makefile(self, project, build_ok_callback = None, target = None):
 		def on_exit(code):
 			if build_ok_callback and code == 0:
 				build_ok_callback(project)
 		def on_line(line):
 			self.console_write(line)
 			return True
-		project.export("../out/project.xml")
 		p = process.Process("make",on_line, on_exit)
-		p.cwd = "../out"
-		p.start()
+		p.cwd = project.get_directory()
+		if target is None:
+			p.start()
+		else:
+			p.start([target])
+
+	def _start_project_build(self, project, build_ok_callback = None):
+		def on_exit(code):
+			if build_ok_callback and code == 0:
+				self._run_makefile(project, build_ok_callback)
+		def on_line(line):
+			self.console_write(line)
+			return True
+		project.export(project.get_exported_filename())
+		project.write_makefile()
+		p = process.Process(paths.PTP_BIN, on_line, on_exit)
+		p.cwd = project.get_directory()
+		p.start([project.get_exported_filename(), project.get_emitted_source_filename()])
 
 	def _directory_choose_dialog(self, title):
 		dialog = gtk.FileChooserDialog(title, self.window, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,

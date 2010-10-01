@@ -2,6 +2,8 @@
 import gtk
 import gtkutils
 import nettools
+import paths
+import os
 from canvas import NetCanvas
 from net import EmptyVisualConfig
 
@@ -71,10 +73,10 @@ class NetView(gtk.VBox):
 			self.tool.net_changed()
 
 	def _controls(self):
-		icon_transition = gtk.image_new_from_file("icons/transition.png")
-		icon_place = gtk.image_new_from_file("icons/place.png")
-		icon_arc = gtk.image_new_from_file("icons/arc.png")
-		icon_area = gtk.image_new_from_file("icons/area.png")
+		icon_transition = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "transition.png"))
+		icon_place = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "place.png"))
+		icon_arc = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "arc.png"))
+		icon_area = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "area.png"))
  
 		button1 = gtk.RadioToolButton(None,None)
 		button1.connect("toggled", lambda w: self.set_tool(nettools.TransitionTool(self)))

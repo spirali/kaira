@@ -20,7 +20,8 @@ class Simulation(EventSource):
 		self.areas_instances = {}
 		self.places_content = {}
 		self.random = random.Random()
-		self.process = process.Process("../out/project",self._simulator_output)
+		self.process = process.Process(project.get_executable_filename(),self._simulator_output)
+		self.process.cwd = project.get_directory()
 		# FIXME: Timeout
 
 		other_params = [ "-p%s=%s" % (p,param_values[p]) for p in param_values ]

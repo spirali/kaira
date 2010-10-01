@@ -158,17 +158,26 @@ class Makefile:
 	def __init__(self):
 		self.variables = []
 		self.rules = []
+		self.top_comment = ""
 
 	def set(self, variable, value):
 		self.variables.append((variable, value))
 
-	def rule(self, target, deps, command):
+	def rule(self, target, deps, command = None):
 		self.rules.append((target, deps, command))
 
+	def set_top_comment(self, value):
+		self.top_comment = value
+
 	def write(self, out):
+		for line in self.top_comment.split("\n"):
+			out.write("# " + line + "\n")
+
+		out.write("\n")
+
 		for (var, value) in self.variables:
 			out.write(var)
-			out.write(" = ")
+			out.write("=")
 			out.write(value)
 			out.write("\n")
 
@@ -176,7 +185,10 @@ class Makefile:
 			out.write(t + ":")
 			for d in deps:
 				out.write(" " + d)
-			out.write("\n\t" + c + "\n")
+			if c is not None:
+				out.write("\n\t" + c + "\n")
+			else:
+				out.write("\n")
 
 	def write_to_file(self, filename):
 		with open(filename,"w") as f:
