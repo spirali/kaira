@@ -2,6 +2,7 @@ import gtk
 
 import project
 import os
+import sys
 import gtkutils
 import paths
 from mainwindow import MainWindow
@@ -15,13 +16,18 @@ import process
 
 class App:
 	
-	def __init__(self):
+	def __init__(self, args):
 		self.window = MainWindow(self)
 		self.window.project_is_active(False)
 		self.nv = None
 		self.tabtable = {}
 		self._open_welcome_tab()
-		#self.set_project(project.new_empty_project())
+
+		if args:
+			if os.path.isfile(args[0]):
+				self.set_project(project.load_project(args[0]))
+			else:
+				self.console_write("Project file '%s' not found\n" % args[0], "error")
 
 	def run(self):
 		gtk.gdk.threads_init()
@@ -298,5 +304,8 @@ class App:
 		label.set_justify(gtk.JUSTIFY_CENTER)
 		label.set_size_request(400,300)
 		self.window.add_tab("Welcome", label)
-app = App()
-app.run()
+
+if __name__ == "__main__":
+	args = sys.argv[1:] # Remove "app.py"
+	app = App(args)
+	app.run()

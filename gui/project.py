@@ -14,7 +14,7 @@ class Project(EventSource):
 	def __init__(self, file_name):
 		EventSource.__init__(self)
 		self.id_counter = 100
-		self.filename = file_name
+		self.set_filename(file_name)
 		self.parameters = []
 		self.param_values_cache = None
 
@@ -55,7 +55,7 @@ class Project(EventSource):
 		return os.path.dirname(self.filename)
 
 	def set_filename(self, filename):
-		self.filename = filename
+		self.filename = os.path.abspath(filename)
 		self.emit_event("filename_changed")
 
 	# Cache is used for rerunning simulation with same parameters
