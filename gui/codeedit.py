@@ -2,12 +2,16 @@
 import gtksourceview2 as gtksourceview
 import gtk
 import pango
+import os
 
 class CodeEditor(gtk.VBox):
 	
 	def __init__(self, start_string, middle_string, end_string, start_pos):
 		gtk.VBox.__init__(self)
-		hbox = gtk.HBox()
+
+		toolbar = self._toolbar()
+		if toolbar is not None:
+			self.pack_start(toolbar, False, False)
 		
 		sw = gtk.ScrolledWindow()
 		self.pack_start(sw)
@@ -64,7 +68,34 @@ class CodeEditor(gtk.VBox):
 		start_iter = self.buffer.get_iter_at_mark(start_mark)
 		end_iter = self.buffer.get_iter_at_mark(end_mark)
 		return self.buffer.get_text(start_iter, end_iter)
-		
+
+	def _toolbar(self):
+		return None
+
+class CodeFileEditor(CodeEditor):
+
+	def __init__(self, filename):
+		self.filename = filename
+		if os.path.isfile(filename):
+			with open(filename, "r") as f:
+				content = f.read()
+		else:
+			content = ""
+		CodeEditor.__init__(self, "", content, "", (0,0))
+
+	def _toolbar(self):
+		button1 = gtk.Button("Save")
+		button1.connect("clicked", self._save)
+		toolbar = gtk.Toolbar()
+		toolbar.add(button1)
+		toolbar.show_all()
+		return toolbar
+
+	def _save(self, w):
+		#FIXME: catch io erros
+		with open(self.filename, "w") as f:
+			f.write(self.get_text())
+
 
 class TransitionCodeEditor(CodeEditor):
 	

@@ -10,6 +10,7 @@ from netview import NetView
 from simview import SimView
 from codeedit import TransitionCodeEditor
 from codeedit import PlaceCodeEditor
+from codeedit import CodeFileEditor
 from parameters import ParametersWidget, ParametersValueDialog
 from simulation import Simulation, SimulationException
 import process
@@ -195,6 +196,16 @@ class App:
 			return
 		w = ParametersWidget(self.project, self.window)
 		self.add_tab("Parameters", w, "params")
+
+	def edit_sourcefile(self, filename):
+		tab_tag = "file:" + filename
+		if tab_tag in self.tabtable:
+			self.switch_to_tab(self.tabtable[tab_tag])
+		w = CodeFileEditor(filename)
+		self.add_tab(os.path.basename(filename), w, tab_tag)
+
+	def edit_headfile(self):
+		self.edit_sourcefile(self.project.get_head_filename())
 
 	def simulation_start(self, try_reuse_params):
 		def project_builded(project):
