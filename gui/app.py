@@ -166,12 +166,13 @@ class App:
 	def _add_project_file_filters(self, dialog):
 		self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files = True)
 
-	def switch_to_tab(self, widget):
-		self.window.switch_to_tab(widget)
+	def switch_to_tab(self, tabtag):
+		w, callback = self.tabtable[tabtag]
+		self.window.switch_to_tab(w)
 
 	def transition_edit(self, transition):
 		if transition in self.tabtable:
-			self.switch_to_tab(self.tabtable[transition])
+			self.switch_to_tab(transition)
 			return
 
 		if transition.get_name() != "":
@@ -183,7 +184,7 @@ class App:
 
 	def place_edit(self, place):
 		if place in self.tabtable:
-			self.switch_to_tab(self.tabtable[place])
+			self.switch_to_tab(place)
 			return
 
 		name = "P: " + str(place.get_id())
@@ -192,7 +193,7 @@ class App:
 
 	def parameters_edit(self):
 		if "params" in self.tabtable:
-			self.switch_to_tab(self.tabtable["params"])
+			self.switch_to_tab("params")
 			return
 		w = ParametersWidget(self.project, self.window)
 		self.add_tab("Parameters", w, "params")
@@ -200,7 +201,8 @@ class App:
 	def edit_sourcefile(self, filename):
 		tab_tag = "file:" + filename
 		if tab_tag in self.tabtable:
-			self.switch_to_tab(self.tabtable[tab_tag])
+			self.switch_to_tab(tab_tag)
+			return
 		w = CodeFileEditor(filename)
 		self.add_tab(os.path.basename(filename), w, tab_tag)
 
@@ -240,7 +242,7 @@ class App:
 		""" Open new tab labeled with "name" with content "w" and register this tab for "obj" """
 		self.tabtable[obj] = (w, callback)
 		self.window.add_tab(name, w, lambda x: self.close_tab_for_obj(obj))
-		self.switch_to_tab(w)
+		self.switch_to_tab(obj)
 	
 	def close_tab_for_obj(self, obj):
 		if obj in self.tabtable:
