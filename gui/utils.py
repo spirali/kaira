@@ -1,4 +1,5 @@
 import math
+import os
 
 
 def make_vector(point1, point2):
@@ -193,3 +194,8 @@ class Makefile:
 	def write_to_file(self, filename):
 		with open(filename,"w") as f:
 			self.write(f)
+
+def write_file_if_not_exists(filename, content):
+	if not os.path.exists(filename):
+		with open(filename, "w") as f:
+			f.write(content)

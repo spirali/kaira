@@ -526,12 +526,13 @@ createMainInitFunction project = Function {
 		
 createProgram :: Project -> String
 createProgram project =
-	emitProgram globals $ netF ++ [mainInitF, mainF]
+	emitProgram prologue globals $ netF ++ [mainInitF, mainF]
 	where
 		globals = [ (parameterGlobalName $ parameterName p, parameterType p) | p <- projectParameters project ]
 		netF = concat [ createNetworkFunctions project n | n <- networks project ]
 		mainInitF = createMainInitFunction project
 		mainF = createMainFunction project
+		prologue = "#include <stdio.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n#include \"head.cpp\"\n\n"
 
 test = readFile "../out/project.xml" >>= return . createProgram . projectFromXml >>= writeFile "../out/project.cpp"
 test2 = readFile "../out/project.xml" >>= return . projectFromXml

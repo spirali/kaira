@@ -195,16 +195,15 @@ emitGlobals [] = ""
 emitGlobals ((name, t):rest) = 
 	typeString t ++ " " ++ name ++ ";\n" ++ emitGlobals rest
 
-emitProgram :: [VarDeclaration] -> [Function] -> String
-emitProgram globals functions = 
-	prolog ++ typeDeclarations ++ "\n\n" ++ emitGlobals globals ++ "\n\n" ++ concatMap emitFunction (extraFunctions ++ functions) 
+emitProgram :: String -> [VarDeclaration] -> [Function] -> String
+emitProgram prologue globals functions = 
+	prologue ++ typeDeclarations ++ "\n\n" ++ emitGlobals globals ++ "\n\n" ++ concatMap emitFunction (extraFunctions ++ functions) 
 	where 
 		typeDeclarations = concatMap emitTypeDeclaration orderedTypes
 		allTypes = Set.fold (\t s -> Set.union s $ subTypes' t) Set.empty (Set.unions (map gatherTypes functions))
 		allDefinedTypes = Set.filter isDefined allTypes
 		orderedTypes = List.sortBy depOrd (Set.toList allDefinedTypes)
 		extraFunctions = [] {- map printFunction orderedTypes -}
-		prolog = "#include <stdio.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n"
 
 emitTypeDeclaration :: Type -> String
 emitTypeDeclaration (TTuple types) = 

@@ -38,6 +38,7 @@ class App:
 		self.project = project
 		self.project.set_callback("changed", self._project_changed)
 		self.project.set_callback("filename_changed", self._project_filename_changed)
+		self.project.write_project_files()
 		self.init_tabs()
 		self._project_changed()
 		self._project_filename_changed()
@@ -280,7 +281,6 @@ class App:
 			self.console_write(line)
 			return True
 		project.export(project.get_exported_filename())
-		project.write_makefile()
 		p = process.Process(paths.PTP_BIN, on_line, on_exit)
 		p.cwd = project.get_directory()
 		p.start([project.get_exported_filename(), project.get_emitted_source_filename()])

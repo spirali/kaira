@@ -12,6 +12,7 @@ class Project(EventSource):
 	"""
 	
 	def __init__(self, file_name):
+		assert file_name is not None
 		EventSource.__init__(self)
 		self.id_counter = 100
 		self.set_filename(file_name)
@@ -50,6 +51,9 @@ class Project(EventSource):
 
 	def get_emitted_source_filename(self):
 		return self.get_filename_without_ext() + ".cpp"
+
+	def get_head_filename(self):
+		return os.path.join(self.get_directory(), "head.cpp")
 
 	def get_directory(self):
 		return os.path.dirname(self.filename)
@@ -120,6 +124,13 @@ class Project(EventSource):
 		self.reset_param_values_cache()
 		self.parameters.remove(parameter)
 		self.changed()
+
+	def write_project_files(self):
+		self.write_makefile()
+		utils.write_file_if_not_exists(self.get_head_filename(),
+			"/* This file is included at the beginning of main source file,\n" + 
+			"   so definition from this file can be used in functions in\n" +
+			"   transitions and places. */\n\n")
 
 	def write_makefile(self):
 		makefile = utils.Makefile()
@@ -211,9 +222,9 @@ def new_empty_project(directory):
 	os.mkdir(directory)
 	name = os.path.basename(directory)
 	project_filename = os.path.join(directory,name + ".proj")
-	project = Project(None)
+	project = Project(project_filename)
 	net = Net(project)
 	project.set_net(net)
-	project.set_filename(project_filename)
+	project.write_project_files()
 	project.save()
 	return project
