@@ -16,6 +16,7 @@ class MainWindow(gtk.Window):
 		paned = gtk.VPaned()
 		vbox.pack_start(paned)
 		self.notebook = gtk.Notebook()
+		self.notebook.set_scrollable(True)
 		paned.pack1(self.notebook, True)
 
 		self.console = Console()
@@ -47,6 +48,7 @@ class MainWindow(gtk.Window):
 		else:
 			w = gtk.Label(name)
 		self.notebook.append_page(widget, w)
+		self.notebook.set_tab_reorderable(widget, True)
 		widget.show()
 
 	def switch_to_tab(self, widget):
