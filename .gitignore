@@ -15,6 +15,7 @@
 *.a
 lib/test
 ptp/ptp
-out/project.xml
-out/project
-out/project.cpp
+tests/projects/*
+samples/*/*.cpp
+samples/*/*.xml
+samples/*/makefile
