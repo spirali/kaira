@@ -164,10 +164,11 @@ checkEdges network decls binded processedEdges (edge:rest) level okEvent guards 
 checkEdges network decls binded processedEdges (edge:rest) level okEvent guards =
 	IStatement [] [
 		IIf (ExprCall "<" [ ExprCall "List.size" [ placeExpr ], ExprCall "+" [ limitExpr, ExprInt (length edgesWithSamePlace)]])
-			IContinue INoop,
+			operation INoop,
 		(checkEdges network decls binded (edge:processedEdges) rest (level + 1) okEvent guards)
 	]
 	where
+		operation = if any isNormalEdge processedEdges then IContinue else IReturn (ExprInt 0)
 		edgesWithSamePlace = [ e | e <- processedEdges, edgePlaceId e == edgePlaceId edge ]
 		EdgePacking name limit = edgeInscription edge
 		limitExpr = case limit of

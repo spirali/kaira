@@ -1,0 +1,22 @@
+<project><configuration /><net id="101"><transition guard="" id="102" name="" sx="70" sy="35" x="118.0" y="143.0" /><place id="103" init_string="" place_type="Int" radius="20" x="117.0" y="38.0"><code>	int t;
+	for (t = 0; t &lt; 10; t++) {
+		place-&gt;push_back(t);
+	}
+</code></place><edge from_item="103" id="104" inscription="~x(3)" inscription_x="122.594879507" inscription_y="91.9400270828" to_item="102" /><place id="106" init_string="" place_type="Int" radius="20" x="119.0" y="232.0" /><edge from_item="102" id="107" inscription="~x" inscription_x="123.387091926" inscription_y="185.926093663" to_item="106" /><place id="108" init_string="" place_type="Int" radius="20" x="220.0" y="233.0"><code>	place-&gt;push_back(25);
+	place-&gt;push_back(12);	
+</code></place><transition guard="" id="109" name="" sx="70" sy="35" x="166.0" y="320.0"><code>	int t;
+	for (t = 0; t &lt; 5; t++) {
+		var.z.push_back(t);
+	} 
+</code></transition><edge from_item="106" id="110" inscription="~x(y)" inscription_x="134.705259265" inscription_y="276.079476812" to_item="109" /><edge from_item="108" id="111" inscription="y" inscription_x="210.163986702" inscription_y="277.283773845" to_item="109" /><transition guard="" id="113" name="" sx="70" sy="35" x="388.0" y="417.0"><code>	std::sort(var.x.begin(), var.x.end());
+	std::sort(var.y.begin(), var.y.end());	
+	int t;
+	for (t=0;t &lt; var.y.size();t++) {
+		printf("%i\n", var.y[t]);
+	}
+	for (t=0;t &lt; var.x.size();t++) {
+		printf("%i\n", var.x[t]);
+	}
+	ctx-&gt;halt();
+</code></transition><place id="114" init_string="" place_type="Int" radius="20" x="152.0" y="435.0" /><place id="115" init_string="" place_type="Int" radius="20" x="345.0" y="319.0" /><edge from_item="109" id="116" inscription="~x" inscription_x="252.877224104" inscription_y="305.285281475" to_item="115" /><edge from_item="109" id="117" inscription="~z" inscription_x="162.882767858" inscription_y="383.965958071" to_item="114" /><place id="119" init_string="" place_type="Int" radius="20" x="218.0" y="396.0" /><edge from_item="109" id="120" inscription="y" inscription_x="208.808679835" inscription_y="357.581471508" to_item="119" /><edge from_item="114" id="121" inscription="~y(5)" inscription_x="259.581577448" inscription_y="435.194747484" to_item="113" /><edge from_item="115" id="122" inscription="~x(13)" inscription_x="422.805342491" inscription_y="325.003790591" to_item="113"><point x="424.0" y="308.0" /><point x="414.0" y="360.0" /></edge><place id="124" init_string="" place_type="Int" radius="20" x="87.0" y="552.0" /><edge from_item="109" id="125" inscription="~empty" inscription_x="64.4889257893" inscription_y="413.832595053" to_item="124"><point x="65.0" y="331.0" /><point x="54.0" y="496.0" /></edge><edge from_item="124" id="126" inscription="~empty(0)" inscription_x="266.319065555" inscription_y="548.653416827" to_item="113"><point x="430.0" y="540.0" /></edge><transition guard="" id="133" name="" sx="70" sy="35" x="388.0" y="226.0" /><edge from_item="108" id="134" inscription="25" inscription_x="290.218884633" inscription_y="212.091122758" to_item="133" /><edge from_item="133" id="135" inscription="5" inscription_x="358.196654321" inscription_y="271.889249743" to_item="115" /><edge from_item="119" id="136" inscription="12" inscription_x="290.799545473" inscription_y="285.146308353" to_item="133" /><edge from_item="133" id="137" inscription="25" inscription_x="303.798865864" inscription_y="171.991059927" to_item="108"><point x="387.0" y="162.0" /><point x="220.0" y="172.0" /></edge><edge from_item="108" id="138" inscription="25" inscription_x="353.346226621" inscription_y="133.002365185" to_item="113"><point x="194.0" y="157.0" /><point x="519.0" y="147.0" /><point x="512.0" y="417.0" /></edge><area count_expr="2" id="139" sx="274.0" sy="88.0" x="236.0" y="23.0" /><place id="140" init_string="100" place_type="Int" radius="20" x="406.0" y="59.0" /><transition guard="" id="141" name="" sx="70" sy="35" x="290.0" y="51.0"><code>	ctx-&gt;halt();
+</code></transition><edge from_item="140" id="142" inscription="~x(0)" inscription_x="341.984336589" inscription_y="63.282803025" to_item="141" /><edge from_item="141" id="143" inscription="~x@0" inscription_x="201.737478782" inscription_y="137.896831717" to_item="106" /></net></project>
