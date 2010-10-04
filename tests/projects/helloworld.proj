@@ -1,0 +1,4 @@
+<project><configuration /><net id="101"><place id="102" init_string="4" place_type="Int" radius="20" x="92" y="84" /><place id="103" init_string="" place_type="Int" radius="20" x="239" y="88"><code>	place-&gt;push_back(5);
+</code></place><transition guard="" id="104" name="" sx="70" sy="35" x="167" y="171"><code>	printf("Hello world %i\n", var.x + 7);
+	ctx-&gt;quit();
+</code></transition><edge from_item="102" id="105" inscription="x - 1" inscription_x="123" inscription_y="124" to_item="104" /><edge from_item="103" id="106" inscription="x" inscription_x="218" inscription_y="130" to_item="104" /></net></project>

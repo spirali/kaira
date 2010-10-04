@@ -19,6 +19,7 @@ icall name params = IExpr $ ExprCall name params
 nelFunctions = [
 	( "+", TInt, [TInt, TInt]),
 	( "*", TInt, [TInt, TInt ]),
+	( "-", TInt, [TInt, TInt ]),
 	( ">", TBool, [TInt, TInt ]),
 	( "<", TBool, [TInt, TInt ]),
 	( ">=", TBool, [TInt, TInt ]),
@@ -106,6 +107,7 @@ processInputExpr fn (ExprVar x) = fn x
 processInputExpr fn (ExprParam x) = ExprVar $ parameterGlobalName x
 processInputExpr fn (ExprCall "iid" []) = ExprCall ".iid" [ ExprVar "ctx" ]
 processInputExpr fn (ExprCall "+" exprs) = ExprCall "+" [ processInputExpr fn expr | expr <- exprs ]
+processInputExpr fn (ExprCall "-" exprs) = ExprCall "-" [ processInputExpr fn expr | expr <- exprs ]
 processInputExpr fn (ExprCall "*" exprs) = ExprCall "*" [ processInputExpr fn expr | expr <- exprs ]
 processInputExpr fn (ExprTuple exprs) = ExprTuple [ processInputExpr fn expr | expr <- exprs ]
 processInputExpr fn x = error $ "Input expression contains: " ++ show x

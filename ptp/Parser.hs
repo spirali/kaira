@@ -66,6 +66,7 @@ expressionParser = buildExpressionParser optable baseExpr
 optable = [ 
 	[ Infix (opBinary "*") AssocLeft ], 
 	[ Infix (opBinary "+") AssocLeft ], 
+	[ Infix (opBinary "-") AssocLeft ],
 	[ Infix (opBinary ">") AssocLeft ],
 	[ Infix (opBinary "<") AssocLeft ],
 	[ Infix (opBinary "==") AssocLeft ],

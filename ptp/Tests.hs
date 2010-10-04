@@ -13,6 +13,7 @@ testExprParser = TestCase $ do
 		(ExprTuple [ ExprVar "x", ExprInt 20, ExprTuple [ ExprInt 30, ExprVar "y" ]])
 	exprTest  " ( )" (ExprTuple [])
 	exprTest "x+y" (ExprCall "+" [ ExprVar "x", ExprVar "y"])
+	exprTest "(x - y)" (ExprCall "-" [ ExprVar "x", ExprVar "y"])
 	exprTest "  x  +  10  " (ExprCall "+" [ ExprVar "x", ExprInt 10])
 	exprTest " (  x  + /* comment */ 10 )  " (ExprCall "+" [ ExprVar "x", ExprInt 10])
 	exprTest " (  x  +  (2,2) )  " (ExprCall "+" [ ExprVar "x", ExprTuple [ExprInt 2, ExprInt 2]])

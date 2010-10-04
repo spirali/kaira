@@ -25,9 +25,10 @@ class BuildingTest(TestCase):
 		RunProgram("make", [], cwd = directory).run()
 		RunProgram(name, []).run(final_output)
 
-	def test_build(self):
+	def test_helloworld(self):
+		self.build(os.path.join(TEST_PROJECTS, "helloworld.proj"), "Hello world 12\n")
+	def test_helloworld2(self):
 		self.build(os.path.join(TEST_PROJECTS, "helloworld2.proj"), "Hello world 5\n")
-
 
 if __name__ == '__main__':
     unittest.main()
