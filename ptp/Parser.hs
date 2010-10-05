@@ -8,6 +8,7 @@ module Parser (
 
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
+import Text.ParserCombinators.Parsec.Error
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Token
 import qualified Data.Set as Set
@@ -111,24 +112,35 @@ edgeInscriptionParser =
 guardParser :: Parser Expression 
 guardParser = do { eof; return ExprTrue; } <|> expressionParser
 
-parseSimple :: Parser a -> String -> a
-parseSimple parser str = 
-	case parse parser "" str of
-		Left x -> error $ "Parsing error of " ++ str ++ ": " ++ show x
+strErrorMessage :: ParseError -> String
+strErrorMessage perror = 
+	unlines $ map (\line -> prefix ++ line) $ filter ((/=) "") $ lines message
+	where
+		pos = errorPos perror
+		prefix = (sourceName pos) ++ ":" ++ show (sourceLine pos) ++ ":"
+		message = showErrorMessages "or" "unknown parse error" "expecting" "unexpected" "end of input" (errorMessages perror)
+
+parseHelper :: Parser a -> String -> String -> a
+parseHelper parser source str = 
+	case parse parser source str of
+		Left x -> error $ strErrorMessage x
 		Right x -> x
 
-parseType :: String -> Type
-parseType = parseSimple typeParser
+parseType :: String -> String -> Type
+parseType source "" = error $ source ++ ":1:Type is empty"
+parseType source str = parseHelper typeParser source str
 
-parseExpr :: String -> Expression
-parseExpr = parseSimple (whiteSpace >> expressionParser)
+parseExpr :: String -> String -> Expression
+parseExpr source "" = error $ source ++ ":1:Expression is empty"
+parseExpr source str = parseHelper (whiteSpace >> expressionParser) source str
 
-parseExpr' :: String -> Maybe Expression
-parseExpr' "" = Nothing
-parseExpr' x = Just $ parseExpr x
+parseExpr' :: String -> String -> Maybe Expression
+parseExpr' source "" = Nothing
+parseExpr' source x = Just $ parseExpr source x
 
-parseEdgeInscription :: String -> EdgeInscription 
-parseEdgeInscription = parseSimple (whiteSpace >> edgeInscriptionParser)
+parseEdgeInscription :: String -> String -> EdgeInscription 
+parseEdgeInscription source "" = error $ source ++ ":1:Inscription is empty"
+parseEdgeInscription source str = parseHelper (whiteSpace >> edgeInscriptionParser) source str
 
-parseGuard :: String -> Expression
-parseGuard = parseSimple (whiteSpace >> guardParser)
+parseGuard :: String -> String -> Expression
+parseGuard = parseHelper (whiteSpace >> guardParser)

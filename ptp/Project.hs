@@ -67,7 +67,7 @@ xmlAttr' str e defaultValue =
 		Nothing -> defaultValue
 
 xmlAttr :: String -> Xml.Element -> String
-xmlAttr str e = xmlAttr' str e (error $ "Attribute '" ++ str ++ "' not found.")
+xmlAttr str e = xmlAttr' str e (error $ "Attribute '" ++ str ++ "' not found in element '" ++ Xml.qName (Xml.elName e) ++ "'.")
 
 xmlAttrInt :: String -> Xml.Element -> Int
 xmlAttrInt str e = read $ xmlAttr str e
@@ -77,22 +77,25 @@ codeContent e = case Xml.findElement (qstr "code") e of
 					Just c -> Xml.strContent c
 					Nothing -> ""
 
+source :: Xml.Element -> String -> String
+source element place = "*" ++ (xmlAttr "id" element) ++ "/" ++ place
+
 placeFromElement :: Xml.Element -> Place
 placeFromElement e = 
 	Place { 
 		placeId = xmlAttrInt "id" e, 
 		placeName =  xmlAttr "name" e,
-		placeType = parseType $ xmlAttr "type" e, 
+		placeType = parseType (source e "type") $ xmlAttr "type" e, 
 		placeInitCode = codeContent e, 
-		placeInitExpr = parseExpr' $ xmlAttr' "init-expr" e "" 
+		placeInitExpr = parseExpr' (source e "init") $ xmlAttr' "init-expr" e "" 
 	} 
 
 edgeFromElement :: Xml.Element -> Edge
 edgeFromElement e = 
 	Edge { 
 		edgePlaceId = xmlAttrInt "place-id" e, 
-		edgeInscription = parseEdgeInscription $ xmlAttr "expr" e,
-		edgeTarget = parseExpr' $ xmlAttr' "target" e ""
+		edgeInscription = parseEdgeInscription (source e "inscription") $ xmlAttr "expr" e,
+		edgeTarget = parseExpr' (source e "target") $ xmlAttr' "target" e ""
 	}
 
 transitionFromElement :: Xml.Element -> Transition
@@ -103,7 +106,7 @@ transitionFromElement e =
 		edgesIn = orderEdgesByDependancy edgesIn, 
 		edgesOut = edgesOut, 
 		transitionCode = codeContent e,
-		guard = parseGuard $ xmlAttr' "guard" e ""
+		guard = parseGuard (source e "guard") $ xmlAttr' "guard" e ""
 	} 
 	where
 		id = idFromElement e
@@ -126,21 +129,21 @@ networkFromElement addr e =
 		places = placesFromElement e,
 		transitions = transitionsFromElement e,
 		address = addr,
-		instances = parseExpr $ xmlAttr "instances" e
+		instances = parseExpr (source e "instances") $ xmlAttr "instances" e
 	}
 
 addressesFromElement :: Xml.Element -> [Expression]
 addressesFromElement e = 
 	getAddress (Xml.findElements (qstr "net") e) (ExprInt 0)
 	where 
-		networkSize e = parseExpr $ xmlAttr "instances" e
+		networkSize e = parseExpr (source e "instances") $ xmlAttr "instances" e
 		getAddress [] _ = []
 		getAddress (e:es) n = n:(getAddress es $ ExprCall "+" [ n,networkSize e])
 
 parameterFromElement :: Xml.Element -> Parameter
 parameterFromElement e = Parameter {
 	parameterName = xmlAttr "name" e,
-	parameterType = parseType (xmlAttr "type" e),
+	parameterType = parseType "" (xmlAttr "type" e), {- FIXME: Source of parameter -}
 	parameterDescription = xmlAttr' "description" e ""
 }
 

@@ -317,6 +317,7 @@ class Transition(NetElement):
 		def make_edge(name, edge, place):
 			ea = xml.Element(name)
 			ea.set("place-id", str(place.get_id()))
+			ea.set("id", str(edge.get_id()))
 			if "@" in edge.inscription:
 				a, b = edge.inscription.split("@")
 				ea.set("expr", a)

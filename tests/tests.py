@@ -25,6 +25,13 @@ class BuildingTest(TestCase):
 		RunProgram("make", [], cwd = directory).run()
 		RunProgram(name, []).run(final_output)
 
+	def failed_ptp(self, filename, final_output):
+		name, ext = os.path.splitext(filename)
+		directory = os.path.dirname(name)
+		RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
+		RunProgram("python", [ CMDUTILS, "--export", filename ]).run()
+		RunProgram(PTP_BIN, [ name + ".xml", name + ".cpp" ]).fail(final_output)
+
 	def test_helloworld(self):
 		self.build(os.path.join(TEST_PROJECTS, "helloworlds", "helloworld.proj"), "Hello world 12\n")
 	def test_helloworld2(self):
@@ -32,6 +39,10 @@ class BuildingTest(TestCase):
 	def test_packing(self):
 		output = "0\n1\n2\n3\n4\n0\n1\n2\n3\n4\n5\n5\n6\n7\n8\n9\n100\n100\n"
 		self.build(os.path.join(TEST_PROJECTS, "packing", "packing.proj"), output)
+	def test_broken1(self):
+		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken1.proj"), "*104/inscription:1:Inscription is empty\n")
+	def test_broken2(self):
+		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken2.proj"), "*102/type:1:Type is empty\n")
 
 
 if __name__ == '__main__':

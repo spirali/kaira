@@ -21,7 +21,7 @@ testExprParser = TestCase $ do
 		(ExprCall "a" [ExprCall "+" [ExprCall "b" [ ExprCall "c" [], ExprTuple []], ExprInt 133]])
 	exprTest "2 + 3 * 5" (ExprCall "+" [ ExprInt 2, ExprCall "*" [ ExprInt 3, ExprInt 5]])
 	where exprTest str result = 
-		assertEqual str (parseExpr str) result
+		assertEqual str (parseExpr "" str) result
 
 testEdgeInscriptionParser = TestCase $ do
 	exprTest "~name" (EdgePacking "name" Nothing)
@@ -35,12 +35,12 @@ testEdgeInscriptionParser = TestCase $ do
 		(ExprCall "&&" [ ExprCall "!=" [ ExprCall "*" [ ExprVar "x", ExprInt 3 ], ExprInt 5],
 						ExprCall "==" [ ExprCall "+" [ ExprVar "y", ExprInt 2 ], ExprInt 1]]))
 	where exprTest str result = 
-		assertEqual str (parseEdgeInscription str) result
+		assertEqual str (parseEdgeInscription "" str) result
 
 testEdgeOrdering = TestCase $ do
 	assertEqual "ordering" (orderEdgesByDependancy edges1) edges2
 	where 
-		e x = Edge { edgePlaceId = 0, edgeInscription = parseEdgeInscription x, edgeTarget = Nothing }
+		e x = Edge { edgePlaceId = 0, edgeInscription = parseEdgeInscription "" x, edgeTarget = Nothing }
 		edges1 = [ e "(x + 1, y + 1, z + 1)", e "~x", e "(x, z + 1)", e "(y, z)", e "y + 2", e "~ff(y)" ]
 		edges2 = [ e "(y, z)", e "(x, z + 1)", e "y + 2", e "(x + 1, y + 1, z + 1)", e "~x", e "~ff(y)" ] 
 
@@ -50,7 +50,7 @@ testGuardParser = TestCase $ do
 	exprTest " x  " $ ExprVar "x"
 	exprTest "   m + 5 > 2 + n" $ ExprCall ">" [ ExprCall "+" [ ExprVar "m", ExprInt 5 ], ExprCall "+" [ ExprInt 2, ExprVar "n" ]]
 	where exprTest str result = 
-		assertEqual str (parseGuard str) result
+		assertEqual str (parseGuard "" str) result
 
 
 
