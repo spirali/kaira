@@ -121,6 +121,11 @@ def distance_to_line(line_point1, line_point2, point):
 def abs_vector(vector):
 	return (abs(vector[0]), abs(vector[1]))
 
+def inverse_dict(d):
+	result = {}
+	for k, v in d.items():
+		result[v] = k
+	return result
 
 def find_by_first(lst, key):
 	for item in lst:

@@ -26,8 +26,9 @@ def get_cursor(name):
 
 class NetViewVisualConfig(VisualConfig):
 
-	def __init__(self):
+	def __init__(self, project):
 		self.selected = None
+		self.project = project
 
 	def highlight(self, item):
 		self.selected = item
@@ -38,11 +39,17 @@ class NetViewVisualConfig(VisualConfig):
 	def get_highlight(self, i):
 		if i == self.selected:
 			return (0.86,0.86,0.0,1.0)
+		if self.project.has_error_messages(i):
+			return (1.0, 0.0, 0.0, 0.5)
+
+	def get_messages(self, i):
+		return self.project.get_error_messages(i)
 
 class NetView(gtk.VBox):
 
-	def __init__(self, net):
+	def __init__(self, project, net):
 		gtk.VBox.__init__(self)
+		self.project = project
 		self.net = net
 		self.tool = None
 		self.entry_types = []
@@ -128,7 +135,7 @@ class NetView(gtk.VBox):
 		return vbox
 
 	def _net_canvas(self):
-		self.vconfig = NetViewVisualConfig()
+		self.vconfig = NetViewVisualConfig(self.project)
 		c = NetCanvas(self.net, self._draw, self.vconfig)
 		c.set_callback("button_down", self._button_down)
 		c.set_callback("button_up", self._button_up)

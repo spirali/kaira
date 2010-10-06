@@ -18,6 +18,7 @@ class Project(EventSource):
 		self.set_filename(file_name)
 		self.parameters = []
 		self.param_values_cache = None
+		self.error_messages = {} #{ 102: { "type" : [ "Chyba","je tu","x","W","wwww" ], "init" : [ "Empty" ]} }
 
 	def new_id(self):
 		self.id_counter += 1
@@ -71,6 +72,19 @@ class Project(EventSource):
 
 	def reset_param_values_cache(self):
 		self.param_values_cache = None
+
+	def set_error_messages(self, messages):
+		self.error_messages = messages
+		self.changed()
+
+	def has_error_messages(self, item):
+		return item.get_id() in self.error_messages
+
+	def get_error_messages(self, item):
+		if item.get_id() in self.error_messages:
+			return self.error_messages[item.get_id()]
+		else:
+			return None
 
 	def changed(self):
 		self.emit_event("changed")
@@ -199,14 +213,16 @@ class Parameter(EventSource):
 def load_project(filename):
 	doc = xml.parse(filename)
 	root = doc.getroot()
-	return load_project_from_xml(root, filename)
+	project, idtable = load_project_from_xml(root, filename)
+	return project
 
 def load_project_from_xml(root, filename):
 	project = Project(filename)
 	if root.find("configuration"):
 		load_configuration(root.find("configuration"), project)
-	project.set_net(load_net(root.find("net"), project))
-	return project
+	net, idtable = load_net(root.find("net"), project)
+	project.set_net(net)
+	return project, idtable
 
 def load_parameter(element, project):
 	p = project.new_parameter()

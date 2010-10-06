@@ -369,6 +369,12 @@ class Transition(NetElement):
 			cr.move_to(self.position[0] - sx / 2, self.position[1] - self.size[1]/2 - sy/2 - 2)
 			cr.show_text(self.guard)
 
+	def draw_top(self, cr, vconfig):
+		error_messages = vconfig.get_messages(self)
+		if error_messages and "guard" in error_messages:
+			sx, sy = utils.text_size(cr, self.guard)
+			draw_error_box_after_text(cr, self.guard,(self.position[0] - sx / 2, self.position[1] - self.size[1]/2 - sy/2 - 2), error_messages["guard"])
+
 	def _rect(self, cr):
 		px, py = self.position
 		sx, sy = self.size
@@ -501,17 +507,16 @@ class Place(NetElement):
 			cr.stroke()
 
 
+		x = math.sqrt((self.radius * self.radius) / 2) + 5
 		if self.init_string:
-			x = math.sqrt((self.radius * self.radius) / 2) + 5
 			cr.set_source_rgb(0,0,0)
 			cr.move_to(self.position[0] + x, self.position[1] - x)
 			cr.show_text(self.init_string)
-
 		if self.place_type:
-			x = math.sqrt((self.radius * self.radius) / 2) + 5
 			cr.set_source_rgb(0,0,0)
 			cr.move_to(self.position[0] + x, self.position[1] + x)
 			cr.show_text(self.place_type)
+
 
 	def draw_top(self, cr, vconfig):
 		tokens = vconfig.get_token_strings(self)
@@ -554,6 +559,13 @@ class Place(NetElement):
 				text_y += y
 				cr.move_to(text_x, text_y)
 				cr.show_text(t)
+
+		x = math.sqrt((self.radius * self.radius) / 2) + 5
+		error_messages = vconfig.get_messages(self)
+		if error_messages and "type" in error_messages:
+			draw_error_box_after_text(cr, self.place_type, (self.position[0] + x, self.position[1] + x), error_messages["type"])
+		if error_messages and "init" in error_messages:
+			draw_error_box_after_text(cr, self.init_string, (self.position[0] + x, self.position[1] - x), error_messages["init"])
 
 	def _arc(self, cr):
 		px, py = self.position
@@ -685,6 +697,15 @@ class Edge(NetItem):
 			cr.move_to(point[0], point[1] + sy)
 			cr.show_text(self.inscription)
 
+	def draw_top(self, cr, vconfig):
+		error_messages = vconfig.get_messages(self)
+		if error_messages and "inscription" in error_messages:
+			if self.inscription_position is None:
+				pos = self.default_inscription_position()
+			else:
+				pos = self.inscription_position
+			draw_error_box_after_text(cr, self.inscription, pos, error_messages["inscription"])
+
 	def drag_move(self, action, drag_start, position, rel_change):
 		if action == "move":
 			old_pos = utils.vector_diff(position, rel_change)
@@ -768,7 +789,12 @@ class NetArea(NetItem):
 		cr.set_line_width(1.0)
 		cr.move_to(self.position[0], self.position[1] - 5)
 		cr.show_text(self.count_expr)
-		
+
+	def draw_top(self, cr, vconfig):
+		error_messages = vconfig.get_messages(self)
+		if error_messages and "instances" in error_messages:
+			draw_error_box_after_text(cr, self.count_expr,(self.position[0], self.position[1] - 5), error_messages["instances"])
+
 	def get_action(self, position):
 		px, py = position
 		mx, my = self.position
@@ -821,12 +847,44 @@ class NetArea(NetItem):
 		sx, sy = self.size
 		return (self.position, (sx + px, sy + py))
 
+def draw_error_box_after_text(cr, text, position, lines):
+	if text is not None:
+		sx, sy = utils.text_size(cr, text)
+		draw_error_box(cr, (position[0] + 5 + sx, position[1]), lines)
+	else:
+		draw_error_box(cr, position, lines)
+
+def draw_error_box(cr, position, lines):
+	assert len(lines) > 0
+	letter_y = utils.text_size(cr,"W")[1] * 1.5
+	size_x = max([ utils.text_size(cr, line)[0] for line in lines ]) + 10
+	size_y = letter_y * (len(lines) + 1)
+	#size_x = max( [ s[0] for s in sizes ] ) + 10
+	px, py = position
+	cr.set_source_rgb(0.9,0.1,0.1)
+	cr.rectangle(px, py - letter_y * 1.3, size_x, size_y)
+	cr.fill()
+	cr.set_source_rgb(0,0,0)
+	cr.rectangle(px, py - letter_y * 1.3, size_x, size_y)
+	cr.stroke()
+
+	cr.set_line_width(1.0)
+	px += 5
+	for (i, line) in enumerate(lines):
+		cr.move_to(px, py)
+		cr.show_text(line)
+		py += letter_y
+
+
 class VisualConfig:
 
 	def get_token_strings(self, p):
 		return []
 
 	def get_highlight(self, item):
+		return None
+
+	def get_messages(self, item):
 		return None
 
 def load_code(element):
@@ -892,4 +950,4 @@ def load_net(element, project):
 	for e in element.findall("edge"):
 		load_edge(e, net, idtable)
 
-	return net
+	return net, idtable

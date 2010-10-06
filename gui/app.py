@@ -14,6 +14,7 @@ from codeedit import CodeFileEditor
 from parameters import ParametersWidget, ParametersValueDialog
 from simulation import Simulation, SimulationException
 import process
+import utils
 
 class App:
 	
@@ -54,7 +55,7 @@ class App:
 			if callback:
 				callback(t)
 		self.window.close_all_tabs()
-		self.nv = NetView(self.project.net)
+		self.nv = NetView(self.project, self.project.net)
 		self.nv.transition_edit_callback = self.transition_edit
 		self.nv.place_edit_callback = self.place_edit
 		self.window.add_tab("Network", self.nv)
@@ -218,7 +219,8 @@ class App:
 			except SimulationException as e:
 				self.console_write(str(e), "error")
 
-		project = self.project.copy()
+		project, idtable = self.project.copy()
+		transtable = utils.inverse_dict(idtable) # Table new_id -> old_id
 
 		if project.get_parameters(): # Project has parameters
 			cache = self.project.get_param_value_cache()
@@ -236,7 +238,7 @@ class App:
 					dialog.destroy()
 		else:
 			param_values = {}
-		self._start_project_build(project, project_builded)
+		self._start_project_build(project, project_builded, translation_table = transtable)
 
 	def add_tab(self, name, w, obj, callback = None):
 		""" Open new tab labeled with "name" with content "w" and register this tab for "obj" """
@@ -286,13 +288,27 @@ class App:
 		else:
 			p.start([target])
 
-	def _start_project_build(self, project, build_ok_callback = None):
+	def _start_project_build(self, project, build_ok_callback = None, translation_table = None):
 		def on_exit(code):
+			self.project.set_error_messages(error_messages)
 			if build_ok_callback and code == 0:
 				self._run_makefile(project, build_ok_callback)
+			else:
+				self.console_write("Building failed\n", "error")
 		def on_line(line):
-			self.console_write(line)
+			if line.startswith("*"):
+				sections = line[1:].split(":",2)
+				item_id, pos = sections[0].split("/")
+				item_id = int(item_id)
+				if translation_table:
+					item_id = translation_table[item_id]
+				d = error_messages.setdefault(item_id, {})
+				lines = d.setdefault(pos, [])
+				lines.append(sections[2].strip())
+			else:
+				self.console_write(line)
 			return True
+		error_messages = {}
 		project.export(project.get_exported_filename())
 		p = process.Process(paths.PTP_BIN, on_line, on_exit)
 		p.cwd = project.get_directory()
