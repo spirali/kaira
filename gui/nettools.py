@@ -36,10 +36,10 @@ class NetTool:
 
 	def select_item(self, item):
 		if self.selected_item:
-			self.selected_item.highlight_off()
+			self.netview.highlight_off()
 		self.selected_item = item
 		if item:
-			item.highlight_on()
+			self.netview.highlight(item)
 			self.netview.set_entry_types(item.get_text_entries())
 
 	def deselect_item(self):

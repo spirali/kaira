@@ -5,7 +5,7 @@ import nettools
 import paths
 import os
 from canvas import NetCanvas
-from net import EmptyVisualConfig
+from net import VisualConfig
 
 action_cursor = { 
 	"none" : None,
@@ -24,7 +24,20 @@ def get_cursor(name):
 	else:
 		return None
 
+class NetViewVisualConfig(VisualConfig):
 
+	def __init__(self):
+		self.selected = None
+
+	def highlight(self, item):
+		self.selected = item
+
+	def highlight_off(self):
+		self.selected = None
+
+	def get_highlight(self, i):
+		if i == self.selected:
+			return (0.86,0.86,0.0,1.0)
 
 class NetView(gtk.VBox):
 
@@ -72,6 +85,14 @@ class NetView(gtk.VBox):
 		if self.tool:
 			self.tool.net_changed()
 
+	def highlight(self, item):
+		self.vconfig.highlight(item)
+		self.redraw()
+
+	def highlight_off(self):
+		self.vconfig.highlight_off()
+		self.redraw()
+
 	def _controls(self):
 		icon_transition = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "transition.png"))
 		icon_place = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "place.png"))
@@ -107,7 +128,8 @@ class NetView(gtk.VBox):
 		return vbox
 
 	def _net_canvas(self):
-		c = NetCanvas(self.net, self._draw, EmptyVisualConfig())
+		self.vconfig = NetViewVisualConfig()
+		c = NetCanvas(self.net, self._draw, self.vconfig)
 		c.set_callback("button_down", self._button_down)
 		c.set_callback("button_up", self._button_up)
 		c.set_callback("mouse_move", self._mouse_move)

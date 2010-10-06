@@ -194,18 +194,9 @@ class NetItem(object):
 	def __init__(self, net):
 		self.net = net
 		self.id = net.new_id()
-		self.highlight = False
 
 	def get_id(self):
 		return self.id
-
-	def highlight_on(self):
-		self.highlight = True
-		self.changed()
-
-	def highlight_off(self):
-		self.highlight = False
-		self.changed()
 
 	def changed(self):
 		self.net.changed()
@@ -348,17 +339,11 @@ class Transition(NetElement):
 		cr.set_source_rgb(1.0,1.0,1.0)
 		cr.fill()
 		
-
-		if self.highlight:
+		highlight = vconfig.get_highlight(self)
+		if highlight:
 			self._rect(cr)
-			cr.set_line_width(4.5)
-			cr.set_source_rgb(0.86,0.86,0.0)
-			cr.stroke()
-
-		if vconfig.is_transition_enabled(self):
-			self._rect(cr)
-			cr.set_line_width(8.5)
-			cr.set_source_rgba(0.1,0.90,0.1, 0.5)
+			cr.set_line_width(6.5)
+			cr.set_source_rgba(*highlight)
 			cr.stroke()
 
 		self._rect(cr)
@@ -499,10 +484,11 @@ class Place(NetElement):
 		cr.set_source_rgb(1,1,1)
 		cr.fill()
 
-		if self.highlight:
+		highlight = vconfig.get_highlight(self)
+		if highlight:
 			self._arc(cr)
-			cr.set_line_width(4.5)
-			cr.set_source_rgb(0.86,0.86,0.0)
+			cr.set_line_width(6.5)
+			cr.set_source_rgba(*highlight)
 			cr.stroke()
 
 		self._arc(cr)
@@ -675,9 +661,10 @@ class Edge(NetItem):
 	def draw(self, cr, vconfig):
 		points = self.get_all_points()
 
-		if self.highlight:
-			cr.set_line_width(4.5)
-			cr.set_source_rgb(0.86,0.86,0.0)
+		highlight = vconfig.get_highlight(self)
+		if highlight:
+			cr.set_line_width(6.5)
+			cr.set_source_rgba(*highlight)
 			utils.draw_polyline_arrow(cr, points, 0.5, 12)
 
 		cr.set_line_width(1.5)
@@ -688,8 +675,8 @@ class Edge(NetItem):
 			point = self.inscription_position
 			self.inscription_size = utils.text_size(cr, self.inscription)
 			sx, sy = self.inscription_size
-			if self.highlight:
-				cr.set_source_rgba(0.86,0.86,0.0,0.5)
+			if highlight:
+				cr.set_source_rgba(*highlight)
 				cr.rectangle(point[0], point[1], sx, sy)
 				cr.fill()
 				
@@ -765,9 +752,10 @@ class NetArea(NetItem):
 		self._rect(cr)
 		cr.fill()
 
-		if self.highlight:
-			cr.set_line_width(4.5)
-			cr.set_source_rgb(0.86,0.86,0.0)
+		highlight = vconfig.get_highlight(self)
+		if highlight:
+			cr.set_line_width(6.5)
+			cr.set_source_rgba(*highlight)
 			self._rect(cr)
 			cr.stroke()
 
@@ -775,7 +763,6 @@ class NetArea(NetItem):
 		cr.set_source_rgb(0,0,0)
 		self._rect(cr)
 		cr.stroke()
-
 
 		cr.set_source_rgb(0,0,0)
 		cr.set_line_width(1.0)
@@ -834,13 +821,13 @@ class NetArea(NetItem):
 		sx, sy = self.size
 		return (self.position, (sx + px, sy + py))
 
-class EmptyVisualConfig:
-
-	def is_transition_enabled(self, t):
-		return False
+class VisualConfig:
 
 	def get_token_strings(self, p):
 		return []
+
+	def get_highlight(self, item):
+		return None
 
 def load_code(element):
 	if element.find("code") is not None:

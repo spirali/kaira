@@ -2,7 +2,7 @@ import gtk
 
 import project
 from canvas import NetCanvas, MultiCanvas
-from net import EmptyVisualConfig
+from net import VisualConfig
 import gtkutils
 import utils
 
@@ -57,7 +57,7 @@ class SimView(gtk.VBox):
 			self.canvas_sc.show()
 
 	def _create_canvas(self):
-		c = NetCanvas(self.get_net(), None, EmptyVisualConfig())
+		c = NetCanvas(self.get_net(), None, VisualConfig())
 		c.connect("button_press_event", self._button_down)
 		c.connect("button_release_event", self._button_up)
 		c.connect("motion_notify_event", self._mouse_move)
@@ -144,7 +144,7 @@ class SimView(gtk.VBox):
 	def _simulation_changed(self):
 		self.redraw()
 
-class OverviewVisualConfig:
+class OverviewVisualConfig(VisualConfig):
 
 	def __init__(self, simulation):
 		self.simulation = simulation
@@ -156,10 +156,11 @@ class OverviewVisualConfig:
 			r += [ t + "@" + str(iid) for t in tokens[iid] ]
 		return r
 
-	def is_transition_enabled(self, transition):
-		return len(self.simulation.enabled_instances_of_transition(transition)) > 0
+	def get_highlight(self, item):
+		if item.is_transition() and len(self.simulation.enabled_instances_of_transition(item)) > 0:
+			return (0.1,0.90,0.1,0.5)
 
-class InstanceVisualConfig:
+class InstanceVisualConfig(VisualConfig):
 
 	def __init__(self, simulation, area, iid):
 		self.simulation = simulation
@@ -173,5 +174,6 @@ class InstanceVisualConfig:
 		else:
 			return []
 
-	def is_transition_enabled(self, transition):
-		return self.simulation.is_transition_enabled(transition, self.iid)
+	def get_highlight(self, item):
+		if item.is_transition() and self.simulation.is_transition_enabled(item, self.iid):
+			return (0.1, 0.90, 0.1, 0.5)
