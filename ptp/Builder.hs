@@ -312,9 +312,17 @@ transitionOkEvent project network transition = IStatement [ ("var", transitionVa
 			[ ISet (ExprVar name) (placeExprOfEdge e),
 			  icall "List.clear" [ placeExprOfEdge e ] ]
 
+
+sortBySendingPriority :: [Edge] -> [Edge]
+sortBySendingPriority edges = List.sortBy sortFn edges
+	where
+		sortFn x y | isNormalEdge x == isNormalEdge y = EQ
+				| isNormalEdge x = GT
+				| otherwise = LT
+
 sendInstructions :: Project -> Network -> Transition -> [Instruction]
 sendInstructions project network transition =
-	[ sendStatement project network (edgeNetwork project edge) transition edge | edge <- foreignEdges ]
+	[ sendStatement project network (edgeNetwork project edge) transition edge | edge <- sortBySendingPriority foreignEdges ]
 	where
 		foreignEdges = filter (Maybe.isJust . edgeTarget) (edgesOut transition)
 
