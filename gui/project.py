@@ -1,4 +1,4 @@
-from net import Net, load_net
+from net import Net, load_net, ExportException
 import xml.etree.ElementTree as xml
 import utils
 import copy

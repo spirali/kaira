@@ -3,6 +3,9 @@ import utils
 from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
 
+class ExportException(Exception):
+	pass
+
 class Net:
 	
 	def __init__(self, project):
@@ -93,7 +96,7 @@ class Net:
 		e = xml.Element("net")
 		e.set("id", str(id))
 		e.set("instances", count_expr)
-			
+
 		for place in places:
 			e.append(place.export_xml())
 
@@ -104,14 +107,21 @@ class Net:
 	def export_xml(self):
 		all_places = self.places()
 		all_transitions = self.transitions()
+
+		if len(all_places) == 0 and len(all_transitions) == 0:
+			raise ExportException("Network is empty.")
 		result = []
 		for area in self.areas():
 			ps = area.places()
 			ts = area.transitions()
+			if len(ps) == 0 or len(ts) == 0:
+				raise ExportException("Each area has have at least one transition and one place.")
 			for p in ps: all_places.remove(p)
 			for t in ts: all_transitions.remove(t)
 			result.append(self.export_subnet(area.get_id(), area.get_count_expr(), ps, ts))
-		if all_places and all_transitions:
+		if all_places or all_transitions:
+			if len(all_places) == 0 or len(all_transitions) == 0:
+				raise ExportException("Default area has to be empty or have at least one transition and one place.")
 			result.append(self.export_subnet(self.new_id(), "1", all_places, all_transitions))
 		return result
 

@@ -288,11 +288,11 @@ class App:
 		else:
 			p.start([target])
 
-	def _start_project_build(self, project, build_ok_callback = None, translation_table = None):
+	def _start_project_build(self, proj, build_ok_callback = None, translation_table = None):
 		def on_exit(code):
 			self.project.set_error_messages(error_messages)
 			if build_ok_callback and code == 0:
-				self._run_makefile(project, build_ok_callback)
+				self._run_makefile(proj, build_ok_callback)
 			else:
 				self.console_write("Building failed\n", "error")
 		def on_line(line):
@@ -309,10 +309,14 @@ class App:
 				self.console_write(line)
 			return True
 		error_messages = {}
-		project.export(project.get_exported_filename())
+		try:
+			proj.export(proj.get_exported_filename())
+		except project.ExportException as e:
+			self.console_write(str(e) + "\n", "error")
+			return
 		p = process.Process(paths.PTP_BIN, on_line, on_exit)
-		p.cwd = project.get_directory()
-		p.start([project.get_exported_filename(), project.get_emitted_source_filename()])
+		p.cwd = proj.get_directory()
+		p.start([proj.get_exported_filename(), proj.get_emitted_source_filename()])
 
 	def _directory_choose_dialog(self, title):
 		dialog = gtk.FileChooserDialog(title, self.window, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
