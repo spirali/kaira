@@ -110,9 +110,9 @@ void ca_main(int nodes_count, InitFn *init_fn) {
 	m->main(nodes_count, init_fn);
 }
 
-void ca_send(CaContext *ctx, int node, int data_id, void *data, size_t data_size)
+void ca_send(CaContext *ctx, int node, int data_id, CaPacker &packer)
 {
-	ctx->_get_module()->send(ctx, node, data_id, data, data_size);
+	ctx->_get_module()->send(ctx, node, data_id, packer.get_buffer(), packer.get_size());
 }
 
 static int ca_set_argument(int params_count, const char **param_names, int **param_data, char *name, char *value)
@@ -274,4 +274,12 @@ CaOutputBlock::~CaOutputBlock()
 		for (i = _children.begin(); i != _children.end(); i++) {
 			delete (*i);
 		}
+}
+
+CaPacker::CaPacker(size_t size) 
+{
+	buffer = (char*) malloc(size);
+	//FIXME: ALLOC_TEST
+	buffer_pos = buffer;
+	this->size = size;
 }

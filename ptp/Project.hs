@@ -85,7 +85,7 @@ placeFromElement e =
 	Place { 
 		placeId = xmlAttrInt "id" e, 
 		placeName =  xmlAttr "name" e,
-		placeType = parseType (source e "type") $ xmlAttr "type" e, 
+		placeType = parseType standardTypeNames (source e "type") $ xmlAttr "type" e, 
 		placeInitCode = codeContent e, 
 		placeInitExpr = parseExpr' (source e "init") $ xmlAttr' "init-expr" e "" 
 	} 
@@ -143,7 +143,7 @@ addressesFromElement e =
 parameterFromElement :: Xml.Element -> Parameter
 parameterFromElement e = Parameter {
 	parameterName = xmlAttr "name" e,
-	parameterType = parseType "" (xmlAttr "type" e), {- FIXME: Source of parameter -}
+	parameterType = parseType standardTypeNames "" (xmlAttr "type" e), {- FIXME: Source of parameter -}
 	parameterDescription = xmlAttr' "description" e ""
 }
 

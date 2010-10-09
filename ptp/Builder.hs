@@ -13,8 +13,6 @@ import ProjectTools
 import Codegen
 import Utils
 
-icall name params = IExpr $ ExprCall name params
-
 -- |Function allowed in inscription language
 nelFunctions = [
 	( "+", TInt, [TInt, TInt]),
@@ -73,7 +71,7 @@ patternCheck decls binded var x errEvent = ([], [(IIf (ExprCall "!=" [x, (ExprVa
 
 patternCheckStatement :: [VarDeclaration] -> VarSet -> String -> Expression -> Instruction -> Instruction
 patternCheckStatement decls binded var expr errEvent =
-	IStatement decl instructions
+	makeStatement decl instructions
 	where
 		(decl, instructions) = patternCheck decls binded var expr errEvent
 
@@ -88,6 +86,7 @@ variableTypes :: Project -> Expression -> Type -> Map.Map String Type
 variableTypes project (ExprVar string) ctype = Map.singleton string ctype
 variableTypes project (ExprParam paramName) t | (parameterTypeByName project paramName) == t = Map.empty
 variableTypes project (ExprInt _) (TInt) = Map.empty
+variableTypes project (ExprString _) (TString) = Map.empty
 variableTypes project (ExprTuple []) (TTuple []) = Map.empty
 variableTypes project (ExprTuple exprs) (TTuple types)
 	| length exprs == length types =
@@ -103,6 +102,7 @@ placesTuple network = TTuple $ map (TArray . placeType) (places network)
 
 processInputExpr :: (String -> Expression) -> Expression -> Expression
 processInputExpr fn (ExprInt x) = ExprInt x
+processInputExpr fn (ExprString x) = ExprString x
 processInputExpr fn (ExprVar x) = fn x
 processInputExpr fn (ExprParam x) = ExprVar $ parameterGlobalName x
 processInputExpr fn (ExprCall "iid" []) = ExprCall ".iid" [ ExprVar "ctx" ]
@@ -162,7 +162,7 @@ checkEdges network decls binded processedEdges (edge:rest) level okEvent guards 
 
 {- Variant for packing edges -}
 checkEdges network decls binded processedEdges (edge:rest) level okEvent guards =
-	IStatement [] [
+	makeStatement [] [
 		IIf (ExprCall "<" [ ExprCall "List.size" [ placeExpr ], ExprCall "+" [ limitExpr, ExprInt (length edgesWithSamePlace)]])
 			operation INoop,
 		(checkEdges network decls binded (edge:processedEdges) rest (level + 1) okEvent guards)
@@ -286,7 +286,7 @@ transitionEnableTestFunction project network transition = Function {
 {-
 	Erasing dependancy is added for reason that { List.eraseAt(l, x); List.eraseAt(l, y); } is problem if x < y
 -}
-transitionOkEvent project network transition = IStatement [ ("var", transitionVarType project transition) ] body
+transitionOkEvent project network transition = makeStatement [ ("var", transitionVarType project transition) ] body
 	where
 		body = map erase eraseDependancy ++ packing ++ map setVar decls ++ [ call ] ++ applyResult ++
 				(sendInstructions project network transition) ++ [ IReturn (ExprInt 1) ]
@@ -325,23 +325,57 @@ sendInstructions project network transition =
 	[ sendStatement project network (edgeNetwork project edge) transition edge | edge <- sortBySendingPriority foreignEdges ]
 	where
 		foreignEdges = filter (Maybe.isJust . edgeTarget) (edgesOut transition)
-
 		{- Disabled as premature optimization
 		networkAndEdgesAll = concat [ [ (n, e, helpId) | (e, helpId) <- zip (divide edgeTarget (transitionFilterEdges n edges)) [1..] ] | n <- networks project ]
 		networkAndEdges = filter (\(_, x, _) -> x /= []) networkAndEdgesAll -}
 
+packCode :: Expression -> Type -> Expression -> Instruction
+packCode packer t expr | canBeDirectlyPacked t = 
+	makeStatement [ ("data", t) ] [ 
+		ISet (ExprVar "data") expr,
+		icall ".pack" [ packer, ExprAddr (ExprVar "data"), exprMemSize t expr ]
+	]
+packCode packer TString expr = makeStatement [ ("data", TString), ("size", TData "size_t") ] [ 
+			ISet (ExprVar "data") expr,
+			ISet (ExprVar "size") $ ExprCall ".size" [ExprVar "data"],
+			icall ".pack_size" [ packer, ExprVar "size" ],
+			icall ".pack" [ packer, ExprCall ".c_str" [ ExprVar "data" ], ExprVar "size" ]]
+packCode packer (TTuple types) expr = makeStatement [] [ packCode packer t (ExprAt (ExprInt x) expr) | (x, t) <- zip [0..] types ]
+packCode packer t expr = error "packCode: Type cannot be packed"
+
+unpackCode :: Expression -> Type -> String -> Instruction
+unpackCode unpacker t var | canBeDirectlyPacked t =
+	makeStatement [ ("p", TPointer TVoid) ] [ 
+		ISet (ExprVar "p") (ExprCall ".unpack" [ unpacker, exprMemSize t undefined ]),
+		IInline (var ++ " = *(" ++ typeString (TPointer t) ++ ") p;")]
+unpackCode unpacker TString var = 
+	makeStatement [ ("size", TData "size_t"), ("sdata", TData "char *") ] [
+		ISet (ExprVar "size") (ExprCall ".unpack_size" [ unpacker ]),
+		IInline "sdata = (char*) unpacker.unpack(size);",
+		ISet (ExprVar var) (ExprCall "std::string" [ ExprVar "sdata", ExprVar "size" ])
+	]
+unpackCode unpacker (TTuple types) var = 
+	makeStatement vars $ [ unpackCode unpacker t name | (name, t) <- vars ] ++ 
+		[ ISet (ExprVar var) (ExprTuple [ ExprVar name | (name, t) <- vars ])]
+	where vars = [ (var ++ show i, t) | (i, t) <- zip [0..] types ]
+
+unpackCode unpacker t var = error $ "unpackCode: Type cannot be unpacked"
+
 sendStatement :: Project -> Network -> Network -> Transition -> Edge -> Instruction
 {- Version for normal edges -}
 sendStatement project fromNetwork toNetwork transition edge | isNormalEdge edge =
-	IStatement [ ("data", placeTypeByEdge project edge) ] [ ISet (ExprVar "data") (preprocess expr),
-	IExpr (ExprCall "ca_send" [
-		ExprVar "ctx",
-		target,
-		dataId,
-		ExprAddr $ ExprVar "data",
-		ExprCall "sizeof" [ExprVar (typeString $ placeTypeByEdge project edge)]
-	])]
+	makeStatement' [] [ ("item", etype, preprocess expr), 
+		("packer", TData "CaPacker", ExprCall "CaPacker" [exprMemSize etype (ExprVar "item")]) ] [
+		packCode packer etype (ExprVar "item"),
+		IExpr (ExprCall "ca_send" [
+			ExprVar "ctx",
+			target,
+			dataId,
+			packer ])
+	]
 	where
+		etype = edgePlaceType project edge
+		packer = ExprVar "packer"
 		EdgeExpression expr = edgeInscription edge
 		dataId = ExprInt $ edgePlaceId edge
 		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
@@ -349,17 +383,29 @@ sendStatement project fromNetwork toNetwork transition edge | isNormalEdge edge 
 			(preprocess . Maybe.fromJust . edgeTarget) edge ]
 {- Version for packing edge -}
 sendStatement project fromNetwork toNetwork transition edge =
-	IStatement [ ("target", TInt) ]
-	 [ ISet (ExprVar "target") target,
-	IForeach "data" "i" (ExprAt (ExprString name) (ExprVar "var")) [
-	icall "ca_send" [
+	makeStatement' [] [ ("target", TInt, target) ]
+	 [
+	IForeach "item" "i" (ExprAt (ExprString name) (ExprVar "var")) [
+	makeStatement' [] [ ("packer", TData "CaPacker", ExprCall "CaPacker" [exprMemSize etype (ExprVar "item")]) ] [
+		packCode packer etype (ExprVar "item"),
+		IExpr (ExprCall "ca_send" [
+			ExprVar "ctx",
+			ExprVar "target",
+			dataId,
+			packer ])
+	]]]
+	{-icall "ca_send" [
+
+
 		ExprVar "ctx",
 		ExprVar "target",
 		dataId,
 		ExprAddr $ ExprVar "data",
 		ExprCall "sizeof" [ExprVar (typeString (edgePlaceType project edge))]
-	]]]
+	]]]-}
 	where
+		packer = ExprVar "packer"
+		etype = edgePlaceType project edge
 		EdgePacking name limit = edgeInscription edge
 		dataId = ExprInt $ edgePlaceId edge
 		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
@@ -397,7 +443,8 @@ recvFunction project network = Function {
 	declarations = [],
 	extraCode = [],
 	returnType = TVoid,
-	instructions = [ recvStatement network place | place <- (places network) ]
+	instructions = [ makeStatement' [] [ ("unpacker", TData "CaUnpacker", (ExprCall "CaUnpacker" [ ExprVar "data" ])) ] 
+		[ recvStatement network place | place <- (places network) ]]
 }
 
 recvStatement :: Network -> Place -> Instruction
@@ -405,14 +452,14 @@ recvStatement network place =
 	IIf condition ifStatement INoop
 	where
 		condition = ExprCall "==" [ ExprVar "data_id", ExprInt (placeId place) ]
-		ifStatement = IStatement [ ("transport", TPointer (placeType place)) ] [
-			IInline ("transport = (" ++ typeString (TPointer (placeType place)) ++ ") data;"),
-			IExpr (ExprCall "List.append" [ ExprAt (ExprInt (placeSeq network place)) (ExprVar "places"),  ExprDeref (ExprVar "transport") ])]
+		ifStatement = makeStatement [ ("item", placeType place) ] [
+			unpackCode (ExprVar "unpacker") (placeType place) "item",
+			IExpr (ExprCall "List.append" [ ExprAt (ExprInt (placeSeq network place)) (ExprVar "places"),  (ExprVar "item") ])]
 
 {- This is not good aproach if there are more vars, but it now works -}
 safeErase :: Expression -> String -> [String] -> Instruction
 safeErase list v [] = icall "List.eraseAt" [ list, ExprVar v ]
-safeErase list v deps = IStatement [ ("tmp", TInt) ] $ [ ISet (ExprVar "tmp") (ExprVar v) ] ++ erase deps
+safeErase list v deps = makeStatement [ ("tmp", TInt) ] $ [ ISet (ExprVar "tmp") (ExprVar v) ] ++ erase deps
 	where 
 		erase [] = [ safeErase list "tmp" [] ]
 		erase (d:ds) = 

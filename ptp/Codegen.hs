@@ -65,7 +65,8 @@ emitCall scope ('.':name) (obj:params) =
 			TStruct _ _ -> "."
 			TPointer _ -> "->"
 			TData _ -> "."
-			_ -> error $ "Invalid type for calling method " ++ show obj
+			TString -> "."
+			x -> error $ "Invalid type for calling method '" ++ name ++ "' at " ++ show obj ++ "/" ++ show x
 
 emitCall scope "Base.asString" [x] = emitExpression scope $ exprAsString (scopeDeclarations scope) x
 emitCall scope "List.size" [e1] = emitExpression scope e1 ++ ".size()"
@@ -90,7 +91,7 @@ emitExpression scope (ExprAt (ExprInt index) expr) =
 	case exprType (scopeDeclarations scope) expr of
 		TTuple _ -> emitExpression scope expr ++ "." ++ emitTupleMember index
 		TPointer (TTuple _) -> emitExpression scope expr ++ "->" ++ emitTupleMember index
-		_ -> error $ "Unsuported type in emitExpression (ExprAt): " ++ show index
+		t -> error $ "Unsuported type in emitExpression (ExprAt): " ++ show index ++ " " ++ show expr ++ "/" ++ show t
 
 emitExpression scope (ExprAt (ExprString index) expr) = 
 	case exprType (scopeDeclarations scope) expr of
@@ -102,19 +103,23 @@ emitExpression scope (ExprAddr expr) = "&(" ++ emitExpression scope expr ++ ")"
 emitExpression scope (ExprDeref expr) = "*(" ++ emitExpression scope expr ++ ")"
 emitExpression scope x = error $ "EmitExpression: " ++ (show x)
 
-emitVarDeclarations :: Scope -> [VarDeclaration] -> SourceCode
-emitVarDeclarations scope vdecls = 
+emitVarDeclarations :: Scope -> [VarDeclaration] -> [(String, Expression)] -> SourceCode
+emitVarDeclarations scope vdecls inits = 
 	joinMap declare vdecls
-	where declare (name, t) = Text (typeString t ++ " " ++ name ++ ";") <+> Eol
+	where 
+		declare (name, t) = case List.lookup name inits of
+			Nothing -> Text (typeString t ++ " " ++ name ++ ";") <+> Eol
+			Just expr -> Text (typeString t ++ " " ++ name ++ " = " ++ emitExpression scope expr ++ ";") <+> Eol
 
 emitInstruction :: Scope -> Instruction -> SourceCode
 emitInstruction scope (IExpr expr) = Text (emitExpression scope expr ++ ";") <+> Eol
 emitInstruction scope (ISet expr1 expr2) = Text (emitExpression scope expr1 ++ " = " ++ emitExpression scope expr2 ++ ";") <+> Eol
-emitInstruction scope (IStatement decls instructions) = 
+emitInstruction scope (IStatement decls inits instructions) = 
 	(Text "{") <+> Block (declarations <+> joinMap emit instructions) <+> (Text "}") <+> Eol
 	where 
-		emit i = emitInstruction (addDeclarations scope (declarationsFromVarList decls)) i
-		declarations = emitVarDeclarations scope decls
+		emit i = emitInstruction newScope i
+		newScope = (addDeclarations scope (declarationsFromVarList decls))
+		declarations = emitVarDeclarations newScope decls inits
 emitInstruction scope (IReturn expr) = Text ("return " ++ emitExpression scope expr ++ ";") <+> Eol
 emitInstruction scope IContinue = Text "continue;" <+> Eol
 emitInstruction scope INoop = Empty
@@ -147,11 +152,14 @@ typeString (TArray t) = "std::vector<" ++ typeString t ++ ">"
 typeString (TData d) = d 
 typeString (TPointer t) = typeString t ++ "*"
 typeString (TStruct name _) = name
+typeString TString = "std::string"
 typeString x = typeSafeString x
 
+-- |Converts type to string in way that string can be used as part of identifier
 typeSafeString :: Type -> String
 typeSafeString TVoid = "void"
 typeSafeString TInt = "int"
+typeSafeString TString = "string"
 typeSafeString (TTuple ts) = "Tuple" ++ show (length ts) ++ "_" ++ addDelimiter "_" (map typeSafeString ts)
 typeSafeString TUndefined = "<undefined>"
 typeSafeString (TArray t) = "Array_" ++ typeSafeString t
@@ -184,7 +192,7 @@ emitFunction function =
 		body = sourceCodeToStr(emitInstruction scope (addConstructors decls statement))
 		scope = initialScope function
 		paramString = addDelimiter "," $ declareParam (parameters function)
-		statement = IStatement (declarations function) $ (instructions function) ++ extraInstructions
+		statement = makeStatement (declarations function) ((instructions function) ++ extraInstructions)
 		extraInstructions = 
 			case extraCode function of
 				"" -> [INoop]
@@ -241,7 +249,7 @@ gatherInstructionTypes (IExpr expr) = gatherExprTypes expr
 gatherInstructionTypes (ISet _ expr) = gatherExprTypes expr
 gatherInstructionTypes (IIf expr i1 i2) = 
 	Set.unions [ gatherExprTypes expr, gatherInstructionTypes i1, gatherInstructionTypes i2 ]
-gatherInstructionTypes (IStatement decls instrs) = 
+gatherInstructionTypes (IStatement decls inits instrs) = 
 	Set.union (varDeclarationTypes decls) $ Set.unions (map gatherInstructionTypes instrs)
 gatherInstructionTypes (IForeach _ _ expr instrs) = 
 	Set.union (gatherExprTypes expr) $ Set.unions (map gatherInstructionTypes instrs)
@@ -337,6 +345,7 @@ exprAsString decls (ExprInt x) = ExprString $ show x
 exprAsString decls x = 
 	case exprType decls x of
 		TInt -> ExprCall "ca_int_to_string" [x]
+		TString -> x
 		TTuple [] -> ExprString "()"
 		TTuple types -> ExprCall "+" $ [ ExprCall "std::string" [ ExprString "(" ], ExprCall "Base.asString" [ ExprAt (ExprInt 0) x ]]
 			++ concat [ [ExprString ",", ExprCall "Base.asString" [ ExprAt (ExprInt i) x ]] | i <- [1..(length types)-1]] ++ [ ExprString ")" ]

@@ -6,6 +6,7 @@
 #include <string>
 #include <stack>
 #include <vector>
+#include <string.h>
 
 class CaContext;
 class CaOutput;
@@ -79,14 +80,39 @@ class CaTransition {
 		int id;
 };
 
+class CaPacker {
 
+	public:
+		/*CaPacker() {}*/
+		CaPacker(size_t size);
+		~CaPacker() { free(buffer); }
+		void pack(const void *mem, size_t size) { memcpy(buffer_pos, mem, size); buffer_pos += size;  }
+		void pack_size(size_t data) { pack(&data, sizeof(size_t)); }
+		size_t get_size() { return size; }
+		void * get_buffer() { return buffer; }
+	protected:
+		char *buffer_pos;
+		size_t size;
+		char *buffer;
+};
+
+class CaUnpacker {
+
+	public:
+		CaUnpacker() {}
+		CaUnpacker(void *mem) { buffer_pos = (char*) mem; }
+		void * unpack(size_t size) { void *p = buffer_pos; buffer_pos += size; return p; }
+		size_t unpack_size() { size_t *data = (size_t*)unpack(sizeof(size_t)); return *data; }
+	protected:
+		char *buffer_pos;
+};
 
 /* Init functions */
 void ca_start(CaContext *ctx, void *data, TransitionFn **tf, RecvFn *recv_fn);
 void ca_main(int nodes_count, InitFn *init_fn);
 
 /* Communications */
-void ca_send(CaContext *ctx, int node, int data_id, void *data, size_t data_size);
+void ca_send(CaContext *ctx, int node, int data_id, CaPacker &packer);
 
 /* Others */
 void ca_parse_args(int argc, char **argv, int params_count, const char **param_names, int **param_data, const char **param_descs);

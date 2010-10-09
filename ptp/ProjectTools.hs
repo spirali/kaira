@@ -5,6 +5,17 @@ import Declarations
 import Utils
 import qualified Data.Set as Set
 import qualified Data.List as List
+import qualified Data.Map as Map
+
+-- | Shortcut for instruction calling fuction
+icall name params = IExpr $ ExprCall name params
+
+makeStatement decls instructions = IStatement decls [] instructions
+makeStatement' decls declsWithInit instructions = IStatement 
+	(decls ++ [ (name, t) | (name, t, init) <- declsWithInit ]) 
+	[ (name, init) | (name, t, init) <- declsWithInit ]
+	instructions
+
 
 -- | Returns name of variables that is directly mapped
 directVariables :: Expression -> VarSet
@@ -146,7 +157,7 @@ instructionExprs :: Instruction -> [Expression]
 instructionExprs (IExpr expr) = [expr]
 instructionExprs (ISet expr1 expr2) = [expr1, expr2]
 instructionExprs (IIf expr i1 i2) = [ expr ] ++ instructionExprs i1 ++ instructionExprs i2
-instructionExprs (IStatement decls instrs) = concatMap instructionExprs instrs
+instructionExprs (IStatement decls inits instrs) = concatMap instructionExprs instrs ++ [ init | (name, init) <- inits ]
 instructionExprs (IForeach _ _ expr instrs) = concatMap instructionExprs instrs
 instructionExprs INoop = []
 instructionExprs _ = []
@@ -155,7 +166,7 @@ mapExprs :: (Expression -> Expression) -> Instruction -> Instruction
 mapExprs fn (IExpr e) = IExpr $ fn e
 mapExprs fn (ISet e1 e2) = ISet (fn e1) (fn e2)
 mapExprs fn (IIf e i1 i2) = IIf (fn e) (mapExprs fn i1) (mapExprs fn i2)
-mapExprs fn (IStatement decls is) = IStatement decls $ map (mapExprs fn) is
+mapExprs fn (IStatement decls inits is) = IStatement decls [ (name, fn init) | (name, init) <- inits ] $ map (mapExprs fn) is
 mapExprs fn (IForeach a b e is) = IForeach a b (fn e) $ map (mapExprs fn) is
 mapExprs fn x = x
 
@@ -163,7 +174,23 @@ mapExprs' :: (Declarations -> Expression -> Expression) -> Declarations -> Instr
 mapExprs' fn decls (IExpr e) = IExpr $ fn decls e
 mapExprs' fn decls (ISet e1 e2) = ISet (fn decls e1) (fn decls e2)
 mapExprs' fn decls (IIf e i1 i2) = IIf (fn decls e) (mapExprs' fn decls i1) (mapExprs' fn decls i2)
-mapExprs' fn decls (IStatement d is) = 
-	IStatement d $ map (mapExprs' fn ((declarationsFromVarList d) `declarationsJoin` decls)) is
+mapExprs' fn decls (IStatement d inits is) = 
+	IStatement d [ (name, fn newDecls init) | (name, init) <- inits ] $ map (mapExprs' fn newDecls) is
+	where newDecls = (declarationsFromVarList d) `declarationsJoin` decls
 mapExprs' fn decls (IForeach a b e is) = IForeach a b (fn decls e) $ map (mapExprs' fn decls) is
 mapExprs' fn decls x = x
+
+standardTypeNames = 
+	Map.fromList [ ("Int", TInt), ("String", TString) ]
+
+-- |Returns expression that computes size of memory footprint of result of expr
+exprMemSize :: Type -> Expression -> Expression
+exprMemSize TInt expr = ExprCall "sizeof" [ExprVar "int"]
+exprMemSize TString expr = ExprCall "+" [ ExprCall "sizeof" [ ExprVar "size_t" ], ExprCall ".size" [ expr ] ]
+exprMemSize (TTuple types) expr = ExprCall "+" $ [ exprMemSize t (ExprAt (ExprInt x) expr) | (x, t) <- zip [0..] types ]
+exprMemSize t expr = error $ "exprMemSize: " ++ (show t)
+
+canBeDirectlyPacked :: Type -> Bool
+canBeDirectlyPacked TInt = True
+canBeDirectlyPacked (TTuple types) = all canBeDirectlyPacked types
+canBeDirectlyPacked _ = False

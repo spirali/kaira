@@ -53,7 +53,13 @@ testGuardParser = TestCase $ do
 		assertEqual str (parseGuard "" str) result
 
 
+testTypeParser = TestCase $ do
+	exprTest " Int " TInt
+	exprTest "String" TString
+	exprTest "(Int, (Int,   Int, (String, Int  )), Int,  String)" $ TTuple [ TInt, TTuple [ TInt, TInt, TTuple [ TString, TInt ]], TInt, TString ]
+	where exprTest str result = 
+		assertEqual str (parseType standardTypeNames "" str) result
 
-tests = TestList [ testExprParser, testEdgeInscriptionParser, testEdgeOrdering, testGuardParser ]
+tests = TestList [ testExprParser, testEdgeInscriptionParser, testEdgeOrdering, testGuardParser, testTypeParser ]
 
 main = runTestTT tests

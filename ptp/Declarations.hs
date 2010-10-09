@@ -21,6 +21,7 @@ type FunDeclaration = (String, Type, [Type])
 type VarSet = Set.Set String
 type TypeSet = Set.Set Type
 type ID = Int
+type TypeNames = Map.Map String Type
 
 data Declarations = Declarations {
 	varDeclarations :: [VarDeclaration],
@@ -45,7 +46,7 @@ data Instruction =
 	ISet Expression Expression |
 	IIf Expression Instruction Instruction |
 	IForeach String String Expression [Instruction] | {- var counterVar array body -}
-	IStatement [VarDeclaration] [Instruction] |
+	IStatement [VarDeclaration] [(String,Expression)] [Instruction] |
 	IReturn Expression |
 	IContinue |
 	IInline String |

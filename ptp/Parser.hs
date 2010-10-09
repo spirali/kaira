@@ -16,6 +16,7 @@ import qualified Data.Map as Map
 import qualified Data.List as List
 
 import Declarations
+import ProjectTools
 
 languageDef = emptyDef { Token.commentStart    = "/*"
 	, Token.commentEnd      = "*/"
@@ -39,6 +40,18 @@ comma = Token.comma lexer
 intParser = do
 	i <- integer
 	return (ExprInt i)
+
+stringParserHelper :: String -> Parser String
+stringParserHelper str = do
+ 	s <- many (noneOf "\\\"\n\r")
+	do { char '"'; return (str ++ s) } <|> do { 
+		char '\\'; c <- anyChar; stringParserHelper (str ++ "\\" ++ [c])
+	} <?> "quote"
+
+stringParser = do
+	char '"'
+	s <- stringParserHelper ""
+	return (ExprString s)
 
 identifierParser = do
 	ds <- identifier
@@ -76,28 +89,24 @@ optable = [
 	[ Infix (opBinary "<=") AssocLeft ],
 	[ Infix (opBinary "||") AssocLeft ],
 	[ Infix (opBinary "&&") AssocLeft ]]
-baseExpr    = intParser <|> parameterParser <|> identifierParser <|> tupleParser 
+baseExpr    = intParser <|> stringParser <|> parameterParser <|> identifierParser <|> tupleParser 
 opBinary name   = reservedOp name >> return (\x y -> (ExprCall name) [x, y])
 
-intTypeParser :: Parser Type
-intTypeParser = do
-	string "Int"
-	return TInt
+concreteTypeParser :: TypeNames -> Parser Type
+concreteTypeParser typeNames = do
+	str <- identifier
+	case Map.lookup str typeNames of
+		Just x -> return x
+		Nothing -> return TUndefined
 
-dataTypeParser = do
-	string "Data"
-	char '('
-	s <- many1 letter
-	char ')'
-	return (TData s)
-
-tupleTypeParser = do
-	exprs <- parens $ sepBy1 typeParser comma
+tupleTypeParser :: TypeNames -> Parser Type
+tupleTypeParser typeNames = do
+	exprs <- parens $ sepBy1 (typeParser typeNames) comma
 	return (TTuple exprs)
 
-typeParser :: Parser Type
-typeParser = do
-	intTypeParser <|> dataTypeParser <|> tupleTypeParser
+typeParser :: TypeNames -> Parser Type
+typeParser typeNames = do
+	tupleTypeParser typeNames <|> concreteTypeParser typeNames
 
 edgePackingParser :: Parser (String, Maybe Expression)
 edgePackingParser = do
@@ -126,9 +135,11 @@ parseHelper parser source str =
 		Left x -> error $ strErrorMessage x
 		Right x -> x
 
-parseType :: String -> String -> Type
-parseType source "" = error $ source ++ ":1:Type is empty"
-parseType source str = parseHelper typeParser source str
+parseType :: TypeNames -> String -> String -> Type
+parseType typeNames source "" = error $ source ++ ":1:Type is empty"
+parseType typeNames source str = 
+	let t = parseHelper (whiteSpace >> typeParser typeNames) source str in 
+		if isUndefined t then error $ source ++ ":1:Invalid type" else t
 
 parseExpr :: String -> String -> Expression
 parseExpr source "" = error $ source ++ ":1:Expression is empty"
