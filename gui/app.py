@@ -12,6 +12,7 @@ from codeedit import TransitionCodeEditor
 from codeedit import PlaceCodeEditor
 from codeedit import CodeFileEditor
 from parameters import ParametersWidget, ParametersValueDialog
+from externtypes import ExternTypesWidget
 from simulation import Simulation, SimulationException
 import process
 import utils
@@ -198,6 +199,13 @@ class App:
 			return
 		w = ParametersWidget(self.project, self.window)
 		self.add_tab("Parameters", w, "params")
+
+	def extern_types_edit(self):
+		if "extern-types" in self.tabtable:
+			self.switch_to_tab("extern-types")
+			return
+		w = ExternTypesWidget(self.project, self.window)
+		self.add_tab("Extern types", w, "extern-types")
 
 	def edit_sourcefile(self, filename):
 		tab_tag = "file:" + filename

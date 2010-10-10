@@ -109,6 +109,10 @@ class MainWindow(gtk.Window):
 		item.connect("activate", lambda w: self.app.parameters_edit())
 		edit_menu.append(item)
 
+		item = gtk.MenuItem("Edit e_xtern types")
+		item.connect("activate", lambda w: self.app.extern_types_edit())
+		edit_menu.append(item)
+
 		item = gtk.MenuItem("Edit _head.cpp")
 		item.connect("activate", lambda w: self.app.edit_headfile())
 		edit_menu.append(item)

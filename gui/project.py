@@ -17,8 +17,9 @@ class Project(EventSource):
 		self.id_counter = 100
 		self.set_filename(file_name)
 		self.parameters = []
+		self.extern_types = []
 		self.param_values_cache = None
-		self.error_messages = {} #{ 102: { "type" : [ "Chyba","je tu","x","W","wwww" ], "init" : [ "Empty" ]} }
+		self.error_messages = {}
 
 	def new_id(self):
 		self.id_counter += 1
@@ -123,6 +124,19 @@ class Project(EventSource):
 		finally:
 			f.close()
 
+	def get_extern_types(self):
+		return self.extern_types
+
+	def new_extern_type(self):
+		obj = ExternType()
+		self.extern_types.append(obj)
+		self.changed()
+		return obj
+
+	def remove_extern_type(self, obj):
+		self.extern_types.remove(obj)
+		self.changed()
+
 	def new_parameter(self):
 		self.reset_param_values_cache()
 		p = Parameter()
@@ -209,6 +223,35 @@ class Parameter(EventSource):
 		e.set("type", self.type)
 		e.set("description", self.description)
 		return e
+
+class ExternType:
+	"""
+		Transport modes: "Disabled", "Direct", "Custom"
+	"""
+
+	def __init__(self, name = "", raw_type = "", transport_mode = "Disabled"):
+		self.name = name
+		self.raw_type = raw_type
+		self.transport_mode = transport_mode
+
+	def get_name(self):
+		return self.name
+
+	def get_raw_type(self):
+		return self.raw_type
+
+	def get_transport_mode(self):
+		return self.transport_mode
+
+	def set_name(self, value):
+		self.name = value
+
+	def set_raw_type(self, value):
+		self.raw_type = value
+
+	def set_transport_mode(self, value):
+		self.transport_mode = value
+
 
 def load_project(filename):
 	doc = xml.parse(filename)

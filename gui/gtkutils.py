@@ -61,7 +61,7 @@ class SimpleList(gtk.ScrolledWindow):
 			for x, d in enumerate(data):
 				model.set_value(i, x, d)
 
-	def remove_selection(self, column):
+	def remove_selection(self):
 		model, i = self.listview.get_selection().get_selected()
 		if i is not None:
 			model.remove(i)
