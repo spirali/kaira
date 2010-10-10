@@ -35,17 +35,22 @@ class NetTool:
 		pass
 
 	def select_item(self, item):
-		if self.selected_item:
-			self.netview.highlight_off()
 		self.selected_item = item
 		if item:
 			self.netview.highlight(item)
 			self.netview.set_entry_types(item.get_text_entries())
+		else:
+			self.netview.set_entry_types([])
+			self.netview.highlight_off()
 
 	def deselect_item(self):
 		self.select_item(None)
 
 	def right_button_down(self, event, position):
+		def delete_event(w):
+			self.selected_item.delete()
+			self.deselect_item()
+
 		if self.selected_item in self.net.pick_items(position):
 
 			actions_dict = {
@@ -55,7 +60,7 @@ class NetTool:
 					lambda w: self.netview.place_edit_callback(self.selected_item))]
 			}
 
-			menu_actions = [("Delete", lambda w: self.selected_item.delete())]
+			menu_actions = [("Delete", delete_event)]
 
 			if type(self.selected_item) in actions_dict:
 				menu_actions = actions_dict[type(self.selected_item)] + menu_actions
