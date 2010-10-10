@@ -64,7 +64,7 @@ emitCall scope ('.':name) (obj:params) =
 		case exprType (scopeDeclarations scope) obj of
 			TStruct _ _ -> "."
 			TPointer _ -> "->"
-			TData _ -> "."
+			TRaw _ -> "."
 			TString -> "."
 			x -> error $ "Invalid type for calling method '" ++ name ++ "' at " ++ show obj ++ "/" ++ show x
 
@@ -149,7 +149,7 @@ initialScope function = Scope { scopeDeclarations = decls }
 
 typeString :: Type -> String
 typeString (TArray t) = "std::vector<" ++ typeString t ++ ">"
-typeString (TData d) = d 
+typeString (TRaw d) = d 
 typeString (TPointer t) = typeString t ++ "*"
 typeString (TStruct name _) = name
 typeString TString = "std::string"
@@ -163,7 +163,7 @@ typeSafeString TString = "string"
 typeSafeString (TTuple ts) = "Tuple" ++ show (length ts) ++ "_" ++ addDelimiter "_" (map typeSafeString ts)
 typeSafeString TUndefined = "<undefined>"
 typeSafeString (TArray t) = "Array_" ++ typeSafeString t
-typeSafeString (TData d) = d
+typeSafeString (TRaw d) = d
 typeSafeString (TPointer t) = "Ptr_" ++ typeSafeString t
 typeSafeString (TStruct name _) = name
 typeSafeString x = error $ "typeSafeString: " ++ show x
@@ -181,7 +181,7 @@ declareVar' ((name,t):vs) = (typeString t ++ " " ++ name) : declareVar' vs
 declareParam :: [VarDeclaration] -> [String]
 declareParam [] = []
 declareParam ((name,(TPointer t)):vs) = (typeString t ++ "* " ++ name) : declareParam vs
-declareParam ((name,(TData d)):vs) = (d ++ " " ++ name) : declareParam vs
+declareParam ((name,(TRaw d)):vs) = (d ++ " " ++ name) : declareParam vs
 declareParam ((name,t):vs) = (typeString t ++ " & " ++ name) : declareParam vs
 
 emitFunction :: Function -> String

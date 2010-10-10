@@ -11,7 +11,7 @@ data Type = TUndefined |
 			TBool |
 			TTuple [Type] | 
 			TArray Type | 
-			TData String |
+			TRaw String |
 			TPointer Type |
 			TStruct String [VarDeclaration]
 	deriving (Show, Eq, Ord)

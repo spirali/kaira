@@ -61,7 +61,7 @@ tupleToVars vdecls binded var exprs fn =
 				(d, i) = fn b v e in
 				(d ++ d', [ (ISet (ExprVar v) (ExprAt (ExprInt n) (ExprVar var))) ] ++ i ++ i')
 
-caContext = TPointer (TData "CaContext")
+caContext = TPointer (TRaw "CaContext")
 
 patternCheck :: [VarDeclaration] -> VarSet -> String -> Expression -> Instruction -> ([VarDeclaration], [Instruction])
 patternCheck decls binded var (ExprTuple exprs) errEvent =
@@ -221,7 +221,7 @@ reportFunctionName network = "report_" ++ show (networkId network)
 reportFunction :: Project -> Network -> Function
 reportFunction project network = Function {
 	functionName = reportFunctionName network,
-	parameters = [ ("ctx", caContext), ("places", TPointer $ (placesTuple network)), ("out", TPointer $ TData "CaOutput") ],
+	parameters = [ ("ctx", caContext), ("places", TPointer $ (placesTuple network)), ("out", TPointer $ TRaw "CaOutput") ],
 	declarations = [],
 	instructions = header ++ concat (countedMap reportPlace (places network)) ++ concatMap reportTransition (transitions network),
 	extraCode = "",
@@ -335,7 +335,7 @@ packCode packer t expr | canBeDirectlyPacked t =
 		ISet (ExprVar "data") expr,
 		icall ".pack" [ packer, ExprAddr (ExprVar "data"), exprMemSize t expr ]
 	]
-packCode packer TString expr = makeStatement [ ("data", TString), ("size", TData "size_t") ] [ 
+packCode packer TString expr = makeStatement [ ("data", TString), ("size", TRaw "size_t") ] [ 
 			ISet (ExprVar "data") expr,
 			ISet (ExprVar "size") $ ExprCall ".size" [ExprVar "data"],
 			icall ".pack_size" [ packer, ExprVar "size" ],
@@ -349,7 +349,7 @@ unpackCode unpacker t var | canBeDirectlyPacked t =
 		ISet (ExprVar "p") (ExprCall ".unpack" [ unpacker, exprMemSize t undefined ]),
 		IInline (var ++ " = *(" ++ typeString (TPointer t) ++ ") p;")]
 unpackCode unpacker TString var = 
-	makeStatement [ ("size", TData "size_t"), ("sdata", TData "char *") ] [
+	makeStatement [ ("size", TRaw "size_t"), ("sdata", TRaw "char *") ] [
 		ISet (ExprVar "size") (ExprCall ".unpack_size" [ unpacker ]),
 		IInline "sdata = (char*) unpacker.unpack(size);",
 		ISet (ExprVar var) (ExprCall "std::string" [ ExprVar "sdata", ExprVar "size" ])
@@ -365,7 +365,7 @@ sendStatement :: Project -> Network -> Network -> Transition -> Edge -> Instruct
 {- Version for normal edges -}
 sendStatement project fromNetwork toNetwork transition edge | isNormalEdge edge =
 	makeStatement' [] [ ("item", etype, preprocess expr), 
-		("packer", TData "CaPacker", ExprCall "CaPacker" [exprMemSize etype (ExprVar "item")]) ] [
+		("packer", TRaw "CaPacker", ExprCall "CaPacker" [exprMemSize etype (ExprVar "item")]) ] [
 		packCode packer etype (ExprVar "item"),
 		IExpr (ExprCall "ca_send" [
 			ExprVar "ctx",
@@ -386,7 +386,7 @@ sendStatement project fromNetwork toNetwork transition edge =
 	makeStatement' [] [ ("target", TInt, target) ]
 	 [
 	IForeach "item" "i" (ExprAt (ExprString name) (ExprVar "var")) [
-	makeStatement' [] [ ("packer", TData "CaPacker", ExprCall "CaPacker" [exprMemSize etype (ExprVar "item")]) ] [
+	makeStatement' [] [ ("packer", TRaw "CaPacker", ExprCall "CaPacker" [exprMemSize etype (ExprVar "item")]) ] [
 		packCode packer etype (ExprVar "item"),
 		IExpr (ExprCall "ca_send" [
 			ExprVar "ctx",
@@ -439,11 +439,11 @@ allTransitions project = concatMap transitions (networks project)
 recvFunction :: Project -> Network -> Function
 recvFunction project network = Function {
 	functionName = recvFunctionName network,
-	parameters = [ ("places", TPointer (placesTuple network)), ("data_id", TData "int"), ("data", TData "void*"), ("data_size", TData "int") ],
+	parameters = [ ("places", TPointer (placesTuple network)), ("data_id", TRaw "int"), ("data", TRaw "void*"), ("data_size", TRaw "int") ],
 	declarations = [],
 	extraCode = [],
 	returnType = TVoid,
-	instructions = [ makeStatement' [] [ ("unpacker", TData "CaUnpacker", (ExprCall "CaUnpacker" [ ExprVar "data" ])) ] 
+	instructions = [ makeStatement' [] [ ("unpacker", TRaw "CaUnpacker", (ExprCall "CaUnpacker" [ ExprVar "data" ])) ] 
 		[ recvStatement network place | place <- (places network) ]]
 }
 
@@ -543,7 +543,7 @@ instancesCount project = ExprCall "+" $ map (processedInstances) (networks proje
 createMainFunction :: Project -> Function
 createMainFunction project = Function {
 	functionName = "main",
-	parameters = [ ("argc", TData "int"), ("argv", (TPointer . TPointer . TData) "char") ],
+	parameters = [ ("argc", TRaw "int"), ("argv", (TPointer . TPointer . TRaw) "char") ],
 	declarations = [ ("nodes", TInt) ],
 	instructions = parseArgs ++ [ i1, i2 ],
 	extraCode = [],
