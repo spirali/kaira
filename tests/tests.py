@@ -36,6 +36,8 @@ class BuildingTest(TestCase):
 		self.build(os.path.join(TEST_PROJECTS, "helloworlds", "helloworld.proj"), "Hello world 12\n")
 	def test_helloworld2(self):
 		self.build(os.path.join(TEST_PROJECTS, "helloworlds", "helloworld2.proj"), "Hello world 5\n")
+	def test_strings(self):
+		self.build(os.path.join(TEST_PROJECTS, "strings", "strings.proj"), "String\nOk\nOk\nOk\nOk\n")
 	def test_packing(self):
 		output = "0\n1\n2\n3\n4\n0\n1\n2\n3\n4\n5\n5\n6\n7\n8\n9\n100\n100\n"
 		self.build(os.path.join(TEST_PROJECTS, "packing", "packing.proj"), output)
