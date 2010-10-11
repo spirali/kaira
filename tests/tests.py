@@ -38,6 +38,8 @@ class BuildingTest(TestCase):
 		self.build(os.path.join(TEST_PROJECTS, "helloworlds", "helloworld2.proj"), "Hello world 5\n")
 	def test_strings(self):
 		self.build(os.path.join(TEST_PROJECTS, "strings", "strings.proj"), "String\nOk\nOk\nOk\nOk\n")
+	def test_externtypes(self):
+		self.build(os.path.join(TEST_PROJECTS, "externtypes", "externtypes.proj"), "10 20\n107 207\n")
 	def test_packing(self):
 		output = "0\n1\n2\n3\n4\n0\n1\n2\n3\n4\n5\n5\n6\n7\n8\n9\n100\n100\n"
 		self.build(os.path.join(TEST_PROJECTS, "packing", "packing.proj"), output)
@@ -45,7 +47,6 @@ class BuildingTest(TestCase):
 		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken1.proj"), "*104/inscription:1:Inscription is empty\n")
 	def test_broken2(self):
 		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken2.proj"), "*102/type:1:Type is empty\n")
-
 
 if __name__ == '__main__':
     unittest.main()

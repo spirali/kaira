@@ -180,7 +180,7 @@ mapExprs' fn decls (IStatement d inits is) =
 mapExprs' fn decls (IForeach a b e is) = IForeach a b (fn decls e) $ map (mapExprs' fn decls) is
 mapExprs' fn decls x = x
 
-standardTypeNames = 
+standardTypes = 
 	Map.fromList [ ("Int", TInt), ("String", TString) ]
 
 -- |Returns expression that computes size of memory footprint of result of expr
@@ -193,4 +193,10 @@ exprMemSize t expr = error $ "exprMemSize: " ++ (show t)
 canBeDirectlyPacked :: Type -> Bool
 canBeDirectlyPacked TInt = True
 canBeDirectlyPacked (TTuple types) = all canBeDirectlyPacked types
+canBeDirectlyPacked (TData _ _ TransportDirect) = True
 canBeDirectlyPacked _ = False
+
+isTransportable :: Type -> Bool
+isTransportable (TData _ _ TransportDisabled) = False
+isTransportable (TTuple types) = all isTransportable types
+isTransportable _ = True

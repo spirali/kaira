@@ -67,6 +67,11 @@ patternCheck :: [VarDeclaration] -> VarSet -> String -> Expression -> Instructio
 patternCheck decls binded var (ExprTuple exprs) errEvent =
 	tupleToVars decls binded var exprs (\b v e -> patternCheck decls b v e errEvent)
 patternCheck decls binded var (ExprVar v) errEvent | not (Set.member v binded) = ([], [ISet (ExprVar v) (ExprVar var)])
+patternCheck decls binded var (ExprVar v) errEvent = 
+	case List.lookup v decls of
+		Just (TData _ _ _) -> error "Extern types cannot be compared"
+		Just _ -> ([], [(IIf (ExprCall "!=" [(ExprVar v), (ExprVar var)]) errEvent INoop)])
+		Nothing -> error "patternCheck: This cannot happend"
 patternCheck decls binded var x errEvent = ([], [(IIf (ExprCall "!=" [x, (ExprVar var)]) errEvent INoop)])
 
 patternCheckStatement :: [VarDeclaration] -> VarSet -> String -> Expression -> Instruction -> Instruction
@@ -79,7 +84,7 @@ unionsVariableTypes :: [Map.Map String Type] -> Map.Map String Type
 unionsVariableTypes decls =
 	Map.unionsWith unionFn decls
 	where
-		unionFn a b =  if a == b then a else error "Type inference failed"
+		unionFn a b = if a == b then a else error "Type inference failed"
 
 
 variableTypes :: Project -> Expression -> Type -> Map.Map String Type
@@ -444,7 +449,7 @@ recvFunction project network = Function {
 	extraCode = [],
 	returnType = TVoid,
 	instructions = [ makeStatement' [] [ ("unpacker", TRaw "CaUnpacker", (ExprCall "CaUnpacker" [ ExprVar "data" ])) ] 
-		[ recvStatement network place | place <- (places network) ]]
+		[ recvStatement network place | place <- (places network), isTransportable (placeType place) ]]
 }
 
 recvStatement :: Network -> Place -> Instruction

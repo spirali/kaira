@@ -58,7 +58,7 @@ testTypeParser = TestCase $ do
 	exprTest "String" TString
 	exprTest "(Int, (Int,   Int, (String, Int  )), Int,  String)" $ TTuple [ TInt, TTuple [ TInt, TInt, TTuple [ TString, TInt ]], TInt, TString ]
 	where exprTest str result = 
-		assertEqual str (parseType standardTypeNames "" str) result
+		assertEqual str (parseType standardTypes "" str) result
 
 tests = TestList [ testExprParser, testEdgeInscriptionParser, testEdgeOrdering, testGuardParser, testTypeParser ]
 

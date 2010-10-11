@@ -13,6 +13,7 @@ data Type = TUndefined |
 			TArray Type | 
 			TRaw String |
 			TPointer Type |
+			TData String String TransportMode |
 			TStruct String [VarDeclaration]
 	deriving (Show, Eq, Ord)
 
@@ -21,7 +22,7 @@ type FunDeclaration = (String, Type, [Type])
 type VarSet = Set.Set String
 type TypeSet = Set.Set Type
 type ID = Int
-type TypeNames = Map.Map String Type
+type TypeTable = Map.Map String Type
 
 data Declarations = Declarations {
 	varDeclarations :: [VarDeclaration],
@@ -111,3 +112,6 @@ data Parameter = Parameter {
 	parameterType :: Type,
 	parameterDescription :: String
 } deriving (Show)
+
+data TransportMode = TransportDisabled | TransportDirect 
+	deriving (Show, Eq, Ord)

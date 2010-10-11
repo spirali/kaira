@@ -80,12 +80,12 @@ codeContent e = case Xml.findElement (qstr "code") e of
 source :: Xml.Element -> String -> String
 source element place = "*" ++ (xmlAttr "id" element) ++ "/" ++ place
 
-placeFromElement :: Xml.Element -> Place
-placeFromElement e = 
+placeFromElement :: TypeTable -> Xml.Element -> Place
+placeFromElement types e = 
 	Place { 
 		placeId = xmlAttrInt "id" e, 
 		placeName =  xmlAttr "name" e,
-		placeType = parseType standardTypeNames (source e "type") $ xmlAttr "type" e, 
+		placeType = parseType types (source e "type") $ xmlAttr "type" e, 
 		placeInitCode = codeContent e, 
 		placeInitExpr = parseExpr' (source e "init") $ xmlAttr' "init-expr" e "" 
 	} 
@@ -114,19 +114,19 @@ transitionFromElement e =
 		edgesIn = map edgeFromElement $ Xml.findElements (qstr "edge-in") e
 		edgesOut = map edgeFromElement $ Xml.findElements (qstr "edge-out") e
 
-placesFromElement :: Xml.Element -> [Place]
-placesFromElement e = 
-	map placeFromElement (Xml.findElements (qstr "place") e)
+placesFromElement :: TypeTable -> Xml.Element -> [Place]
+placesFromElement types e = 
+	map (placeFromElement types) (Xml.findElements (qstr "place") e)
 
 transitionsFromElement :: Xml.Element -> [Transition]
 transitionsFromElement e = 
 	map transitionFromElement $ Xml.findElements (qstr "transition") e
 
-networkFromElement :: Expression -> Xml.Element -> Network
-networkFromElement addr e =
+networkFromElement :: TypeTable -> Expression -> Xml.Element -> Network
+networkFromElement types addr e =
 	Network {
 		networkId = idFromElement e,
-		places = placesFromElement e,
+		places = placesFromElement types e,
 		transitions = transitionsFromElement e,
 		address = addr,
 		instances = parseExpr (source e "instances") $ xmlAttr "instances" e
@@ -140,10 +140,10 @@ addressesFromElement e =
 		getAddress [] _ = []
 		getAddress (e:es) n = n:(getAddress es $ ExprCall "+" [ n,networkSize e])
 
-parameterFromElement :: Xml.Element -> Parameter
-parameterFromElement e = Parameter {
+parameterFromElement :: TypeTable -> Xml.Element -> Parameter
+parameterFromElement types e = Parameter {
 	parameterName = xmlAttr "name" e,
-	parameterType = parseType standardTypeNames "" (xmlAttr "type" e), {- FIXME: Source of parameter -}
+	parameterType = parseType types "" (xmlAttr "type" e), {- FIXME: Source of parameter -}
 	parameterDescription = xmlAttr' "description" e ""
 }
 
@@ -172,6 +172,22 @@ parameterTypeByName project paramName =
 		Just x -> parameterType x
 		Nothing -> error $ "Parameter '" ++ paramName ++ "' not defined"
 
+externTypeFromElement :: Xml.Element -> (String, Type)
+externTypeFromElement e = (name, TData name rawType transportMode)
+	where 
+		name = xmlAttr "name" e
+		rawType = xmlAttr "raw-type" e
+		transportMode = case xmlAttr "transport-mode" e of
+							"Disabled" -> TransportDisabled
+							"Direct" -> TransportDirect
+							_ -> error "externTypeFromElement: Unknown transport mode"
+
+externTypesFromElement :: Xml.Element -> TypeTable
+externTypesFromElement e = Map.fromList $ map externTypeFromElement (Xml.findElements (qstr "extern-type") e)
+
+projectTypesFromElement :: Xml.Element -> TypeTable
+projectTypesFromElement e = Map.union (externTypesFromElement e) standardTypes
+
 projectFromXml :: String -> Project
 projectFromXml xml =
 	Project { projectName = "project", networks = networks, projectParameters = params }
@@ -180,6 +196,7 @@ projectFromXml xml =
 		addresses = addressesFromElement root
 		networkElements = Xml.findElements (qstr "net") root
 		networks = map loadNet $ zip addresses networkElements
-		loadNet (a,e) = networkFromElement a e
+		loadNet (a,e) = networkFromElement types a e
 		configuration = Maybe.fromJust $ Xml.findElement (qstr "configuration") root
-		params = map parameterFromElement $ Xml.findElements (qstr "parameter") configuration
+		params = map (parameterFromElement types) $ Xml.findElements (qstr "parameter") configuration
+		types = projectTypesFromElement configuration

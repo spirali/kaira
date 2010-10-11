@@ -1,0 +1,13 @@
+<project><configuration><extern-type name="MyType" raw-type="MyType" transport-mode="Disabled" /><extern-type name="MyTypePointer" raw-type="MyType*" transport-mode="Disabled" /></configuration><net id="101"><transition guard="" id="103" name="" sx="70" sy="35" x="164.0" y="128.0" /><place id="109" init_string="" place_type="MyType" radius="20" x="93.0" y="44.0"><code>	MyType m;
+	m.i = 10;
+	m.j = 20;
+	place-&gt;push_back(m);
+</code></place><place id="110" init_string="" place_type="MyTypePointer" radius="20" x="250.0" y="41.0"><code>	MyType *m = new MyType;
+	m-&gt;i = 107;
+	m-&gt;j = 207;
+	place-&gt;push_back(m);
+</code></place><place id="111" init_string="" place_type="(MyType, MyTypePointer)" radius="20" x="170.0" y="208.0" /><edge from_item="109" id="112" inscription="x" inscription_x="99.8622661914" inscription_y="94.8105097366" to_item="103"><point x="96.0" y="126.0" /></edge><edge from_item="110" id="113" inscription="y" inscription_x="263.443942738" inscription_y="97.2654230561" to_item="103"><point x="254.0" y="130.0" /></edge><edge from_item="103" id="114" inscription="(x, y)" inscription_x="171.224963567" inscription_y="166.007782827" to_item="111" /><transition guard="" id="115" name="" sx="70" sy="35" x="60.0" y="208.0"><code>	printf("%i %i\n", var.a.i, var.a.j);
+	printf("%i %i\n", var.b-&gt;i, var.b-&gt;j);	
+	delete var.b;
+	ctx-&gt;quit();
+</code></transition><edge from_item="111" id="116" inscription="(a, b)" inscription_x="113.5" inscription_y="216.0" to_item="115" /></net></project>

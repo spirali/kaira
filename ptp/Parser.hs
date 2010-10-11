@@ -92,19 +92,19 @@ optable = [
 baseExpr    = intParser <|> stringParser <|> parameterParser <|> identifierParser <|> tupleParser 
 opBinary name   = reservedOp name >> return (\x y -> (ExprCall name) [x, y])
 
-concreteTypeParser :: TypeNames -> Parser Type
+concreteTypeParser :: TypeTable -> Parser Type
 concreteTypeParser typeNames = do
 	str <- identifier
 	case Map.lookup str typeNames of
 		Just x -> return x
 		Nothing -> return TUndefined
 
-tupleTypeParser :: TypeNames -> Parser Type
+tupleTypeParser :: TypeTable -> Parser Type
 tupleTypeParser typeNames = do
 	exprs <- parens $ sepBy1 (typeParser typeNames) comma
 	return (TTuple exprs)
 
-typeParser :: TypeNames -> Parser Type
+typeParser :: TypeTable -> Parser Type
 typeParser typeNames = do
 	tupleTypeParser typeNames <|> concreteTypeParser typeNames
 
@@ -135,7 +135,7 @@ parseHelper parser source str =
 		Left x -> error $ strErrorMessage x
 		Right x -> x
 
-parseType :: TypeNames -> String -> String -> Type
+parseType :: TypeTable -> String -> String -> Type
 parseType typeNames source "" = error $ source ++ ":1:Type is empty"
 parseType typeNames source str = 
 	let t = parseHelper (whiteSpace >> typeParser typeNames) source str in 
