@@ -180,6 +180,8 @@ class Project(EventSource):
 		e = xml.Element("configuration")
 		for p in self.parameters:
 			e.append(p.as_xml())
+		for t in self.extern_types:
+			e.append(t.as_xml())
 		return e
 
 class Parameter(EventSource):
@@ -252,6 +254,13 @@ class ExternType:
 	def set_transport_mode(self, value):
 		self.transport_mode = value
 
+	def as_xml(self):
+		e = xml.Element("extern-type")
+		e.set("name", self.name)
+		e.set("raw-type", self.raw_type)
+		e.set("transport-mode", self.transport_mode)
+		return e
+
 
 def load_project(filename):
 	doc = xml.parse(filename)
@@ -273,9 +282,17 @@ def load_parameter(element, project):
 	p.set_description(utils.xml_str(element, "description", ""))
 	p.set_type(utils.xml_str(element, "type"))
 
+def load_extern_type(element, project):
+	p = project.new_extern_type()
+	p.set_name(utils.xml_str(element, "name"))
+	p.set_raw_type(utils.xml_str(element, "raw-type"))
+	p.set_transport_mode(utils.xml_str(element, "transport-mode"))
+
 def load_configuration(element, project):
 	for e in element.findall("parameter"):
 		load_parameter(e, project)
+	for e in element.findall("extern-type"):
+		load_extern_type(e, project)
 
 def new_empty_project(directory):
 	os.mkdir(directory)
