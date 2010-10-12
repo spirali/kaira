@@ -18,11 +18,11 @@ class CaModule {
 class CaOutputBlock {
 	public:
 	
-		CaOutputBlock(std::string name) { _name = name; }
+		CaOutputBlock(const std::string & name) { _name = name; }
 		~CaOutputBlock();
 
 		void add_child(CaOutputBlock *block) { _children.push_back(block); }
-		void set(std::string name, std::string value);
+		void set(const std::string & name, const std::string & value);
 
 		void write(FILE *file);
 	

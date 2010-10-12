@@ -39,7 +39,7 @@ class CaContext {
 		int _check_halt_flag() { return _halt_flag; }
 		void * _get_places() { return _places; }
 		RecvFn * _get_recv_fn() { return _recv_fn; }
-		std::vector<CaTransition> _get_transitions() { return _transitions; }
+		std::vector<CaTransition> & _get_transitions() { return _transitions; }
 		bool _find_transition(int id, CaTransition &transition);
 		ReportFn * _get_report_fn() { return _report_fn; }
 	protected:
@@ -60,12 +60,12 @@ class CaOutput {
 	public:
 		~CaOutput();
 
-		void child(std::string name);
+		void child(const std::string &name);
 		CaOutputBlock * back();
-		void set(std::string name, int i);
-		void set(std::string name, std::string s);
-
+		void set(const std::string &name, const int i);
+		void set(const std::string &name, const std::string &s);
 	private:	
+		void _set(const std::string &name, const std::string &s);
 		std::stack<CaOutputBlock*> _stack;
 };
 
@@ -83,7 +83,6 @@ class CaTransition {
 class CaPacker {
 
 	public:
-		/*CaPacker() {}*/
 		CaPacker(size_t size);
 		~CaPacker() { free(buffer); }
 		void pack(const void *mem, size_t size) { memcpy(buffer_pos, mem, size); buffer_pos += size;  }

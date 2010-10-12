@@ -211,7 +211,7 @@ CaOutput::~CaOutput()
 	}
 }
 
-void CaOutput::child(std::string name) 
+void CaOutput::child(const std::string & name) 
 {
 	CaOutputBlock *block = new CaOutputBlock(name);
 	_stack.push(block);
@@ -228,20 +228,37 @@ CaOutputBlock * CaOutput::back()
 	return block;
 }
 
-void CaOutput::set(std::string name, std::string value) 
+static void find_and_replace(std::string &s, const char c, const std::string replace)
+{
+	size_t i;
+	while ((i = s.find(c)) != std::string::npos)
+	{
+		s.replace(i, 1, replace);
+	}
+}
+
+void CaOutput::set(const std::string & name, const std::string & value) 
+{
+	std::string v = value;
+	find_and_replace(v, '&', "&amp;");
+	find_and_replace(v, '<', "&lt;");
+	find_and_replace(v, '>', "&gt;");
+	_set(name, v);
+}
+
+void CaOutput::_set(const std::string & name, const std::string & value)
 {
 	assert(!_stack.empty());
 	CaOutputBlock *block = _stack.top();
 	block->set(name, value);
-	
 }
 
-void CaOutput::set(std::string name, int value)
+void CaOutput::set(const std::string & name, const int value)
 {
-	set(name, ca_int_to_string(value));
+	_set(name, ca_int_to_string(value));
 }
 
-void CaOutputBlock::set(std::string name, std::string value)
+void CaOutputBlock::set(const std::string &name, const std::string & value)
 {
 	std::pair<std::string,std::string> p(name, value);
 	_attributes.push_back(p);
