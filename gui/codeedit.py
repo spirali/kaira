@@ -108,7 +108,7 @@ class TransitionCodeEditor(CodeEditor):
 		CodeEditor.__init__(self, "void transition_function(CaContext *ctx, VARS & var)\n{\n", code, "}\n", (2,1))
 
 
-	def buffer_changed(self,buffer):
+	def buffer_changed(self, buffer):
 		self.transition.set_code(self.get_text())
 
 class PlaceCodeEditor(CodeEditor):
@@ -122,5 +122,5 @@ class PlaceCodeEditor(CodeEditor):
 		CodeEditor.__init__(self, "void init_place(CaContext *ctx, PLACE * place)\n{\n", code, "}\n", (2,1))
 
 
-	def buffer_changed(self,buffer):
+	def buffer_changed(self, buffer):
 		self.place.set_code(self.get_text())

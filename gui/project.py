@@ -235,6 +235,12 @@ class ExternType:
 		self.name = name
 		self.raw_type = raw_type
 		self.transport_mode = transport_mode
+		self.functions = {
+			"getstring": "",
+			"getsize": "",
+			"pack": "",
+			"unpack": ""
+		}
 
 	def get_name(self):
 		return self.name
@@ -254,11 +260,48 @@ class ExternType:
 	def set_transport_mode(self, value):
 		self.transport_mode = value
 
+	def set_function_code(self, name, value):
+		self.functions[name] = value
+
+	def has_function(self, name):
+		return "" != self.functions[name].strip()
+
+	def get_function_code(self, name):
+		if self.has_function(name):
+			return self.functions[name]
+		elif name == "getstring":
+			return "\treturn \"" + self.name + "\";\n";
+		else:
+			return "\t\n"
+
+	def get_function_list_string(self):
+		names = [ name for name in self.functions if self.has_function(name) ]
+		return ", ".join(names)
+
+	def get_function_declaration(self, name):
+		if name == "getstring":
+			return "std::string getstring(" + self.raw_type + " &obj)"
+		elif name == "getsize":
+			return "size_t getstring(" + self.raw_type + " &obj)"
+		elif name == "pack":
+			return "void pack(CaPacker &packer, " + self.raw_type + " &obj)"
+		elif name == "unpack":
+			return "void unpack(CaUnpacker &unpacker, " + self.raw_type + " &obj)"
+
+
 	def as_xml(self):
 		e = xml.Element("extern-type")
 		e.set("name", self.name)
 		e.set("raw-type", self.raw_type)
 		e.set("transport-mode", self.transport_mode)
+
+		for name in self.functions:
+			if self.has_function(name):
+				fe = xml.Element("code")
+				fe.set("name", name)
+				fe.text = self.functions[name]
+				e.append(fe)
+
 		return e
 
 
@@ -287,6 +330,11 @@ def load_extern_type(element, project):
 	p.set_name(utils.xml_str(element, "name"))
 	p.set_raw_type(utils.xml_str(element, "raw-type"))
 	p.set_transport_mode(utils.xml_str(element, "transport-mode"))
+
+	for e in element.findall("code"):
+		name = utils.xml_str(e, "name")
+		p.set_function_code(name, e.text)
+
 
 def load_configuration(element, project):
 	for e in element.findall("parameter"):

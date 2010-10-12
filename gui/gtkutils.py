@@ -45,6 +45,9 @@ class SimpleList(gtk.ScrolledWindow):
 
 		self.listview.show()
 
+	def connect_view(self, signal_name, callback):
+		self.listview.connect(signal_name, callback)
+
 	def append(self, data, focus = False):
 		self.liststore.append(data)
 
@@ -61,6 +64,10 @@ class SimpleList(gtk.ScrolledWindow):
 			for x, d in enumerate(data):
 				model.set_value(i, x, d)
 
+	def set_all(self, data, i):
+		for x, d in enumerate(data):
+			self.liststore.set_value(i, x, d)
+
 	def remove_selection(self):
 		model, i = self.listview.get_selection().get_selected()
 		if i is not None:
@@ -72,4 +79,12 @@ class SimpleList(gtk.ScrolledWindow):
 			v = model.get_value(i, column)
 			model.remove(i)
 			return v
+		return None
+
+	def find(self, obj, column):
+		i = self.liststore.get_iter_first()
+		while i is not None:
+			if self.liststore.get_value(i, column) == obj:
+				return i
+			i = self.liststore.iter_next(i)
 		return None
