@@ -274,8 +274,14 @@ class ExternType:
 		else:
 			return "\t\n"
 
+	def is_function_allowed(self, name):
+		if self.transport_mode == "Custom":
+			return True
+		else:
+			return name == "getstring"
+
 	def get_function_list_string(self):
-		names = [ name for name in self.functions if self.has_function(name) ]
+		names = [ name for name in self.functions if self.has_function(name) and self.is_function_allowed(name) ]
 		return ", ".join(names)
 
 	def get_function_declaration(self, name):

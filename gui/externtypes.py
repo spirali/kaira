@@ -86,6 +86,7 @@ class ExternTypesWidget(ObjectList):
 	def _edit_type(self, selected):
 		if selected and extern_type_dialog(selected, self.app.window):
 			self.update_selected(selected)
+			self._fbuttons_update(selected)
 
 	def _remove_type(self, selected):
 		if selected:
@@ -95,15 +96,15 @@ class ExternTypesWidget(ObjectList):
 			self.project.remove_extern_type(obj)
 
 	def cursor_changed(self, obj):
+		self._fbuttons_update(obj)
+
+	def _fbuttons_update(self, obj):
 		if obj is None:
-			state = False
-			self.fbuttons["getstring"].set_sensitive(False)
+			for button in self.fbuttons.values():
+				button.set_sensitive(False)
 		else:
-			state = obj.get_transport_mode() == "Custom"
-			self.fbuttons["getstring"].set_sensitive(True)
-		self.fbuttons["getsize"].set_sensitive(state)
-		self.fbuttons["pack"].set_sensitive(state)
-		self.fbuttons["unpack"].set_sensitive(state)
+			for name, button in self.fbuttons.items():
+				button.set_sensitive(obj.is_function_allowed(name))
 
 class ExternTypeEditor(CodeEditor):
 
