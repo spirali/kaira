@@ -32,6 +32,7 @@ data Declarations = Declarations {
 data Expression = 
 	ExprCall String [Expression] |
 	ExprVar String |
+	ExprType String |
 	ExprParam String | 
 	ExprInt Int |
 	ExprString String |

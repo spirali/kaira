@@ -186,8 +186,9 @@ standardTypes =
 -- |Returns expression that computes size of memory footprint of result of expr
 exprMemSize :: Type -> Expression -> Expression
 exprMemSize TInt expr = ExprCall "sizeof" [ExprVar "int"]
-exprMemSize TString expr = ExprCall "+" [ ExprCall "sizeof" [ ExprVar "size_t" ], ExprCall ".size" [ expr ] ]
+exprMemSize TString expr = ExprCall "+" [ ExprCall "sizeof" [ ExprType "size_t" ], ExprCall ".size" [ expr ] ]
 exprMemSize (TTuple types) expr = ExprCall "+" $ [ exprMemSize t (ExprAt (ExprInt x) expr) | (x, t) <- zip [0..] types ]
+exprMemSize (TData _ rawType TransportDirect) expr = ExprCall "sizeof" [ ExprType rawType ]
 exprMemSize t expr = error $ "exprMemSize: " ++ (show t)
 
 canBeDirectlyPacked :: Type -> Bool

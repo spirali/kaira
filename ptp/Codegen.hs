@@ -83,6 +83,7 @@ emitCall scope name params =
 
 emitExpression :: Scope -> Expression -> String
 emitExpression scope (ExprVar s) = s
+emitExpression scope (ExprType s) = s
 emitExpression scope (ExprInt i) = show i
 emitExpression scope (ExprString str) = "\"" ++ str ++ "\""
 emitExpression scope (ExprCall name params) = emitCall scope name params
