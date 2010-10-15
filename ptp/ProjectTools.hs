@@ -188,16 +188,16 @@ exprMemSize :: Type -> Expression -> Expression
 exprMemSize TInt expr = ExprCall "sizeof" [ExprVar "int"]
 exprMemSize TString expr = ExprCall "+" [ ExprCall "sizeof" [ ExprType "size_t" ], ExprCall ".size" [ expr ] ]
 exprMemSize (TTuple types) expr = ExprCall "+" $ [ exprMemSize t (ExprAt (ExprInt x) expr) | (x, t) <- zip [0..] types ]
-exprMemSize (TData _ rawType TransportDirect) expr = ExprCall "sizeof" [ ExprType rawType ]
+exprMemSize (TData _ rawType TransportDirect _) expr = ExprCall "sizeof" [ ExprType rawType ]
 exprMemSize t expr = error $ "exprMemSize: " ++ (show t)
 
 canBeDirectlyPacked :: Type -> Bool
 canBeDirectlyPacked TInt = True
 canBeDirectlyPacked (TTuple types) = all canBeDirectlyPacked types
-canBeDirectlyPacked (TData _ _ TransportDirect) = True
+canBeDirectlyPacked (TData _ _ TransportDirect _) = True
 canBeDirectlyPacked _ = False
 
 isTransportable :: Type -> Bool
-isTransportable (TData _ _ TransportDisabled) = False
+isTransportable (TData _ _ TransportDisabled _) = False
 isTransportable (TTuple types) = all isTransportable types
 isTransportable _ = True

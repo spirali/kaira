@@ -13,7 +13,7 @@ data Type = TUndefined |
 			TArray Type | 
 			TRaw String |
 			TPointer Type |
-			TData String String TransportMode |
+			TData String String TransportMode [ (String, String) ] | {- name, rawName, transportMode, functions -}
 			TStruct String [VarDeclaration]
 	deriving (Show, Eq, Ord)
 
@@ -105,7 +105,8 @@ instance Eq Network where n1 == n2 = networkId n1 == networkId n2
 data Project = Project {
 	projectName :: String,
 	networks :: [Network],
-	projectParameters :: [Parameter]
+	projectParameters :: [Parameter],
+	typeTable :: TypeTable
 } deriving (Show)
 
 data Parameter = Parameter {
@@ -114,5 +115,5 @@ data Parameter = Parameter {
 	parameterDescription :: String
 } deriving (Show)
 
-data TransportMode = TransportDisabled | TransportDirect 
+data TransportMode = TransportDisabled | TransportDirect | TransportCustom
 	deriving (Show, Eq, Ord)

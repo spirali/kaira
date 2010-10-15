@@ -154,7 +154,7 @@ typeString (TRaw d) = d
 typeString (TPointer t) = typeString t ++ "*"
 typeString (TStruct name _) = name
 typeString TString = "std::string"
-typeString (TData _ rawType _) = rawType
+typeString (TData _ rawType _ _) = rawType
 typeString x = typeSafeString x
 
 -- |Converts type to string in way that string can be used as part of identifier
@@ -168,7 +168,7 @@ typeSafeString (TArray t) = "Array_" ++ typeSafeString t
 typeSafeString (TRaw d) = d
 typeSafeString (TPointer t) = "Ptr_" ++ typeSafeString t
 typeSafeString (TStruct name _) = name
-typeSafeString (TData name _ _) = name
+typeSafeString (TData name _ _ _) = name
 typeSafeString x = error $ "typeSafeString: " ++ show x
 
 declareVar :: Scope -> String -> String
@@ -227,7 +227,7 @@ emitTypeDeclaration (TTuple types) =
 		innerPart (t:ts) level = "\t" ++ typeString t ++ " t_" ++ show level ++ ";\n" ++ innerPart ts (level + 1)
 		constructor1 = "\t" ++ typeName ++ "() {}"
 		const t = case t of
-			(TData _ _ _) -> ""
+			(TData _ _ _ _) -> ""
 			(TPointer _) -> ""
 			_ -> "const "
 		constructor2 = "\t" ++ typeName ++ "(" ++ addDelimiter "," (map (\(n,t) -> const t ++ typeString t ++ " & " ++ n) decls) ++ ") {\n" 
@@ -354,7 +354,8 @@ exprAsString decls x =
 		TInt -> ExprCall "ca_int_to_string" [x]
 		TString -> x
 		TTuple [] -> ExprString "()"
-		(TData name _ _) -> ExprCall "std::string" [ ExprString name ]
+		(TData name _ _ functions) | hasKey "getstring" functions -> ExprCall (name ++ "_getstring") [x]
+		(TData name _ _ _) -> ExprCall "std::string" [ ExprString name ]
 		TTuple types -> ExprCall "+" $ [ ExprCall "std::string" [ ExprString "(" ], ExprCall "Base.asString" [ ExprAt (ExprInt 0) x ]]
 			++ concat [ [ExprString ",", ExprCall "Base.asString" [ ExprAt (ExprInt i) x ]] | i <- [1..(length types)-1]] ++ [ ExprString ")" ]
 		x -> error $ "exprAsString: " ++ show x

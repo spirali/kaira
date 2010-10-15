@@ -173,13 +173,15 @@ parameterTypeByName project paramName =
 		Nothing -> error $ "Parameter '" ++ paramName ++ "' not defined"
 
 externTypeFromElement :: Xml.Element -> (String, Type)
-externTypeFromElement e = (name, TData name rawType transportMode)
+externTypeFromElement e = (name, TData name rawType transportMode codes)
 	where 
 		name = xmlAttr "name" e
 		rawType = xmlAttr "raw-type" e
+		codes = [ (xmlAttr "name" e, Xml.strContent e) | e <- Xml.findElements (qstr "code") e ]
 		transportMode = case xmlAttr "transport-mode" e of
 							"Disabled" -> TransportDisabled
 							"Direct" -> TransportDirect
+							"Custom" -> TransportCustom
 							_ -> error "externTypeFromElement: Unknown transport mode"
 
 externTypesFromElement :: Xml.Element -> TypeTable
@@ -190,7 +192,7 @@ projectTypesFromElement e = Map.union (externTypesFromElement e) standardTypes
 
 projectFromXml :: String -> Project
 projectFromXml xml =
-	Project { projectName = "project", networks = networks, projectParameters = params }
+	Project { projectName = "project", networks = networks, projectParameters = params, typeTable = types }
 	where
 		root = head $ Xml.onlyElems (Xml.parseXML xml)
 		addresses = addressesFromElement root

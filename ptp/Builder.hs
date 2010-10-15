@@ -69,7 +69,7 @@ patternCheck decls binded var (ExprTuple exprs) errEvent =
 patternCheck decls binded var (ExprVar v) errEvent | not (Set.member v binded) = ([], [ISet (ExprVar v) (ExprVar var)])
 patternCheck decls binded var (ExprVar v) errEvent = 
 	case List.lookup v decls of
-		Just (TData _ _ _) -> error "Extern types cannot be compared"
+		Just (TData _ _ _ _) -> error "Extern types cannot be compared"
 		Just _ -> ([], [(IIf (ExprCall "!=" [(ExprVar v), (ExprVar var)]) errEvent INoop)])
 		Nothing -> error "patternCheck: This cannot happend"
 patternCheck decls binded var x errEvent = ([], [(IIf (ExprCall "!=" [x, (ExprVar var)]) errEvent INoop)])
@@ -586,12 +586,36 @@ createMainInitFunction project = Function {
 		test2 n = ExprCall "<" [ node, ExprCall "+" [processedInstances n, processedAddress n]]
 		startI n = icall (startFunctionName n) [ ExprVar "ctx" ]
 		startNetwork n = IIf (ExprCall "&&" [ test1 n, test2 n ]) (startI n) INoop
+
+
+functionWithCode :: String -> Type -> [VarDeclaration] -> String -> Function
+functionWithCode name returnType params code = Function {
+	functionName = name,
+	parameters = params,
+	declarations = [],
+	instructions = [],
+	extraCode = code,
+	returnType = returnType
+}
+
+knownTypeFunctions = [
+	("getstring", (TRaw "std::string", \raw -> [ ("obj", TRaw $ raw ++ "&") ]))]
+
+typeFunctions :: Type -> [Function]
+typeFunctions (TData typeName rawType transportMode ((fname, code):rest)) = 
+	(functionWithCode (typeName ++ "_" ++ fname) returnType (params rawType) code) 
+		: typeFunctions (TData typeName rawType transportMode rest)
+	where (returnType, params) = case List.lookup fname knownTypeFunctions of
+		Just x -> x
+		Nothing -> error $ "typeFunctions: Unknown function " ++ fname
+typeFunctions _ = []
 		
 createProgram :: Project -> String
 createProgram project =
-	emitProgram prologue globals $ netF ++ [mainInitF, mainF]
+	emitProgram prologue globals $ typeF ++ netF ++ [mainInitF, mainF]
 	where
 		globals = [ (parameterGlobalName $ parameterName p, parameterType p) | p <- projectParameters project ]
+		typeF = concatMap typeFunctions $ Map.elems (typeTable project)
 		netF = concat [ createNetworkFunctions project n | n <- networks project ]
 		mainInitF = createMainInitFunction project
 		mainF = createMainFunction project
