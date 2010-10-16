@@ -6,3 +6,9 @@ struct MyType {
 	int i;
 	int j;
 };
+
+struct MyType2 {
+	int c;
+	int d;
+	std::string str;
+};

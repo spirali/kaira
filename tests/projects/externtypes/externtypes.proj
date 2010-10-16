@@ -1,13 +1,37 @@
-<project><configuration><extern-type name="MyType" raw-type="MyType" transport-mode="Disabled" /><extern-type name="MyTypePointer" raw-type="MyType*" transport-mode="Disabled" /></configuration><net id="101"><transition guard="" id="103" name="" sx="70" sy="35" x="164.0" y="128.0" /><place id="109" init_string="" place_type="MyType" radius="20" x="93.0" y="44.0"><code>	MyType m;
+<project><configuration><extern-type name="MyType" raw-type="MyType" transport-mode="Direct" /><extern-type name="MyTypePointer" raw-type="MyType*" transport-mode="Disabled" /><extern-type name="MyType2Pointer" raw-type="MyType2 *" transport-mode="Custom"><code name="getsize">	return 2 * sizeof(int) + sizeof(size_t) + obj-&gt;str.size();
+</code><code name="unpack">	MyType2 *obj = new MyType2;
+	unpacker.unpack(&amp;obj-&gt;c, sizeof(int));
+	unpacker.unpack(&amp;obj-&gt;d, sizeof(int));	
+	size_t s = unpacker.unpack_size();
+	obj-&gt;str = std::string((char*) unpacker.unpack(s), s);
+	return obj;
+</code><code name="getstring">	char s[100];
+	snprintf(s, 100, "%i %i %s", obj-&gt;c, obj-&gt;d, obj-&gt;str.c_str());	
+	return s;
+</code><code name="pack">	packer.pack(&amp;obj-&gt;c, sizeof(int));
+	packer.pack(&amp;obj-&gt;d, sizeof(int));	
+	size_t s = obj-&gt;str.size();
+	packer.pack_size(s);
+	packer.pack(obj-&gt;str.c_str(), s);
+</code></extern-type></configuration><net id="101"><area count_expr="3" id="102" sx="300" sy="230" x="456" y="41" /><place id="103" init_string="" place_type="MyType" radius="20" x="93" y="44"><code>	MyType m;
 	m.i = 10;
 	m.j = 20;
 	place-&gt;push_back(m);
-</code></place><place id="110" init_string="" place_type="MyTypePointer" radius="20" x="250.0" y="41.0"><code>	MyType *m = new MyType;
+</code></place><place id="104" init_string="" place_type="MyTypePointer" radius="20" x="250" y="41"><code>	MyType *m = new MyType;
 	m-&gt;i = 107;
 	m-&gt;j = 207;
 	place-&gt;push_back(m);
-</code></place><place id="111" init_string="" place_type="(MyType, MyTypePointer)" radius="20" x="170.0" y="208.0" /><edge from_item="109" id="112" inscription="x" inscription_x="99.8622661914" inscription_y="94.8105097366" to_item="103"><point x="96.0" y="126.0" /></edge><edge from_item="110" id="113" inscription="y" inscription_x="263.443942738" inscription_y="97.2654230561" to_item="103"><point x="254.0" y="130.0" /></edge><edge from_item="103" id="114" inscription="(x, y)" inscription_x="171.224963567" inscription_y="166.007782827" to_item="111" /><transition guard="" id="115" name="" sx="70" sy="35" x="60.0" y="208.0"><code>	printf("%i %i\n", var.a.i, var.a.j);
+</code></place><place id="105" init_string="" place_type="(MyType, MyTypePointer)" radius="20" x="170" y="208" /><place id="106" init_string="" place_type="(MyType, MyType2Pointer)" radius="20" x="534" y="92" /><transition guard="" id="107" name="" sx="70" sy="35" x="164" y="128" /><transition guard="" id="108" name="" sx="70" sy="35" x="298" y="182"><code>	printf("%i %i\n", var.a.i, var.a.j);
 	printf("%i %i\n", var.b-&gt;i, var.b-&gt;j);	
 	delete var.b;
+	
+	var.c = var.a;
+	var.d = new MyType2;
+	var.d-&gt;c = 257;
+	var.d-&gt;d = 77750;
+	var.d-&gt;str = "A looong string!!!!!";
+</code></transition><transition guard="" id="109" name="" sx="70" sy="35" x="535" y="173"><code>	printf("%i %i\n", var.c.i, var.c.j);
+	printf("%i %i %s\n", var.d-&gt;c, var.d-&gt;d, var.d-&gt;str.c_str());	
+	delete var.d;
 	ctx-&gt;quit();
-</code></transition><edge from_item="111" id="116" inscription="(a, b)" inscription_x="113.5" inscription_y="216.0" to_item="115" /></net></project>
+</code></transition><edge from_item="103" id="110" inscription="x" inscription_x="99" inscription_y="94" to_item="107"><point x="96" y="126" /></edge><edge from_item="104" id="111" inscription="y" inscription_x="263" inscription_y="97" to_item="107"><point x="254" y="130" /></edge><edge from_item="107" id="112" inscription="(x, y)" inscription_x="171" inscription_y="166" to_item="105" /><edge from_item="105" id="113" inscription="(a, b)" inscription_x="113" inscription_y="216" to_item="108" /><edge from_item="108" id="114" inscription="(c, d)@2" inscription_x="376" inscription_y="130" to_item="106"><point x="389" y="94" /></edge><edge from_item="106" id="115" inscription="(c, d)" inscription_x="539" inscription_y="133" to_item="109" /></net></project>

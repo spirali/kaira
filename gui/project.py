@@ -292,7 +292,7 @@ class ExternType:
 		elif name == "pack":
 			return "void pack(CaPacker &packer, " + self.raw_type + " &obj)"
 		elif name == "unpack":
-			return "void unpack(CaUnpacker &unpacker, " + self.raw_type + " &obj)"
+			return self.raw_type + " unpack(CaUnpacker &unpacker)"
 
 
 	def as_xml(self):

@@ -101,6 +101,7 @@ class CaUnpacker {
 		CaUnpacker() {}
 		CaUnpacker(void *mem) { buffer_pos = (char*) mem; }
 		void * unpack(size_t size) { void *p = buffer_pos; buffer_pos += size; return p; }
+		void unpack(void *data, size_t size) { memcpy(data, buffer_pos, size); buffer_pos += size; }
 		size_t unpack_size() { size_t *data = (size_t*)unpack(sizeof(size_t)); return *data; }
 	protected:
 		char *buffer_pos;

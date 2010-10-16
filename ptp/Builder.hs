@@ -334,6 +334,7 @@ sendInstructions project network transition =
 		networkAndEdgesAll = concat [ [ (n, e, helpId) | (e, helpId) <- zip (divide edgeTarget (transitionFilterEdges n edges)) [1..] ] | n <- networks project ]
 		networkAndEdges = filter (\(_, x, _) -> x /= []) networkAndEdgesAll -}
 
+{- Create code that stores expression into packer -}
 packCode :: Expression -> Type -> Expression -> Instruction
 packCode packer t expr | canBeDirectlyPacked t = 
 	makeStatement [ ("data", t) ] [ 
@@ -345,7 +346,10 @@ packCode packer TString expr = makeStatement [ ("data", TString), ("size", TRaw 
 			ISet (ExprVar "size") $ ExprCall ".size" [ExprVar "data"],
 			icall ".pack_size" [ packer, ExprVar "size" ],
 			icall ".pack" [ packer, ExprCall ".c_str" [ ExprVar "data" ], ExprVar "size" ]]
-packCode packer (TTuple types) expr = makeStatement [] [ packCode packer t (ExprAt (ExprInt x) expr) | (x, t) <- zip [0..] types ]
+packCode packer (TTuple types) expr = 
+	makeStatement [] [ packCode packer t (ExprAt (ExprInt x) expr) | (x, t) <- zip [0..] types ]
+packCode packer (TData name rawType TransportCustom functions) var = 
+	icall (name ++ "_pack") [ packer, var ]
 packCode packer t expr = error "packCode: Type cannot be packed"
 
 unpackCode :: Expression -> Type -> String -> Instruction
@@ -363,6 +367,8 @@ unpackCode unpacker (TTuple types) var =
 	makeStatement vars $ [ unpackCode unpacker t name | (name, t) <- vars ] ++ 
 		[ ISet (ExprVar var) (ExprTuple [ ExprVar name | (name, t) <- vars ])]
 	where vars = [ (var ++ show i, t) | (i, t) <- zip [0..] types ]
+unpackCode unpacker (TData name rawType TransportCustom functions) var = 
+	ISet (ExprVar var) (ExprCall (name ++ "_unpack") [ unpacker ])
 
 unpackCode unpacker t var = error $ "unpackCode: Type cannot be unpacked"
 
@@ -597,16 +603,19 @@ functionWithCode name returnType params code = Function {
 	extraCode = code,
 	returnType = returnType
 }
-
+knownTypeFunctions :: [(String, String -> (Type, [VarDeclaration]))]
 knownTypeFunctions = [
-	("getstring", (TRaw "std::string", \raw -> [ ("obj", TRaw $ raw ++ "&") ]))]
+	("getstring", \raw -> (TRaw "std::string", [ ("obj", TRaw $ raw ++ "&") ])),
+	("getsize", \raw -> (TRaw "size_t", [ ("obj", TRaw $ raw ++ "&") ])),
+	("pack", \raw -> (TVoid, [ ("packer", TRaw "CaPacker &"), ("obj", TRaw $ raw ++ "&") ])),
+	("unpack", \raw -> (TRaw raw, [ ("unpacker", TRaw "CaUnpacker &") ])) ]
 
 typeFunctions :: Type -> [Function]
 typeFunctions (TData typeName rawType transportMode ((fname, code):rest)) = 
-	(functionWithCode (typeName ++ "_" ++ fname) returnType (params rawType) code) 
+	(functionWithCode (typeName ++ "_" ++ fname) returnType params code) 
 		: typeFunctions (TData typeName rawType transportMode rest)
 	where (returnType, params) = case List.lookup fname knownTypeFunctions of
-		Just x -> x
+		Just x -> x rawType
 		Nothing -> error $ "typeFunctions: Unknown function " ++ fname
 typeFunctions _ = []
 		
