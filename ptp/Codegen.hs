@@ -25,14 +25,14 @@ stdFunctions = [
 	("*", TInt, [TInt, TInt])]
 
 sourceCodeToStr :: SourceCode -> String
-sourceCodeToStr code = 
+sourceCodeToStr code =
 	toStr code 0 True
-	where 
+	where
 		toStr Empty _ _ = ""
 		toStr (Join a b) n i = toStr a n i ++ toStr b n (endWithEol a)
-		toStr (Text s) n True = (indentStr n) ++ s
+		toStr (Text s) n True = indentStr n ++ s
 		toStr (Text s) _ False = s
-		toStr (Block c) n i = "\n" ++ toStr c (n + 1) True ++ if (endWithEol c) then "" else "\n"
+		toStr (Block c) n i = "\n" ++ toStr c (n + 1) True ++ if endWithEol c then "" else "\n"
 		toStr Eol n i = "\n"
 
 		endWithEol Eol = True
@@ -49,18 +49,17 @@ indentStr :: Int -> String
 indentStr n = List.replicate n '\t'
 
 joinMap :: (a -> SourceCode) -> [a] -> SourceCode
-joinMap f [] = Empty 
-joinMap f (a:rest) = f a <+> joinMap f rest
+joinMap f = foldr ((<+>) . f) Empty
 
 infixFunctions = [ "+", "-", "/", "*", "!=", "==", "||", "&&", ">=", "<=", ">", "<" ]
 
 addDeclarations :: Scope -> Declarations -> Scope
-addDeclarations scope decls = 
-	Scope $ decls `declarationsJoin` (scopeDeclarations scope)
+addDeclarations scope decls =
+	Scope $ decls `declarationsJoin` scopeDeclarations scope
 
-emitCall scope ('.':name) (obj:params) = 
-	emitExpression scope obj ++ dotOrArrow ++ name ++ "(" ++ (addDelimiter "," $ map (emitExpression scope) params) ++ ")"
-	where dotOrArrow = 
+emitCall scope ('.':name) (obj:params) =
+	emitExpression scope obj ++ dotOrArrow ++ name ++ "(" ++ addDelimiter "," (map (emitExpression scope) params) ++ ")"
+	where dotOrArrow =
 		case exprType (scopeDeclarations scope) obj of
 			TStruct _ _ -> "."
 			TPointer _ -> "->"
@@ -71,15 +70,15 @@ emitCall scope ('.':name) (obj:params) =
 emitCall scope "Base.asString" [x] = emitExpression scope $ exprAsString (scopeDeclarations scope) x
 emitCall scope "List.size" [e1] = emitExpression scope e1 ++ ".size()"
 emitCall scope "List.clear" [e1] = emitExpression scope e1 ++ ".clear()"
-emitCall scope "List.eraseAt" [e1,e2] = 
+emitCall scope "List.eraseAt" [e1,e2] =
 	emitExpression scope e1 ++ ".erase(" ++ emitExpression scope e1 ++ ".begin()+" ++ emitExpression scope e2 ++ ")"
-emitCall scope "List.append" [e1,e2] = 
+emitCall scope "List.append" [e1,e2] =
 	emitExpression scope e1 ++ ".push_back(" ++ emitExpression scope e2 ++ ")"
 emitCall scope name [e1] | name `elem` infixFunctions = 	emitExpression scope e1
-emitCall scope name (e:rest) | name `elem` infixFunctions = 
+emitCall scope name (e:rest) | name `elem` infixFunctions =
 	"(" ++ emitExpression scope e ++ " " ++ name ++ " " ++ emitCall scope name rest ++ ")"
-emitCall scope name params = 
-	name ++ "(" ++ (addDelimiter "," $ map (emitExpression scope) params) ++ ")"
+emitCall scope name params =
+	name ++ "(" ++ addDelimiter "," (map (emitExpression scope) params) ++ ")"
 
 emitExpression :: Scope -> Expression -> String
 emitExpression scope (ExprVar s) = s
@@ -88,13 +87,13 @@ emitExpression scope (ExprInt i) = show i
 emitExpression scope (ExprString str) = "\"" ++ str ++ "\""
 emitExpression scope (ExprCall name params) = emitCall scope name params
 {- Tuple at -}
-emitExpression scope (ExprAt (ExprInt index) expr) = 
+emitExpression scope (ExprAt (ExprInt index) expr) =
 	case exprType (scopeDeclarations scope) expr of
 		TTuple _ -> emitExpression scope expr ++ "." ++ emitTupleMember index
 		TPointer (TTuple _) -> emitExpression scope expr ++ "->" ++ emitTupleMember index
 		t -> error $ "Unsuported type in emitExpression (ExprAt): " ++ show index ++ " " ++ show expr ++ "/" ++ show t
 
-emitExpression scope (ExprAt (ExprString index) expr) = 
+emitExpression scope (ExprAt (ExprString index) expr) =
 	case exprType (scopeDeclarations scope) expr of
 		TStruct _ _ -> emitExpression scope expr ++ "." ++ index
 		TPointer _ -> emitExpression scope expr ++ "->" ++ index
@@ -102,40 +101,41 @@ emitExpression scope (ExprAt (ExprString index) expr) =
 
 emitExpression scope (ExprAddr expr) = "&(" ++ emitExpression scope expr ++ ")"
 emitExpression scope (ExprDeref expr) = "*(" ++ emitExpression scope expr ++ ")"
-emitExpression scope x = error $ "EmitExpression: " ++ (show x)
+emitExpression scope x = error $ "EmitExpression: " ++ show x
 
 emitVarDeclarations :: Scope -> [VarDeclaration] -> [(String, Expression)] -> SourceCode
-emitVarDeclarations scope vdecls inits = 
+emitVarDeclarations scope vdecls inits =
 	joinMap declare vdecls
-	where 
+	where
 		declare (name, t) = case List.lookup name inits of
 			Nothing -> Text (typeString t ++ " " ++ name ++ ";") <+> Eol
 			Just expr -> Text (typeString t ++ " " ++ name ++ " = " ++ emitExpression scope expr ++ ";") <+> Eol
 
 emitInstruction :: Scope -> Instruction -> SourceCode
 emitInstruction scope (IExpr expr) = Text (emitExpression scope expr ++ ";") <+> Eol
-emitInstruction scope (ISet expr1 expr2) = Text (emitExpression scope expr1 ++ " = " ++ emitExpression scope expr2 ++ ";") <+> Eol
-emitInstruction scope (IStatement decls inits instructions) = 
-	(Text "{") <+> Block (declarations <+> joinMap emit instructions) <+> (Text "}") <+> Eol
-	where 
-		emit i = emitInstruction newScope i
-		newScope = (addDeclarations scope (declarationsFromVarList decls))
-		declarations = emitVarDeclarations newScope decls inits
+emitInstruction scope (ISet expr1 expr2) =
+	Text (emitExpression scope expr1 ++ " = " ++ emitExpression scope expr2 ++ ";") <+> Eol
+emitInstruction scope (IStatement decls inits instructions) =
+	Text "{" <+> Block (declarationsCode <+> instructionsCode) <+> Text "}" <+> Eol
+	where
+		instructionsCode = joinMap (emitInstruction newScope) instructions
+		newScope = addDeclarations scope (declarationsFromVarList decls)
+		declarationsCode = emitVarDeclarations newScope decls inits
 emitInstruction scope (IReturn expr) = Text ("return " ++ emitExpression scope expr ++ ";") <+> Eol
 emitInstruction scope IContinue = Text "continue;" <+> Eol
 emitInstruction scope INoop = Empty
-emitInstruction scope (IForeach var counterVar expr body) = 
-	Text ("for (" ++ varDecl ++ "; " ++ cycleTest ++ "; " ++ counterVar ++ "++) {") 
+emitInstruction scope (IForeach var counterVar expr body) =
+	Text ("for (" ++ varDecl ++ "; " ++ cycleTest ++ "; " ++ counterVar ++ "++) {")
 	<+> Block (setVar <+> joinMap emit body) <+> Text "}" <+> Eol
-	where 
-		elementType = case exprType (scopeDeclarations scope) expr  of 
+	where
+		elementType = case exprType (scopeDeclarations scope) expr  of
 						TArray t -> t
 						_ -> error "Unsuported type for IForeach"
-		arrayLen = "(" ++ (emitExpression scope expr) ++ ").size()"
-		setVar = Text ((typeString elementType) ++ " " ++ var ++ " = " ++ emitExpression scope expr ++ "[" ++ counterVar ++ "];") <+> Eol
+		arrayLen = "(" ++ emitExpression scope expr ++ ").size()"
+		setVar = Text (typeString elementType ++ " " ++ var ++ " = " ++ emitExpression scope expr ++ "[" ++ counterVar ++ "];") <+> Eol
 		varDecl = "int " ++ counterVar ++ " = 0"
 		cycleTest = counterVar ++ " < " ++ arrayLen
-		emit = emitInstruction 
+		emit = emitInstruction
 			(addDeclarations scope (declarationsFromVarList [ (counterVar, TInt), (var, elementType) ]))
 emitInstruction scope (IInline str) = Text str <+> Eol
 emitInstruction scope (IIf expr branch1 INoop) =
@@ -150,7 +150,7 @@ initialScope function = Scope { scopeDeclarations = decls }
 
 typeString :: Type -> String
 typeString (TArray t) = "std::vector<" ++ typeString t ++ ">"
-typeString (TRaw d) = d 
+typeString (TRaw d) = d
 typeString (TPointer t) = typeString t ++ "*"
 typeString (TStruct name _) = name
 typeString TString = "std::string"
@@ -172,7 +172,7 @@ typeSafeString (TData name _ _ _) = name
 typeSafeString x = error $ "typeSafeString: " ++ show x
 
 declareVar :: Scope -> String -> String
-declareVar scope varName = 
+declareVar scope varName =
 	case varType (scopeDeclarations scope) varName of
 		TUndefined -> error "Undefined variable cannot be defined"
 		t -> typeString t ++ " " ++ varName
@@ -188,28 +188,28 @@ declareParam ((name,(TRaw d)):vs) = (d ++ " " ++ name) : declareParam vs
 declareParam ((name,t):vs) = (typeString t ++ " & " ++ name) : declareParam vs
 
 emitFunction :: Function -> String
-emitFunction function = 
-	typeString (returnType function) ++ " " ++ (functionName function) ++ "(" ++ paramString ++ ")\n" ++ body
-	where 
+emitFunction function =
+	typeString (returnType function) ++ " " ++ functionName function ++ "(" ++ paramString ++ ")\n" ++ body
+	where
 		decls = makeDeclarations (declarations function) stdFunctions
 		body = sourceCodeToStr(emitInstruction scope (addConstructors decls statement))
 		scope = initialScope function
 		paramString = addDelimiter "," $ declareParam (parameters function)
-		statement = makeStatement (declarations function) ((instructions function) ++ extraInstructions)
-		extraInstructions = 
+		statement = makeStatement (declarations function) (instructions function ++ extraInstructions)
+		extraInstructions =
 			case extraCode function of
 				"" -> [INoop]
 				x -> [IInline x]
 
 emitGlobals :: [VarDeclaration] -> String
 emitGlobals [] = ""
-emitGlobals ((name, t):rest) = 
+emitGlobals ((name, t):rest) =
 	typeString t ++ " " ++ name ++ ";\n" ++ emitGlobals rest
 
 emitProgram :: String -> [VarDeclaration] -> [Function] -> String
-emitProgram prologue globals functions = 
-	prologue ++ typeDeclarations ++ "\n\n" ++ emitGlobals globals ++ "\n\n" ++ concatMap emitFunction (extraFunctions ++ functions) 
-	where 
+emitProgram prologue globals functions =
+	prologue ++ typeDeclarations ++ "\n\n" ++ emitGlobals globals ++ "\n\n" ++ concatMap emitFunction (extraFunctions ++ functions)
+	where
 		typeDeclarations = concatMap emitTypeDeclaration orderedTypes
 		allTypes = Set.fold (\t s -> Set.union s $ subTypes' t) Set.empty (Set.unions (map gatherTypes functions))
 		allDefinedTypes = Set.filter isDefined allTypes
@@ -217,10 +217,10 @@ emitProgram prologue globals functions =
 		extraFunctions = [] {- map printFunction orderedTypes -}
 
 emitTypeDeclaration :: Type -> String
-emitTypeDeclaration (TTuple types) = 
+emitTypeDeclaration (TTuple types) =
 	{- FIXME: use TStruct emit -}
 	"struct " ++ typeName ++ " {\n" ++ constructor1 ++ "\n" ++ constructor2 ++ innerPart types 0 ++ "};\n"
-	where 
+	where
 		typeName = typeSafeString (TTuple types)
 		decls = zip (map (\x -> "t_" ++ show x) [0..]) types
 		innerPart [] _ = ""
@@ -230,52 +230,50 @@ emitTypeDeclaration (TTuple types) =
 			(TData _ _ _ _) -> ""
 			(TPointer _) -> ""
 			_ -> "const "
-		constructor2 = "\t" ++ typeName ++ "(" ++ addDelimiter "," (map (\(n,t) -> const t ++ typeString t ++ " & " ++ n) decls) ++ ") {\n" 
+		constructor2 = "\t" ++ typeName ++ "(" ++ addDelimiter "," (map (\(n,t) -> const t ++ typeString t ++ " & " ++ n) decls) ++ ") {\n"
 			++ concatMap (\(n,t) -> "\t\tthis->" ++ n ++ " = " ++ n ++ ";\n") decls ++ "\t}\n"
 
-emitTypeDeclaration (TStruct name decls) = 
+emitTypeDeclaration (TStruct name decls) =
 	"struct " ++ name ++ " {\n" ++ innerPart decls ++ "};\n"
-	where 
+	where
 		innerPart [] = ""
 		innerPart ((name, t):ts) = "\t" ++ typeString t ++ " " ++ name ++ ";\n" ++ innerPart ts
 emitTypeDeclaration _ = ""
 
 varDeclarationTypes :: [VarDeclaration] -> TypeSet
-varDeclarationTypes decls = Set.fromList $ [ t | (n,t) <- decls ]
+varDeclarationTypes decls = Set.fromList [ t | (n,t) <- decls ]
 
 gatherExprTypes :: Expression -> TypeSet
-gatherExprTypes x = 
-	if t == TUndefined then 
-		Set.empty 
-	else 
-		Set.singleton t 
-	where t = exprType (emptyDeclarations) x  {- FIXME -}
+gatherExprTypes x =
+	case exprType emptyDeclarations x of -- FIXME: not emptyDeclarations
+		TUndefined -> Set.empty
+		t -> Set.singleton t
 
 gatherInstructionTypes :: Instruction -> TypeSet
 gatherInstructionTypes (IExpr expr) = gatherExprTypes expr
 gatherInstructionTypes (ISet _ expr) = gatherExprTypes expr
-gatherInstructionTypes (IIf expr i1 i2) = 
+gatherInstructionTypes (IIf expr i1 i2) =
 	Set.unions [ gatherExprTypes expr, gatherInstructionTypes i1, gatherInstructionTypes i2 ]
-gatherInstructionTypes (IStatement decls inits instrs) = 
+gatherInstructionTypes (IStatement decls inits instrs) =
 	Set.union (varDeclarationTypes decls) $ Set.unions (map gatherInstructionTypes instrs)
-gatherInstructionTypes (IForeach _ _ expr instrs) = 
+gatherInstructionTypes (IForeach _ _ expr instrs) =
 	Set.union (gatherExprTypes expr) $ Set.unions (map gatherInstructionTypes instrs)
 gatherInstructionTypes INoop = Set.empty
 gatherInstructionTypes _ = Set.empty
 
-gatherTypes :: Function -> TypeSet 
-gatherTypes f = 
-	Set.unions $ [ varDeclarationTypes (declarations f), varDeclarationTypes (parameters f)] ++ 
+gatherTypes :: Function -> TypeSet
+gatherTypes f =
+	Set.unions $ [ varDeclarationTypes (declarations f), varDeclarationTypes (parameters f)] ++
 		map gatherInstructionTypes (instructions f)
 
-{- 
+{-
 	subTypes' x returns subtypes with x
  	subTypes x returns subtypes without x
 -}
 
 subTypes :: Type -> TypeSet
 subTypes (TArray t) = subTypes' t
-subTypes (TTuple types) = (Set.unions $ map subTypes' types)
+subTypes (TTuple types) = Set.unions $ map subTypes' types
 subTypes (TPointer t) = subTypes' t
 subTypes (TStruct _ decls) = Set.unions $ map (subTypes'.snd) decls
 subTypes _ = Set.empty
@@ -289,7 +287,7 @@ subTypes' x = Set.singleton x
 
 dependsOn :: Type -> Type -> Bool
 x `dependsOn` y = Set.member y (subTypes x)
-	
+
 depOrd :: Type -> Type -> Ordering
 x `depOrd` y
 	| x == y = EQ
@@ -301,9 +299,9 @@ printFunctionName t = "print_" ++ typeSafeString t
 
 printFunctionHelper :: Type -> [Instruction] -> Function
 printFunctionHelper t instructions =
-	Function { 
+	Function {
 			functionName = printFunctionName t,
-			returnType = TVoid, 
+			returnType = TVoid,
 			declarations = [],
 			parameters = [ ("x", t) ],
 			extraCode = "",
@@ -311,24 +309,24 @@ printFunctionHelper t instructions =
 	}
 
 callPrintfStr :: String -> Instruction
-callPrintfStr str = 
-	IExpr (ExprCall "printf" [ ExprString str ]) 
+callPrintfStr str =
+	IExpr (ExprCall "printf" [ ExprString str ])
 
 callPrint :: Type -> Expression -> Instruction
-callPrint t expr = 
-	IExpr (ExprCall (printFunctionName t) [ expr ]) 
+callPrint t expr =
+	IExpr (ExprCall (printFunctionName t) [ expr ])
 
 printFunction :: Type -> Function
 printFunction TInt = printFunctionHelper TInt [ IExpr (ExprCall "printf" [ ExprString "%i", ExprVar "x" ]) ]
-printFunction (TTuple types) = 
+printFunction (TTuple types) =
 	printFunctionHelper (TTuple types) $ (callPrintfStr "(":instructions) ++ [ callPrintfStr ")" ]
-	where 
+	where
 		instructions = List.intersperse delimInstr $ countedMap printInstr types
-		printInstr n t = IExpr (ExprCall (printFunctionName t) [ ExprAt (ExprInt n) (ExprVar "x") ]) 
+		printInstr n t = IExpr (ExprCall (printFunctionName t) [ ExprAt (ExprInt n) (ExprVar "x") ])
 		delimInstr = callPrintfStr ","
-printFunction (TArray t) = 
-	printFunctionHelper (TArray t) $ [ callPrintfStr "[", cycle, callPrintfStr "]" ]
-	where 
+printFunction (TArray t) =
+	printFunctionHelper (TArray t) [ callPrintfStr "[", cycle, callPrintfStr "]" ]
+	where
 		cycle = IForeach "y" "i" (ExprVar "x") [
 			IExpr (ExprCall (printFunctionName t) [ (ExprVar "y") ]),
 			callPrintfStr "," ]
@@ -339,7 +337,8 @@ addConstructors :: Declarations -> Instruction -> Instruction
 addConstructors decls i =
 	mapExprs' addConstr decls i
 	where
-       addConstr decls (ExprTuple xs) = ExprCall (typeSafeString (exprType decls (ExprTuple xs))) $ map (addConstr decls) xs
+       addConstr decls (ExprTuple xs) =
+			ExprCall (typeSafeString (exprType decls (ExprTuple xs))) $ map (addConstr decls) xs
        addConstr decls (ExprCall name exprs) = ExprCall name $ map (addConstr decls) exprs
        addConstr decls (ExprAt a b) = ExprAt (addConstr decls a) (addConstr decls b)
        addConstr decls (ExprDeref e) = ExprDeref $ addConstr decls e
@@ -349,15 +348,17 @@ addConstructors decls i =
 exprAsString :: Declarations -> Expression -> Expression
 exprAsString decls (ExprString x) = ExprString x
 exprAsString decls (ExprInt x) = ExprString $ show x
-exprAsString decls x = 
+exprAsString decls x =
 	case exprType decls x of
 		TInt -> ExprCall "ca_int_to_string" [x]
 		TString -> x
 		TTuple [] -> ExprString "()"
 		(TData name _ _ functions) | hasKey "getstring" functions -> ExprCall (name ++ "_getstring") [x]
 		(TData name _ _ _) -> ExprCall "std::string" [ ExprString name ]
-		TTuple types -> ExprCall "+" $ [ ExprCall "std::string" [ ExprString "(" ], ExprCall "Base.asString" [ ExprAt (ExprInt 0) x ]]
-			++ concat [ [ExprString ",", ExprCall "Base.asString" [ ExprAt (ExprInt i) x ]] | i <- [1..(length types)-1]] ++ [ ExprString ")" ]
+		TTuple types -> ExprCall "+" $ [ ExprCall "std::string"
+			[ ExprString "(" ], ExprCall "Base.asString" [ ExprAt (ExprInt 0) x ]]
+				++ concat [ [ExprString ",", ExprCall "Base.asString"
+					[ ExprAt (ExprInt i) x ]] | i <- [1..length types-1]] ++ [ ExprString ")" ]
 		x -> error $ "exprAsString: " ++ show x
 
 
