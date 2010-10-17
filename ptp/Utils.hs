@@ -35,3 +35,23 @@ triangleDependancy fn list =
 
 hasKey :: (Eq a) => a -> [(a, b)] -> Bool
 hasKey key list = Maybe.isJust $ List.lookup key list
+
+strType (TData name rawType mode _) = "TData " ++ name
+strType TInt = "Int"
+strType (TTuple types) = "Tuple:[" ++ addDelimiter "," (map strType types) ++ "]"
+strType (TArray t) = "Array " ++ strType t
+strType (TPointer t) = "Pointer:" ++ strType t
+strType t = "SomeType"
+
+
+dependacyOrder :: (Ord a) => ([a] -> a -> Bool) -> (Set.Set a) -> [a]
+dependacyOrder fn items =
+	process items []
+	where
+		process items ordered 
+			| items == Set.empty = ordered
+			| otherwise = let (newOrdered, notOrdered) = Set.partition (fn ordered) items in
+					if newOrdered == Set.empty then
+						error "Items cannot be ordered"
+					else
+						process notOrdered (ordered ++ Set.toList newOrdered)

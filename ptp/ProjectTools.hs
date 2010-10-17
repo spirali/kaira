@@ -15,7 +15,13 @@ makeStatement decls = IStatement decls
 
 makeStatement' :: [VarDeclaration] -> [(String, Type, Expression)] -> [Instruction] -> Instruction
 makeStatement' decls declsWithInit instructions = 
-	makeStatement decls $ [ IDefine name t init | (name, t, init) <- declsWithInit ] ++ instructions
+	makeStatement decls $ [ idefine name t init | (name, t, init) <- declsWithInit ] ++ instructions
+
+idefine :: String -> Type -> Expression -> Instruction
+idefine name t expr = IDefine name t (Just expr)
+
+idefineEmpty :: String -> Type -> Instruction
+idefineEmpty name t = IDefine name t Nothing
 
 -- | Returns name of variables that is directly mapped
 directVariables :: Expression -> VarSet
@@ -166,7 +172,7 @@ mapExprs fn (IExpr e) = IExpr $ fn e
 mapExprs fn (ISet e1 e2) = ISet (fn e1) (fn e2)
 mapExprs fn (IIf e i1 i2) = IIf (fn e) (mapExprs fn i1) (mapExprs fn i2)
 mapExprs fn (IStatement decls is) = IStatement decls $ map (mapExprs fn) is
-mapExprs fn (IDefine name t expr) = IDefine name t (fn expr)
+mapExprs fn (IDefine name t (Just expr)) = IDefine name t $ Just (fn expr)
 mapExprs fn (IForeach a b e is) = IForeach a b (fn e) $ map (mapExprs fn) is
 mapExprs fn x = x
 
@@ -176,8 +182,8 @@ mapExprs' fn decls (ISet e1 e2) = ISet (fn decls e1) (fn decls e2)
 mapExprs' fn decls (IIf e i1 i2) = IIf (fn decls e) (mapExprs' fn decls i1) (mapExprs' fn decls i2)
 mapExprs' fn decls (IStatement d is) =
 	IStatement d $ map (mapExprs' fn newDecls) is
-	where newDecls = declarationsFromVarList d `declarationsJoin` decls
-mapExprs' fn decls (IDefine name t expr) = IDefine name t (fn decls expr)
+	where newDecls = statementDeclarations d is `declarationsJoin` decls
+mapExprs' fn decls (IDefine name t (Just expr)) = IDefine name t $ Just (fn decls expr)
 mapExprs' fn decls (IForeach a b e is) = IForeach a b (fn decls e) $ map (mapExprs' fn decls) is
 mapExprs' fn decls x = x
 

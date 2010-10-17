@@ -87,6 +87,7 @@ class CaPacker {
 		~CaPacker() { free(buffer); }
 		void pack(const void *mem, size_t size) { memcpy(buffer_pos, mem, size); buffer_pos += size;  }
 		void pack_size(size_t data) { pack(&data, sizeof(size_t)); }
+		void pack_string(std::string str) { size_t s = str.size(); pack_size(s); pack(str.c_str(), s); }
 		size_t get_size() { return size; }
 		void * get_buffer() { return buffer; }
 	protected:
@@ -103,6 +104,7 @@ class CaUnpacker {
 		void * unpack(size_t size) { void *p = buffer_pos; buffer_pos += size; return p; }
 		void unpack(void *data, size_t size) { memcpy(data, buffer_pos, size); buffer_pos += size; }
 		size_t unpack_size() { size_t *data = (size_t*)unpack(sizeof(size_t)); return *data; }
+		std::string unpack_string() { size_t s = unpack_size(); return std::string((char*) unpack(s), s); }
 	protected:
 		char *buffer_pos;
 };

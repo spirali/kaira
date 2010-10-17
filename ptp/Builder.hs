@@ -352,23 +352,17 @@ packCode packer (TData name rawType TransportCustom functions) var =
 	icall (name ++ "_pack") [ packer, var ]
 packCode packer t expr = error "packCode: Type cannot be packed"
 
-unpackCode :: Expression -> Type -> String -> Instruction
+unpackCode :: Expression -> Type -> String -> [Instruction]
 unpackCode unpacker t var | canBeDirectlyPacked t =
-	makeStatement [ ("p", TPointer TVoid) ] [ 
-		ISet (ExprVar "p") (ExprCall ".unpack" [ unpacker, exprMemSize t undefined ]),
-		IInline (var ++ " = *(" ++ typeString (TPointer t) ++ ") p;")]
-unpackCode unpacker TString var = 
-	makeStatement [ ("size", TRaw "size_t"), ("sdata", TRaw "char *") ] [
-		ISet (ExprVar "size") (ExprCall ".unpack_size" [ unpacker ]),
-		IInline "sdata = (char*) unpacker.unpack(size);",
-		ISet (ExprVar var) (ExprCall "std::string" [ ExprVar "sdata", ExprVar "size" ])
-	]
+	[ idefineEmpty var t, 
+		icall ".unpack" [ unpacker, ExprAddr (ExprVar var), exprMemSize t undefined ] ]
+unpackCode unpacker TString var = [ idefine var TString $ ExprCall ".unpack_string" [ unpacker ] ]
 unpackCode unpacker (TTuple types) var = 
-	makeStatement vars $ [ unpackCode unpacker t name | (name, t) <- vars ] ++ 
-		[ ISet (ExprVar var) (ExprTuple [ ExprVar name | (name, t) <- vars ])]
+	concat [ unpackCode unpacker t name | (name, t) <- vars ] ++ 
+		[ idefine var (TTuple types) (ExprTuple [ ExprVar name | (name, t) <- vars ])]
 	where vars = [ (var ++ show i, t) | (i, t) <- zip [0..] types ]
 unpackCode unpacker (TData name rawType TransportCustom functions) var = 
-	ISet (ExprVar var) (ExprCall (name ++ "_unpack") [ unpacker ])
+	[ idefine var (TData name rawType TransportCustom functions) (ExprCall (name ++ "_unpack") [ unpacker ]) ]
 
 unpackCode unpacker t var = error $ "unpackCode: Type cannot be unpacked"
 
@@ -376,8 +370,8 @@ sendStatement :: Project -> Network -> Network -> Transition -> Edge -> Instruct
 {- Version for normal edges -}
 sendStatement project fromNetwork toNetwork transition edge | isNormalEdge edge =
 	makeStatement [] [ 
-		IDefine "item" etype (preprocess expr), 
-		IDefine "packer" (TRaw "CaPacker") (ExprCall "CaPacker" [exprMemSize etype (ExprVar "item")]),
+		idefine "item" etype (preprocess expr), 
+		idefine "packer" (TRaw "CaPacker") (ExprCall "CaPacker" [exprMemSize etype (ExprVar "item")]),
 		packCode packer etype (ExprVar "item"),
 		IExpr (ExprCall "ca_send" [
 			ExprVar "ctx",
@@ -464,9 +458,10 @@ recvStatement network place =
 	IIf condition ifStatement INoop
 	where
 		condition = ExprCall "==" [ ExprVar "data_id", ExprInt (placeId place) ]
-		ifStatement = makeStatement [ ("item", placeType place) ] [
-			unpackCode (ExprVar "unpacker") (placeType place) "item",
-			IExpr (ExprCall "List.append" [ ExprAt (ExprInt (placeSeq network place)) (ExprVar "places"),  (ExprVar "item") ])]
+		ifStatement = makeStatement []
+			(unpackCode (ExprVar "unpacker") (placeType place) "item" ++ 
+			[ IExpr (ExprCall "List.append" 
+				[ ExprAt (ExprInt (placeSeq network place)) (ExprVar "places"),  (ExprVar "item") ])])
 
 {- This is not good aproach if there are more vars, but it now works -}
 safeErase :: Expression -> String -> [String] -> Instruction

@@ -49,7 +49,7 @@ data Instruction =
 	IIf Expression Instruction Instruction |
 	IForeach String String Expression [Instruction] | {- var counterVar array body -}
 	IStatement [VarDeclaration] [Instruction] |
-	IDefine String Type Expression |
+	IDefine String Type (Maybe Expression) |
 	IReturn Expression |
 	IContinue |
 	IInline String |

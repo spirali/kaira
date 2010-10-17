@@ -119,8 +119,10 @@ emitInstruction scope (IStatement decls instructions) =
 		instructionsCode = joinMap (emitInstruction newScope) instructions
 		newScope = addDeclarations scope (statementDeclarations decls instructions)
 		declarationsCode = emitVarDeclarations newScope decls
-emitInstruction scope (IDefine name t expr) = 
+emitInstruction scope (IDefine name t (Just expr)) = 
 	Text (typeString t ++ " " ++ name ++ " = " ++ emitExpression scope expr ++ ";") <+> Eol
+emitInstruction scope (IDefine name t Nothing) = 
+	Text (typeString t ++ " " ++ name ++ ";") <+> Eol
 emitInstruction scope (IReturn expr) = Text ("return " ++ emitExpression scope expr ++ ";") <+> Eol
 emitInstruction scope IContinue = Text "continue;" <+> Eol
 emitInstruction scope INoop = Empty
@@ -191,7 +193,7 @@ emitFunction :: Function -> String
 emitFunction function =
 	typeString (returnType function) ++ " " ++ functionName function ++ "(" ++ paramString ++ ")\n" ++ body
 	where
-		decls = makeDeclarations (declarations function) stdFunctions
+		decls = makeDeclarations (statementVarList (declarations function) (instructions function)) stdFunctions
 		body = sourceCodeToStr(emitInstruction scope (addConstructors decls statement))
 		scope = initialScope function
 		paramString = addDelimiter "," $ declareParam (parameters function)
@@ -206,6 +208,12 @@ emitGlobals [] = ""
 emitGlobals ((name, t):rest) =
 	typeString t ++ " " ++ name ++ ";\n" ++ emitGlobals rest
 
+orderTypeByDepedancy :: (Set.Set Type) -> [Type]
+orderTypeByDepedancy types = 
+	dependacyOrder orderFn types
+	where 
+		orderFn ordered t = Set.empty == Set.difference (subTypes t) (Set.fromList ordered)
+
 emitProgram :: String -> [VarDeclaration] -> [Function] -> String
 emitProgram prologue globals functions =
 	prologue ++ typeDeclarations ++ "\n\n" ++ emitGlobals globals ++ "\n\n" ++ concatMap emitFunction (extraFunctions ++ functions)
@@ -213,7 +221,7 @@ emitProgram prologue globals functions =
 		typeDeclarations = concatMap emitTypeDeclaration orderedTypes
 		allTypes = Set.fold (\t s -> Set.union s $ subTypes' t) Set.empty (Set.unions (map gatherTypes functions))
 		allDefinedTypes = Set.filter isDefined allTypes
-		orderedTypes = List.sortBy depOrd (Set.toList allDefinedTypes)
+		orderedTypes = orderTypeByDepedancy allDefinedTypes
 		extraFunctions = [] {- map printFunction orderedTypes -}
 
 emitTypeDeclaration :: Type -> String
@@ -258,6 +266,8 @@ gatherInstructionTypes (IStatement decls instrs) =
 	Set.union (varDeclarationTypes decls) $ Set.unions (map gatherInstructionTypes instrs)
 gatherInstructionTypes (IForeach _ _ expr instrs) =
 	Set.union (gatherExprTypes expr) $ Set.unions (map gatherInstructionTypes instrs)
+gatherInstructionTypes (IDefine _ t (Just expr)) = Set.union (Set.singleton t) (gatherExprTypes expr)
+gatherInstructionTypes (IDefine _ t Nothing) = Set.singleton t
 gatherInstructionTypes INoop = Set.empty
 gatherInstructionTypes _ = Set.empty
 
@@ -279,20 +289,12 @@ subTypes (TStruct _ decls) = Set.unions $ map (subTypes'.snd) decls
 subTypes _ = Set.empty
 
 subTypes' :: Type -> TypeSet
-subTypes' (TArray t) = Set.union (Set.singleton (TArray t)) (subTypes' t)
-subTypes' (TTuple types) = Set.union (Set.singleton (TTuple types)) (Set.unions $ map subTypes' types)
-subTypes' (TPointer t) = Set.union (Set.singleton (TPointer t)) (subTypes' t)
-subTypes' (TStruct name decls) = Set.union (Set.singleton (TStruct name decls)) (Set.unions $ map (subTypes'.snd) decls)
-subTypes' x = Set.singleton x
-
-dependsOn :: Type -> Type -> Bool
-x `dependsOn` y = Set.member y (subTypes x)
-
-depOrd :: Type -> Type -> Ordering
-x `depOrd` y
-	| x == y = EQ
-	| x `dependsOn` y = GT
-	| otherwise = EQ
+subTypes' tt = Set.union (Set.singleton tt) (case tt of
+	(TArray t) -> subTypes' t
+	(TTuple types) -> Set.unions $ map subTypes' types
+	(TPointer t) -> subTypes' t
+	(TStruct name decls) -> Set.unions $ map (subTypes'.snd) decls 
+	_ -> Set.empty)
 
 printFunctionName :: Type -> String
 printFunctionName t = "print_" ++ typeSafeString t
