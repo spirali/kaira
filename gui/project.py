@@ -20,6 +20,10 @@ class Project(EventSource):
 		self.extern_types = []
 		self.param_values_cache = None
 		self.error_messages = {}
+		self.events = [
+			Event("node_init", "void", "CaContext *ctx"),
+			Event("node_quit", "void", "CaContext *ctx")
+		]
 
 	def new_id(self):
 		self.id_counter += 1
@@ -127,6 +131,15 @@ class Project(EventSource):
 	def get_extern_types(self):
 		return self.extern_types
 
+	def get_events(self):
+		return self.events
+
+	def get_event(self, name):
+		for e in self.events:
+			if e.get_name() == name:
+				return e
+		raise "Event '" + name + "' not found"
+
 	def new_extern_type(self):
 		obj = ExternType()
 		self.extern_types.append(obj)
@@ -182,6 +195,9 @@ class Project(EventSource):
 			e.append(p.as_xml())
 		for t in self.extern_types:
 			e.append(t.as_xml())
+		for t in self.events:
+			if t.has_code():
+				e.append(t.as_xml())
 		return e
 
 class Parameter(EventSource):
@@ -310,6 +326,37 @@ class ExternType:
 
 		return e
 
+class Event:
+
+	def __init__(self, name, return_type, parameters):
+		self.name = name
+		self.return_type = return_type
+		self.parameters = parameters
+		self.code = ""
+
+	def get_name(self):
+		return self.name
+
+	def set_function_code(self, code):
+		self.code = code
+
+	def get_function_code(self):
+		if self.has_code():
+			return self.code
+		else:
+			return "\t\n"
+
+	def has_code(self):
+		return self.code.strip() != ""
+
+	def get_function_declaration(self):
+		return self.return_type + " " + self.name + "(" + self.parameters + ")"
+
+	def as_xml(self):
+		e = xml.Element("event")
+		e.set("name", self.name)
+		e.text = self.code
+		return e
 
 def load_project(filename):
 	doc = xml.parse(filename)
@@ -341,12 +388,18 @@ def load_extern_type(element, project):
 		name = utils.xml_str(e, "name")
 		p.set_function_code(name, e.text)
 
+def load_event(element, project):
+	name = utils.xml_str(element, "name")
+	event = project.get_event(name)
+	event.set_function_code(element.text)
 
 def load_configuration(element, project):
 	for e in element.findall("parameter"):
 		load_parameter(e, project)
 	for e in element.findall("extern-type"):
 		load_extern_type(e, project)
+	for e in element.findall("event"):
+		load_event(e, project)
 
 def new_empty_project(directory):
 	os.mkdir(directory)
