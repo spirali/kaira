@@ -11,8 +11,9 @@ from simview import SimView
 from codeedit import TransitionCodeEditor
 from codeedit import PlaceCodeEditor
 from codeedit import CodeFileEditor
-from parameters import ParametersWidget, ParametersValueDialog
-from externtypes import ExternTypesWidget, ExternTypeEditor
+from parameters import ParametersValueDialog
+from externtypes import ExternTypeEditor
+from projectconfig import ProjectConfig
 from simulation import Simulation, SimulationException
 import process
 import utils
@@ -202,19 +203,12 @@ class App:
 		editor = ExternTypeEditor(extern_type, fn_name, callback)
 		self.add_tab(name, editor, tag)
 
-	def parameters_edit(self):
-		if "params" in self.tabtable:
-			self.switch_to_tab("params")
+	def project_config(self):
+		if "project-config" in self.tabtable:
+			self.switch_to_tab("project-config")
 			return
-		w = ParametersWidget(self.project, self.window)
-		self.add_tab("Parameters", w, "params")
-
-	def extern_types_edit(self):
-		if "extern-types" in self.tabtable:
-			self.switch_to_tab("extern-types")
-			return
-		w = ExternTypesWidget(self.project, self)
-		self.add_tab("Extern types", w, "extern-types")
+		w = ProjectConfig(self)
+		self.add_tab("Project", w, "project-config")
 
 	def edit_sourcefile(self, filename):
 		tab_tag = "file:" + filename
