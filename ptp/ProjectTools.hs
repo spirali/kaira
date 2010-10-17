@@ -11,10 +11,11 @@ import qualified Data.Map as Map
 icall name params = IExpr $ ExprCall name params
 
 makeStatement :: [VarDeclaration] -> [Instruction] -> Instruction
-makeStatement decls = IStatement decls []
-makeStatement' decls declsWithInit = IStatement
-	(decls ++ [ (name, t) | (name, t, init) <- declsWithInit ])
-	[ (name, init) | (name, t, init) <- declsWithInit ]
+makeStatement decls = IStatement decls
+
+makeStatement' :: [VarDeclaration] -> [(String, Type, Expression)] -> [Instruction] -> Instruction
+makeStatement' decls declsWithInit instructions = 
+	makeStatement decls $ [ IDefine name t init | (name, t, init) <- declsWithInit ] ++ instructions
 
 -- | Returns name of variables that is directly mapped
 directVariables :: Expression -> VarSet
@@ -155,7 +156,7 @@ instructionExprs :: Instruction -> [Expression]
 instructionExprs (IExpr expr) = [expr]
 instructionExprs (ISet expr1 expr2) = [expr1, expr2]
 instructionExprs (IIf expr i1 i2) = [ expr ] ++ instructionExprs i1 ++ instructionExprs i2
-instructionExprs (IStatement decls inits instrs) = concatMap instructionExprs instrs ++ [ init | (name, init) <- inits ]
+instructionExprs (IStatement decls instrs) = concatMap instructionExprs instrs
 instructionExprs (IForeach _ _ expr instrs) = concatMap instructionExprs instrs
 instructionExprs INoop = []
 instructionExprs _ = []
@@ -164,7 +165,8 @@ mapExprs :: (Expression -> Expression) -> Instruction -> Instruction
 mapExprs fn (IExpr e) = IExpr $ fn e
 mapExprs fn (ISet e1 e2) = ISet (fn e1) (fn e2)
 mapExprs fn (IIf e i1 i2) = IIf (fn e) (mapExprs fn i1) (mapExprs fn i2)
-mapExprs fn (IStatement decls inits is) = IStatement decls [ (name, fn init) | (name, init) <- inits ] $ map (mapExprs fn) is
+mapExprs fn (IStatement decls is) = IStatement decls $ map (mapExprs fn) is
+mapExprs fn (IDefine name t expr) = IDefine name t (fn expr)
 mapExprs fn (IForeach a b e is) = IForeach a b (fn e) $ map (mapExprs fn) is
 mapExprs fn x = x
 
@@ -172,9 +174,10 @@ mapExprs' :: (Declarations -> Expression -> Expression) -> Declarations -> Instr
 mapExprs' fn decls (IExpr e) = IExpr $ fn decls e
 mapExprs' fn decls (ISet e1 e2) = ISet (fn decls e1) (fn decls e2)
 mapExprs' fn decls (IIf e i1 i2) = IIf (fn decls e) (mapExprs' fn decls i1) (mapExprs' fn decls i2)
-mapExprs' fn decls (IStatement d inits is) =
-	IStatement d [ (name, fn newDecls init) | (name, init) <- inits ] $ map (mapExprs' fn newDecls) is
+mapExprs' fn decls (IStatement d is) =
+	IStatement d $ map (mapExprs' fn newDecls) is
 	where newDecls = declarationsFromVarList d `declarationsJoin` decls
+mapExprs' fn decls (IDefine name t expr) = IDefine name t (fn decls expr)
 mapExprs' fn decls (IForeach a b e is) = IForeach a b (fn decls e) $ map (mapExprs' fn decls) is
 mapExprs' fn decls x = x
 
@@ -200,3 +203,15 @@ isTransportable :: Type -> Bool
 isTransportable (TData _ _ TransportDisabled _) = False
 isTransportable (TTuple types) = all isTransportable types
 isTransportable _ = True
+
+statementVarList :: [VarDeclaration] -> [Instruction] -> [VarDeclaration]
+statementVarList decls instructions = 
+	decls ++ foldl idefs [] instructions
+	where
+		idefs lst (IDefine name t _) = (name, t) : lst
+		idefs lst _ = lst
+
+statementDeclarations :: [VarDeclaration] -> [Instruction] -> Declarations
+statementDeclarations decls instructions = 
+	declarationsFromVarList (statementVarList decls instructions)
+

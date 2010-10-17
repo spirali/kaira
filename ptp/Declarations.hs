@@ -48,7 +48,8 @@ data Instruction =
 	ISet Expression Expression |
 	IIf Expression Instruction Instruction |
 	IForeach String String Expression [Instruction] | {- var counterVar array body -}
-	IStatement [VarDeclaration] [(String,Expression)] [Instruction] |
+	IStatement [VarDeclaration] [Instruction] |
+	IDefine String Type Expression |
 	IReturn Expression |
 	IContinue |
 	IInline String |

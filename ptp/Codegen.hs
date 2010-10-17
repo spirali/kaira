@@ -103,24 +103,24 @@ emitExpression scope (ExprAddr expr) = "&(" ++ emitExpression scope expr ++ ")"
 emitExpression scope (ExprDeref expr) = "*(" ++ emitExpression scope expr ++ ")"
 emitExpression scope x = error $ "EmitExpression: " ++ show x
 
-emitVarDeclarations :: Scope -> [VarDeclaration] -> [(String, Expression)] -> SourceCode
-emitVarDeclarations scope vdecls inits =
+emitVarDeclarations :: Scope -> [VarDeclaration] -> SourceCode
+emitVarDeclarations scope vdecls =
 	joinMap declare vdecls
 	where
-		declare (name, t) = case List.lookup name inits of
-			Nothing -> Text (typeString t ++ " " ++ name ++ ";") <+> Eol
-			Just expr -> Text (typeString t ++ " " ++ name ++ " = " ++ emitExpression scope expr ++ ";") <+> Eol
+		declare (name, t) = Text (typeString t ++ " " ++ name ++ ";") <+> Eol
 
 emitInstruction :: Scope -> Instruction -> SourceCode
 emitInstruction scope (IExpr expr) = Text (emitExpression scope expr ++ ";") <+> Eol
 emitInstruction scope (ISet expr1 expr2) =
 	Text (emitExpression scope expr1 ++ " = " ++ emitExpression scope expr2 ++ ";") <+> Eol
-emitInstruction scope (IStatement decls inits instructions) =
+emitInstruction scope (IStatement decls instructions) =
 	Text "{" <+> Block (declarationsCode <+> instructionsCode) <+> Text "}" <+> Eol
 	where
 		instructionsCode = joinMap (emitInstruction newScope) instructions
-		newScope = addDeclarations scope (declarationsFromVarList decls)
-		declarationsCode = emitVarDeclarations newScope decls inits
+		newScope = addDeclarations scope (statementDeclarations decls instructions)
+		declarationsCode = emitVarDeclarations newScope decls
+emitInstruction scope (IDefine name t expr) = 
+	Text (typeString t ++ " " ++ name ++ " = " ++ emitExpression scope expr ++ ";") <+> Eol
 emitInstruction scope (IReturn expr) = Text ("return " ++ emitExpression scope expr ++ ";") <+> Eol
 emitInstruction scope IContinue = Text "continue;" <+> Eol
 emitInstruction scope INoop = Empty
@@ -254,7 +254,7 @@ gatherInstructionTypes (IExpr expr) = gatherExprTypes expr
 gatherInstructionTypes (ISet _ expr) = gatherExprTypes expr
 gatherInstructionTypes (IIf expr i1 i2) =
 	Set.unions [ gatherExprTypes expr, gatherInstructionTypes i1, gatherInstructionTypes i2 ]
-gatherInstructionTypes (IStatement decls inits instrs) =
+gatherInstructionTypes (IStatement decls instrs) =
 	Set.union (varDeclarationTypes decls) $ Set.unions (map gatherInstructionTypes instrs)
 gatherInstructionTypes (IForeach _ _ expr instrs) =
 	Set.union (gatherExprTypes expr) $ Set.unions (map gatherInstructionTypes instrs)

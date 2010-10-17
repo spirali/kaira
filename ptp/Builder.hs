@@ -375,8 +375,9 @@ unpackCode unpacker t var = error $ "unpackCode: Type cannot be unpacked"
 sendStatement :: Project -> Network -> Network -> Transition -> Edge -> Instruction
 {- Version for normal edges -}
 sendStatement project fromNetwork toNetwork transition edge | isNormalEdge edge =
-	makeStatement' [] [ ("item", etype, preprocess expr), 
-		("packer", TRaw "CaPacker", ExprCall "CaPacker" [exprMemSize etype (ExprVar "item")]) ] [
+	makeStatement [] [ 
+		IDefine "item" etype (preprocess expr), 
+		IDefine "packer" (TRaw "CaPacker") (ExprCall "CaPacker" [exprMemSize etype (ExprVar "item")]),
 		packCode packer etype (ExprVar "item"),
 		IExpr (ExprCall "ca_send" [
 			ExprVar "ctx",
