@@ -24,6 +24,11 @@ class Project(EventSource):
 			Event("node_init", "void", "CaContext *ctx"),
 			Event("node_quit", "void", "CaContext *ctx")
 		]
+		self.build_options = {
+			"CC" : "g++",
+			"CFLAGS" : "-O2",
+			"LIBS" : ""
+		}
 
 	def new_id(self):
 		self.id_counter += 1
@@ -90,6 +95,16 @@ class Project(EventSource):
 			return self.error_messages[item.get_id()]
 		else:
 			return None
+
+	def get_build_option(self, name):
+		if name in self.build_options:
+			return self.build_options[name]
+		else:
+			return ""
+
+	def set_build_option(self, name, value):
+		self.build_options[name] = value
+		self.changed()
 
 	def changed(self):
 		self.emit_event("changed")

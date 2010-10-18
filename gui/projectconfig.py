@@ -1,6 +1,7 @@
 from parameters import ParametersWidget
 from externtypes import ExternTypesWidget, ExternTypeEditor
 from functions import EventsWidget
+from build import BuildOptionsWidget
 
 import gtk
 
@@ -18,5 +19,8 @@ class ProjectConfig(gtk.Notebook):
 
 		w = EventsWidget(app.project, app)
 		self.append_page(w, gtk.Label("Events"))
+
+		w = BuildOptionsWidget(app.project)
+		self.append_page(w, gtk.Label("Build"))
 
 		self.show_all()
