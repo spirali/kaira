@@ -221,3 +221,6 @@ statementDeclarations :: [VarDeclaration] -> [Instruction] -> Declarations
 statementDeclarations decls instructions = 
 	declarationsFromVarList (statementVarList decls instructions)
 
+hasEvent :: Project -> String -> Bool
+hasEvent project name =
+	List.elem name $ map eventName (events project)

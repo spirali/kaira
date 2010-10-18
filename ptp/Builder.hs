@@ -504,12 +504,12 @@ placesWithInit network = [ p | p <- places network, placeInitCode p /= "" ]
 startFunctionName :: Network -> String
 startFunctionName network = "init_network_" ++ show (networkId network)
 
-startFunction :: Network -> Function
-startFunction network = Function {
+startFunction :: Project -> Network -> Function
+startFunction project network = Function {
 	functionName = startFunctionName network,
 	parameters = [ ("ctx", caContext) ],
 	declarations = [ ("places", TPointer $ placesTuple network) ],
-	instructions = [ allocPlaces, initCtx ] ++ registerTransitions ++ initPlaces,
+	instructions = [ allocPlaces, initCtx ] ++ registerTransitions ++ eventNodeInit ++ initPlaces,
 	extraCode = "",
 	returnType = TVoid
 	} where
@@ -528,6 +528,7 @@ startFunction network = Function {
 		placeVar p = ExprAt (ExprInt (ps p)) (ExprVar "places")
 		callInitPlace p =
 			 icall (initFunctionName p) [ ExprVar "ctx", ExprAddr (placeVar p) ]
+		eventNodeInit = if hasEvent project "node_init" then [ icall "node_init" [ ExprVar "ctx" ] ] else []
 		initPlaceFromExpr p =
 			case placeInitExpr p of
 				Nothing -> INoop
@@ -536,7 +537,7 @@ startFunction network = Function {
 	
 createNetworkFunctions :: Project -> Network -> [Function]
 createNetworkFunctions project network =
-	workerF ++ transitionF ++ transitionTestF ++ reportF ++ initF ++ [ recvFunction project network, startFunction network ]
+	workerF ++ transitionF ++ transitionTestF ++ reportF ++ initF ++ [ recvFunction project network, startFunction project network ]
 	where
 		transitionF = [ transitionFunction project network t | t <- transitions network ]
 		transitionTestF = [ transitionEnableTestFunction project network t | t <- transitions network ]
@@ -614,14 +615,27 @@ typeFunctions (TData typeName rawType transportMode ((fname, code):rest)) =
 		Just x -> x rawType
 		Nothing -> error $ "typeFunctions: Unknown function " ++ fname
 typeFunctions _ = []
+
+eventTable :: [ (String, (Type, [VarDeclaration])) ]
+eventTable = [
+	("node_init", (TVoid, [("ctx", caContext)])),
+	("node_quit", (TVoid, [("ctx", caContext)]))]
+
+createEventFunction :: Event -> Function
+createEventFunction event =
+	functionWithCode (eventName event) returnType params (eventCode event)
+	where (returnType, params) = case List.lookup (eventName event) eventTable of
+		Just x -> x
+		Nothing -> error $ "createEventFunction: Unknown event " ++ (eventName event)
 		
 createProgram :: Project -> String
 createProgram project =
-	emitProgram prologue globals $ typeF ++ netF ++ [mainInitF, mainF]
+	emitProgram prologue globals $ typeF ++ eventsF ++ netF ++ [mainInitF, mainF]
 	where
 		globals = [ (parameterGlobalName $ parameterName p, parameterType p) | p <- projectParameters project ]
 		typeF = concatMap typeFunctions $ Map.elems (typeTable project)
 		netF = concat [ createNetworkFunctions project n | n <- networks project ]
+		eventsF = map createEventFunction (events project)
 		mainInitF = createMainInitFunction project
 		mainF = createMainFunction project
 		prologue = "#include <stdio.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n#include \"head.cpp\"\n\n"

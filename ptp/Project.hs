@@ -185,14 +185,27 @@ externTypeFromElement e = (name, TData name rawType transportMode codes)
 							_ -> error "externTypeFromElement: Unknown transport mode"
 
 externTypesFromElement :: Xml.Element -> TypeTable
-externTypesFromElement e = Map.fromList $ map externTypeFromElement (Xml.findElements (qstr "extern-type") e)
+externTypesFromElement e =
+	Map.fromList $ map externTypeFromElement (Xml.findElements (qstr "extern-type") e)
 
 projectTypesFromElement :: Xml.Element -> TypeTable
 projectTypesFromElement e = Map.union (externTypesFromElement e) standardTypes
 
+eventFromElement :: Xml.Element -> Event
+eventFromElement e = Event {
+	eventName = xmlAttr "name" e,
+	eventCode = Xml.strContent e
+}
+
 projectFromXml :: String -> Project
 projectFromXml xml =
-	Project { projectName = "project", networks = networks, projectParameters = params, typeTable = types }
+	Project {
+			projectName = "project",
+			networks = networks,
+			projectParameters = params,
+			typeTable = types,
+			events = events
+		 }
 	where
 		root = head $ Xml.onlyElems (Xml.parseXML xml)
 		addresses = addressesFromElement root
@@ -201,4 +214,5 @@ projectFromXml xml =
 		loadNet (a,e) = networkFromElement types a e
 		configuration = Maybe.fromJust $ Xml.findElement (qstr "configuration") root
 		params = map (parameterFromElement types) $ Xml.findElements (qstr "parameter") configuration
+		events = map eventFromElement $ Xml.findElements (qstr "event") configuration
 		types = projectTypesFromElement configuration

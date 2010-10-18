@@ -107,7 +107,13 @@ data Project = Project {
 	projectName :: String,
 	networks :: [Network],
 	projectParameters :: [Parameter],
-	typeTable :: TypeTable
+	typeTable :: TypeTable,
+	events :: [Event]
+} deriving (Show)
+
+data Event = Event {
+	eventName :: String,
+	eventCode :: String
 } deriving (Show)
 
 data Parameter = Parameter {
