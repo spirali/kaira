@@ -9,6 +9,7 @@ class BuildOptionsWidget(gtk.VBox):
 
 		hbox = gtk.HBox()
 		button = gtk.Button("Write makefile")
+		button.connect("clicked", self._write_makefile)
 		hbox.pack_start(button, False, False)
 		self.pack_start(hbox, False, False)
 		
@@ -30,3 +31,6 @@ class BuildOptionsWidget(gtk.VBox):
 		entry.connect("changed", lambda w: self.project.set_build_option(text, w.get_text()))
 		self.table.attach(label, 0, 1, line, line + 1, gtk.SHRINK | gtk.FILL)	
 		self.table.attach(entry, 1, 2, line, line + 1)	
+
+	def _write_makefile(self, w):
+		self.project.write_makefile()
