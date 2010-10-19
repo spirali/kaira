@@ -3,6 +3,9 @@ import Test.HUnit
 import Parser
 import Declarations
 import ProjectTools
+import Codegen
+
+import qualified Data.Set as Set
 
 testExprParser = TestCase $ do
 	exprTest "  x   " (ExprVar "x")
@@ -60,6 +63,22 @@ testTypeParser = TestCase $ do
 	where exprTest str result = 
 		assertEqual str (parseType standardTypes "" str) result
 
-tests = TestList [ testExprParser, testEdgeInscriptionParser, testEdgeOrdering, testGuardParser, testTypeParser ]
+
+testTypeDependancy = TestCase $ do
+	test "1" [TInt] [TInt]
+	test "2" [TTuple [TInt, TString], TInt, TString] [ TInt, TString, TTuple [ TInt, TString ] ]
+	test "3" [TInt, TTuple [TInt, TString], TString] [ TInt, TString, TTuple [ TInt, TString ] ]
+	test "4" [TTuple [ TTuple [TInt, TString], TString ], TString, TInt, TTuple [TInt, TString]] 
+		[ TInt, TString, TTuple [ TInt, TString ], TTuple [ TTuple [ TInt, TString ], TString ] ]
+	where test name x y =
+		assertEqual name (orderTypeByDepedancy (Set.fromList x)) y
+
+tests = TestList [
+	testExprParser,
+	testEdgeInscriptionParser,
+	testEdgeOrdering,
+	testGuardParser,
+	testTypeParser
+	testTypeDependancy ]
 
 main = runTestTT tests

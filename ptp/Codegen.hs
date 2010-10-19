@@ -5,6 +5,7 @@ module Codegen (
 	callPrintfStr,
 	typeString,
 	typeSafeString,
+	orderTypeByDepedancy -- for Tests.hs
 ) where
 
 import qualified Data.Map as Map
