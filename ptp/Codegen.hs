@@ -136,7 +136,7 @@ emitInstruction scope (IForeach var counterVar expr body) =
 						_ -> error "Unsuported type for IForeach"
 		arrayLen = "(" ++ emitExpression scope expr ++ ").size()"
 		setVar = Text (typeString elementType ++ " " ++ var ++ " = " ++ emitExpression scope expr ++ "[" ++ counterVar ++ "];") <+> Eol
-		varDecl = "int " ++ counterVar ++ " = 0"
+		varDecl = "size_t " ++ counterVar ++ " = 0"
 		cycleTest = counterVar ++ " < " ++ arrayLen
 		emit = emitInstruction
 			(addDeclarations scope (declarationsFromVarList [ (counterVar, TInt), (var, elementType) ]))
