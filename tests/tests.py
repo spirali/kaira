@@ -16,14 +16,14 @@ TEST_PROJECTS = os.path.join(KAIRA_TESTS, "projects")
 
 class BuildingTest(TestCase):
 
-	def build(self, filename, final_output):
+	def build(self, filename, final_output, params = []):
 		name, ext = os.path.splitext(filename)
 		directory = os.path.dirname(name)
 		RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
 		RunProgram("python", [ CMDUTILS, "--export", filename ]).run()
 		RunProgram(PTP_BIN, [ name + ".xml", name + ".cpp" ]).run()
 		RunProgram("make", [], cwd = directory).run()
-		RunProgram(name, []).run(final_output)
+		RunProgram(name, params).run(final_output)
 
 	def failed_ptp(self, filename, final_output):
 		name, ext = os.path.splitext(filename)
@@ -48,6 +48,8 @@ class BuildingTest(TestCase):
 		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken1.proj"), "*104/inscription:1:Inscription is empty\n")
 	def test_broken2(self):
 		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken2.proj"), "*102/type:1:Type is empty\n")
+	def test_parameters(self):
+		self.build(os.path.join(TEST_PROJECTS, "parameters", "parameters.proj"), "9 7\n", ["-pfirst=10", "-psecond=7"])
 
 if __name__ == '__main__':
     unittest.main()

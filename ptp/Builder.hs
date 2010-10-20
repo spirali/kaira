@@ -177,7 +177,7 @@ checkEdges network decls binded processedEdges (edge:rest) level okEvent guards 
 		edgesWithSamePlace = [ e | e <- processedEdges, edgePlaceId e == edgePlaceId edge ]
 		EdgePacking name limit = edgeInscription edge
 		limitExpr = case limit of
-			Just x -> x
+			Just x -> processInputExpr ExprVar x
 			Nothing -> error "Limit on input edge is not defined"
 		placeExpr = ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places")
 
