@@ -20,6 +20,7 @@ class Project(EventSource):
 		self.extern_types = []
 		self.param_values_cache = None
 		self.error_messages = {}
+		self.functions = []
 		self.events = [
 			Event("node_init", "void", "CaContext *ctx"),
 			Event("node_quit", "void", "CaContext *ctx")
@@ -146,6 +147,9 @@ class Project(EventSource):
 	def get_extern_types(self):
 		return self.extern_types
 
+	def get_functions(self):
+		return self.functions
+
 	def get_events(self):
 		return self.events
 
@@ -164,6 +168,26 @@ class Project(EventSource):
 	def remove_extern_type(self, obj):
 		self.extern_types.remove(obj)
 		self.changed()
+
+	def new_function(self):
+		obj = Function(self)
+		self.functions.append(obj)
+		self.changed()
+		return obj
+
+	def remove_function(self, obj):
+		self.functions.remove(obj)
+		self.changed()
+
+	def type_to_ctype(self, t):
+		if t == "Int":
+			return "int"
+		if t == "String":
+			return "std::string"
+		for et in self.extern_types:
+			if et.get_name() == t:
+				return et.get_raw_type()
+		return None
 
 	def new_parameter(self):
 		self.reset_param_values_cache()
@@ -350,16 +374,17 @@ class ExternType:
 
 		return e
 
-class Event:
+class FunctionBase:
 
-	def __init__(self, name, return_type, parameters):
+	def __init__(self, name):
 		self.name = name
-		self.return_type = return_type
-		self.parameters = parameters
 		self.code = ""
 
 	def get_name(self):
 		return self.name
+
+	def set_name(self, name):
+		self.name = name
 
 	def set_function_code(self, code):
 		self.code = code
@@ -374,13 +399,74 @@ class Event:
 		return self.code.strip() != ""
 
 	def get_function_declaration(self):
-		return self.return_type + " " + self.name + "(" + self.parameters + ")"
+		return self.get_c_return_type() + " " + self.name + "(" + self.get_c_parameters() + ")"
+
+class Event(FunctionBase):
+
+	def __init__(self, name, c_return_type, c_parameters):
+		FunctionBase.__init__(self, name)
+		self.c_return_type = c_return_type
+		self.c_parameters = c_parameters
+
+	def get_c_parameters(self):
+		return self.c_parameters
+
+	def get_c_return_type(self):
+		return self.c_return_type
+
 
 	def as_xml(self):
 		e = xml.Element("event")
 		e.set("name", self.name)
 		e.text = self.code
 		return e
+
+class Function(FunctionBase):
+
+	def __init__(self, project):
+		FunctionBase.__init__(self, "")
+		self.return_type = ""
+		self.parameters = ""
+		self.project = project
+
+	def get_parameters(self):
+		return self.parameters
+
+	def set_parameters(self, parameters):
+		self.parameters = parameters
+
+	def get_return_type(self):
+		return self.return_type
+
+	def set_return_type(self, return_type):
+		self.return_type = return_type
+
+	def get_c_parameters(self):
+		p = self.split_parameters()
+		if p is None:
+			return "Invalid format of parameters"
+		else:
+			return ", ".join([ self.project.type_to_ctype(t) + " &" + n for (t, n) in p ])
+
+	def get_c_return_type(self):
+		return self.project.type_to_ctype(self.return_type)
+
+	def check_definition(self):
+		if self.project.type_to_ctype(self.return_type) is None:
+			return False
+		for p in self.split_parameters():
+			if len(p) != 2:
+				return False
+			if self.project.type_to_ctype(p[0]) is None:
+				return False
+		return True
+
+	def split_parameters(self):
+		return [ x.split() for x in self.parameters.split(",") if x.strip() != ""]
+
+	def as_xml(self):
+		return None
+
 
 def load_project(filename):
 	doc = xml.parse(filename)

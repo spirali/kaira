@@ -15,7 +15,7 @@ from parameters import ParametersValueDialog
 from externtypes import ExternTypeEditor
 from projectconfig import ProjectConfig
 from simulation import Simulation, SimulationException
-from functions import EventEditor
+from functions import FunctionEditor
 import process
 import utils
 
@@ -204,12 +204,12 @@ class App:
 		editor = ExternTypeEditor(extern_type, fn_name, callback)
 		self.add_tab(name, editor, tag)
 
-	def event_edit(self, event):
-		if event in self.tabtable:
-			self.switch_to_tab(event)
+	def function_edit(self, function):
+		if function in self.tabtable:
+			self.switch_to_tab(function)
 			return
-		editor = EventEditor(event)
-		self.add_tab(event.get_name(), editor, event)
+		editor = FunctionEditor(function)
+		self.add_tab(function.get_name(), editor, function)
 
 	def project_config(self):
 		if "project-config" in self.tabtable:
