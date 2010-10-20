@@ -627,10 +627,20 @@ createEventFunction event =
 	where (returnType, params) = case List.lookup (eventName event) eventTable of
 		Just x -> x
 		Nothing -> error $ "createEventFunction: Unknown event " ++ (eventName event)
+
+parameterAccessFunction :: Parameter -> Function
+parameterAccessFunction parameter = Function {
+	functionName = "parameter_" ++ parameterName parameter,
+	parameters = [],
+	declarations = [],
+	instructions = [ (IReturn . ExprVar . parameterGlobalName . parameterName) parameter ],
+	extraCode = "",
+	returnType = parameterType parameter
+}
 		
 createProgram :: Project -> String
 createProgram project =
-	emitProgram prologue globals $ typeF ++ eventsF ++ netF ++ [mainInitF, mainF]
+	emitProgram prologue globals $ typeF ++ paramF ++ eventsF ++ netF ++ [mainInitF, mainF]
 	where
 		globals = [ (parameterGlobalName $ parameterName p, parameterType p) | p <- projectParameters project ]
 		typeF = concatMap typeFunctions $ Map.elems (typeTable project)
@@ -638,6 +648,7 @@ createProgram project =
 		eventsF = map createEventFunction (events project)
 		mainInitF = createMainInitFunction project
 		mainF = createMainFunction project
+		paramF = map parameterAccessFunction (projectParameters project)
 		prologue = "#include <stdio.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n#include \"head.cpp\"\n\n"
 
 test = readFile "../out/project.xml" >>= return . createProgram . projectFromXml >>= writeFile "../out/project.cpp"
