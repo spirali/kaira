@@ -51,5 +51,9 @@ class ObjectList(gtk.VBox):
 		if i is not None:
 			self.list.set_all(self.object_as_row(obj), i)
 
+	def fill(self, obj_list):
+		for obj in obj_list:
+			self.add_object(obj)
+
 	def cursor_changed(self, obj):
 		pass

@@ -36,8 +36,7 @@ class ParametersWidget(ObjectList):
 		self.project = project
 		self.mainwindow = mainwindow
 		
-		for p in project.get_parameters():
-			self.add_object(p)
+		self.fill(project.get_parameters())
 
 	def object_as_row(self, parameter):
 		return [parameter, parameter.get_name(), "Mandatory", parameter.get_type(), "", parameter.get_description()]

@@ -18,8 +18,7 @@ class FunctionsWidget(ObjectList):
 		self.project = project
 		self.app = app
 
-		#for obj in project.get_events():
-		#	self.add_object(obj)
+		self.fill(project.functions)
 
 	def object_as_row(self, obj):
 		return [obj, obj.get_name(), obj.get_return_type(), obj.get_parameters()]
@@ -61,8 +60,7 @@ class EventsWidget(ObjectList):
 		self.project = project
 		self.app = app
 
-		for obj in project.get_events():
-			self.add_object(obj)
+		self.fill(project.get_events())
 
 	def object_as_row(self, obj):
 		return [obj, obj.get_name()]

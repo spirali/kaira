@@ -65,10 +65,7 @@ class ExternTypesWidget(ObjectList):
 		ObjectList.__init__(self, defs, buttons, rpanel = rpanel)
 		self.project = project
 		self.app = app
-
-
-		for obj in project.get_extern_types():
-			self.add_object(obj)
+		self.fill(project.get_extern_types())
 
 	def _fbutton_callback(self, name):
 		def update(extern_type, fn_name):

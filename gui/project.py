@@ -244,6 +244,8 @@ class Project(EventSource):
 		for t in self.events:
 			if t.has_code():
 				e.append(t.as_xml())
+		for t in self.functions:
+			e.append(t.as_xml())
 		for t in self.build_options:
 			e.append(self._build_option_as_xml(t))
 		return e
@@ -465,7 +467,12 @@ class Function(FunctionBase):
 		return [ x.split() for x in self.parameters.split(",") if x.strip() != ""]
 
 	def as_xml(self):
-		return None
+		e = xml.Element("function")
+		e.set("name", self.name)
+		e.set("return-type", self.return_type)
+		e.set("parameters", self.parameters)
+		e.text = self.code
+		return e
 
 
 def load_project(filename):
@@ -498,6 +505,12 @@ def load_extern_type(element, project):
 		name = utils.xml_str(e, "name")
 		p.set_function_code(name, e.text)
 
+def load_function(element, project):
+	f = project.new_function()
+	f.set_name(utils.xml_str(element, "name"))
+	f.set_return_type(utils.xml_str(element, "return-type"))
+	f.set_parameters(utils.xml_str(element, "parameters"))
+
 def load_event(element, project):
 	name = utils.xml_str(element, "name")
 	event = project.get_event(name)
@@ -517,6 +530,8 @@ def load_configuration(element, project):
 		load_event(e, project)
 	for e in element.findall("build-option"):
 		load_build_option(e, project)
+	for e in element.findall("function"):
+		load_function(e, project)
 
 def new_empty_project(directory):
 	os.mkdir(directory)
