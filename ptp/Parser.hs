@@ -4,6 +4,7 @@ module Parser (
 	parseExpr',
 	parseEdgeInscription,
 	parseGuard,
+	parseParameters
 ) where
 
 import Text.ParserCombinators.Parsec
@@ -108,6 +109,15 @@ typeParser :: TypeTable -> Parser Type
 typeParser typeNames = do
 	tupleTypeParser typeNames <|> concreteTypeParser typeNames
 
+parametersParser :: TypeTable -> Parser [VarDeclaration]
+parametersParser typeNames = 
+	do {eof; return []} <|> do {
+		t <- typeParser typeNames;
+		i <- identifier;
+		rest <- do {eof; return []} <|> do { char ',' >> whiteSpace >> parametersParser typeNames };
+		return $ (i, t):rest
+	}
+
 edgePackingParser :: Parser (String, Maybe Expression)
 edgePackingParser = do
 	char '~'
@@ -155,3 +165,7 @@ parseEdgeInscription source str = parseHelper (whiteSpace >> edgeInscriptionPars
 
 parseGuard :: String -> String -> Expression
 parseGuard = parseHelper (whiteSpace >> guardParser)
+
+-- |Parses "Int a, String b" as [("a", TInt), ("b", TString)]
+parseParameters :: TypeTable -> String -> String -> [VarDeclaration]
+parseParameters typeNames source str = parseHelper (whiteSpace >> parametersParser typeNames) source str

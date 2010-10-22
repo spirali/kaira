@@ -510,6 +510,7 @@ def load_function(element, project):
 	f.set_name(utils.xml_str(element, "name"))
 	f.set_return_type(utils.xml_str(element, "return-type"))
 	f.set_parameters(utils.xml_str(element, "parameters"))
+	f.set_function_code(element.text)
 
 def load_event(element, project):
 	name = utils.xml_str(element, "name")

@@ -108,7 +108,8 @@ data Project = Project {
 	networks :: [Network],
 	projectParameters :: [Parameter],
 	typeTable :: TypeTable,
-	events :: [Event]
+	events :: [Event],
+	userFunctions :: [UserFunction]
 } deriving (Show)
 
 data Event = Event {
@@ -120,6 +121,13 @@ data Parameter = Parameter {
 	parameterName :: String,
 	parameterType :: Type,
 	parameterDescription :: String
+} deriving (Show)
+
+data UserFunction = UserFunction {
+	ufunctionName :: String,
+	ufunctionParameters :: [VarDeclaration],
+	ufunctionReturnType :: Type,
+	ufunctionCode :: String
 } deriving (Show)
 
 data TransportMode = TransportDisabled | TransportDirect | TransportCustom

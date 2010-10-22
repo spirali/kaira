@@ -14,7 +14,7 @@ import Codegen
 import Utils
 
 -- |Function allowed in inscription language
-nelFunctions = [
+basicNelFunctions = [
 	( "+", TInt, [TInt, TInt]),
 	( "*", TInt, [TInt, TInt ]),
 	( "-", TInt, [TInt, TInt ]),
@@ -28,17 +28,29 @@ nelFunctions = [
 	( "||", TBool, [TBool, TBool ]),
 	( "iid", TInt, [])]
 
-nelFunctionReturnType :: String -> Type
-nelFunctionReturnType name =
-	case List.find (\(n, r, p) -> n == name) nelFunctions of
+isBasicNelFunction :: String -> Bool
+isBasicNelFunction name =
+	any (\(n, r, p) -> n == name) basicNelFunctions
+
+nelFunctions :: Project -> [(String, Type, [Type])]
+nelFunctions project = basicNelFunctions
+	 ++ [ (ufunctionName f, ufunctionReturnType f, map snd (ufunctionParameters f)) | f <- userFunctions project ]
+
+nelFunctionReturnType :: Project -> String -> Type
+nelFunctionReturnType project name =
+	case List.find (\(n, r, p) -> n == name) (nelFunctions project) of
 		Just (n, r, p) -> r
 		Nothing -> error $ "Unknown function: " ++ name
 
-nelFunctionParams :: String -> [Type]
-nelFunctionParams name =
-	case List.find (\(n, r, p) -> n == name) nelFunctions of
+nelFunctionParams :: Project -> String -> [Type]
+nelFunctionParams project name =
+	case List.find (\(n, r, p) -> n == name) (nelFunctions project) of
 		Just (n, r, p) -> p
 		Nothing -> error $ "Unknown function: " ++ name
+
+isUserFunction :: Project -> String -> Bool
+isUserFunction project name = 
+	any (\f -> (ufunctionName f == name)) (userFunctions project)
 
 tupleToVars ::
 	[VarDeclaration] ->
@@ -98,28 +110,28 @@ variableTypes project (ExprTuple exprs) (TTuple types)
 		unionsVariableTypes $ zipWith (variableTypes project) exprs types
 {- THIS REALLY NEED FIX! Function call result has to be checked -}
 variableTypes project (ExprCall name params) t 
-	| (nelFunctionReturnType name == t) && (length params == length (nelFunctionParams name)) = 
-		unionsVariableTypes $ zipWith (variableTypes project) params (nelFunctionParams name)
+	| (nelFunctionReturnType project name == t) && (length params == length (nelFunctionParams project name)) = 
+		unionsVariableTypes $ zipWith (variableTypes project) params (nelFunctionParams project name)
 variableTypes project x y = error $ "Type inference failed: " ++ show x ++ "/" ++ show y
 
 placesTuple :: Network -> Type
 placesTuple network = TTuple $ map (TArray . placeType) (places network)
 
-processInputExpr :: (String -> Expression) -> Expression -> Expression
-processInputExpr fn (ExprInt x) = ExprInt x
-processInputExpr fn (ExprString x) = ExprString x
-processInputExpr fn (ExprVar x) = fn x
-processInputExpr fn (ExprParam x) = ExprVar $ parameterGlobalName x
-processInputExpr fn (ExprCall "iid" []) = ExprCall ".iid" [ ExprVar "ctx" ]
-processInputExpr fn (ExprCall "+" exprs) = ExprCall "+" [ processInputExpr fn expr | expr <- exprs ]
-processInputExpr fn (ExprCall "-" exprs) = ExprCall "-" [ processInputExpr fn expr | expr <- exprs ]
-processInputExpr fn (ExprCall "*" exprs) = ExprCall "*" [ processInputExpr fn expr | expr <- exprs ]
-processInputExpr fn (ExprTuple exprs) = ExprTuple [ processInputExpr fn expr | expr <- exprs ]
-processInputExpr fn x = error $ "Input expression contains: " ++ show x
+processInputExpr :: Project -> (String -> Expression) -> Expression -> Expression
+processInputExpr project fn (ExprInt x) = ExprInt x
+processInputExpr project fn (ExprString x) = ExprString x
+processInputExpr project fn (ExprVar x) = fn x
+processInputExpr project fn (ExprParam x) = ExprVar $ parameterGlobalName x
+processInputExpr project fn (ExprCall "iid" []) = ExprCall ".iid" [ ExprVar "ctx" ]
+processInputExpr project fn (ExprCall name exprs) 
+	| isBasicNelFunction name = ExprCall name [ processInputExpr project fn expr | expr <- exprs ]
+	| isUserFunction project name = ExprCall name [ processInputExpr project fn expr | expr <- exprs ]
+processInputExpr project fn (ExprTuple exprs) = ExprTuple [ processInputExpr project fn expr | expr <- exprs ]
+processInputExpr project fn x = error $ "Input expression contains: " ++ show x
 
 {- FIXME: Forbid calling iid() etc -}
-processInputExprParamsOnly :: Expression -> Expression
-processInputExprParamsOnly = processInputExpr (\x -> error "Variables are not allowed in this expression")
+processInputExprParamsOnly :: Project -> Expression -> Expression
+processInputExprParamsOnly project = processInputExpr project (\x -> error "Variables are not allowed in this expression")
 
 parameterGlobalName :: String -> String
 parameterGlobalName x = "__parameter_" ++ x
@@ -144,14 +156,15 @@ processEdge network (Edge placeId expr _) var restrictions body =
 			IIf (callIfMore "||" [ ExprCall "==" [(ExprVar v), (ExprVar counterVar)] | v <- restrictions ]) IContinue INoop
 
 
-checkEdges :: Network -> [VarDeclaration] -> VarSet -> [Edge] -> [Edge] -> Int -> Instruction -> [Expression] -> Instruction
-checkEdges network decls binded processedEdges [] level okEvent guards = okEvent
+checkEdges :: Project -> Network -> [VarDeclaration] -> VarSet -> [Edge] -> [Edge] -> Int 
+			-> Instruction -> [Expression] -> Instruction
+checkEdges project network decls binded processedEdges [] level okEvent guards = okEvent
 {- Variant for normal edges -}
-checkEdges network decls binded processedEdges (edge:rest) level okEvent guards | isNormalEdge edge =
+checkEdges project network decls binded processedEdges (edge:rest) level okEvent guards | isNormalEdge edge =
 	processEdge network edge var (compRestrictions processedEdges 0) $ [
-		 	patternCheckStatement decls binded var (processInputExpr ExprVar expr) IContinue ] ++
+		patternCheckStatement decls binded var (processInputExpr project ExprVar expr) IContinue ] ++
 			map guardCode coveredGuards ++ 
-			[ checkEdges network decls newVars (edge:processedEdges) rest (level + 1) okEvent uncoveredGuards ]
+			[ checkEdges project network decls newVars (edge:processedEdges) rest (level + 1) okEvent uncoveredGuards ]
 	where
 		newVars = Set.union binded $ freeVariables expr
 		(coveredGuards, uncoveredGuards) = List.partition (isCovered newVars) guards
@@ -166,18 +179,18 @@ checkEdges network decls binded processedEdges (edge:rest) level okEvent guards 
 			| otherwise = compRestrictions es (level + 1)
 
 {- Variant for packing edges -}
-checkEdges network decls binded processedEdges (edge:rest) level okEvent guards =
+checkEdges project network decls binded processedEdges (edge:rest) level okEvent guards =
 	makeStatement [] [
 		IIf (ExprCall "<" [ ExprCall "List.size" [ placeExpr ], ExprCall "+" [ limitExpr, ExprInt (length edgesWithSamePlace)]])
 			operation INoop,
-		(checkEdges network decls binded (edge:processedEdges) rest (level + 1) okEvent guards)
+		(checkEdges project network decls binded (edge:processedEdges) rest (level + 1) okEvent guards)
 	]
 	where
 		operation = if any isNormalEdge processedEdges then IContinue else IReturn (ExprInt 0)
 		edgesWithSamePlace = [ e | e <- processedEdges, edgePlaceId e == edgePlaceId edge ]
 		EdgePacking name limit = edgeInscription edge
 		limitExpr = case limit of
-			Just x -> processInputExpr ExprVar x
+			Just x -> processInputExpr project ExprVar x
 			Nothing -> error "Limit on input edge is not defined"
 		placeExpr = ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places")
 
@@ -270,7 +283,8 @@ transitionFunction project network transition = Function {
 	}
 	where
 		decls = transitionFreeVariablesIn project transition
-		instructions = checkEdges network decls Set.empty [] (edgesIn transition) 0 (transitionOkEvent project network transition) [ guard transition ]
+		instructions = checkEdges project network decls Set.empty [] (edgesIn transition) 
+			0 (transitionOkEvent project network transition) [ guard transition ]
 
 transitionEnableTestFunctionName :: Transition -> String
 transitionEnableTestFunctionName transition = "transition_enable_" ++ show (transitionId transition)
@@ -286,7 +300,8 @@ transitionEnableTestFunction project network transition = Function {
 	} 
 	where
 		decls = transitionFreeVariablesIn project transition
-		instructions = checkEdges network decls Set.empty [] (edgesIn transition) 0 (IReturn $ ExprInt 1) [ guard transition ]
+		instructions = checkEdges project network decls Set.empty [] (edgesIn transition) 
+			0 (IReturn $ ExprInt 1) [ guard transition ]
 
 {-
 	Erasing dependancy is added for reason that { List.eraseAt(l, x); List.eraseAt(l, y); } is problem if x < y
@@ -311,7 +326,7 @@ transitionOkEvent project network transition = makeStatement [ ("var", transitio
 		addToPlaceMany edge name = IForeach "token" "token_c" (ExprAt (ExprString name) (ExprVar "var")) 
 			[ icall "List.append" [ placeExpr edge, ExprVar "token" ]]
 		placeExpr edge = ExprAt (ExprInt (placeSeqById network (edgePlaceId edge))) (ExprVar "places")
-		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
+		preprocess e = processInputExpr project (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
 		packing = concat [ packingEdge e | e <- edgesIn transition, not (isNormalEdge e) ]
 		packingEdge e = let EdgePacking name _ = edgeInscription e in
 			[ ISet (ExprVar name) (placeExprOfEdge e),
@@ -384,8 +399,8 @@ sendStatement project fromNetwork toNetwork transition edge | isNormalEdge edge 
 		packer = ExprVar "packer"
 		EdgeExpression expr = edgeInscription edge
 		dataId = ExprInt $ edgePlaceId edge
-		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
-		target =  ExprCall "+" [ (processedAddress toNetwork),
+		preprocess e = processInputExpr project (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
+		target =  ExprCall "+" [ (processedAddress project toNetwork),
 			(preprocess . Maybe.fromJust . edgeTarget) edge ]
 {- Version for packing edge -}
 sendStatement project fromNetwork toNetwork transition edge =
@@ -414,8 +429,8 @@ sendStatement project fromNetwork toNetwork transition edge =
 		etype = edgePlaceType project edge
 		EdgePacking name limit = edgeInscription edge
 		dataId = ExprInt $ edgePlaceId edge
-		preprocess e = processInputExpr (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
-		target =  ExprCall "+" [ (processedAddress toNetwork),
+		preprocess e = processInputExpr project (\x -> (ExprAt (ExprString x) (ExprVar "var"))) e
+		target =  ExprCall "+" [ (processedAddress project toNetwork),
 			(preprocess . Maybe.fromJust . edgeTarget) edge ]
 
 {- Disables as premature optimization
@@ -517,8 +532,8 @@ startFunction project network = Function {
 		allocPlaces = IInline $ "places = new " ++ (typeSafeString (placesTuple network)) ++ "();"
 		nodeExpr = ExprCall ".node" [ ExprVar "ctx" ]
 		initCtx = icall "._init" [
-			(ExprVar "ctx"), (ExprCall "-" [nodeExpr, (processedAddress network)]),
-			(processedInstances network), ExprVar "(void*) places", 
+			(ExprVar "ctx"), (ExprCall "-" [nodeExpr, (processedAddress project network)]),
+			(processedInstances project network), ExprVar "(void*) places", 
 			{- This is ugly hack -} ExprVar ("(RecvFn*)" ++ (recvFunctionName network)),  ExprVar ("(ReportFn*)" ++ reportFunctionName network) ]
 		ps p = placeSeq network p
 		initPlaces = (map initPlaceFromExpr (places network)) ++ (map callInitPlace (placesWithInit network))
@@ -546,7 +561,7 @@ createNetworkFunctions project network =
 		workerF =  [ workerFunction project t | t <- transitions network ] {- workerFunction -}
 
 instancesCount :: Project -> Expression
-instancesCount project = ExprCall "+" $ map (processedInstances) (networks project)
+instancesCount project = ExprCall "+" $ map (processedInstances project) (networks project)
 
 createMainFunction :: Project -> Function
 createMainFunction project = Function {
@@ -567,11 +582,11 @@ createMainFunction project = Function {
 		icall "ca_parse_args" [ ExprVar "argc", ExprVar "argv", ExprInt (length parameters), ExprVar "p_names", ExprVar "p_data", ExprVar "p_descs" ]
 	 ]
 
-processedInstances :: Network -> Expression
-processedInstances = processInputExprParamsOnly . instances
+processedInstances :: Project -> Network -> Expression
+processedInstances project = (processInputExprParamsOnly project) . instances
 
-processedAddress :: Network -> Expression
-processedAddress = processInputExprParamsOnly . address
+processedAddress :: Project -> Network -> Expression
+processedAddress project = (processInputExprParamsOnly project) . address
 
 createMainInitFunction :: Project -> Function
 createMainInitFunction project = Function {
@@ -585,8 +600,8 @@ createMainInitFunction project = Function {
 	where
 		node = ExprCall ".node" [ ExprVar "ctx" ]
 		startNetworks = map startNetwork (networks project)
-		test1 n = ExprCall ">=" [ node, processedAddress n]
-		test2 n = ExprCall "<" [ node, ExprCall "+" [processedInstances n, processedAddress n]]
+		test1 n = ExprCall ">=" [ node, processedAddress project n]
+		test2 n = ExprCall "<" [ node, ExprCall "+" [processedInstances project n, processedAddress project n]]
 		startI n = icall (startFunctionName n) [ ExprVar "ctx" ]
 		startNetwork n = IIf (ExprCall "&&" [ test1 n, test2 n ]) (startI n) INoop
 
@@ -637,15 +652,23 @@ parameterAccessFunction parameter = Function {
 	extraCode = "",
 	returnType = parameterType parameter
 }
+
+createUserFunction :: UserFunction -> Function
+createUserFunction ufunction = 
+	functionWithCode (ufunctionName ufunction) 
+		(ufunctionReturnType ufunction) 
+		(ufunctionParameters ufunction)
+		(ufunctionCode ufunction)
 		
 createProgram :: Project -> String
 createProgram project =
-	emitProgram prologue globals $ typeF ++ paramF ++ eventsF ++ netF ++ [mainInitF, mainF]
+	emitProgram prologue globals $ typeF ++ paramF ++ eventsF ++ userF ++ netF ++ [mainInitF, mainF]
 	where
 		globals = [ (parameterGlobalName $ parameterName p, parameterType p) | p <- projectParameters project ]
 		typeF = concatMap typeFunctions $ Map.elems (typeTable project)
 		netF = concat [ createNetworkFunctions project n | n <- networks project ]
 		eventsF = map createEventFunction (events project)
+		userF = map createUserFunction (userFunctions project)
 		mainInitF = createMainInitFunction project
 		mainF = createMainFunction project
 		paramF = map parameterAccessFunction (projectParameters project)

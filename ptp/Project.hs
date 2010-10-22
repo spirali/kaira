@@ -197,6 +197,14 @@ eventFromElement e = Event {
 	eventCode = Xml.strContent e
 }
 
+userFunctionFromElement :: TypeTable -> Xml.Element -> UserFunction
+userFunctionFromElement types e = UserFunction {
+	ufunctionName = xmlAttr "name" e,
+	ufunctionReturnType = parseType types source $ xmlAttr "return-type" e, 
+	ufunctionParameters = parseParameters types source $ xmlAttr "parameters" e,
+	ufunctionCode = Xml.strContent e
+} where source = "Function " ++ xmlAttr "name" e
+
 projectFromXml :: String -> Project
 projectFromXml xml =
 	Project {
@@ -204,7 +212,8 @@ projectFromXml xml =
 			networks = networks,
 			projectParameters = params,
 			typeTable = types,
-			events = events
+			events = events,
+			userFunctions = ufunctions
 		 }
 	where
 		root = head $ Xml.onlyElems (Xml.parseXML xml)
@@ -216,3 +225,4 @@ projectFromXml xml =
 		params = map (parameterFromElement types) $ Xml.findElements (qstr "parameter") configuration
 		events = map eventFromElement $ Xml.findElements (qstr "event") configuration
 		types = projectTypesFromElement configuration
+		ufunctions = map (userFunctionFromElement types) $ Xml.findElements (qstr "function") configuration

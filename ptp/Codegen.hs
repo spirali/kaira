@@ -188,7 +188,9 @@ declareParam :: [VarDeclaration] -> [String]
 declareParam [] = []
 declareParam ((name,(TPointer t)):vs) = (typeString t ++ "* " ++ name) : declareParam vs
 declareParam ((name,(TRaw d)):vs) = (d ++ " " ++ name) : declareParam vs
-declareParam ((name,t):vs) = (typeString t ++ " & " ++ name) : declareParam vs
+declareParam ((name,t):vs) 
+	| t == TString || t == TInt = ("const " ++ typeString t ++ " & " ++ name) : declareParam vs
+	| otherwise = (typeString t ++ " & " ++ name) : declareParam vs
 
 emitFunction :: Function -> String
 emitFunction function =

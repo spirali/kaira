@@ -63,6 +63,12 @@ testTypeParser = TestCase $ do
 	where exprTest str result = 
 		assertEqual str (parseType standardTypes "" str) result
 
+testParametersParser = TestCase $ do
+	test "Int x, String b" [("x", TInt), ("b", TString)]
+	test "  " []
+	test "(Int,String) zzz  " [ ("zzz", TTuple [ TInt, TString ]) ]
+	where test str result =
+		assertEqual str (parseParameters standardTypes "" str) result
 
 testTypeDependancy = TestCase $ do
 	test "1" [TInt] [TInt]
@@ -78,7 +84,8 @@ tests = TestList [
 	testEdgeInscriptionParser,
 	testEdgeOrdering,
 	testGuardParser,
-	testTypeParser
+	testTypeParser,
+	testParametersParser,
 	testTypeDependancy ]
 
 main = runTestTT tests
