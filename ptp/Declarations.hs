@@ -18,6 +18,7 @@ data Type = TUndefined |
 	deriving (Show, Eq, Ord)
 
 type VarDeclaration = (String, Type) 
+type ParamDeclaration = (String, Type, ParamType) 
 type FunDeclaration = (String, Type, [Type])
 type VarSet = Set.Set String
 type TypeSet = Set.Set Type
@@ -59,7 +60,7 @@ data Instruction =
 data Function = Function {
 	functionName :: String,
 	instructions :: [Instruction],
-	parameters :: [VarDeclaration],
+	parameters :: [ParamDeclaration],
 	declarations :: [VarDeclaration],
 	extraCode :: String,
 	returnType :: Type
@@ -131,4 +132,7 @@ data UserFunction = UserFunction {
 } deriving (Show)
 
 data TransportMode = TransportDisabled | TransportDirect | TransportCustom
+	deriving (Show, Eq, Ord)
+
+data ParamType = ParamNormal | ParamConst
 	deriving (Show, Eq, Ord)

@@ -1,8 +1,6 @@
 
 module Codegen (
 	emitProgram,
-	callPrint,
-	callPrintfStr,
 	typeString,
 	typeSafeString,
 	orderTypeByDepedancy -- for Tests.hs
@@ -149,7 +147,7 @@ emitTupleMember index = "t_" ++ show index
 
 initialScope :: Function -> Scope
 initialScope function = Scope { scopeDeclarations = decls }
-	where decls = declarationsFromVarList $ parameters function ++ declarations function
+	where decls = declarationsFromVarList $ varFromParam (parameters function) ++ declarations function
 
 typeString :: Type -> String
 typeString (TArray t) = "std::vector<" ++ typeString t ++ ">"
@@ -186,12 +184,13 @@ declareVar' :: [VarDeclaration] -> [String]
 declareVar' [] = []
 declareVar' ((name,t):vs) = (typeString t ++ " " ++ name) : declareVar' vs
 
-declareParam :: [VarDeclaration] -> [String]
+declareParam :: [ParamDeclaration] -> [String]
 declareParam [] = []
-declareParam ((name,(TPointer t)):vs) = (typeString t ++ "* " ++ name) : declareParam vs
-declareParam ((name,(TRaw d)):vs) = (d ++ " " ++ name) : declareParam vs
-declareParam ((name,t):vs) 
-	| t == TString || t == TInt = ("const " ++ typeString t ++ " & " ++ name) : declareParam vs
+declareParam ((name,(TPointer t), _):vs) = (typeString t ++ "* " ++ name) : declareParam vs
+declareParam ((name,(TRaw d), _):vs) = (d ++ " " ++ name) : declareParam vs
+declareParam ((name,t, ptype):vs) 
+	| t == TInt = (typeString t ++ " " ++ name) : declareParam vs
+	| t == TString || ptype == ParamConst = ("const " ++ typeString t ++ " & " ++ name) : declareParam vs
 	| otherwise = (typeString t ++ " & " ++ name) : declareParam vs
 
 emitFunction :: Function -> String
@@ -256,6 +255,9 @@ emitTypeDeclaration _ = ""
 varDeclarationTypes :: [VarDeclaration] -> TypeSet
 varDeclarationTypes decls = Set.fromList [ t | (n,t) <- decls ]
 
+paramDeclarationTypes :: [ParamDeclaration] -> TypeSet
+paramDeclarationTypes decls = Set.fromList [ t | (n,t,_) <- decls ]
+
 gatherExprTypes :: Expression -> TypeSet
 gatherExprTypes x =
 	case exprType emptyDeclarations x of -- FIXME: not emptyDeclarations
@@ -278,7 +280,7 @@ gatherInstructionTypes _ = Set.empty
 
 gatherTypes :: Function -> TypeSet
 gatherTypes f =
-	Set.unions $ [ varDeclarationTypes (declarations f), varDeclarationTypes (parameters f)] ++
+	Set.unions $ [ varDeclarationTypes (declarations f), paramDeclarationTypes (parameters f)] ++
 		map gatherInstructionTypes (instructions f)
 
 {-
@@ -300,45 +302,6 @@ subTypes' tt = Set.union (Set.singleton tt) (case tt of
 	(TPointer t) -> subTypes' t
 	(TStruct name decls) -> Set.unions $ map (subTypes'.snd) decls 
 	_ -> Set.empty)
-
-printFunctionName :: Type -> String
-printFunctionName t = "print_" ++ typeSafeString t
-
-printFunctionHelper :: Type -> [Instruction] -> Function
-printFunctionHelper t instructions =
-	Function {
-			functionName = printFunctionName t,
-			returnType = TVoid,
-			declarations = [],
-			parameters = [ ("x", t) ],
-			extraCode = "",
-			instructions = instructions
-	}
-
-callPrintfStr :: String -> Instruction
-callPrintfStr str =
-	IExpr (ExprCall "printf" [ ExprString str ])
-
-callPrint :: Type -> Expression -> Instruction
-callPrint t expr =
-	IExpr (ExprCall (printFunctionName t) [ expr ])
-
-printFunction :: Type -> Function
-printFunction TInt = printFunctionHelper TInt [ IExpr (ExprCall "printf" [ ExprString "%i", ExprVar "x" ]) ]
-printFunction (TTuple types) =
-	printFunctionHelper (TTuple types) $ (callPrintfStr "(":instructions) ++ [ callPrintfStr ")" ]
-	where
-		instructions = List.intersperse delimInstr $ countedMap printInstr types
-		printInstr n t = IExpr (ExprCall (printFunctionName t) [ ExprAt (ExprInt n) (ExprVar "x") ])
-		delimInstr = callPrintfStr ","
-printFunction (TArray t) =
-	printFunctionHelper (TArray t) [ callPrintfStr "[", cycle, callPrintfStr "]" ]
-	where
-		cycle = IForeach "y" "i" (ExprVar "x") [
-			IExpr (ExprCall (printFunctionName t) [ (ExprVar "y") ]),
-			callPrintfStr "," ]
-
-printFunction x = printFunctionHelper x []
 
 addConstructors :: Declarations -> Instruction -> Instruction
 addConstructors decls i =

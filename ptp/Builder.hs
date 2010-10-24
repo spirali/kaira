@@ -239,7 +239,9 @@ reportFunctionName network = "report_" ++ show (networkId network)
 reportFunction :: Project -> Network -> Function
 reportFunction project network = Function {
 	functionName = reportFunctionName network,
-	parameters = [ ("ctx", caContext), ("places", TPointer $ (placesTuple network)), ("out", TPointer $ TRaw "CaOutput") ],
+	parameters = [ ("ctx", caContext, ParamNormal), 
+		("places", TPointer $ (placesTuple network), ParamNormal), 
+		("out", TPointer $ TRaw "CaOutput", ParamNormal) ],
 	declarations = [],
 	instructions = header ++ concat (countedMap reportPlace (places network)) ++ concatMap reportTransition (transitions network),
 	extraCode = "",
@@ -275,7 +277,7 @@ reportFunction project network = Function {
 transitionFunction :: Project -> Network -> Transition -> Function
 transitionFunction project network transition = Function {
 		functionName = transitionFunctionName transition,
-		parameters = [ ("ctx", caContext), ("places", TPointer $ placesTuple network)],
+		parameters = [ ("ctx", caContext, ParamNormal), ("places", TPointer $ placesTuple network, ParamNormal)],
 		declarations = decls,
 		instructions = [instructions, IReturn (ExprInt 0)],
 		extraCode = "",
@@ -292,7 +294,7 @@ transitionEnableTestFunctionName transition = "transition_enable_" ++ show (tran
 transitionEnableTestFunction :: Project -> Network -> Transition -> Function
 transitionEnableTestFunction project network transition = Function {
 	functionName = transitionEnableTestFunctionName transition,
-	parameters = [ ("ctx", caContext), ("places", TPointer $ placesTuple network)],
+	parameters = [ ("ctx", caContext, ParamNormal), ("places", TPointer $ placesTuple network, ParamNormal)],
 	declarations = decls,
 	instructions = [ instructions, IReturn (ExprInt 0) ],
 	extraCode = "",
@@ -460,7 +462,10 @@ allTransitions project = concatMap transitions (networks project)
 recvFunction :: Project -> Network -> Function
 recvFunction project network = Function {
 	functionName = recvFunctionName network,
-	parameters = [ ("places", TPointer (placesTuple network)), ("data_id", TRaw "int"), ("data", TRaw "void*"), ("data_size", TRaw "int") ],
+	parameters = [ ("places", TPointer (placesTuple network), ParamNormal), 
+		("data_id", TRaw "int", ParamNormal), 
+		("data", TRaw "void*", ParamNormal), 
+		("data_size", TRaw "int", ParamNormal) ],
 	declarations = [],
 	extraCode = [],
 	returnType = TVoid,
@@ -493,7 +498,7 @@ workerFunctionName transition = "worker_" ++ show (transitionId transition)
 workerFunction :: Project -> Transition -> Function
 workerFunction project transition = Function {
 	functionName = workerFunctionName transition,
-	parameters = [ ("ctx", caContext), ("var", transitionVarType project transition) ],
+	parameters = [ ("ctx", caContext, ParamNormal), ("var", transitionVarType project transition, ParamNormal) ],
 	declarations = [],
 	instructions = [],
 	extraCode = transitionCode transition,
@@ -506,7 +511,7 @@ initFunctionName place = "init_place_" ++ show (placeId place)
 initFunction :: Place -> Function
 initFunction place = Function {
 		functionName = initFunctionName place,
-		parameters = [ ("ctx", caContext), ("place", TPointer $ TArray (placeType place))],
+		parameters = [ ("ctx", caContext, ParamNormal), ("place", TPointer $ TArray (placeType place), ParamNormal)],
 		declarations = [],
 		instructions = [],
 		extraCode = placeInitCode place,
@@ -522,7 +527,7 @@ startFunctionName network = "init_network_" ++ show (networkId network)
 startFunction :: Project -> Network -> Function
 startFunction project network = Function {
 	functionName = startFunctionName network,
-	parameters = [ ("ctx", caContext) ],
+	parameters = [ ("ctx", caContext, ParamNormal) ],
 	declarations = [ ("places", TPointer $ placesTuple network) ],
 	instructions = [ allocPlaces, initCtx ] ++ registerTransitions ++ eventNodeInit ++ initPlaces,
 	extraCode = "",
@@ -566,7 +571,7 @@ instancesCount project = ExprCall "+" $ map (processedInstances project) (networ
 createMainFunction :: Project -> Function
 createMainFunction project = Function {
 	functionName = "main",
-	parameters = [ ("argc", TRaw "int"), ("argv", (TPointer . TPointer . TRaw) "char") ],
+	parameters = [ ("argc", TRaw "int", ParamNormal), ("argv", (TPointer . TPointer . TRaw) "char", ParamNormal) ],
 	declarations = [ ("nodes", TInt) ],
 	instructions = parseArgs ++ [ i1, i2 ],
 	extraCode = [],
@@ -591,7 +596,7 @@ processedAddress project = (processInputExprParamsOnly project) . address
 createMainInitFunction :: Project -> Function
 createMainInitFunction project = Function {
 	functionName = "main_init",
-	parameters = [("ctx", caContext)],
+	parameters = [("ctx", caContext, ParamNormal)],
 	declarations = [],
 	instructions = startNetworks,
 	extraCode = [],
@@ -606,7 +611,7 @@ createMainInitFunction project = Function {
 		startNetwork n = IIf (ExprCall "&&" [ test1 n, test2 n ]) (startI n) INoop
 
 
-functionWithCode :: String -> Type -> [VarDeclaration] -> String -> Function
+functionWithCode :: String -> Type -> [ParamDeclaration] -> String -> Function
 functionWithCode name returnType params code = Function {
 	functionName = name,
 	parameters = params,
@@ -615,12 +620,12 @@ functionWithCode name returnType params code = Function {
 	extraCode = code,
 	returnType = returnType
 }
-knownTypeFunctions :: [(String, String -> (Type, [VarDeclaration]))]
+knownTypeFunctions :: [(String, String -> (Type, [ParamDeclaration]))]
 knownTypeFunctions = [
-	("getstring", \raw -> (TRaw "std::string", [ ("obj", TRaw $ raw ++ "&") ])),
-	("getsize", \raw -> (TRaw "size_t", [ ("obj", TRaw $ raw ++ "&") ])),
-	("pack", \raw -> (TVoid, [ ("packer", TRaw "CaPacker &"), ("obj", TRaw $ raw ++ "&") ])),
-	("unpack", \raw -> (TRaw raw, [ ("unpacker", TRaw "CaUnpacker &") ])) ]
+	("getstring", \raw -> (TRaw "std::string", [ ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
+	("getsize", \raw -> (TRaw "size_t", [ ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
+	("pack", \raw -> (TVoid, [ ("packer", TRaw "CaPacker &", ParamNormal), ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
+	("unpack", \raw -> (TRaw raw, [ ("unpacker", TRaw "CaUnpacker &", ParamNormal) ])) ]
 
 typeFunctions :: Type -> [Function]
 typeFunctions (TData typeName rawType transportMode ((fname, code):rest)) = 
@@ -631,10 +636,10 @@ typeFunctions (TData typeName rawType transportMode ((fname, code):rest)) =
 		Nothing -> error $ "typeFunctions: Unknown function " ++ fname
 typeFunctions _ = []
 
-eventTable :: [ (String, (Type, [VarDeclaration])) ]
+eventTable :: [ (String, (Type, [ParamDeclaration])) ]
 eventTable = [
-	("node_init", (TVoid, [("ctx", caContext)])),
-	("node_quit", (TVoid, [("ctx", caContext)]))]
+	("node_init", (TVoid, [("ctx", caContext, ParamNormal)])),
+	("node_quit", (TVoid, [("ctx", caContext, ParamNormal)]))]
 
 createEventFunction :: Event -> Function
 createEventFunction event =
@@ -657,7 +662,7 @@ createUserFunction :: UserFunction -> Function
 createUserFunction ufunction = 
 	functionWithCode (ufunctionName ufunction) 
 		(ufunctionReturnType ufunction) 
-		(ufunctionParameters ufunction)
+		(paramFromVar ParamConst (ufunctionParameters ufunction))
 		(ufunctionCode ufunction)
 		
 createProgram :: Project -> String

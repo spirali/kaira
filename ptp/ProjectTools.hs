@@ -224,3 +224,9 @@ statementDeclarations decls instructions =
 hasEvent :: Project -> String -> Bool
 hasEvent project name =
 	List.elem name $ map eventName (events project)
+
+paramFromVar :: ParamType -> [VarDeclaration] -> [ParamDeclaration]
+paramFromVar pt decls = [ (name, t, pt) | (name, t) <- decls ]
+
+varFromParam :: [ParamDeclaration] -> [VarDeclaration]
+varFromParam decls = [ (name, t) | (name, t, _) <- decls ]
