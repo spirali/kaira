@@ -23,6 +23,7 @@ testExprParser = TestCase $ do
 	exprTest "a(b(c(), ()) + (133))" 
 		(ExprCall "a" [ExprCall "+" [ExprCall "b" [ ExprCall "c" [], ExprTuple []], ExprInt 133]])
 	exprTest "2 + 3 * 5" (ExprCall "+" [ ExprInt 2, ExprCall "*" [ ExprInt 3, ExprInt 5]])
+	exprTest "bi_add(num, bi(10))" (ExprCall "bi_add" [ ExprVar "num", ExprCall "bi" [ ExprInt 10 ] ])
 	where exprTest str result = 
 		assertEqual str (parseExpr "" str) result
 
