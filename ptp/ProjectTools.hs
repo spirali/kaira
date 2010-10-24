@@ -188,7 +188,7 @@ mapExprs' fn decls (IForeach a b e is) = IForeach a b (fn decls e) $ map (mapExp
 mapExprs' fn decls x = x
 
 standardTypes =
-	Map.fromList [ ("Int", TInt), ("String", TString) ]
+	Map.fromList [ ("Int", TInt), ("String", TString), ("Bool", TBool) ]
 
 -- |Returns expression that computes size of memory footprint of result of expr
 exprMemSize :: Type -> Expression -> Expression

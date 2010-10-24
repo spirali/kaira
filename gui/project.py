@@ -182,6 +182,8 @@ class Project(EventSource):
 	def type_to_ctype(self, t):
 		if t == "Int":
 			return "int"
+		if t == "Bool":
+			return "bool"
 		if t == "String":
 			return "std::string"
 		for et in self.extern_types:
@@ -389,6 +391,8 @@ class FunctionBase:
 		self.name = name
 
 	def set_function_code(self, code):
+		if code is None:
+			code = ""
 		self.code = code
 
 	def get_function_code(self):

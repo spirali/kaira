@@ -157,6 +157,7 @@ typeString (TRaw d) = d
 typeString (TPointer t) = typeString t ++ "*"
 typeString (TStruct name _) = name
 typeString TString = "std::string"
+typeString TBool = "bool"
 typeString (TData _ rawType _ _) = rawType
 typeString x = typeSafeString x
 
@@ -165,6 +166,7 @@ typeSafeString :: Type -> String
 typeSafeString TVoid = "void"
 typeSafeString TInt = "int"
 typeSafeString TString = "string"
+typeSafeString TBool = "bool"
 typeSafeString (TTuple ts) = "Tuple" ++ show (length ts) ++ "_" ++ addDelimiter "_" (map typeSafeString ts)
 typeSafeString TUndefined = "<undefined>"
 typeSafeString (TArray t) = "Array_" ++ typeSafeString t
@@ -172,7 +174,7 @@ typeSafeString (TRaw d) = d
 typeSafeString (TPointer t) = "Ptr_" ++ typeSafeString t
 typeSafeString (TStruct name _) = name
 typeSafeString (TData name _ _ _) = name
-typeSafeString x = error $ "typeSafeString: " ++ show x
+--typeSafeString x = error $ "typeSafeString: " ++ show x
 
 declareVar :: Scope -> String -> String
 declareVar scope varName =

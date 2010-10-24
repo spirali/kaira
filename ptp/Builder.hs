@@ -96,7 +96,7 @@ unionsVariableTypes :: [Map.Map String Type] -> Map.Map String Type
 unionsVariableTypes decls =
 	Map.unionsWith unionFn decls
 	where
-		unionFn a b = if a == b then a else error "Type inference failed"
+		unionFn a b = if a == b then a else error $ "Type inference failed " ++ show a ++ "/" ++ show b
 
 
 variableTypes :: Project -> Expression -> Type -> Map.Map String Type
