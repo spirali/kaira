@@ -4,103 +4,65 @@ module Declarations where
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-data Type = TUndefined | 
-			TVoid | 
-			TInt | 
-			TString | 
-			TBool |
-			TTuple [Type] | 
-			TArray Type | 
-			TRaw String |
-			TPointer Type |
-			TData String String TransportMode [ (String, String) ] | {- name, rawName, transportMode, functions -}
-			TStruct String [VarDeclaration]
+data NelType =
+	TypeInt |
+	TypeString |
+	TypeBool |
+	TypeTuple [NelType] |
+	TypeArray NelType |
+	TypeData String String TransportMode [ (String, String) ] {- name, rawName, transportMode, functions -}
 	deriving (Show, Eq, Ord)
 
-type VarDeclaration = (String, Type) 
-type ParamDeclaration = (String, Type, ParamType) 
-type FunDeclaration = (String, Type, [Type])
 type VarSet = Set.Set String
-type TypeSet = Set.Set Type
+type NelTypeSet = Set.Set NelType
 type ID = Int
-type TypeTable = Map.Map String Type
+type TypeTable = Map.Map String NelType
+type NelVarDeclaration = (String, NelType)
 
-data Declarations = Declarations {
-	varDeclarations :: [VarDeclaration],
-	funDeclarations :: [FunDeclaration] 
-} deriving (Show, Eq)
-
-data Expression = 
-	ExprCall String [Expression] |
+data NelExpression =
+	ExprCall String [NelExpression] |
 	ExprVar String |
-	ExprType String |
-	ExprParam String | 
+	ExprParam String |
 	ExprInt Int |
 	ExprString String |
-	ExprTuple [Expression] |
-	ExprAddr Expression |
-	ExprAt Expression Expression {- index container -} |
-	ExprDeref Expression |
+	ExprTuple [NelExpression] |
 	ExprTrue | ExprFalse
 	deriving (Show, Eq, Ord)
-	
-data Instruction = 
-	IExpr Expression |
-	ISet Expression Expression |
-	IIf Expression Instruction Instruction |
-	IForeach String String Expression [Instruction] | {- var counterVar array body -}
-	IStatement [VarDeclaration] [Instruction] |
-	IDefine String Type (Maybe Expression) |
-	IReturn Expression |
-	IContinue |
-	IInline String |
-	INoop 
-	deriving (Show, Eq)
 
-data Function = Function {
-	functionName :: String,
-	instructions :: [Instruction],
-	parameters :: [ParamDeclaration],
-	declarations :: [VarDeclaration],
-	extraCode :: String,
-	returnType :: Type
-} deriving (Show)
-
-
-data Place = Place { 
+data Place = Place {
 	placeId :: ID,
-	placeName :: String, 
-	placeType :: Type,
+	placeName :: String,
+	placeType :: NelType,
 	placeInitCode :: String,
-	placeInitExpr :: Maybe Expression
+	placeInitExpr :: Maybe NelExpression
 } deriving (Show)
 
 instance Eq Place where p1 == p2 = placeId p1 == placeId p2
 
-data Edge = Edge { 
+data Edge = Edge {
 	edgePlaceId :: ID,
-	edgeInscription :: EdgeInscription, 
-	edgeTarget :: Maybe Expression
+	edgeInscription :: EdgeInscription,
+	edgeTarget :: Maybe NelExpression
 } deriving (Show,Eq)
 
-data EdgeInscription = EdgeExpression Expression | EdgePacking String (Maybe Expression) deriving (Show, Eq)
+data EdgeInscription = EdgeExpression NelExpression | EdgePacking String (Maybe NelExpression) deriving (Show, Eq)
 
-data Transition = Transition { 
-	transitionId :: ID, 
-	transitionName :: String,  
-	edgesIn :: [Edge], 
+data Transition = Transition {
+	transitionId :: ID,
+	transitionName :: String,
+	edgesIn :: [Edge],
 	edgesOut :: [Edge],
 	transitionCode :: String,
-	guard :: Expression
+	guard :: NelExpression
 } deriving (Show)
 
 data Network = Network {
 	networkId :: ID,
 	places :: [Place],
 	transitions :: [Transition],
-	address :: Expression, {- address is considered as input expression, but in fact it is computed from "instances" and calling "+" -}
-	instances :: Expression 
-} deriving (Show) 
+	address :: NelExpression, {- address is considered as input expression, but in fact it is computed from "instances" and calling "+" -}
+	instances :: NelExpression
+} deriving (Show)
 
 instance Eq Network where n1 == n2 = networkId n1 == networkId n2
 
@@ -120,14 +82,14 @@ data Event = Event {
 
 data Parameter = Parameter {
 	parameterName :: String,
-	parameterType :: Type,
+	parameterType :: NelType,
 	parameterDescription :: String
 } deriving (Show)
 
 data UserFunction = UserFunction {
 	ufunctionName :: String,
-	ufunctionParameters :: [VarDeclaration],
-	ufunctionReturnType :: Type,
+	ufunctionParameters :: [NelVarDeclaration],
+	ufunctionReturnType :: NelType,
 	ufunctionCode :: String
 } deriving (Show)
 

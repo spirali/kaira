@@ -10,8 +10,10 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
 import Declarations
+import CodegenTypes
 import Utils
 import ProjectTools
+import CodegenTools
 
 data Scope = Scope {
 	scopeDeclarations :: Declarations
@@ -80,26 +82,26 @@ emitCall scope name params =
 	name ++ "(" ++ addDelimiter "," (map (emitExpression scope) params) ++ ")"
 
 emitExpression :: Scope -> Expression -> String
-emitExpression scope (ExprVar s) = s
-emitExpression scope (ExprType s) = s
-emitExpression scope (ExprInt i) = show i
-emitExpression scope (ExprString str) = "\"" ++ str ++ "\""
-emitExpression scope (ExprCall name params) = emitCall scope name params
+emitExpression scope (EVar s) = s
+emitExpression scope (EType s) = s
+emitExpression scope (EInt i) = show i
+emitExpression scope (EString str) = "\"" ++ str ++ "\""
+emitExpression scope (ECall name params) = emitCall scope name params
 {- Tuple at -}
-emitExpression scope (ExprAt (ExprInt index) expr) =
+emitExpression scope (EAt (EInt index) expr) =
 	case exprType (scopeDeclarations scope) expr of
 		TTuple _ -> emitExpression scope expr ++ "." ++ emitTupleMember index
 		TPointer (TTuple _) -> emitExpression scope expr ++ "->" ++ emitTupleMember index
-		t -> error $ "Unsuported type in emitExpression (ExprAt): " ++ show index ++ " " ++ show expr ++ "/" ++ show t
+		t -> error $ "Unsuported type in emitExpression (EAt): " ++ show index ++ " " ++ show expr ++ "/" ++ show t
 
-emitExpression scope (ExprAt (ExprString index) expr) =
+emitExpression scope (EAt (EString index) expr) =
 	case exprType (scopeDeclarations scope) expr of
 		TStruct _ _ -> emitExpression scope expr ++ "." ++ index
 		TPointer _ -> emitExpression scope expr ++ "->" ++ index
-		x -> error $ "Unsuported type in emitExpression (ExprAt): " ++ show index
+		x -> error $ "Unsuported type in emitExpression (EAt): " ++ show index
 
-emitExpression scope (ExprAddr expr) = "&(" ++ emitExpression scope expr ++ ")"
-emitExpression scope (ExprDeref expr) = "*(" ++ emitExpression scope expr ++ ")"
+emitExpression scope (EAddr expr) = "&(" ++ emitExpression scope expr ++ ")"
+emitExpression scope (EDeref expr) = "*(" ++ emitExpression scope expr ++ ")"
 emitExpression scope x = error $ "EmitExpression: " ++ show x
 
 emitVarDeclarations :: Scope -> [VarDeclaration] -> SourceCode
@@ -118,9 +120,9 @@ emitInstruction scope (IStatement decls instructions) =
 		instructionsCode = joinMap (emitInstruction newScope) instructions
 		newScope = addDeclarations scope (statementDeclarations decls instructions)
 		declarationsCode = emitVarDeclarations newScope decls
-emitInstruction scope (IDefine name t (Just expr)) = 
+emitInstruction scope (IDefine name t (Just expr)) =
 	Text (typeString t ++ " " ++ name ++ " = " ++ emitExpression scope expr ++ ";") <+> Eol
-emitInstruction scope (IDefine name t Nothing) = 
+emitInstruction scope (IDefine name t Nothing) =
 	Text (typeString t ++ " " ++ name ++ ";") <+> Eol
 emitInstruction scope (IReturn expr) = Text ("return " ++ emitExpression scope expr ++ ";") <+> Eol
 emitInstruction scope IContinue = Text "continue;" <+> Eol
@@ -188,7 +190,7 @@ declareParam :: [ParamDeclaration] -> [String]
 declareParam [] = []
 declareParam ((name,(TPointer t), _):vs) = (typeString t ++ "* " ++ name) : declareParam vs
 declareParam ((name,(TRaw d), _):vs) = (d ++ " " ++ name) : declareParam vs
-declareParam ((name,t, ptype):vs) 
+declareParam ((name,t, ptype):vs)
 	| t == TInt = (typeString t ++ " " ++ name) : declareParam vs
 	| t == TString || ptype == ParamConst = ("const " ++ typeString t ++ " & " ++ name) : declareParam vs
 	| otherwise = (typeString t ++ " & " ++ name) : declareParam vs
@@ -213,9 +215,9 @@ emitGlobals ((name, t):rest) =
 	typeString t ++ " " ++ name ++ ";\n" ++ emitGlobals rest
 
 orderTypeByDepedancy :: (Set.Set Type) -> [Type]
-orderTypeByDepedancy types = 
+orderTypeByDepedancy types =
 	dependacyOrder orderFn types
-	where 
+	where
 		orderFn ordered t = Set.empty == Set.difference (subTypes t) (Set.fromList ordered)
 
 emitProgram :: String -> [VarDeclaration] -> [Function] -> String
@@ -300,35 +302,35 @@ subTypes' tt = Set.union (Set.singleton tt) (case tt of
 	(TArray t) -> subTypes' t
 	(TTuple types) -> Set.unions $ map subTypes' types
 	(TPointer t) -> subTypes' t
-	(TStruct name decls) -> Set.unions $ map (subTypes'.snd) decls 
+	(TStruct name decls) -> Set.unions $ map (subTypes'.snd) decls
 	_ -> Set.empty)
 
 addConstructors :: Declarations -> Instruction -> Instruction
 addConstructors decls i =
 	mapExprs' addConstr decls i
 	where
-       addConstr decls (ExprTuple xs) =
-			ExprCall (typeSafeString (exprType decls (ExprTuple xs))) $ map (addConstr decls) xs
-       addConstr decls (ExprCall name exprs) = ExprCall name $ map (addConstr decls) exprs
-       addConstr decls (ExprAt a b) = ExprAt (addConstr decls a) (addConstr decls b)
-       addConstr decls (ExprDeref e) = ExprDeref $ addConstr decls e
-       addConstr decls (ExprAddr e) = ExprAddr $ addConstr decls e
+       addConstr decls (ETuple xs) =
+			ECall (typeSafeString (exprType decls (ETuple xs))) $ map (addConstr decls) xs
+       addConstr decls (ECall name exprs) = ECall name $ map (addConstr decls) exprs
+       addConstr decls (EAt a b) = EAt (addConstr decls a) (addConstr decls b)
+       addConstr decls (EDeref e) = EDeref $ addConstr decls e
+       addConstr decls (EAddr e) = EAddr $ addConstr decls e
        addConstr decls x = x
 
 exprAsString :: Declarations -> Expression -> Expression
-exprAsString decls (ExprString x) = ExprString x
-exprAsString decls (ExprInt x) = ExprString $ show x
+exprAsString decls (EString x) = EString x
+exprAsString decls (EInt x) = EString $ show x
 exprAsString decls x =
 	case exprType decls x of
-		TInt -> ExprCall "ca_int_to_string" [x]
+		TInt -> ECall "ca_int_to_string" [x]
 		TString -> x
-		TTuple [] -> ExprString "()"
-		(TData name _ _ functions) | hasKey "getstring" functions -> ExprCall (name ++ "_getstring") [x]
-		(TData name _ _ _) -> ExprCall "std::string" [ ExprString name ]
-		TTuple types -> ExprCall "+" $ [ ExprCall "std::string"
-			[ ExprString "(" ], ExprCall "Base.asString" [ ExprAt (ExprInt 0) x ]]
-				++ concat [ [ExprString ",", ExprCall "Base.asString"
-					[ ExprAt (ExprInt i) x ]] | i <- [1..length types-1]] ++ [ ExprString ")" ]
+		TTuple [] -> EString "()"
+		(TData name _ _ functions) | hasKey "getstring" functions -> ECall (name ++ "_getstring") [x]
+		(TData name _ _ _) -> ECall "std::string" [ EString name ]
+		TTuple types -> ECall "+" $ [ ECall "std::string"
+			[ EString "(" ], ECall "Base.asString" [ EAt (EInt 0) x ]]
+				++ concat [ [EString ",", ECall "Base.asString"
+					[ EAt (EInt i) x ]] | i <- [1..length types-1]] ++ [ EString ")" ]
 		x -> error $ "exprAsString: " ++ show x
 
 

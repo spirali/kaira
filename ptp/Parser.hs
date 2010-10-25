@@ -77,11 +77,11 @@ tupleParser = do
 		[x] -> return x
 		_ -> return (ExprTuple exprs)
 
-expressionParser :: Parser Expression
+expressionParser :: Parser NelExpression
 expressionParser = buildExpressionParser optable baseExpr
 optable = [
-	[ Infix (opBinary "*") AssocLeft ], 
-	[ Infix (opBinary "+") AssocLeft ], 
+	[ Infix (opBinary "*") AssocLeft ],
+	[ Infix (opBinary "+") AssocLeft ],
 	[ Infix (opBinary "-") AssocLeft ],
 	[ Infix (opBinary ">") AssocLeft ],
 	[ Infix (opBinary "<") AssocLeft ],
@@ -91,45 +91,45 @@ optable = [
 	[ Infix (opBinary "<=") AssocLeft ],
 	[ Infix (opBinary "||") AssocLeft ],
 	[ Infix (opBinary "&&") AssocLeft ]]
-baseExpr    = intParser <|> stringParser <|> parameterParser <|> identifierParser <|> tupleParser 
+baseExpr    = intParser <|> stringParser <|> parameterParser <|> identifierParser <|> tupleParser
 opBinary name   = reservedOp name >> return (\x y -> (ExprCall name) [x, y])
 
-concreteTypeParser :: TypeTable -> Parser Type
-concreteTypeParser typeNames = do
+concreteTypeParser :: String -> TypeTable -> Parser NelType
+concreteTypeParser source typeNames = do
 	str <- identifier
 	case Map.lookup str typeNames of
 		Just x -> return x
-		Nothing -> return TUndefined
+		Nothing -> error $ source ++ ":1:Invalid type name"
 
-tupleTypeParser :: TypeTable -> Parser Type
-tupleTypeParser typeNames = do
-	exprs <- parens $ sepBy1 (typeParser typeNames) comma
-	return (TTuple exprs)
+tupleTypeParser :: String -> TypeTable -> Parser NelType
+tupleTypeParser source typeNames = do
+	exprs <- parens $ sepBy1 (typeParser source typeNames) comma
+	return (TypeTuple exprs)
 
-typeParser :: TypeTable -> Parser Type
-typeParser typeNames = do
-	tupleTypeParser typeNames <|> concreteTypeParser typeNames
+typeParser :: String -> TypeTable -> Parser NelType
+typeParser source typeNames = do
+	tupleTypeParser source typeNames <|> concreteTypeParser source typeNames
 
-parametersParser :: TypeTable -> Parser [VarDeclaration]
-parametersParser typeNames = 
+parametersParser :: String -> TypeTable -> Parser [NelVarDeclaration]
+parametersParser source typeNames =
 	do {eof; return []} <|> do {
-		t <- typeParser typeNames;
+		t <- typeParser source typeNames;
 		i <- identifier;
-		rest <- do {eof; return []} <|> do { char ',' >> whiteSpace >> parametersParser typeNames };
+		rest <- do {eof; return []} <|> do { char ',' >> whiteSpace >> parametersParser source typeNames };
 		return $ (i, t):rest
 	}
 
-edgePackingParser :: Parser (String, Maybe Expression)
+edgePackingParser :: Parser (String, Maybe NelExpression)
 edgePackingParser = do
 	char '~'
-	s <- identifier 
+	s <- identifier
 	do { x <- (parens expressionParser); return (s, Just x) } <|> return (s, Nothing)
 
 edgeInscriptionParser :: Parser EdgeInscription
 edgeInscriptionParser =
 	do { (name, limit) <- edgePackingParser; return (EdgePacking name limit) } <|> (expressionParser >>= (return . EdgeExpression))
 
-guardParser :: Parser Expression
+guardParser :: Parser NelExpression
 guardParser = do { eof; return ExprTrue; } <|> expressionParser
 
 strErrorMessage :: ParseError -> String
@@ -146,17 +146,16 @@ parseHelper parser source str =
 		Left x -> error $ strErrorMessage x
 		Right x -> x
 
-parseType :: TypeTable -> String -> String -> Type
+parseType :: TypeTable -> String -> String -> NelType
 parseType typeNames source "" = error $ source ++ ":1:Type is empty"
 parseType typeNames source str =
-	let t = parseHelper (typeParser typeNames) source str in
-		if isUndefined t then error $ source ++ ":1:Invalid type" else t
+	parseHelper (typeParser source typeNames) source str
 
-parseExpr :: String -> String -> Expression
+parseExpr :: String -> String -> NelExpression
 parseExpr source "" = error $ source ++ ":1:Expression is empty"
 parseExpr source str = parseHelper expressionParser source str
 
-parseExpr' :: String -> String -> Maybe Expression
+parseExpr' :: String -> String -> Maybe NelExpression
 parseExpr' source "" = Nothing
 parseExpr' source x = Just $ parseExpr source x
 
@@ -164,9 +163,9 @@ parseEdgeInscription :: String -> String -> EdgeInscription
 parseEdgeInscription source "" = error $ source ++ ":1:Inscription is empty"
 parseEdgeInscription source str = parseHelper edgeInscriptionParser source str
 
-parseGuard :: String -> String -> Expression
+parseGuard :: String -> String -> NelExpression
 parseGuard = parseHelper guardParser
 
 -- |Parses "Int a, String b" as [("a", TInt), ("b", TString)]
-parseParameters :: TypeTable -> String -> String -> [VarDeclaration]
-parseParameters typeNames source str = parseHelper (parametersParser typeNames) source str
+parseParameters :: TypeTable -> String -> String -> [NelVarDeclaration]
+parseParameters typeNames source str = parseHelper (parametersParser source typeNames) source str

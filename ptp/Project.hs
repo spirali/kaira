@@ -16,52 +16,17 @@ module Project (
 import Declarations
 import Parser
 import ProjectTools
+import Base
 import qualified Data.Map as Map
 import qualified Data.Maybe as Maybe
 import qualified Data.List as List
 import qualified Text.XML.Light as Xml
 
-placeById :: Network -> ID -> Place
-placeById network id = 
-	lookup (places network) id
-	where 
-		lookup [] id = error $ "placeById: Place " ++ show id ++ " not found. Places: " ++ show (places network)
-		lookup (x:xs) id 
-			| placeId x == id = x
-			| otherwise = lookup xs id
-
-placeById' :: Project -> ID -> Place
-placeById' project id = 
-	lookup (concatMap places (networks project)) id
-	where 
-		lookup [] id = error $ "placeById': Place " ++ show id ++ " not found."
-		lookup (x:xs) id 
-			| placeId x == id = x
-			| otherwise = lookup xs id
-
-placeSeqById :: Network -> ID -> Int
-placeSeqById network id =  placeSeq network $ placeById network id
-
-placeSeq :: Network -> Place -> Int
-placeSeq network place = 
-	case List.elemIndex place (places network) of
-		Just x -> x
-		Nothing -> error $ "Place not found"
-
-placeTypeById :: Network -> ID -> Type
-placeTypeById network id = placeType $ placeById network id
-
-placeTypeById' :: Project -> ID -> Type
-placeTypeById' project id = placeType $ placeById' project id
-
-placeTypeByEdge :: Project -> Edge -> Type
-placeTypeByEdge project edge = placeTypeById' project (edgePlaceId edge)
-
 qstr :: String -> Xml.QName
 qstr str = Xml.QName str Nothing Nothing
 
 xmlAttr' :: String -> Xml.Element -> String -> String
-xmlAttr' str e defaultValue = 
+xmlAttr' str e defaultValue =
 	case Xml.findAttr (qstr str) e of
 		Just x -> x
 		Nothing -> defaultValue
@@ -81,33 +46,33 @@ source :: Xml.Element -> String -> String
 source element place = "*" ++ (xmlAttr "id" element) ++ "/" ++ place
 
 placeFromElement :: TypeTable -> Xml.Element -> Place
-placeFromElement types e = 
-	Place { 
-		placeId = xmlAttrInt "id" e, 
+placeFromElement types e =
+	Place {
+		placeId = xmlAttrInt "id" e,
 		placeName =  xmlAttr "name" e,
-		placeType = parseType types (source e "type") $ xmlAttr "type" e, 
-		placeInitCode = codeContent e, 
-		placeInitExpr = parseExpr' (source e "init") $ xmlAttr' "init-expr" e "" 
-	} 
+		placeType = parseType types (source e "type") $ xmlAttr "type" e,
+		placeInitCode = codeContent e,
+		placeInitExpr = parseExpr' (source e "init") $ xmlAttr' "init-expr" e ""
+	}
 
 edgeFromElement :: Xml.Element -> Edge
-edgeFromElement e = 
-	Edge { 
-		edgePlaceId = xmlAttrInt "place-id" e, 
+edgeFromElement e =
+	Edge {
+		edgePlaceId = xmlAttrInt "place-id" e,
 		edgeInscription = parseEdgeInscription (source e "inscription") $ xmlAttr "expr" e,
 		edgeTarget = parseExpr' (source e "target") $ xmlAttr' "target" e ""
 	}
 
 transitionFromElement :: Xml.Element -> Transition
-transitionFromElement e = 
-	Transition { 
-		transitionName = name, 
-		transitionId = id, 
-		edgesIn = orderEdgesByDependancy edgesIn, 
-		edgesOut = edgesOut, 
+transitionFromElement e =
+	Transition {
+		transitionName = name,
+		transitionId = id,
+		edgesIn = orderEdgesByDependancy edgesIn,
+		edgesOut = edgesOut,
 		transitionCode = codeContent e,
 		guard = parseGuard (source e "guard") $ xmlAttr' "guard" e ""
-	} 
+	}
 	where
 		id = idFromElement e
 		name = xmlAttr "name" e
@@ -115,14 +80,14 @@ transitionFromElement e =
 		edgesOut = map edgeFromElement $ Xml.findElements (qstr "edge-out") e
 
 placesFromElement :: TypeTable -> Xml.Element -> [Place]
-placesFromElement types e = 
+placesFromElement types e =
 	map (placeFromElement types) (Xml.findElements (qstr "place") e)
 
 transitionsFromElement :: Xml.Element -> [Transition]
-transitionsFromElement e = 
+transitionsFromElement e =
 	map transitionFromElement $ Xml.findElements (qstr "transition") e
 
-networkFromElement :: TypeTable -> Expression -> Xml.Element -> Network
+networkFromElement :: TypeTable -> NelExpression -> Xml.Element -> Network
 networkFromElement types addr e =
 	Network {
 		networkId = idFromElement e,
@@ -132,10 +97,10 @@ networkFromElement types addr e =
 		instances = parseExpr (source e "instances") $ xmlAttr "instances" e
 	}
 
-addressesFromElement :: Xml.Element -> [Expression]
-addressesFromElement e = 
+addressesFromElement :: Xml.Element -> [NelExpression]
+addressesFromElement e =
 	getAddress (Xml.findElements (qstr "net") e) (ExprInt 0)
-	where 
+	where
 		networkSize e = parseExpr (source e "instances") $ xmlAttr "instances" e
 		getAddress [] _ = []
 		getAddress (e:es) n = n:(getAddress es $ ExprCall "+" [ n,networkSize e])
@@ -151,30 +116,21 @@ idFromElement :: Xml.Element -> ID
 idFromElement = xmlAttrInt "id"
 
 placeToNetworkList :: Project -> [(ID, Network)]
-placeToNetworkList project = 
+placeToNetworkList project =
 	concatMap extractPlaces (networks project)
 	where extractPlaces network = [ (placeId y, network) | y <- places network ]
 
 edgeNetwork :: Project -> Edge -> Network
-edgeNetwork project edge = 
+edgeNetwork project edge =
 	case List.find edgeOfNetwork (networks project) of
 		Just n -> n
 		Nothing -> error "edgeNetwork: Network not found"
-	where 
+	where
 		edgeOfNetwork n = List.elem (edgePlaceId edge) (map placeId (places n))
 
-edgePlaceType :: Project -> Edge -> Type
-edgePlaceType project edge = placeTypeById' project (edgePlaceId edge)
-
-parameterTypeByName :: Project -> String -> Type
-parameterTypeByName project paramName = 
-	case List.find (\p -> parameterName p == paramName) (projectParameters project) of
-		Just x -> parameterType x
-		Nothing -> error $ "Parameter '" ++ paramName ++ "' not defined"
-
-externTypeFromElement :: Xml.Element -> (String, Type)
-externTypeFromElement e = (name, TData name rawType transportMode codes)
-	where 
+externTypeFromElement :: Xml.Element -> NelVarDeclaration
+externTypeFromElement e = (name, TypeData name rawType transportMode codes)
+	where
 		name = xmlAttr "name" e
 		rawType = xmlAttr "raw-type" e
 		codes = [ (xmlAttr "name" e, Xml.strContent e) | e <- Xml.findElements (qstr "code") e ]
@@ -200,7 +156,7 @@ eventFromElement e = Event {
 userFunctionFromElement :: TypeTable -> Xml.Element -> UserFunction
 userFunctionFromElement types e = UserFunction {
 	ufunctionName = xmlAttr "name" e,
-	ufunctionReturnType = parseType types source $ xmlAttr "return-type" e, 
+	ufunctionReturnType = parseType types source $ xmlAttr "return-type" e,
 	ufunctionParameters = parseParameters types source $ xmlAttr "parameters" e,
 	ufunctionCode = Xml.strContent e
 } where source = "Function " ++ xmlAttr "name" e

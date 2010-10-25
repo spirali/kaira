@@ -4,6 +4,8 @@ import Parser
 import Declarations
 import ProjectTools
 import Codegen
+import CodegenTypes
+import Base
 
 import qualified Data.Set as Set
 
@@ -59,16 +61,17 @@ testGuardParser = TestCase $ do
 
 
 testTypeParser = TestCase $ do
-	exprTest " Int " TInt
-	exprTest "String" TString
-	exprTest "(Int, (Int,   Int, (String, Int  )), Int,  String)" $ TTuple [ TInt, TTuple [ TInt, TInt, TTuple [ TString, TInt ]], TInt, TString ]
+	exprTest " Int " TypeInt
+	exprTest "String" TypeString
+	exprTest "(Int, (Int,   Int, (String, Int  )), Int,  String)" $ 
+		TypeTuple [ TypeInt, TypeTuple [ TypeInt, TypeInt, TypeTuple [ TypeString, TypeInt ]], TypeInt, TypeString ]
 	where exprTest str result = 
 		assertEqual str (parseType standardTypes "" str) result
 
 testParametersParser = TestCase $ do
-	test "Int x, String b" [("x", TInt), ("b", TString)]
+	test "Int x, String b" [("x", TypeInt), ("b", TypeString)]
 	test "  " []
-	test "(Int,String) zzz  " [ ("zzz", TTuple [ TInt, TString ]) ]
+	test "(Int,String) zzz  " [ ("zzz", TypeTuple [ TypeInt, TypeString ]) ]
 	where test str result =
 		assertEqual str (parseParameters standardTypes "" str) result
 
