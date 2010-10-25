@@ -45,13 +45,14 @@ intParser = do
 stringParserHelper :: String -> Parser String
 stringParserHelper str = do
  	s <- many (noneOf "\\\"\n\r")
-	do { char '"'; return (str ++ s) } <|> do { 
+	do { char '"'; return (str ++ s) } <|> do {
 		char '\\'; c <- anyChar; stringParserHelper (str ++ "\\" ++ [c])
 	} <?> "quote"
 
 stringParser = do
 	char '"'
 	s <- stringParserHelper ""
+	whiteSpace
 	return (ExprString s)
 
 identifierParser = do
@@ -78,7 +79,7 @@ tupleParser = do
 
 expressionParser :: Parser Expression
 expressionParser = buildExpressionParser optable baseExpr
-optable = [ 
+optable = [
 	[ Infix (opBinary "*") AssocLeft ], 
 	[ Infix (opBinary "+") AssocLeft ], 
 	[ Infix (opBinary "-") AssocLeft ],
@@ -125,14 +126,14 @@ edgePackingParser = do
 	do { x <- (parens expressionParser); return (s, Just x) } <|> return (s, Nothing)
 
 edgeInscriptionParser :: Parser EdgeInscription
-edgeInscriptionParser = 
+edgeInscriptionParser =
 	do { (name, limit) <- edgePackingParser; return (EdgePacking name limit) } <|> (expressionParser >>= (return . EdgeExpression))
 
-guardParser :: Parser Expression 
+guardParser :: Parser Expression
 guardParser = do { eof; return ExprTrue; } <|> expressionParser
 
 strErrorMessage :: ParseError -> String
-strErrorMessage perror = 
+strErrorMessage perror =
 	unlines $ map (\line -> prefix ++ line) $ filter ((/=) "") $ lines message
 	where
 		pos = errorPos perror
@@ -140,32 +141,32 @@ strErrorMessage perror =
 		message = showErrorMessages "or" "unknown parse error" "expecting" "unexpected" "end of input" (errorMessages perror)
 
 parseHelper :: Parser a -> String -> String -> a
-parseHelper parser source str = 
-	case parse parser source str of
+parseHelper parser source str =
+	case parse (do { whiteSpace; x <- parser; eof; return x }) source str of
 		Left x -> error $ strErrorMessage x
 		Right x -> x
 
 parseType :: TypeTable -> String -> String -> Type
 parseType typeNames source "" = error $ source ++ ":1:Type is empty"
-parseType typeNames source str = 
-	let t = parseHelper (whiteSpace >> typeParser typeNames) source str in 
+parseType typeNames source str =
+	let t = parseHelper (typeParser typeNames) source str in
 		if isUndefined t then error $ source ++ ":1:Invalid type" else t
 
 parseExpr :: String -> String -> Expression
 parseExpr source "" = error $ source ++ ":1:Expression is empty"
-parseExpr source str = parseHelper (whiteSpace >> expressionParser) source str
+parseExpr source str = parseHelper expressionParser source str
 
 parseExpr' :: String -> String -> Maybe Expression
 parseExpr' source "" = Nothing
 parseExpr' source x = Just $ parseExpr source x
 
-parseEdgeInscription :: String -> String -> EdgeInscription 
+parseEdgeInscription :: String -> String -> EdgeInscription
 parseEdgeInscription source "" = error $ source ++ ":1:Inscription is empty"
-parseEdgeInscription source str = parseHelper (whiteSpace >> edgeInscriptionParser) source str
+parseEdgeInscription source str = parseHelper edgeInscriptionParser source str
 
 parseGuard :: String -> String -> Expression
-parseGuard = parseHelper (whiteSpace >> guardParser)
+parseGuard = parseHelper guardParser
 
 -- |Parses "Int a, String b" as [("a", TInt), ("b", TString)]
 parseParameters :: TypeTable -> String -> String -> [VarDeclaration]
-parseParameters typeNames source str = parseHelper (whiteSpace >> parametersParser typeNames) source str
+parseParameters typeNames source str = parseHelper (parametersParser typeNames) source str
