@@ -13,14 +13,14 @@
 	size_t s = obj-&gt;str.size();
 	packer.pack_size(s);
 	packer.pack(obj-&gt;str.c_str(), s);
-</code></extern-type></configuration><net id="101"><area count_expr="3" id="102" sx="300" sy="230" x="456" y="41" /><place id="103" init_string="" place_type="MyType" radius="20" x="93" y="44"><code>	MyType m;
+</code></extern-type><build-option name="CC" value="g++" /><build-option name="LIBS" value="" /><build-option name="CFLAGS" value="-O2" /></configuration><net id="101"><area count_expr="3" id="102" sx="300" sy="230" x="456" y="41" /><place id="103" init_string="" place_type="MyType" radius="20" x="93" y="44"><code>	MyType m;
 	m.i = 10;
 	m.j = 20;
-	place-&gt;push_back(m);
+	place-&gt;add(m);
 </code></place><place id="104" init_string="" place_type="MyTypePointer" radius="20" x="250" y="41"><code>	MyType *m = new MyType;
 	m-&gt;i = 107;
 	m-&gt;j = 207;
-	place-&gt;push_back(m);
+	place-&gt;add(m);
 </code></place><place id="105" init_string="" place_type="(MyType, MyTypePointer)" radius="20" x="170" y="208" /><place id="106" init_string="" place_type="(MyType, MyType2Pointer)" radius="20" x="534" y="92" /><transition guard="" id="107" name="" sx="70" sy="35" x="164" y="128" /><transition guard="" id="108" name="" sx="70" sy="35" x="298" y="182"><code>	printf("%i %i\n", var.a.i, var.a.j);
 	printf("%i %i\n", var.b-&gt;i, var.b-&gt;j);	
 	delete var.b;

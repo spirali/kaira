@@ -18,7 +18,7 @@
 </function><function name="bi_lt" parameters="BigInt a, BigInt b" return-type="Bool">	return a &lt; b;
 </function><build-option name="CC" value="g++" /><build-option name="LIBS" value="-lgmp" /><build-option name="CFLAGS" value="-O2 -Wall" /></configuration><net id="101"><area count_expr="5" id="102" sx="136" sy="185" x="284" y="73" /><place id="103" init_string="bi(0)" place_type="BigInt" radius="20" x="109" y="207" /><place id="104" init_string="" place_type="Int" radius="20" x="182" y="208"><code>	int t;
 	for (t = 0; t &lt; 5; t++) {
-		place-&gt;push_back(t);
+		place-&gt;add(t);
 	}
 </code></place><place id="105" init_string="" place_type="BigInt" radius="20" x="339" y="108" /><place id="106" init_string="" place_type="BigInt" radius="20" x="218" y="356" /><transition guard="bi_lt(num, bi(120))" id="107" name="divide" sx="90" sy="35" x="184" y="107" /><transition guard="" id="108" name="compute" sx="70" sy="35" x="337" y="206"><code>	mpz_class t;
 	mpz_class end = var.num + 10;

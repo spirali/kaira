@@ -113,6 +113,24 @@ class CaUnpacker {
 		char *buffer_pos;
 };
 
+template<class T> class CaPlace {
+	public:
+		CaPlace() {}
+
+		void add(T element) { list.push_back(element); }
+		void remove_at(int pos) { list.erase(list.begin() + pos); }
+		void clear() { list.clear(); }
+		size_t size() { return list.size(); }
+		T operator[] (size_t pos) { return list[pos]; }
+		std::vector<T> as_vector() { return list; }
+
+	protected:
+		/* This is naive implementation, it needs benchmarks
+			to choose correct implementation */
+		std::vector<T> list;
+
+};
+
 /* Init functions */
 void ca_start(CaContext *ctx, void *data, TransitionFn **tf, RecvFn *recv_fn);
 void ca_main(int nodes_count, InitFn *init_fn);

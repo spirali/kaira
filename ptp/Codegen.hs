@@ -66,6 +66,7 @@ emitCall scope ('.':name) (obj:params) =
 			TPointer _ -> "->"
 			TRaw _ -> "."
 			TString -> "."
+			TPlace _ -> "."
 			x -> error $ "Invalid type for calling method '" ++ name ++ "' at " ++ show obj ++ "/" ++ show x
 
 emitCall scope "Base.asString" [x] = emitExpression scope $ exprAsString (scopeDeclarations scope) x
@@ -133,6 +134,7 @@ emitInstruction scope (IForeach var counterVar expr body) =
 	where
 		elementType = case exprType (scopeDeclarations scope) expr  of
 						TArray t -> t
+						TPlace t -> t
 						_ -> error "Unsuported type for IForeach"
 		arrayLen = "(" ++ emitExpression scope expr ++ ").size()"
 		setVar = Text (typeString elementType ++ " " ++ var ++ " = " ++ emitExpression scope expr ++ "[" ++ counterVar ++ "];") <+> Eol
@@ -152,7 +154,8 @@ initialScope function = Scope { scopeDeclarations = decls }
 	where decls = declarationsFromVarList $ varFromParam (parameters function) ++ declarations function
 
 typeString :: Type -> String
-typeString (TArray t) = "std::vector<" ++ typeString t ++ ">"
+typeString (TArray t) = "std::vector<" ++ typeString t ++ " >"
+typeString (TPlace t) = "CaPlace<" ++ typeString t ++ " >"
 typeString (TRaw d) = d
 typeString (TPointer t) = typeString t ++ "*"
 typeString (TStruct name _) = name
@@ -166,6 +169,7 @@ typeSafeString :: Type -> String
 typeSafeString TVoid = "void"
 typeSafeString TInt = "int"
 typeSafeString TString = "string"
+typeSafeString (TPlace t) = "place_" ++ typeSafeString t
 typeSafeString TBool = "bool"
 typeSafeString (TTuple ts) = "Tuple" ++ show (length ts) ++ "_" ++ addDelimiter "_" (map typeSafeString ts)
 typeSafeString TUndefined = "<undefined>"
@@ -292,6 +296,7 @@ gatherTypes f =
 
 subTypes :: Type -> TypeSet
 subTypes (TArray t) = subTypes' t
+subTypes (TPlace t) = subTypes' t
 subTypes (TTuple types) = Set.unions $ map subTypes' types
 subTypes (TPointer t) = subTypes' t
 subTypes (TStruct _ decls) = Set.unions $ map (subTypes'.snd) decls
@@ -300,6 +305,7 @@ subTypes _ = Set.empty
 subTypes' :: Type -> TypeSet
 subTypes' tt = Set.union (Set.singleton tt) (case tt of
 	(TArray t) -> subTypes' t
+	(TPlace t) -> subTypes' t
 	(TTuple types) -> Set.unions $ map subTypes' types
 	(TPointer t) -> subTypes' t
 	(TStruct name decls) -> Set.unions $ map (subTypes'.snd) decls

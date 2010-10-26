@@ -61,7 +61,7 @@ patternCheckStatement project decls binded var t expr errEvent =
 		(decl, instructions) = patternCheck project decls binded var t expr errEvent
 
 placesTuple :: Network -> Type
-placesTuple network = TTuple $ map (TArray . fromNelType . placeType) (places network)
+placesTuple network = TTuple $ map (TPlace . fromNelType . placeType) (places network)
 
 processInputExpr :: Project -> (String -> Expression) -> NelExpression -> Expression
 processInputExpr project fn (ExprInt x) = EInt x
@@ -260,15 +260,15 @@ transitionOkEvent project network transition = makeStatement [ ("var", transitio
 		addToPlace edge = case edgeInscription edge of
 			EdgeExpression expr -> addToPlaceOne edge expr
 			EdgePacking name _ -> addToPlaceMany edge name
-		addToPlaceOne edge expr = icall "List.append" [ placeExpr edge, (preprocess expr) ]
+		addToPlaceOne edge expr = icall ".add" [ placeExpr edge, (preprocess expr) ]
 		addToPlaceMany edge name = IForeach "token" "token_c" (EAt (EString name) (EVar "var"))
-			[ icall "List.append" [ placeExpr edge, EVar "token" ]]
+			[ icall ".add" [ placeExpr edge, EVar "token" ]]
 		placeExpr edge = EAt (EInt (placeSeqById network (edgePlaceId edge))) (EVar "places")
 		preprocess e = processInputExpr project (\x -> (EAt (EString x) (EVar "var"))) e
 		packing = concat [ packingEdge e | e <- edgesIn transition, not (isNormalEdge e) ]
 		packingEdge e = let EdgePacking name _ = edgeInscription e in
-			[ ISet (EVar name) (placeExprOfEdge e),
-			  icall "List.clear" [ placeExprOfEdge e ] ]
+			[ ISet (EVar name) (ECall ".as_vector" [ (placeExprOfEdge e) ] ),
+			  icall ".clear" [ placeExprOfEdge e ] ]
 
 
 sortBySendingPriority :: [Edge] -> [Edge]
@@ -416,12 +416,12 @@ recvStatement network place =
 		condition = ECall "==" [ EVar "data_id", EInt (placeId place) ]
 		ifStatement = makeStatement []
 			(unpackCode (EVar "unpacker") (fromNelType (placeType place)) "item" ++
-			[ IExpr (ECall "List.append"
+			[ IExpr (ECall ".add"
 				[ EAt (EInt (placeSeq network place)) (EVar "places"),  (EVar "item") ])])
 
 {- This is not good aproach if there are more vars, but it now works -}
 safeErase :: Expression -> String -> [String] -> Instruction
-safeErase list v [] = icall "List.eraseAt" [ list, EVar v ]
+safeErase list v [] = icall ".remove_at" [ list, EVar v ]
 safeErase list v deps = makeStatement [ ("tmp", TInt) ] $ [ ISet (EVar "tmp") (EVar v) ] ++ erase deps
 	where
 		erase [] = [ safeErase list "tmp" [] ]
@@ -448,7 +448,7 @@ initFunction :: Place -> Function
 initFunction place = Function {
 		functionName = initFunctionName place,
 		parameters = [ ("ctx", caContext, ParamNormal),
-			("place", TPointer $ TArray (fromNelType (placeType place)), ParamNormal)],
+			("place", TPointer $ TPlace (fromNelType (placeType place)), ParamNormal)],
 		declarations = [],
 		instructions = [],
 		extraCode = placeInitCode place,
@@ -489,7 +489,7 @@ startFunction project network = Function {
 		initPlaceFromExpr p =
 			case placeInitExpr p of
 				Nothing -> INoop
-				Just x -> icall "List.append" [ placeVar p, processInputExprConstant project x ]
+				Just x -> icall ".add" [ placeVar p, processInputExprConstant project x ]
 	{-	startCode = \n\t(ctx, &places, tf, (RecvFn*) " ++ recvFunctionName network ++ ");"-}
 
 createNetworkFunctions :: Project -> Network -> [Function]

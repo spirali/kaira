@@ -12,6 +12,7 @@ data Type = TUndefined |
 			TBool |
 			TTuple [Type] |
 			TArray Type |
+			TPlace Type |
 			TRaw String |
 			TPointer Type |
 			TData String String TransportMode [ (String, String) ] | {- name, rawName, transportMode, functions -}
