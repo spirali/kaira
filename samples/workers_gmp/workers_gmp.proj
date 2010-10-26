@@ -11,7 +11,13 @@
 </code><code name="getstring">	return obj.get_str(10);
 </code><code name="pack">	size_t s = (mpz_sizeinbase (obj.get_mpz_t(), 2) + 7) / 8;
 	packer.pack_size(s);
-	mpz_export(packer.peek(), &amp;s, 1, 1, 0, 0, obj.get_mpz_t());	
+	mpz_export(packer.peek(), &amp;s, 1, 1, 0, 0, obj.get_mpz_t());
+	if (s == 0) {
+		/* We have written no data, but mpz_sizeinbase is at least 1,
+		   so we have to get rid of uninitialized data
+		*/
+		memset(packer.peek(), 0, 1);
+	}
 	packer.move(s);
 </code></extern-type><function name="bi" parameters="Int i" return-type="BigInt">	return mpz_class(i);
 </function><function name="bi_add" parameters="BigInt a, BigInt b" return-type="BigInt">	return a + b;
