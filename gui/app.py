@@ -3,6 +3,7 @@ import gtk
 import project
 import os
 import sys
+import subprocess
 import gtkutils
 import paths
 from mainwindow import MainWindow
@@ -142,7 +143,7 @@ class App:
 			dialog.destroy()
 
 	def build_project(self):
-		self._start_project_build(self.project, lambda p: self.console_write("Build OK\n", "success"))
+		self._start_build(self.project, lambda p: self.console_write("Build OK\n", "success"))
 
 	def _catch_io_error(self, fcn, return_on_ok = None, return_on_err = None):
 		try:
@@ -191,9 +192,11 @@ class App:
 			self.switch_to_tab(place)
 			return
 
-		name = "P: " + str(place.get_id())
-		editor = PlaceCodeEditor(place)
-		self.add_tab(name, editor, place)
+		def open_tab(stdout):
+			name = "P: " + str(place.get_id())
+			editor = PlaceCodeEditor(place, stdout[0].strip())
+			self.add_tab(name, editor, place)
+		self._start_ptp(self.project, open_tab, extra_args = [ "--place-type", str(place.get_id())])
 
 	def extern_type_function_edit(self, extern_type, fn_name, callback):
 		tag = (extern_type, fn_name)
@@ -257,7 +260,7 @@ class App:
 					dialog.destroy()
 		else:
 			param_values = {}
-		self._start_project_build(project, project_builded, translation_table = transtable)
+		self._start_build(project, project_builded, translation_table = transtable)
 
 	def add_tab(self, name, w, obj, callback = None):
 		""" Open new tab labeled with "name" with content "w" and register this tab for "obj" """
@@ -287,6 +290,16 @@ class App:
 	def console_write(self, text, tag_name = "normal"):
 		self.window.console.write(text, tag_name)
 
+	def export_project(self, proj = None):
+		if proj is None:
+			proj = self.project
+		try:
+			self.project.export(proj.get_exported_filename())
+		except project.ExportException as e:
+			self.console_write(str(e) + "\n", "error")
+			return False
+		return True
+
 	def _project_changed(self):
 		self.nv.net_changed()
 
@@ -307,35 +320,39 @@ class App:
 		else:
 			p.start([target])
 
-	def _start_project_build(self, proj, build_ok_callback = None, translation_table = None):
+	def _start_build(self, proj, build_ok_callback, translation_table = None):
+		extra_args = [ proj.get_emitted_source_filename() ]
+		self._start_ptp(proj, lambda lines: self._run_makefile(proj, build_ok_callback), translation_table, extra_args = extra_args)
+
+	def _start_ptp(self, proj, build_ok_callback = None, translation_table = None, extra_args = []):
+		stdout = []
 		def on_exit(code):
-			self.project.set_error_messages(error_messages)
 			if build_ok_callback and code == 0:
-				self._run_makefile(proj, build_ok_callback)
+				build_ok_callback(stdout)
 			else:
+				error_messages = {}
+				for line in stdout:
+					if line.startswith("*"):
+						sections = line[1:].split(":",2)
+						item_id, pos = sections[0].split("/")
+						item_id = int(item_id)
+						if translation_table:
+							item_id = translation_table[item_id]
+						d = error_messages.setdefault(item_id, {})
+						lines = d.setdefault(pos, [])
+						lines.append(sections[2].strip())
+					else:
+						self.console_write(line)
+				self.project.set_error_messages(error_messages)
 				self.console_write("Building failed\n", "error")
 		def on_line(line):
-			if line.startswith("*"):
-				sections = line[1:].split(":",2)
-				item_id, pos = sections[0].split("/")
-				item_id = int(item_id)
-				if translation_table:
-					item_id = translation_table[item_id]
-				d = error_messages.setdefault(item_id, {})
-				lines = d.setdefault(pos, [])
-				lines.append(sections[2].strip())
-			else:
-				self.console_write(line)
+			stdout.append(line)
 			return True
-		error_messages = {}
-		try:
-			proj.export(proj.get_exported_filename())
-		except project.ExportException as e:
-			self.console_write(str(e) + "\n", "error")
+		if not self.export_project(proj):
 			return
 		p = process.Process(paths.PTP_BIN, on_line, on_exit)
 		p.cwd = proj.get_directory()
-		p.start([proj.get_exported_filename(), proj.get_emitted_source_filename()])
+		p.start([proj.get_exported_filename()] + extra_args)
 
 	def _directory_choose_dialog(self, title):
 		dialog = gtk.FileChooserDialog(title, self.window, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,

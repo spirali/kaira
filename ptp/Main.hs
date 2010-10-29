@@ -26,17 +26,17 @@ oneLineAnswer fileIn fn = do
 	printHandle $ putStr $ fn project ++ "\n"
 
 parseArgs :: [String] -> IO ()
-parseArgs (param:args) | "--" `List.isPrefixOf` param =
+parseArgs (fin:param:args) | "--" `List.isPrefixOf` param =
 	case param:args of
-		[ "--type", fin, str ] -> oneLineAnswer fin (typePrint str)
-		[ "--place", fin, str ] -> oneLineAnswer fin (placePrint str)
-		_ -> putStr $ "Invalid parameter " ++ param
+		[ "--type", str ] -> oneLineAnswer fin (typePrint str)
+		[ "--place-type", str ] -> oneLineAnswer fin (placeTypePrint str)
+		_ -> putStr $ "Invalid parameter " ++ param ++ "\n"
 	where
 		typePrint str project = (typeString . fromNelType) (parseType (typeTable project) "<cmd>" str)
-		placePrint str project = (typeString . TPlace . fromNelType) (parseType (typeTable project) "<cmd>" str)
+		placeTypePrint str project = (typeString . TPlace . fromNelType) (placeTypeById' project (read str))
 
 parseArgs [fin, fout] = printHandle $ buildProgram fin fout
-parseArgs _ = putStr "Usage: ptp <project_file> <output_file>\n"
+parseArgs _ = putStr "Usage: ptp <project_file> [options]\n" >> System.exitWith (ExitFailure 1)
 
 printHandle =
 	E.handle catchFn
