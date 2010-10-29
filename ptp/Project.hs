@@ -6,6 +6,7 @@ module Project (
 	placeType,
 	placeTypeById,
 	placeTypeById',
+	transitionById,
 	placeTypeByEdge,
 	edgeNetwork,
 	edgePlaceType,

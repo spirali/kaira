@@ -180,12 +180,14 @@ class App:
 			self.switch_to_tab(transition)
 			return
 
-		if transition.get_name() != "":
-			name = "T:" + transition.get_name()
-		else:
-			name = "T: <unnamed" + str(transition.get_id()) + ">"
-		editor = TransitionCodeEditor(transition)
-		self.add_tab(name, editor, transition)
+		def open_tab(stdout):
+			if transition.get_name() != "":
+				name = "T:" + transition.get_name()
+			else:
+				name = "T: <unnamed" + str(transition.get_id()) + ">"
+			editor = TransitionCodeEditor(transition, [ line for line in stdout if line.strip() != "" ])
+			self.add_tab(name, editor, transition)
+		self._start_ptp(self.project, open_tab, extra_args = [ "--transition-vars", str(transition.get_id()) ])
 
 	def place_edit(self, place):
 		if place in self.tabtable:
@@ -327,10 +329,11 @@ class App:
 	def _start_ptp(self, proj, build_ok_callback = None, translation_table = None, extra_args = []):
 		stdout = []
 		def on_exit(code):
+			error_messages = {}
 			if build_ok_callback and code == 0:
+				self.project.set_error_messages(error_messages)
 				build_ok_callback(stdout)
 			else:
-				error_messages = {}
 				for line in stdout:
 					if line.startswith("*"):
 						sections = line[1:].split(":",2)

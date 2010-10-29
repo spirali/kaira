@@ -1,5 +1,6 @@
 module Builder (
-	createProgram
+	createProgram,
+	transitionVarType
 ) where
 
 import Declarations

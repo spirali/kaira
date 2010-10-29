@@ -338,5 +338,3 @@ exprAsString decls x =
 				++ concat [ [EString ",", ECall "Base.asString"
 					[ EAt (EInt i) x ]] | i <- [1..length types-1]] ++ [ EString ")" ]
 		x -> error $ "exprAsString: " ++ show x
-
-

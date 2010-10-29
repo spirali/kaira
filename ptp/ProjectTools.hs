@@ -33,26 +33,26 @@ edgesFreeVariables project edges =
 	where
 		declsMap = unionsVariableTypes $ concatMap (extractEdgeVariables project) edges
 
+lookupBy :: (Eq b) => String -> (a -> b) -> b -> [a] -> a
+lookupBy errString fn id [] = error errString
+lookupBy errString fn id (x:xs)
+	| fn x == id = x
+	| otherwise = lookupBy errString fn id xs
+
 placeById :: Network -> ID -> Place
 placeById network id =
-	lookup (places network) id
-	where
-		lookup [] id = error $ "placeById: Place " ++ show id ++ " not found. Places: " ++ show (places network)
-		lookup (x:xs) id
-			| placeId x == id = x
-			| otherwise = lookup xs id
+	lookupBy ("placeById: Place " ++ show id) placeId id (places network)
 
 placeById' :: Project -> ID -> Place
 placeById' project id =
-	lookup (concatMap places (networks project)) id
-	where
-		lookup [] id = error $ "placeById': Place " ++ show id ++ " not found."
-		lookup (x:xs) id
-			| placeId x == id = x
-			| otherwise = lookup xs id
+	lookupBy ("placeById': Place " ++ show id) placeId id (concatMap places (networks project))
 
 placeSeqById :: Network -> ID -> Int
 placeSeqById network id =  placeSeq network $ placeById network id
+
+transitionById :: Project -> ID -> Transition
+transitionById project id =
+	lookupBy "TransitionById: Not found" transitionId id (concatMap transitions (networks project))
 
 placeSeq :: Network -> Place -> Int
 placeSeq network place =

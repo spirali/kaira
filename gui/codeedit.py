@@ -6,7 +6,7 @@ import os
 
 class CodeEditor(gtk.VBox):
 	
-	def __init__(self, start_string, middle_string, end_string, start_pos):
+	def __init__(self, start_string, middle_string, end_string, start_pos, head_paragraph = None):
 		gtk.VBox.__init__(self)
 
 		toolbar = self._toolbar()
@@ -17,13 +17,13 @@ class CodeEditor(gtk.VBox):
 		self.pack_start(sw)
 		sw.set_shadow_type(gtk.SHADOW_IN)
 
-		buffer = self._create_buffer(start_string, middle_string, end_string, start_pos)
+		buffer = self._create_buffer(start_string, middle_string, end_string, start_pos, head_paragraph)
 		view = self._create_view(buffer)
 		sw.add(view)
 
 		self.show_all()
 	
-	def _create_buffer(self, start_string, middle_string, end_string, start_pos):
+	def _create_buffer(self, start_string, middle_string, end_string, start_pos, head_paragraph):
 		manager = gtksourceview.LanguageManager()
 		lan = manager.get_language("cpp")
 		buffer = gtksourceview.Buffer()
@@ -33,6 +33,11 @@ class CodeEditor(gtk.VBox):
 		buffer.create_tag("normal")
 
 		buffer.begin_not_undoable_action()
+
+		if head_paragraph:
+			buffer.create_tag("fixed-paragraph", editable=False, paragraph_background="lightgray")
+			buffer.insert_with_tags_by_name(buffer.get_end_iter(), head_paragraph, "fixed-paragraph")
+
 		buffer.insert_with_tags_by_name(buffer.get_end_iter(), start_string, "fixed")
 		buffer.create_mark("start", buffer.get_end_iter(), True)
 		buffer.insert_with_tags_by_name(buffer.get_end_iter(), middle_string, "normal")
@@ -99,13 +104,15 @@ class CodeFileEditor(CodeEditor):
 
 class TransitionCodeEditor(CodeEditor):
 	
-	def __init__(self, transition):
+	def __init__(self, transition, variables):
 		self.transition = transition
 		if transition.get_code() == "":
 			code = "\t\n"
 		else:
 			code = transition.get_code()
-		CodeEditor.__init__(self, "void transition_function(CaContext *ctx, VARS & var)\n{\n", code, "}\n", (2,1))
+		head = "struct Vars {\n" + "".join(["\t" + v.strip() + ";\n" for v in variables ]) + "};\n\n"
+		line = 5 + len(variables)
+		CodeEditor.__init__(self, "void transition_function(CaContext *ctx, Vars & var)\n{\n", code, "}\n", (line,1), head)
 
 
 	def buffer_changed(self, buffer):
