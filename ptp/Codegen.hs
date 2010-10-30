@@ -19,27 +19,16 @@ data Scope = Scope {
 	scopeDeclarations :: Declarations
 } deriving (Show)
 
-data SourceCode = Text String | Join SourceCode SourceCode | Block SourceCode | Eol | Empty
+data SourceCode = Text String
+	| Join SourceCode SourceCode
+	| Block SourceCode
+	| Eol
+	| LineDirective (Maybe (String, Int)) -- Nothing means "return to original source file"
+	| Empty
 
 stdFunctions = [
 	("+", TInt, [TInt, TInt]),
 	("*", TInt, [TInt, TInt])]
-
-sourceCodeToStr :: SourceCode -> String
-sourceCodeToStr code =
-	toStr code 0 True
-	where
-		toStr Empty _ _ = ""
-		toStr (Join a b) n i = toStr a n i ++ toStr b n (endWithEol a)
-		toStr (Text s) n True = indentStr n ++ s
-		toStr (Text s) _ False = s
-		toStr (Block c) n i = "\n" ++ toStr c (n + 1) True ++ if endWithEol c then "" else "\n"
-		toStr Eol n i = "\n"
-
-		endWithEol Eol = True
-		endWithEol (Block _) = True
-		endWithEol (Join a b) = endWithEol b
-		endWithEol _ = False
 
 (<+>) :: SourceCode -> SourceCode -> SourceCode
 a <+> Empty = a
@@ -199,17 +188,20 @@ declareParam ((name,t, ptype):vs)
 	| t == TString || ptype == ParamConst = ("const " ++ typeString t ++ " & " ++ name) : declareParam vs
 	| otherwise = (typeString t ++ " & " ++ name) : declareParam vs
 
-emitFunction :: Function -> String
+emitFunction :: Function -> SourceCode
 emitFunction function =
-	typeString (returnType function) ++ " " ++ functionName function ++ "(" ++ paramString ++ ")\n" ++ body
+	prefix <+> Text functionDeclaration <+> Eol <+> body <+> suffix
 	where
+		functionDeclaration = typeString (returnType function) ++ " " ++ functionName function ++ "(" ++ paramString ++ ")"
 		decls = makeDeclarations (statementVarList (declarations function) (instructions function)) stdFunctions
-		body = sourceCodeToStr(emitInstruction scope (addConstructors decls statement))
+		body = emitInstruction scope (addConstructors decls statement)
 		scope = initialScope function
 		paramString = addDelimiter "," $ declareParam (parameters function)
 		statement = makeStatement (declarations function) (instructions function ++ extraInstructions)
-		extraInstructions =
-			case extraCode function of
+		(prefix, suffix) = case functionSource function of
+				Just x -> (LineDirective (Just x), LineDirective Nothing)
+				Nothing -> (Empty, Empty)
+		extraInstructions = case extraCode function of
 				"" -> [INoop]
 				x -> [IInline x]
 
@@ -224,15 +216,15 @@ orderTypeByDepedancy types =
 	where
 		orderFn ordered t = Set.empty == Set.difference (subTypes t) (Set.fromList ordered)
 
-emitProgram :: String -> [VarDeclaration] -> [Function] -> String
-emitProgram prologue globals functions =
-	prologue ++ typeDeclarations ++ "\n\n" ++ emitGlobals globals ++ "\n\n" ++ concatMap emitFunction (extraFunctions ++ functions)
+emitProgram :: String -> String -> [VarDeclaration] -> [Function] -> String
+emitProgram fileName prologue globals functions =
+	sourceCodeToStr fileName $
+	Text prologue <+> typeDeclarations <+> Text (emitGlobals globals) <+> Eol <+> joinMap emitFunction functions
 	where
-		typeDeclarations = concatMap emitTypeDeclaration orderedTypes
+		typeDeclarations = Text $ concatMap emitTypeDeclaration orderedTypes
 		allTypes = Set.fold (\t s -> Set.union s $ subTypes' t) Set.empty (Set.unions (map gatherTypes functions))
 		allDefinedTypes = Set.filter isDefined allTypes
 		orderedTypes = orderTypeByDepedancy allDefinedTypes
-		extraFunctions = [] {- map printFunction orderedTypes -}
 
 emitTypeDeclaration :: Type -> String
 emitTypeDeclaration (TTuple types) =
@@ -338,3 +330,35 @@ exprAsString decls x =
 				++ concat [ [EString ",", ECall "Base.asString"
 					[ EAt (EInt i) x ]] | i <- [1..length types-1]] ++ [ EString ")" ]
 		x -> error $ "exprAsString: " ++ show x
+
+sourceCodeToStr :: String -> SourceCode -> String
+sourceCodeToStr originalFilename code =
+	let (str, l) = toStr code 0 True 1 in str
+	where
+		toStr :: SourceCode -> Int -> Bool -> Int -> (String, Int)
+		toStr (Join a b) n i lineno =
+			let (str1, l1) = toStr a n i lineno in
+			let	(str2, l2) = toStr b n (endWithEol a) l1 in
+					(str1 ++ str2, l2)
+		toStr (Text s) n True lineno = (indentStr n ++ s, lineno + countOfEols s)
+		toStr (Text s) _ False lineno = (s, lineno + countOfEols s)
+		toStr (Block c) n i lineno = let (str, l) = toStr c (n + 1) True (lineno + 1) in
+			("\n" ++ str ++ end, l + lineno')
+			where (end, lineno') = if endWithEol c then ("",0) else ("\n", 1)
+		toStr Eol _ _ lineno = ("\n", lineno + 1)
+		toStr (LineDirective (Just (file, lnum))) _ _ lineno =
+			("#line " ++ show lnum ++ " \"" ++ file ++ "\"\n", lineno + 1)
+		toStr (LineDirective Nothing) _ _ lineno =
+			("#line " ++ show (lineno + 1) ++ " \"" ++ originalFilename ++ "\"\n", lineno + 1)
+		toStr Empty _ _ lineno = ("",lineno)
+
+		endWithEol Eol = True
+		endWithEol (Text str) = "\n" `List.isSuffixOf` str
+		endWithEol (Block _) = True
+		endWithEol (LineDirective _) = True
+		endWithEol (Join a b) = endWithEol b
+		endWithEol _ = False
+
+		countOfEols [] = 0
+		countOfEols ('\n':xs) = 1 + countOfEols xs
+		countOfEols (_:xs) = countOfEols xs

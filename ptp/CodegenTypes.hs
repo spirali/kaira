@@ -63,6 +63,7 @@ data Function = Function {
 	parameters :: [ParamDeclaration],
 	declarations :: [VarDeclaration],
 	extraCode :: String,
-	returnType :: Type
+	returnType :: Type,
+	functionSource :: Maybe (String, Int)
 } deriving (Show)
 

@@ -8,6 +8,7 @@ import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.List as List
 import qualified Data.Maybe as Maybe
+import qualified System.FilePath as FilePath
 import Parser
 import Project
 import ProjectTools
@@ -182,7 +183,8 @@ reportFunction project network = Function {
 	declarations = [],
 	instructions = header ++ concat (countedMap reportPlace (places network)) ++ concatMap reportTransition (transitions network),
 	extraCode = "",
-	returnType = TVoid
+	returnType = TVoid,
+	functionSource = Nothing
 	}
 	where
 		header = [
@@ -218,7 +220,8 @@ transitionFunction project network transition = Function {
 		declarations = decls,
 		instructions = [instructions, IReturn (EInt 0)],
 		extraCode = "",
-		returnType = TInt
+		returnType = TInt,
+		functionSource = Nothing
 	}
 	where
 		decls = fromNelVarDeclarations $ transitionFreeVariablesIn project transition
@@ -235,7 +238,8 @@ transitionEnableTestFunction project network transition = Function {
 	declarations = decls,
 	instructions = [ instructions, IReturn (EInt 0) ],
 	extraCode = "",
-	returnType = TInt
+	returnType = TInt,
+	functionSource = Nothing
 	}
 	where
 		decls = fromNelVarDeclarations $ transitionFreeVariablesIn project transition
@@ -407,7 +411,8 @@ recvFunction project network = Function {
 	extraCode = [],
 	returnType = TVoid,
 	instructions = [ makeStatement' [] [ ("unpacker", TRaw "CaUnpacker", (ECall "CaUnpacker" [ EVar "data" ])) ]
-		[ recvStatement network place | place <- (places network), isTransportable (placeType place) ]]
+		[ recvStatement network place | place <- (places network), isTransportable (placeType place) ]],
+	functionSource = Nothing
 }
 
 recvStatement :: Network -> Place -> Instruction
@@ -439,7 +444,8 @@ workerFunction project transition = Function {
 	declarations = [],
 	instructions = [],
 	extraCode = transitionCode transition,
-	returnType = TVoid
+	returnType = TVoid,
+	functionSource = Just ("*" ++ show (transitionId transition) ++ "/function", 1)
 }
 
 initFunctionName :: Place -> String
@@ -453,7 +459,8 @@ initFunction place = Function {
 		declarations = [],
 		instructions = [],
 		extraCode = placeInitCode place,
-		returnType = TVoid
+		returnType = TVoid,
+		functionSource = Nothing
 	}
 
 placesWithInit :: Network -> [Place]
@@ -469,7 +476,8 @@ startFunction project network = Function {
 	declarations = [ ("places", TPointer $ placesTuple network) ],
 	instructions = [ allocPlaces, initCtx ] ++ registerTransitions ++ eventNodeInit ++ initPlaces,
 	extraCode = "",
-	returnType = TVoid
+	returnType = TVoid,
+	functionSource = Nothing
 	} where
 	{-	allocPlaces = ISet (ExprVar "places") $ ExprCall "new" [ ExprCall (typeString (TPointer $ placesTuple network))  [] ]-}
 		allocPlaces = IInline $ "places = new " ++ (typeSafeString (placesTuple network)) ++ "();"
@@ -513,7 +521,8 @@ createMainFunction project = Function {
 	declarations = [ ("nodes", TInt) ],
 	instructions = parseArgs ++ [ i1, i2 ],
 	extraCode = [],
-	returnType = TInt
+	returnType = TInt,
+	functionSource = Nothing
 } where
 	i1 = ISet (EVar "nodes") (instancesCount project)
 	i2 = IInline "ca_main(nodes, main_init);"
@@ -538,7 +547,8 @@ createMainInitFunction project = Function {
 	declarations = [],
 	instructions = startNetworks,
 	extraCode = [],
-	returnType = TVoid
+	returnType = TVoid,
+	functionSource = Nothing
 	}
 	where
 		node = ECall ".node" [ EVar "ctx" ]
@@ -556,7 +566,8 @@ functionWithCode name returnType params code = Function {
 	declarations = [],
 	instructions = [],
 	extraCode = code,
-	returnType = returnType
+	returnType = returnType,
+	functionSource = Nothing
 }
 knownTypeFunctions :: [(String, String -> (Type, [ParamDeclaration]))]
 knownTypeFunctions = [
@@ -593,7 +604,8 @@ parameterAccessFunction parameter = Function {
 	declarations = [],
 	instructions = [ (IReturn . EVar . parameterGlobalName . parameterName) parameter ],
 	extraCode = "",
-	returnType = fromNelType $ parameterType parameter
+	returnType = fromNelType $ parameterType parameter,
+	functionSource = Nothing
 }
 
 createUserFunction :: UserFunction -> Function
@@ -603,9 +615,9 @@ createUserFunction ufunction =
 		(paramFromVar ParamConst (fromNelVarDeclarations (ufunctionParameters ufunction)))
 		(ufunctionCode ufunction)
 
-createProgram :: Project -> String
-createProgram project =
-	emitProgram prologue globals $ typeF ++ paramF ++ eventsF ++ userF ++ netF ++ [mainInitF, mainF]
+createProgram :: String -> Project -> String
+createProgram filename project =
+	emitProgram (FilePath.takeFileName filename) prologue globals $ typeF ++ paramF ++ eventsF ++ userF ++ netF ++ [mainInitF, mainF]
 	where
 		globals = [ (parameterGlobalName $ parameterName p, fromNelType $ parameterType p) | p <- projectParameters project ]
 		typeF = concatMap typeFunctions (map fromNelType $ Map.elems (typeTable project))
@@ -616,6 +628,3 @@ createProgram project =
 		mainF = createMainFunction project
 		paramF = map parameterAccessFunction (projectParameters project)
 		prologue = "#include <stdio.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n#include \"head.cpp\"\n\n"
-
-test = readFile "../out/project.xml" >>= return . createProgram . projectFromXml >>= writeFile "../out/project.cpp"
-test2 = readFile "../out/project.xml" >>= return . projectFromXml

@@ -16,7 +16,7 @@ import qualified Data.List as List
 
 buildProgram :: String -> String -> IO ()
 buildProgram fileIn fileOut =
-	readFile fileIn >>= return . createProgram . projectFromXml >>= writeFile fileOut
+	readFile fileIn >>= return . (createProgram fileOut) . projectFromXml >>= writeFile fileOut
 
 loadProject :: String -> IO Project
 loadProject fileIn = readFile fileIn >>= return . projectFromXml
