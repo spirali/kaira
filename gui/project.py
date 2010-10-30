@@ -88,6 +88,9 @@ class Project(EventSource):
 		self.error_messages = messages
 		self.changed()
 
+	def get_item(self, id):
+		return self.net.get_item(id)
+
 	def has_error_messages(self, item):
 		return item.get_id() in self.error_messages
 

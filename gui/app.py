@@ -46,6 +46,7 @@ class App:
 		self.project.set_callback("filename_changed", self._project_filename_changed)
 		self.project.write_project_files()
 		self.init_tabs()
+		self.window.console.reset()
 		self._project_changed()
 		self._project_filename_changed()
 		self.window.project_is_active(True)
@@ -292,6 +293,9 @@ class App:
 	def console_write(self, text, tag_name = "normal"):
 		self.window.console.write(text, tag_name)
 
+	def console_write_link(self, text, callback):
+		self.window.console.write_link(text, callback)
+
 	def export_project(self, proj = None):
 		if proj is None:
 			proj = self.project
@@ -308,12 +312,12 @@ class App:
 	def _project_filename_changed(self):
 		self.window.set_title("Kaira (" + self.project.get_name() + ")")
 
-	def _run_makefile(self, project, build_ok_callback = None, target = None):
+	def _run_makefile(self, project, translation_table, build_ok_callback = None, target = None):
 		def on_exit(code):
 			if build_ok_callback and code == 0:
 				build_ok_callback(project)
 		def on_line(line):
-			self.console_write(line)
+			self._process_error_line(line, None, translation_table)
 			return True
 		p = process.Process("make",on_line, on_exit)
 		p.cwd = project.get_directory()
@@ -324,7 +328,8 @@ class App:
 
 	def _start_build(self, proj, build_ok_callback, translation_table = None):
 		extra_args = [ proj.get_emitted_source_filename() ]
-		self._start_ptp(proj, lambda lines: self._run_makefile(proj, build_ok_callback), translation_table, extra_args = extra_args)
+		self._start_ptp(proj, lambda lines: self._run_makefile(proj, translation_table, build_ok_callback), 
+			translation_table, extra_args = extra_args)
 
 	def _start_ptp(self, proj, build_ok_callback = None, translation_table = None, extra_args = []):
 		stdout = []
@@ -335,17 +340,7 @@ class App:
 				build_ok_callback(stdout)
 			else:
 				for line in stdout:
-					if line.startswith("*"):
-						sections = line[1:].split(":",2)
-						item_id, pos = sections[0].split("/")
-						item_id = int(item_id)
-						if translation_table:
-							item_id = translation_table[item_id]
-						d = error_messages.setdefault(item_id, {})
-						lines = d.setdefault(pos, [])
-						lines.append(sections[2].strip())
-					else:
-						self.console_write(line)
+					self._process_error_line(line, error_messages, translation_table)
 				self.project.set_error_messages(error_messages)
 				self.console_write("Building failed\n", "error")
 		def on_line(line):
@@ -356,6 +351,32 @@ class App:
 		p = process.Process(paths.PTP_BIN, on_line, on_exit)
 		p.cwd = proj.get_directory()
 		p.start([proj.get_exported_filename()] + extra_args)
+
+	def _try_make_error_with_link(self, item_id, pos, message):
+		item = self.project.get_item(item_id)
+		if pos == "function" and item.is_transition():
+			self.console_write_link(str(item_id) + "/" + pos, lambda: self.transition_edit(item))
+			self.console_write(":" + message)
+			return True
+		return False
+
+	def _process_error_line(self, line, error_messages, translation_table):
+		if line.startswith("*"):
+			sections = line[1:].split(":",1)
+			item_id, pos = sections[0].split("/")
+			item_id = int(item_id)
+			if translation_table:
+				item_id = translation_table[item_id]
+			if self._try_make_error_with_link(item_id, pos, sections[1]):
+				return
+			if error_messages is None:
+				self.console_write(line)
+			else:
+				d = error_messages.setdefault(item_id, {})
+				lines = d.setdefault(pos, [])
+				lines.append(sections[1].strip())
+		else:
+			self.console_write(line)
 
 	def _directory_choose_dialog(self, title):
 		dialog = gtk.FileChooserDialog(title, self.window, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
