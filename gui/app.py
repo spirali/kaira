@@ -358,6 +358,10 @@ class App:
 			self.console_write_link(str(item_id) + "/" + pos, lambda: self.transition_edit(item))
 			self.console_write(":" + message)
 			return True
+		if pos == "init_function" and item.is_place():
+			self.console_write_link(str(item_id) + "/" + pos, lambda: self.place_edit(item))
+			self.console_write(":" + message)
+			return True
 		return False
 
 	def _process_error_line(self, line, error_messages, translation_table):

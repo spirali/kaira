@@ -460,7 +460,7 @@ initFunction place = Function {
 		instructions = [],
 		extraCode = placeInitCode place,
 		returnType = TVoid,
-		functionSource = Nothing
+		functionSource = Just ("*" ++ show (placeId place) ++ "/init_function", 1)
 	}
 
 placesWithInit :: Network -> [Place]
