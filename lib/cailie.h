@@ -139,7 +139,7 @@ void ca_main(int nodes_count, InitFn *init_fn);
 void ca_send(CaContext *ctx, int node, int data_id, CaPacker &packer);
 
 /* Others */
-void ca_parse_args(int argc, char **argv, int params_count, const char **param_names, int **param_data, const char **param_descs);
+void ca_parse_args(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs);
 
 /* Helper utils */
 std::string ca_int_to_string(int i);

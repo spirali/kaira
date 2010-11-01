@@ -7,11 +7,21 @@
 #include <getopt.h>
 #include <assert.h>
 #include "cailie.h"
-#include "cailie_threads.h"
-#include "cailie_sim.h"
 #include "cailie_internal.h"
 
+#ifndef CA_MPI
+
+#include "cailie_threads.h"
+#include "cailie_sim.h"
 static std::string module_name = "threads";
+
+#else
+
+#include <mpi.h>
+#include "cailie_mpi.h"
+static std::string module_name = "mpi";
+
+#endif // CA_MPI
 
 CaContext::CaContext(int node, CaModule *module) 
 {
@@ -97,12 +107,18 @@ void CaModule::start_sheduler(CaContext *ctx) {
 
 void ca_main(int nodes_count, InitFn *init_fn) {
 	CaModule *m = NULL;
+	#ifdef CA_MPI
+	if (module_name == "mpi") {
+		m = new CaMpiModule();
+	}
+	#else // CA_MPI
 	if (module_name == "threads") {
 		m = new CaThreadsModule();
 	}
 	if (module_name == "sim") {
 		m = new CaSimModule();
 	}
+	#endif
 	if (m == NULL) {
 		fprintf(stderr, "Unknown module '%s'\n", module_name.c_str());
 		exit(-1);
@@ -134,9 +150,10 @@ static int ca_set_argument(int params_count, const char **param_names, int **par
 	exit(1);
 }
 
-void ca_parse_args(int argc, char **argv, int params_count, const char **param_names, int **param_data, const char **param_descs)
+void ca_parse_args(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs)
 {
-	int t, c;
+	size_t t;
+	int c;
 	struct option longopts[] = {
 		{ "help",	0,	NULL, 'h' },
 		{ NULL,		0,	NULL,  0}
@@ -147,13 +164,17 @@ void ca_parse_args(int argc, char **argv, int params_count, const char **param_n
 		setted[t] = false;
 	}
 
+	#ifdef CA_MPI
+	MPI_Init(&argc, &argv);
+	#endif
+
 	while ((c = getopt_long (argc, argv, "hp:m:", longopts, NULL)) != -1)
 		switch (c) {
 			case 'm': {
 				module_name = optarg;
 			} break;
 			case 'h': {
-				int max_len = 0;
+				size_t max_len = 0;
 				for (t = 0; t < params_count; t++) {
 					if (max_len > strlen(param_names[t])) {
 						max_len = strlen(param_names[t]);
@@ -162,7 +183,7 @@ void ca_parse_args(int argc, char **argv, int params_count, const char **param_n
 				for (t=0; t < params_count; t++) {
 					printf("Parameters:\n");
 					printf("%s", param_names[t]);
-					for (int s = strlen(param_names[t]); s < max_len; s++) { printf(" "); }
+					for (size_t s = strlen(param_names[t]); s < max_len; s++) { printf(" "); }
 					printf(" - %s\n", param_descs[t]);
 				}
 				exit(0);

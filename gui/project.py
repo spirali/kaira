@@ -225,10 +225,16 @@ class Project(EventSource):
 		makefile.set("LIBDIR", "-L" + paths.CAILIE_DIR)
 		makefile.set("LIBS", "-lcailie -lpthread " + self.get_build_option("LIBS"))
 		makefile.set("INCLUDE", "-I" + paths.CAILIE_DIR)
+		makefile.set("MPICC", "mpicc")
 
 		makefile.rule("all", [self.get_name()])
 		deps = [ self.get_name() + ".o" ]
 		makefile.rule(self.get_name(), deps, "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
+
+		makefile.rule("mpi", [self.get_name() + "_mpi"])
+		makefile.rule(self.get_name() + "_mpi", deps, "$(MPICC) -cc=${CC} " + " ".join(deps)
+			+ " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) -lmpicailie" )
+
 		makefile.rule(".cpp.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
 		makefile.rule("clean", [], "rm -f *.o " + self.get_name() + " ")
 		makefile.write_to_file(os.path.join(self.get_directory(), "makefile"))
