@@ -300,7 +300,7 @@ class App:
 		if proj is None:
 			proj = self.project
 		try:
-			self.project.export(proj.get_exported_filename())
+			proj.export(proj.get_exported_filename())
 		except project.ExportException as e:
 			self.console_write(str(e) + "\n", "error")
 			return False
