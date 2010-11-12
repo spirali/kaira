@@ -4,7 +4,8 @@ module Parser (
 	parseExpr',
 	parseEdgeInscription,
 	parseGuard,
-	parseParameters
+	parseParameters,
+	parseInitExpr
 ) where
 
 import Text.ParserCombinators.Parsec
@@ -37,6 +38,7 @@ reservedOp = Token.reservedOp lexer
 integer = do { i <- Token.integer lexer; return (fromInteger i) }
 whiteSpace = Token.whiteSpace lexer
 comma = Token.comma lexer
+semi = Token.semi lexer
 
 intParser = do
 	i <- integer
@@ -132,6 +134,9 @@ edgeInscriptionParser =
 guardParser :: Parser NelExpression
 guardParser = do { eof; return ExprTrue; } <|> expressionParser
 
+initExprParser :: Parser [NelExpression]
+initExprParser = sepEndBy expressionParser semi
+
 strErrorMessage :: ParseError -> String
 strErrorMessage perror =
 	unlines $ map (\line -> prefix ++ line) $ filter ((/=) "") $ lines message
@@ -165,6 +170,9 @@ parseEdgeInscription source str = parseHelper edgeInscriptionParser source str
 
 parseGuard :: String -> String -> NelExpression
 parseGuard = parseHelper guardParser
+
+parseInitExpr :: String -> String -> [NelExpression]
+parseInitExpr = parseHelper initExprParser
 
 -- |Parses "Int a, String b" as [("a", TInt), ("b", TString)]
 parseParameters :: TypeTable -> String -> String -> [NelVarDeclaration]

@@ -487,8 +487,8 @@ startFunction project network = Function {
 			(processedInstances project network), EVar "(void*) places",
 			{- This is ugly hack -} EVar ("(RecvFn*)" ++ (recvFunctionName network)),  EVar ("(ReportFn*)" ++ reportFunctionName network) ]
 		ps p = placeSeq network p
-		initPlaces = (map initPlaceFromExpr (places network)) ++ (map callInitPlace (placesWithInit network))
-		initPlace p = [	initPlaceFromExpr p, callInitPlace p ]
+		initPlaces = (concatMap initPlaceFromExpr (places network)) ++ (map callInitPlace (placesWithInit network))
+		initPlace p = initPlaceFromExpr p ++ [ callInitPlace p ]
 		registerTransitions = [ icall "._register_transition" [
 			EVar "ctx", EInt (transitionId t), EVar ("(TransitionFn*)" ++ transitionFunctionName t) ] | t <- transitions network ]
 		placeVar p = EAt (EInt (ps p)) (EVar "places")
@@ -496,9 +496,7 @@ startFunction project network = Function {
 			 icall (initFunctionName p) [ EVar "ctx", EAddr (placeVar p) ]
 		eventNodeInit = if hasEvent project "node_init" then [ icall "node_init" [ EVar "ctx" ] ] else []
 		initPlaceFromExpr p =
-			case placeInitExpr p of
-				Nothing -> INoop
-				Just x -> icall ".add" [ placeVar p, processInputExprConstant project x ]
+			map (\x -> icall ".add" [ placeVar p, processInputExprConstant project x ]) $ placeInitExprs p
 	{-	startCode = \n\t(ctx, &places, tf, (RecvFn*) " ++ recvFunctionName network ++ ");"-}
 
 createNetworkFunctions :: Project -> Network -> [Function]

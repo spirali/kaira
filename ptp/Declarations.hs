@@ -34,7 +34,7 @@ data Place = Place {
 	placeName :: String,
 	placeType :: NelType,
 	placeInitCode :: String,
-	placeInitExpr :: Maybe NelExpression
+	placeInitExprs :: [NelExpression]
 } deriving (Show)
 
 instance Eq Place where p1 == p2 = placeId p1 == placeId p2

@@ -14,7 +14,7 @@ testExprParser = TestCase $ do
 	exprTest "  (2,  4,   4)   " (ExprTuple [ ExprInt 2, ExprInt 4, ExprInt 4])
 	exprTest "  10  " (ExprInt 10)
 	exprTest "  #aa  " (ExprParam "aa")
-	exprTest "(x,20,(30, y ) ) " 
+	exprTest "(x,20,(30, y ) ) "
 		(ExprTuple [ ExprVar "x", ExprInt 20, ExprTuple [ ExprInt 30, ExprVar "y" ]])
 	exprTest  " ( )" (ExprTuple [])
 	exprTest "x+y" (ExprCall "+" [ ExprVar "x", ExprVar "y"])
@@ -22,12 +22,13 @@ testExprParser = TestCase $ do
 	exprTest "  x  +  10  " (ExprCall "+" [ ExprVar "x", ExprInt 10])
 	exprTest " (  x  + /* comment */ 10 )  " (ExprCall "+" [ ExprVar "x", ExprInt 10])
 	exprTest " (  x  +  (2,2) )  " (ExprCall "+" [ ExprVar "x", ExprTuple [ExprInt 2, ExprInt 2]])
-	exprTest "a(b(c(), ()) + (133))" 
+	exprTest "a(b(c(), ()) + (133))"
 		(ExprCall "a" [ExprCall "+" [ExprCall "b" [ ExprCall "c" [], ExprTuple []], ExprInt 133]])
 	exprTest "2 + 3 * 5" (ExprCall "+" [ ExprInt 2, ExprCall "*" [ ExprInt 3, ExprInt 5]])
 	exprTest "bi_add(num, bi(10))" (ExprCall "bi_add" [ ExprVar "num", ExprCall "bi" [ ExprInt 10 ] ])
+	exprTest "\"a\"" (ExprString "a")
 	exprTest " (\"  \"  ,  \"  \") " (ExprTuple [ ExprString "  ", ExprString "  " ])
-	where exprTest str result = 
+	where exprTest str result =
 		assertEqual str (parseExpr "" str) result
 
 testEdgeInscriptionParser = TestCase $ do
@@ -38,34 +39,34 @@ testEdgeInscriptionParser = TestCase $ do
 	exprTest "5 * v" (EdgeExpression (ExprCall "*" [ ExprInt 5, ExprVar "v" ]))
 	exprTest "5 >= v" (EdgeExpression (ExprCall ">=" [ ExprInt 5, ExprVar "v" ]))
 	exprTest "5 > v" (EdgeExpression (ExprCall ">" [ ExprInt 5, ExprVar "v" ]))
-	exprTest "x * 3 != 5 && y + 2 == 1" (EdgeExpression 
+	exprTest "x * 3 != 5 && y + 2 == 1" (EdgeExpression
 		(ExprCall "&&" [ ExprCall "!=" [ ExprCall "*" [ ExprVar "x", ExprInt 3 ], ExprInt 5],
 						ExprCall "==" [ ExprCall "+" [ ExprVar "y", ExprInt 2 ], ExprInt 1]]))
-	where exprTest str result = 
+	where exprTest str result =
 		assertEqual str (parseEdgeInscription "" str) result
 
 testEdgeOrdering = TestCase $ do
 	assertEqual "ordering" (orderEdgesByDependancy edges1) edges2
-	where 
+	where
 		e x = Edge { edgePlaceId = 0, edgeInscription = parseEdgeInscription "" x, edgeTarget = Nothing }
 		edges1 = [ e "(x + 1, y + 1, z + 1)", e "~x", e "(x, z + 1)", e "(y, z)", e "y + 2", e "~ff(y)" ]
-		edges2 = [ e "(y, z)", e "(x, z + 1)", e "y + 2", e "(x + 1, y + 1, z + 1)", e "~x", e "~ff(y)" ] 
+		edges2 = [ e "(y, z)", e "(x, z + 1)", e "y + 2", e "(x + 1, y + 1, z + 1)", e "~x", e "~ff(y)" ]
 
 testGuardParser = TestCase $ do
 	exprTest "" ExprTrue
 	exprTest "   " ExprTrue
 	exprTest " x  " $ ExprVar "x"
 	exprTest "   m + 5 > 2 + n" $ ExprCall ">" [ ExprCall "+" [ ExprVar "m", ExprInt 5 ], ExprCall "+" [ ExprInt 2, ExprVar "n" ]]
-	where exprTest str result = 
+	where exprTest str result =
 		assertEqual str (parseGuard "" str) result
 
 
 testTypeParser = TestCase $ do
 	exprTest " Int " TypeInt
 	exprTest "String" TypeString
-	exprTest "(Int, (Int,   Int, (String, Int  )), Int,  String)" $ 
+	exprTest "(Int, (Int,   Int, (String, Int  )), Int,  String)" $
 		TypeTuple [ TypeInt, TypeTuple [ TypeInt, TypeInt, TypeTuple [ TypeString, TypeInt ]], TypeInt, TypeString ]
-	where exprTest str result = 
+	where exprTest str result =
 		assertEqual str (parseType standardTypes "" str) result
 
 testParametersParser = TestCase $ do
@@ -79,10 +80,20 @@ testTypeDependancy = TestCase $ do
 	test "1" [TInt] [TInt]
 	test "2" [TTuple [TInt, TString], TInt, TString] [ TInt, TString, TTuple [ TInt, TString ] ]
 	test "3" [TInt, TTuple [TInt, TString], TString] [ TInt, TString, TTuple [ TInt, TString ] ]
-	test "4" [TTuple [ TTuple [TInt, TString], TString ], TString, TInt, TTuple [TInt, TString]] 
+	test "4" [TTuple [ TTuple [TInt, TString], TString ], TString, TInt, TTuple [TInt, TString]]
 		[ TInt, TString, TTuple [ TInt, TString ], TTuple [ TTuple [ TInt, TString ], TString ] ]
 	where test name x y =
 		assertEqual name (orderTypeByDepedancy (Set.fromList x)) y
+
+testPlaceInit = TestCase $ do
+	test "10;20;" [ ExprInt 10, ExprInt 20 ]
+	test "10;20" [ ExprInt 10, ExprInt 20 ]
+	test "\"a\"" [ ExprString "a" ]
+	test "\"a\";" [ ExprString "a" ]
+	test "\"a\";\"b\"" [ ExprString "a", ExprString "b" ]
+	test "" []
+	where test str result =
+		assertEqual str (parseInitExpr "placeinit" str) result
 
 tests = TestList [
 	testExprParser,
@@ -91,6 +102,7 @@ tests = TestList [
 	testGuardParser,
 	testTypeParser,
 	testParametersParser,
-	testTypeDependancy ]
+	testTypeDependancy,
+	testPlaceInit ]
 
 main = runTestTT tests
