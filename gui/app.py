@@ -419,7 +419,10 @@ class App:
 
 	def _open_welcome_tab(self):
 		label = gtk.Label()
-		label.set_markup("<span size='xx-large'>Kaira</span>\nv0.1\n\nNews &amp; documentation can be found at\nhttp://TODO")
+		line1 = "<span size='xx-large'>Kaira</span>\nv0.1\n\n"
+		line2 = "News &amp; documentation can be found at\n"
+		line3 = "<a href='http://verif.cs.vsb.cz/kaira'>http://verif.cs.vsb.cz/kaira</a>"
+		label.set_markup(line1 + line2 + line3)
 		label.set_justify(gtk.JUSTIFY_CENTER)
 		label.set_size_request(400,300)
 		self.window.add_tab("Welcome", label)
