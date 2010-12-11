@@ -325,6 +325,9 @@ class App:
 			return False
 		return True
 
+	def hide_error_messages(self):
+		self.project.set_error_messages({})
+
 	def _project_changed(self):
 		self.nv.net_changed()
 

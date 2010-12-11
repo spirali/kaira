@@ -122,6 +122,12 @@ class MainWindow(gtk.Window):
 		item.connect("activate", lambda w: self.app.simulation_start(True))
 		build_menu.append(item)
 
+		view_menu = gtk.Menu()
+
+		item = gtk.MenuItem("Hide error messages")
+		item.connect("activate", lambda w: self.app.hide_error_messages())
+		view_menu.append(item)
+
 		edit_menu = gtk.Menu()
 
 		item = gtk.MenuItem("Edit _project details")
@@ -139,6 +145,10 @@ class MainWindow(gtk.Window):
 		main_menu = gtk.MenuBar()
 		item = gtk.MenuItem("_Project")
 		item.set_submenu(file_menu)
+		main_menu.append(item)
+		item = gtk.MenuItem("_View")
+		item.set_submenu(view_menu)
+		self.project_sensitives.append(item)
 		main_menu.append(item)
 		item = gtk.MenuItem("_Edit")
 		item.set_submenu(edit_menu)
