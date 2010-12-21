@@ -205,11 +205,11 @@ class EdgeDrawing(DrawingBase):
 		if self.highlight:
 			cr.set_line_width(6.5)
 			cr.set_source_rgba(*self.highlight)
-			utils.draw_polyline_arrow(cr, self.points, 0.5, 12)
+			utils.draw_polyline_arrow_nice_corners(cr, self.points, 0.5, 12)
 
 		cr.set_line_width(1.5)
 		cr.set_source_rgb(0.0,0.0,0.0)
-		utils.draw_polyline_arrow(cr, self.points, 0.5, 12)
+		utils.draw_polyline_arrow_nice_corners(cr, self.points, 0.5, 12)
 
 		if self.inscription_position:
 			point = self.inscription_position

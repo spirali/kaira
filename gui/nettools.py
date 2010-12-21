@@ -261,7 +261,7 @@ class EdgeTool(NetTool):
 			else:
 				pp = self.last_position
 			pos = self.from_item.get_border_point(pp)
-			utils.draw_polyline_arrow(cr, [pos] + self.points + [self.last_position], 0.5, 12)
+			utils.draw_polyline_arrow_nice_corners(cr, [pos] + self.points + [self.last_position], 0.5, 12)
 
 class AreaTool(NetTool):
 
