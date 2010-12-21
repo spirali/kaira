@@ -47,6 +47,7 @@ class NetViewVisualConfig(VisualConfig):
 	def __init__(self, project):
 		self.selected = None
 		self.project = project
+		self.mouseover_highlighted = None
 
 	def highlight(self, item):
 		self.selected = item
@@ -54,7 +55,16 @@ class NetViewVisualConfig(VisualConfig):
 	def highlight_off(self):
 		self.selected = None
 
+	def set_mouseover_highlight(self, item):
+		""" Return True if need redraw """
+		if item == self.mouseover_highlighted:
+			return False
+		self.mouseover_highlighted = item
+		return True
+
 	def drawing_init(self, i, drawing):
+		if i == self.mouseover_highlighted:
+			drawing.set_highlight((0.6,0.6,0.8,8.0))
 		if self.project.has_error_messages(i):
 			drawing.set_highlight((1.0, 0.0, 0.0, 0.5))
 			drawing.set_error_messages(self.project.get_error_messages(i))
@@ -135,6 +145,14 @@ class NetView(gtk.VBox):
 	def highlight_off(self):
 		self.vconfig.highlight_off()
 		self.redraw()
+
+	def mouseover_highlight(self, item):
+		if self.vconfig.set_mouseover_highlight(item):
+			self.redraw()
+
+	def mouseover_highlight_off(self):
+		if self.vconfig.set_mouseover_highlight(None):
+			self.redraw()
 
 	def _controls(self):
 		icon_transition = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "transition.png"))

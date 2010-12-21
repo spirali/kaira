@@ -62,6 +62,12 @@ class NetTool:
 			self.netview.set_entry_types([])
 			self.netview.highlight_off()
 
+	def mouseover_highlight(self, item):
+		self.netview.mouseover_highlight(item)
+
+	def mouseover_highlight_off(self):
+		self.netview.mouseover_highlight_off()
+
 	def deselect_item(self):
 		self.select_item(None)
 
@@ -83,7 +89,7 @@ class NetTool:
 
 			if type(self.selected_item) in actions_dict:
 				menu_actions = actions_dict[type(self.selected_item)] + menu_actions
-			
+
 			gtkutils.show_context_menu(menu_actions, event)
 		else:
 			self.scroll_point = (event.x, event.y)
@@ -121,7 +127,7 @@ class NetItemTool(NetTool):
 				self.action_start = position
 				self.action_last_pos = position
 				return
-	
+
 		action_tuple = self.net.get_action(position)
 
 		if action_tuple is not None:
@@ -137,6 +143,14 @@ class NetItemTool(NetTool):
 
 	def mouse_move(self, event, position):
 		NetTool.mouse_move(self, event, position)
+
+		action_tuple = self.net.get_action(position)
+		if action_tuple is not None:
+			item, action = action_tuple
+			self.mouseover_highlight(item)
+		else:
+			self.mouseover_highlight_off()
+
 		if self.scroll_point is not None:
 			return
 		if self.selected_item:
@@ -147,7 +161,7 @@ class NetItemTool(NetTool):
 				action = self.selected_item.get_action(position)
 				self.set_cursor(action)
 		self.action_last_pos = position
-				
+
 
 
 class PlaceTool(NetItemTool):
@@ -196,7 +210,7 @@ class EdgeTool(NetTool):
 					self.points.append(position)
 			else:
 				self.from_item = self.net.get_transition_or_place(position)
-				if self.from_item:			
+				if self.from_item:
 					self.last_position = position
 					self.points = []
 				else:
@@ -213,10 +227,22 @@ class EdgeTool(NetTool):
 
 	def mouse_move(self, event, position):
 		NetTool.mouse_move(self, event, position)
+
+
 		if self.scroll_point is not None:
 			return
 		if self.from_item:
 			self.netview.redraw()
+		else:
+			action_tuple = self.net.get_action(position)
+			item = None
+			if action_tuple is not None:
+				item, action = action_tuple
+			if item is not None and item.is_edge():
+				self.mouseover_highlight(item)
+			else:
+				self.mouseover_highlight_off()
+
 		if self.selected_item:
 			if self.action:
 				rel = utils.vector_diff(position, self.last_position)
@@ -254,7 +280,7 @@ class AreaTool(NetTool):
 				self.action_start = position
 				self.action_last_pos = position
 				return
-	
+
 		action_tuple = self.net.get_area_action(position)
 		if action_tuple is not None:
 			item, action = action_tuple
@@ -271,6 +297,14 @@ class AreaTool(NetTool):
 		NetTool.mouse_move(self, event, position)
 		if self.point1:
 			self.netview.redraw()
+		else:
+			action_tuple = self.net.get_area_action(position)
+			if action_tuple is not None:
+				item, action = action_tuple
+				self.mouseover_highlight(item)
+			else:
+				self.mouseover_highlight_off()
+
 		if self.selected_item:
 			if self.action:
 				rel = utils.vector_diff(position, self.point2)
