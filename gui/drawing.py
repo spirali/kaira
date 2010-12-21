@@ -198,6 +198,7 @@ class EdgeDrawing(DrawingBase):
 		self.highlight = None
 		self.inscription = item.get_inscription()
 		self.inscription_position = item.get_inscription_position()
+		self.item = item
 
 	def draw(self, cr):
 
@@ -212,8 +213,9 @@ class EdgeDrawing(DrawingBase):
 
 		if self.inscription_position:
 			point = self.inscription_position
-			self.inscription_size = utils.text_size(cr, self.inscription)
-			sx, sy = self.inscription_size
+			# Cheal hack how to obtain inscription size
+			self.item.inscription_size = utils.text_size(cr, self.inscription)
+			sx, sy = self.item.inscription_size
 			if self.highlight:
 				cr.set_source_rgba(*self.highlight)
 				cr.rectangle(point[0], point[1], sx, sy)

@@ -519,7 +519,7 @@ class Edge(NetItem):
 		self.points = points
 		self.inscription = ""
 		self.inscription_position = None
-		self.inscription_size = (0,0)
+		self.inscription_size = (0,0) # real value obtained by dirty hack in EdgeDrawing
 
 	def get_inscription(self):
 		return self.inscription
@@ -575,7 +575,7 @@ class Edge(NetItem):
 	def drag_move(self, action, drag_start, position, rel_change):
 		if action == "move":
 			old_pos = utils.vector_diff(position, rel_change)
-			if self.inscription_position and utils.position_inside_rect(old_pos, self.inscription_position, self.inscription_size):
+			if self.inscription_position and utils.position_inside_rect(old_pos, self.inscription_position, self.inscription_size, 4):
 				self.inscription_position = utils.vector_add(self.inscription_position, rel_change)
 				self.changed()
 				return 
@@ -591,7 +591,7 @@ class Edge(NetItem):
 		return [sp] + self.points + [ep]
 
 	def get_action(self, position):
-		if self.inscription_position and utils.position_inside_rect(position, self.inscription_position, self.inscription_size):
+		if self.inscription_position and utils.position_inside_rect(position, self.inscription_position, self.inscription_size, 4):
 			return "move"
 
 		for p in self.points:
