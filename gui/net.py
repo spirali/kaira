@@ -16,7 +16,6 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
-
 import math
 import utils
 from utils import xml_int, xml_str
@@ -51,17 +50,12 @@ class Net:
 		self.change_callback(self)
 
 	def draw(self, cr, vconfig):
-		for item in self.items:
-			if item.is_area():
-				item.draw(cr, vconfig)
-
-		for item in self.items:
-			if not item.is_area():
-				item.draw(cr, vconfig)
-
-		for item in self.items:
-			item.draw_top(cr, vconfig)
-
+		drawings = [ item.get_drawing(vconfig) for item in self.items ]
+		drawings.sort(key=lambda x: x.z_level())
+		for drawing in drawings:
+			drawing.draw(cr)
+		for drawing in drawings:
+			drawing.draw_top(cr)
 
 	def add_place(self, position):
 		place = Place(self, position)
@@ -250,9 +244,6 @@ class NetItem(object):
 		element.set("id", str(self.id))
 		return element
 
-	def draw_top(self, cr, vconfig):
-		pass
-
 class NetElement(NetItem):
 
 	def __init__(self, net, position):
@@ -362,52 +353,8 @@ class Transition(NetElement):
 			e.append(ea)
 		return e
 
-	def draw(self, cr, vconfig):
-		#cr.move_to(self.position[0], self.position[1])
-		self._rect(cr)
-		cr.set_source_rgb(1.0,1.0,1.0)
-		cr.fill()
-		
-		highlight = vconfig.get_highlight(self)
-		if highlight:
-			self._rect(cr)
-			cr.set_line_width(6.5)
-			cr.set_source_rgba(*highlight)
-			cr.stroke()
-
-		self._rect(cr)
-		cr.set_line_width(1.5)
-		cr.set_source_rgb(0,0,0)
-		cr.stroke()
-
-		if self.code.strip() != "":
-			px, py = self.position
-			sx, sy = self.size
-			cr.rectangle(px - sx/2 + 4, py - sy/2 + 4, sx - 8, sy - 8)
-			cr.stroke()
-
-		if self.name:
-			sx, sy = utils.text_size(cr, self.name)
-			cr.set_source_rgb(0,0,0)
-			cr.move_to(self.position[0] - sx / 2, self.position[1] + sy / 2)
-			cr.show_text(self.name)
-
-		if self.guard:
-			sx, sy = utils.text_size(cr, self.guard)
-			cr.set_source_rgb(0.3,0.3,0.3)
-			cr.move_to(self.position[0] - sx / 2, self.position[1] - self.size[1]/2 - sy/2 - 2)
-			cr.show_text(self.guard)
-
-	def draw_top(self, cr, vconfig):
-		error_messages = vconfig.get_messages(self)
-		if error_messages and "guard" in error_messages:
-			sx, sy = utils.text_size(cr, self.guard)
-			draw_error_box_after_text(cr, self.guard,(self.position[0] - sx / 2, self.position[1] - self.size[1]/2 - sy/2 - 2), error_messages["guard"])
-
-	def _rect(self, cr):
-		px, py = self.position
-		sx, sy = self.size
-		cr.rectangle(px - sx/2, py - sy/2, sx, sy)
+	def get_drawing(self, vconfig):
+		return vconfig.transition_drawing(self)
 
 	def is_inside(self, position):
 		px, py = position
@@ -477,6 +424,9 @@ class Place(NetElement):
 		self.place_type = ""
 		self.init_string = ""
 
+	def get_radius(self):
+		return self.radius
+
 	def get_init_string(self):
 		return self.init_string
 
@@ -514,91 +464,8 @@ class Place(NetElement):
 			e.append(self.xml_code_element())
 		return e
 
-	def draw(self, cr, vconfig):
-		self._arc(cr)
-		cr.set_source_rgb(1,1,1)
-		cr.fill()
-
-		highlight = vconfig.get_highlight(self)
-		if highlight:
-			self._arc(cr)
-			cr.set_line_width(6.5)
-			cr.set_source_rgba(*highlight)
-			cr.stroke()
-
-		self._arc(cr)
-		cr.set_line_width(1.5)
-		cr.set_source_rgb(0,0,0)
-		cr.stroke()
-
-		if self.code.strip() != "":
-			cr.arc(self.position[0], self.position[1], self.radius - 3, 0, math.pi * 2)
-			cr.stroke()
-
-
-		x = math.sqrt((self.radius * self.radius) / 2) + 5
-		if self.init_string:
-			cr.set_source_rgb(0,0,0)
-			cr.move_to(self.position[0] + x, self.position[1] - x)
-			cr.show_text(self.init_string)
-		if self.place_type:
-			cr.set_source_rgb(0,0,0)
-			cr.move_to(self.position[0] + x, self.position[1] + x)
-			cr.show_text(self.place_type)
-
-
-	def draw_top(self, cr, vconfig):
-		tokens = vconfig.get_token_strings(self)
-		if tokens:
-			# Draw green circle
-			px, py = self.position
-			x = math.sqrt((self.radius * self.radius) / 2) + 15
-			cr.set_source_rgb(0.2,0.45,0)
-			cr.arc(px + self.radius,py,8, 0, 2 * math.pi)
-			cr.fill()
-
-			cr.set_line_width(0.5)
-			cr.arc(px + self.radius,py,8, 0, 2 * math.pi)
-			cr.set_source_rgb(0,0,0)
-			cr.stroke()
-
-			count_text = str(len(tokens))
-			w, h = utils.text_size(cr, count_text)
-			cr.set_source_rgb(0.8,0.8,0.8)
-			cr.move_to(px + self.radius - w/2, py + h/2)
-			cr.show_text(count_text)
-
-			# Print token names
-			texts = [ (t, utils.text_size(cr, t)) for t in tokens ]
-			texts = [ (t, (x, y + 1)) for (t, (x, y)) in texts ]
-			text_height = sum([ x[1][1] for x in texts ])
-			text_width = max([ x[1][0] for x in texts ])
-
-			text_x = px + self.radius + 12
-			text_y = py - text_height / 2
-
-			cr.set_source_rgba(0.2,0.45,0,0.5)
-			cr.rectangle(text_x - 3, text_y - 3, text_width + 6, text_height + 6)
-			cr.fill()
-
-			cr.set_source_rgb(0.0,0.0,0.0)
-			cr.set_source_rgb(1.0,1.0,1.0)
-
-			for (t, (x, y)) in texts:
-				text_y += y
-				cr.move_to(text_x, text_y)
-				cr.show_text(t)
-
-		x = math.sqrt((self.radius * self.radius) / 2) + 5
-		error_messages = vconfig.get_messages(self)
-		if error_messages and "type" in error_messages:
-			draw_error_box_after_text(cr, self.place_type, (self.position[0] + x, self.position[1] + x), error_messages["type"])
-		if error_messages and "init" in error_messages:
-			draw_error_box_after_text(cr, self.init_string, (self.position[0] + x, self.position[1] - x), error_messages["init"])
-
-	def _arc(self, cr):
-		px, py = self.position
-		cr.arc(px,py,self.radius, 0, 2 * math.pi)
+	def get_drawing(self, vconfig):
+		return vconfig.place_drawing(self)
 
 	def is_inside(self, position):
 		dist = utils.point_distance(self.position, position)
@@ -663,6 +530,9 @@ class Edge(NetItem):
 		self.inscription = inscription
 		self.changed()
 
+	def get_inscription_position(self):
+		return self.inscription_position
+
 	def get_end_points(self):
 		if self.points:
 			p1 = self.points[0]
@@ -699,41 +569,8 @@ class Edge(NetItem):
 			e.append(pe)
 		return e
 
-	def draw(self, cr, vconfig):
-		points = self.get_all_points()
-
-		highlight = vconfig.get_highlight(self)
-		if highlight:
-			cr.set_line_width(6.5)
-			cr.set_source_rgba(*highlight)
-			utils.draw_polyline_arrow(cr, points, 0.5, 12)
-
-		cr.set_line_width(1.5)
-		cr.set_source_rgb(0.0,0.0,0.0)
-		utils.draw_polyline_arrow(cr, points, 0.5, 12)
-
-		if self.inscription_position:
-			point = self.inscription_position
-			self.inscription_size = utils.text_size(cr, self.inscription)
-			sx, sy = self.inscription_size
-			if highlight:
-				cr.set_source_rgba(*highlight)
-				cr.rectangle(point[0], point[1], sx, sy)
-				cr.fill()
-				
-			cr.set_source_rgb(0,0,0)
-			cr.set_line_width(1.0)
-			cr.move_to(point[0], point[1] + sy)
-			cr.show_text(self.inscription)
-
-	def draw_top(self, cr, vconfig):
-		error_messages = vconfig.get_messages(self)
-		if error_messages and "inscription" in error_messages:
-			if self.inscription_position is None:
-				pos = self.default_inscription_position()
-			else:
-				pos = self.inscription_position
-			draw_error_box_after_text(cr, self.inscription, pos, error_messages["inscription"])
+	def get_drawing(self, vconfig):
+		return vconfig.edge_drawing(self)
 
 	def drag_move(self, action, drag_start, position, rel_change):
 		if action == "move":
@@ -797,32 +634,8 @@ class NetArea(NetItem):
 	def get_count_expr(self):
 		return self.count_expr
 
-	def draw(self, cr, vconfig):
-		cr.set_source_rgb(0.6,0.7,0.9)
-		self._rect(cr)
-		cr.fill()
-
-		highlight = vconfig.get_highlight(self)
-		if highlight:
-			cr.set_line_width(6.5)
-			cr.set_source_rgba(*highlight)
-			self._rect(cr)
-			cr.stroke()
-
-		cr.set_line_width(2.5)
-		cr.set_source_rgb(0,0,0)
-		self._rect(cr)
-		cr.stroke()
-
-		cr.set_source_rgb(0,0,0)
-		cr.set_line_width(1.0)
-		cr.move_to(self.position[0], self.position[1] - 5)
-		cr.show_text(self.count_expr)
-
-	def draw_top(self, cr, vconfig):
-		error_messages = vconfig.get_messages(self)
-		if error_messages and "instances" in error_messages:
-			draw_error_box_after_text(cr, self.count_expr,(self.position[0], self.position[1] - 5), error_messages["instances"])
+	def get_drawing(self, vconfig):
+		return vconfig.area_drawing(self)
 
 	def get_action(self, position):
 		px, py = position
@@ -841,11 +654,6 @@ class NetArea(NetItem):
 		if action == "resize":
 			self.size = utils.vector_add(self.size, rel_change)
 		self.changed()
-
-	def _rect(self, cr):
-		px, py = self.position
-		sx, sy = self.size
-		cr.rectangle(px, py, sx, sy)
 
 	def get_text_entries(self):
 		return [ ("Count", self.get_count_expr, self.set_count_expr) ]
@@ -875,46 +683,6 @@ class NetArea(NetItem):
 		px, py = self.position
 		sx, sy = self.size
 		return (self.position, (sx + px, sy + py))
-
-def draw_error_box_after_text(cr, text, position, lines):
-	if text is not None:
-		sx, sy = utils.text_size(cr, text)
-		draw_error_box(cr, (position[0] + 5 + sx, position[1]), lines)
-	else:
-		draw_error_box(cr, position, lines)
-
-def draw_error_box(cr, position, lines):
-	assert len(lines) > 0
-	letter_y = utils.text_size(cr,"W")[1] * 1.5
-	size_x = max([ utils.text_size(cr, line)[0] for line in lines ]) + 10
-	size_y = letter_y * (len(lines) + 1)
-	#size_x = max( [ s[0] for s in sizes ] ) + 10
-	px, py = position
-	cr.set_source_rgb(0.9,0.1,0.1)
-	cr.rectangle(px, py - letter_y * 1.3, size_x, size_y)
-	cr.fill()
-	cr.set_source_rgb(0,0,0)
-	cr.rectangle(px, py - letter_y * 1.3, size_x, size_y)
-	cr.stroke()
-
-	cr.set_line_width(1.0)
-	px += 5
-	for (i, line) in enumerate(lines):
-		cr.move_to(px, py)
-		cr.show_text(line)
-		py += letter_y
-
-
-class VisualConfig:
-
-	def get_token_strings(self, p):
-		return []
-
-	def get_highlight(self, item):
-		return None
-
-	def get_messages(self, item):
-		return None
 
 def load_code(element):
 	if element.find("code") is not None:

@@ -23,7 +23,7 @@ import nettools
 import paths
 import os
 from canvas import NetCanvas
-from net import VisualConfig
+from drawing import VisualConfig
 
 action_cursor = { 
 	"none" : None,
@@ -54,14 +54,32 @@ class NetViewVisualConfig(VisualConfig):
 	def highlight_off(self):
 		self.selected = None
 
-	def get_highlight(self, i):
-		if i == self.selected:
-			return (0.86,0.86,0.0,1.0)
+	def drawing_init(self, i, drawing):
 		if self.project.has_error_messages(i):
-			return (1.0, 0.0, 0.0, 0.5)
+			drawing.set_highlight((1.0, 0.0, 0.0, 0.5))
+			drawing.set_error_messages(self.project.get_error_messages(i))
+		if i == self.selected:
+			drawing.set_highlight((0.86,0.86,0.0,1.0))
 
-	def get_messages(self, i):
-		return self.project.get_error_messages(i)
+	def transition_drawing(self, item):
+		d = VisualConfig.transition_drawing(self, item)
+		self.drawing_init(item, d)
+		return d
+
+	def place_drawing(self, item):
+		d = VisualConfig.place_drawing(self, item)
+		self.drawing_init(item, d)
+		return d
+
+	def edge_drawing(self, item):
+		d = VisualConfig.edge_drawing(self, item)
+		self.drawing_init(item, d)
+		return d
+
+	def area_drawing(self, item):
+		d = VisualConfig.area_drawing(self, item)
+		self.drawing_init(item, d)
+		return d
 
 class NetView(gtk.VBox):
 

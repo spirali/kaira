@@ -21,7 +21,7 @@ import gtk
 
 import project
 from canvas import NetCanvas, MultiCanvas
-from net import VisualConfig
+from drawing import VisualConfig
 import gtkutils
 import utils
 
@@ -142,8 +142,6 @@ class SimView(gtk.VBox):
 			cr.show_text("HALTED")
 			cr.stroke()
 
-
-
 	def _simulation_inited(self):
 		def area_callbacks(area, i):
 			vconfig = InstanceVisualConfig(self.simulation, area, i)
@@ -163,21 +161,27 @@ class SimView(gtk.VBox):
 	def _simulation_changed(self):
 		self.redraw()
 
+
 class OverviewVisualConfig(VisualConfig):
 
 	def __init__(self, simulation):
 		self.simulation = simulation
 
-	def get_token_strings(self, place):
+	def transition_drawing(self, item):
+		d = VisualConfig.transition_drawing(self, item)
+		if len(self.simulation.enabled_instances_of_transition(item)) > 0:
+			d.set_highlight((0.1,0.90,0.1,0.5))
+		return d
+
+	def place_drawing(self, item):
+		d = VisualConfig.place_drawing(self, item)
+		tokens = self.simulation.get_tokens_of_place(item)
 		r = []
-		tokens = self.simulation.get_tokens_of_place(place)
 		for iid in tokens:
 			r += [ t + "@" + str(iid) for t in tokens[iid] ]
-		return r
+		d.set_tokens(r)
+		return d
 
-	def get_highlight(self, item):
-		if item.is_transition() and len(self.simulation.enabled_instances_of_transition(item)) > 0:
-			return (0.1,0.90,0.1,0.5)
 
 class InstanceVisualConfig(VisualConfig):
 
@@ -193,6 +197,15 @@ class InstanceVisualConfig(VisualConfig):
 		else:
 			return []
 
-	def get_highlight(self, item):
-		if item.is_transition() and self.simulation.is_transition_enabled(item, self.iid):
-			return (0.1, 0.90, 0.1, 0.5)
+	def transition_drawing(self, item):
+		d = VisualConfig.transition_drawing(self, item)
+		if self.simulation.is_transition_enabled(item, self.iid):
+			d.set_highlight((0.1,0.90,0.1,0.5))
+		return d
+
+	def place_drawing(self, item):
+		d = VisualConfig.place_drawing(self, item)
+		if self.area.is_inside(item):
+			tokens = self.simulation.get_tokens_of_place(item)
+			d.set_tokens(tokens[self.iid])
+		return d
