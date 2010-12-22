@@ -531,7 +531,10 @@ class Edge(NetItem):
 		self.changed()
 
 	def get_inscription_position(self):
-		return self.inscription_position
+		if self.inscription_position is None:
+			return self.default_inscription_position()
+		else:
+			return self.inscription_position
 
 	def get_end_points(self):
 		if self.points:

@@ -228,11 +228,7 @@ class EdgeDrawing(DrawingBase):
 
 	def draw_top(self, cr):
 		if self.error_messages and "inscription" in self.error_messages:
-			if self.inscription_position is None:
-				pos = self.default_inscription_position()
-			else:
-				pos = self.inscription_position
-			draw_error_box_after_text(cr, self.inscription, pos, self.error_messages["inscription"])
+			draw_error_box_after_text(cr, self.inscription, self.inscription_position, self.error_messages["inscription"])
 
 
 class AreaDrawing(DrawingBase):
