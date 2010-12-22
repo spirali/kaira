@@ -185,9 +185,9 @@ class PlaceDrawing(DrawingBase):
 
 		x = math.sqrt((self.radius * self.radius) / 2) + 5
 		if self.error_messages and "type" in self.error_messages:
-			draw_error_box_after_text(cr, self.place_type, (px + x, py + x), error_messages["type"])
+			draw_error_box_after_text(cr, self.place_type, (px + x, py + x), self.error_messages["type"])
 		if self.error_messages and "init" in self.error_messages:
-			draw_error_box_after_text(cr, self.init_string, (px + x, py - x), error_messages["init"])
+			draw_error_box_after_text(cr, self.init_string, (px + x, py - x), self.error_messages["init"])
 
 class EdgeDrawing(DrawingBase):
 

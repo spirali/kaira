@@ -208,7 +208,6 @@ def xml_str(element, attr, default = None):
 			raise Exception("Element has no attribute: " + attr)
 	return element.get(attr)
 
-
 class Makefile:
 	""" Simple class for emitting makefile """
 
