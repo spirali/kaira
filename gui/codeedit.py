@@ -37,8 +37,8 @@ class CodeEditor(gtk.VBox):
 		sw.set_shadow_type(gtk.SHADOW_IN)
 
 		buffer = self._create_buffer(start_string, middle_string, end_string, start_pos, head_paragraph)
-		view = self._create_view(buffer)
-		sw.add(view)
+		self.view = self._create_view(buffer)
+		sw.add(self.view)
 
 		self.show_all()
 	
@@ -106,6 +106,7 @@ class CodeFileEditor(CodeEditor):
 		else:
 			content = ""
 		CodeEditor.__init__(self, "", content, "", (0,0))
+		self.view.set_show_line_numbers(True)
 
 	def _toolbar(self):
 		button1 = gtk.Button("Save")
