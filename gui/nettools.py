@@ -120,13 +120,6 @@ class NetItemTool(NetTool):
 		NetTool.stop(self)
 
 	def left_button_down(self, event, position):
-		if self.selected_item:
-			action = self.selected_item.get_action(position)
-			if action:
-				self.action = action
-				self.action_start = position
-				self.action_last_pos = position
-				return
 
 		action_tuple = self.net.get_action(position)
 
@@ -136,6 +129,15 @@ class NetItemTool(NetTool):
 		else:
 			item = self.create_new(position)
 			self.select_item(item)
+
+		if self.selected_item:
+			action = self.selected_item.get_action(position)
+			if action:
+				self.action = action
+				self.action_start = position
+				self.action_last_pos = position
+				return
+
 		self.mouse_move(event, position)
 
 	def left_button_up(self, event, position):
