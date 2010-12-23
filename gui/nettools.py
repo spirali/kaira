@@ -17,7 +17,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from net import Place, Transition
+from net import Place, Transition, Edge
 import utils
 import gtkutils
 
@@ -82,7 +82,9 @@ class NetTool:
 				Transition: [("Edit code", 
 					lambda w: self.netview.transition_edit_callback(self.selected_item))],
 				Place: [("Edit init code", 
-					lambda w: self.netview.place_edit_callback(self.selected_item))]
+					lambda w: self.netview.place_edit_callback(self.selected_item))],
+				Edge: [ ("Switch direction",
+					lambda w: self.selected_item.switch_direction()) ]
 			}
 
 			menu_actions = [("Delete", delete_event)]

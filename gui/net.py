@@ -557,6 +557,13 @@ class Edge(NetItem):
 	def is_edge(self):
 		return True
 
+	def switch_direction(self):
+		i = self.from_item
+		self.from_item = self.to_item
+		self.to_item = i
+		self.points.reverse()
+		self.changed()
+
 	def as_xml(self):
 		e = self.create_xml_element("edge")
 		e.set("from_item", str(self.from_item.id))
