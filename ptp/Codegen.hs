@@ -46,7 +46,8 @@ data SourceCode = Text String
 
 stdFunctions = [
 	("+", TInt, [TInt, TInt]),
-	("*", TInt, [TInt, TInt])]
+	("*", TInt, [TInt, TInt]),
+	(".iid", TInt, []) ]
 
 (<+>) :: SourceCode -> SourceCode -> SourceCode
 a <+> Empty = a
