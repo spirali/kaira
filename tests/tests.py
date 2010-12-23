@@ -50,6 +50,9 @@ class BuildingTest(TestCase):
 		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken2.proj"), "*102/type:1:Type is empty\n")
 	def test_parameters(self):
 		self.build(os.path.join(TEST_PROJECTS, "parameters", "parameters.proj"), "9 7\n", ["-pfirst=10", "-psecond=7"])
+	def test_bidirection(self):
+		self.build(os.path.join(TEST_PROJECTS, "bidirection", "bidirection.proj"), "11\n12\n13\n")
+
 
 if __name__ == '__main__':
     unittest.main()

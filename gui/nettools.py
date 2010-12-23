@@ -84,7 +84,9 @@ class NetTool:
 				Place: [("Edit init code", 
 					lambda w: self.netview.place_edit_callback(self.selected_item))],
 				Edge: [ ("Switch direction",
-					lambda w: self.selected_item.switch_direction()) ]
+							lambda w: self.selected_item.switch_direction()), 
+						("Bidirectional",
+							lambda w: self.selected_item.toggle_bidirectional()) ]
 			}
 
 			menu_actions = [("Delete", delete_event)]
@@ -265,7 +267,7 @@ class EdgeTool(NetTool):
 			else:
 				pp = self.last_position
 			pos = self.from_item.get_border_point(pp)
-			utils.draw_polyline_arrow_nice_corners(cr, [pos] + self.points + [self.last_position], 0.5, 12)
+			utils.draw_polyline_nice_corners(cr, [pos] + self.points + [self.last_position], 0.5, 12, False, True)
 
 class AreaTool(NetTool):
 

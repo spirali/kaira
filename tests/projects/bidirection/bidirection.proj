@@ -1,0 +1,5 @@
+<project><configuration><build-option name="CC" value="g++" /><build-option name="LIBS" value="" /><build-option name="CFLAGS" value="-O2" /></configuration><net id="101"><place id="102" init_string="1;2;3" place_type="Int" radius="20" x="241" y="64" /><place id="103" init_string="10" place_type="Int" radius="20" x="111" y="135" /><place id="104" init_string="&quot;x&quot;" place_type="String" radius="20" x="391" y="133" /><transition guard="" id="105" name="" sx="70" sy="35" x="241" y="168"><code>	printf("%i\n", var.x + var.y);
+	if (var.x == 3) {
+		ctx-&gt;halt();
+	}
+</code></transition><edge from_item="102" id="106" inscription="x" inscription_x="246" inscription_y="117" to_item="105" /><edge bidirectional="true" from_item="103" id="107" inscription="y" inscription_x="167" inscription_y="129" to_item="105" /><edge bidirectional="true" from_item="105" id="108" inscription="z" inscription_x="318" inscription_y="132" to_item="104" /></net></project>

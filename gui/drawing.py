@@ -198,6 +198,7 @@ class EdgeDrawing(DrawingBase):
 		self.highlight = None
 		self.inscription = item.get_inscription()
 		self.inscription_position = item.get_inscription_position()
+		self.bidirectional = item.is_bidirectional()
 		self.item = item
 
 	def draw(self, cr):
@@ -205,11 +206,11 @@ class EdgeDrawing(DrawingBase):
 		if self.highlight:
 			cr.set_line_width(6.5)
 			cr.set_source_rgba(*self.highlight)
-			utils.draw_polyline_arrow_nice_corners(cr, self.points, 0.5, 12)
+			utils.draw_polyline_nice_corners(cr, self.points, 0.5, 12, self.bidirectional, True)
 
 		cr.set_line_width(1.5)
 		cr.set_source_rgb(0.0,0.0,0.0)
-		utils.draw_polyline_arrow_nice_corners(cr, self.points, 0.5, 12)
+		utils.draw_polyline_nice_corners(cr, self.points, 0.5, 12, self.bidirectional, True)
 
 		if self.inscription_position:
 			point = self.inscription_position

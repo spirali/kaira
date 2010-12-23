@@ -70,22 +70,16 @@ def position_inside_rect(position, rect_position, size, tolerance = 0):
 	return px >= rx - tolerance and py >= ry - tolerance and px < rx + sx + tolerance and py < ry + sy + tolerance
 
 
-def draw_arrow(cr, pos1, pos2, arrow_degrees, arrow_len):
-	sx, sy = pos1
-	ex, ey = pos2
-	angle = math.atan2 (ey-sy, ex - sx) + math.pi;
-	x1 = ex + arrow_len * math.cos(angle - arrow_degrees);
-	y1 = ey + arrow_len * math.sin(angle - arrow_degrees);
-	x2 = ex + arrow_len * math.cos(angle + arrow_degrees);
-	y2 = ey + arrow_len * math.sin(angle + arrow_degrees);
-
-	cr.move_to(sx,sy)
-	cr.line_to(ex, ey)
-	cr.stroke()
-
-	cr.line_to(x1, y1)
-	cr.line_to(x2, y2)
-	cr.line_to(ex, ey)
+def draw_arrow(cr, dir_vector, arrow_degrees, arrow_len):
+	dx, dy = dir_vector
+	angle = math.atan2 (dx, dy) + math.pi;
+	x1 = arrow_len * math.sin(angle - arrow_degrees);
+	y1 = arrow_len * math.cos(angle - arrow_degrees);
+	x2 = arrow_len * math.sin(angle + arrow_degrees);
+	y2 = arrow_len * math.cos(angle + arrow_degrees);
+	cr.rel_line_to(x1, y1)
+	cr.rel_line_to(x2 - x1, y2 - y1)
+	cr.rel_line_to(-x2, -y2)
 	cr.fill()
 
 def draw_polyline_arrow(cr, points, arrow_degrees, arrow_len):
@@ -109,17 +103,14 @@ def draw_polyline_arrow(cr, points, arrow_degrees, arrow_len):
 	cr.line_to(ex, ey)
 	cr.fill()
 
-def draw_polyline_arrow_nice_corners(cr, points, arrow_degrees, arrow_len):
-	sx, sy = points[-2]
+def draw_polyline_nice_corners(cr, points, arrow_degrees, arrow_len, arrow_start = False, arrow_end = False):
 	ex, ey = points[-1]
-
-	angle = math.atan2 (ey-sy, ex - sx) + math.pi;
-	x1 = ex + arrow_len * math.cos(angle - arrow_degrees);
-	y1 = ey + arrow_len * math.sin(angle - arrow_degrees);
-	x2 = ex + arrow_len * math.cos(angle + arrow_degrees);
-	y2 = ey + arrow_len * math.sin(angle + arrow_degrees);
-
 	prev = points[0]
+
+	if arrow_start:
+		cr.move_to(prev[0],prev[1])
+		draw_arrow(cr, make_vector(points[1], points[0]), arrow_degrees, arrow_len)
+
 	cr.move_to(prev[0],prev[1])
 	for i in xrange(1, len(points) - 1):
 		a = make_vector(points[i-1], points[i])
@@ -135,10 +126,10 @@ def draw_polyline_arrow_nice_corners(cr, points, arrow_degrees, arrow_len):
 		cr.rel_curve_to(v[0], v[1], v[0], v[1], v[0] + w[0], v[1] + w[1])
 	cr.line_to(ex,ey)
 	cr.stroke()
-	cr.line_to(x1, y1)
-	cr.line_to(x2, y2)
-	cr.line_to(ex, ey)
-	cr.fill()
+
+	if arrow_end:
+		cr.move_to(ex, ey)
+		draw_arrow(cr, make_vector(points[-2], points[-1]), arrow_degrees, arrow_len)
 
 
 def pairs_generator(lst):

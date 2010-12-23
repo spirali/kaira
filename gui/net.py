@@ -20,6 +20,7 @@ import math
 import utils
 from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
+from copy import copy
 
 class ExportException(Exception):
 	pass
@@ -188,11 +189,20 @@ class Net:
 		self.items.remove(item)
 		self.changed()
 
-	def edges_from(self, item):
-		return [ i for i in self.items if i.is_edge() and i.from_item == item ]
+	def edges_from(self, item, split_bidirectional = False):
+		edges = [ i for i in self.items if i.is_edge() and i.from_item == item ]
+		if not split_bidirectional:
+			return edges
+		else:
+			return edges + [ i.make_complement() for i in self.edges_to(item) if i.is_bidirectional() ]
 
-	def edges_to(self, item):
-		return [ i for i in self.items if i.is_edge() and i.to_item == item ]
+	def edges_to(self, item, split_bidirectional = False):
+		edges = [ i for i in self.items if i.is_edge() and i.to_item == item ]
+		if not split_bidirectional:
+			return edges
+		else:
+			return edges + [ i.make_complement() for i in self.edges_from(item) if i.is_bidirectional() ]
+
 
 	def edges_of(self, item):
 		return [ i for i in self.items if i.is_edge() and (i.to_item == item or i.from_item == item) ]
@@ -267,11 +277,11 @@ class NetElement(NetItem):
 	def edges(self):
 		return self.net.edges_of(self)
 
-	def edges_from(self):
-		return self.net.edges_from(self)
+	def edges_from(self, split_bidirectional = False):
+		return self.net.edges_from(self, split_bidirectional)
 
-	def edges_to(self):
-		return self.net.edges_to(self)
+	def edges_to(self, split_bidirectional = False):
+		return self.net.edges_to(self, split_bidirectional)
 
 	def delete(self):
 		for edge in self.edges():
@@ -344,11 +354,11 @@ class Transition(NetElement):
 		if self.has_code():
 			e.append(self.xml_code_element())
 
-		for edge in self.edges_to():
+		for edge in self.edges_to(split_bidirectional = True):
 			ea = make_edge("edge-in", edge, edge.from_item);
 			e.append(ea)
 
-		for edge in self.edges_from():
+		for edge in self.edges_from(split_bidirectional = True):
 			ea = make_edge("edge-out", edge, edge.to_item);
 			e.append(ea)
 		return e
@@ -517,6 +527,7 @@ class Edge(NetItem):
 		self.from_item = from_item
 		self.to_item = to_item
 		self.points = points
+		self.bidirectional = False
 		self.inscription = ""
 		self.inscription_position = None
 		self.inscription_size = (0,0) # real value obtained by dirty hack in EdgeDrawing
@@ -530,11 +541,25 @@ class Edge(NetItem):
 		self.inscription = inscription
 		self.changed()
 
+	def is_bidirectional(self):
+		return self.bidirectional
+
+	def toggle_bidirectional(self):
+		self.bidirectional = not self.bidirectional
+		self.changed()
+
 	def get_inscription_position(self):
 		if self.inscription_position is None:
 			return self.default_inscription_position()
 		else:
 			return self.inscription_position
+
+	def make_complement(self):
+		""" This function returns exact copy of the edge with changed directions,
+            This is used during splitting bidirectional edges """
+		c = copy(self)
+		c.switch_direction()
+		return c
 
 	def get_end_points(self):
 		if self.points:
@@ -568,6 +593,8 @@ class Edge(NetItem):
 		e = self.create_xml_element("edge")
 		e.set("from_item", str(self.from_item.id))
 		e.set("to_item", str(self.to_item.id))
+		if self.bidirectional:
+			e.set("bidirectional", "true")
 		if self.inscription:
 			e.set("inscription", self.inscription)
 			e.set("inscription_x", str(self.inscription_position[0]))
@@ -723,6 +750,7 @@ def load_edge(element, net, idtable):
 	titem = net.item_by_id(idtable[xml_int(element, "to_item")])
 	points = [ (xml_int(e, "x"), xml_int(e,"y")) for e in element.findall("point") ]
 	edge = net.add_edge(fitem, titem, points)
+	edge.bidirectional = utils.xml_bool(element, "bidirectional", False)
 
 	if element.get("inscription"):
 		edge.inscription = xml_str(element, "inscription")
