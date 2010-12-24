@@ -246,15 +246,18 @@ class Project(EventSource):
 		makefile.set("INCLUDE", "-I" + paths.CAILIE_DIR)
 		makefile.set("MPICC", "mpicc")
 
+		name_o = self.get_name() + ".o"
+		name_cpp = self.get_name() + ".cpp"
+
 		makefile.rule("all", [self.get_name()])
-		deps = [ self.get_name() + ".o" ]
+		deps = [ name_o ]
 		makefile.rule(self.get_name(), deps, "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
 
 		makefile.rule("mpi", [self.get_name() + "_mpi"])
 		makefile.rule(self.get_name() + "_mpi", deps, "$(MPICC) -cc=${CC} " + " ".join(deps)
 			+ " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) -lmpicailie" )
 
-		makefile.rule(".cpp.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
+		makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c %s -o %s" % (name_cpp, name_o))
 		makefile.rule("clean", [], "rm -f *.o " + self.get_name() + " ")
 		makefile.write_to_file(os.path.join(self.get_directory(), "makefile"))
 

@@ -69,7 +69,7 @@ patternCheck project decls binded var (TypeTuple types) (ExprTuple exprs) errEve
 patternCheck project decls binded var t (ExprVar v) errEvent | not (Set.member v binded) = ([], [ISet (EVar v) (EVar var)])
 patternCheck project decls binded var t (ExprVar v) errEvent =
 	case List.lookup v decls of
-		Just (TData _ _ _ _) -> error "Extern types cannot be compared"
+		Just (TData name _ _ _) -> error $ "Extern types cannot be compared " ++ show name ++ " " ++ v
 		Just _ -> ([], [(IIf (ECall "!=" [(EVar v), (EVar var)]) errEvent INoop)])
 		Nothing -> error "patternCheck: This cannot happend"
 patternCheck project decls binded var t x errEvent = ([], [(IIf (ECall "!=" [process x, (EVar var)]) errEvent INoop)])
