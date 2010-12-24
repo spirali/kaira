@@ -247,26 +247,26 @@ emitProgram fileName prologue globals functions =
 
 emitTypeDeclaration :: Type -> String
 emitTypeDeclaration (TTuple types) =
-	{- FIXME: use TStruct emit -}
-	"struct " ++ typeName ++ " {\n" ++ constructor1 ++ "\n" ++ constructor2 ++ innerPart types 0 ++ "};\n"
+	emitTypeDeclaration (TStruct name decls)
 	where
-		typeName = typeSafeString (TTuple types)
+		name = typeSafeString (TTuple types)
 		decls = zip (map (\x -> "t_" ++ show x) [0..]) types
-		innerPart [] _ = ""
-		innerPart (t:ts) level = "\t" ++ typeString t ++ " t_" ++ show level ++ ";\n" ++ innerPart ts (level + 1)
-		constructor1 = "\t" ++ typeName ++ "() {}"
+
+emitTypeDeclaration (TStruct name decls) =
+	"struct " ++ name ++ " {\n" ++ constructor1 ++ "\n" ++ constructor2 ++ innerPart decls ++ "};\n"
+	where
+		innerPart [] = ""
+		innerPart ((name, t):ts) = "\t" ++ typeString t ++ " " ++ name ++ ";\n" ++ innerPart ts
+		constructor1 = "\t" ++ name ++ "() {}"
+		constructor2
+			| decls == [] = ""
+			| otherwise = "\t" ++ name ++ "(" ++ addDelimiter "," (map (\(n,t) -> const t ++ typeString t ++ " & " ++ n) decls) ++ ") {\n"
+				++ concatMap (\(n,t) -> "\t\tthis->" ++ n ++ " = " ++ n ++ ";\n") decls ++ "\t}\n"
 		const t = case t of
 			(TData _ _ _ _) -> ""
 			(TPointer _) -> ""
 			_ -> "const "
-		constructor2 = "\t" ++ typeName ++ "(" ++ addDelimiter "," (map (\(n,t) -> const t ++ typeString t ++ " & " ++ n) decls) ++ ") {\n"
-			++ concatMap (\(n,t) -> "\t\tthis->" ++ n ++ " = " ++ n ++ ";\n") decls ++ "\t}\n"
 
-emitTypeDeclaration (TStruct name decls) =
-	"struct " ++ name ++ " {\n" ++ innerPart decls ++ "};\n"
-	where
-		innerPart [] = ""
-		innerPart ((name, t):ts) = "\t" ++ typeString t ++ " " ++ name ++ ";\n" ++ innerPart ts
 emitTypeDeclaration _ = ""
 
 varDeclarationTypes :: [VarDeclaration] -> TypeSet
