@@ -264,6 +264,9 @@ void CaOutput::set(const std::string & name, const std::string & value)
 	find_and_replace(v, '&', "&amp;");
 	find_and_replace(v, '<', "&lt;");
 	find_and_replace(v, '>', "&gt;");
+	find_and_replace(v, '\n', "\\n");
+	find_and_replace(v, '\t', "\\t");
+	find_and_replace(v, '\r', "\\r");
 	_set(name, v);
 }
 
