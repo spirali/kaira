@@ -108,7 +108,12 @@ class PlaceDrawing(DrawingBase):
 		self.tokens = None
 
 	def set_tokens(self, tokens):
-		self.tokens = tokens
+		self.tokens = []
+		for token in tokens:
+			if len(token) > 25:
+				self.tokens.append(token[:18] + " ... (%i chars)" % len(token))
+			else:
+				self.tokens.append(token)
 
 	def draw(self, cr):
 		px, py = self.position
