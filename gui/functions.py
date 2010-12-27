@@ -25,7 +25,7 @@ import gtkutils
 class FunctionsWidget(ObjectList):
 
 	def __init__(self, project, app):
-		defs = [("_", object), ("Name", str), ("Return type", str), ("Parameters", str) ]
+		defs = [("_", object), ("Name", str), ("Return type", str), ("Context", bool), ("Parameters", str) ]
 		buttons = [
 			(None, gtk.STOCK_ADD, self._add_function),
 			(None, gtk.STOCK_REMOVE, self._remove_function),
@@ -40,7 +40,7 @@ class FunctionsWidget(ObjectList):
 		self.fill(project.functions)
 
 	def object_as_row(self, obj):
-		return [obj, obj.get_name(), obj.get_return_type(), obj.get_parameters()]
+		return [obj, obj.get_name(), obj.get_return_type(), obj.get_with_context(), obj.get_parameters()]
 
 	def _dummy(self):
 		pass
@@ -113,12 +113,16 @@ def function_dialog(function, mainwindow):
 		wparam = builder.get_object("parameters")
 		wparam.set_text(function.get_parameters())
 
+		wcontext = builder.get_object("context")
+		wcontext.set_active(function.get_with_context())
+
 		dlg.set_title("Function")
 		dlg.set_transient_for(mainwindow)
 		if dlg.run() == gtk.RESPONSE_OK:
 			function.set_name(wname.get_text())
 			function.set_return_type(wreturn.get_text())
 			function.set_parameters(wparam.get_text())
+			function.set_with_context(wcontext.get_active())
 			return True
 		return False
 	finally:

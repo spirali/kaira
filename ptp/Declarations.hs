@@ -108,7 +108,8 @@ data UserFunction = UserFunction {
 	ufunctionName :: String,
 	ufunctionParameters :: [NelVarDeclaration],
 	ufunctionReturnType :: NelType,
-	ufunctionCode :: String
+	ufunctionCode :: String,
+	ufunctionWithContext :: Bool
 } deriving (Show)
 
 data TransportMode = TransportDisabled | TransportDirect | TransportCustom

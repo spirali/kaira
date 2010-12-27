@@ -207,12 +207,12 @@ declareParam ((name,t, ptype):vs)
 	| t == TString || ptype == ParamConst = ("const " ++ typeString t ++ " & " ++ name) : declareParam vs
 	| otherwise = (typeString t ++ " & " ++ name) : declareParam vs
 
-emitFunction :: Function -> SourceCode
-emitFunction function =
+emitFunction :: [FunDeclaration] -> Function -> SourceCode
+emitFunction fundecls function =
 	prefix <+> Text functionDeclaration <+> Eol <+> body <+> suffix
 	where
 		functionDeclaration = typeString (returnType function) ++ " " ++ functionName function ++ "(" ++ paramString ++ ")"
-		decls = makeDeclarations (statementVarList (declarations function) (instructions function)) stdFunctions
+		decls = makeDeclarations (statementVarList (declarations function) (instructions function)) fundecls
 		body = emitInstruction scope (addConstructors decls statement)
 		scope = initialScope function
 		paramString = addDelimiter "," $ declareParam (parameters function)
@@ -235,15 +235,19 @@ orderTypeByDepedancy types =
 	where
 		orderFn ordered t = Set.empty == Set.difference (subTypes t) (Set.fromList ordered)
 
+makeFunctionDeclaration :: Function -> FunDeclaration
+makeFunctionDeclaration function = (functionName function, returnType function, [ t | (_, t, _) <- parameters function ])
+
 emitProgram :: String -> String -> [VarDeclaration] -> [Function] -> String
 emitProgram fileName prologue globals functions =
 	sourceCodeToStr fileName $
-	Text prologue <+> typeDeclarations <+> Text (emitGlobals globals) <+> Eol <+> joinMap emitFunction functions
+	Text prologue <+> typeDeclarations <+> Text (emitGlobals globals) <+> Eol <+> joinMap (emitFunction fundecls) functions
 	where
 		typeDeclarations = Text $ concatMap emitTypeDeclaration orderedTypes
 		allTypes = Set.fold (\t s -> Set.union s $ subTypes' t) Set.empty (Set.unions (map gatherTypes functions))
 		allDefinedTypes = Set.filter isDefined allTypes
 		orderedTypes = orderTypeByDepedancy allDefinedTypes
+		fundecls = map makeFunctionDeclaration functions ++ stdFunctions
 
 emitTypeDeclaration :: Type -> String
 emitTypeDeclaration (TTuple types) =

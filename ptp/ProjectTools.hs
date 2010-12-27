@@ -28,7 +28,15 @@ import qualified Data.Map as Map
 
 isUserFunction :: Project -> String -> Bool
 isUserFunction project name =
-	any (\f -> (ufunctionName f == name)) (userFunctions project)
+	any (\f -> ufunctionName f == name) (userFunctions project)
+
+isUserFunctionWithContext :: Project -> String -> Bool
+isUserFunctionWithContext project name =
+	any (\f -> ufunctionName f == name && ufunctionWithContext f) (userFunctions project)
+
+isUserFunctionWithoutContext :: Project -> String -> Bool
+isUserFunctionWithoutContext project name =
+	any (\f -> ufunctionName f == name && not (ufunctionWithContext f)) (userFunctions project)
 
 hasEvent :: Project -> String -> Bool
 hasEvent project name =

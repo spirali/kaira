@@ -53,6 +53,8 @@ class BuildingTest(TestCase):
 	def test_bidirection(self):
 		self.build(os.path.join(TEST_PROJECTS, "bidirection", "bidirection.proj"), "11\n12\n13\n")
 
+	def test_functions(self):
+		self.build(os.path.join(TEST_PROJECTS, "functions", "functions.proj"), "9 9\n")
 
 if __name__ == '__main__':
     unittest.main()

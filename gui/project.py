@@ -202,6 +202,8 @@ class Project(EventSource):
 		self.changed()
 
 	def type_to_ctype(self, t):
+		if t == "__Context":
+			return "CaContext"
 		if t == "Int":
 			return "int"
 		if t == "Bool":
@@ -465,6 +467,7 @@ class Function(FunctionBase):
 		self.return_type = ""
 		self.parameters = ""
 		self.project = project
+		self.with_context = False
 
 	def get_parameters(self):
 		return self.parameters
@@ -478,12 +481,21 @@ class Function(FunctionBase):
 	def set_return_type(self, return_type):
 		self.return_type = return_type
 
+	def get_with_context(self):
+		return self.with_context
+
+	def set_with_context(self, value):
+		self.with_context = value
+
 	def get_c_parameters(self):
 		p = self.split_parameters()
 		if p is None:
 			return "Invalid format of parameters"
 		else:
-			return ", ".join([ self.project.type_to_ctype(t) + " &" + n for (t, n) in p ])
+			params_str =	[ self.project.type_to_ctype(t) + " &" + n for (t, n) in p ]
+			if self.with_context:
+				params_str.insert(0, "CaContext *ctx")
+			return ", ".join(params_str)
 
 	def get_c_return_type(self):
 		return self.project.type_to_ctype(self.return_type)
@@ -506,6 +518,7 @@ class Function(FunctionBase):
 		e.set("name", self.name)
 		e.set("return-type", self.return_type)
 		e.set("parameters", self.parameters)
+		e.set("with-context", str(self.with_context))
 		e.text = self.code
 		return e
 
@@ -545,6 +558,7 @@ def load_function(element, project):
 	f.set_name(utils.xml_str(element, "name"))
 	f.set_return_type(utils.xml_str(element, "return-type"))
 	f.set_parameters(utils.xml_str(element, "parameters"))
+	f.set_with_context(utils.xml_bool(element, "with-context", False))
 	f.set_function_code(element.text)
 
 def load_event(element, project):

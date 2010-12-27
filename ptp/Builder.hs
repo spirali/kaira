@@ -92,7 +92,8 @@ processInputExpr project fn (ExprParam x) = EVar $ parameterGlobalName x
 processInputExpr project fn (ExprCall "iid" []) = ECall ".iid" [ EVar "ctx" ]
 processInputExpr project fn (ExprCall name exprs)
 	| isBasicNelFunction name = ECall name [ processInputExpr project fn expr | expr <- exprs ]
-	| isUserFunction project name = ECall name [ processInputExpr project fn expr | expr <- exprs ]
+	| isUserFunctionWithoutContext project name = ECall name [ processInputExpr project fn expr | expr <- exprs ]
+	| isUserFunctionWithContext project name = ECall name (EVar "ctx":[ processInputExpr project fn expr | expr <- exprs ])
 processInputExpr project fn (ExprTuple exprs) = ETuple [ processInputExpr project fn expr | expr <- exprs ]
 processInputExpr project fn x = error $ "Input expression contains: " ++ show x
 
@@ -629,8 +630,9 @@ createUserFunction :: UserFunction -> Function
 createUserFunction ufunction =
 	functionWithCode (ufunctionName ufunction)
 		(fromNelType (ufunctionReturnType ufunction))
-		(paramFromVar ParamConst (fromNelVarDeclarations (ufunctionParameters ufunction)))
+		(if ufunctionWithContext ufunction then ("ctx", caContext, ParamNormal):params else params)
 		(ufunctionCode ufunction)
+	where params = paramFromVar ParamConst (fromNelVarDeclarations (ufunctionParameters ufunction))
 
 createProgram :: String -> Project -> String
 createProgram filename project =

@@ -56,6 +56,13 @@ xmlAttr str e = xmlAttr' str e (error $ "Attribute '" ++ str ++ "' not found in 
 xmlAttrInt :: String -> Xml.Element -> Int
 xmlAttrInt str e = read $ xmlAttr str e
 
+xmlAttrBool :: String -> Xml.Element -> Bool
+xmlAttrBool str e = case xmlAttr str e of
+		"true" -> True
+		"True" -> True
+		"TRUE" -> True
+		_ -> False
+
 codeContent :: Xml.Element -> String
 codeContent e = case Xml.findElement (qstr "code") e of
 					Just c -> Xml.strContent c
@@ -177,6 +184,7 @@ userFunctionFromElement types e = UserFunction {
 	ufunctionName = xmlAttr "name" e,
 	ufunctionReturnType = parseType types source $ xmlAttr "return-type" e,
 	ufunctionParameters = parseParameters types source $ xmlAttr "parameters" e,
+	ufunctionWithContext = xmlAttrBool "with-context" e,
 	ufunctionCode = Xml.strContent e
 } where source = "Function " ++ xmlAttr "name" e
 
