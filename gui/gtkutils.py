@@ -53,12 +53,17 @@ class SimpleList(gtk.ScrolledWindow):
 		for i, (cname, ctype) in enumerate(columns):
 			if cname != "_":
 				tokens = cname.split("|")
-				renderer = gtk.CellRendererText()
+				if ctype is bool:
+					renderer = gtk.CellRendererToggle()
+					args = { "active" : i }
+				else:
+					renderer = gtk.CellRendererText()
+					args = { "text" : i }
 				parameters = tokens[1:]
 				if "editable" in parameters:
 					renderer.set_property("editable", True)	
 
-				column = gtk.TreeViewColumn(tokens[0], renderer, text=i)
+				column = gtk.TreeViewColumn(tokens[0], renderer, **args)
 
 				self.listview.append_column(column)
 
