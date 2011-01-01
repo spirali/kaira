@@ -295,6 +295,7 @@ class Parameter(EventSource):
 		self.name = ""
 		self.type = "Int"
 		self.description = ""
+		self.default = "0"
 
 	def set_name(self, name):
 		self.name = name
@@ -313,8 +314,15 @@ class Parameter(EventSource):
 	def get_description(self):
 		return self.description
 
+	def get_default(self):
+		return self.default
+
 	def set_description(self, description):
 		self.description = description
+		self.changed()
+
+	def set_default(self, default):
+		self.default = default
 		self.changed()
 
 	def changed(self):
@@ -325,6 +333,7 @@ class Parameter(EventSource):
 		e.set("name", self.name)
 		e.set("type", self.type)
 		e.set("description", self.description)
+		e.set("default", self.default)
 		return e
 
 class ExternType:
@@ -541,6 +550,7 @@ def load_parameter(element, project):
 	p = project.new_parameter()
 	p.set_name(utils.xml_str(element, "name"))
 	p.set_description(utils.xml_str(element, "description", ""))
+	p.set_default(utils.xml_str(element, "default", "0"))
 	p.set_type(utils.xml_str(element, "type"))
 
 def load_extern_type(element, project):

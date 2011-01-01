@@ -32,11 +32,15 @@ def parameters_dialog(parameter, mainwindow):
 		wdesc = builder.get_object("description")
 		wdesc.set_text(parameter.get_description())
 
+		wdefault = builder.get_object("default")
+		wdefault.set_text(parameter.get_default())
+
 		dlg.set_title("Parameter")
 		dlg.set_transient_for(mainwindow)
 		if dlg.run() == gtk.RESPONSE_OK:
 			parameter.set_name(wname.get_text())
 			parameter.set_description(wdesc.get_text())
+			parameter.set_default(wdefault.get_text())
 			return True
 		return False
 	finally:
@@ -57,7 +61,9 @@ class ParametersWidget(ObjectList):
 		self.fill(project.get_parameters())
 
 	def object_as_row(self, parameter):
-		return [parameter, parameter.get_name(), "Mandatory", parameter.get_type(), "", parameter.get_description()]
+		return [ parameter, parameter.get_name(),
+				"Mandatory", parameter.get_type(), parameter.get_default(),
+				parameter.get_description()]
 
 	def _add_parameter(self, selected):
 		param = self.project.new_parameter()
@@ -103,13 +109,14 @@ class ParametersValueDialog(gtk.Dialog):
 			result[e] = self.entries[e].get_text()
 		return result
 
-	def _add_parameter(self,param):
+	def _add_parameter(self, param):
 		label = gtk.Label(param.get_name() + " (" + param.get_type() + ")")
 		self.table.attach(label, 0, 1, self.param_counter, self.param_counter + 1)
 
 		entry = gtk.Entry()
 		self.table.attach(entry, 1, 2, self.param_counter, self.param_counter + 1)
 		entry.connect("changed", self._entry_changed)
+		entry.set_text(param.get_default())
 		self.entries[param.get_name()] = entry
 
 		self.param_counter += 1
