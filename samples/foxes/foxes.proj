@@ -1,4 +1,4 @@
-<project><configuration><parameter description="" name="WORKERS" type="Int" /><parameter description="" name="STEPS" type="Int" /><parameter description="Columns per worker" name="CPW" type="Int" /><extern-type name="Column" raw-type="Column" transport-mode="Custom"><code name="getsize">	return COLUMN_DATA_SIZE;
+<project><configuration><parameter default="5" description="" name="WORKERS" type="Int" /><parameter default="10" description="" name="STEPS" type="Int" /><parameter default="20" description="Columns per worker" name="CPW" type="Int" /><parameter default="0" description="" name="" type="Int" /><extern-type name="Column" raw-type="Column" transport-mode="Custom"><code name="getsize">	return COLUMN_DATA_SIZE;
 </code><code name="unpack">	const Place *data = (Place *) unpacker.unpack(COLUMN_DATA_SIZE);
 	return Column(data);
 </code><code name="pack">	packer.pack(obj.get_raw_data(), COLUMN_DATA_SIZE);
