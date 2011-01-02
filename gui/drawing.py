@@ -246,6 +246,7 @@ class AreaDrawing(DrawingBase):
 		self.error_messages = None
 		self.highlight = None
 		self.count_expr = item.get_count_expr()
+		self.name = item.get_name()
 
 	def draw(self, cr):
 		px, py = self.position
@@ -269,6 +270,10 @@ class AreaDrawing(DrawingBase):
 		cr.set_line_width(1.0)
 		cr.move_to(px, py - 5)
 		cr.show_text(self.count_expr)
+
+		textx, texty = utils.text_size(cr, self.name)
+		cr.move_to(px + sx - textx, py - 5)
+		cr.show_text(self.name)
 
 	def draw_top(self, cr):
 		if self.error_messages and "instances" in self.error_messages:

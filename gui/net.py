@@ -657,6 +657,7 @@ class NetArea(NetItem):
 		self.position = position
 		self.size = size
 		self.count_expr = ""
+		self.name = ""
 
 	def get_size(self):
 		return self.size
@@ -670,6 +671,13 @@ class NetArea(NetItem):
 
 	def get_count_expr(self):
 		return self.count_expr
+
+	def set_name(self, name):
+		self.name = name
+		self.changed()
+
+	def get_name(self):
+		return self.name
 
 	def get_drawing(self, vconfig):
 		return vconfig.area_drawing(self)
@@ -693,7 +701,8 @@ class NetArea(NetItem):
 		self.changed()
 
 	def get_text_entries(self):
-		return [ ("Count", self.get_count_expr, self.set_count_expr) ]
+		return [ ("Count", self.get_count_expr, self.set_count_expr),
+				("Name", self.get_name, self.set_name) ]
 
 	def is_area(self):
 		return True
@@ -701,6 +710,7 @@ class NetArea(NetItem):
 	def as_xml(self):
 		e = self.create_xml_element("area")
 		e.set("count_expr", self.count_expr)
+		e.set("name", self.name)
 		e.set("x", str(self.position[0]))
 		e.set("y", str(self.position[1]))
 		e.set("sx", str(self.size[0]))
@@ -767,6 +777,7 @@ def load_area(element, net, idtable):
 	py = xml_int(element, "y")
 	area = net.add_area((px, py), (sx, sy))
 	area.count_expr = xml_str(element,"count_expr", "")
+	area.name = xml_str(element, "name", "")
 	idtable[xml_int(element, "id")] = area.id
 
 def load_net(element, project):
