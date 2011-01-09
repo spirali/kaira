@@ -1,15 +1,16 @@
-<project><configuration><parameter default="5" description="" name="WORKERS" type="Int" /><parameter default="10" description="" name="STEPS" type="Int" /><parameter default="20" description="Columns per worker" name="CPW" type="Int" /><parameter default="0" description="" name="" type="Int" /><extern-type name="Column" raw-type="Column" transport-mode="Custom"><code name="getsize">	return COLUMN_DATA_SIZE;
+<project><configuration><parameter default="5" description="" name="WORKERS" type="Int" /><parameter default="10" description="" name="STEPS" type="Int" /><parameter default="20" description="Columns per worker" name="CPW" type="Int" /><extern-type name="Column" raw-type="Column" transport-mode="Custom"><code name="getsize">	return COLUMN_DATA_SIZE;
 </code><code name="unpack">	const Place *data = (Place *) unpacker.unpack(COLUMN_DATA_SIZE);
 	return Column(data);
 </code><code name="pack">	packer.pack(obj.get_raw_data(), COLUMN_DATA_SIZE);
 </code></extern-type><extern-type name="Data" raw-type="Data *" transport-mode="Disabled" /><function name="to_left" parameters="" return-type="Int" with-context="True">	int instances = ctx-&gt;instances();
 	return (ctx-&gt;iid() + instances - 1) % instances;
 </function><function name="to_right" parameters="" return-type="Int" with-context="True">	return (ctx-&gt;iid() + 1) % ctx-&gt;instances();
-</function><build-option name="CC" value="g++" /><build-option name="LIBS" value="" /><build-option name="CFLAGS" value="-O2" /></configuration><net id="101"><area count_expr="#WORKERS" id="102" sx="527" sy="508" x="112" y="100" /><place id="103" init_string="" place_type="Data" radius="20" x="353" y="150"><code>	Data *data = new Data(parameter_CPW());
+</function><build-option name="CC" value="g++" /><build-option name="LIBS" value="" /><build-option name="CFLAGS" value="-O2" /></configuration><net id="101"><area count_expr="#WORKERS" id="102" name="" sx="491" sy="496" x="161" y="107" /><place id="103" init_string="" place_type="Data" radius="20" x="353" y="150"><code>	Data *data = new Data(parameter_CPW());
 	data-&gt;random_fill();
 	place-&gt;add(data);
 </code></place><place id="104" init_string="" place_type="Column" radius="20" x="201" y="321" /><place id="105" init_string="" place_type="Data" radius="20" x="353" y="321" /><place id="106" init_string="" place_type="Column" radius="20" x="500" y="321" /><place id="107" init_string="0" place_type="Int" radius="20" x="339" y="543" /><place id="108" init_string="" place_type="(Int, String)" radius="20" x="699" y="542" /><transition guard="" id="109" name="Init" sx="70" sy="35" x="353" y="233"><code>	var.data-&gt;get_columns(var.left, var.right);
-</code></transition><transition guard="c &lt; #STEPS" id="110" name="Compute" sx="70" sy="35" x="360" y="448" /><transition guard="" id="111" name="Send result" sx="70" sy="35" x="501" y="542"><code>	var.string = var.data-&gt;as_html();
+</code></transition><transition guard="c &lt; #STEPS" id="110" name="Compute" sx="70" sy="35" x="360" y="448"><code>	var.data-&gt;compute(var.left, var.right);
+</code></transition><transition guard="" id="111" name="Send result" sx="70" sy="35" x="501" y="542"><code>	var.string = var.data-&gt;as_html();
 </code></transition><transition guard="" id="112" name="Write results" sx="70" sy="35" x="699" y="449"><code>	int t, size = var.results.size();
 	std::string s[size];
 	for (t=0; t &lt; size; t++) {
