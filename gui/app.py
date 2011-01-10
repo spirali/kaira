@@ -36,8 +36,10 @@ from externtypes import ExternTypeEditor
 from projectconfig import ProjectConfig
 from simulation import Simulation, SimulationException
 from functions import FunctionEditor
+from drawing import VisualConfig
 import process
 import utils
+import cairo
 
 class App:
 	
@@ -327,6 +329,15 @@ class App:
 
 	def hide_error_messages(self):
 		self.project.set_error_messages({})
+
+	def export_to_svg(self):
+		surface = cairo.SVGSurface("network.svg", 1000, 1000)
+		try:
+			context = cairo.Context(surface)
+			self.project.net.draw(context, VisualConfig())
+		finally:
+			surface.finish()
+		self.console_write("Network exported to 'network.svg'.", "success")
 
 	def _project_changed(self):
 		self.nv.net_changed()

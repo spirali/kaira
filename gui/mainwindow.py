@@ -140,6 +140,7 @@ class MainWindow(gtk.Window):
 
 		tool_menu = gtk.Menu()
 		item = gtk.MenuItem("Export network to SVG")
+		item.connect("activate", lambda w: self.app.export_to_svg())
 		tool_menu.append(item)
 
 		main_menu = gtk.MenuBar()
