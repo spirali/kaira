@@ -45,6 +45,22 @@ void CaContext::quit()
 	_module->quit(this);
 }
 
+CaJob * CaContext::_get_jobs()
+{
+	std::vector<CaTransition>::iterator i = _transitions.begin();
+	if (i == _transitions.end()) {
+		return NULL;
+	}
+
+	CaJob *job = new CaJob(*i);
+
+	for (++i; i != _transitions.end(); ++i) {
+		job = new CaJob(*i, job);
+	}
+
+	return job;
+}
+
 void CaContext::_register_transition(int id, TransitionFn *fn)
 {
 	_transitions.push_back(CaTransition(id, fn));
@@ -68,40 +84,60 @@ static int ca_recv(CaContext *ctx, RecvFn *recv_fn, void *data)
 	return ctx->_get_module()->recv(ctx, recv_fn, data);
 }
 
-void CaModule::start_sheduler(CaContext *ctx) {
-	void *data = ctx->_get_places();
-	std::vector<CaTransition> transitions = ctx->_get_transitions();
-	std::vector<CaTransition>::iterator wt, last_executed;
+void CaModule::start_scheduler(CaContext *ctx) {
+	CaJob *first = ctx->_get_jobs();
 
+	if (first == NULL) {
+		return;
+	}
+
+	CaJob *last = first;
+	while (last->next) {
+		last = last->next;
+	}
+
+	void *data = ctx->_get_places();
 	RecvFn *recv_fn = ctx->_get_recv_fn();
-	wt = transitions.begin() + 1;
-	last_executed = transitions.begin();
-	for(;;) {
-		if (wt == transitions.end()) {
-			wt = transitions.begin();
-		}
-		if (wt == last_executed) {
-			if (wt->call(ctx, data)) {
+
+	for (;;) {
+		CaJob *job = first;
+		CaJob *prev = NULL;
+		do {
+			if (job->transition.call(ctx, data)) {
 				ca_recv(ctx, recv_fn, data);
 				if (ctx->_check_halt_flag()) {
-					return;
+					goto cleanup;
 				}
+
+				if (job->next != NULL) { // job is not last job
+					if (prev == NULL) {
+						first = job->next;
+					} else {
+						prev->next = job->next;
+					}
+					job->next = NULL;
+					last->next = job;
+					last = job;
+				}
+				job = first;
+				prev = NULL;
 			} else {
-				while(!ca_recv(ctx, recv_fn, data)) { ctx->_get_module()->idle(); }	
-				if (ctx->_check_halt_flag()) {
-					return;
-				}
+				prev = job;
+				job = job->next;
 			}
-		} else {
-			if (wt->call(ctx, data)) {
-				ca_recv(ctx, recv_fn, data);
-				if (ctx->_check_halt_flag()) {
-					return;
-				}
-				last_executed = wt;
-			}
+		} while(job);
+
+		while(!ca_recv(ctx, recv_fn, data)) { ctx->_get_module()->idle(); }
+		if (ctx->_check_halt_flag()) {
+			goto cleanup;
 		}
-		wt++;
+	}
+
+	cleanup:
+	while (first) {
+		CaJob *job = first->next;
+		delete first;
+		first = job;
 	}
 }
 

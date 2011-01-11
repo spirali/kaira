@@ -12,7 +12,7 @@ class CaModule {
 		virtual void idle() {};
 		virtual void quit(CaContext *ctx) = 0;
 
-		void start_sheduler(CaContext *ctx);
+		void start_scheduler(CaContext *ctx);
 };
 
 class CaOutputBlock {
@@ -30,6 +30,14 @@ class CaOutputBlock {
 		std::string _name;
 		std::vector<std::pair<std::string, std::string> > _attributes;
 		std::vector<CaOutputBlock*> _children;
+};
+
+class CaJob {
+	public:
+		CaJob(const CaTransition &t, CaJob *next = NULL) : transition(t), next(next) {};
+
+		CaTransition const & transition;
+		CaJob *next;
 };
 
 #endif

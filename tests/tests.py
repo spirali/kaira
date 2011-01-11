@@ -23,7 +23,7 @@ class BuildingTest(TestCase):
 		RunProgram("python", [ CMDUTILS, "--export", filename ]).run()
 		RunProgram(PTP_BIN, [ name + ".xml", name + ".cpp" ]).run()
 		RunProgram("make", [], cwd = directory).run()
-		RunProgram(name, params).run(final_output)
+		return RunProgram(name, params).run(final_output)
 
 	def failed_ptp(self, filename, final_output):
 		name, ext = os.path.splitext(filename)
@@ -52,7 +52,13 @@ class BuildingTest(TestCase):
 		self.build(os.path.join(TEST_PROJECTS, "parameters", "parameters.proj"), "9 7\n", ["-pfirst=10", "-psecond=7"])
 	def test_bidirection(self):
 		self.build(os.path.join(TEST_PROJECTS, "bidirection", "bidirection.proj"), "11\n12\n13\n")
-
+	def test_scheduler(self):
+		output = self.build(os.path.join(TEST_PROJECTS, "scheduler", "scheduler.proj"), None)
+		d = { "First" : 0, "Second" : 0 }
+		for line in output.split("\n"):
+			if line:
+				d[line] += 1
+		self.assertEquals(d, { "First": 5, "Second": 5 })
 	def test_functions(self):
 		self.build(os.path.join(TEST_PROJECTS, "functions", "functions.proj"), "9 9\n")
 

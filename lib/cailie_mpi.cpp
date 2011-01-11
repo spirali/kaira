@@ -40,7 +40,7 @@ int CaMpiModule::main(int nodes_count, InitFn *init_fn)
 
 	CaContext ctx(myrank, this);
 	init_fn(&ctx);
-	ctx._get_module()->start_sheduler(&ctx);
+	ctx._get_module()->start_scheduler(&ctx);
 
 	MPI_Finalize();
 	return 0;

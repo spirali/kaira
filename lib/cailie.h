@@ -19,6 +19,7 @@ typedef void(ReportFn)(CaContext * ctx, void *data, CaOutput *out);
 
 class CaModule;
 class CaTransition;
+class CaJob;
 
 class CaContext {
 	
@@ -42,6 +43,7 @@ class CaContext {
 		std::vector<CaTransition> & _get_transitions() { return _transitions; }
 		bool _find_transition(int id, CaTransition &transition);
 		ReportFn * _get_report_fn() { return _report_fn; }
+		CaJob * _get_jobs();
 	protected:
 		int _node;
 		int _iid;
@@ -73,8 +75,8 @@ class CaTransition {
 	public:
 		CaTransition() {} 
 		CaTransition(int id, TransitionFn *fn) { this->id = id; this->function = fn; }
-		int call(CaContext *ctx, void *places) { return function(ctx, places); }
-		int get_id() { return id; }
+		int call(CaContext *ctx, void *places) const { return function(ctx, places); }
+		int get_id() const { return id; }
 	protected:
 		TransitionFn *function;
 		int id;

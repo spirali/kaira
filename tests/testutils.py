@@ -21,6 +21,7 @@ class RunProgram:
 		if expected_output is not None:
 			if output != expected_output:
 				self.error("Excepted %s, got %s" % (expected_output, output))
+		return output
 
 	def fail(self, expected_output = None):
 		pr = subprocess.Popen([self.filename] + self.parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd = self.cwd)

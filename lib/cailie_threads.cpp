@@ -63,7 +63,7 @@ static void ca_threads_start_main(InitFn *init_fn, int node, CaModule *module)
 {
 	CaContext ctx(node, module);
 	init_fn(&ctx);
-	ctx._get_module()->start_sheduler(&ctx);
+	ctx._get_module()->start_scheduler(&ctx);
 }
 
 static void * ca_threads_starter(void *data)
