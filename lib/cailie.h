@@ -11,35 +11,38 @@
 class CaContext;
 class CaOutput;
 
-/* Callbacks */
+/* Function types */
 typedef int(TransitionFn)(CaContext * ctx, void *places);
 typedef void(InitFn)(CaContext * ctx);
 typedef void(RecvFn)(void *places,  int data_id, void *data, size_t size);
 typedef void(ReportFn)(CaContext * ctx, void *data, CaOutput *out);
+typedef int(NodeToProcessFn)(int node);
 
 class CaModule;
+class CaProcess;
 class CaTransition;
 class CaJob;
 
 class CaContext {
-	
+
 	public:
-		CaContext(int node, CaModule *module);
+		CaContext(int node, CaProcess* process);
 
 		/* CaContext user API */
 		int node() { return _node; }
 		int iid() { return _iid; }
 		int instances() { return _instances; }
-		int halt() { return _halt_flag = true; }
+		void halt();
 		void quit();
-		
+
 		/* Internal */
-		CaModule * _get_module() { return _module; }
+		CaProcess * _get_process() { return _process; }
 		void _init(int iid, int instances, void * places, RecvFn *recv_fn, ReportFn *report_fn);
 		void _register_transition(int id, TransitionFn *fn);
 		int _check_halt_flag() { return _halt_flag; }
 		void * _get_places() { return _places; }
 		RecvFn * _get_recv_fn() { return _recv_fn; }
+		void _call_recv_fn(int data_id, void *data, size_t size) { return _recv_fn(_places, data_id, data, size); }
 		std::vector<CaTransition> & _get_transitions() { return _transitions; }
 		bool _find_transition(int id, CaTransition &transition);
 		ReportFn * _get_report_fn() { return _report_fn; }
@@ -49,7 +52,7 @@ class CaContext {
 		int _iid;
 		int _instances;
 		bool _halt_flag;
-		CaModule *_module;
+		CaProcess *_process;
 		RecvFn *_recv_fn;
 		void *_places;
 		std::vector<CaTransition> _transitions;
@@ -66,16 +69,16 @@ class CaOutput {
 		CaOutputBlock * back();
 		void set(const std::string &name, const int i);
 		void set(const std::string &name, const std::string &s);
-	private:	
+	private:
 		void _set(const std::string &name, const std::string &s);
 		std::stack<CaOutputBlock*> _stack;
 };
 
 class CaTransition {
 	public:
-		CaTransition() {} 
+		CaTransition() {}
 		CaTransition(int id, TransitionFn *fn) { this->id = id; this->function = fn; }
-		int call(CaContext *ctx, void *places) const { return function(ctx, places); }
+		int call(CaContext *ctx) const { return function(ctx, ctx->_get_places()); }
 		int get_id() const { return id; }
 	protected:
 		TransitionFn *function;
@@ -134,8 +137,8 @@ template<class T> class CaPlace {
 };
 
 /* Init functions */
-void ca_start(CaContext *ctx, void *data, TransitionFn **tf, RecvFn *recv_fn);
 void ca_main(int nodes_count, InitFn *init_fn);
+void ca_set_node_to_process(NodeToProcessFn *fn);
 
 /* Communications */
 void ca_send(CaContext *ctx, int node, int data_id, CaPacker &packer);

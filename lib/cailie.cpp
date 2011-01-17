@@ -23,14 +23,16 @@ static std::string module_name = "mpi";
 
 #endif // CA_MPI
 
-CaContext::CaContext(int node, CaModule *module) 
+NodeToProcessFn *ca_node_to_process;
+
+CaContext::CaContext(int node, CaProcess *process)
 {
 	_node = node;
-	_module = module;
+	_process = process;
 	_halt_flag = false;
 }
 
-void CaContext::_init(int iid, int instances, void *places, RecvFn *recv_fn, ReportFn *report_fn) 
+void CaContext::_init(int iid, int instances, void *places, RecvFn *recv_fn, ReportFn *report_fn)
 {
 	_iid = iid;
 	_instances = instances;
@@ -39,11 +41,18 @@ void CaContext::_init(int iid, int instances, void *places, RecvFn *recv_fn, Rep
 	_report_fn = report_fn;
 }
 
-void CaContext::quit() 
+void CaContext::quit()
 {
 	halt();
-	_module->quit(this);
+	_process->quit(this);
 }
+
+void CaContext::halt()
+{
+  _halt_flag = true;
+  _process->context_halted(this);
+}
+
 
 CaJob * CaContext::_get_jobs()
 {
@@ -52,10 +61,10 @@ CaJob * CaContext::_get_jobs()
 		return NULL;
 	}
 
-	CaJob *job = new CaJob(*i);
+	CaJob *job = new CaJob(this, *i);
 
 	for (++i; i != _transitions.end(); ++i) {
-		job = new CaJob(*i, job);
+		job = new CaJob(this, *i, job);
 	}
 
 	return job;
@@ -79,33 +88,43 @@ bool CaContext::_find_transition(int id, CaTransition &transition)
 	return false;
 }
 
-static int ca_recv(CaContext *ctx, RecvFn *recv_fn, void *data)
+/*static int ca_recv(const CaContextsMap &contexts)
 {
-	return ctx->_get_module()->recv(ctx, recv_fn, data);
-}
+	recv(ctx, recv_fn, data);
+}*/
 
-void CaModule::start_scheduler(CaContext *ctx) {
-	CaJob *first = ctx->_get_jobs();
+void CaProcess::start_scheduler() {
+
+	CaContextsMap::iterator i;
+
+	CaJob *first = NULL;
+	CaJob *last = NULL;
+	for (i = _contexts.begin(); i != _contexts.end(); i++) {
+		CaJob *jobs = i->second->_get_jobs();
+		if (jobs) {
+			if (first) {
+				last->next = jobs;
+			} else {
+				first = jobs;
+				last = jobs;
+			}
+			while (last->next) {
+				last = last->next;
+			}
+		}
+	}
 
 	if (first == NULL) {
 		return;
 	}
 
-	CaJob *last = first;
-	while (last->next) {
-		last = last->next;
-	}
-
-	void *data = ctx->_get_places();
-	RecvFn *recv_fn = ctx->_get_recv_fn();
-
 	for (;;) {
 		CaJob *job = first;
 		CaJob *prev = NULL;
 		do {
-			if (job->transition.call(ctx, data)) {
-				ca_recv(ctx, recv_fn, data);
-				if (ctx->_check_halt_flag()) {
+			if (job->call()) {
+				recv();
+				if (running_nodes == 0) {
 					goto cleanup;
 				}
 
@@ -127,8 +146,8 @@ void CaModule::start_scheduler(CaContext *ctx) {
 			}
 		} while(job);
 
-		while(!ca_recv(ctx, recv_fn, data)) { ctx->_get_module()->idle(); }
-		if (ctx->_check_halt_flag()) {
+		while(!recv()) { idle(); }
+		if (running_nodes == 0) {
 			goto cleanup;
 		}
 	}
@@ -162,9 +181,14 @@ void ca_main(int nodes_count, InitFn *init_fn) {
 	m->main(nodes_count, init_fn);
 }
 
+void ca_set_node_to_process(NodeToProcessFn *fn)
+{
+	ca_node_to_process = fn;
+}
+
 void ca_send(CaContext *ctx, int node, int data_id, CaPacker &packer)
 {
-	ctx->_get_module()->send(ctx, node, data_id, packer.get_buffer(), packer.get_size());
+	ctx->_get_process()->send(ctx, node, data_id, packer.get_buffer(), packer.get_size());
 }
 
 static int ca_set_argument(int params_count, const char **param_names, int **param_data, char *name, char *value)
@@ -253,14 +277,14 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 	if (exit_f) { exit(1); }
 }
 
-std::string ca_int_to_string(int i) 
+std::string ca_int_to_string(int i)
 {
 	std::stringstream osstream;
 	osstream << i;
 	return osstream.str();
 }
 
-CaOutput::~CaOutput() 
+CaOutput::~CaOutput()
 {
 	while (!_stack.empty()) {
 		delete _stack.top();
@@ -268,13 +292,13 @@ CaOutput::~CaOutput()
 	}
 }
 
-void CaOutput::child(const std::string & name) 
+void CaOutput::child(const std::string & name)
 {
 	CaOutputBlock *block = new CaOutputBlock(name);
 	_stack.push(block);
 }
 
-CaOutputBlock * CaOutput::back() 
+CaOutputBlock * CaOutput::back()
 {
 	CaOutputBlock *block = _stack.top();
 	_stack.pop();
@@ -294,7 +318,7 @@ static void find_and_replace(std::string &s, const char c, const std::string rep
 	}
 }
 
-void CaOutput::set(const std::string & name, const std::string & value) 
+void CaOutput::set(const std::string & name, const std::string & value)
 {
 	std::string v = value;
 	find_and_replace(v, '&', "&amp;");
@@ -353,7 +377,7 @@ CaOutputBlock::~CaOutputBlock()
 		}
 }
 
-CaPacker::CaPacker(size_t size) 
+CaPacker::CaPacker(size_t size)
 {
 	buffer = (char*) malloc(size);
 	//FIXME: ALLOC_TEST

@@ -12,45 +12,50 @@
 #define HALT_COMMAND -1
 
 struct CaThreadsPacket {
+	int target_node;
 	int data_id;
 	size_t size;
 	CaThreadsPacket *next;
 };
 
-struct CaThreadsNodeQueue {
-	pthread_mutex_t lock;
-	CaThreadsPacket *packet;
-};
-
 struct CaThreadsData {
-	int node;
+	CaThreadsProcess *process;
 	InitFn *init_fn;
-	CaModule *module;
 };
 
-void CaThreadsModule::queue_add(int node, CaThreadsPacket *packet)
-{
-	CaThreadsNodeQueue *queue = &_queues[node];
-	pthread_mutex_lock(&queue->lock);
-	packet->next = queue->packet;
-	queue->packet = packet;
-	pthread_mutex_unlock(&queue->lock);
+CaThreadsProcess::CaThreadsProcess(CaThreadsModule *module, int process_id) :
+  CaProcess(process_id), _module(module), _packet(NULL) {
+		pthread_mutex_init(&_lock, NULL);
 }
 
-void CaThreadsModule::send(CaContext *ctx, int target, int data_id, void *data, size_t size)
+CaThreadsProcess::~CaThreadsProcess()
+{
+    pthread_mutex_destroy(&_lock);
+}
+
+void CaThreadsProcess::queue_add(CaThreadsPacket *packet)
+{
+	pthread_mutex_lock(&_lock);
+	packet->next = _packet;
+	_packet = packet;
+	pthread_mutex_unlock(&_lock);
+}
+
+void CaThreadsProcess::send(CaContext *ctx, int target, int data_id, void *data, size_t size)
 {
 	CaThreadsPacket *packet = (CaThreadsPacket *) malloc(sizeof(CaThreadsPacket) + size);
 	// FIXME: Alloc test
+	packet->target_node = target;
 	packet->data_id = data_id;
 	packet->size = size;
 	memcpy(packet + 1, data, size);
-	queue_add(target, packet);
+	_module->get_process(ca_node_to_process(target))->queue_add(packet);
 }
 
-void CaThreadsModule::quit(CaContext *ctx)
+void CaThreadsProcess::quit(CaContext *ctx)
 {
 	int t;
-	for (t=0; t < nodes_count; t++) {
+ 	for (t=0; t < _module->get_nodes_count(); t++) {
 		if (t == ctx->node()) {
 			continue; // Don't send the message to self
 		}
@@ -59,40 +64,47 @@ void CaThreadsModule::quit(CaContext *ctx)
 	}
 }
 
-static void ca_threads_start_main(InitFn *init_fn, int node, CaModule *module)
+void CaThreadsProcess::add_context(CaContext* ctx)
 {
-	CaContext ctx(node, module);
-	init_fn(&ctx);
-	ctx._get_module()->start_scheduler(&ctx);
+    _contexts[ctx->node()] = ctx;
+}
+
+void CaThreadsProcess::start(InitFn *init_fn)
+{
+	CaContextsMap::iterator i;
+	for (i = _contexts.begin(); i != _contexts.end(); ++i) {
+	     init_fn(i->second);
+	}
+	running_nodes = _contexts.size();
+	start_scheduler();
 }
 
 static void * ca_threads_starter(void *data)
 {
 	CaThreadsData *d = (CaThreadsData*) data;
-	ca_threads_start_main(d->init_fn, d->node, d->module);
+	d->process->start(d->init_fn);
 	return NULL;
 }
 
-int CaThreadsModule::recv(CaContext *ctx, RecvFn *recv_fn, void *places) 
+int CaThreadsProcess::recv()
 {
-	CaThreadsNodeQueue *queue = &_queues[ctx->node()];
 	CaThreadsPacket *packet;
-	pthread_mutex_lock(&queue->lock);
-	packet = queue->packet;
-	queue->packet = NULL;
-	pthread_mutex_unlock(&queue->lock);
+	pthread_mutex_lock(&_lock);
+	packet = _packet;
+	_packet = NULL;
+	pthread_mutex_unlock(&_lock);
 
 	if (packet == NULL) {
 		return 0;
 	}
 
 	while(packet) {
+		int node = packet->target_node;
 		if (packet->data_id == HALT_COMMAND) {
-			ctx->halt();
-			break;
+			_module->get_context(node)->halt();
+		} else {
+			_module->get_context(node)->_call_recv_fn(packet->data_id, packet + 1, packet->size);
 		}
-		recv_fn(places, packet->data_id, packet + 1, packet->size);
-
 		CaThreadsPacket *p = packet->next;
 		free(packet);
 		packet = p;
@@ -108,19 +120,26 @@ int CaThreadsModule::main(int nodes, InitFn *init_fn)
 	pthread_t threads[nodes];
 	CaThreadsData data[nodes];
 
-	CaThreadsNodeQueue queues[nodes];
-	this->_queues = queues;
+	int processes_count = nodes;
 
-	for (t = 0; t < nodes; t++) {
-		pthread_mutex_init(&queues[t].lock, NULL);
-		queues[t].packet = NULL;
+	CaThreadsProcess *processes[processes_count];
+	_processes = processes;
+
+	for (t = 0; t < processes_count; t++) {
+	    processes[t] = new CaThreadsProcess(this, t);
 	}
 
+	CaContext *contexts[nodes];
+	this->_contexts = contexts;
 	for (t = 0; t < nodes; t++) {
-		data[t].node = t;
-		data[t].init_fn = init_fn;
-		data[t].module = this;
+		CaThreadsProcess *process = processes[ca_node_to_process(t)];
+		contexts[t] = new CaContext(t, process);
+		process->add_context(contexts[t]);
+	}
 
+	for (t = 0; t < processes_count; t++) {
+		data[t].process = processes[t];
+		data[t].init_fn = init_fn;
 		/* FIXME: Check returns code */
 		pthread_create(&threads[t], NULL, ca_threads_starter, &data[t]);
 	}
@@ -130,13 +149,17 @@ int CaThreadsModule::main(int nodes, InitFn *init_fn)
 	}
 
 	for (t = 0; t < nodes; t++) {
-		pthread_mutex_destroy(&queues[t].lock);
+	    delete contexts[t];
+	}
+
+	for (t = 0; t < processes_count; t++) {
+	    delete processes[t];
 	}
 
 	// TODO: destroy nonempty places
 	return 0;
 }
 
-void CaThreadsModule::idle() {
+void CaThreadsProcess::idle() {
 	sched_yield();
 }

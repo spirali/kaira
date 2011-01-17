@@ -47,7 +47,13 @@ static int init_socket_listen_and_accept()
 	return client;
 }
 
-int CaSimModule::main(int nodes_count, InitFn *init_fn) 
+int CaSimModule::main(int nodes_count, InitFn *init_fn)
+{
+    CaSimProcess process;
+    return process.main(nodes_count, init_fn);
+}
+
+int CaSimProcess::main(int nodes_count, InitFn *init_fn) 
 {
 	int socket = init_socket_listen_and_accept();
 	comm_in = fdopen(socket, "r");
@@ -70,15 +76,16 @@ int CaSimModule::main(int nodes_count, InitFn *init_fn)
 		ctxs.push_back(ctx);
 	}
 	run_listener();
+	return 0;
 }
 
-void CaSimModule::send(CaContext *ctx, int target, int data_id, void *data, size_t size) 
+void CaSimProcess::send(CaContext *ctx, int target, int data_id, void *data, size_t size) 
 {
 	RecvFn *f = ctxs[target]._get_recv_fn();
 	f(ctxs[target]._get_places(), data_id, data, size); 
 }
 
-void CaSimModule::quit(CaContext *ctx)
+void CaSimProcess::quit(CaContext *ctx)
 {
 	std::vector<CaContext>::iterator i;
 	for (i = ctxs.begin(); i != ctxs.end(); i++) {
@@ -86,13 +93,13 @@ void CaSimModule::quit(CaContext *ctx)
 	}
 }
 
-int CaSimModule::recv(CaContext *ctx, RecvFn *recv, void *places)
+int CaSimProcess::recv()
 {
 	/* We dont need this function in simulator, because
 		standard transtion scheduler is not started */
 }
 
-int CaSimModule::run_listener()
+int CaSimProcess::run_listener()
 {
 	char line[LINE_LENGTH_LIMIT];
 	for(;;) {
@@ -139,13 +146,13 @@ int CaSimModule::run_listener()
 	}
 }
 
-void CaSimModule::fire_transition(int transition_id, int iid)
+void CaSimProcess::fire_transition(int transition_id, int iid)
 {
 	std::vector<CaContext>::iterator i;
 	CaTransition t;
 	for (i = ctxs.begin(); i != ctxs.end(); i++) {
 		if (i->iid() == iid && i->_find_transition(transition_id, t) && !i->_check_halt_flag()) {
-				t.call(&(*i), i->_get_places());
+				t.call(&(*i));
 		}
 	}
 }

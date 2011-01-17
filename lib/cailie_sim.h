@@ -7,10 +7,16 @@
 #include <stdio.h>
 
 class CaSimModule : public CaModule {
+    public:
+	int main(int nodes_count, InitFn *init_fn);  	
+};
+
+class CaSimProcess : public CaProcess {
 	public:
+		CaSimProcess() : CaProcess(0) {}
 		int main(int nodes_count, InitFn *init_fn);
 		void send(CaContext *ctx, int target, int data_id, void *data, size_t size);
-		int recv(CaContext *ctx, RecvFn *recv, void *places);
+		int recv();
 		void quit(CaContext *ctx);
 
 		int run_listener();

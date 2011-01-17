@@ -2,22 +2,40 @@
 #define CAILIE_INTERNAL_H
 
 #include "cailie.h"
+#include <map>
+
+typedef std::map <int, CaContext*> CaContextsMap;
 
 class CaModule {
 	public:
 		virtual ~CaModule() {};
 		virtual int main(int nodes_count, InitFn *main_fn) = 0;
+};
+
+class CaProcess {
+      public:
+		CaProcess(int process_id) : _process_id(process_id) {};
+		virtual ~CaProcess() {};
+
 		virtual void send(CaContext *ctx, int target, int data_id, void *data, size_t size) = 0;
-		virtual int recv(CaContext *ctx, RecvFn *recv, void *places) = 0;
+		virtual int recv() = 0;
 		virtual void idle() {};
 		virtual void quit(CaContext *ctx) = 0;
+		void context_halted(CaContext *ctx) { running_nodes--; };
 
-		void start_scheduler(CaContext *ctx);
+		void start_scheduler();
+		int get_process_id() { return _process_id; }
+
+
+      protected:
+		int _process_id;
+		CaContextsMap _contexts;
+		int running_nodes;
 };
 
 class CaOutputBlock {
 	public:
-	
+
 		CaOutputBlock(const std::string & name) { _name = name; }
 		~CaOutputBlock();
 
@@ -25,7 +43,7 @@ class CaOutputBlock {
 		void set(const std::string & name, const std::string & value);
 
 		void write(FILE *file);
-	
+
 	protected:
 		std::string _name;
 		std::vector<std::pair<std::string, std::string> > _attributes;
@@ -34,10 +52,16 @@ class CaOutputBlock {
 
 class CaJob {
 	public:
-		CaJob(const CaTransition &t, CaJob *next = NULL) : transition(t), next(next) {};
+		CaJob(CaContext *ctx, const CaTransition &t, CaJob *next = NULL) : ctx(ctx), transition(t), next(next) {};
 
+		int call() { return transition.call(ctx); }
+		CaContext * get_context() { return ctx; }
+
+		CaContext *ctx;
 		CaTransition const & transition;
 		CaJob *next;
 };
+
+extern NodeToProcessFn *ca_node_to_process;
 
 #endif

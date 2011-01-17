@@ -549,7 +549,8 @@ createMainFunction project = Function {
 		IInline $ "const char *p_names[] = {" ++ addDelimiter "," [ "\"" ++ parameterName p ++ "\"" | p <- parameters ] ++ "};",
 		IInline $ "const char *p_descs[] = {" ++ addDelimiter "," [ "\"" ++ parameterDescription p ++ "\"" | p <- parameters ] ++ "};",
 		IInline $ "int *p_data[] = {" ++ addDelimiter "," [ "&" ++ (parameterGlobalName . parameterName) p | p <- parameters ] ++ "};",
-		icall "ca_parse_args" [ EVar "argc", EVar "argv", EInt (length parameters), EVar "p_names", EVar "p_data", EVar "p_descs" ]
+		icall "ca_parse_args" [ EVar "argc", EVar "argv", EInt (length parameters), EVar "p_names", EVar "p_data", EVar "p_descs" ],
+		icall "ca_set_node_to_process" [ EVar "node_to_process" ]
 	 ]
 
 processedInstances :: Project -> Network -> Expression
@@ -634,9 +635,20 @@ createUserFunction ufunction =
 		(ufunctionCode ufunction)
 	where params = paramFromVar ParamConst (fromNelVarDeclarations (ufunctionParameters ufunction))
 
+nodeToProcessFunction :: Project -> Function
+nodeToProcessFunction project = Function {
+	functionName = "node_to_process",
+	parameters = [ ("node", TInt, ParamNormal) ],
+	declarations = [],
+	extraCode = [],
+	returnType = TInt,
+	instructions = [ IReturn (EVar "node") ],
+	functionSource = Nothing
+}
+
 createProgram :: String -> Project -> String
 createProgram filename project =
-	emitProgram (FilePath.takeFileName filename) prologue globals $ typeF ++ paramF ++ eventsF ++ userF ++ netF ++ [mainInitF, mainF]
+	emitProgram (FilePath.takeFileName filename) prologue globals $ typeF ++ paramF ++ eventsF ++ userF ++ netF ++ othersF
 	where
 		globals = [ (parameterGlobalName $ parameterName p, fromNelType $ parameterType p) | p <- projectParameters project ]
 		typeF = concatMap typeFunctions (map fromNelType $ Map.elems (typeTable project))
@@ -645,5 +657,6 @@ createProgram filename project =
 		userF = map createUserFunction (userFunctions project)
 		mainInitF = createMainInitFunction project
 		mainF = createMainFunction project
+		othersF = [ nodeToProcessFunction project, mainInitF, mainF]
 		paramF = map parameterAccessFunction (projectParameters project)
 		prologue = "#include <stdio.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n#include \"head.cpp\"\n\n"

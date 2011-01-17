@@ -19,10 +19,10 @@ CaMpiModule::~CaMpiModule()
 
 int CaMpiModule::main(int nodes_count, InitFn *init_fn)
 {
-	int myrank; 
+	int myrank;
 	int size;
 	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-	
+
 	if (myrank >= nodes_count) {
 		// We don't need this node
 		MPI_Finalize();
@@ -82,7 +82,7 @@ int CaMpiModule::recv(CaContext *ctx, RecvFn *recv_fn, void *places)
 	if (!flag) {
 		return 0;
 	}
-	
+
 	for(;;) {
 
 		if (status.MPI_TAG == HALT_COMMAND) {
@@ -94,12 +94,12 @@ int CaMpiModule::recv(CaContext *ctx, RecvFn *recv_fn, void *places)
 		MPI_Get_count(&status, MPI_CHAR, &msg_size);
 
 		char buffer[msg_size]; // FIXME: For large packets alloc memory on heap
-		
+
 		MPI_Recv(buffer, msg_size, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
 		recv_fn(places, status.MPI_TAG, buffer, msg_size);
 		MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
-		if (!flag) 
+		if (!flag)
 			break;
 	}
 
