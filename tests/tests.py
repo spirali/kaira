@@ -59,6 +59,14 @@ class BuildingTest(TestCase):
 			if line:
 				d[line] += 1
 		self.assertEquals(d, { "First": 5, "Second": 5 })
+	def test_workers(self):
+		def check_output(output):
+			self.assertEquals(76127, sum([ int(x) for x in output.split("\n") if x.strip() != "" ]))
+		params = [ "-pLIMIT=1000", "-pSIZE=20" ]
+		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params)
+		check_output(output)
+		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params + [ "--processes=3" ])
+		check_output(output)
 	def test_functions(self):
 		self.build(os.path.join(TEST_PROJECTS, "functions", "functions.proj"), "9 9\n")
 
