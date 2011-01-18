@@ -24,6 +24,7 @@ static std::string module_name = "mpi";
 #endif // CA_MPI
 
 NodeToProcessFn *ca_node_to_process;
+int ca_process_count = 0;
 
 CaContext::CaContext(int node, CaProcess *process)
 {
@@ -216,6 +217,7 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 	int c;
 	struct option longopts[] = {
 		{ "help",	0,	NULL, 'h' },
+		{ "processes",	1,	NULL, 'r' },
 		{ NULL,		0,	NULL,  0}
 	};
 
@@ -228,7 +230,7 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 	MPI_Init(&argc, &argv);
 	#endif
 
-	while ((c = getopt_long (argc, argv, "hp:m:", longopts, NULL)) != -1)
+	while ((c = getopt_long (argc, argv, "hp:m:r:", longopts, NULL)) != -1)
 		switch (c) {
 			case 'm': {
 				module_name = optarg;
@@ -247,6 +249,10 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 					printf(" - %s\n", param_descs[t]);
 				}
 				exit(0);
+			}
+			case 'r': {
+			      ca_process_count = atoi(optarg);
+			      break;
 			}
 			case 'p': {
 				char str[strlen(optarg) + 1];

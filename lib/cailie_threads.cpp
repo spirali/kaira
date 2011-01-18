@@ -114,6 +114,10 @@ int CaThreadsProcess::recv()
 
 int CaThreadsModule::main(int nodes, InitFn *init_fn)
 {
+	if (ca_process_count < 1 || ca_process_count > nodes) {
+		ca_process_count = nodes;
+	}
+
 	assert(nodes > 0);
 	nodes_count = nodes;
 	int t;

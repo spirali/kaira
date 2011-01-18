@@ -60,7 +60,7 @@ indentStr n = List.replicate n '\t'
 joinMap :: (a -> SourceCode) -> [a] -> SourceCode
 joinMap f = foldr ((<+>) . f) Empty
 
-infixFunctions = [ "+", "-", "/", "*", "!=", "==", "||", "&&", ">=", "<=", ">", "<" ]
+infixFunctions = [ "+", "-", "/", "*", "!=", "==", "||", "&&", ">=", "<=", ">", "<", "%" ]
 
 addDeclarations :: Scope -> Declarations -> Scope
 addDeclarations scope decls =

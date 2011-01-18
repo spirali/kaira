@@ -642,7 +642,7 @@ nodeToProcessFunction project = Function {
 	declarations = [],
 	extraCode = [],
 	returnType = TInt,
-	instructions = [ IReturn (EVar "node") ],
+	instructions = [ IReturn $ ECall "%" [ (EVar "node"), (EVar "ca_process_count") ] ],
 	functionSource = Nothing
 }
 
