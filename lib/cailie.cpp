@@ -54,6 +54,10 @@ void CaContext::halt()
   _process->context_halted(this);
 }
 
+size_t CaContext::_get_reserved_prefix_size() {
+	return _process->get_reserved_prefix_size();
+}
+
 
 CaJob * CaContext::_get_jobs()
 {
@@ -125,7 +129,7 @@ void CaProcess::start_scheduler() {
 		do {
 			if (job->call()) {
 				recv();
-				if (running_nodes == 0) {
+				if (_running_nodes == 0) {
 					goto cleanup;
 				}
 
@@ -148,7 +152,7 @@ void CaProcess::start_scheduler() {
 		} while(job);
 
 		while(!recv()) { idle(); }
-		if (running_nodes == 0) {
+		if (_running_nodes == 0) {
 			goto cleanup;
 		}
 	}
@@ -388,5 +392,13 @@ CaPacker::CaPacker(size_t size)
 	buffer = (char*) malloc(size);
 	//FIXME: ALLOC_TEST
 	buffer_pos = buffer;
+	this->size = size;
+}
+
+CaPacker::CaPacker(size_t size, size_t reserved)
+{
+	buffer = (char*) malloc(size + reserved);
+	//FIXME: ALLOC_TEST
+	buffer_pos = buffer + reserved;
 	this->size = size;
 }

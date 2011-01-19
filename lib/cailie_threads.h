@@ -38,6 +38,8 @@ class CaThreadsProcess : public CaProcess {
 
 		void add_context(CaContext *ctx);
 
+		size_t get_reserved_prefix_size();
+
 		CaThreadsModule * get_module() { return _module; }
 	protected:
 		pthread_mutex_t _lock;

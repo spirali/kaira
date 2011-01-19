@@ -21,6 +21,7 @@ class CaSimProcess : public CaProcess {
 
 		int run_listener();
 		void error(const char *str) { fprintf(comm_out, "%s\n", str); }
+		size_t get_reserved_prefix_size() { return 0; }
 
 	protected:
 

@@ -36,6 +36,7 @@ class CaContext {
 		void quit();
 
 		/* Internal */
+		size_t _get_reserved_prefix_size();
 		CaProcess * _get_process() { return _process; }
 		void _init(int iid, int instances, void * places, RecvFn *recv_fn, ReportFn *report_fn);
 		void _register_transition(int id, TransitionFn *fn);
@@ -89,7 +90,7 @@ class CaPacker {
 
 	public:
 		CaPacker(size_t size);
-		~CaPacker() { free(buffer); }
+		CaPacker(size_t size, size_t reserved);
 		void pack(const void *mem, size_t size) { memcpy(buffer_pos, mem, size); buffer_pos += size;  }
 		void pack_size(size_t data) { pack(&data, sizeof(size_t)); }
 		void pack_string(std::string str) { size_t s = str.size(); pack_size(s); pack(str.c_str(), s); }

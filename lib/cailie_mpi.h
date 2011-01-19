@@ -9,18 +9,26 @@
 class CaMpiModule : public CaModule {
 
 	public:
-		CaMpiModule();
-		~CaMpiModule();
+		int main(int nodes_count, InitFn *init_fn);
+};
+
+class CaMpiProcess : public CaProcess {
+
+	public:
+		CaMpiProcess(int process_id);
+		~CaMpiProcess();
 		int main(int nodes_count, InitFn *init_fn);
 		void send(CaContext *ctx, int target, int data_id, void *data, size_t size);
-		int recv(CaContext *ctx, RecvFn *recv, void *places);
+		int recv();
 		void quit(CaContext *ctx);
-
+		size_t get_reserved_prefix_size();
 	protected:
 		void check_requests();
-		MPI_Request *requests;
-		size_t requests_count;
-		size_t requests_capacity;
+		MPI_Request *_requests;
+		void **_requests_data;
+		size_t _requests_count;
+		size_t _requests_capacity;
+		int _nodes_count;
 };
 
 #endif // CAILIE_MPI_H

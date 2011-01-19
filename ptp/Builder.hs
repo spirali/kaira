@@ -344,12 +344,17 @@ unpackCode unpacker (TData name rawType TransportCustom functions) var =
 
 unpackCode unpacker t var = error $ "unpackCode: Type cannot be unpacked"
 
+caPacker :: Type -> Expression -> Expression -> Expression
+caPacker etype item reserved =
+	(ECall "CaPacker" [ exprMemSize etype item, reserved ])
+
 sendStatement :: Project -> Network -> Network -> Transition -> Edge -> Instruction
 {- Version for normal edges -}
 sendStatement project fromNetwork toNetwork transition edge | isNormalEdge edge =
 	makeStatement [] [
 		idefine "item" etype (preprocess expr),
-		idefine "packer" (TRaw "CaPacker") (ECall "CaPacker" [exprMemSize etype (EVar "item")]),
+		idefine "reserved" (TRaw "size_t") (ECall "._get_reserved_prefix_size" [ EVar "ctx" ]),
+		idefine "packer" (TRaw "CaPacker") (caPacker etype (EVar "item") (EVar "reserved")),
 		packCode packer etype (EVar "item"),
 		icall "ca_send" [
 			EVar "ctx",
@@ -370,7 +375,9 @@ sendStatement project fromNetwork toNetwork transition edge =
 	makeStatement' [] [ ("target", TInt, target) ]
 	 [
 	IForeach "item" "i" (EAt (EString name) (EVar "var")) [
-	makeStatement' [] [ ("packer", TRaw "CaPacker", ECall "CaPacker" [exprMemSize etype (EVar "item")]) ] [
+	makeStatement [] [
+		idefine "reserved" (TRaw "size_t") (ECall "._get_reserved_prefix_size" [ EVar "ctx" ]),
+		idefine "packer" (TRaw "CaPacker") (caPacker etype (EVar "item") (EVar "reserved")),
 		packCode packer etype (EVar "item"),
 		icall "ca_send" [
 			EVar "ctx",

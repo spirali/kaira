@@ -33,6 +33,11 @@ CaThreadsProcess::~CaThreadsProcess()
     pthread_mutex_destroy(&_lock);
 }
 
+size_t CaThreadsProcess::get_reserved_prefix_size()
+{
+	return sizeof(CaThreadsPacket);
+}
+
 void CaThreadsProcess::queue_add(CaThreadsPacket *packet)
 {
 	pthread_mutex_lock(&_lock);
@@ -43,12 +48,10 @@ void CaThreadsProcess::queue_add(CaThreadsPacket *packet)
 
 void CaThreadsProcess::send(CaContext *ctx, int target, int data_id, void *data, size_t size)
 {
-	CaThreadsPacket *packet = (CaThreadsPacket *) malloc(sizeof(CaThreadsPacket) + size);
-	// FIXME: Alloc test
+	CaThreadsPacket *packet = (CaThreadsPacket *) data;
 	packet->target_node = target;
 	packet->data_id = data_id;
 	packet->size = size;
-	memcpy(packet + 1, data, size);
 	_module->get_process(ca_node_to_process(target))->queue_add(packet);
 }
 
@@ -59,8 +62,8 @@ void CaThreadsProcess::quit(CaContext *ctx)
 		if (t == ctx->node()) {
 			continue; // Don't send the message to self
 		}
-		int i;
-		send(ctx, t, HALT_COMMAND, &i, sizeof(int));
+		void *data = malloc(get_reserved_prefix_size());
+		send(ctx, t, HALT_COMMAND, data, 0);
 	}
 }
 
@@ -75,7 +78,7 @@ void CaThreadsProcess::start(InitFn *init_fn)
 	for (i = _contexts.begin(); i != _contexts.end(); ++i) {
 	     init_fn(i->second);
 	}
-	running_nodes = _contexts.size();
+	_running_nodes = _contexts.size();
 	start_scheduler();
 }
 

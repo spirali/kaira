@@ -17,20 +17,22 @@ class CaProcess {
 		CaProcess(int process_id) : _process_id(process_id) {};
 		virtual ~CaProcess() {};
 
+		/* send method is responsible for freeing "data" */
 		virtual void send(CaContext *ctx, int target, int data_id, void *data, size_t size) = 0;
 		virtual int recv() = 0;
 		virtual void idle() {};
 		virtual void quit(CaContext *ctx) = 0;
-		void context_halted(CaContext *ctx) { running_nodes--; };
+		void context_halted(CaContext *ctx) { _running_nodes--; };
 
 		void start_scheduler();
 		int get_process_id() { return _process_id; }
 
+		virtual size_t get_reserved_prefix_size() = 0;
 
       protected:
 		int _process_id;
 		CaContextsMap _contexts;
-		int running_nodes;
+		int _running_nodes;
 };
 
 class CaOutputBlock {
