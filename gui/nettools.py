@@ -23,29 +23,22 @@ import gtkutils
 
 class NetTool:
 
+	action = None
+	action_start = None
+	action_last_pos = None
+	scroll_point = None
+	selected_item = None
+
 	def __init__(self, netview):
 		self.netview = netview
 		self.net = netview.net
-		self.scroll_point = None
 
 	def start(self):
-		self.selected_item = None
 		self.set_cursor(None)
 		self.netview.set_entry_types([])
 
 	def stop(self):
 		self.deselect_item()
-
-	def left_button_down(self, event, position):
-		pass
-
-	def mouse_move(self, event, position):
-		if self.scroll_point:
-			p = (event.x, event.y)
-			diff = utils.vector_diff(self.scroll_point, p)
-			viewport = self.netview.get_viewport()
-			self.netview.set_viewport(utils.vector_diff(viewport,diff))
-			self.scroll_point = p
 
 	def set_cursor(self, action_name):
 		self.netview.set_cursor(action_name)
@@ -109,72 +102,68 @@ class NetTool:
 			self.selected_item = None
 			self.set_cursor(None)
 
-class NetItemTool(NetTool):
-
-	def __init__(self, netview):
-		NetTool.__init__(self, netview)
-
-	def start(self):
-		NetTool.start(self)
-		self.action = None
-		self.action_start = None
-		self.action_last_pos = None
-
-	def stop(self):
-		NetTool.stop(self)
+	def item_at_position(self, position):
+		return self.net.get_item_at_position(position, self.is_selectable)
 
 	def left_button_down(self, event, position):
-
-		action_tuple = self.net.get_action(position)
-
-		if action_tuple is not None:
-			item, action = action_tuple
+		item = self.item_at_position(position)
+		if item:
 			self.select_item(item)
-		else:
-			item = self.create_new(position)
-			self.select_item(item)
-
-		if self.selected_item:
-			action = self.selected_item.get_action(position)
-			if action:
-				self.action = action
-				self.action_start = position
-				self.action_last_pos = position
-				return
-
-		self.mouse_move(event, position)
+			self.action = item.get_action(position)
+			self.set_cursor(self.action)
+			return True
+		return False
 
 	def left_button_up(self, event, position):
 		self.action = None
 
 	def mouse_move(self, event, position):
-		NetTool.mouse_move(self, event, position)
 
-		action_tuple = self.net.get_action(position)
-		if action_tuple is not None:
-			item, action = action_tuple
-			self.mouseover_highlight(item)
-		else:
-			self.mouseover_highlight_off()
-
-		if self.scroll_point is not None:
+		if self.scroll_point:
+			p = (event.x, event.y)
+			diff = utils.vector_diff(self.scroll_point, p)
+			viewport = self.netview.get_viewport()
+			self.netview.set_viewport(utils.vector_diff(viewport,diff))
+			self.scroll_point = p
 			return
+
+		item = self.item_at_position(position)
+		if item is None:
+			self.mouseover_highlight_off()
+		else:
+			self.mouseover_highlight(item)
+
 		if self.selected_item:
 			if self.action:
-				rel = utils.vector_diff(position, self.action_last_pos)
+				rel = utils.vector_diff(position, self.mouse_last_pos)
 				self.selected_item.drag_move(self.action, self.action_start, position, rel)
 			else:
 				action = self.selected_item.get_action(position)
 				self.set_cursor(action)
-		self.action_last_pos = position
+		self.mouse_last_pos = position
 
 
+class SelectTool(NetTool):
+
+	def is_selectable(self, item):
+		return not item.is_area()
+
+
+class NetItemTool(NetTool):
+
+	def is_selectable(self, item):
+		return not item.is_area()
+
+	def left_button_down(self, event, position):
+		if not NetTool.left_button_down(self, event, position):
+			self.select_item(self.create_new(position))
+			self.action = self.selected_item.get_action(position)
+			self.set_cursor(self.action)
 
 class PlaceTool(NetItemTool):
 
 	def create_new(self, position):
 		return self.net.add_place(position)
-
 
 class TransitionTool(NetItemTool):
 
@@ -183,47 +172,32 @@ class TransitionTool(NetItemTool):
 
 class EdgeTool(NetTool):
 
-	def __init__(self, netview):
-		NetTool.__init__(self, netview)
+	from_item = None
+	points = []
 
-	def start(self):
-		NetTool.start(self)
-		self.from_item = None
-		self.points = []
-		self.action = None
-		self.action_start = None
-
-
-	def left_button_down(self, event, position):
-		if self.selected_item and not self.from_item:
-			self.action = self.selected_item.get_action(position)
-			self.last_position = position
-			self.action_start = position
+	def is_selectable(self, item):
+		return item.is_edge()
 
 	def left_button_up(self, event, position):
 		if self.action:
 			self.action = None
 		else:
 			if self.from_item:
-				item = self.net.get_transition_or_place(position)
+				if self.from_item.is_place():
+					item = self.net.get_item_at_position(position, lambda i: i.is_transition())
+				else:
+					item = self.net.get_item_at_position(position, lambda i: i.is_place())
 				if item:
-					if (item.is_place() and self.from_item.is_place()) or (item.is_transition() and self.from_item.is_transition()):
-						return # Edge can only place-transition or transition-place
 					edge = self.net.add_edge(self.from_item, item, self.points)
 					self.select_item(edge)
 					self.from_item = None
 				else:
 					self.points.append(position)
 			else:
-				self.from_item = self.net.get_transition_or_place(position)
+				self.from_item = self.net.get_item_at_position(position, lambda i: i.is_transition() or i.is_place())
 				if self.from_item:
 					self.last_position = position
 					self.points = []
-				else:
-					action_tuple = self.net.get_action(position)
-					if action_tuple and action_tuple[0].is_edge():
-						item, action = action_tuple
-						self.select_item(item)
 
 	def right_button_down(self, event, position):
 		self.from_item = None
@@ -233,30 +207,8 @@ class EdgeTool(NetTool):
 
 	def mouse_move(self, event, position):
 		NetTool.mouse_move(self, event, position)
-
-
-		if self.scroll_point is not None:
-			return
 		if self.from_item:
 			self.netview.redraw()
-		else:
-			action_tuple = self.net.get_action(position)
-			item = None
-			if action_tuple is not None:
-				item, action = action_tuple
-			if item is not None and item.is_edge():
-				self.mouseover_highlight(item)
-			else:
-				self.mouseover_highlight_off()
-
-		if self.selected_item:
-			if self.action:
-				rel = utils.vector_diff(position, self.last_position)
-				self.selected_item.drag_move(self.action, self.action_start, position, rel)
-			else:
-				action = self.selected_item.get_action(position)
-				self.set_cursor(action)
-		self.last_position = position
 
 	def draw(self, cr):
 		if self.from_item:
@@ -265,68 +217,32 @@ class EdgeTool(NetTool):
 			if self.points:
 				pp = self.points[0]
 			else:
-				pp = self.last_position
+				pp = self.mouse_last_pos
 			pos = self.from_item.get_border_point(pp)
-			utils.draw_polyline_nice_corners(cr, [pos] + self.points + [self.last_position], 0.5, 12, False, True)
+			utils.draw_polyline_nice_corners(cr, [pos] + self.points + [self.mouse_last_pos], 0.5, 12, False, True)
 
 class AreaTool(NetTool):
 
-	def start(self):
-		NetTool.start(self)
-		self.point1 = None
-		self.point2 = None
-		self.action = None
-		self.action_start = None
+	point1 = None
+
+	def is_selectable(self, item):
+		return item.is_area()
 
 	def left_button_down(self, event, position):
-		if self.selected_item:
-			action = self.selected_item.get_action(position)
-			if action:
-				self.action = action
-				self.action_start = position
-				self.action_last_pos = position
-				return
-
-		action_tuple = self.net.get_area_action(position)
-		if action_tuple is not None:
-			item, action = action_tuple
-			self.select_item(item)
-			self.mouse_move(event, position)
-		else:
-			if self.point1:
-				pass
-			else:
-				self.point1 = position
-				self.point2 = position
+		if not NetTool.left_button_down(self, event, position):
+			self.point1 = position
 
 	def mouse_move(self, event, position):
 		NetTool.mouse_move(self, event, position)
 		if self.point1:
 			self.netview.redraw()
-		else:
-			action_tuple = self.net.get_area_action(position)
-			if action_tuple is not None:
-				item, action = action_tuple
-				self.mouseover_highlight(item)
-			else:
-				self.mouseover_highlight_off()
-
-		if self.selected_item:
-			if self.action:
-				rel = utils.vector_diff(position, self.point2)
-				self.selected_item.drag_move(self.action, self.action_start, position, rel)
-			else:
-				action = self.selected_item.get_action(position)
-				self.set_cursor(action)
-		self.point2 = position
-
 
 	def left_button_up(self, event, position):
 		if self.action:
 			self.action = None
 			self.set_cursor(None)
 		elif self.point1:
-			p, s = utils.position_and_size_from_points(self.point1, self.point2)
+			p, s = utils.position_and_size_from_points(self.point1, self.mouse_last_pos)
 			if s[0] > 5 and s[1] > 5:
 				area = self.net.add_area(p,s)
 				self.select_item(area)
@@ -345,7 +261,7 @@ class AreaTool(NetTool):
 			cr.stroke()
 
 	def _rect(self, cr):
-		p, s = utils.position_and_size_from_points(self.point1, self.point2)
+		p, s = utils.position_and_size_from_points(self.point1, self.mouse_last_pos)
 		cr.rectangle(p[0], p[1], s[0], s[1])
 
 

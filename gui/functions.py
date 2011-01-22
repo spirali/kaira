@@ -45,9 +45,6 @@ class FunctionsWidget(ObjectList):
 	def row_activated(self, selected):
 		self._edit_function_code(selected)
 
-	def _dummy(self):
-		pass
-
 	def _add_function(self, selected):
 		obj = self.project.new_function()
 		if function_dialog(obj, self.app.window):

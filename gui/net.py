@@ -156,34 +156,11 @@ class Net:
 				result.append(item)
 		return result
 
-	def get_area_action(self, position):
-		for item in self.items:
-			if not item.is_area():
-				continue
-			action = item.get_action(position)
-			if action is not None:
-				return (item, action)
-		return None
-
-	def get_action(self, position):
-		""" Returns actions only for non-area objects """
-		for item in self.items:
-			if item.is_area():
-				continue
-			action = item.get_action(position)
-			if action is not None:
-				return (item, action)
-		return None
-
-	def get_transition_or_place(self, position):
-		for item in self.items:
-			if (item.is_transition() or item.is_place()) and item.is_inside(position):
+	def get_item_at_position(self, position, filter_fn):
+		for item in filter(filter_fn, self.items):
+			if item.is_at_position(position):
 				return item
-
-	def get_transition(self, position):
-		for item in self.items:
-			if (item.is_transition()) and item.is_inside(position):
-				return item
+		return None
 
 	def delete_item(self, item):
 		self.items.remove(item)
@@ -366,14 +343,13 @@ class Transition(NetElement):
 	def get_drawing(self, vconfig):
 		return vconfig.transition_drawing(self)
 
-	def is_inside(self, position):
+	def is_at_position(self, position):
 		px, py = position
 		mx, my = self.position
 		sx, sy = self.size
 		sx /= 2
 		sy /= 2
-
-		return px >= mx - sx and py >= my - sy and px < mx + sx and py < my + sy
+		return px >= mx - sx - 5 and py >= my - sy - 5 and px < mx + sx + 5 and py < my + sy + 5
 
 	def get_action(self, position):
 		px, py = position
@@ -477,10 +453,9 @@ class Place(NetElement):
 	def get_drawing(self, vconfig):
 		return vconfig.place_drawing(self)
 
-	def is_inside(self, position):
+	def is_at_position(self, position):
 		dist = utils.point_distance(self.position, position)
 		return dist < self.radius + 5
-		
 
 	def get_action(self, position):
 		dist = utils.point_distance(self.position, position)
@@ -627,6 +602,21 @@ class Edge(NetItem):
 		sp, ep = self.get_end_points()
 		return [sp] + self.points + [ep]
 
+	def is_at_position(self, position):
+		if self.inscription_position and utils.position_inside_rect(position, self.inscription_position, self.inscription_size, 4):
+			return True
+
+		for p in self.points:
+			if utils.point_distance(p, position) < 7:
+				return True
+		for (a, b) in utils.pairs_generator(self.get_all_points()):
+			dist = utils.point_distance(a, b) - 5
+			d1 = utils.point_distance(position, a)
+			d2 = utils.point_distance(position, b)
+			if d1 < dist and d2 < dist and utils.distance_to_line(a, b, position) < 5:
+				return True
+		return False
+
 	def get_action(self, position):
 		if self.inscription_position and utils.position_inside_rect(position, self.inscription_position, self.inscription_size, 4):
 			return "move"
@@ -681,6 +671,12 @@ class NetArea(NetItem):
 
 	def get_drawing(self, vconfig):
 		return vconfig.area_drawing(self)
+
+	def is_at_position(self, position):
+		px, py = position
+		mx, my = self.position
+		sx, sy = self.size
+		return px >= mx - 10 and py >= my - 10 and px < mx + sx + 10 and py < my + sy + 10
 
 	def get_action(self, position):
 		px, py = position
