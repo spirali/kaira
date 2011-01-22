@@ -24,10 +24,9 @@ import gtkutils
 class NetTool:
 
 	action = None
-	action_start = None
-	action_last_pos = None
 	scroll_point = None
 	selected_item = None
+	mouse_last_pos = None
 
 	def __init__(self, netview):
 		self.netview = netview
@@ -109,8 +108,8 @@ class NetTool:
 		item = self.item_at_position(position)
 		if item:
 			self.select_item(item)
-			self.action = item.get_action(position)
-			self.set_cursor(self.action)
+			self.action = item.get_action(position, self)
+			self.action.set_cursor()
 			return True
 		return False
 
@@ -136,12 +135,23 @@ class NetTool:
 		if self.selected_item:
 			if self.action:
 				rel = utils.vector_diff(position, self.mouse_last_pos)
-				self.selected_item.drag_move(self.action, self.action_start, position, rel)
+				self.action.mouse_move(position)
 			else:
-				action = self.selected_item.get_action(position)
-				self.set_cursor(action)
+				action = self.selected_item.get_action(position, self)
+				if action:
+					action.set_cursor()
+				else:
+					self.set_cursor(None)
 		self.mouse_last_pos = position
 
+	def get_move_action(self, get_fn, set_fn, position):
+		return ToolActionMove(get_fn, set_fn, position, self)
+
+	def get_resize_action(self, item, position):
+		return ToolActionResize(item, position, self)
+
+	def get_empty_action(self):
+		return ToolActionEmpty(self)
 
 class SelectTool(NetTool):
 
@@ -157,8 +167,8 @@ class NetItemTool(NetTool):
 	def left_button_down(self, event, position):
 		if not NetTool.left_button_down(self, event, position):
 			self.select_item(self.create_new(position))
-			self.action = self.selected_item.get_action(position)
-			self.set_cursor(self.action)
+			self.action = self.selected_item.get_action(position, self)
+			self.action.set_cursor()
 
 class PlaceTool(NetItemTool):
 
@@ -265,4 +275,49 @@ class AreaTool(NetTool):
 		cr.rectangle(p[0], p[1], s[0], s[1])
 
 
+class ToolAction:
 
+	def __init__(self, position, tool):
+		self.start_position = position
+		self.tool = tool
+
+	def get_rel_change(self, position):
+		return utils.vector_diff(position, self.start_position)
+
+
+class ToolActionMove(ToolAction):
+
+	def __init__(self, get_fn, set_fn, position, tool):
+		ToolAction.__init__(self, position, tool)
+		self.get_fn = get_fn
+		self.set_fn = set_fn
+		self.original_position = get_fn()
+
+	def set_cursor(self):
+		self.tool.set_cursor("move")
+
+	def mouse_move(self, position):
+		self.set_fn(utils.vector_add(self.original_position, self.get_rel_change(position)))
+
+class ToolActionResize(ToolAction):
+
+	def __init__(self, item, position, tool):
+		ToolAction.__init__(self, position, tool)
+		self.item = item
+
+	def mouse_move(self, position):
+		self.item.resize(utils.vector_diff(position, self.item.get_position()))
+
+	def set_cursor(self):
+		self.tool.set_cursor("resize")
+
+class ToolActionEmpty:
+
+	def __init__(self, tool):
+		self.tool = tool
+
+	def set_cursor(self):
+		self.tool.set_cursor(None)
+
+	def mouse_move(position):
+		pass

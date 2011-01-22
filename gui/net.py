@@ -151,7 +151,7 @@ class Net:
 	def pick_items(self, position):
 		result = []
 		for item in self.items:
-			action = item.get_action(position)
+			action = item.is_at_position(position)
 			if action is not None:
 				result.append(item)
 		return result
@@ -251,6 +251,10 @@ class NetElement(NetItem):
 	def get_position(self):
 		return self.position
 
+	def set_position(self, position):
+		self.position = position
+		self.changed()
+
 	def edges(self):
 		return self.net.edges_of(self)
 
@@ -294,6 +298,10 @@ class Transition(NetElement):
 
 	def get_size(self):
 		return self.size
+
+	def resize(self, point):
+		self.size = (point[0] * 2, point[1] * 2)
+		self.changed()
 
 	def is_transition(self):
 		return True
@@ -351,7 +359,7 @@ class Transition(NetElement):
 		sy /= 2
 		return px >= mx - sx - 5 and py >= my - sy - 5 and px < mx + sx + 5 and py < my + sy + 5
 
-	def get_action(self, position):
+	def get_action(self, position, factory):
 		px, py = position
 		mx, my = self.position
 		sx, sy = self.size
@@ -359,17 +367,10 @@ class Transition(NetElement):
 		sy /= 2
 
 		if px >= mx + sx - 5 and py >= my + sy - 5 and px < mx + sx + 5 and py < my + sy + 5:
-			return "resize"
+			return factory.get_resize_action(self, position)
 
 		if px >= mx - sx and py >= my - sy and px < mx + sx and py < my + sy:
-			return "move"
-
-	def drag_move(self, action, drag_start, position, rel_change):
-		if action == "move":
-			self.position = utils.vector_add(self.position, rel_change)
-		if action == "resize":
-			self.size = utils.vector_add(self.size, utils.vector_mul_scalar(rel_change,2))
-		self.changed()
+			return factory.get_move_action(self.get_position, self.set_position, position)
 
 	def get_border_point(self, outer_point):
 		px, py = self.position
@@ -457,20 +458,18 @@ class Place(NetElement):
 		dist = utils.point_distance(self.position, position)
 		return dist < self.radius + 5
 
-	def get_action(self, position):
+	def get_action(self, position, factory):
 		dist = utils.point_distance(self.position, position)
 
 		if dist < self.radius + 5 and dist > self.radius - 5:
-			return "resize"
+			return factory.get_resize_action(self, position)
 
 		if dist < self.radius:
-			return "move"
+			return factory.get_move_action(self.get_position, self.set_position, position)
 
-	def drag_move(self, action, drag_start, position, rel_change):
-		if action == "move":
-			self.position = utils.vector_add(self.position, rel_change)
-		if action == "resize":
-			self.radius = utils.point_distance(self.position, position) 
+	def resize(self, point):
+		px, py = point
+		self.radius = math.sqrt(px * px + py * py)
 		self.changed()
 
 	def get_border_point(self, outer_point):
@@ -521,6 +520,10 @@ class Edge(NetItem):
 
 	def toggle_bidirectional(self):
 		self.bidirectional = not self.bidirectional
+		self.changed()
+
+	def set_inscription_position(self, position):
+		self.inscription_position = position
 		self.changed()
 
 	def get_inscription_position(self):
@@ -584,20 +587,6 @@ class Edge(NetItem):
 	def get_drawing(self, vconfig):
 		return vconfig.edge_drawing(self)
 
-	def drag_move(self, action, drag_start, position, rel_change):
-		if action == "move":
-			old_pos = utils.vector_diff(position, rel_change)
-			if self.inscription_position and utils.position_inside_rect(old_pos, self.inscription_position, self.inscription_size, 4):
-				self.inscription_position = utils.vector_add(self.inscription_position, rel_change)
-				self.changed()
-				return 
-			for x in xrange(len(self.points)):
-				p = self.points[x]
-				if utils.point_distance(p, old_pos) < 5:
-					self.points[x] = utils.vector_add(p, rel_change)
-					self.changed()
-					return
-
 	def get_all_points(self):
 		sp, ep = self.get_end_points()
 		return [sp] + self.points + [ep]
@@ -617,20 +606,17 @@ class Edge(NetItem):
 				return True
 		return False
 
-	def get_action(self, position):
+	def get_action(self, position, factory):
+		def set_point(i, p):
+			self.points[i] = p
+			self.changed()
 		if self.inscription_position and utils.position_inside_rect(position, self.inscription_position, self.inscription_size, 4):
-			return "move"
+			return factory.get_move_action(self.get_inscription_position, self.set_inscription_position, position)
 
-		for p in self.points:
+		for i, p in enumerate(self.points):
 			if utils.point_distance(p, position) < 7:
-				return "move"
-		for (a, b) in utils.pairs_generator(self.get_all_points()):
-			dist = utils.point_distance(a, b) - 5
-			d1 = utils.point_distance(position, a)
-			d2 = utils.point_distance(position, b)
-			if d1 < dist and d2 < dist and utils.distance_to_line(a, b, position) < 5:
-				return "none"
-		return None
+				return factory.get_move_action(lambda: p, lambda x: set_point(i, x), position)
+		return factory.get_empty_action()
 
 	def get_text_entries(self):
 		return [ ("Inscription", self.get_inscription, self.set_inscription) ]
@@ -652,8 +638,16 @@ class NetArea(NetItem):
 	def get_size(self):
 		return self.size
 
+	def resize(self, point):
+		self.size = point
+		self.changed()
+
 	def get_position(self):
 		return self.position
+
+	def set_position(self, position):
+		self.position = position
+		self.changed()
 
 	def set_count_expr(self, count_expr):
 		self.count_expr = count_expr
@@ -678,23 +672,16 @@ class NetArea(NetItem):
 		sx, sy = self.size
 		return px >= mx - 10 and py >= my - 10 and px < mx + sx + 10 and py < my + sy + 10
 
-	def get_action(self, position):
+	def get_action(self, position, factory):
 		px, py = position
 		mx, my = self.position
 		sx, sy = self.size
 
 		if px >= mx + sx - 10 and py >= my + sy - 10 and px < mx + sx + 5 and py < my + sy + 5:
-			return "resize"
+			return factory.get_resize_action(self, position)
 
 		if px >= mx and py >= my and px < mx + sx and py < my + sy:
-			return "move"
-
-	def drag_move(self, action, drag_start, position, rel_change):
-		if action == "move":
-			self.position = utils.vector_add(self.position, rel_change)
-		if action == "resize":
-			self.size = utils.vector_add(self.size, rel_change)
-		self.changed()
+			return factory.get_move_action(self.get_position, self.set_position, position)
 
 	def get_text_entries(self):
 		return [ ("Count", self.get_count_expr, self.set_count_expr),
