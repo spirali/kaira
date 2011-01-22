@@ -234,8 +234,8 @@ class Project(EventSource):
 	def write_project_files(self):
 		self.write_makefile()
 		utils.write_file_if_not_exists(self.get_head_filename(),
-			"/* This file is included at the beginning of main source file,\n" + 
-			"   so definition from this file can be used in functions in\n" +
+			"/* This file is included at the beginning of the main source file,\n" + 
+			"   so definitions from this file can be used in functions in\n" +
 			"   transitions and places. */\n\n")
 
 	def write_makefile(self):
