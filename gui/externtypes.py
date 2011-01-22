@@ -85,6 +85,9 @@ class ExternTypesWidget(ObjectList):
 		self.app = app
 		self.fill(project.get_extern_types())
 
+	def row_activated(self, selected):
+		self._edit_type(selected)
+
 	def _fbutton_callback(self, name):
 		def update(extern_type, fn_name):
 			self.update(extern_type)

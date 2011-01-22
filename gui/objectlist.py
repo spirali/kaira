@@ -40,6 +40,7 @@ class ObjectList(gtk.VBox):
 
 		self.list = gtkutils.SimpleList(list_definition)
 		self.list.connect_view("cursor-changed", lambda w: self.cursor_changed(self.list.get_selection(0)))
+		self.list.connect_view("row-activated", lambda w, i, p: self.row_activated(self.list.get_selection(0)))
 		if rpanel is None:
 			self.pack_start(self.list)
 		else:
@@ -74,4 +75,7 @@ class ObjectList(gtk.VBox):
 			self.add_object(obj)
 
 	def cursor_changed(self, obj):
+		pass
+
+	def row_activated(self, obj):
 		pass

@@ -42,6 +42,9 @@ class FunctionsWidget(ObjectList):
 	def object_as_row(self, obj):
 		return [obj, obj.get_name(), obj.get_return_type(), obj.get_with_context(), obj.get_parameters()]
 
+	def row_activated(self, selected):
+		self._edit_function_code(selected)
+
 	def _dummy(self):
 		pass
 
@@ -83,6 +86,9 @@ class EventsWidget(ObjectList):
 
 	def object_as_row(self, obj):
 		return [obj, obj.get_name()]
+
+	def row_activated(self, selected):
+		self._edit_code(selected)
 
 	def _edit_code(self, obj):
 		if obj is not None:

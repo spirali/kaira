@@ -65,6 +65,9 @@ class ParametersWidget(ObjectList):
 				"Mandatory", parameter.get_type(), parameter.get_default(),
 				parameter.get_description()]
 
+	def row_activated(self, selected):
+		self._edit_parameter(selected)
+
 	def _add_parameter(self, selected):
 		param = self.project.new_parameter()
 		if parameters_dialog(param, self.mainwindow):
