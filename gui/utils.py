@@ -131,7 +131,6 @@ def draw_polyline_nice_corners(cr, points, arrow_degrees, arrow_len, arrow_start
 		cr.move_to(ex, ey)
 		draw_arrow(cr, make_vector(points[-2], points[-1]), arrow_degrees, arrow_len)
 
-
 def pairs_generator(lst):
 	for x in xrange(len(lst) - 1):
 		yield (lst[x], lst[x+1])
@@ -140,6 +139,9 @@ def text_size(cr, text):
 	extends = cr.text_extents(text)
 	return (extends[2], extends[3])
 
+def snap_to_grid(point, grid_size):
+	px, py = point
+	return (int(px / grid_size) * grid_size, int(py / grid_size) * grid_size)
 
 def point_distance(point1, point2):
 	return vector_len(make_vector(point1, point2))

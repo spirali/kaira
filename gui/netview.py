@@ -93,10 +93,11 @@ class NetViewVisualConfig(VisualConfig):
 
 class NetView(gtk.VBox):
 
-	def __init__(self, project, net):
+	def __init__(self, app, project, net):
 		gtk.VBox.__init__(self)
 		self.project = project
 		self.net = net
+		self.app = app
 		self.tool = None
 		self.entry_types = []
 		self.set_size_request(500,400)
@@ -109,6 +110,9 @@ class NetView(gtk.VBox):
 		self.transition_edit_callback = None
 		self.place_edit_callback = None
 		self.set_tool(nettools.SelectTool(self))
+
+	def get_grid_size(self):
+		return self.app.get_grid_size()
 
 	def set_tool(self, tool):
 		if self.tool:

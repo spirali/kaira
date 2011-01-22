@@ -49,6 +49,7 @@ class App:
 		self.nv = None
 		self.tabtable = {}
 		self._open_welcome_tab()
+		self.grid_size = 1
 
 		if args:
 			if os.path.isfile(args[0]):
@@ -81,7 +82,7 @@ class App:
 			if callback:
 				callback(t)
 		self.window.close_all_tabs()
-		self.nv = NetView(self.project, self.project.net)
+		self.nv = NetView(self, self.project, self.project.net)
 		self.nv.transition_edit_callback = self.transition_edit
 		self.nv.place_edit_callback = self.place_edit
 		self.window.add_tab("Network", self.nv)
@@ -166,6 +167,12 @@ class App:
 
 	def build_project(self):
 		self._start_build(self.project, lambda p: self.console_write("Build OK\n", "success"))
+
+	def get_grid_size(self):
+		return self.grid_size
+
+	def set_grid_size(self, grid_size):
+		self.grid_size = grid_size
 
 	def _catch_io_error(self, fcn, return_on_ok = None, return_on_err = None):
 		try:

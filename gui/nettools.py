@@ -63,6 +63,9 @@ class NetTool:
 	def deselect_item(self):
 		self.select_item(None)
 
+	def get_grid_size(self):
+		return self.netview.get_grid_size()
+
 	def right_button_down(self, event, position):
 		def delete_event(w):
 			self.selected_item.delete()
@@ -297,7 +300,9 @@ class ToolActionMove(ToolAction):
 		self.tool.set_cursor("move")
 
 	def mouse_move(self, position):
-		self.set_fn(utils.vector_add(self.original_position, self.get_rel_change(position)))
+		pos = utils.vector_add(self.original_position, self.get_rel_change(position))
+		pos = utils.snap_to_grid(pos, self.tool.get_grid_size())
+		self.set_fn(pos)
 
 class ToolActionResize(ToolAction):
 
@@ -319,5 +324,5 @@ class ToolActionEmpty:
 	def set_cursor(self):
 		self.tool.set_cursor(None)
 
-	def mouse_move(position):
+	def mouse_move(self, position):
 		pass

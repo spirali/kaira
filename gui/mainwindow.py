@@ -124,6 +124,19 @@ class MainWindow(gtk.Window):
 
 		view_menu = gtk.Menu()
 
+		item = gtk.RadioMenuItem(None, "No grid")
+		item.connect("activate", lambda w: self.app.set_grid_size(1))
+		item.set_active(True)
+		view_menu.append(item)
+
+		item = gtk.RadioMenuItem(item, "Small grid (5x5)")
+		item.connect("activate", lambda w: self.app.set_grid_size(5))
+		view_menu.append(item)
+
+		item = gtk.RadioMenuItem(item, "Big grid (25x25)")
+		item.connect("activate", lambda w: self.app.set_grid_size(25))
+		view_menu.append(item)
+
 		item = gtk.MenuItem("Hide error messages")
 		item.connect("activate", lambda w: self.app.hide_error_messages())
 		view_menu.append(item)
