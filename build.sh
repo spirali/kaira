@@ -1,7 +1,7 @@
 #!/bin/bash
 echo "Building C library ... "
 cd `dirname $0`/lib || abort
-make || exit 1
+(make clean && make) || exit 1
 cd ..
 echo "Building Project-To-Program compiler ... "
 cd `dirname $0`/ptp || exit 1
