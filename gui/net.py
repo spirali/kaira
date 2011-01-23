@@ -162,6 +162,9 @@ class Net:
 				return item
 		return None
 
+	def get_transition_at_position(self, position):
+		return self.get_item_at_position(position, lambda i: i.is_transition())
+
 	def delete_item(self, item):
 		self.items.remove(item)
 		self.changed()

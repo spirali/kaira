@@ -93,7 +93,7 @@ class SimView(gtk.VBox):
 			return
 		position = (event.x, event.y)
 		net = self.simulation.get_net()
-		t = net.get_transition(position)
+		t = net.get_transition_at_position(position)
 		if t:
 			self.simulation.fire_transition_random_instance(t)
 
@@ -102,7 +102,7 @@ class SimView(gtk.VBox):
 			return lambda w: self.simulation.fire_transition(t, i)
 		position = (event.x, event.y)
 		net = self.simulation.get_net()
-		t = net.get_transition(position)
+		t = net.get_transition_at_position(position)
 		if t:
 			iids = self.simulation.enabled_instances_of_transition(t)
 			if iids:
@@ -121,7 +121,7 @@ class SimView(gtk.VBox):
 
 	def _on_instance_click(self, position, area, i):
 		net = self.simulation.get_net()
-		t = net.get_transition(position)
+		t = net.get_transition_at_position(position)
 		# FIXME: Only transitions inside area can be clicked
 		if t:
 			self.simulation.fire_transition(t, i)
