@@ -22,6 +22,7 @@ import gtksourceview2 as gtksourceview
 import gtk
 import pango
 import os
+import events
 
 class CodeEditor(gtk.VBox):
 	
@@ -98,7 +99,11 @@ class CodeEditor(gtk.VBox):
 
 class CodeFileEditor(CodeEditor):
 
-	def __init__(self, filename):
+	def __init__(self, app, filename):
+		self.callbacks = events.EventCallbacksList()
+		self.callbacks.set_callback(app.project, "export", self._save)
+		self.callbacks.set_callback(app.project, "save", self._save)
+
 		self.filename = filename
 		if os.path.isfile(filename):
 			with open(filename, "r") as f:
@@ -108,6 +113,9 @@ class CodeFileEditor(CodeEditor):
 		CodeEditor.__init__(self, "", content, "", (0,0))
 		self.view.set_show_line_numbers(True)
 
+	def shutdown(self):
+		self.callbacks.remove_all()
+
 	def _toolbar(self):
 		button1 = gtk.Button("Save")
 		button1.connect("clicked", self._save)
@@ -116,7 +124,7 @@ class CodeFileEditor(CodeEditor):
 		toolbar.show_all()
 		return toolbar
 
-	def _save(self, w):
+	def _save(self, w = None):
 		#FIXME: catch io erros
 		with open(self.filename, "w") as f:
 			f.write(self.get_text())

@@ -27,7 +27,7 @@ from events import EventSource
 
 class Project(EventSource):
 	""" 
-		Events: changed, filename_changed
+		Events: changed, filename_changed, export, save
 	"""
 	
 	def __init__(self, file_name):
@@ -145,6 +145,7 @@ class Project(EventSource):
 
 	def save(self):
 		assert self.filename is not None
+		self.emit_event("save")
 		f = open(self.filename, "w")
 		try:
 			f.write(xml.tostring(self.as_xml()))
@@ -152,6 +153,7 @@ class Project(EventSource):
 			f.close()
 
 	def export(self, filename):
+		self.emit_event("export")
 		root = xml.Element("project")
 
 		root.append(self._configuration_element())

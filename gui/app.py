@@ -257,8 +257,8 @@ class App:
 		if tab_tag in self.tabtable:
 			self.switch_to_tab(tab_tag)
 			return
-		w = CodeFileEditor(filename)
-		self.add_tab(os.path.basename(filename), w, tab_tag)
+		w = CodeFileEditor(app, filename)
+		self.add_tab(os.path.basename(filename), w, tab_tag, lambda x: w.shutdown())
 
 	def edit_headfile(self):
 		self.edit_sourcefile(self.project.get_head_filename())
