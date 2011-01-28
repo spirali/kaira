@@ -24,10 +24,11 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 	"""
 		Events: button_down, button_up, mouse_move
 	"""
-	def __init__(self, net, draw_cb, vconfig):
+	def __init__(self, net, draw_cb, vconfig, zoom = 1.0):
 		gtk.DrawingArea.__init__(self);
 		EventSource.__init__(self)
 		self.net = net
+		self.zoom = zoom
 		self.viewport = (0,0)
 		self.vconfig = vconfig
 		self.draw_cb = draw_cb
@@ -51,15 +52,27 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 	def redraw(self):
 		self.queue_draw()
 
+	def zoom_in(self):
+		self.zoom *= 1.25
+		self.redraw()
+
+	def zoom_out(self):
+		self.zoom /= 1.25
+		self.redraw()
+
+	def get_zoom(self):
+		return self.zoom
+
 	def set_size_and_viewport_by_net(self):
 		((l, t), (r, b)) = self.net.corners()
 		sizex = r - l + 100
 		sizey = b - t + 100
-		self.set_size_request(sizex, sizey)
+		self.set_size_request(int(sizex * self.zoom), int(sizey * self.zoom))
 		self.set_viewport((l , t ))
 
 	def _expose(self, w, event):
 		cr = self.window.cairo_create()
+		self.cr = cr
 		cr.rectangle(event.area.x, event.area.y,
 				event.area.width, event.area.height)
 		cr.clip()
@@ -70,21 +83,22 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 		cr.rectangle(0, 0, width, height)
 		cr.fill()
 		cr.translate(self.viewport[0], self.viewport[1])
+		cr.scale(self.zoom, self.zoom)
 		self.net.draw(cr, self.vconfig)
 		if self.draw_cb:
 			self.draw_cb(cr, width, height)
 
+	def _mouse_to_canvas(self, event):
+		return self.cr.device_to_user(event.x, event.y)
+
 	def _button_down(self, w, event):
-		position = (event.x - self.viewport[0], event.y - self.viewport[1])
-		self.emit_event("button_down", event, position)
+		self.emit_event("button_down", event, self._mouse_to_canvas(event))
 
 	def _button_up(self, w, event):
-		position = (event.x - self.viewport[0], event.y - self.viewport[1])
-		self.emit_event("button_up", event, position)
+		self.emit_event("button_up", event, self._mouse_to_canvas(event))
 
 	def _mouse_move(self, w, event):
-		position = (event.x - self.viewport[0], event.y - self.viewport[1])
-		self.emit_event("mouse_move", event, position)
+		self.emit_event("mouse_move", event, self._mouse_to_canvas(event))
 
 
 class MultiCanvas(gtk.DrawingArea):

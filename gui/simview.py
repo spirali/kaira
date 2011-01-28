@@ -34,7 +34,7 @@ class SimView(gtk.VBox):
 
 		self.pack_start(self._buttons(), False, False)
 		self.canvas_sc = gtk.ScrolledWindow()
-		self.canvas = self._create_canvas()
+		self.canvas = self._create_canvas(app.nv.get_zoom())
 		self.canvas.set_size_and_viewport_by_net()
 		self.canvas_sc.add_with_viewport(self.canvas)
 
@@ -75,11 +75,9 @@ class SimView(gtk.VBox):
 			self.instance_canvas_sc.hide()
 			self.canvas_sc.show()
 
-	def _create_canvas(self):
-		c = NetCanvas(self.get_net(), None, VisualConfig())
-		c.connect("button_press_event", self._button_down)
-		c.connect("button_release_event", self._button_up)
-		c.connect("motion_notify_event", self._mouse_move)
+	def _create_canvas(self, zoom):
+		c = NetCanvas(self.get_net(), None, VisualConfig(), zoom = zoom)
+		c.set_callback("button_down", self._button_down)
 		c.show()
 		return c
 
@@ -87,11 +85,10 @@ class SimView(gtk.VBox):
 		c = MultiCanvas()
 		return c
 
-	def _button_down(self, w, event):
+	def _button_down(self, event, position):
 		if event.button == 3:
 			self._context_menu(event)
 			return
-		position = (event.x, event.y)
 		net = self.simulation.get_net()
 		t = net.get_transition_at_position(position)
 		if t:
@@ -107,12 +104,6 @@ class SimView(gtk.VBox):
 			iids = self.simulation.enabled_instances_of_transition(t)
 			if iids:
 				gtkutils.show_context_menu([("Fire " + str(i), fire_fn(i)) for i in iids ], event)
-
-	def _button_up(self, w, event):
-		pass
-
-	def _mouse_move(self, w, event):
-		pass
 
 	def _view_for_area(self, area):
 		sz = utils.vector_add(area.get_size(), (80, 95))

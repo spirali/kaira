@@ -120,6 +120,9 @@ class NetView(gtk.VBox):
 		self.tool = tool
 		tool.start()
 		self.focus_entry()
+
+	def get_zoom(self):
+		return self.drawarea.get_zoom()
 	
 	def focus_entry(self):
 		self.entry.grab_focus()
@@ -191,6 +194,19 @@ class NetView(gtk.VBox):
 		toolbar.add(button3)
 		toolbar.add(button4)
 		toolbar.add(button5)
+
+		toolbar.add(gtk.SeparatorToolItem())
+
+		button1 = gtk.ToolButton()
+		button1.connect("clicked", lambda w: self.drawarea.zoom_in())
+		button1.set_stock_id(gtk.STOCK_ZOOM_IN)
+
+		button2 = gtk.ToolButton()
+		button2.connect("clicked", lambda w: self.drawarea.zoom_out())
+		button2.set_stock_id(gtk.STOCK_ZOOM_OUT)
+
+		toolbar.add(button1)
+		toolbar.add(button2)
 
 		vbox = gtk.VBox()
 		vbox.pack_start(toolbar)
