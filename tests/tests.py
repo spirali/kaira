@@ -69,6 +69,8 @@ class BuildingTest(TestCase):
 		check_output(output)
 	def test_functions(self):
 		self.build(os.path.join(TEST_PROJECTS, "functions", "functions.proj"), "9 9\n")
+	def test_tuples(self):
+		self.build(os.path.join(TEST_PROJECTS, "tuples", "tuples.proj"), "Ok\n")
 
 if __name__ == '__main__':
     unittest.main()
