@@ -91,7 +91,7 @@ class TransitionDrawing(DrawingBase):
 			sx, sy = utils.text_size(cr, self.guard)
 			tx = px - sx / 2
 			ty = py - self.size[1]/2 - sy/2 - 2
-			draw_error_box_after_text(cr, self.guard, tx, ty, self.error_messages["guard"])
+			draw_error_box_after_text(cr, self.guard, (tx, ty), self.error_messages["guard"])
 
 
 class PlaceDrawing(DrawingBase):
