@@ -46,7 +46,7 @@ languageDef = emptyDef { Token.commentStart    = "/*"
 	, Token.identLetter     = alphaNum <|> char '_'
 	, Token.reservedNames   = []
 	, Token.caseSensitive   = True
-	, Token.reservedOpNames = ["+", "-", "*", "/", "==", "!="
+	, Token.reservedOpNames = ["+", "-", "*", "/", "%", "==", "!="
 	, "<", ">", "<=", ">=", "&&", "||" ]
 }
 lexer = Token.makeTokenParser languageDef
@@ -101,7 +101,9 @@ tupleParser = do
 expressionParser :: Parser NelExpression
 expressionParser = buildExpressionParser optable baseExpr
 optable = [
+	[ Infix (opBinary "%") AssocLeft ],
 	[ Infix (opBinary "*") AssocLeft ],
+	[ Infix (opBinary "/") AssocLeft ],
 	[ Infix (opBinary "+") AssocLeft ],
 	[ Infix (opBinary "-") AssocLeft ],
 	[ Infix (opBinary ">") AssocLeft ],

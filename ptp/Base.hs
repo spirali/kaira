@@ -30,6 +30,8 @@ basicNelFunctions = [
 	( "+", TypeInt, [TypeInt, TypeInt]),
 	( "*", TypeInt, [TypeInt, TypeInt ]),
 	( "-", TypeInt, [TypeInt, TypeInt ]),
+	( "/", TypeInt, [TypeInt, TypeInt ]),
+	( "%", TypeInt, [TypeInt, TypeInt ]),
 	( ">", TypeBool, [TypeInt, TypeInt ]),
 	( "<", TypeBool, [TypeInt, TypeInt ]),
 	( ">=", TypeBool, [TypeInt, TypeInt ]),
