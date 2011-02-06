@@ -112,7 +112,10 @@ class NetTool:
 		if item:
 			self.select_item(item)
 			self.action = item.get_action(position, self)
-			self.action.set_cursor()
+			if self.action:
+				self.action.set_cursor()
+			else:
+				self.set_cursor(None)
 			return True
 		return False
 

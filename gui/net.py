@@ -149,12 +149,7 @@ class Net:
 		return item in self.items
 
 	def pick_items(self, position):
-		result = []
-		for item in self.items:
-			action = item.is_at_position(position)
-			if action is not None:
-				result.append(item)
-		return result
+		return [ item for item in self.items if item.is_at_position(position) ]
 
 	def get_item_at_position(self, position, filter_fn):
 		for item in filter(filter_fn, self.items):
