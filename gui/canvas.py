@@ -68,7 +68,7 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 		sizex = r - l + 100
 		sizey = b - t + 100
 		self.set_size_request(int(sizex * self.zoom), int(sizey * self.zoom))
-		self.set_viewport((l , t ))
+		self.set_viewport((-l + 25, -t + 25))
 
 	def _expose(self, w, event):
 		cr = self.window.cairo_create()
