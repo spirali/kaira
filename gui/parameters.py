@@ -93,6 +93,7 @@ class ParametersValueDialog(gtk.Dialog):
 		self.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
 		self.ok_button = self.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
 		self.ok_button.set_sensitive(False)
+		self.ok_button.grab_default()
 
 		self.table = gtk.Table()
 		self.table.set_row_spacings(5)
@@ -120,6 +121,7 @@ class ParametersValueDialog(gtk.Dialog):
 		self.table.attach(entry, 1, 2, self.param_counter, self.param_counter + 1)
 		entry.connect("changed", self._entry_changed)
 		entry.set_text(param.get_default())
+		entry.set_activates_default(True)
 		self.entries[param.get_name()] = entry
 
 		self.param_counter += 1

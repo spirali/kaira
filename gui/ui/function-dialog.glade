@@ -46,6 +46,7 @@
                 <property name="can_focus">True</property>
                 <property name="has_focus">True</property>
                 <property name="invisible_char">●</property>
+                <property name="activates_default">True</property>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -57,6 +58,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="invisible_char">●</property>
+                <property name="activates_default">True</property>
                 <property name="text" translatable="yes">Int</property>
               </object>
               <packing>
@@ -85,6 +87,7 @@ type</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="invisible_char">●</property>
+                <property name="activates_default">True</property>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -92,9 +95,6 @@ type</property>
                 <property name="top_attach">1</property>
                 <property name="bottom_attach">2</property>
               </packing>
-            </child>
-            <child>
-              <placeholder/>
             </child>
             <child>
               <object class="GtkCheckButton" id="context">
@@ -111,6 +111,9 @@ parameter</property>
                 <property name="top_attach">3</property>
                 <property name="bottom_attach">4</property>
               </packing>
+            </child>
+            <child>
+              <placeholder/>
             </child>
           </object>
           <packing>
