@@ -8,31 +8,36 @@ typedef std::map <int, CaContext*> CaContextsMap;
 
 class CaModule {
 	public:
-		virtual ~CaModule() {};
+		virtual ~CaModule() {}
 		virtual int main(int nodes_count, InitFn *main_fn) = 0;
 };
 
 class CaProcess {
       public:
-		CaProcess(int process_id) : _process_id(process_id) {};
-		virtual ~CaProcess() {};
+		CaProcess(int process_id);
+		virtual ~CaProcess();
 
 		/* send method is responsible for freeing "data" */
 		virtual void send(CaContext *ctx, int target, int data_id, void *data, size_t size) = 0;
 		virtual int recv() = 0;
-		virtual void idle() {};
+		virtual void idle() {}
 		virtual void quit(CaContext *ctx) = 0;
-		void context_halted(CaContext *ctx) { _running_nodes--; };
+		void context_halted(CaContext *ctx) { _running_nodes--; }
 
 		void start_scheduler();
 		int get_process_id() { return _process_id; }
+		CaLogger * get_logger() { return _logger; }
 
 		virtual size_t get_reserved_prefix_size() = 0;
+
+		/* Logging */
+		void init_log();
 
       protected:
 		int _process_id;
 		CaContextsMap _contexts;
 		int _running_nodes;
+		CaLogger *_logger;
 };
 
 class CaOutputBlock {

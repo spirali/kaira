@@ -127,12 +127,10 @@ int CaThreadsModule::main(int nodes, InitFn *init_fn)
 	pthread_t threads[nodes];
 	CaThreadsData data[nodes];
 
-	int processes_count = nodes;
-
-	CaThreadsProcess *processes[processes_count];
+	CaThreadsProcess *processes[ca_process_count];
 	_processes = processes;
 
-	for (t = 0; t < processes_count; t++) {
+	for (t = 0; t < ca_process_count; t++) {
 	    processes[t] = new CaThreadsProcess(this, t);
 	}
 
@@ -144,14 +142,14 @@ int CaThreadsModule::main(int nodes, InitFn *init_fn)
 		process->add_context(contexts[t]);
 	}
 
-	for (t = 0; t < processes_count; t++) {
+	for (t = 0; t < ca_process_count; t++) {
 		data[t].process = processes[t];
 		data[t].init_fn = init_fn;
 		/* FIXME: Check returns code */
 		pthread_create(&threads[t], NULL, ca_threads_starter, &data[t]);
 	}
 
-	for (t = 0; t < nodes; t++) {
+	for (t = 0; t < ca_process_count; t++) {
 		pthread_join(threads[t], NULL);
 	}
 
@@ -159,7 +157,7 @@ int CaThreadsModule::main(int nodes, InitFn *init_fn)
 	    delete contexts[t];
 	}
 
-	for (t = 0; t < processes_count; t++) {
+	for (t = 0; t < ca_process_count; t++) {
 	    delete processes[t];
 	}
 

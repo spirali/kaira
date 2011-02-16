@@ -6,6 +6,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <assert.h>
+#include <stdarg.h>
 #include "cailie.h"
 #include "cailie_internal.h"
 
@@ -26,6 +27,7 @@ static std::string module_name = "mpi";
 NodeToProcessFn *ca_node_to_process;
 int ca_process_count = 0;
 const char *ca_project_description_string = NULL;
+int ca_log_on = 0;
 
 CaContext::CaContext(int node, CaProcess *process)
 {
@@ -59,6 +61,9 @@ size_t CaContext::_get_reserved_prefix_size() {
 	return _process->get_reserved_prefix_size();
 }
 
+CaLogger * CaContext::_get_logger() {
+	return _process->get_logger();
+}
 
 CaJob * CaContext::_get_jobs()
 {
@@ -99,7 +104,39 @@ bool CaContext::_find_transition(int id, CaTransition &transition)
 	recv(ctx, recv_fn, data);
 }*/
 
+CaProcess::CaProcess(int process_id) : _process_id(process_id) {}
+
+void CaProcess::init_log()
+{
+	if (_logger)
+		return;
+	_logger = new CaLogger(_process_id);
+
+	int lines = 1;
+	for (const char *c = ca_project_description_string; (*c) != 0; c++) {
+		if ((*c) == '\n') {
+			lines++;
+		}
+	}
+
+	_logger->log("Description %i\n", lines);
+	_logger->log_string(ca_project_description_string);
+	_logger->log_string("\n");
+	_logger->flush();
+}
+
+CaProcess::~CaProcess() {
+	if (_logger) {
+		delete _logger;
+	}
+}
+
+
 void CaProcess::start_scheduler() {
+
+	if (ca_log_on) {
+		init_log();
+	}
 
 	CaContextsMap::iterator i;
 
@@ -239,7 +276,7 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 	MPI_Init(&argc, &argv);
 	#endif
 
-	while ((c = getopt_long (argc, argv, "hp:m:r:", longopts, NULL)) != -1)
+	while ((c = getopt_long (argc, argv, "hp:m:r:l", longopts, NULL)) != -1)
 		switch (c) {
 			case 'm': {
 				module_name = optarg;
@@ -276,6 +313,9 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 				s++;
 				int r = ca_set_argument(params_count, param_names, param_data, str, s);
 				setted[r] = true;
+			} break;
+			case 'l': {
+				ca_log_on = 1;
 			} break;
 
 			case '?':
@@ -406,4 +446,54 @@ CaPacker::CaPacker(size_t size, size_t reserved)
 	//FIXME: ALLOC_TEST
 	buffer_pos = buffer + reserved;
 	this->size = size;
+}
+
+CaLogger::CaLogger(int process_id)
+{
+	char str[40];
+	snprintf(str, 40, "log-%i", process_id);
+	file = fopen(str, "w");
+	fprintf(file, "KairaLog 0.1\n");
+}
+
+CaLogger::~CaLogger()
+{
+	fclose(file);
+}
+
+void CaLogger::log_time()
+{
+
+}
+
+void CaLogger::log_string(const std::string &str)
+{
+	fputs(str.c_str(), file);
+}
+
+void CaLogger::log_int(int i)
+{
+	fprintf(file, "%i", i);
+}
+
+void CaLogger::log(const char *form, ...) {
+	va_list arg;
+	va_start(arg,form);
+	vfprintf(file, form, arg);
+	va_end(arg);
+}
+
+void CaLogger::flush()
+{
+	fflush(file);
+}
+
+void CaLogger::log_token_add(int iid, int place_id, const std::string &token_name)
+{
+	fprintf(file, "A%i %i %s\n", iid, place_id, token_name.c_str());
+}
+
+void CaLogger::log_token_remove(int iid, int place_id, const std::string &token_name)
+{
+	fprintf(file, "R%i %i %s\n", iid, place_id, token_name.c_str());
 }

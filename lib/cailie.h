@@ -7,6 +7,21 @@
 #include <stack>
 #include <vector>
 #include <string.h>
+#include <stdio.h>
+
+#ifdef CA_LOG_ON
+
+#define CA_LOG_INIT ca_log_init()
+#define CA_LOG_PLACE_CHANGES_START
+#define CA_LOG_PLACE_CHANGES_END
+#define CA_LOG_TOKEN_ADD(place_id, token_string)
+#define CA_LOG_TOKEN_REMOVE(place_id, token_string)
+#define
+
+#else
+
+#define CA_LOG_INIT
+#endif // CA_LOG
 
 class CaContext;
 class CaOutput;
@@ -22,6 +37,24 @@ class CaModule;
 class CaProcess;
 class CaTransition;
 class CaJob;
+
+class CaLogger {
+	public:
+		CaLogger(int process_id);
+		~CaLogger();
+
+		void log_place_changes_begin();
+		void log_place_changes_end();
+		void log(const char *form, ...);
+		void log_string(const std::string &str);
+		void log_int(int i);
+		void log_token_add(int iid, int place_id, const std::string &token_name);
+		void log_token_remove(int iid, int place_id, const std::string &token_name);
+		void flush();
+	private:
+		void log_time();
+		FILE *file;
+};
 
 class CaContext {
 
@@ -48,6 +81,11 @@ class CaContext {
 		bool _find_transition(int id, CaTransition &transition);
 		ReportFn * _get_report_fn() { return _report_fn; }
 		CaJob * _get_jobs();
+
+		CaLogger * _get_logger();
+		void _log_token_add(int place_id, const std::string &token_name) { _get_logger()->log_token_add(_iid, place_id, token_name); }
+		void _log_token_remove(int place_id, const std::string &token_name) { _get_logger()->log_token_remove(_iid, place_id, token_name); }
+
 	protected:
 		int _node;
 		int _iid;
@@ -153,5 +191,6 @@ std::string ca_int_to_string(int i);
 
 /* Global variables */
 extern int ca_process_count;
+extern int ca_log_on;
 
 #endif
