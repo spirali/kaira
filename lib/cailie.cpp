@@ -25,6 +25,7 @@ static std::string module_name = "mpi";
 
 NodeToProcessFn *ca_node_to_process;
 int ca_process_count = 0;
+const char *ca_project_description_string = NULL;
 
 CaContext::CaContext(int node, CaProcess *process)
 {
@@ -163,6 +164,10 @@ void CaProcess::start_scheduler() {
 		delete first;
 		first = job;
 	}
+}
+
+void ca_project_description(const char *str) {
+	ca_project_description_string = str;
 }
 
 void ca_main(int nodes_count, InitFn *init_fn) {

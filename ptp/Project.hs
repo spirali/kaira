@@ -196,7 +196,8 @@ projectFromXml xml =
 			projectParameters = params,
 			typeTable = types,
 			events = events,
-			userFunctions = ufunctions
+			userFunctions = ufunctions,
+			projectDescription = Xml.strContent description
 		 }
 	where
 		root = head $ Xml.onlyElems (Xml.parseXML xml)
@@ -209,3 +210,4 @@ projectFromXml xml =
 		events = map eventFromElement $ Xml.findElements (qstr "event") configuration
 		types = projectTypesFromElement configuration
 		ufunctions = map (userFunctionFromElement types) $ Xml.findElements (qstr "function") configuration
+		description = Maybe.fromJust $ Xml.findElement (qstr "description") root

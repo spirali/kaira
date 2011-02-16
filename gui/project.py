@@ -158,6 +158,10 @@ class Project(EventSource):
 
 		root.append(self._configuration_element())
 
+		description = xml.Element("description")
+		description.text = xml.tostring(self.as_xml())
+		root.append(description)
+
 		xml_nets = self.net.export_xml()
 		for e in xml_nets:
 			root.append(e)

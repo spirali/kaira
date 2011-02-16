@@ -90,7 +90,8 @@ data Project = Project {
 	projectParameters :: [Parameter],
 	typeTable :: TypeTable,
 	events :: [Event],
-	userFunctions :: [UserFunction]
+	userFunctions :: [UserFunction],
+	projectDescription :: String
 } deriving (Show)
 
 data Event = Event {

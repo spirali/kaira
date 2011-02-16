@@ -201,3 +201,11 @@ fromNelVarDeclaration (n, t) = (n, fromNelType t)
 
 fromNelVarDeclarations :: [NelVarDeclaration] -> [VarDeclaration]
 fromNelVarDeclarations = map fromNelVarDeclaration
+
+escapeString :: String -> String
+escapeString str = concatMap escapeChar str
+	where
+		escapeChar '"' = "\\\""
+		escapeChar '\n' = "\\n"
+		escapeChar '\t' = "\\t"
+		escapeChar x = [x]

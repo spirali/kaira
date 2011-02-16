@@ -97,7 +97,7 @@ emitExpression :: Scope -> Expression -> String
 emitExpression scope (EVar s) = s
 emitExpression scope (EType s) = s
 emitExpression scope (EInt i) = show i
-emitExpression scope (EString str) = "\"" ++ str ++ "\""
+emitExpression scope (EString str) = "\"" ++ escapeString str ++ "\""
 emitExpression scope (ECall name params) = emitCall scope name params
 {- Tuple at -}
 emitExpression scope (EAt (EInt index) expr) =
