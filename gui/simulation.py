@@ -28,7 +28,7 @@ class SimulationException(Exception):
 
 class Simulation(EventSource):
 	"""
-		Events: changed, inited, output
+		Events: changed, inited, output, error
 	"""
 
 	def __init__(self, project, param_values):
@@ -49,12 +49,18 @@ class Simulation(EventSource):
 		except ValueError:
 			raise SimulationException("Simulation failed: " + first_line)
 
-		self.controller = process.CommandWrapper(process.Connection("localhost", port))
+		self.controller = process.CommandWrapper(process.Connection("localhost", port), self.controller_exit)
 		self.controller.start()
 		self.query_first_reports()
 
+	def controller_exit(self):
+		if self.controller:
+			self.emit_event("error", "Simulation terminated\n")
+			self.controller = None
+
 	def shutdown(self):
 		self.process.shutdown()
+		self.controller = None
 		# Shutdown of the controller is not necessary because when the simulator is terminated then socket is closed
 
 	def get_net(self):
@@ -86,8 +92,9 @@ class Simulation(EventSource):
 		self.controller.run_command("REPORTS", reports_callback)
 
 	def fire_transition(self, transition, iid):
-		self.controller.run_command_expect_ok("FIRE " + str(transition.get_id()) + " " + str(iid))
-		self.query_reports()
+		if self.controller:
+			self.controller.run_command_expect_ok("FIRE " + str(transition.get_id()) + " " + str(iid))
+			self.query_reports()
 
 	def fire_transition_random_instance(self, transition):
 		enabled_iids = self.enabled_instances_of_transition(transition)

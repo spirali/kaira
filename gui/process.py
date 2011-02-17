@@ -122,9 +122,15 @@ class Process:
 	def write(self, string):
 		self.pipe_in.write(string)
 
-	def shutdown(self):
+	def shutdown(self, silent = True):
 		self.thread.set_exit_flag()
-		self.process.terminate()
+		if silent:
+			try:
+				self.process.terminate()
+			except OSError:
+				pass
+		else:
+			self.process.terminate()
 
 class Connection:
 
@@ -146,13 +152,15 @@ class Connection:
 
 class CommandWrapper:
 
-	def __init__(self, backend):
+	def __init__(self, backend, exit_callback = None):
 		self.backend = backend
 		self.callbacks = []
 		self.lock = Lock()
+		self.exit_callback = exit_callback
 
 	def start(self, *params):
 		self.backend.line_callback = self._line_callback
+		self.backend.exit_callback = self.exit_callback
 		self.backend.start(*params)
 
 	def run_command(self, command, callback):
