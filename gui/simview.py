@@ -88,19 +88,17 @@ class SimView(gtk.VBox):
 
 	def _button_down(self, event, position):
 		if event.button == 3:
-			self._context_menu(event)
+			self._context_menu(event, position)
 			return
 		net = self.simulation.get_net()
 		t = net.get_transition_at_position(position)
 		if t:
 			self.simulation.fire_transition_random_instance(t)
 
-	def _context_menu(self, event):
+	def _context_menu(self, event, position):
 		def fire_fn(i):
 			return lambda w: self.simulation.fire_transition(t, i)
-		position = (event.x, event.y)
-		net = self.simulation.get_net()
-		t = net.get_transition_at_position(position)
+		t = self.simulation.get_net().get_transition_at_position(position)
 		if t:
 			iids = self.simulation.enabled_instances_of_transition(t)
 			if iids:
