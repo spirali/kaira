@@ -164,20 +164,21 @@ class Net:
 		self.items.remove(item)
 		self.changed()
 
-	def edges_from(self, item, split_bidirectional = False):
+	def edges_from(self, item, postprocess = False):
 		edges = [ i for i in self.items if i.is_edge() and i.from_item == item ]
-		if not split_bidirectional:
-			return edges
+		if postprocess:
+			edges = edges + [ i.make_complement() for i in self.edges_to(item) if i.is_bidirectional() ]
+			return sum([ edge.postprocess() for edge in edges ], [])
 		else:
-			return edges + [ i.make_complement() for i in self.edges_to(item) if i.is_bidirectional() ]
+			return edges
 
-	def edges_to(self, item, split_bidirectional = False):
+	def edges_to(self, item, postprocess = False):
 		edges = [ i for i in self.items if i.is_edge() and i.to_item == item ]
-		if not split_bidirectional:
-			return edges
+		if postprocess:
+			edges = edges + [ i.make_complement() for i in self.edges_from(item) if i.is_bidirectional() ]
+			return sum( [ edge.postprocess() for edge in edges ], [])
 		else:
-			return edges + [ i.make_complement() for i in self.edges_from(item) if i.is_bidirectional() ]
-
+			return edges
 
 	def edges_of(self, item):
 		return [ i for i in self.items if i.is_edge() and (i.to_item == item or i.from_item == item) ]
@@ -256,11 +257,11 @@ class NetElement(NetItem):
 	def edges(self):
 		return self.net.edges_of(self)
 
-	def edges_from(self, split_bidirectional = False):
-		return self.net.edges_from(self, split_bidirectional)
+	def edges_from(self, postprocess = False):
+		return self.net.edges_from(self, postprocess)
 
-	def edges_to(self, split_bidirectional = False):
-		return self.net.edges_to(self, split_bidirectional)
+	def edges_to(self, postprocess = False):
+		return self.net.edges_to(self, postprocess)
 
 	def delete(self):
 		for edge in self.edges():
@@ -337,11 +338,11 @@ class Transition(NetElement):
 		if self.has_code():
 			e.append(self.xml_code_element())
 
-		for edge in self.edges_to(split_bidirectional = True):
+		for edge in self.edges_to(postprocess = True):
 			ea = make_edge("edge-in", edge, edge.from_item);
 			e.append(ea)
 
-		for edge in self.edges_from(split_bidirectional = True):
+		for edge in self.edges_from(postprocess = True):
 			ea = make_edge("edge-out", edge, edge.to_item);
 			e.append(ea)
 		return e
@@ -536,6 +537,17 @@ class Edge(NetItem):
 		c = copy(self)
 		c.switch_direction()
 		return c
+
+	def postprocess(self):
+		if self.inscription.strip() == "":
+			return [self]
+		edges = []
+		for inscription in self.inscription.split(";"):
+			if inscription.strip() != "":
+				c = copy(self)
+				c.inscription = inscription
+				edges.append(c)
+		return edges
 
 	def get_end_points(self):
 		if self.points:
