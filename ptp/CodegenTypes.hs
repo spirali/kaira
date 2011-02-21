@@ -27,6 +27,8 @@ import qualified Data.Map as Map
 data Type = TUndefined |
 			TVoid |
 			TInt |
+			TFloat |
+			TDouble |
 			TString |
 			TBool |
 			TTuple [Type] |

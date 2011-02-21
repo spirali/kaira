@@ -294,6 +294,20 @@ std::string ca_int_to_string(int i)
 	return osstream.str();
 }
 
+std::string ca_float_to_string(float f)
+{
+	std::stringstream osstream;
+	osstream << f;
+	return osstream.str();
+}
+
+std::string ca_double_to_string(double d)
+{
+	std::stringstream osstream;
+	osstream << d;
+	return osstream.str();
+}
+
 CaOutput::~CaOutput()
 {
 	while (!_stack.empty()) {

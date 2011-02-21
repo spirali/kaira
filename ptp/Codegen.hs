@@ -179,6 +179,8 @@ typeString x = typeSafeString x
 typeSafeString :: Type -> String
 typeSafeString TVoid = "void"
 typeSafeString TInt = "int"
+typeSafeString TFloat = "float"
+typeSafeString TDouble = "double"
 typeSafeString TString = "string"
 typeSafeString (TPlace t) = "place_" ++ typeSafeString t
 typeSafeString TBool = "bool"
@@ -347,6 +349,8 @@ exprAsString decls (EInt x) = EString $ show x
 exprAsString decls x =
 	case exprType decls x of
 		TInt -> ECall "ca_int_to_string" [x]
+		TFloat -> ECall "ca_float_to_string" [x]
+		TDouble -> ECall "ca_double_to_string" [x]
 		TString -> x
 		TTuple [] -> EString "()"
 		(TData name _ _ functions) | hasKey "getstring" functions -> ECall (name ++ "_getstring") [x]

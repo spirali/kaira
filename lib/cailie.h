@@ -149,6 +149,8 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 
 /* Helper utils */
 std::string ca_int_to_string(int i);
+std::string ca_double_to_string(double d);
+std::string ca_float_to_string(float f);
 
 /* Global variables */
 extern int ca_process_count;

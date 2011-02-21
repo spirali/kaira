@@ -26,6 +26,8 @@ data NelType =
 	TypeInt |
 	TypeString |
 	TypeBool |
+	TypeFloat |
+	TypeDouble |
 	TypeTuple [NelType] |
 	TypeArray NelType |
 	TypeData String String TransportMode [ (String, String) ] {- name, rawName, transportMode, functions -}

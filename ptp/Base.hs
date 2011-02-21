@@ -114,7 +114,12 @@ newVars' :: String -> [String]
 newVars' prefix = map (\x -> prefix ++ "_" ++ show x) [1 .. ]
 
 standardTypes =
-	Map.fromList [ ("Int", TypeInt), ("String", TypeString), ("Bool", TypeBool) ]
+	Map.fromList [ 
+		("Int", TypeInt), 
+		("Float", TypeFloat), 
+		("Double", TypeDouble), 
+		("String", TypeString), 
+		("Bool", TypeBool) ]
 
 isTransportable :: NelType -> Bool
 isTransportable (TypeData _ _ TransportDisabled _) = False

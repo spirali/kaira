@@ -159,6 +159,8 @@ mapExprs' fn decls x = x
 -- |Returns expression that computes size of memory footprint of result of expr
 exprMemSize :: Type -> Expression -> Expression
 exprMemSize TInt expr = ECall "sizeof" [EVar "int"]
+exprMemSize TFloat expr = ECall "sizeof" [EVar "float"]
+exprMemSize TDouble expr = ECall "sizeof" [EVar "double"]
 exprMemSize TString expr = ECall "+" [ ECall "sizeof" [ EType "size_t" ], ECall ".size" [ expr ] ]
 exprMemSize (TTuple types) expr = ECall "+" [ exprMemSize t (EAt (EInt x) expr) | (x, t) <- zip [0..] types ]
 exprMemSize (TData _ rawType TransportDirect _) expr = ECall "sizeof" [ EType rawType ]
@@ -167,6 +169,8 @@ exprMemSize t expr = error $ "exprMemSize: " ++ show t
 
 canBeDirectlyPacked :: Type -> Bool
 canBeDirectlyPacked TInt = True
+canBeDirectlyPacked TDouble = True
+canBeDirectlyPacked TFloat = True
 canBeDirectlyPacked (TTuple types) = all canBeDirectlyPacked types
 canBeDirectlyPacked (TData _ _ TransportDirect _) = True
 canBeDirectlyPacked _ = False
@@ -190,6 +194,8 @@ varFromParam decls = [ (name, t) | (name, t, _) <- decls ]
 
 fromNelType :: NelType -> Type
 fromNelType TypeInt = TInt
+fromNelType TypeFloat = TFloat
+fromNelType TypeDouble = TDouble
 fromNelType TypeString = TString
 fromNelType TypeBool = TBool
 fromNelType (TypeArray t) = TArray (fromNelType t)
