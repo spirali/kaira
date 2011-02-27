@@ -72,5 +72,10 @@ class BuildingTest(TestCase):
 	def test_tuples(self):
 		self.build(os.path.join(TEST_PROJECTS, "tuples", "tuples.proj"), "Ok\n")
 
+	def test_getmore(self):
+		self.build(os.path.join(TEST_PROJECTS, "getmore", "getmore.proj"), "Ok 7 13\n")
+
+
+
 if __name__ == '__main__':
     unittest.main()

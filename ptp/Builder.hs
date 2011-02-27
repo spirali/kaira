@@ -134,7 +134,7 @@ checkEdges :: Project -> Network -> [VarDeclaration] -> VarSet -> [Edge] -> [Edg
 checkEdges project network decls binded processedEdges [] level okEvent guards = okEvent
 {- Variant for normal edges -}
 checkEdges project network decls binded processedEdges (edge:rest) level okEvent guards | isNormalEdge edge =
-	processEdge network edge var (compRestrictions processedEdges 0) $ [
+	processEdge network edge var (compRestrictions (zip [0..] (reverse processedEdges))) $ [
 		patternCheckStatement project decls binded var edgeType expr IContinue ] ++
 			map guardCode coveredGuards ++
 			[ checkEdges project network decls newVars (edge:processedEdges) rest (level + 1) okEvent uncoveredGuards ]
@@ -147,11 +147,11 @@ checkEdges project network decls binded processedEdges (edge:rest) level okEvent
 		EdgeExpression expr = edgeInscription edge
 		varCounterName level = "c_" ++ show level ++ "_i"
 		var = "c_" ++ show level
-		compRestrictions :: [Edge] -> Int -> [String]
-		compRestrictions [] _ = []
-		compRestrictions (e:es) level
-			| edgePlaceId edge == edgePlaceId e = (varCounterName level):compRestrictions es (level + 1)
-			| otherwise = compRestrictions es (level + 1)
+		compRestrictions :: [(Int, Edge)] -> [String]
+		compRestrictions [] = []
+		compRestrictions ((level, e):es)
+			| edgePlaceId edge == edgePlaceId e = (varCounterName level):compRestrictions es
+			| otherwise = compRestrictions es
 
 {- Variant for packing edges -}
 checkEdges project network decls binded processedEdges (edge:rest) level okEvent guards =
