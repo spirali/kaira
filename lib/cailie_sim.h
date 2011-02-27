@@ -27,7 +27,6 @@ class CaSimProcess : public CaProcess {
 
 		void fire_transition(int transition_id, int iid);
 
-		std::vector<CaContext> ctxs;
 		FILE *comm_in;
 		FILE *comm_out;
 };

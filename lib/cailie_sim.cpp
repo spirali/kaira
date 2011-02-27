@@ -71,9 +71,9 @@ int CaSimProcess::main(int nodes_count, InitFn *init_fn)
 
 	int t;
 	for (t=0; t < nodes_count; t++) {
-		CaContext ctx(t, this);
-		init_fn(&ctx);
-		ctxs.push_back(ctx);
+		CaContext *ctx = new CaContext(t, this);
+		init_fn(ctx);
+		_contexts[t] = ctx;
 	}
 	run_listener();
 	return 0;
@@ -81,16 +81,16 @@ int CaSimProcess::main(int nodes_count, InitFn *init_fn)
 
 void CaSimProcess::send(CaContext *ctx, int target, int data_id, void *data, size_t size) 
 {
-	RecvFn *recv_fn = ctxs[target]._get_recv_fn();
-	recv_fn(ctxs[target]._get_places(), data_id, data, size);
+	RecvFn *recv_fn = _contexts[target]->_get_recv_fn();
+	recv_fn(_contexts[target]->_get_places(), data_id, data, size);
 	free(data);
 }
 
 void CaSimProcess::quit(CaContext *ctx)
 {
-	std::vector<CaContext>::iterator i;
-	for (i = ctxs.begin(); i != ctxs.end(); i++) {
-		i->halt();
+	CaContextsMap::iterator i;
+	for (i = _contexts.begin(); i != _contexts.end(); i++) {
+		i->second->halt();
 	}
 }
 
@@ -119,13 +119,13 @@ int CaSimProcess::run_listener()
 		}
 		if (!strcmp(line, "REPORTS")) {
 			CaOutput output;
-			std::vector<CaContext>::iterator i;
+			CaContextsMap::iterator i;
 			output.child("report");
-			for (i = ctxs.begin(); i != ctxs.end(); i++) {
-				ReportFn *f = (*i)._get_report_fn();
+			for (i = _contexts.begin(); i != _contexts.end(); i++) {
+				ReportFn *f = i->second->_get_report_fn();
 				assert(f != NULL);
 				output.child("node");
-				f(&(*i), (*i)._get_places(), &output);
+				f(i->second, i->second->_get_places(), &output);
 				output.back();
 			}
 			CaOutputBlock *block = output.back();
@@ -149,11 +149,11 @@ int CaSimProcess::run_listener()
 
 void CaSimProcess::fire_transition(int transition_id, int iid)
 {
-	std::vector<CaContext>::iterator i;
+	CaContextsMap::iterator i;
 	CaTransition t;
-	for (i = ctxs.begin(); i != ctxs.end(); i++) {
-		if (i->iid() == iid && i->_find_transition(transition_id, t) && !i->_check_halt_flag()) {
-				t.call(&(*i));
+	for (i = _contexts.begin(); i != _contexts.end(); i++) {
+		if (i->second->iid() == iid && i->second->_find_transition(transition_id, t) && !i->second->_check_halt_flag()) {
+				t.call(i->second);
 		}
 	}
 }
