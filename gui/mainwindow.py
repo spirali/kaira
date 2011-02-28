@@ -83,6 +83,9 @@ class MainWindow(gtk.Window):
 			self.close_tab(w)
 
 	def _create_main_menu(self):
+		ag = gtk.AccelGroup()
+		self.add_accel_group(ag)
+
 		self.project_sensitives = []
 		file_menu = gtk.Menu()
 		
@@ -116,10 +119,12 @@ class MainWindow(gtk.Window):
 
 		item = gtk.MenuItem("Run _simulation")
 		item.connect("activate", lambda w: self.app.simulation_start(False))
+		item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("F7"), 0, gtk.ACCEL_VISIBLE)
 		build_menu.append(item)
 
 		item = gtk.MenuItem("R_e-run simulation")
 		item.connect("activate", lambda w: self.app.simulation_start(True))
+		item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("F8"), 0, gtk.ACCEL_VISIBLE)
 		build_menu.append(item)
 
 		view_menu = gtk.Menu()
