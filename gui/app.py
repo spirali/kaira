@@ -141,8 +141,8 @@ class App:
 		if self.project.get_filename() is None:
 			self.save_project_as()
 		else:
-			self.project.save()
-			self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
+			if self._catch_io_error(self.project.save, True, False):
+				self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
 
 	def save_project_as(self):
 		dialog = gtk.FileChooserDialog("Save net", self.window, gtk.FILE_CHOOSER_ACTION_SAVE,
@@ -159,9 +159,7 @@ class App:
 					filename = filename + ".proj"
 				self.project.set_filename(filename)
 				if self._catch_io_error(self.project.save, True, False):
-					# TODO: set status bar
-					pass
-				self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
+					self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
 		finally:
 			dialog.destroy()
 
