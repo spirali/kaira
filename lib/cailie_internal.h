@@ -34,6 +34,7 @@ class CaProcess {
 		void init_log();
 
       protected:
+		void write_report(FILE *out);
 		int _process_id;
 		CaContextsMap _contexts;
 		int _running_nodes;

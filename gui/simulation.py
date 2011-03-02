@@ -99,7 +99,7 @@ class Simulation(EventSource):
 		return self.enabled_transitions[transition.get_id()]
 
 	def _process_report(self, root):
-		places_content, enabled_transitions, areas_instances_data = self._extract_report(root)
+		places_content, enabled_transitions, areas_instances_data = extract_report(root)
 		self.enabled_transitions = enabled_transitions
 		self.places_content = places_content
 		for network_id in areas_instances_data:
@@ -109,36 +109,13 @@ class Simulation(EventSource):
 		self.emit_event("changed")
 
 	def _process_first_report(self, root):
-		places_content, enabled_transitions, areas_instances_data = self._extract_report(root)
+		places_content, enabled_transitions, areas_instances_data = extract_report(root)
 		self.enabled_transitions = enabled_transitions
 		self.places_content = places_content
 		self.areas_instances = {}
 		for network_id in areas_instances_data:
 			self.areas_instances[network_id] = InstancedArea(areas_instances_data[network_id])
 		self.emit_event("inited")
-
-	def _extract_report(self, root):
-		places_content = {}
-		transitions = {}
-		areas_instances = {}
-		for node_e in root.findall("node"):
-			area_id = utils.xml_int(node_e, "network-id")
-			areas_instances.setdefault(area_id,[])
-			iid = utils.xml_int(node_e,"iid")
-			node = utils.xml_int(node_e,"node")
-			running = utils.xml_bool(node_e, "running")
-			areas_instances[area_id].append( (iid, node, running) )
-			for place_e in node_e.findall("place"):
-				tokens = [ utils.xml_str(e,"value") for e in place_e.findall("token") ]
-				place_id = utils.xml_int(place_e,"id")
-				place_content = places_content.setdefault(place_id, {})
-				place_content[iid] = tokens
-			for transition_e in node_e.findall("transition"):
-				transition_id = utils.xml_int(transition_e, "id")
-				transitions.setdefault(transition_id,[])
-				if utils.xml_bool(transition_e, "enable") and running:
-					transitions[transition_id].append(iid)
-		return (places_content, transitions, areas_instances)
 
 	def _simulator_output(self, line):
 		self.emit_event("output", "OUTPUT: " + line)
@@ -162,3 +139,26 @@ class InstancedArea:
 
 	def get_node(self, iid):
 		return self.instances[iid][0]
+
+def extract_report(root):
+	places_content = {}
+	transitions = {}
+	areas_instances = {}
+	for node_e in root.findall("node"):
+		area_id = utils.xml_int(node_e, "network-id")
+		iid = utils.xml_int(node_e,"iid")
+		node = utils.xml_int(node_e,"node")
+		running = utils.xml_bool(node_e, "running")
+		areas_instances.setdefault(area_id,[])
+		areas_instances[area_id].append( (iid, node, running) )
+		for place_e in node_e.findall("place"):
+			tokens = [ utils.xml_str(e,"value") for e in place_e.findall("token") ]
+			place_id = utils.xml_int(place_e,"id")
+			place_content = places_content.setdefault(place_id, {})
+			place_content[iid] = tokens
+		for transition_e in node_e.findall("transition"):
+			transition_id = utils.xml_int(transition_e, "id")
+			transitions.setdefault(transition_id,[])
+			if utils.xml_bool(transition_e, "enable") and running:
+				transitions[transition_id].append(iid)
+	return (places_content, transitions, areas_instances)

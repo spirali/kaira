@@ -59,6 +59,9 @@ class Project(EventSource):
 		net.set_change_callback(self._net_changed)
 		self.changed()
 
+	def get_net(self):
+		return self.net
+
 	def copy(self):
 		return load_project_from_xml(self.as_xml(), self.filename)
 

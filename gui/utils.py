@@ -69,6 +69,15 @@ def position_inside_rect(position, rect_position, size, tolerance = 0):
 	sx, sy = size
 	return px >= rx - tolerance and py >= ry - tolerance and px < rx + sx + tolerance and py < ry + sy + tolerance
 
+def join_dicts(dict1, dict2, merge_fun = None):
+	x = dict1.copy()
+	for key, value in dict2.items():
+		if x.has_key(key):
+			if merge_fun is None:
+				raise Exception("Both dictionaries has same key: " + str(key))
+			value = merge_fun(value, x[key])
+		x[key] = value
+	return x
 
 def draw_arrow(cr, dir_vector, arrow_degrees, arrow_len):
 	dx, dy = dir_vector

@@ -118,19 +118,7 @@ int CaSimProcess::run_listener()
 			return 0; 
 		}
 		if (!strcmp(line, "REPORTS")) {
-			CaOutput output;
-			CaContextsMap::iterator i;
-			output.child("report");
-			for (i = _contexts.begin(); i != _contexts.end(); i++) {
-				ReportFn *f = i->second->_get_report_fn();
-				assert(f != NULL);
-				output.child("node");
-				f(i->second, i->second->_get_places(), &output);
-				output.back();
-			}
-			CaOutputBlock *block = output.back();
-			block->write(comm_out);
-			fprintf(comm_out, "\n");
+			write_report(comm_out);
 			continue;
 		}
 		if (strcmp(line, "FIRE") > 0) {

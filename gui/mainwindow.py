@@ -104,6 +104,14 @@ class MainWindow(gtk.Window):
 		self.project_sensitives.append(item)
 		file_menu.append(item)
 
+		file_menu.append(gtk.SeparatorMenuItem())
+
+		item = gtk.MenuItem("Load debu_g log")
+		item.connect("activate", lambda w: self.app.load_debug_log())
+		file_menu.append(item)
+
+		file_menu.append(gtk.SeparatorMenuItem())
+
 		item = gtk.MenuItem("_Quit")
 		item.connect("activate", gtk.main_quit)
 		file_menu.append(item)

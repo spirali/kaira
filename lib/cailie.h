@@ -37,6 +37,7 @@ class CaModule;
 class CaProcess;
 class CaTransition;
 class CaJob;
+class CaOutputBlock;
 
 class CaLogger {
 	public:
@@ -51,6 +52,8 @@ class CaLogger {
 		void log_token_add(int iid, int place_id, const std::string &token_name);
 		void log_token_remove(int iid, int place_id, const std::string &token_name);
 		void flush();
+		void write(CaOutputBlock *block);
+		FILE * get_file() { return file; }
 	private:
 		void log_time();
 		FILE *file;
@@ -97,8 +100,6 @@ class CaContext {
 		std::vector<CaTransition> _transitions;
 		ReportFn * _report_fn;
 };
-
-class CaOutputBlock;
 
 class CaOutput {
 	public:

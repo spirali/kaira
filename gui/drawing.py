@@ -3,9 +3,6 @@ import utils
 
 class VisualConfig:
 
-	def get_token_strings(self, p):
-		return []
-
 	def get_highlight(self, item):
 		return None
 

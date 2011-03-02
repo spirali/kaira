@@ -105,11 +105,6 @@ class SimView(gtk.VBox):
 			if iids:
 				gtkutils.show_context_menu([("Fire " + str(i), fire_fn(i)) for i in iids ], event)
 
-	def _view_for_area(self, area):
-		sz = utils.vector_add(area.get_size(), (80, 95))
-		pos = utils.vector_diff(area.get_position(), (40, 55))
-		return (sz, pos)
-
 	def _on_instance_click(self, position, area, i):
 		net = self.simulation.get_net()
 		t = net.get_transition_at_position(position)
@@ -180,13 +175,6 @@ class InstanceVisualConfig(VisualConfig):
 		self.simulation = simulation
 		self.area = area
 		self.iid = iid
-
-	def get_token_strings(self, place):
-		if self.area.is_inside(place):
-			tokens = self.simulation.get_tokens_of_place(place)
-			return tokens[self.iid]
-		else:
-			return []
 
 	def transition_drawing(self, item):
 		d = VisualConfig.transition_drawing(self, item)

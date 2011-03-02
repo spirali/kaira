@@ -106,6 +106,23 @@ bool CaContext::_find_transition(int id, CaTransition &transition)
 
 CaProcess::CaProcess(int process_id) : _process_id(process_id) {}
 
+void CaProcess::write_report(FILE *out)
+{
+	CaOutput output;
+	CaContextsMap::iterator i;
+	output.child("report");
+	for (i = _contexts.begin(); i != _contexts.end(); i++) {
+		ReportFn *f = i->second->_get_report_fn();
+		assert(f != NULL);
+		output.child("node");
+		f(i->second, i->second->_get_places(), &output);
+		output.back();
+	}
+	CaOutputBlock *block = output.back();
+	block->write(out);
+	fputs("\n", out);
+}
+
 void CaProcess::init_log()
 {
 	if (_logger)
@@ -119,9 +136,17 @@ void CaProcess::init_log()
 		}
 	}
 
-	_logger->log("Description %i\n", lines);
+	CaOutput output;
+	CaContextsMap::iterator i;
+	output.child("log");
+	output.set("process-count", ca_process_count);
+	output.set("description-lines", lines);
+	_logger->write(output.back());
+	_logger->log_string("\n");
+
 	_logger->log_string(ca_project_description_string);
 	_logger->log_string("\n");
+	write_report(_logger->get_file());
 	_logger->flush();
 }
 
@@ -451,7 +476,7 @@ CaPacker::CaPacker(size_t size, size_t reserved)
 CaLogger::CaLogger(int process_id)
 {
 	char str[40];
-	snprintf(str, 40, "log-%i", process_id);
+	snprintf(str, 40, "log.%i", process_id);
 	file = fopen(str, "w");
 	fprintf(file, "KairaLog 0.1\n");
 }
@@ -481,6 +506,10 @@ void CaLogger::log(const char *form, ...) {
 	va_start(arg,form);
 	vfprintf(file, form, arg);
 	va_end(arg);
+}
+
+void CaLogger::write(CaOutputBlock *block) {
+	block->write(file);
 }
 
 void CaLogger::flush()

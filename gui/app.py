@@ -40,6 +40,8 @@ from drawing import VisualConfig
 import process
 import utils
 import cairo
+import debuglog
+import debugview
 
 class App:
 	
@@ -134,6 +136,23 @@ class App:
 				if p:
 					# TODO: set statusbar
 					self.set_project(p)
+		finally:
+			dialog.destroy()
+
+	def load_debug_log(self):
+		dialog = gtk.FileChooserDialog("Open Log", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
+				(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                 gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+		try:
+			dialog.set_default_response(gtk.RESPONSE_OK)
+			self._add_file_filters(dialog, (("Kaira Log", "*.klog"),), all_files = True)
+
+			response = dialog.run()
+			if response == gtk.RESPONSE_OK:
+				filename = dialog.get_filename()
+				log = self._catch_io_error(lambda: debuglog.DebugLog(dialog.get_filename()))
+				w = debugview.DebugView(self, log)
+				self.add_tab("Log", w, log)
 		finally:
 			dialog.destroy()
 
