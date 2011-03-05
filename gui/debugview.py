@@ -57,7 +57,6 @@ class DebugView(gtk.VBox):
 
 	def goto_frame(self, frame_pos):
 		self.frame = self.debuglog.get_frame(frame_pos)
-		print self.frame.place_content
 		self.update_counter_label()
 		self.redraw()
 
@@ -111,6 +110,13 @@ class DebugView(gtk.VBox):
 			self.instance_canvas_sc.hide()
 			self.canvas_sc.show()
 
+def filter_by_id(items, id):
+	return [ x[1] for x in items if x[0] == id ]
+
+color_running = ((0.7,0.7,0.1,0.5))
+color_started = ((0.1,0.9,0.1,0.5))
+color_ended = ((0.8,0.3,0.3,0.5))
+
 class OverviewVisualConfig(VisualConfig):
 
 	def __init__(self, debugview):
@@ -125,6 +131,17 @@ class OverviewVisualConfig(VisualConfig):
 		d.set_tokens(r)
 		return d
 
+	def transition_drawing(self, item):
+		frame = self.debugview.frame
+		d = VisualConfig.transition_drawing(self, item)
+		if filter_by_id(frame.running, item.get_id()):
+				d.set_highlight(color_running)
+		if filter_by_id(frame.started, item.get_id()):
+				d.set_highlight(color_started)
+		if filter_by_id(frame.ended, item.get_id()):
+				d.set_highlight(color_ended)
+		return d
+
 
 class InstanceVisualConfig(VisualConfig):
 
@@ -137,4 +154,15 @@ class InstanceVisualConfig(VisualConfig):
 		d = VisualConfig.place_drawing(self, item)
 		if self.area.is_inside(item):
 			d.set_tokens(self.debugview.frame.get_tokens(item, self.iid))
+		return d
+
+	def transition_drawing(self, item):
+		frame = self.debugview.frame
+		d = VisualConfig.transition_drawing(self, item)
+		if self.iid in filter_by_id(frame.running, item.get_id()):
+				d.set_highlight(color_running)
+		if self.iid in filter_by_id(frame.started, item.get_id()):
+				d.set_highlight(color_started)
+		if self.iid in filter_by_id(frame.ended, item.get_id()):
+				d.set_highlight(color_ended)
 		return d

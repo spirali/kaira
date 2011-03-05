@@ -10,6 +10,9 @@ class LogFrame:
 	def __init__(self, time, place_content):
 		self.time = time
 		self.place_content = place_content
+		self.running = []
+		self.started = []
+		self.ended = []
 
 	def get_tokens(self, place, iid = None):
 		if iid is None:
@@ -34,13 +37,14 @@ class LogFrameDiff:
 	def get_fullframe(self, idtable):
 		frame = copy.deepcopy(self.prev.get_fullframe(idtable))
 		frame.time = self.time
+		frame.started = []
+		frame.ended = []
 		for action in self.actions.split("\n"):
 			self.parse_action(frame, action, idtable)
 		return frame
 
 	def parse_action(self, frame, action, idtable):
 		action_type = action[0]
-		print action, self.time
 		if action_type == "A":
 			iid, place_id, token_name = action.split(" ", 3)
 			iid = int(iid[1:])
@@ -51,6 +55,23 @@ class LogFrameDiff:
 			iid = int(iid[1:])
 			place_id = int(place_id)
 			frame.place_content[idtable[place_id]][iid].remove(token_name)
+
+		if action_type == "S":
+			iid, transition_id = action.split(" ", 2)
+			iid = int(iid[1:])
+			transition_id = int(transition_id)
+			item = (idtable[transition_id], iid)
+			frame.running.append(item)
+			frame.started.append(item)
+
+		if action_type == "E":
+			iid, transition_id = action.split(" ", 2)
+			iid = int(iid[1:])
+			transition_id = int(transition_id)
+			item = (idtable[transition_id], iid)
+			if item in frame.running:
+				frame.running.remove(item)
+			frame.ended.append(item)
 
 
 class DebugLog:
