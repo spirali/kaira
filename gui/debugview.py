@@ -8,7 +8,6 @@ class DebugView(gtk.VBox):
 	def __init__(self, app, debuglog):
 		gtk.VBox.__init__(self)
 		self.debuglog = debuglog
-		self.frame_pos = 0
 		self.frame = debuglog.get_frame(0)
 
 		self.pack_start(self._buttons(), False, False)
@@ -26,37 +25,45 @@ class DebugView(gtk.VBox):
 		self.show_all()
 		self.pack_start(self.instance_canvas_sc)
 
+	def get_frame_pos(self):
+		return int(self.scale.get_value())
+
 	def _buttons(self):
-		toolbar = gtk.Toolbar()
+		self.scale = gtk.HScale(gtk.Adjustment(value=0, lower=0, upper=self.debuglog.frames_count(), step_incr=1, page_incr=1, page_size=1))
+		toolbar = gtk.HBox(False)
 
 		button = gtk.ToggleButton("Instances")
 		button.connect("toggled", self._view_change)
-		toolbar.add(button)
+		toolbar.pack_start(button, False, False)
 
-		button = gtk.Button("<")
-		button.connect("clicked", lambda w: self.goto_frame(max(0, self.frame_pos - 1)))
-		toolbar.add(button)
+		button = gtk.Button("<<")
+		button.connect("clicked", lambda w: self.scale.set_value(max(0, self.get_frame_pos() - 1)))
+		toolbar.pack_start(button, False, False)
 
 		self.counter_label = gtk.Label()
-		toolbar.add(self.counter_label)
+		toolbar.pack_start(self.counter_label, False, False)
 		self.update_counter_label()
 
-		button = gtk.Button(">")
-		button.connect("clicked", lambda w: self.goto_frame(min(self.debuglog.frames_count() - 1, self.frame_pos + 1)))
-		toolbar.add(button)
+		button = gtk.Button(">>")
+		button.connect("clicked", lambda w: self.scale.set_value(min(self.debuglog.frames_count() - 1, self.get_frame_pos() + 1)))
+		toolbar.pack_start(button, False, False)
+
+		self.scale.set_draw_value(False)
+		self.scale.connect("value-changed", lambda w: self.goto_frame(int(w.get_value())))
+		toolbar.pack_start(self.scale)
 
 		toolbar.show_all()
 		return toolbar
 
 	def goto_frame(self, frame_pos):
-		self.frame_pos = frame_pos
 		self.frame = self.debuglog.get_frame(frame_pos)
 		print self.frame.place_content
 		self.update_counter_label()
 		self.redraw()
 
 	def update_counter_label(self):
-		self.counter_label.set_text("{0}/{1}".format(self.frame_pos, self.debuglog.frames_count() - 1))
+		max = str(self.debuglog.frames_count() - 1)
+		self.counter_label.set_text("{0:0>{2}}/{1}".format(self.get_frame_pos(), max, len(max)))
 
 	def redraw(self):
 		self.instance_canvas.redraw()
