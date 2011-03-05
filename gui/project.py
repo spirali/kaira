@@ -253,23 +253,30 @@ class Project(EventSource):
 		makefile.set("CC", self.get_build_option("CC"))
 		makefile.set("CFLAGS", self.get_build_option("CFLAGS"))
 		makefile.set("LIBDIR", "-L" + paths.CAILIE_DIR)
-		makefile.set("LIBS", "-lcailie -lpthread " + self.get_build_option("LIBS"))
+		makefile.set("LIBS", "-lcailie -lpthread -lrt" + self.get_build_option("LIBS"))
 		makefile.set("INCLUDE", "-I" + paths.CAILIE_DIR)
 		makefile.set("MPICC", "mpicc")
 
 		name_o = self.get_name() + ".o"
 		name_cpp = self.get_name() + ".cpp"
+		name_debug = self.get_name() + "_debug"
+		name_debug_o = self.get_name() + "_debug.o"
 
 		makefile.rule("all", [self.get_name()])
+		makefile.rule("debug", [name_debug])
+		makefile.rule("mpi", [self.get_name() + "_mpi"])
+
 		deps = [ name_o ]
 		makefile.rule(self.get_name(), deps, "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
 
-		makefile.rule("mpi", [self.get_name() + "_mpi"])
+		makefile.rule(name_debug, [name_debug_o], "$(CC) " + name_debug_o + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
+
 		makefile.rule(self.get_name() + "_mpi", deps, "$(MPICC) -cc=${CC} " + " ".join(deps)
 			+ " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) -lmpicailie" )
 
-		makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c %s -o %s" % (name_cpp, name_o))
-		makefile.rule("clean", [], "rm -f *.o " + self.get_name() + " ")
+		makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
+		makefile.rule(name_debug_o, [ name_cpp, "head.cpp" ], "$(CC) -DCA_LOG_ON $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))
+		makefile.rule("clean", [], "rm -f *.o {0} {0}_debug {0}_mpi".format(self.get_name()))
 		makefile.write_to_file(os.path.join(self.get_directory(), "makefile"))
 
 	def _build_option_as_xml(self, name):

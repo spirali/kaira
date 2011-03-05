@@ -19,7 +19,6 @@
 
 import gtk
 
-import project
 from canvas import NetCanvas, MultiCanvas
 from drawing import VisualConfig
 import gtkutils
@@ -143,6 +142,11 @@ class SimView(gtk.VBox):
 			self.instance_canvas.end_of_registration()
 			self.canvas.set_vconfig(OverviewVisualConfig(self.simulation))
 		self.redraw()
+
+	def _view_for_area(self, area):
+		sz = utils.vector_add(area.get_size(), (80, 95))
+		pos = utils.vector_diff(area.get_position(), (40, 55))
+		return (sz, pos)
 
 	def _simulation_changed(self):
 		self.redraw()

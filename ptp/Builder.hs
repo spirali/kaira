@@ -271,7 +271,7 @@ transitionEnableTestFunction project network transition = Function {
 -}
 transitionOkEvent project network transition = makeStatement [ ("var", transitionVarType project transition) ] body
 	where
-		body = map erase eraseDependancy ++ packing ++ map setVar decls ++ [ call ] ++ applyResult ++
+		body = prolog ++ map erase eraseDependancy ++ packing ++ map setVar decls ++ call ++ applyResult ++
 				(sendInstructions project network transition) ++ [ IReturn (EInt 1) ]
 		localOutEdges = filter (Maybe.isNothing . edgeTarget) $ transitionFilterEdges network (edgesOut transition)
 		setVar (name, _) = ISet (EAt (EString name) (EVar "var")) (EVar name)
@@ -280,12 +280,23 @@ transitionOkEvent project network transition = makeStatement [ ("var", transitio
 		placeExprOfEdge edge = EAt (EInt (placeSeqById network (edgePlaceId edge))) (EVar "places")
 		erase ((i, edge), dep) = safeErase (placeExprOfEdge edge) (counterName i) (map (counterName . fst) dep)
 		eraseDependancy = triangleDependancy (\(i1,e1) (i2,e2) -> edgePlaceId e1 == edgePlaceId e2) (zip [0..] [ e | e <- edgesIn transition, isNormalEdge e ])
-		call = icall (workerFunctionName transition) [ EVar "ctx", EVar "var" ]
+		logRemoveToken i e = icall "CA_LOG_TOKEN_REMOVE" [ EVar "ctx", EInt $ edgePlaceId e,
+			ECall "Base.asString" [ ECast
+				(ECall ".get_at" [ placeExprOfEdge e, EVar $ counterName i ])
+				(fromNelType (placeTypeByEdge project e)) ]]
+		logRemove = countedMap logRemoveToken (edgesIn transition)
+		logStart = icall "CA_LOG_TRANSITION_START" [ EVar "ctx", EInt $ transitionId transition ]
+		logEnd = icall "CA_LOG_TRANSITION_END" [ EVar "ctx", EInt $ transitionId transition ]
+		call = if hasCode transition then
+			[ icall (workerFunctionName transition) [ EVar "ctx", EVar "var" ], logEnd ] else []
+		prolog = if hasCode transition then [ logStart ] ++ logRemove else [ logEnd ] ++ logRemove
 		applyResult = map addToPlace localOutEdges
 		addToPlace edge = case edgeInscription edge of
 			EdgeExpression expr -> addToPlaceOne edge expr
 			EdgePacking name _ -> addToPlaceMany edge name
-		addToPlaceOne edge expr = icall ".add" [ placeExpr edge, (preprocess expr) ]
+		addToPlaceOne edge expr = makeStatement [] [
+			icall "CA_LOG_TOKEN_ADD" [ EVar "ctx", EInt $ edgePlaceId edge, ECall "Base.asString" [ preprocess expr ] ],
+			icall ".add" [ placeExpr edge, preprocess expr ]]
 		addToPlaceMany edge name = IForeach "token" "token_c" (EAt (EString name) (EVar "var"))
 			[ icall ".add" [ placeExpr edge, EVar "token" ]]
 		placeExpr edge = EAt (EInt (placeSeqById network (edgePlaceId edge))) (EVar "places")
@@ -470,7 +481,7 @@ workerFunction project transition = Function {
 	parameters = [ ("ctx", caContext, ParamNormal), ("var", transitionVarType project transition, ParamNormal) ],
 	declarations = [],
 	instructions = [],
-	extraCode = transitionCode transition,
+	extraCode = Maybe.fromJust $ transitionCode transition,
 	returnType = TVoid,
 	functionSource = Just ("*" ++ show (transitionId transition) ++ "/function", 1)
 }
@@ -485,13 +496,13 @@ initFunction place = Function {
 			("place", TPointer $ TPlace (fromNelType (placeType place)), ParamNormal)],
 		declarations = [],
 		instructions = [],
-		extraCode = placeInitCode place,
+		extraCode = Maybe.fromJust $ placeInitCode place,
 		returnType = TVoid,
 		functionSource = Just ("*" ++ show (placeId place) ++ "/init_function", 1)
 	}
 
 placesWithInit :: Network -> [Place]
-placesWithInit network = [ p | p <- places network, placeInitCode p /= "" ]
+placesWithInit network = [ p | p <- places network, Maybe.isJust (placeInitCode p) ]
 
 startFunctionName :: Network -> String
 startFunctionName network = "init_network_" ++ show (networkId network)
@@ -534,7 +545,7 @@ createNetworkFunctions project network =
 		transitionTestF = [ transitionEnableTestFunction project network t | t <- transitions network ]
 		initF = map initFunction (placesWithInit network)
 		reportF = [ reportFunction project network ]
-		workerF =  [ workerFunction project t | t <- transitions network ] {- workerFunction -}
+		workerF =  [ workerFunction project t | t <- transitions network, hasCode t ] {- workerFunction -}
 
 instancesCount :: Project -> Expression
 instancesCount project = ECall "+" $ map (processedInstances project) (networks project)

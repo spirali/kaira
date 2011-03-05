@@ -23,7 +23,7 @@ libmpicailie.a: mpicailie.o cailie_mpi.o
 	ar rcs libmpicailie.a mpicailie.o cailie_mpi.o
 
 test: test.cpp libcailie.a
-	${CC} test.cpp -L. -lcailie -o test -lpthread
+	${CC} test.cpp -L. -lcailie -o test -lpthread -lrt
 
 clean:
 	rm -f libmpicailie.a libcailie.a test *.o

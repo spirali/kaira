@@ -104,7 +104,8 @@ bool CaContext::_find_transition(int id, CaTransition &transition)
 	recv(ctx, recv_fn, data);
 }*/
 
-CaProcess::CaProcess(int process_id) : _process_id(process_id) {}
+CaProcess::CaProcess(int process_id) :
+	_process_id(process_id), _logger(NULL) {}
 
 void CaProcess::write_report(FILE *out)
 {
@@ -147,6 +148,7 @@ void CaProcess::init_log()
 	_logger->log_string(ca_project_description_string);
 	_logger->log_string("\n");
 	write_report(_logger->get_file());
+	_logger->log_time();
 	_logger->flush();
 }
 
@@ -488,7 +490,10 @@ CaLogger::~CaLogger()
 
 void CaLogger::log_time()
 {
-
+	  struct timespec time;
+	  clock_gettime(CLOCK_MONOTONIC, &time);
+	  fprintf(file, "%ld.%ld\n", time.tv_sec, time.tv_nsec);
+	  // TODO: Detect by configure size of time_t and availability of CLOCK_MONOTONIC
 }
 
 void CaLogger::log_string(const std::string &str)
@@ -520,9 +525,24 @@ void CaLogger::flush()
 void CaLogger::log_token_add(int iid, int place_id, const std::string &token_name)
 {
 	fprintf(file, "A%i %i %s\n", iid, place_id, token_name.c_str());
+	fflush(file);
 }
 
 void CaLogger::log_token_remove(int iid, int place_id, const std::string &token_name)
 {
 	fprintf(file, "R%i %i %s\n", iid, place_id, token_name.c_str());
+}
+
+void CaLogger::log_transition_start(int iid, int transition_id)
+{
+	log_time();
+	fprintf(file, "S%i %i\n", iid, transition_id);
+	flush();
+}
+
+void CaLogger::log_transition_end(int iid, int transition_id)
+{
+	log_time();
+	fprintf(file, "E%i %i\n", iid, transition_id);
+	flush();
 }

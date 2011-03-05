@@ -99,6 +99,7 @@ emitExpression scope (EType s) = s
 emitExpression scope (EInt i) = show i
 emitExpression scope (EString str) = "\"" ++ escapeString str ++ "\""
 emitExpression scope (ECall name params) = emitCall scope name params
+emitExpression scope (ECast e _) = emitExpression scope e
 {- Tuple at -}
 emitExpression scope (EAt (EInt index) expr) =
 	case exprType (scopeDeclarations scope) expr of
@@ -152,7 +153,7 @@ emitInstruction scope (IForeach var counterVar expr body) =
 		varDecl = "size_t " ++ counterVar ++ " = 0"
 		cycleTest = counterVar ++ " < " ++ arrayLen
 		emit = emitInstruction
-			(addDeclarations scope (declarationsFromVarList [ (counterVar, TInt), (var, elementType) ]))
+			(addDeclarations scope (makeDeclarations [ (counterVar, TInt), (var, elementType) ] []))
 emitInstruction scope (IInline str) = Text str <+> Eol
 emitInstruction scope (IIf expr branch1 INoop) =
 	Text ("if (" ++ emitExpression scope expr ++ ") ") <+> emitInstruction scope branch1
@@ -162,7 +163,7 @@ emitTupleMember index = "t_" ++ show index
 
 initialScope :: Function -> Scope
 initialScope function = Scope { scopeDeclarations = decls }
-	where decls = declarationsFromVarList $ varFromParam (parameters function) ++ declarations function
+	where decls = makeDeclarations (varFromParam (parameters function) ++ declarations function) stdFunctions
 
 typeString :: Type -> String
 typeString (TArray t) = "std::vector<" ++ typeString t ++ " >"
@@ -334,7 +335,9 @@ addConstructors decls i =
 	mapExprs' addConstr decls i
 	where
        addConstr decls (ETuple xs) =
-			ECall (typeSafeString (exprType decls (ETuple xs))) $ map (addConstr decls) xs
+			let t = (exprType decls (ETuple xs)) in
+				ECast (ECall (typeSafeString t) $ map (addConstr decls) xs) t
+
        addConstr decls (ECall name exprs) = ECall name $ map (addConstr decls) exprs
        addConstr decls (EAt a b) = EAt (addConstr decls a) (addConstr decls b)
        addConstr decls (EDeref e) = EDeref $ addConstr decls e
@@ -355,7 +358,7 @@ exprAsString decls x =
 			[ EString "(" ], ECall "Base.asString" [ EAt (EInt 0) x ]]
 				++ concat [ [EString ",", ECall "Base.asString"
 					[ EAt (EInt i) x ]] | i <- [1..length types-1]] ++ [ EString ")" ]
-		x -> error $ "exprAsString: " ++ show x
+		t -> error $ "exprAsString: " ++ show x ++ "/" ++ show t
 
 sourceCodeToStr :: String -> SourceCode -> String
 sourceCodeToStr originalFilename code =

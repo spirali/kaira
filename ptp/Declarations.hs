@@ -51,7 +51,7 @@ data Place = Place {
 	placeId :: ID,
 	placeName :: String,
 	placeType :: NelType,
-	placeInitCode :: String,
+	placeInitCode :: Maybe String,
 	placeInitExprs :: [NelExpression]
 } deriving (Show)
 
@@ -70,7 +70,7 @@ data Transition = Transition {
 	transitionName :: String,
 	edgesIn :: [Edge],
 	edgesOut :: [Edge],
-	transitionCode :: String,
+	transitionCode :: Maybe String,
 	guard :: NelExpression
 } deriving (Show)
 

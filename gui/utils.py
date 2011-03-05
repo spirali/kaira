@@ -69,6 +69,12 @@ def position_inside_rect(position, rect_position, size, tolerance = 0):
 	sx, sy = size
 	return px >= rx - tolerance and py >= ry - tolerance and px < rx + sx + tolerance and py < ry + sy + tolerance
 
+def translate(idtable, source):
+	output = {}
+	for key, value in source.items():
+		output[idtable[key]] = value
+	return output
+
 def join_dicts(dict1, dict2, merge_fun = None):
 	x = dict1.copy()
 	for key, value in dict2.items():

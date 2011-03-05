@@ -8,19 +8,24 @@
 #include <vector>
 #include <string.h>
 #include <stdio.h>
+#include <time.h>
 
 #ifdef CA_LOG_ON
 
-#define CA_LOG_INIT ca_log_init()
-#define CA_LOG_PLACE_CHANGES_START
-#define CA_LOG_PLACE_CHANGES_END
-#define CA_LOG_TOKEN_ADD(place_id, token_string)
-#define CA_LOG_TOKEN_REMOVE(place_id, token_string)
-#define
+#define CA_LOG_TRANSITION_START(ctx, transition_id) ((ctx)->_log_transition_start(transition_id))
+#define CA_LOG_TRANSITION_END(ctx, transition_id) ((ctx)->_log_transition_end(transition_id))
+#define CA_LOG_TOKEN_ADD(ctx, place_id, token_string) ((ctx)->_log_token_add(place_id, token_string))
+#define CA_LOG_TOKEN_REMOVE(ctx, place_id, token_string) ((ctx)->_log_token_remove(place_id, token_string))
+#define CA_LOG_TOKEN_CLEAN(ctx, place_id) ((ctx)->_log_token_clean(place_id, token_string))
 
 #else
 
-#define CA_LOG_INIT
+#define CA_LOG_TRANSITION_START(ctx, transition_id)
+#define CA_LOG_TRANSITION_END(ctx, transition_id)
+#define CA_LOG_TOKEN_ADD(ctx, place_id, token_string)
+#define CA_LOG_TOKEN_REMOVE(ctx, place_id, token_string)
+#define CA_LOG_TOKEN_CLEAN(ctx, place_id)
+
 #endif // CA_LOG
 
 class CaContext;
@@ -51,11 +56,13 @@ class CaLogger {
 		void log_int(int i);
 		void log_token_add(int iid, int place_id, const std::string &token_name);
 		void log_token_remove(int iid, int place_id, const std::string &token_name);
+		void log_transition_start(int iid, int transition_id);
+		void log_transition_end(int iid, int transition_id);
 		void flush();
 		void write(CaOutputBlock *block);
-		FILE * get_file() { return file; }
-	private:
 		void log_time();
+		FILE * get_file() { return file; }
+	protected:
 		FILE *file;
 };
 
@@ -86,8 +93,11 @@ class CaContext {
 		CaJob * _get_jobs();
 
 		CaLogger * _get_logger();
+
 		void _log_token_add(int place_id, const std::string &token_name) { _get_logger()->log_token_add(_iid, place_id, token_name); }
 		void _log_token_remove(int place_id, const std::string &token_name) { _get_logger()->log_token_remove(_iid, place_id, token_name); }
+		void _log_transition_start(int transition_id) { _get_logger()->log_transition_start(_iid, transition_id); }
+		void _log_transition_end(int transition_id) { _get_logger()->log_transition_end(_iid, transition_id); }
 
 	protected:
 		int _node;
@@ -164,6 +174,7 @@ template<class T> class CaPlace {
 
 		void add(T element) { list.push_back(element); }
 		void remove_at(int pos) { list.erase(list.begin() + pos); }
+		T get_at(int pos) { return list[pos]; }
 		void clear() { list.clear(); }
 		size_t size() { return list.size(); }
 		T operator[] (size_t pos) { return list[pos]; }

@@ -8,6 +8,8 @@ class DebugView(gtk.VBox):
 	def __init__(self, app, debuglog):
 		gtk.VBox.__init__(self)
 		self.debuglog = debuglog
+		self.frame_pos = 0
+		self.frame = debuglog.get_frame(0)
 
 		self.pack_start(self._buttons(), False, False)
 		self.canvas_sc = gtk.ScrolledWindow()
@@ -25,16 +27,43 @@ class DebugView(gtk.VBox):
 		self.pack_start(self.instance_canvas_sc)
 
 	def _buttons(self):
-		button1 = gtk.ToggleButton("Instances")
-		button1.connect("toggled", self._view_change)
-
 		toolbar = gtk.Toolbar()
-		toolbar.add(button1)
+
+		button = gtk.ToggleButton("Instances")
+		button.connect("toggled", self._view_change)
+		toolbar.add(button)
+
+		button = gtk.Button("<")
+		button.connect("clicked", lambda w: self.goto_frame(max(0, self.frame_pos - 1)))
+		toolbar.add(button)
+
+		self.counter_label = gtk.Label()
+		toolbar.add(self.counter_label)
+		self.update_counter_label()
+
+		button = gtk.Button(">")
+		button.connect("clicked", lambda w: self.goto_frame(min(self.debuglog.frames_count() - 1, self.frame_pos + 1)))
+		toolbar.add(button)
+
 		toolbar.show_all()
 		return toolbar
 
+	def goto_frame(self, frame_pos):
+		self.frame_pos = frame_pos
+		self.frame = self.debuglog.get_frame(frame_pos)
+		print self.frame.place_content
+		self.update_counter_label()
+		self.redraw()
+
+	def update_counter_label(self):
+		self.counter_label.set_text("{0}/{1}".format(self.frame_pos, self.debuglog.frames_count() - 1))
+
+	def redraw(self):
+		self.instance_canvas.redraw()
+		self.canvas.redraw()
+
 	def _create_canvas(self):
-		c = NetCanvas(self.debuglog.project.get_net(), None, OverviewVisualConfig(self.debuglog))
+		c = NetCanvas(self.debuglog.project.get_net(), None, OverviewVisualConfig(self))
 		c.show()
 		return c
 
@@ -55,7 +84,7 @@ class DebugView(gtk.VBox):
 
 	def _create_instances_canvas(self):
 		def area_callbacks(area, i):
-			vconfig = InstanceVisualConfig(self.debuglog, area, i)
+			vconfig = InstanceVisualConfig(self, area, i)
 			draw_fn = lambda cr,w,h,vx,vy: self._instance_draw(cr, w, h, vx, vy, vconfig, area, i)
 			click_fn = lambda position: self._on_instance_click(position, area, i)
 			return (draw_fn, click_fn)
@@ -77,12 +106,12 @@ class DebugView(gtk.VBox):
 
 class OverviewVisualConfig(VisualConfig):
 
-	def __init__(self, debuglog):
-		self.debuglog = debuglog
+	def __init__(self, debugview):
+		self.debugview = debugview
 
 	def place_drawing(self, item):
 		d = VisualConfig.place_drawing(self, item)
-		tokens = self.debuglog.frame.get_tokens(item)
+		tokens = self.debugview.frame.get_tokens(item)
 		r = []
 		for iid in tokens:
 			r += [ t + "@" + str(iid) for t in tokens[iid] ]
@@ -92,13 +121,13 @@ class OverviewVisualConfig(VisualConfig):
 
 class InstanceVisualConfig(VisualConfig):
 
-	def __init__(self, debuglog, area, iid):
-		self.debuglog = debuglog
+	def __init__(self, debugview, area, iid):
+		self.debugview = debugview
 		self.area = area
 		self.iid = iid
 
 	def place_drawing(self, item):
 		d = VisualConfig.place_drawing(self, item)
 		if self.area.is_inside(item):
-			d.set_tokens(self.debuglog.frame.get_tokens(item, self.iid))
+			d.set_tokens(self.debugview.frame.get_tokens(item, self.iid))
 		return d
