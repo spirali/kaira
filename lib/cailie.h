@@ -34,7 +34,7 @@ class CaOutput;
 /* Function types */
 typedef int(TransitionFn)(CaContext * ctx, void *places);
 typedef void(InitFn)(CaContext * ctx);
-typedef void(RecvFn)(void *places,  int data_id, void *data, size_t size);
+typedef void(RecvFn)(CaContext *ctx, int data_id, void *data, size_t size);
 typedef void(ReportFn)(CaContext * ctx, void *data, CaOutput *out);
 typedef int(NodeToProcessFn)(int node);
 
@@ -58,6 +58,7 @@ class CaLogger {
 		void log_token_remove(int iid, int place_id, const std::string &token_name);
 		void log_transition_start(int iid, int transition_id);
 		void log_transition_end(int iid, int transition_id);
+		void log_receive();
 		void flush();
 		void write(CaOutputBlock *block);
 		void log_time();
@@ -86,7 +87,7 @@ class CaContext {
 		int _check_halt_flag() { return _halt_flag; }
 		void * _get_places() { return _places; }
 		RecvFn * _get_recv_fn() { return _recv_fn; }
-		void _call_recv_fn(int data_id, void *data, size_t size) { return _recv_fn(_places, data_id, data, size); }
+		void _call_recv_fn(int data_id, void *data, size_t size) { return _recv_fn(this, data_id, data, size); }
 		std::vector<CaTransition> & _get_transitions() { return _transitions; }
 		bool _find_transition(int id, CaTransition &transition);
 		ReportFn * _get_report_fn() { return _report_fn; }

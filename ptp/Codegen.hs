@@ -1,5 +1,5 @@
 {-
-    Copyright (C) 2010 Stanislav Bohm
+    Copyright (C) 2010,2011 Stanislav Bohm
 
     This file is part of Kaira.
 
@@ -99,7 +99,7 @@ emitExpression scope (EType s) = s
 emitExpression scope (EInt i) = show i
 emitExpression scope (EString str) = "\"" ++ escapeString str ++ "\""
 emitExpression scope (ECall name params) = emitCall scope name params
-emitExpression scope (ECast e _) = emitExpression scope e
+emitExpression scope (ECast e t) = "((" ++ typeString t ++ ") " ++ emitExpression scope e ++ ")"
 {- Tuple at -}
 emitExpression scope (EAt (EInt index) expr) =
 	case exprType (scopeDeclarations scope) expr of

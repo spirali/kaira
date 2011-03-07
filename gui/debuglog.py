@@ -1,3 +1,22 @@
+#
+#    Copyright (C) 2011 Stanislav Bohm
+#
+#    This file is part of Kaira.
+#
+#    Kaira is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Kaira is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 import xml.etree.ElementTree as xml
 
 import project
@@ -24,7 +43,7 @@ class LogFrame:
 	def get_time(self):
 		return self.time
 
-	def get_fullframe(self, idtable):
+	def get_fullframe(self, project, idtable):
 		return self
 
 
@@ -35,13 +54,19 @@ class LogFrameDiff:
 		self.prev = prev
 		self.actions = actions
 
-	def get_fullframe(self, idtable):
-		frame = copy.deepcopy(self.prev.get_fullframe(idtable))
+	def get_fullframe(self, project, idtable):
+		frame = copy.deepcopy(self.prev.get_fullframe(project, idtable))
 		frame.time = self.time
 		frame.started = []
 		frame.ended = []
 		for action in self.actions.split("\n"):
 			self.parse_action(frame, action, idtable)
+
+		for transition_id, iid in frame.started: # Reset input packing edges
+			for edge in project.get_net().get_item(transition_id).edges_to(split_bidirectional = True):
+				if edge.is_packing_edge():
+					frame.place_content[edge.from_item.get_id()][iid] = []
+
 		return frame
 
 	def parse_action(self, frame, action, idtable):
@@ -75,6 +100,9 @@ class LogFrameDiff:
 				frame.running.remove(item)
 			frame.ended.append(item)
 			frame.name = "E"
+
+		if action_type == "C":
+			frame.name = "R"
 
 	def get_time(self):
 		return self.time
@@ -146,7 +174,7 @@ class DebugLog:
 				return node
 
 	def get_frame(self, pos):
-		return self.frames[pos].get_fullframe(self.idtable)
+		return self.frames[pos].get_fullframe(self.project, self.idtable)
 
 	def get_time_string(self, frame):
 		maxtime = time_to_string(self.maxtime)

@@ -623,6 +623,9 @@ class Edge(NetItem):
 		# FIXME
 		return ((0,0), (0,0))
 
+	def is_packing_edge(self):
+		return self.inscription and self.inscription[0] == "~"
+
 
 class NetArea(NetItem):
 

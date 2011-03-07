@@ -546,3 +546,10 @@ void CaLogger::log_transition_end(int iid, int transition_id)
 	fprintf(file, "E%i %i\n", iid, transition_id);
 	flush();
 }
+
+void CaLogger::log_receive()
+{
+	log_time();
+	fputs("C\n", file);
+}
+

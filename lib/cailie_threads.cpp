@@ -101,6 +101,10 @@ int CaThreadsProcess::recv()
 		return 0;
 	}
 
+	if (_logger) {
+	    _logger->log_receive();
+	}
+
 	while(packet) {
 		int node = packet->target_node;
 		if (packet->data_id == HALT_COMMAND) {

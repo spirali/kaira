@@ -82,7 +82,7 @@ int CaSimProcess::main(int nodes_count, InitFn *init_fn)
 void CaSimProcess::send(CaContext *ctx, int target, int data_id, void *data, size_t size) 
 {
 	RecvFn *recv_fn = _contexts[target]->_get_recv_fn();
-	recv_fn(_contexts[target]->_get_places(), data_id, data, size);
+	_contexts[target]->_call_recv_fn(data_id, data, size);
 	free(data);
 }
 

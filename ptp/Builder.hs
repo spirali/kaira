@@ -1,5 +1,5 @@
 {-
-    Copyright (C) 2010 Stanislav Bohm
+    Copyright (C) 2010,2011 Stanislav Bohm
 
     This file is part of Kaira.
 
@@ -284,7 +284,7 @@ transitionOkEvent project network transition = makeStatement [ ("var", transitio
 			ECall "Base.asString" [ ECast
 				(ECall ".get_at" [ placeExprOfEdge e, EVar $ counterName i ])
 				(fromNelType (placeTypeByEdge project e)) ]]
-		logRemove = countedMap logRemoveToken (edgesIn transition)
+		logRemove = countedMap logRemoveToken normalEdges
 		logStart = icall "CA_LOG_TRANSITION_START" [ EVar "ctx", EInt $ transitionId transition ]
 		logEnd = icall "CA_LOG_TRANSITION_END" [ EVar "ctx", EInt $ transitionId transition ]
 		call = if hasCode transition then
@@ -301,8 +301,9 @@ transitionOkEvent project network transition = makeStatement [ ("var", transitio
 			[ icall ".add" [ placeExpr edge, EVar "token" ]]
 		placeExpr edge = EAt (EInt (placeSeqById network (edgePlaceId edge))) (EVar "places")
 		preprocess e = processInputExpr project (\x -> (EAt (EString x) (EVar "var"))) e
-		packing = concat [ packingEdge e | e <- edgesIn transition, not (isNormalEdge e) ]
-		packingEdge e = let EdgePacking name _ = edgeInscription e in
+		(normalEdges, packingEdges) = List.partition isNormalEdge (edgesIn transition)
+		packing = concatMap packingEdgeCode packingEdges
+		packingEdgeCode e = let EdgePacking name _ = edgeInscription e in
 			[ ISet (EVar name) (ECall ".as_vector" [ (placeExprOfEdge e) ] ),
 			  icall ".clear" [ placeExprOfEdge e ] ]
 
@@ -441,17 +442,19 @@ allTransitions project = concatMap transitions (networks project)
 recvFunction :: Project -> Network -> Function
 recvFunction project network = Function {
 	functionName = recvFunctionName network,
-	parameters = [ ("places", TPointer (placesTuple network), ParamNormal),
+	parameters = [ ("ctx", caContext, ParamNormal) ,
 		("data_id", TRaw "int", ParamNormal),
 		("data", TRaw "void*", ParamNormal),
 		("data_size", TRaw "int", ParamNormal) ],
 	declarations = [],
 	extraCode = [],
 	returnType = TVoid,
-	instructions = [ makeStatement' [] [ ("unpacker", TRaw "CaUnpacker", (ECall "CaUnpacker" [ EVar "data" ])) ]
-		[ recvStatement network place | place <- (places network), isTransportable (placeType place) ]],
+	instructions = [
+		idefine "places" placesType $ ECast (ECall "._get_places" [EVar "ctx"]) placesType,
+		idefine "unpacker" (TRaw "CaUnpacker") (ECall "CaUnpacker" [ EVar "data" ])] ++
+			[ recvStatement network place | place <- (places network), isTransportable (placeType place) ],
 	functionSource = Nothing
-}
+} where placesType = TPointer (placesTuple network)
 
 recvStatement :: Network -> Place -> Instruction
 recvStatement network place =
@@ -460,8 +463,8 @@ recvStatement network place =
 		condition = ECall "==" [ EVar "data_id", EInt (placeId place) ]
 		ifStatement = makeStatement []
 			(unpackCode (EVar "unpacker") (fromNelType (placeType place)) "item" ++
-			[ IExpr (ECall ".add"
-				[ EAt (EInt (placeSeq network place)) (EVar "places"),  (EVar "item") ])])
+			[ icall ".add" [ EAt (EInt (placeSeq network place)) (EVar "places"),  (EVar "item") ],
+			  icall "CA_LOG_TOKEN_ADD" [ EVar "ctx", EInt (placeId place), ECall "Base.asString" [ EVar "item" ] ] ])
 
 {- This is not good aproach if there are more vars, but it now works -}
 safeErase :: Expression -> String -> [String] -> Instruction

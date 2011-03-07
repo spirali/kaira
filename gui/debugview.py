@@ -1,3 +1,21 @@
+#
+#    Copyright (C) 2011 Stanislav Bohm
+#
+#    This file is part of Kaira.
+#
+#    Kaira is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Kaira is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 import gtk
 from canvas import NetCanvas, MultiCanvas
@@ -67,7 +85,7 @@ class DebugView(gtk.VBox):
 		max = str(self.debuglog.frames_count() - 1)
 		self.counter_label.set_text("{0:0>{2}}/{1}".format(self.get_frame_pos(), max, len(max)))
 		time = self.debuglog.get_time_string(self.frame)
-		colors = { "I": "gray", "S" : "green", "E" : "#cc4c4c" }
+		colors = { "I": "gray", "S" : "green", "E" : "#cc4c4c", "R": "lightblue" }
 		name = self.frame.name
 		self.info_label.set_markup("<span font_family='monospace' background='{2}'>{0}</span>{1}".format(name, time, colors[name]))
 

@@ -1,3 +1,22 @@
+#
+#    Copyright (C) 2011 Stanislav Bohm
+#
+#    This file is part of Kaira.
+#
+#    Kaira is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Kaira is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 import sys
 import xml.etree.ElementTree as xml
 
@@ -32,9 +51,11 @@ def open_logile(filename):
 	initial_time = f.readline()
 	return (f, report, string_to_time(initial_time))
 
-def copy_until_time(output, f):
+def copy_until_time(output, f, process_id):
 	line = f.readline()
 	while line and not line[0].isdigit():
+		if line == "C\n":
+			line = "C{0}\n".format(process_id)
 		output.write(line)
 		line = f.readline()
 	return string_to_time(line)
@@ -46,7 +67,7 @@ def process_logs(output, files, times, base_time):
 		for i in xrange(len(files)):
 			if times[i] == time:
 				output.write("{0}\n".format(time - base_time))
-				times[i] = copy_until_time(output, files[i])
+				times[i] = copy_until_time(output, files[i], str(i))
 		time = min(times)
 
 def main():
