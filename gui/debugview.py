@@ -42,7 +42,6 @@ class DebugView(gtk.VBox):
 
 		self.counter_label = gtk.Label()
 		toolbar.pack_start(self.counter_label, False, False)
-		self.update_counter_label()
 
 		button = gtk.Button(">>")
 		button.connect("clicked", lambda w: self.scale.set_value(min(self.debuglog.frames_count() - 1, self.get_frame_pos() + 1)))
@@ -52,17 +51,25 @@ class DebugView(gtk.VBox):
 		self.scale.connect("value-changed", lambda w: self.goto_frame(int(w.get_value())))
 		toolbar.pack_start(self.scale)
 
+		self.info_label = gtk.Label()
+		toolbar.pack_start(self.info_label, False, False)
+
+		self.update_labels()
 		toolbar.show_all()
 		return toolbar
 
 	def goto_frame(self, frame_pos):
 		self.frame = self.debuglog.get_frame(frame_pos)
-		self.update_counter_label()
+		self.update_labels()
 		self.redraw()
 
-	def update_counter_label(self):
+	def update_labels(self):
 		max = str(self.debuglog.frames_count() - 1)
 		self.counter_label.set_text("{0:0>{2}}/{1}".format(self.get_frame_pos(), max, len(max)))
+		time = self.debuglog.get_time_string(self.frame)
+		colors = { "I": "gray", "S" : "green", "E" : "#cc4c4c" }
+		name = self.frame.name
+		self.info_label.set_markup("<span font_family='monospace' background='{2}'>{0}</span>{1}".format(name, time, colors[name]))
 
 	def redraw(self):
 		self.instance_canvas.redraw()

@@ -7,12 +7,13 @@ import copy
 
 class LogFrame:
 
-	def __init__(self, time, place_content):
+	def __init__(self, time, place_content, name):
 		self.time = time
 		self.place_content = place_content
 		self.running = []
 		self.started = []
 		self.ended = []
+		self.name = name
 
 	def get_tokens(self, place, iid = None):
 		if iid is None:
@@ -63,6 +64,7 @@ class LogFrameDiff:
 			item = (idtable[transition_id], iid)
 			frame.running.append(item)
 			frame.started.append(item)
+			frame.name = "S"
 
 		if action_type == "E":
 			iid, transition_id = action.split(" ", 2)
@@ -72,6 +74,10 @@ class LogFrameDiff:
 			if item in frame.running:
 				frame.running.remove(item)
 			frame.ended.append(item)
+			frame.name = "E"
+
+	def get_time(self):
+		return self.time
 
 
 class DebugLog:
@@ -101,7 +107,7 @@ class DebugLog:
 
 			self.idtable = idtable
 			self.areas_instances = areas_instances
-			frame = LogFrame(0, place_content)
+			frame = LogFrame(0, place_content, "I")
 			self.frames = [ frame ]
 
 			next_time = self.parse_time(f.readline())
@@ -112,6 +118,7 @@ class DebugLog:
 					self.frames.append(frame)
 					frame, next_time = self.load_frame_diff(f, frame, next_time)
 				self.frames.append(frame)
+			self.maxtime = self.frames[-1].get_time()
 
 	def frames_count(self):
 		return len(self.frames)
@@ -140,3 +147,15 @@ class DebugLog:
 
 	def get_frame(self, pos):
 		return self.frames[pos].get_fullframe(self.idtable)
+
+	def get_time_string(self, frame):
+		maxtime = time_to_string(self.maxtime)
+		return "{0:0>{1}}".format(time_to_string(frame.get_time()), len(maxtime))
+
+def time_to_string(nanosec):
+	s = nanosec / 1000000000
+	nsec = nanosec % 1000000000
+	sec = s % 60
+	minutes = (s / 60) % 60
+	hours = s / 60 / 60
+	return "{0}:{1:0>2}:{2:0>2}:{3:0>9}".format(hours, minutes, sec, nsec)
