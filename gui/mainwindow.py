@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -99,6 +99,12 @@ class MainWindow(gtk.Window):
 		for tab in self.tablist[:]:
 			tab.close()
 
+	def current_tab(self):
+		widget = self.notebook.get_nth_page(self.notebook.get_current_page())
+		for tab in self.tablist:
+			if tab.get_widget() == widget:
+				return tab
+
 	def _create_main_menu(self):
 		ag = gtk.AccelGroup()
 		self.add_accel_group(ag)
@@ -159,8 +165,17 @@ class MainWindow(gtk.Window):
 		item.connect("activate", lambda w: self.app.set_grid_size(25))
 		view_menu.append(item)
 
+		view_menu.append(gtk.SeparatorMenuItem())
+
 		item = gtk.MenuItem("Hide error messages")
 		item.connect("activate", lambda w: self.app.hide_error_messages())
+		view_menu.append(item)
+
+		view_menu.append(gtk.SeparatorMenuItem())
+
+		item = gtk.MenuItem("Close tab")
+		item.connect("activate", lambda w: self.app.close_current_tab())
+		item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("W"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 		view_menu.append(item)
 
 		edit_menu = gtk.Menu()

@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -131,6 +131,11 @@ class App:
 			self.save_project_as()
 		else:
 			self._save_project()
+
+	def close_current_tab(self, force=False):
+		tab = self.window.current_tab()
+		if force or tab.has_close_button():
+			tab.close()
 
 	def save_project_as(self):
 		dialog = gtk.FileChooserDialog("Save net", self.window, gtk.FILE_CHOOSER_ACTION_SAVE,
