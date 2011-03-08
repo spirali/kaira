@@ -27,6 +27,7 @@ class MainWindow(gtk.Window):
 		self.app = app
 		self.set_title("Kaira")
 		self.connect("destroy", gtk.main_quit)
+		self.tablist = []
 
 		vbox = gtk.VBox()
 		self.add(vbox)
@@ -47,8 +48,8 @@ class MainWindow(gtk.Window):
 		for w in self.project_sensitives:
 			w.set_sensitive(value)
 
-	def add_tab(self, name, widget, close_callback = None):
-		if close_callback:
+	def add_tab(self, tab, switch = True):
+		if tab.has_close_button():
 			button = gtk.Button()
 			button.set_relief(gtk.RELIEF_NONE)
 			button.set_focus_on_click(False)
@@ -59,28 +60,44 @@ class MainWindow(gtk.Window):
 			style.ythickness = 0
 			button.modify_style(style)
 			button.add(icon)
-			button.connect("clicked", close_callback)
+			button.connect("clicked", lambda w: tab.close())
 			w = gtk.HBox(False, 0)
-			w.pack_start(gtk.Label(name))
+			w.pack_start(gtk.Label(tab.get_name()))
 			w.pack_start(button, False, False)
 			w.show_all()
 		else:
-			w = gtk.Label(name)
-		self.notebook.append_page(widget, w)
-		self.notebook.set_tab_reorderable(widget, True)
-		widget.show()
+			w = gtk.Label(tab.get_name())
+		self.notebook.append_page(tab.get_widget(), w)
+		self.notebook.set_tab_reorderable(tab.get_widget(), True)
+		tab.get_widget().show()
+		tab.window = self
+		self.tablist.append(tab)
+		if switch:
+			self.switch_to_tab(tab)
 
-	def switch_to_tab(self, widget):
-		num = self.notebook.page_num(widget)
+	def foreach_tab(self, fn):
+		for tab in self.tablist[:]:
+			fn(tab)
+
+	def switch_to_tab(self, tab):
+		num = self.notebook.page_num(tab.get_widget())
 		self.notebook.set_current_page(num)
 
-	def close_tab(self, widget):
-		num = self.notebook.page_num(widget)
+	def switch_to_tab_by_key(self, key):
+		for tab in self.tablist:
+			if tab.get_key() == key:
+				self.switch_to_tab(tab)
+				return True
+		return False
+
+	def close_tab(self, tab):
+		num = self.notebook.page_num(tab.get_widget())
 		self.notebook.remove_page(num)
+		self.tablist.remove(tab)
 
 	def close_all_tabs(self):
-		for w in self.notebook.get_children():
-			self.close_tab(w)
+		for tab in self.tablist[:]:
+			tab.close()
 
 	def _create_main_menu(self):
 		ag = gtk.AccelGroup()
@@ -249,3 +266,34 @@ class Console(gtk.ScrolledWindow):
 			cursor = None
 		w = self.textview.get_window(gtk.TEXT_WINDOW_TEXT)
 		w.set_cursor(cursor)
+
+class Tab:
+
+	window = None
+
+	def __init__(self, name, widget, key = None, has_close_button = True):
+		self.name = name
+		self.widget = widget
+		self.key = key
+		self.close_button = has_close_button
+
+	def get_widget(self):
+		return self.widget
+
+	def get_key(self):
+		return self.key
+
+	def get_name(self):
+		return self.name
+
+	def has_close_button(self):
+		return self.close_button
+
+	def close(self):
+		self.window.close_tab(self)
+
+	def project_save(self):
+		pass
+
+	def project_export(self):
+		pass

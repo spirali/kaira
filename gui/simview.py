@@ -24,7 +24,17 @@ from canvas import NetCanvas, MultiCanvas
 from drawing import VisualConfig
 import gtkutils
 import utils
+import mainwindow
 
+class SimViewTab(mainwindow.Tab):
+	def __init__(self, app, simulation):
+		self.simulation = simulation
+		simview = SimView(app, simulation)
+		mainwindow.Tab.__init__(self, "Simulation", simview, None)
+
+	def close(self):
+		mainwindow.Tab.close(self)
+		self.simulation.shutdown()
 
 class SimView(gtk.VBox):
 	def __init__(self, app, simulation):

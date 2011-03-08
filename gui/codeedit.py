@@ -23,6 +23,7 @@ import gtk
 import pango
 import os
 import events
+import mainwindow
 
 class CodeEditor(gtk.VBox):
 	
@@ -99,11 +100,7 @@ class CodeEditor(gtk.VBox):
 
 class CodeFileEditor(CodeEditor):
 
-	def __init__(self, app, filename):
-		self.callbacks = events.EventCallbacksList()
-		self.callbacks.set_callback(app.project, "export", self._save)
-		self.callbacks.set_callback(app.project, "save", self._save)
-
+	def __init__(self, filename):
 		self.filename = filename
 		if os.path.isfile(filename):
 			with open(filename, "r") as f:
@@ -113,18 +110,15 @@ class CodeFileEditor(CodeEditor):
 		CodeEditor.__init__(self, "", content, "", (0,0))
 		self.view.set_show_line_numbers(True)
 
-	def shutdown(self):
-		self.callbacks.remove_all()
-
 	def _toolbar(self):
 		button1 = gtk.Button("Save")
-		button1.connect("clicked", self._save)
+		button1.connect("clicked", self.save)
 		toolbar = gtk.Toolbar()
 		toolbar.add(button1)
 		toolbar.show_all()
 		return toolbar
 
-	def _save(self, w = None):
+	def save(self, w = None):
 		#FIXME: catch io erros
 		with open(self.filename, "w") as f:
 			f.write(self.get_text())
@@ -159,3 +153,15 @@ class PlaceCodeEditor(CodeEditor):
 
 	def buffer_changed(self, buffer):
 		self.place.set_code(self.get_text())
+
+class TabCodeFileEditor(mainwindow.Tab):
+
+	def __init__(self, filename, key):
+		name = os.path.basename(filename)
+		mainwindow.Tab.__init__(self, name, CodeFileEditor(filename), key)
+
+	def project_save(self):
+		self.widget.save()
+
+	def project_export(self):
+		self.widget.save()

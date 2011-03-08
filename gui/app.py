@@ -25,18 +25,16 @@ import sys
 import subprocess
 import gtkutils
 import paths
-from mainwindow import MainWindow
+from mainwindow import MainWindow, Tab
 from netview import NetView
-from simview import SimView
-from codeedit import TransitionCodeEditor
-from codeedit import PlaceCodeEditor
-from codeedit import CodeFileEditor
+from simview import SimViewTab
 from parameters import ParametersValueDialog
 from externtypes import ExternTypeEditor
 from projectconfig import ProjectConfig
 from simulation import Simulation, SimulationException
 from functions import FunctionEditor
 from drawing import VisualConfig
+import codeedit
 import process
 import utils
 import cairo
@@ -47,7 +45,6 @@ class App:
 		self.window = MainWindow(self)
 		self.window.project_is_active(False)
 		self.nv = None
-		self.tabtable = {}
 		self._open_welcome_tab()
 		self.grid_size = 1
 
@@ -74,19 +71,11 @@ class App:
 		self.window.project_is_active(True)
 
 	def init_tabs(self):
-		if self.nv:
-			self.window.close_tab(self.nv)
-		for t in self.tabtable:
-			widget, callback = self.tabtable[t]
-			self.window.close_tab(widget)
-			if callback:
-				callback(t)
 		self.window.close_all_tabs()
 		self.nv = NetView(self, self.project, self.project.net)
 		self.nv.transition_edit_callback = self.transition_edit
 		self.nv.place_edit_callback = self.place_edit
-		self.window.add_tab("Network", self.nv)
-		self.tabtable = {}
+		self.window.add_tab(Tab("Network", self.nv, has_close_button = False))
 
 	def new_project(self):
 		def project_name_changed(w = None):
@@ -141,8 +130,7 @@ class App:
 		if self.project.get_filename() is None:
 			self.save_project_as()
 		else:
-			if self._catch_io_error(self.project.save, True, False):
-				self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
+			self._save_project()
 
 	def save_project_as(self):
 		dialog = gtk.FileChooserDialog("Save net", self.window, gtk.FILE_CHOOSER_ACTION_SAVE,
@@ -158,10 +146,14 @@ class App:
 				if filename[-5:] != ".proj":
 					filename = filename + ".proj"
 				self.project.set_filename(filename)
-				if self._catch_io_error(self.project.save, True, False):
-					self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
+				self._save_project()
 		finally:
 			dialog.destroy()
+
+	def _save_project(self):
+		self.window.foreach_tab(lambda tab: tab.project_save())
+		if self._catch_io_error(self.project.save, True, False):
+			self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
 
 	def build_project(self):
 		self._start_build(self.project, lambda p: self.console_write("Build OK\n", "success"))
@@ -198,13 +190,8 @@ class App:
 	def _add_project_file_filters(self, dialog):
 		self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files = True)
 
-	def switch_to_tab(self, tabtag):
-		w, callback = self.tabtable[tabtag]
-		self.window.switch_to_tab(w)
-
 	def transition_edit(self, transition):
-		if transition in self.tabtable:
-			self.switch_to_tab(transition)
+		if self.window.switch_to_tab_by_key(transition):
 			return
 
 		def open_tab(stdout):
@@ -212,51 +199,45 @@ class App:
 				name = "T:" + transition.get_name()
 			else:
 				name = "T: <unnamed" + str(transition.get_id()) + ">"
-			editor = TransitionCodeEditor(transition, [ line for line in stdout if line.strip() != "" ])
-			self.add_tab(name, editor, transition)
+			editor = codeedit.TransitionCodeEditor(transition, [ line for line in stdout if line.strip() != "" ])
+			self.window.add_tab(Tab(name, editor, transition))
 		self._start_ptp(self.project, open_tab, extra_args = [ "--transition-vars", str(transition.get_id()) ])
 
 	def place_edit(self, place):
-		if place in self.tabtable:
-			self.switch_to_tab(place)
+		if self.window.switch_to_tab_by_key(place):
 			return
 
 		def open_tab(stdout):
 			name = "P: " + str(place.get_id())
-			editor = PlaceCodeEditor(place, stdout[0].strip())
-			self.add_tab(name, editor, place)
+			editor = codeedit.PlaceCodeEditor(place, stdout[0].strip())
+			self.window.add_tab(Tab(name, editor, place))
 		self._start_ptp(self.project, open_tab, extra_args = [ "--place-type", str(place.get_id())])
 
 	def extern_type_function_edit(self, extern_type, fn_name, callback):
 		tag = (extern_type, fn_name)
-		if tag in self.tabtable:
-			self.switch_to_tab(tag)
+		if self.window.switch_to_tab_by_key(tag):
 			return
 		name = extern_type.get_name() + "/" + fn_name
 		editor = ExternTypeEditor(extern_type, fn_name, callback)
-		self.add_tab(name, editor, tag)
+		self.window.add_tab(Tab(name, editor, tag))
 
 	def function_edit(self, function):
-		if function in self.tabtable:
-			self.switch_to_tab(function)
+		if self.window.switch_to_tab_by_key(function):
 			return
 		editor = FunctionEditor(function)
-		self.add_tab(function.get_name(), editor, function)
+		self.window.add_tab(Tab(function.get_name(), editor, function))
 
 	def project_config(self):
-		if "project-config" in self.tabtable:
-			self.switch_to_tab("project-config")
+		if self.window.switch_to_tab_by_key("project-config"):
 			return
 		w = ProjectConfig(self)
-		self.add_tab("Project", w, "project-config")
+		self.window.add_tab(Tab("Project", w, "project-config"))
 
 	def edit_sourcefile(self, filename):
 		tab_tag = "file:" + filename
-		if tab_tag in self.tabtable:
-			self.switch_to_tab(tab_tag)
+		if self.window.switch_to_tab_by_key(tab_tag):
 			return
-		w = CodeFileEditor(app, filename)
-		self.add_tab(os.path.basename(filename), w, tab_tag, lambda x: w.shutdown())
+		self.window.add_tab(codeedit.TabCodeFileEditor(filename, tab_tag))
 
 	def edit_headfile(self):
 		self.edit_sourcefile(self.project.get_head_filename())
@@ -265,8 +246,7 @@ class App:
 		def project_builded(project):
 			try:
 				simulation = Simulation(project, param_values)
-				w = SimView(self, simulation)
-				self.add_tab("Simulation", w, simulation, lambda s: simulation.shutdown())
+				self.window.add_tab(SimViewTab(self, simulation))
 			except SimulationException as e:
 				self.console_write(str(e), "error")
 
@@ -291,20 +271,6 @@ class App:
 			param_values = {}
 		self._start_build(project, project_builded, translation_table = transtable)
 
-	def add_tab(self, name, w, obj, callback = None):
-		""" Open new tab labeled with "name" with content "w" and register this tab for "obj" """
-		self.tabtable[obj] = (w, callback)
-		self.window.add_tab(name, w, lambda x: self.close_tab_for_obj(obj))
-		self.switch_to_tab(obj)
-	
-	def close_tab_for_obj(self, obj):
-		if obj in self.tabtable:
-			widget, callback = self.tabtable[obj]
-			self.window.close_tab(widget)
-			del self.tabtable[obj]
-			if callback:
-				callback(obj)
-
 	def show_error_dialog(self, text):
 		error_dlg = gtk.MessageDialog( \
 			parent=self.window, \
@@ -323,6 +289,7 @@ class App:
 		self.window.console.write_link(text, callback)
 
 	def export_project(self, proj = None):
+		self.window.foreach_tab(lambda tab: tab.project_export())
 		if proj is None:
 			proj = self.project
 		try:
@@ -441,7 +408,7 @@ class App:
 		label.set_markup(line1 + line2 + line3)
 		label.set_justify(gtk.JUSTIFY_CENTER)
 		label.set_size_request(400,300)
-		self.window.add_tab("Welcome", label)
+		self.window.add_tab(Tab("Welcome", label, has_close_button = False))
 
 if __name__ == "__main__":
 	args = sys.argv[1:] # Remove "app.py"
