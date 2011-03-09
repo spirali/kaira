@@ -21,6 +21,9 @@ import gtk
 from canvas import NetCanvas, MultiCanvas
 from drawing import VisualConfig
 import utils
+import gtkutils
+import chart
+import debuglog
 
 class DebugView(gtk.VBox):
 	def __init__(self, app, debuglog):
@@ -28,7 +31,7 @@ class DebugView(gtk.VBox):
 		self.debuglog = debuglog
 		self.frame = debuglog.get_frame(0)
 
-		self.pack_start(self._buttons(), False, False)
+		self.pack_start(self._controlls(), False, False)
 		self.canvas_sc = gtk.ScrolledWindow()
 		self.canvas = self._create_canvas()
 		self.canvas.set_size_and_viewport_by_net()
@@ -39,20 +42,28 @@ class DebugView(gtk.VBox):
 		self.instance_canvas_sc.add_with_viewport(self.instance_canvas)
 		self.instance_canvas.show_all()
 
-		self.pack_start(self.canvas_sc)
+		self.place_chart = self._place_chart()
+
 		self.show_all()
-		self.pack_start(self.instance_canvas_sc)
+		self.views = [ self.canvas_sc, self.instance_canvas_sc, self.place_chart ]
+		for item in self.views:
+			self.pack_start(item)
+		self.canvas_sc.show()
 
 	def get_frame_pos(self):
 		return int(self.scale.get_value())
 
-	def _buttons(self):
+	def _controlls(self):
 		self.scale = gtk.HScale(gtk.Adjustment(value=0, lower=0, upper=self.debuglog.frames_count(), step_incr=1, page_incr=1, page_size=1))
 		toolbar = gtk.HBox(False)
 
-		button = gtk.ToggleButton("Instances")
-		button.connect("toggled", self._view_change)
-		toolbar.pack_start(button, False, False)
+		combo = gtk.combo_box_new_text()
+		combo.append_text("Network")
+		combo.append_text("Instances")
+		combo.append_text("Places")
+		combo.set_active(0)
+		combo.connect("changed", self._view_change)
+		toolbar.pack_start(combo, False, False)
 
 		button = gtk.Button("<<")
 		button.connect("clicked", lambda w: self.scale.set_value(max(0, self.get_frame_pos() - 1)))
@@ -127,13 +138,36 @@ class DebugView(gtk.VBox):
 		c.end_of_registration()
 		return c
 
-	def _view_change(self, button):
-		if button.get_active():
-			self.instance_canvas_sc.show()
-			self.canvas_sc.hide()
-		else:
-			self.instance_canvas_sc.hide()
-			self.canvas_sc.show()
+	def _place_chart(self):
+		vbox = gtk.HBox()
+
+		values, names = self.debuglog.get_places_statistic()
+
+		placelist = gtkutils.SimpleList((("Place|foreground", str),("_", str)))
+
+		colors = chart.color_names
+		for i, name in enumerate(names):
+			placelist.append((name,colors[i % len(colors)]))
+		vbox.pack_start(placelist, False, False)
+
+		c = chart.TimeChart(values, min_time = 0, max_time = self.debuglog.maxtime, min_value = 0)
+		c.xlabel_format = lambda x: debuglog.time_to_string(x)[:-7]
+		w = chart.ChartWidget(c)
+		vbox.pack_start(w, True, True)
+
+		return vbox
+
+
+	def _view_change(self, combo):
+		for item in self.views:
+			item.hide()
+		text = combo.get_active_text()
+		if text == "Instances":
+			self.instance_canvas_sc.show_all()
+		elif text == "Network":
+			self.canvas_sc.show_all()
+		elif text == "Places":
+			self.place_chart.show_all()
 
 def filter_by_id(items, id):
 	return [ x[1] for x in items if x[0] == id ]

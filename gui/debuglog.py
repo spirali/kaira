@@ -180,6 +180,28 @@ class DebugLog:
 		maxtime = time_to_string(self.maxtime)
 		return "{0:0>{1}}".format(time_to_string(frame.get_time()), len(maxtime))
 
+	def get_places_statistic(self):
+		places = self.project.net.places()
+		init = self.frames[0]
+		result = []
+		names = []
+		for p in places:
+			content = init.place_content[p.get_id()]
+			for iid in content:
+				result.append([(0,len(content[iid]))])
+				names.append(str(p.get_id()) + "@" + str(iid))
+		for frame in self.frames[1:]:
+			f = frame.get_fullframe(self.project, self.idtable)
+			i = 0
+			for p in places:
+				content = f.place_content[p.get_id()]
+				for iid in content:
+					t, v = result[i][-1]
+					if len(content[iid]) != v:
+						result[i].append((frame.get_time(), len(content[iid])))
+					i += 1
+		return result, names
+
 def time_to_string(nanosec):
 	s = nanosec / 1000000000
 	nsec = nanosec % 1000000000
