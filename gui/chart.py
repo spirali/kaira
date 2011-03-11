@@ -171,7 +171,7 @@ def color_values():
 		c = gtk.gdk.color_parse(name)
 		yield (c.red / 65535.0, c.green / 65535.0, c.blue / 65535.0)
 
-class Chart:
+class TwoAxisChart:
 
 	borders = [30,30,60,60]
 	xlabel_format = str
@@ -210,10 +210,7 @@ class Chart:
 		self._render_axis(width, height, cr)
 
 	def _render_axis(self, width, height, cr):
-		label_sizes = [ utils.text_size(cr, self.ylabel_format(label)) for label in self.ylabels ]
-		labelw = max(x[0] for x in label_sizes)
-		labelh = max(x[1] for x in label_sizes)
-
+		labelw, labelh = get_label_sizes(cr, map(self.ylabel_format, self.ylabels))
 		cr.set_source_rgb(0.0, 0.0, 0.0)
 		cr.move_to(self.borders[LEFT], height - self.borders[BOTTOM])
 		cr.line_to(width - self.borders[RIGHT], height - self.borders[BOTTOM])
@@ -246,7 +243,7 @@ class Chart:
 			cr.restore()
 
 
-class TimeChart(Chart):
+class TimeChart(TwoAxisChart):
 	
 	def __init__(self, values, min_time, max_time, min_value = None, max_value = None):
 		self.min_time = min_time
@@ -257,13 +254,13 @@ class TimeChart(Chart):
 			min_value = min(min(x[1] for x in timeline) for timeline in values)
 		if max_value is None:
 			max_value = max(max(x[1] for x in timeline) for timeline in values)
-		Chart.__init__(self, (min_time, max_time), (min_value, max_value))
+		TwoAxisChart.__init__(self, (min_time, max_time), (min_value, max_value))
 
 	def render(self, width, height, cr):
 		def coords(time, value):
 			return (((time - self.xbounds[0])/xdelta) * w + x, y - ((value - self.ybounds[0]) / ydelta) * h)
 			
-		Chart.render(self, width, height, cr)
+		TwoAxisChart.render(self, width, height, cr)
 		xdelta = float(self.xdelta())
 		ydelta = float(self.ydelta())
 
@@ -293,6 +290,75 @@ class TimeChart(Chart):
 			cr.arc(s, v, 2, 0, 2 * math.pi)
 			cr.fill()
 
+class UtilizationChart:
+
+	xlabel_format = str
+
+	def __init__(self, values, labels, legend, colors, timebounds):
+		self.values = values
+		self.labels = labels
+		self.legend = legend
+		self.colors = colors
+		self.timebounds = timebounds
+
+	def get_size_request(self):
+		return 0, 40 * len(self.values) + 40 + 75 # legend_space + reserved space at the end
+
+	def render(self, width, height, cr):
+		labelw, labelh = get_label_sizes(cr, self.labels)
+		boxh = 40
+		legend_space = 40
+		timespan = self.timebounds[1] - self.timebounds[0]
+		start = 30 + labelw
+		areaw = width - start - 40
+		for i in xrange(len(self.values)):
+			self._gradient_box(cr, 0, i * boxh + legend_space, width, boxh, (1.0,1.0,1.0), (0.9,0.9,0.9))
+
+		cr.set_source_rgb(0.2,0.2,0.2)
+		for i, label in enumerate(self.labels):
+			cr.move_to(10, i * boxh + (boxh + labelh) / 2 + legend_space)
+			cr.show_text(label)
+
+		cr.set_line_width(1.0)
+		min_time = self.timebounds[0]
+		for i in xrange(11):
+			t = i * timespan / 10 + min_time
+			x = i * areaw / 10 + start
+			bottom = len(self.values) * boxh + legend_space
+			cr.move_to(x, legend_space)
+			cr.line_to(x, bottom)
+			cr.stroke()
+			cr.save()
+			cr.move_to(x, bottom + 10)
+			cr.rotate(1.2)
+			cr.show_text(self.xlabel_format(t))
+			cr.restore()
+
+		for i, v in enumerate(self.values):
+			for (begin, t), (end, x) in utils.pairs_generator(v):
+				if t is None:
+					continue
+				s = areaw * (begin - min_time) / timespan + start
+				e = areaw * (end - min_time) / timespan + start
+				color1, color2 = self.colors[t]
+				self._gradient_box(cr, s,i * boxh + legend_space + 10, e - s, boxh - 20, color1, color2)
+
+		x = start
+		for color1, color2, label in self.legend:
+			self._gradient_box(cr, x, 12, 15, 15, color1, color2)
+			sx, sy = utils.text_size(cr, label)
+			cr.move_to(x + 20, 19 + sy / 2)
+			cr.show_text(label)
+			x += 40 + sx
+
+	def _gradient_box(self, cr, x, y, w, h, color1, color2):
+		gradient = cairo.LinearGradient(x, y, x, y + h)
+		gradient.add_color_stop_rgb(0.0, *color1)
+		gradient.add_color_stop_rgb(1.0, *color2)
+		cr.set_source(gradient)
+		cr.rectangle(x, y, w, h)
+		cr.fill()
+
 class ChartWidget(gtk.DrawingArea):
 
 	def __init__(self, chart):
@@ -307,3 +373,9 @@ class ChartWidget(gtk.DrawingArea):
 		cr.clip()
 		size = self.window.get_size()
 		self.chart.render(size[0], size[1], cr)
+
+
+
+def get_label_sizes(cr, labels):
+	label_sizes = [ utils.text_size(cr, label) for label in labels ]
+	return max(x[0] for x in label_sizes), max(x[1] for x in label_sizes)

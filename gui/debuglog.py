@@ -148,6 +148,9 @@ class DebugLog:
 				self.frames.append(frame)
 			self.maxtime = self.frames[-1].get_time()
 
+	def nodes_count(self):
+		return sum( [ len(instances) for instances in self.areas_instances.values() ] )
+
 	def frames_count(self):
 		return len(self.frames)
 
@@ -180,27 +183,67 @@ class DebugLog:
 		maxtime = time_to_string(self.maxtime)
 		return "{0:0>{1}}".format(time_to_string(frame.get_time()), len(maxtime))
 
-	def get_places_statistic(self):
+	def get_default_area_id(self):
+		x = [ area.get_id() for area in self.project.net.areas() ]
+		y = [ i for i in self.areas_instances if i not in x ]
+		if y:
+			return y[0]
+		else:
+			return None
+
+	def area_address(self, area_id):
+		for iid, node, running in self.areas_instances[area_id]:
+			if iid == 0:
+				return node
+
+	def transition_to_node_table(self):
+		default_id = self.get_default_area_id()
+		result = {}
+		for transition in self.project.net.transitions():
+			area = transition.area()
+			if area is None:
+				area_id = default_id
+			else:
+				area_id = area.get_id()
+			address = self.area_address(area_id)
+			result[transition.get_id()] = [ i + address for i in xrange(len(self.areas_instances[area_id])) ]
+		return result
+
+	def get_statistics(self):
 		places = self.project.net.places()
 		init = self.frames[0]
-		result = []
-		names = []
+		tokens = []
+		tokens_names = []
+		nodes = [ [] for i in xrange(self.nodes_count()) ]
+		nodes_names = [ "node={0}".format(i) for i in xrange(self.nodes_count()) ]
+		transition_table = self.transition_to_node_table()
+
 		for p in places:
 			content = init.place_content[p.get_id()]
 			for iid in content:
-				result.append([(0,len(content[iid]))])
-				names.append(str(p.get_id()) + "@" + str(iid))
+				tokens.append([(0,len(content[iid]))])
+				tokens_names.append(str(p.get_id()) + "@" + str(iid))
 		for frame in self.frames[1:]:
 			f = frame.get_fullframe(self.project, self.idtable)
 			i = 0
+			time = frame.get_time()
 			for p in places:
 				content = f.place_content[p.get_id()]
 				for iid in content:
-					t, v = result[i][-1]
+					t, v = tokens[i][-1]
 					if len(content[iid]) != v:
-						result[i].append((frame.get_time(), len(content[iid])))
+						tokens[i].append((time, len(content[iid])))
 					i += 1
-		return result, names
+			for transition_id, iid in f.started:
+				nodes[transition_table[transition_id][iid]].append((time, 0))
+			for transition_id, iid in f.ended:
+				nodes[transition_table[transition_id][iid]].append((time, None))
+		result = {}
+		result["tokens"] = tokens
+		result["tokens_names"] = tokens_names
+		result["nodes"] = nodes
+		result["nodes_names"] = nodes_names
+		return result
 
 def time_to_string(nanosec):
 	s = nanosec / 1000000000

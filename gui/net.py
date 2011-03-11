@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -271,6 +271,12 @@ class NetElement(NetItem):
 		e = xml.Element("code")
 		e.text = self.code
 		return e
+
+	def area(self):
+		for area in self.net.areas():
+			if area.is_inside(self):
+				return area
+
 
 class Transition(NetElement):
 

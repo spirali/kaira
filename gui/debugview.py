@@ -29,6 +29,7 @@ class DebugView(gtk.VBox):
 	def __init__(self, app, debuglog):
 		gtk.VBox.__init__(self)
 		self.debuglog = debuglog
+		self.statistics = self.debuglog.get_statistics()
 		self.frame = debuglog.get_frame(0)
 
 		self.pack_start(self._controlls(), False, False)
@@ -43,12 +44,13 @@ class DebugView(gtk.VBox):
 		self.instance_canvas.show_all()
 
 		self.place_chart = self._place_chart()
+		self.nodes_chart = self._nodes_utilization()
 
 		self.show_all()
-		self.views = [ self.canvas_sc, self.instance_canvas_sc, self.place_chart ]
+		self.views = [self.canvas_sc, self.instance_canvas_sc, self.place_chart, self.nodes_chart ]
 		for item in self.views:
 			self.pack_start(item)
-		self.canvas_sc.show()
+		self.canvas_sc.show_all()
 
 	def get_frame_pos(self):
 		return int(self.scale.get_value())
@@ -60,6 +62,7 @@ class DebugView(gtk.VBox):
 		combo = gtk.combo_box_new_text()
 		combo.append_text("Network")
 		combo.append_text("Instances")
+		combo.append_text("Nodes")
 		combo.append_text("Places")
 		combo.set_active(0)
 		combo.connect("changed", self._view_change)
@@ -141,7 +144,8 @@ class DebugView(gtk.VBox):
 	def _place_chart(self):
 		vbox = gtk.HBox()
 
-		values, names = self.debuglog.get_places_statistic()
+		values = self.statistics["tokens"]
+		names = self.statistics["tokens_names"]
 
 		placelist = gtkutils.SimpleList((("Place|foreground", str),("_", str)))
 
@@ -157,6 +161,20 @@ class DebugView(gtk.VBox):
 
 		return vbox
 
+	def _nodes_utilization(self):
+		sc = gtk.ScrolledWindow()
+		sc.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
+		colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)), ((0.5,0.2,0.2), (0.9,0.0,0.0)) ]
+		values = self.statistics["nodes"]
+		names = self.statistics["nodes_names"]
+		legend = [ ((0.2,0.5,0.2), (0.0,0.9,0.0), "Running"), ((0.5,0.2,0.2), (0.9,0.0,0.0), "Node conflict") ]
+		c = chart.UtilizationChart(values, names, legend, colors, (0, self.debuglog.maxtime))
+		c.xlabel_format = lambda x: debuglog.time_to_string(x)[:-7]
+		w = chart.ChartWidget(c)
+		w.set_size_request(*c.get_size_request())
+		w.show_all()
+		sc.add_with_viewport(w)
+		return sc
 
 	def _view_change(self, combo):
 		for item in self.views:
@@ -168,6 +186,8 @@ class DebugView(gtk.VBox):
 			self.canvas_sc.show_all()
 		elif text == "Places":
 			self.place_chart.show_all()
+		elif text == "Nodes":
+			self.nodes_chart.show_all()
 
 def filter_by_id(items, id):
 	return [ x[1] for x in items if x[0] == id ]
