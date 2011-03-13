@@ -32,7 +32,7 @@ class CaProcess {
 
 		/* Logging */
 		void init_log();
-
+		void log_enabled_transitions(int skip_node, int skip_transition);
       protected:
 		void write_report(FILE *out);
 		int _process_id;

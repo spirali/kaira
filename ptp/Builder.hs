@@ -531,7 +531,9 @@ startFunction project network = Function {
 		initPlaces = (concatMap initPlaceFromExpr (places network)) ++ (map callInitPlace (placesWithInit network))
 		initPlace p = initPlaceFromExpr p ++ [ callInitPlace p ]
 		registerTransitions = [ icall "._register_transition" [
-			EVar "ctx", EInt (transitionId t), EVar ("(TransitionFn*)" ++ transitionFunctionName t) ] | t <- transitions network ]
+			EVar "ctx", EInt (transitionId t),
+			EVar ("(TransitionFn*)" ++ transitionFunctionName t),
+			EVar ("(TransitionFn*)" ++ transitionEnableTestFunctionName t) ] | t <- transitions network ]
 		placeVar p = EAt (EInt (ps p)) (EVar "places")
 		callInitPlace p =
 			 icall (initFunctionName p) [ EVar "ctx", EAddr (placeVar p) ]

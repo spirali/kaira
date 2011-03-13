@@ -61,6 +61,13 @@ size_t CaContext::_get_reserved_prefix_size() {
 	return _process->get_reserved_prefix_size();
 }
 
+void CaContext::_log_transition_start(int transition_id)
+{
+    _get_logger()->log_transition_start(_iid, transition_id);
+    _get_process()->log_enabled_transitions(_node, transition_id);
+}
+
+
 CaLogger * CaContext::_get_logger() {
 	return _process->get_logger();
 }
@@ -81,11 +88,33 @@ CaJob * CaContext::_get_jobs()
 	return job;
 }
 
-void CaContext::_register_transition(int id, TransitionFn *fn)
+void CaContext::_register_transition(int id, TransitionFn *fn_run, TransitionFn *enable_test)
 {
-	_transitions.push_back(CaTransition(id, fn));
+	_transitions.push_back(CaTransition(id, fn_run, enable_test));
 }
 
+void CaContext::_log_enabled_transitions(int skip_transition)
+{
+	std::vector<CaTransition>::iterator i;
+	CaLogger *logger = _get_logger();
+	bool inited = false;
+	for (i = _transitions.begin(); i != _transitions.end(); i++)
+	{
+	    int transition_id = i->get_id();
+	    if (transition_id == skip_transition)
+		continue;
+	    if (i->call_enable_test(this)) {
+	      if (!inited) {
+		logger->log("T%i", _node);
+	      }
+	      inited = true;
+	      logger->log(" %i", transition_id);
+	    }
+	}
+	if (inited) {
+	    logger->log_string("\n");
+	}
+}
 
 bool CaContext::_find_transition(int id, CaTransition &transition)
 {
@@ -155,6 +184,18 @@ void CaProcess::init_log()
 CaProcess::~CaProcess() {
 	if (_logger) {
 		delete _logger;
+	}
+}
+
+void CaProcess::log_enabled_transitions(int skip_node, int skip_transition)
+{
+	CaContextsMap::iterator i;
+	for (i = _contexts.begin(); i != _contexts.end(); i++) {
+	    if (i->second->node() == skip_node) {
+	      i->second->_log_enabled_transitions(skip_transition);
+	    } else {
+	      i->second->_log_enabled_transitions(-1);
+	    }
 	}
 }
 

@@ -59,6 +59,7 @@ class LogFrameDiff:
 		frame.time = self.time
 		frame.started = []
 		frame.ended = []
+		frame.blocked = []
 		for action in self.actions.split("\n"):
 			self.parse_action(frame, action, idtable)
 
@@ -103,6 +104,11 @@ class LogFrameDiff:
 
 		if action_type == "C":
 			frame.name = "R"
+
+		if action_type == "T":
+			args = action.split(" ")
+			node = int(args[0][1:])
+			frame.blocked += [ (node, int(t)) for t in args[1:] ]
 
 	def get_time(self):
 		return self.time
@@ -238,6 +244,11 @@ class DebugLog:
 				nodes[transition_table[transition_id][iid]].append((time, 0))
 			for transition_id, iid in f.ended:
 				nodes[transition_table[transition_id][iid]].append((time, None))
+			written = []
+			for node, transition_id in f.blocked:
+				if node not in written:
+					nodes[node].append((time, 1))
+					written.append(node)
 		result = {}
 		result["tokens"] = tokens
 		result["tokens_names"] = tokens_names

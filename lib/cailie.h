@@ -83,7 +83,7 @@ class CaContext {
 		size_t _get_reserved_prefix_size();
 		CaProcess * _get_process() { return _process; }
 		void _init(int iid, int instances, void * places, RecvFn *recv_fn, ReportFn *report_fn);
-		void _register_transition(int id, TransitionFn *fn);
+		void _register_transition(int id, TransitionFn *fn, TransitionFn *enable_test);
 		int _check_halt_flag() { return _halt_flag; }
 		void * _get_places() { return _places; }
 		RecvFn * _get_recv_fn() { return _recv_fn; }
@@ -97,8 +97,10 @@ class CaContext {
 
 		void _log_token_add(int place_id, const std::string &token_name) { _get_logger()->log_token_add(_iid, place_id, token_name); }
 		void _log_token_remove(int place_id, const std::string &token_name) { _get_logger()->log_token_remove(_iid, place_id, token_name); }
-		void _log_transition_start(int transition_id) { _get_logger()->log_transition_start(_iid, transition_id); }
+		void _log_transition_start(int transition_id);
 		void _log_transition_end(int transition_id) { _get_logger()->log_transition_end(_iid, transition_id); }
+
+		void _log_enabled_transitions(int skip_transition);
 
 	protected:
 		int _node;
@@ -128,12 +130,15 @@ class CaOutput {
 class CaTransition {
 	public:
 		CaTransition() {}
-		CaTransition(int id, TransitionFn *fn) { this->id = id; this->function = fn; }
+		CaTransition(int id, TransitionFn *fn, TransitionFn *enable_test)
+			{ this->id = id; this->function = fn; this->enable_test = enable_test; }
 		int call(CaContext *ctx) const { return function(ctx, ctx->_get_places()); }
+		int call_enable_test(CaContext *ctx) const { return enable_test(ctx, ctx->_get_places()); }
 		int get_id() const { return id; }
 	protected:
 		TransitionFn *function;
 		int id;
+		TransitionFn *enable_test;
 };
 
 class CaPacker {
