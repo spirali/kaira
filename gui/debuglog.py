@@ -124,20 +124,25 @@ class DebugLog:
 			f.readline() # Skip first line
 			settings = xml.fromstring(f.readline())
 			lines_count = int(settings.get("description-lines"))
-			process_count = int(settings.get("process-count"))
+			self.process_count = int(settings.get("process-count"))
 			proj = xml.fromstring("\n".join([ f.readline() for i in xrange(lines_count) ]))
 			self.project, idtable = project.load_project_from_xml(proj, "")
 
 			place_content = {}
 			areas_instances = {}
 
-			for process_id in xrange(process_count):
+			self.node_to_process = {}
+
+			for process_id in xrange(self.process_count):
 				report = xml.fromstring(f.readline())
 				pc, transitions, ai = simulation.extract_report(report)
 				pc = utils.translate(idtable, pc)
 				transitions = utils.translate(idtable, transitions)
 				place_content = utils.join_dicts(pc, place_content, utils.join_dicts)
 				areas_instances = utils.join_dicts(ai, areas_instances, lambda x,y: x + y)
+				for area in ai.values():
+					for iid, node, running in area:
+						self.node_to_process[node] = process_id
 
 			self.idtable = idtable
 			self.areas_instances = areas_instances
@@ -222,7 +227,20 @@ class DebugLog:
 		tokens_names = []
 		nodes = [ [] for i in xrange(self.nodes_count()) ]
 		nodes_names = [ "node={0}".format(i) for i in xrange(self.nodes_count()) ]
+		processes = [ [] for i in xrange(self.process_count) ]
+		processes_names = [ "process={0}".format(i) for i in xrange(self.process_count) ]
 		transition_table = self.transition_to_node_table()
+
+		transitions = []
+		transitions_names = []
+		transitions_pos = {}
+
+		for t in self.project.net.transitions():
+			instances = transition_table[t.get_id()]
+			for i, node in enumerate(instances):
+				transitions_names.append("{0}@{1}".format(t.get_name(), i))
+				transitions_pos[(t.get_id(), node)] = len(transitions)
+				transitions.append([])
 
 		for p in places:
 			content = init.place_content[p.get_id()]
@@ -241,19 +259,44 @@ class DebugLog:
 						tokens[i].append((time, len(content[iid])))
 					i += 1
 			for transition_id, iid in f.started:
-				nodes[transition_table[transition_id][iid]].append((time, 0))
+				node = transition_table[transition_id][iid]
+				value = (time, 0)
+				nodes[node].append(value)
+				processes[self.node_to_process[node]].append(value)
+				transitions[transitions_pos[(transition_id, node)]].append(value)
+
 			for transition_id, iid in f.ended:
-				nodes[transition_table[transition_id][iid]].append((time, None))
+				node = transition_table[transition_id][iid]
+				value = (time, None)
+				nodes[node].append(value)
+				processes[self.node_to_process[node]].append(value)
+				transitions[transitions_pos[(transition_id, node)]].append(value)
+
 			written = []
+			value1 = (time, 1)
+			value2 = (time, 2)
 			for node, transition_id in f.blocked:
+				if nodes[node] and nodes[node][-1][1] == 0:
+					v = value2
+				else:
+					v = value1
+				t = transitions_pos[(transition_id, node)]
+				if not transitions[t] or transitions[t][-1][1] != v[1]:
+					transitions[t].append(v)
 				if node not in written:
-					nodes[node].append((time, 1))
+					if not nodes[node] or nodes[node][-1][1] != 1:
+						nodes[node].append(value1)
 					written.append(node)
+
 		result = {}
 		result["tokens"] = tokens
 		result["tokens_names"] = tokens_names
 		result["nodes"] = nodes
 		result["nodes_names"] = nodes_names
+		result["processes"] = processes
+		result["processes_names"] = processes_names
+		result["transitions"] = transitions
+		result["transitions_names"] = transitions_names
 		return result
 
 def time_to_string(nanosec):

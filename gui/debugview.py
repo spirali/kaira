@@ -32,25 +32,34 @@ class DebugView(gtk.VBox):
 		self.statistics = self.debuglog.get_statistics()
 		self.frame = debuglog.get_frame(0)
 
-		self.pack_start(self._controlls(), False, False)
-		self.canvas_sc = gtk.ScrolledWindow()
+		canvas_sc = gtk.ScrolledWindow()
 		self.canvas = self._create_canvas()
 		self.canvas.set_size_and_viewport_by_net()
-		self.canvas_sc.add_with_viewport(self.canvas)
+		canvas_sc.add_with_viewport(self.canvas)
 
-		self.instance_canvas_sc = gtk.ScrolledWindow()
+		instance_canvas_sc = gtk.ScrolledWindow()
 		self.instance_canvas = self._create_instances_canvas()
-		self.instance_canvas_sc.add_with_viewport(self.instance_canvas)
+		instance_canvas_sc.add_with_viewport(self.instance_canvas)
 		self.instance_canvas.show_all()
 
-		self.place_chart = self._place_chart()
-		self.nodes_chart = self._nodes_utilization()
+		place_chart = self._place_chart()
+		processes_chart = self._processes_utilization()
+		nodes_chart = self._nodes_utilization()
+		transitions_chart = self._transitions_utilization()
 
 		self.show_all()
-		self.views = [self.canvas_sc, self.instance_canvas_sc, self.place_chart, self.nodes_chart ]
-		for item in self.views:
+		self.views = [
+			("Network", canvas_sc),
+			("Instances", instance_canvas_sc),
+			("Process", processes_chart),
+			("Nodes", nodes_chart),
+			("Transitions", transitions_chart),
+			("Places", place_chart),
+		]
+		self.pack_start(self._controlls(), False, False)
+		for name, item in self.views:
 			self.pack_start(item)
-		self.canvas_sc.show_all()
+		canvas_sc.show_all()
 
 	def get_frame_pos(self):
 		return int(self.scale.get_value())
@@ -60,10 +69,8 @@ class DebugView(gtk.VBox):
 		toolbar = gtk.HBox(False)
 
 		combo = gtk.combo_box_new_text()
-		combo.append_text("Network")
-		combo.append_text("Instances")
-		combo.append_text("Nodes")
-		combo.append_text("Places")
+		for name, item in self.views:
+			combo.append_text(name)
 		combo.set_active(0)
 		combo.connect("changed", self._view_change)
 		toolbar.pack_start(combo, False, False)
@@ -161,13 +168,9 @@ class DebugView(gtk.VBox):
 
 		return vbox
 
-	def _nodes_utilization(self):
+	def _utilization_chart(self, values, names, colors, legend):
 		sc = gtk.ScrolledWindow()
 		sc.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
-		colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)), ((0.5,0.2,0.2), (0.9,0.0,0.0)) ]
-		values = self.statistics["nodes"]
-		names = self.statistics["nodes_names"]
-		legend = [ ((0.2,0.5,0.2), (0.0,0.9,0.0), "Running"), ((0.5,0.2,0.2), (0.9,0.0,0.0), "Node conflict") ]
 		c = chart.UtilizationChart(values, names, legend, colors, (0, self.debuglog.maxtime))
 		c.xlabel_format = lambda x: debuglog.time_to_string(x)[:-7]
 		w = chart.ChartWidget(c)
@@ -176,18 +179,38 @@ class DebugView(gtk.VBox):
 		sc.add_with_viewport(w)
 		return sc
 
+	def _nodes_utilization(self):
+		colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)), ((0.5,0.2,0.2), (0.9,0.0,0.0)) ]
+		values = self.statistics["nodes"]
+		names = self.statistics["nodes_names"]
+		legend = [ ((0.2,0.5,0.2), (0.0,0.9,0.0), "Running"), ((0.5,0.2,0.2), (0.9,0.0,0.0), "Node conflict") ]
+		return self._utilization_chart(values, names, colors, legend)
+
+	def _processes_utilization(self):
+		sc = gtk.ScrolledWindow()
+		sc.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
+		colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
+		values = self.statistics["processes"]
+		names = self.statistics["processes_names"]
+		legend = [ ((0.2,0.5,0.2), (0.0,0.9,0.0), "Running") ]
+		return self._utilization_chart(values, names, colors, legend)
+
+	def _transitions_utilization(self):
+		sc = gtk.ScrolledWindow()
+		sc.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
+		colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)), ((0.5,0.2,0.2), (0.9,0.0,0.0)), ((0.2,0.2,0.5), (0.0,0.0,0.9)) ]
+		values = self.statistics["transitions"]
+		names = self.statistics["transitions_names"]
+		legend = [ ((0.2,0.5,0.2), (0.0,0.9,0.0), "Running"), ((0.5,0.2,0.2), (0.9,0.0,0.0), "Node conflict"), ((0.2,0.2,0.5), (0.0,0.0,0.9), "Transition conflict") ]
+		return self._utilization_chart(values, names, colors, legend)
+
 	def _view_change(self, combo):
-		for item in self.views:
-			item.hide()
 		text = combo.get_active_text()
-		if text == "Instances":
-			self.instance_canvas_sc.show_all()
-		elif text == "Network":
-			self.canvas_sc.show_all()
-		elif text == "Places":
-			self.place_chart.show_all()
-		elif text == "Nodes":
-			self.nodes_chart.show_all()
+		for name, item in self.views:
+			if name == text:
+				item.show_all()
+			else:
+				item.hide()
 
 def filter_by_id(items, id):
 	return [ x[1] for x in items if x[0] == id ]
