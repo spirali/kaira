@@ -24,7 +24,11 @@ import simulation
 import utils
 import copy
 
+CACHE_FRAME_PERIOD = 200
+
 class LogFrame:
+
+	full_frame = True
 
 	def __init__(self, time, place_content, name):
 		self.time = time
@@ -43,19 +47,19 @@ class LogFrame:
 	def get_time(self):
 		return self.time
 
-	def get_fullframe(self, project, idtable):
-		return self
+	def copy(self):
+		return copy.deepcopy(self)
 
 
 class LogFrameDiff:
 
-	def __init__(self, time, prev, actions):
+	full_frame = False
+
+	def __init__(self, time, actions):
 		self.time = time
-		self.prev = prev
 		self.actions = actions
 
-	def get_fullframe(self, project, idtable):
-		frame = copy.deepcopy(self.prev.get_fullframe(project, idtable))
+	def apply_on_frame(self, frame, project, idtable):
 		frame.time = self.time
 		frame.started = []
 		frame.ended = []
@@ -147,16 +151,21 @@ class DebugLog:
 			self.idtable = idtable
 			self.areas_instances = areas_instances
 			frame = LogFrame(0, place_content, "I")
-			self.frames = [ frame ]
+			self.frames = [ frame.copy() ]
 
 			next_time = self.parse_time(f.readline())
 			inf = float("inf")
 			if next_time < inf:
-				frame, next_time = self.load_frame_diff(f, frame, next_time)
+				diff, next_time = self.load_frame_diff(f, next_time)
+				frame = diff.apply_on_frame(frame, self.project, idtable)
 				while next_time < inf:
-					self.frames.append(frame)
-					frame, next_time = self.load_frame_diff(f, frame, next_time)
-				self.frames.append(frame)
+					if len(self.frames) % CACHE_FRAME_PERIOD == 0:
+						self.frames.append(frame.copy())
+					else:
+						self.frames.append(diff)
+					diff, next_time = self.load_frame_diff(f, next_time)
+					frame = diff.apply_on_frame(frame, self.project, idtable)
+				self.frames.append(diff)
 			self.maxtime = self.frames[-1].get_time()
 
 	def nodes_count(self):
@@ -171,13 +180,13 @@ class DebugLog:
 		else:
 			return int(string)
 
-	def load_frame_diff(self, f, prev, time):
+	def load_frame_diff(self, f, time):
 		lines = []
 		line = f.readline()
 		while line and not line[0].isdigit():
 			lines.append(line.strip())
 			line = f.readline()
-		return (LogFrameDiff(time, prev, "\n".join(lines)), self.parse_time(line))
+		return (LogFrameDiff(time, "\n".join(lines)), self.parse_time(line))
 
 	def get_area_instances_number(self, area):
 		return len(self.areas_instances[area.get_id()])
@@ -188,7 +197,11 @@ class DebugLog:
 				return node
 
 	def get_frame(self, pos):
-		return self.frames[pos].get_fullframe(self.project, self.idtable)
+		frame = self.frames[pos]
+		if frame.full_frame:
+			return frame.copy()
+		else:
+			return frame.apply_on_frame(self.get_frame(pos - 1), self.project, self.idtable)
 
 	def get_time_string(self, frame):
 		maxtime = time_to_string(self.maxtime)
@@ -247,10 +260,15 @@ class DebugLog:
 			for iid in content:
 				tokens.append([(0,len(content[iid]))])
 				tokens_names.append(str(p.get_id()) + "@" + str(iid))
+
+		f = init.copy()
 		for frame in self.frames[1:]:
-			f = frame.get_fullframe(self.project, self.idtable)
+			if frame.full_frame:
+				f = frame.copy()
+			else:
+				f = frame.apply_on_frame(f, self.project, self.idtable)
 			i = 0
-			time = frame.get_time()
+			time = f.get_time()
 			for p in places:
 				content = f.place_content[p.get_id()]
 				for iid in content:
