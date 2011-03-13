@@ -28,6 +28,7 @@ NodeToProcessFn *ca_node_to_process;
 int ca_process_count = 0;
 const char *ca_project_description_string = NULL;
 int ca_log_on = 0;
+std::string ca_log_default_name = "";
 
 CaContext::CaContext(int node, CaProcess *process)
 {
@@ -63,8 +64,11 @@ size_t CaContext::_get_reserved_prefix_size() {
 
 void CaContext::_log_transition_start(int transition_id)
 {
-    _get_logger()->log_transition_start(_iid, transition_id);
-    _get_process()->log_enabled_transitions(_node, transition_id);
+    CaLogger *logger = _get_logger();
+    if (logger) {
+      logger->log_transition_start(_iid, transition_id);
+      _get_process()->log_enabled_transitions(_node, transition_id);
+    }
 }
 
 
@@ -153,11 +157,11 @@ void CaProcess::write_report(FILE *out)
 	fputs("\n", out);
 }
 
-void CaProcess::init_log()
+void CaProcess::init_log(const std::string &logname)
 {
 	if (_logger)
 		return;
-	_logger = new CaLogger(_process_id);
+	_logger = new CaLogger(logname, _process_id);
 
 	int lines = 1;
 	for (const char *c = ca_project_description_string; (*c) != 0; c++) {
@@ -203,7 +207,7 @@ void CaProcess::log_enabled_transitions(int skip_node, int skip_transition)
 void CaProcess::start_scheduler() {
 
 	if (ca_log_on) {
-		init_log();
+		init_log(ca_log_default_name);
 	}
 
 	CaContextsMap::iterator i;
@@ -344,7 +348,7 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 	MPI_Init(&argc, &argv);
 	#endif
 
-	while ((c = getopt_long (argc, argv, "hp:m:r:l", longopts, NULL)) != -1)
+	while ((c = getopt_long (argc, argv, "hp:m:r:l:", longopts, NULL)) != -1)
 		switch (c) {
 			case 'm': {
 				module_name = optarg;
@@ -384,6 +388,7 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 			} break;
 			case 'l': {
 				ca_log_on = 1;
+				ca_log_default_name = optarg;
 			} break;
 
 			case '?':
@@ -516,10 +521,10 @@ CaPacker::CaPacker(size_t size, size_t reserved)
 	this->size = size;
 }
 
-CaLogger::CaLogger(int process_id)
+CaLogger::CaLogger(const std::string &logname, int process_id)
 {
 	char str[40];
-	snprintf(str, 40, "log.%i", process_id);
+	snprintf(str, 40, "%s.%i", logname.c_str(), process_id);
 	file = fopen(str, "w");
 	fprintf(file, "KairaLog 0.1\n");
 }

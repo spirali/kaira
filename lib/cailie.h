@@ -46,7 +46,7 @@ class CaOutputBlock;
 
 class CaLogger {
 	public:
-		CaLogger(int process_id);
+		CaLogger(const std::string &logname, int process_id);
 		~CaLogger();
 
 		void log_place_changes_begin();
@@ -95,10 +95,13 @@ class CaContext {
 
 		CaLogger * _get_logger();
 
-		void _log_token_add(int place_id, const std::string &token_name) { _get_logger()->log_token_add(_iid, place_id, token_name); }
-		void _log_token_remove(int place_id, const std::string &token_name) { _get_logger()->log_token_remove(_iid, place_id, token_name); }
+		void _log_token_add(int place_id, const std::string &token_name)
+		    { CaLogger *logger = _get_logger(); if (logger) logger->log_token_add(_iid, place_id, token_name); }
+		void _log_token_remove(int place_id, const std::string &token_name)
+		    { CaLogger *logger = _get_logger(); if (logger) logger->log_token_remove(_iid, place_id, token_name); }
 		void _log_transition_start(int transition_id);
-		void _log_transition_end(int transition_id) { _get_logger()->log_transition_end(_iid, transition_id); }
+		void _log_transition_end(int transition_id)
+		    { CaLogger *logger = _get_logger(); if (logger) logger->log_transition_end(_iid, transition_id); }
 
 		void _log_enabled_transitions(int skip_transition);
 

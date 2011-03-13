@@ -3,6 +3,7 @@
 
 #include "cailie.h"
 #include <map>
+#include <string>
 
 typedef std::map <int, CaContext*> CaContextsMap;
 
@@ -31,7 +32,7 @@ class CaProcess {
 		virtual size_t get_reserved_prefix_size() = 0;
 
 		/* Logging */
-		void init_log();
+		void init_log(const std::string& logname);
 		void log_enabled_transitions(int skip_node, int skip_transition);
       protected:
 		void write_report(FILE *out);
@@ -71,5 +72,6 @@ class CaJob {
 };
 
 extern NodeToProcessFn *ca_node_to_process;
+extern std::string ca_log_default_name;
 
 #endif
