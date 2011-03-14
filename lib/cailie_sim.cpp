@@ -106,7 +106,7 @@ void CaSimProcess::start_logging(CaContext *ctx, const std::string& logname)
 	init_log(logname);
 }
 
-void CaSimProcess::end_logging(CaContext *ctx, const std::string& logname)
+void CaSimProcess::stop_logging(CaContext *ctx)
 {
 	stop_log();
 }

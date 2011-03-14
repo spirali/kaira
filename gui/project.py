@@ -265,6 +265,7 @@ class Project(EventSource):
 		makefile.rule("all", [self.get_name()])
 		makefile.rule("debug", [name_debug])
 		makefile.rule("mpi", [self.get_name() + "_mpi"])
+		makefile.rule("mpidebug", [self.get_name() + "_mpidebug"])
 
 		deps = [ name_o ]
 		makefile.rule(self.get_name(), deps, "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
@@ -274,9 +275,12 @@ class Project(EventSource):
 		makefile.rule(self.get_name() + "_mpi", deps, "$(MPICC) -cc=${CC} " + " ".join(deps)
 			+ " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) -lmpicailie" )
 
+		makefile.rule(self.get_name() + "_mpidebug", [ name_debug_o ], "$(MPICC) -cc=${CC} " + " ".join( [ name_debug_o ] )
+			+ " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) -lmpicailie" )
+
 		makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
 		makefile.rule(name_debug_o, [ name_cpp, "head.cpp" ], "$(CC) -DCA_LOG_ON $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))
-		makefile.rule("clean", [], "rm -f *.o {0} {0}_debug {0}_mpi".format(self.get_name()))
+		makefile.rule("clean", [], "rm -f *.o {0} {0}_debug {0}_mpi {0}_mpidebug".format(self.get_name()))
 		makefile.write_to_file(os.path.join(self.get_directory(), "makefile"))
 
 	def _build_option_as_xml(self, name):

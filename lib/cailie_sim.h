@@ -24,7 +24,7 @@ class CaSimProcess : public CaProcess {
 		size_t get_reserved_prefix_size() { return 0; }
 
 		void start_logging(CaContext *ctx, const std::string& logname);
-		void end_logging(CaContext *ctx, const std::string& logname);
+		void stop_logging(CaContext *ctx);
 	protected:
 
 		void fire_transition(int transition_id, int iid);
