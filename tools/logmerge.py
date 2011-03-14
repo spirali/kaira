@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #
 #    Copyright (C) 2011 Stanislav Bohm
 #
@@ -19,6 +20,7 @@
 
 import sys
 import xml.etree.ElementTree as xml
+import os
 
 def logfile_names(filename, count):
 	return [ filename + "." + str(i) for i in xrange(count) ]
@@ -75,13 +77,19 @@ def main():
 		print "Usage: <logname_prefix>"
 		return
 	basename = sys.argv[1]
+
+	if not os.path.isfile(basename + ".0"):
+		print "Log {0}.0 not found".format(basename)
+		return
+
 	header, pcount = initial_read(basename + ".0")
 	files = []
 	times = []
 	output = open(basename + ".klog", "w")
 	output.write(header)
 	base_time = 0
-	for filename in logfile_names(basename, pcount):
+	log_names = logfile_names(basename, pcount)
+	for filename in log_names:
 		f, report, initial_time = open_logile(filename)
 		output.write(report)
 		files.append(f)
@@ -95,6 +103,9 @@ def main():
 	output.close()
 	for f in files:
 		f.close()
+
+	for name in log_names:
+		os.remove(name)
 
 if __name__ == "__main__":
 	main()
