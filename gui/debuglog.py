@@ -233,6 +233,20 @@ class DebugLog:
 			result[transition.get_id()] = [ i + address for i in xrange(len(self.areas_instances[area_id])) ]
 		return result
 
+	def get_mapping(self):
+		result = []
+		for area_id, area_content in self.areas_instances.items():
+			area = self.project.get_item(area_id)
+			if area:
+				area_name = area.get_name()
+			else:
+				area_name = "Default area"
+			for iid, node, running in area_content:
+				result.append((node, iid, area_name, self.node_to_process[node]))
+		result.sort(key=lambda i: i[0])
+		return result
+
+
 	def get_statistics(self):
 		places = self.project.net.places()
 		init = self.frames[0]

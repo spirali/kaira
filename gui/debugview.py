@@ -42,19 +42,16 @@ class DebugView(gtk.VBox):
 		instance_canvas_sc.add_with_viewport(self.instance_canvas)
 		self.instance_canvas.show_all()
 
-		place_chart = self._place_chart()
-		processes_chart = self._processes_utilization()
-		nodes_chart = self._nodes_utilization()
-		transitions_chart = self._transitions_utilization()
-
 		self.show_all()
+
 		self.views = [
 			("Network", canvas_sc),
 			("Instances", instance_canvas_sc),
-			("Process", processes_chart),
-			("Nodes", nodes_chart),
-			("Transitions", transitions_chart),
-			("Places", place_chart),
+			("Mapping", self._mapping_table()),
+			("Process", self._processes_utilization()),
+			("Nodes", self._nodes_utilization()),
+			("Transitions", self._transitions_utilization()),
+			("Places", self._place_chart()),
 		]
 		self.pack_start(self._controlls(), False, False)
 		for name, item in self.views:
@@ -203,6 +200,15 @@ class DebugView(gtk.VBox):
 		names = self.statistics["transitions_names"]
 		legend = [ ((0.2,0.5,0.2), (0.0,0.9,0.0), "Running"), ((0.5,0.2,0.2), (0.9,0.0,0.0), "Node conflict"), ((0.2,0.2,0.5), (0.0,0.0,0.9), "Transition conflict") ]
 		return self._utilization_chart(values, names, colors, legend)
+
+	def _mapping_table(self):
+		sc = gtk.ScrolledWindow()
+		sc.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+		lst = gtkutils.SimpleList((("Node", int), ("iid", int), ("area", str), ("Process", str)))
+		sc.add_with_viewport(lst)
+		for item in self.debuglog.get_mapping():
+			lst.append(item)
+		return sc
 
 	def _view_change(self, combo):
 		text = combo.get_active_text()
