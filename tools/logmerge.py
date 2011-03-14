@@ -75,12 +75,12 @@ def process_logs(output, files, times, base_time):
 def main():
 	if len(sys.argv) != 2:
 		print "Usage: <logname_prefix>"
-		return
+		sys.exit(1)
 	basename = sys.argv[1]
 
 	if not os.path.isfile(basename + ".0"):
 		print "Log {0}.0 not found".format(basename)
-		return
+		sys.exit(1)
 
 	header, pcount = initial_read(basename + ".0")
 	files = []

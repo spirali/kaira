@@ -33,7 +33,11 @@ class CaProcess {
 
 		/* Logging */
 		void init_log(const std::string& logname);
+		void stop_log();
 		void log_enabled_transitions(int skip_node, int skip_transition);
+		virtual void start_logging(CaContext *ctx, const std::string& logname) = 0;
+		virtual void stop_logging(CaContext *ctx) = 0;
+
       protected:
 		void write_report(FILE *out);
 		int _process_id;

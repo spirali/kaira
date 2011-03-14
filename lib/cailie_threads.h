@@ -32,6 +32,7 @@ class CaThreadsProcess : public CaProcess {
 		void start(InitFn *init_fn);
 		void queue_add(CaThreadsPacket *packet);
 		void send(CaContext *ctx, int target, int data_id, void *data, size_t size);
+		void send_to_all(CaContext *ctx, int data_id, const void *data, size_t size);
 		int recv();
 		void idle();
 		void quit(CaContext *ctx);
@@ -39,6 +40,9 @@ class CaThreadsProcess : public CaProcess {
 		void add_context(CaContext *ctx);
 
 		size_t get_reserved_prefix_size();
+
+		void start_logging(CaContext *ctx, const std::string& logname);
+		void stop_logging(CaContext *ctx);
 
 		CaThreadsModule * get_module() { return _module; }
 	protected:

@@ -78,6 +78,8 @@ class CaContext {
 		int instances() { return _instances; }
 		void halt();
 		void quit();
+		void start_logging(const std::string& logname);
+		void stop_logging();
 
 		/* Internal */
 		size_t _get_reserved_prefix_size();

@@ -100,6 +100,17 @@ int CaSimProcess::recv()
 		standard transtion scheduler is not started */
 }
 
+
+void CaSimProcess::start_logging(CaContext *ctx, const std::string& logname)
+{
+	init_log(logname);
+}
+
+void CaSimProcess::end_logging(CaContext *ctx, const std::string& logname)
+{
+	stop_log();
+}
+
 int CaSimProcess::run_listener()
 {
 	char line[LINE_LENGTH_LIMIT];

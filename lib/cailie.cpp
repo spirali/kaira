@@ -58,6 +58,16 @@ void CaContext::halt()
   _process->context_halted(this);
 }
 
+void CaContext::start_logging(const std::string& logname)
+{
+	_process->start_logging(this, logname);
+}
+
+void CaContext::stop_logging()
+{
+	_process->stop_logging(this);
+}
+
 size_t CaContext::_get_reserved_prefix_size() {
 	return _process->get_reserved_prefix_size();
 }
@@ -132,11 +142,6 @@ bool CaContext::_find_transition(int id, CaTransition &transition)
 	return false;
 }
 
-/*static int ca_recv(const CaContextsMap &contexts)
-{
-	recv(ctx, recv_fn, data);
-}*/
-
 CaProcess::CaProcess(int process_id) :
 	_process_id(process_id), _logger(NULL) {}
 
@@ -185,10 +190,16 @@ void CaProcess::init_log(const std::string &logname)
 	_logger->flush();
 }
 
-CaProcess::~CaProcess() {
+void CaProcess::stop_log()
+{
 	if (_logger) {
 		delete _logger;
+		_logger = NULL;
 	}
+}
+
+CaProcess::~CaProcess() {
+	stop_log();
 }
 
 void CaProcess::log_enabled_transitions(int skip_node, int skip_transition)

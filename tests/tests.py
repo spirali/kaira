@@ -7,6 +7,7 @@ import os
 KAIRA_TESTS = os.path.dirname(os.path.abspath(__file__))
 KAIRA_ROOT = os.path.dirname(KAIRA_TESTS)
 KAIRA_GUI = os.path.join(KAIRA_ROOT,"gui")
+KAIRA_TOOLS = os.path.join(KAIRA_ROOT,"tools")
 
 PTP_BIN = os.path.join(KAIRA_ROOT, "ptp", "ptp")
 CAILIE_DIR = os.path.join(KAIRA_ROOT, "lib")
@@ -16,14 +17,18 @@ TEST_PROJECTS = os.path.join(KAIRA_TESTS, "projects")
 
 class BuildingTest(TestCase):
 
-	def build(self, filename, final_output, params = []):
+	def build(self, filename, final_output, params = [], make_args = [], program_name = None):
 		name, ext = os.path.splitext(filename)
 		directory = os.path.dirname(name)
 		RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
 		RunProgram("python", [ CMDUTILS, "--export", filename ]).run()
 		RunProgram(PTP_BIN, [ name + ".xml", name + ".cpp" ]).run()
-		RunProgram("make", [], cwd = directory).run()
-		return RunProgram(name, params).run(final_output)
+		RunProgram("make", make_args, cwd = directory).run()
+		if program_name is None:
+			program_name = name
+		else:
+			program_name = os.path.join(directory, program_name)
+		return RunProgram(program_name, params, cwd = directory).run(final_output)
 
 	def failed_ptp(self, filename, final_output):
 		name, ext = os.path.splitext(filename)
@@ -71,6 +76,13 @@ class BuildingTest(TestCase):
 		self.build(os.path.join(TEST_PROJECTS, "functions", "functions.proj"), "9 9\n")
 	def test_tuples(self):
 		self.build(os.path.join(TEST_PROJECTS, "tuples", "tuples.proj"), "Ok\n")
+	def test_log(self):
+		self.build(os.path.join(TEST_PROJECTS, "log", "log.proj"), "", make_args = [ "debug" ], program_name="log_debug")
+		directory = os.path.join(TEST_PROJECTS, "log")
+		RunProgram(os.path.join(KAIRA_TOOLS, "logmerge.py"), [ "log1" ], cwd = directory).run()
+		RunProgram(os.path.join(KAIRA_TOOLS, "logmerge.py"), [ "log2" ], cwd = directory).run()
+		self.assertTrue(os.path.isfile(os.path.join(TEST_PROJECTS, "log", "log1.klog")))
+		self.assertTrue(os.path.isfile(os.path.join(TEST_PROJECTS, "log", "log2.klog")))
 
 if __name__ == '__main__':
     unittest.main()

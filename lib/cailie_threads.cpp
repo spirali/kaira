@@ -10,6 +10,8 @@
 #include "cailie_threads.h"
 
 #define HALT_COMMAND -1
+#define START_LOG_COMMAND -2
+#define STOP_LOG_COMMAND -3
 
 struct CaThreadsPacket {
 	int target_node;
@@ -55,16 +57,40 @@ void CaThreadsProcess::send(CaContext *ctx, int target, int data_id, void *data,
 	_module->get_process(ca_node_to_process(target))->queue_add(packet);
 }
 
-void CaThreadsProcess::quit(CaContext *ctx)
+void CaThreadsProcess::send_to_all(CaContext *ctx, int data_id, const void *data, size_t size)
 {
 	int t;
+	int source = ctx->node();
+	size_t prefix = get_reserved_prefix_size();
  	for (t=0; t < _module->get_nodes_count(); t++) {
-		if (t == ctx->node()) {
+		if (t == source) {
 			continue; // Don't send the message to self
 		}
-		void *data = malloc(get_reserved_prefix_size());
-		send(ctx, t, HALT_COMMAND, data, 0);
+		char *d = (char*) malloc(prefix + size);
+		// ALLOCTEST
+		memcpy(d + prefix, data, size);
+		send(ctx, t, data_id, d, size);
 	}
+}
+
+void CaThreadsProcess::quit(CaContext *ctx)
+{
+	int dummy;
+	send_to_all(ctx, HALT_COMMAND, &dummy, 0);
+}
+
+
+void CaThreadsProcess::start_logging(CaContext *ctx, const std::string& logname)
+{
+	init_log(logname);
+	send_to_all(ctx, START_LOG_COMMAND, logname.c_str(), logname.size() + 1);
+}
+
+void CaThreadsProcess::stop_logging(CaContext *ctx)
+{
+	stop_log();
+	int dummy;
+	send_to_all(ctx, STOP_LOG_COMMAND, &dummy, 0);
 }
 
 void CaThreadsProcess::add_context(CaContext* ctx)
@@ -107,8 +133,14 @@ int CaThreadsProcess::recv()
 
 	while(packet) {
 		int node = packet->target_node;
-		if (packet->data_id == HALT_COMMAND) {
-			_module->get_context(node)->halt();
+		if (packet->data_id < 0) {
+			if (packet->data_id == HALT_COMMAND) {
+				_module->get_context(node)->halt();
+			} else if (packet->data_id == START_LOG_COMMAND) {
+				init_log((char*) (packet + 1));
+			} else if (packet->data_id == STOP_LOG_COMMAND) {
+				stop_log();
+			}
 		} else {
 			_module->get_context(node)->_call_recv_fn(packet->data_id, packet + 1, packet->size);
 		}
