@@ -40,8 +40,8 @@ from drawing import VisualConfig
 import process
 import utils
 import cairo
-import debuglog
-import debugview
+import runlog
+import logview
 
 class App:
 	
@@ -56,7 +56,7 @@ class App:
 		if args:
 			if os.path.isfile(args[0]):
 				if args[0][-5:] == ".klog":
-					self.open_debuglog_tab(args[0])
+					self.open_log_tab(args[0])
 				else:
 					self.set_project(project.load_project(args[0]))
 			else:
@@ -142,7 +142,7 @@ class App:
 		finally:
 			dialog.destroy()
 
-	def load_debug_log(self):
+	def load_log(self):
 		dialog = gtk.FileChooserDialog("Open Log", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
 				(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                  gtk.STOCK_OPEN, gtk.RESPONSE_OK))
@@ -152,13 +152,13 @@ class App:
 
 			response = dialog.run()
 			if response == gtk.RESPONSE_OK:
-				self.open_debuglog_tab(dialog.get_filename())
+				self.open_log_tab(dialog.get_filename())
 		finally:
 			dialog.destroy()
 
-	def open_debuglog_tab(self, filename):
-		log = self._catch_io_error(lambda: debuglog.DebugLog(filename))
-		w = debugview.DebugView(self, log)
+	def open_log_tab(self, filename):
+		log = self._catch_io_error(lambda: runlog.Log(filename))
+		w = logview.LogView(self, log)
 		self.add_tab("Log", w, log)
 
 	def save_project(self):

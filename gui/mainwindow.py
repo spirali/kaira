@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -106,8 +106,8 @@ class MainWindow(gtk.Window):
 
 		file_menu.append(gtk.SeparatorMenuItem())
 
-		item = gtk.MenuItem("Load debu_g log")
-		item.connect("activate", lambda w: self.app.load_debug_log())
+		item = gtk.MenuItem("Open lo_g")
+		item.connect("activate", lambda w: self.app.load_log())
 		file_menu.append(item)
 
 		file_menu.append(gtk.SeparatorMenuItem())

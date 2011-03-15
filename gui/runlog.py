@@ -118,7 +118,7 @@ class LogFrameDiff:
 		return self.time
 
 
-class DebugLog:
+class Log:
 
 	def __init__(self, filename):
 		self.load(filename)

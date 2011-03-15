@@ -23,14 +23,14 @@ from drawing import VisualConfig
 import utils
 import gtkutils
 import chart
-import debuglog
+import runlog
 
-class DebugView(gtk.VBox):
-	def __init__(self, app, debuglog):
+class LogView(gtk.VBox):
+	def __init__(self, app, log):
 		gtk.VBox.__init__(self)
-		self.debuglog = debuglog
-		self.statistics = self.debuglog.get_statistics()
-		self.frame = debuglog.get_frame(0)
+		self.log = log
+		self.statistics = self.log.get_statistics()
+		self.frame = log.get_frame(0)
 
 		canvas_sc = gtk.ScrolledWindow()
 		self.canvas = self._create_canvas()
@@ -62,7 +62,8 @@ class DebugView(gtk.VBox):
 		return int(self.scale.get_value())
 
 	def _controlls(self):
-		self.scale = gtk.HScale(gtk.Adjustment(value=0, lower=0, upper=self.debuglog.frames_count(), step_incr=1, page_incr=1, page_size=1))
+		self.scale = gtk.HScale(gtk.Adjustment(value=0, lower=0, 
+			upper=self.log.frames_count(), step_incr=1, page_incr=1, page_size=1))
 		toolbar = gtk.HBox(False)
 
 		combo = gtk.combo_box_new_text()
@@ -80,7 +81,8 @@ class DebugView(gtk.VBox):
 		toolbar.pack_start(self.counter_label, False, False)
 
 		button = gtk.Button(">>")
-		button.connect("clicked", lambda w: self.scale.set_value(min(self.debuglog.frames_count() - 1, self.get_frame_pos() + 1)))
+		button.connect("clicked", lambda w: 
+			self.scale.set_value(min(self.log.frames_count() - 1, self.get_frame_pos() + 1)))
 		toolbar.pack_start(button, False, False)
 
 		self.scale.set_draw_value(False)
@@ -95,14 +97,14 @@ class DebugView(gtk.VBox):
 		return toolbar
 
 	def goto_frame(self, frame_pos):
-		self.frame = self.debuglog.get_frame(frame_pos)
+		self.frame = self.log.get_frame(frame_pos)
 		self.update_labels()
 		self.redraw()
 
 	def update_labels(self):
-		max = str(self.debuglog.frames_count() - 1)
+		max = str(self.log.frames_count() - 1)
 		self.counter_label.set_text("{0:0>{2}}/{1}".format(self.get_frame_pos(), max, len(max)))
-		time = self.debuglog.get_time_string(self.frame)
+		time = self.log.get_time_string(self.frame)
 		colors = { "I": "gray", "S" : "green", "E" : "#cc4c4c", "R": "lightblue" }
 		name = self.frame.name
 		self.info_label.set_markup("<span font_family='monospace' background='{2}'>{0}</span>{1}".format(name, time, colors[name]))
@@ -112,18 +114,18 @@ class DebugView(gtk.VBox):
 		self.canvas.redraw()
 
 	def _create_canvas(self):
-		c = NetCanvas(self.debuglog.project.get_net(), None, OverviewVisualConfig(self))
+		c = NetCanvas(self.log.project.get_net(), None, OverviewVisualConfig(self))
 		c.show()
 		return c
 
 	def _instance_draw(self, cr, width, height, vx, vy, vconfig, area, i):
-		self.debuglog.project.get_net().draw(cr, vconfig)
+		self.log.project.get_net().draw(cr, vconfig)
 		cr.set_source_rgba(0.3,0.3,0.3,0.5)
 		cr.rectangle(vx,vy,width, 15)
 		cr.fill()
 		cr.move_to(vx + 10, vy + 11)
 		cr.set_source_rgb(1.0,1.0,1.0)
-		cr.show_text("node=%s   iid=%s" % (self.debuglog.get_instance_node(area, i), i))
+		cr.show_text("node=%s   iid=%s" % (self.log.get_instance_node(area, i), i))
 		cr.stroke()
 
 	def _view_for_area(self, area):
@@ -138,8 +140,8 @@ class DebugView(gtk.VBox):
 			click_fn = lambda position: self._on_instance_click(position, area, i)
 			return (draw_fn, click_fn)
 		c = MultiCanvas()
-		for area in self.debuglog.project.get_net().areas():
-			callbacks = [ area_callbacks(area, i) for i in xrange(self.debuglog.get_area_instances_number(area)) ]
+		for area in self.log.project.get_net().areas():
+			callbacks = [ area_callbacks(area, i) for i in xrange(self.log.get_area_instances_number(area)) ]
 			sz, pos = self._view_for_area(area)
 			c.register_line(sz, pos, callbacks)
 		c.end_of_registration()
@@ -158,8 +160,8 @@ class DebugView(gtk.VBox):
 			placelist.append((name,colors[i % len(colors)]))
 		vbox.pack_start(placelist, False, False)
 
-		c = chart.TimeChart(values, min_time = 0, max_time = self.debuglog.maxtime, min_value = 0)
-		c.xlabel_format = lambda x: debuglog.time_to_string(x)[:-7]
+		c = chart.TimeChart(values, min_time = 0, max_time = self.log.maxtime, min_value = 0)
+		c.xlabel_format = lambda x: runlog.time_to_string(x)[:-7]
 		w = chart.ChartWidget(c)
 		vbox.pack_start(w, True, True)
 
@@ -168,8 +170,8 @@ class DebugView(gtk.VBox):
 	def _utilization_chart(self, values, names, colors, legend):
 		sc = gtk.ScrolledWindow()
 		sc.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
-		c = chart.UtilizationChart(values, names, legend, colors, (0, self.debuglog.maxtime))
-		c.xlabel_format = lambda x: debuglog.time_to_string(x)[:-7]
+		c = chart.UtilizationChart(values, names, legend, colors, (0, self.log.maxtime))
+		c.xlabel_format = lambda x: runlog.time_to_string(x)[:-7]
 		w = chart.ChartWidget(c)
 		w.set_size_request(*c.get_size_request())
 		w.show_all()
@@ -206,7 +208,7 @@ class DebugView(gtk.VBox):
 		sc.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 		lst = gtkutils.SimpleList((("Node", int), ("iid", int), ("area", str), ("Process", str)))
 		sc.add_with_viewport(lst)
-		for item in self.debuglog.get_mapping():
+		for item in self.log.get_mapping():
 			lst.append(item)
 		return sc
 
@@ -227,12 +229,12 @@ color_ended = ((0.8,0.3,0.3,0.5))
 
 class OverviewVisualConfig(VisualConfig):
 
-	def __init__(self, debugview):
-		self.debugview = debugview
+	def __init__(self, logview):
+		self.logview = logview
 
 	def place_drawing(self, item):
 		d = VisualConfig.place_drawing(self, item)
-		tokens = self.debugview.frame.get_tokens(item)
+		tokens = self.logview.frame.get_tokens(item)
 		r = []
 		for iid in tokens:
 			r += [ t + "@" + str(iid) for t in tokens[iid] ]
@@ -240,7 +242,7 @@ class OverviewVisualConfig(VisualConfig):
 		return d
 
 	def transition_drawing(self, item):
-		frame = self.debugview.frame
+		frame = self.logview.frame
 		d = VisualConfig.transition_drawing(self, item)
 		if filter_by_id(frame.running, item.get_id()):
 				d.set_highlight(color_running)
@@ -253,19 +255,19 @@ class OverviewVisualConfig(VisualConfig):
 
 class InstanceVisualConfig(VisualConfig):
 
-	def __init__(self, debugview, area, iid):
-		self.debugview = debugview
+	def __init__(self, logview, area, iid):
+		self.logview = logview
 		self.area = area
 		self.iid = iid
 
 	def place_drawing(self, item):
 		d = VisualConfig.place_drawing(self, item)
 		if self.area.is_inside(item):
-			d.set_tokens(self.debugview.frame.get_tokens(item, self.iid))
+			d.set_tokens(self.logview.frame.get_tokens(item, self.iid))
 		return d
 
 	def transition_drawing(self, item):
-		frame = self.debugview.frame
+		frame = self.logview.frame
 		d = VisualConfig.transition_drawing(self, item)
 		if self.iid in filter_by_id(frame.running, item.get_id()):
 				d.set_highlight(color_running)
