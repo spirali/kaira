@@ -23,6 +23,7 @@ import project
 import simulation
 import utils
 import copy
+import os
 
 CACHE_FRAME_PERIOD = 200
 
@@ -68,7 +69,7 @@ class LogFrameDiff:
 			self.parse_action(frame, action, idtable)
 
 		for transition_id, iid in frame.started: # Reset input packing edges
-			for edge in project.get_net().get_item(transition_id).edges_to(split_bidirectional = True):
+			for edge in project.get_net().get_item(transition_id).edges_to(postprocess = True):
 				if edge.is_packing_edge():
 					frame.place_content[edge.from_item.get_id()][iid] = []
 
@@ -121,7 +122,12 @@ class LogFrameDiff:
 class Log:
 
 	def __init__(self, filename):
+		basename = os.path.basename(filename)
+		self.name, ext = os.path.splitext(basename)
 		self.load(filename)
+
+	def get_name(self):
+		return self.name
 
 	def load(self, filename):
 		with open(filename,"r") as f:

@@ -147,8 +147,7 @@ class App:
 
 	def open_log_tab(self, filename):
 		log = self._catch_io_error(lambda: runlog.Log(filename))
-		w = logview.LogView(self, log)
-		self.add_tab("Log", w, log)
+		self.window.add_tab(Tab("Log: " + log.get_name(), logview.LogView(self, log)))
 
 	def save_project(self):
 		if self.project.get_filename() is None:
