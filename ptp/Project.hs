@@ -63,10 +63,8 @@ xmlAttrBool str e = case xmlAttr str e of
 		"TRUE" -> True
 		_ -> False
 
-codeContent :: Xml.Element -> String
-codeContent e = case Xml.findElement (qstr "code") e of
-					Just c -> Xml.strContent c
-					Nothing -> ""
+codeContent :: Xml.Element -> Maybe String
+codeContent e = Xml.findElement (qstr "code") e >>= return . Xml.strContent
 
 source :: Xml.Element -> String -> String
 source element place = "*" ++ (xmlAttr "id" element) ++ "/" ++ place
@@ -196,7 +194,8 @@ projectFromXml xml =
 			projectParameters = params,
 			typeTable = types,
 			events = events,
-			userFunctions = ufunctions
+			userFunctions = ufunctions,
+			projectDescription = Xml.strContent description
 		 }
 	where
 		root = head $ Xml.onlyElems (Xml.parseXML xml)
@@ -209,3 +208,4 @@ projectFromXml xml =
 		events = map eventFromElement $ Xml.findElements (qstr "event") configuration
 		types = projectTypesFromElement configuration
 		ufunctions = map (userFunctionFromElement types) $ Xml.findElements (qstr "function") configuration
+		description = Maybe.fromJust $ Xml.findElement (qstr "description") root

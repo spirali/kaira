@@ -6,6 +6,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <assert.h>
+#include <stdarg.h>
 #include "cailie.h"
 #include "cailie_internal.h"
 
@@ -25,6 +26,9 @@ static std::string module_name = "mpi";
 
 NodeToProcessFn *ca_node_to_process;
 int ca_process_count = 0;
+const char *ca_project_description_string = NULL;
+int ca_log_on = 0;
+std::string ca_log_default_name = "";
 
 CaContext::CaContext(int node, CaProcess *process)
 {
@@ -54,10 +58,33 @@ void CaContext::halt()
   _process->context_halted(this);
 }
 
+void CaContext::start_logging(const std::string& logname)
+{
+	_process->start_logging(this, logname);
+}
+
+void CaContext::stop_logging()
+{
+	_process->stop_logging(this);
+}
+
 size_t CaContext::_get_reserved_prefix_size() {
 	return _process->get_reserved_prefix_size();
 }
 
+void CaContext::_log_transition_start(int transition_id)
+{
+    CaLogger *logger = _get_logger();
+    if (logger) {
+      logger->log_transition_start(_iid, transition_id);
+      _get_process()->log_enabled_transitions(_node, transition_id);
+    }
+}
+
+
+CaLogger * CaContext::_get_logger() {
+	return _process->get_logger();
+}
 
 CaJob * CaContext::_get_jobs()
 {
@@ -75,11 +102,33 @@ CaJob * CaContext::_get_jobs()
 	return job;
 }
 
-void CaContext::_register_transition(int id, TransitionFn *fn)
+void CaContext::_register_transition(int id, TransitionFn *fn_run, TransitionFn *enable_test)
 {
-	_transitions.push_back(CaTransition(id, fn));
+	_transitions.push_back(CaTransition(id, fn_run, enable_test));
 }
 
+void CaContext::_log_enabled_transitions(int skip_transition)
+{
+	std::vector<CaTransition>::iterator i;
+	CaLogger *logger = _get_logger();
+	bool inited = false;
+	for (i = _transitions.begin(); i != _transitions.end(); i++)
+	{
+	    int transition_id = i->get_id();
+	    if (transition_id == skip_transition)
+		continue;
+	    if (i->call_enable_test(this)) {
+	      if (!inited) {
+		logger->log("T%i", _node);
+	      }
+	      inited = true;
+	      logger->log(" %i", transition_id);
+	    }
+	}
+	if (inited) {
+	    logger->log_string("\n");
+	}
+}
 
 bool CaContext::_find_transition(int id, CaTransition &transition)
 {
@@ -93,12 +142,84 @@ bool CaContext::_find_transition(int id, CaTransition &transition)
 	return false;
 }
 
-/*static int ca_recv(const CaContextsMap &contexts)
+CaProcess::CaProcess(int process_id) :
+	_process_id(process_id), _logger(NULL) {}
+
+void CaProcess::write_report(FILE *out)
 {
-	recv(ctx, recv_fn, data);
-}*/
+	CaOutput output;
+	CaContextsMap::iterator i;
+	output.child("report");
+	for (i = _contexts.begin(); i != _contexts.end(); i++) {
+		ReportFn *f = i->second->_get_report_fn();
+		assert(f != NULL);
+		output.child("node");
+		f(i->second, i->second->_get_places(), &output);
+		output.back();
+	}
+	CaOutputBlock *block = output.back();
+	block->write(out);
+	fputs("\n", out);
+}
+
+void CaProcess::init_log(const std::string &logname)
+{
+	if (_logger)
+		return;
+	_logger = new CaLogger(logname, _process_id);
+
+	int lines = 1;
+	for (const char *c = ca_project_description_string; (*c) != 0; c++) {
+		if ((*c) == '\n') {
+			lines++;
+		}
+	}
+
+	CaOutput output;
+	CaContextsMap::iterator i;
+	output.child("log");
+	output.set("process-count", ca_process_count);
+	output.set("description-lines", lines);
+	_logger->write(output.back());
+	_logger->log_string("\n");
+
+	_logger->log_string(ca_project_description_string);
+	_logger->log_string("\n");
+	write_report(_logger->get_file());
+	_logger->log_time();
+	_logger->flush();
+}
+
+void CaProcess::stop_log()
+{
+	if (_logger) {
+		delete _logger;
+		_logger = NULL;
+	}
+}
+
+CaProcess::~CaProcess() {
+	stop_log();
+}
+
+void CaProcess::log_enabled_transitions(int skip_node, int skip_transition)
+{
+	CaContextsMap::iterator i;
+	for (i = _contexts.begin(); i != _contexts.end(); i++) {
+	    if (i->second->node() == skip_node) {
+	      i->second->_log_enabled_transitions(skip_transition);
+	    } else {
+	      i->second->_log_enabled_transitions(-1);
+	    }
+	}
+}
+
 
 void CaProcess::start_scheduler() {
+
+	if (ca_log_on) {
+		init_log(ca_log_default_name);
+	}
 
 	CaContextsMap::iterator i;
 
@@ -163,6 +284,10 @@ void CaProcess::start_scheduler() {
 		delete first;
 		first = job;
 	}
+}
+
+void ca_project_description(const char *str) {
+	ca_project_description_string = str;
 }
 
 void ca_main(int nodes_count, InitFn *init_fn) {
@@ -234,7 +359,7 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 	MPI_Init(&argc, &argv);
 	#endif
 
-	while ((c = getopt_long (argc, argv, "hp:m:r:", longopts, NULL)) != -1)
+	while ((c = getopt_long (argc, argv, "hp:m:r:l:", longopts, NULL)) != -1)
 		switch (c) {
 			case 'm': {
 				module_name = optarg;
@@ -271,6 +396,10 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 				s++;
 				int r = ca_set_argument(params_count, param_names, param_data, str, s);
 				setted[r] = true;
+			} break;
+			case 'l': {
+				ca_log_on = 1;
+				ca_log_default_name = optarg;
 			} break;
 
 			case '?':
@@ -416,3 +545,82 @@ CaPacker::CaPacker(size_t size, size_t reserved)
 	buffer_pos = buffer + reserved;
 	this->size = size;
 }
+
+CaLogger::CaLogger(const std::string &logname, int process_id)
+{
+	char str[40];
+	snprintf(str, 40, "%s.%i", logname.c_str(), process_id);
+	file = fopen(str, "w");
+	fprintf(file, "KairaLog 0.1\n");
+}
+
+CaLogger::~CaLogger()
+{
+	fclose(file);
+}
+
+void CaLogger::log_time()
+{
+	  struct timespec time;
+	  clock_gettime(CLOCK_MONOTONIC, &time);
+	  fprintf(file, "%ld.%ld\n", time.tv_sec, time.tv_nsec);
+	  // TODO: Detect by configure size of time_t and availability of CLOCK_MONOTONIC
+}
+
+void CaLogger::log_string(const std::string &str)
+{
+	fputs(str.c_str(), file);
+}
+
+void CaLogger::log_int(int i)
+{
+	fprintf(file, "%i", i);
+}
+
+void CaLogger::log(const char *form, ...) {
+	va_list arg;
+	va_start(arg,form);
+	vfprintf(file, form, arg);
+	va_end(arg);
+}
+
+void CaLogger::write(CaOutputBlock *block) {
+	block->write(file);
+}
+
+void CaLogger::flush()
+{
+	fflush(file);
+}
+
+void CaLogger::log_token_add(int iid, int place_id, const std::string &token_name)
+{
+	fprintf(file, "A%i %i %s\n", iid, place_id, token_name.c_str());
+	fflush(file);
+}
+
+void CaLogger::log_token_remove(int iid, int place_id, const std::string &token_name)
+{
+	fprintf(file, "R%i %i %s\n", iid, place_id, token_name.c_str());
+}
+
+void CaLogger::log_transition_start(int iid, int transition_id)
+{
+	log_time();
+	fprintf(file, "S%i %i\n", iid, transition_id);
+	flush();
+}
+
+void CaLogger::log_transition_end(int iid, int transition_id)
+{
+	log_time();
+	fprintf(file, "E%i %i\n", iid, transition_id);
+	flush();
+}
+
+void CaLogger::log_receive()
+{
+	log_time();
+	fputs("C\n", file);
+}
+

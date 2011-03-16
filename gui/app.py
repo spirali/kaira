@@ -38,6 +38,8 @@ import codeedit
 import process
 import utils
 import cairo
+import runlog
+import logview
 
 class App:
 	
@@ -50,9 +52,12 @@ class App:
 
 		if args:
 			if os.path.isfile(args[0]):
-				self.set_project(project.load_project(args[0]))
+				if args[0][-5:] == ".klog":
+					self.open_log_tab(args[0])
+				else:
+					self.set_project(project.load_project(args[0]))
 			else:
-				self.console_write("Project file '%s' not found\n" % args[0], "error")
+				self.console_write("File '%s' not found\n" % args[0], "error")
 
 	def run(self):
 		gtk.gdk.threads_init()
@@ -125,6 +130,25 @@ class App:
 					self.set_project(p)
 		finally:
 			dialog.destroy()
+
+	def load_log(self):
+		dialog = gtk.FileChooserDialog("Open Log", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
+				(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                 gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+		try:
+			dialog.set_default_response(gtk.RESPONSE_OK)
+			self._add_file_filters(dialog, (("Kaira Log", "*.klog"),), all_files = True)
+
+			response = dialog.run()
+			if response == gtk.RESPONSE_OK:
+				self.open_log_tab(dialog.get_filename())
+		finally:
+			dialog.destroy()
+
+	def open_log_tab(self, filename):
+		log = self._catch_io_error(lambda: runlog.Log(filename))
+		w = logview.LogView(self, log)
+		self.add_tab("Log", w, log)
 
 	def save_project(self):
 		if self.project.get_filename() is None:

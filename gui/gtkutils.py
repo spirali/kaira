@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -62,7 +62,8 @@ class SimpleList(gtk.ScrolledWindow):
 				parameters = tokens[1:]
 				if "editable" in parameters:
 					renderer.set_property("editable", True)	
-
+				if "foreground" in parameters:
+					args["foreground"] = i + len(args)
 				column = gtk.TreeViewColumn(tokens[0], renderer, **args)
 
 				self.listview.append_column(column)
@@ -72,7 +73,7 @@ class SimpleList(gtk.ScrolledWindow):
 	def connect_view(self, signal_name, callback):
 		self.listview.connect(signal_name, callback)
 
-	def append(self, data, focus = False):
+	def append(self, data):
 		self.liststore.append(data)
 
 	def get_selection(self, column):

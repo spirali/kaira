@@ -53,7 +53,7 @@ data Place = Place {
 	placeId :: ID,
 	placeName :: String,
 	placeType :: NelType,
-	placeInitCode :: String,
+	placeInitCode :: Maybe String,
 	placeInitExprs :: [NelExpression]
 } deriving (Show)
 
@@ -72,7 +72,7 @@ data Transition = Transition {
 	transitionName :: String,
 	edgesIn :: [Edge],
 	edgesOut :: [Edge],
-	transitionCode :: String,
+	transitionCode :: Maybe String,
 	guard :: NelExpression
 } deriving (Show)
 
@@ -92,7 +92,8 @@ data Project = Project {
 	projectParameters :: [Parameter],
 	typeTable :: TypeTable,
 	events :: [Event],
-	userFunctions :: [UserFunction]
+	userFunctions :: [UserFunction],
+	projectDescription :: String
 } deriving (Show)
 
 data Event = Event {

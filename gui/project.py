@@ -59,6 +59,9 @@ class Project(EventSource):
 		net.set_change_callback(self._net_changed)
 		self.changed()
 
+	def get_net(self):
+		return self.net
+
 	def copy(self):
 		return load_project_from_xml(self.as_xml(), self.filename)
 
@@ -156,6 +159,10 @@ class Project(EventSource):
 
 		root.append(self._configuration_element())
 
+		description = xml.Element("description")
+		description.text = xml.tostring(self.as_xml())
+		root.append(description)
+
 		xml_nets = self.net.export_xml()
 		for e in xml_nets:
 			root.append(e)
@@ -244,23 +251,34 @@ class Project(EventSource):
 		makefile.set("CC", self.get_build_option("CC"))
 		makefile.set("CFLAGS", self.get_build_option("CFLAGS"))
 		makefile.set("LIBDIR", "-L" + paths.CAILIE_DIR)
-		makefile.set("LIBS", "-lcailie -lpthread " + self.get_build_option("LIBS"))
+		makefile.set("LIBS", "-lcailie -lpthread -lrt" + self.get_build_option("LIBS"))
 		makefile.set("INCLUDE", "-I" + paths.CAILIE_DIR)
 		makefile.set("MPICC", "mpicc")
 
 		name_o = self.get_name() + ".o"
 		name_cpp = self.get_name() + ".cpp"
+		name_debug = self.get_name() + "_debug"
+		name_debug_o = self.get_name() + "_debug.o"
 
 		makefile.rule("all", [self.get_name()])
+		makefile.rule("debug", [name_debug])
+		makefile.rule("mpi", [self.get_name() + "_mpi"])
+		makefile.rule("mpidebug", [self.get_name() + "_mpidebug"])
+
 		deps = [ name_o ]
 		makefile.rule(self.get_name(), deps, "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
 
-		makefile.rule("mpi", [self.get_name() + "_mpi"])
+		makefile.rule(name_debug, [name_debug_o], "$(CC) " + name_debug_o + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
+
 		makefile.rule(self.get_name() + "_mpi", deps, "$(MPICC) -cc=${CC} " + " ".join(deps)
 			+ " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) -lmpicailie" )
 
-		makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c %s -o %s" % (name_cpp, name_o))
-		makefile.rule("clean", [], "rm -f *.o " + self.get_name() + " ")
+		makefile.rule(self.get_name() + "_mpidebug", [ name_debug_o ], "$(MPICC) -cc=${CC} " + " ".join( [ name_debug_o ] )
+			+ " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) -lmpicailie" )
+
+		makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
+		makefile.rule(name_debug_o, [ name_cpp, "head.cpp" ], "$(CC) -DCA_LOG_ON $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))
+		makefile.rule("clean", [], "rm -f *.o {0} {0}_debug {0}_mpi {0}_mpidebug".format(self.get_name()))
 		makefile.write_to_file(os.path.join(self.get_directory(), "makefile"))
 
 	def _build_option_as_xml(self, name):

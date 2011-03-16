@@ -25,6 +25,7 @@ import Base
 import qualified Data.Set as Set
 import qualified Data.List as List
 import qualified Data.Map as Map
+import qualified Data.Maybe as Maybe
 
 isUserFunction :: Project -> String -> Bool
 isUserFunction project name =
@@ -41,6 +42,9 @@ isUserFunctionWithoutContext project name =
 hasEvent :: Project -> String -> Bool
 hasEvent project name =
 	List.elem name $ map eventName (events project)
+
+hasCode :: Transition -> Bool
+hasCode = Maybe.isJust . transitionCode
 
 -- |Return all variables in edge (main expression, target, limit)
 extractEdgeVariables :: Project -> Edge -> [Map.Map String NelType]

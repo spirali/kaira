@@ -7,6 +7,26 @@
 #include <stack>
 #include <vector>
 #include <string.h>
+#include <stdio.h>
+#include <time.h>
+
+#ifdef CA_LOG_ON
+
+#define CA_LOG_TRANSITION_START(ctx, transition_id) ((ctx)->_log_transition_start(transition_id))
+#define CA_LOG_TRANSITION_END(ctx, transition_id) ((ctx)->_log_transition_end(transition_id))
+#define CA_LOG_TOKEN_ADD(ctx, place_id, token_string) ((ctx)->_log_token_add(place_id, token_string))
+#define CA_LOG_TOKEN_REMOVE(ctx, place_id, token_string) ((ctx)->_log_token_remove(place_id, token_string))
+#define CA_LOG_TOKEN_CLEAN(ctx, place_id) ((ctx)->_log_token_clean(place_id, token_string))
+
+#else
+
+#define CA_LOG_TRANSITION_START(ctx, transition_id)
+#define CA_LOG_TRANSITION_END(ctx, transition_id)
+#define CA_LOG_TOKEN_ADD(ctx, place_id, token_string)
+#define CA_LOG_TOKEN_REMOVE(ctx, place_id, token_string)
+#define CA_LOG_TOKEN_CLEAN(ctx, place_id)
+
+#endif // CA_LOG
 
 class CaContext;
 class CaOutput;
@@ -14,7 +34,7 @@ class CaOutput;
 /* Function types */
 typedef int(TransitionFn)(CaContext * ctx, void *places);
 typedef void(InitFn)(CaContext * ctx);
-typedef void(RecvFn)(void *places,  int data_id, void *data, size_t size);
+typedef void(RecvFn)(CaContext *ctx, int data_id, void *data, size_t size);
 typedef void(ReportFn)(CaContext * ctx, void *data, CaOutput *out);
 typedef int(NodeToProcessFn)(int node);
 
@@ -22,6 +42,30 @@ class CaModule;
 class CaProcess;
 class CaTransition;
 class CaJob;
+class CaOutputBlock;
+
+class CaLogger {
+	public:
+		CaLogger(const std::string &logname, int process_id);
+		~CaLogger();
+
+		void log_place_changes_begin();
+		void log_place_changes_end();
+		void log(const char *form, ...);
+		void log_string(const std::string &str);
+		void log_int(int i);
+		void log_token_add(int iid, int place_id, const std::string &token_name);
+		void log_token_remove(int iid, int place_id, const std::string &token_name);
+		void log_transition_start(int iid, int transition_id);
+		void log_transition_end(int iid, int transition_id);
+		void log_receive();
+		void flush();
+		void write(CaOutputBlock *block);
+		void log_time();
+		FILE * get_file() { return file; }
+	protected:
+		FILE *file;
+};
 
 class CaContext {
 
@@ -34,20 +78,35 @@ class CaContext {
 		int instances() { return _instances; }
 		void halt();
 		void quit();
+		void start_logging(const std::string& logname);
+		void stop_logging();
 
 		/* Internal */
 		size_t _get_reserved_prefix_size();
 		CaProcess * _get_process() { return _process; }
 		void _init(int iid, int instances, void * places, RecvFn *recv_fn, ReportFn *report_fn);
-		void _register_transition(int id, TransitionFn *fn);
+		void _register_transition(int id, TransitionFn *fn, TransitionFn *enable_test);
 		int _check_halt_flag() { return _halt_flag; }
 		void * _get_places() { return _places; }
 		RecvFn * _get_recv_fn() { return _recv_fn; }
-		void _call_recv_fn(int data_id, void *data, size_t size) { return _recv_fn(_places, data_id, data, size); }
+		void _call_recv_fn(int data_id, void *data, size_t size) { return _recv_fn(this, data_id, data, size); }
 		std::vector<CaTransition> & _get_transitions() { return _transitions; }
 		bool _find_transition(int id, CaTransition &transition);
 		ReportFn * _get_report_fn() { return _report_fn; }
 		CaJob * _get_jobs();
+
+		CaLogger * _get_logger();
+
+		void _log_token_add(int place_id, const std::string &token_name)
+		    { CaLogger *logger = _get_logger(); if (logger) logger->log_token_add(_iid, place_id, token_name); }
+		void _log_token_remove(int place_id, const std::string &token_name)
+		    { CaLogger *logger = _get_logger(); if (logger) logger->log_token_remove(_iid, place_id, token_name); }
+		void _log_transition_start(int transition_id);
+		void _log_transition_end(int transition_id)
+		    { CaLogger *logger = _get_logger(); if (logger) logger->log_transition_end(_iid, transition_id); }
+
+		void _log_enabled_transitions(int skip_transition);
+
 	protected:
 		int _node;
 		int _iid;
@@ -59,8 +118,6 @@ class CaContext {
 		std::vector<CaTransition> _transitions;
 		ReportFn * _report_fn;
 };
-
-class CaOutputBlock;
 
 class CaOutput {
 	public:
@@ -78,12 +135,15 @@ class CaOutput {
 class CaTransition {
 	public:
 		CaTransition() {}
-		CaTransition(int id, TransitionFn *fn) { this->id = id; this->function = fn; }
+		CaTransition(int id, TransitionFn *fn, TransitionFn *enable_test)
+			{ this->id = id; this->function = fn; this->enable_test = enable_test; }
 		int call(CaContext *ctx) const { return function(ctx, ctx->_get_places()); }
+		int call_enable_test(CaContext *ctx) const { return enable_test(ctx, ctx->_get_places()); }
 		int get_id() const { return id; }
 	protected:
 		TransitionFn *function;
 		int id;
+		TransitionFn *enable_test;
 };
 
 class CaPacker {
@@ -127,6 +187,7 @@ template<class T> class CaPlace {
 
 		void add(T element) { list.push_back(element); }
 		void remove_at(int pos) { list.erase(list.begin() + pos); }
+		T get_at(int pos) { return list[pos]; }
 		void clear() { list.clear(); }
 		size_t size() { return list.size(); }
 		T operator[] (size_t pos) { return list[pos]; }
@@ -148,6 +209,7 @@ void ca_send(CaContext *ctx, int node, int data_id, CaPacker &packer);
 
 /* Others */
 void ca_parse_args(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs);
+void ca_project_description(const char *str);
 
 /* Helper utils */
 std::string ca_int_to_string(int i);
@@ -156,5 +218,6 @@ std::string ca_float_to_string(float f);
 
 /* Global variables */
 extern int ca_process_count;
+extern int ca_log_on;
 
 #endif

@@ -61,9 +61,6 @@ makeDeclarations vars funs = Declarations {
 	funDeclarations = funs
 }
 
-declarationsFromVarList :: [VarDeclaration] -> Declarations
-declarationsFromVarList vars = makeDeclarations vars []
-
 emptyDeclarations = makeDeclarations [] []
 
 varType :: Declarations -> String -> Type
@@ -99,6 +96,7 @@ exprType declarations (EAt index place) =
 		x -> error $ "exprType: Unsuported type for ExprAt: " ++ show x ++ "/" ++ show index
 exprType declarations (EAddr t) = TPointer $ exprType declarations t
 exprType declarations (ECall name _) = returnTypeOfFunction declarations name
+exprType declarations (ECast _ t) = t
 exprType declarations x = error $ "exprType unimplemented: " ++ show x
 
 mapVars :: (String -> Expression) -> Expression -> Expression
@@ -184,7 +182,7 @@ statementVarList decls instructions =
 
 statementDeclarations :: [VarDeclaration] -> [Instruction] -> Declarations
 statementDeclarations decls instructions =
-	declarationsFromVarList (statementVarList decls instructions)
+	makeDeclarations (statementVarList decls instructions) []
 
 paramFromVar :: ParamType -> [VarDeclaration] -> [ParamDeclaration]
 paramFromVar pt decls = [ (name, t, pt) | (name, t) <- decls ]
@@ -207,3 +205,11 @@ fromNelVarDeclaration (n, t) = (n, fromNelType t)
 
 fromNelVarDeclarations :: [NelVarDeclaration] -> [VarDeclaration]
 fromNelVarDeclarations = map fromNelVarDeclaration
+
+escapeString :: String -> String
+escapeString str = concatMap escapeChar str
+	where
+		escapeChar '"' = "\\\""
+		escapeChar '\n' = "\\n"
+		escapeChar '\t' = "\\t"
+		escapeChar x = [x]

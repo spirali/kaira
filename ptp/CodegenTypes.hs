@@ -61,6 +61,7 @@ data Expression =
 	EAddr Expression |
 	EAt Expression Expression {- index container -} |
 	EDeref Expression |
+	ECast Expression Type |
 	ETrue | ExprFalse
 	deriving (Show, Eq, Ord)
 

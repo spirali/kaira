@@ -3,6 +3,8 @@
 #include <stdio.h>
 
 #define HALT_COMMAND 0
+#define START_LOG_COMMAND 1
+#define STOP_LOG_COMMAND 2
 
 struct CaMpiMessage {
 	int target_node;
@@ -111,6 +113,10 @@ int CaMpiProcess::recv()
 		return 0;
 	}
 
+	if (_logger) {
+	    _logger->log_receive();
+	}
+
 	for(;;) {
 
 		int msg_size;
@@ -134,15 +140,38 @@ int CaMpiProcess::recv()
 }
 
 
-void CaMpiProcess::quit(CaContext *ctx)
+void CaMpiProcess::send_to_all(CaContext *ctx, int data_id, const void *data, size_t size)
 {
 	/* Copied from cailie_threads.cpp, it will be better to use some MPI broadcast API */
 	int t;
-	for (t=0; t < _nodes_count; t++) {
-		if (t == ctx->node()) {
+	int source = ctx->node();
+	size_t prefix = get_reserved_prefix_size();
+ 	for (t=0; t < _nodes_count; t++) {
+		if (t == source) {
 			continue; // Don't send the message to self
 		}
-		void *data = malloc(get_reserved_prefix_size());
-		send(ctx, t, HALT_COMMAND, data, 0);
+		char *d = (char*) malloc(prefix + size);
+		// ALLOCTEST
+		memcpy(d + prefix, data, size);
+		send(ctx, t, data_id, d, size);
 	}
+}
+
+void CaMpiProcess::quit(CaContext *ctx)
+{
+	int dummy;
+	send_to_all(ctx, HALT_COMMAND, &dummy, 0);
+}
+
+void CaMpiProcess::start_logging(CaContext *ctx, const std::string& logname)
+{
+	init_log(logname);
+	send_to_all(ctx, START_LOG_COMMAND, logname.c_str(), logname.size() + 1);
+}
+
+void CaMpiProcess::stop_logging(CaContext *ctx)
+{
+	stop_log();
+	int dummy;
+	send_to_all(ctx, STOP_LOG_COMMAND, &dummy, 0);
 }

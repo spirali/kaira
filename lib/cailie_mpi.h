@@ -22,6 +22,12 @@ class CaMpiProcess : public CaProcess {
 		int recv();
 		void quit(CaContext *ctx);
 		size_t get_reserved_prefix_size();
+
+		void send_to_all(CaContext *ctx, int data_id, const void *data, size_t size);
+
+		void start_logging(CaContext *ctx, const std::string& logname);
+		void stop_logging(CaContext *ctx);
+
 	protected:
 		void check_requests();
 		MPI_Request *_requests;

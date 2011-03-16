@@ -23,11 +23,12 @@ class CaSimProcess : public CaProcess {
 		void error(const char *str) { fprintf(comm_out, "%s\n", str); }
 		size_t get_reserved_prefix_size() { return 0; }
 
+		void start_logging(CaContext *ctx, const std::string& logname);
+		void stop_logging(CaContext *ctx);
 	protected:
 
 		void fire_transition(int transition_id, int iid);
 
-		std::vector<CaContext> ctxs;
 		FILE *comm_in;
 		FILE *comm_out;
 };

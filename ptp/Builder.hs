@@ -1,5 +1,5 @@
 {-
-    Copyright (C) 2010 Stanislav Bohm
+    Copyright (C) 2010,2011 Stanislav Bohm
 
     This file is part of Kaira.
 
@@ -271,7 +271,7 @@ transitionEnableTestFunction project network transition = Function {
 -}
 transitionOkEvent project network transition = makeStatement [ ("var", transitionVarType project transition) ] body
 	where
-		body = map erase eraseDependancy ++ packing ++ map setVar decls ++ [ call ] ++ applyResult ++
+		body = prolog ++ map erase eraseDependancy ++ packing ++ map setVar decls ++ call ++ applyResult ++
 				(sendInstructions project network transition) ++ [ IReturn (EInt 1) ]
 		localOutEdges = filter (Maybe.isNothing . edgeTarget) $ transitionFilterEdges network (edgesOut transition)
 		setVar (name, _) = ISet (EAt (EString name) (EVar "var")) (EVar name)
@@ -280,18 +280,30 @@ transitionOkEvent project network transition = makeStatement [ ("var", transitio
 		placeExprOfEdge edge = EAt (EInt (placeSeqById network (edgePlaceId edge))) (EVar "places")
 		erase ((i, edge), dep) = safeErase (placeExprOfEdge edge) (counterName i) (map (counterName . fst) dep)
 		eraseDependancy = triangleDependancy (\(i1,e1) (i2,e2) -> edgePlaceId e1 == edgePlaceId e2) (zip [0..] [ e | e <- edgesIn transition, isNormalEdge e ])
-		call = icall (workerFunctionName transition) [ EVar "ctx", EVar "var" ]
+		logRemoveToken i e = icall "CA_LOG_TOKEN_REMOVE" [ EVar "ctx", EInt $ edgePlaceId e,
+			ECall "Base.asString" [ ECast
+				(ECall ".get_at" [ placeExprOfEdge e, EVar $ counterName i ])
+				(fromNelType (placeTypeByEdge project e)) ]]
+		logRemove = countedMap logRemoveToken normalEdges
+		logStart = icall "CA_LOG_TRANSITION_START" [ EVar "ctx", EInt $ transitionId transition ]
+		logEnd = icall "CA_LOG_TRANSITION_END" [ EVar "ctx", EInt $ transitionId transition ]
+		call = if hasCode transition then
+			[ icall (workerFunctionName transition) [ EVar "ctx", EVar "var" ], logEnd ] else []
+		prolog = if hasCode transition then [ logStart ] ++ logRemove else [ logEnd ] ++ logRemove
 		applyResult = map addToPlace localOutEdges
 		addToPlace edge = case edgeInscription edge of
 			EdgeExpression expr -> addToPlaceOne edge expr
 			EdgePacking name _ -> addToPlaceMany edge name
-		addToPlaceOne edge expr = icall ".add" [ placeExpr edge, (preprocess expr) ]
+		addToPlaceOne edge expr = makeStatement [] [
+			icall "CA_LOG_TOKEN_ADD" [ EVar "ctx", EInt $ edgePlaceId edge, ECall "Base.asString" [ preprocess expr ] ],
+			icall ".add" [ placeExpr edge, preprocess expr ]]
 		addToPlaceMany edge name = IForeach "token" "token_c" (EAt (EString name) (EVar "var"))
 			[ icall ".add" [ placeExpr edge, EVar "token" ]]
 		placeExpr edge = EAt (EInt (placeSeqById network (edgePlaceId edge))) (EVar "places")
 		preprocess e = processInputExpr project (\x -> (EAt (EString x) (EVar "var"))) e
-		packing = concat [ packingEdge e | e <- edgesIn transition, not (isNormalEdge e) ]
-		packingEdge e = let EdgePacking name _ = edgeInscription e in
+		(normalEdges, packingEdges) = List.partition isNormalEdge (edgesIn transition)
+		packing = concatMap packingEdgeCode packingEdges
+		packingEdgeCode e = let EdgePacking name _ = edgeInscription e in
 			[ ISet (EVar name) (ECall ".as_vector" [ (placeExprOfEdge e) ] ),
 			  icall ".clear" [ placeExprOfEdge e ] ]
 
@@ -430,17 +442,19 @@ allTransitions project = concatMap transitions (networks project)
 recvFunction :: Project -> Network -> Function
 recvFunction project network = Function {
 	functionName = recvFunctionName network,
-	parameters = [ ("places", TPointer (placesTuple network), ParamNormal),
+	parameters = [ ("ctx", caContext, ParamNormal) ,
 		("data_id", TRaw "int", ParamNormal),
 		("data", TRaw "void*", ParamNormal),
 		("data_size", TRaw "int", ParamNormal) ],
 	declarations = [],
 	extraCode = [],
 	returnType = TVoid,
-	instructions = [ makeStatement' [] [ ("unpacker", TRaw "CaUnpacker", (ECall "CaUnpacker" [ EVar "data" ])) ]
-		[ recvStatement network place | place <- (places network), isTransportable (placeType place) ]],
+	instructions = [
+		idefine "places" placesType $ ECast (ECall "._get_places" [EVar "ctx"]) placesType,
+		idefine "unpacker" (TRaw "CaUnpacker") (ECall "CaUnpacker" [ EVar "data" ])] ++
+			[ recvStatement network place | place <- (places network), isTransportable (placeType place) ],
 	functionSource = Nothing
-}
+} where placesType = TPointer (placesTuple network)
 
 recvStatement :: Network -> Place -> Instruction
 recvStatement network place =
@@ -449,8 +463,8 @@ recvStatement network place =
 		condition = ECall "==" [ EVar "data_id", EInt (placeId place) ]
 		ifStatement = makeStatement []
 			(unpackCode (EVar "unpacker") (fromNelType (placeType place)) "item" ++
-			[ IExpr (ECall ".add"
-				[ EAt (EInt (placeSeq network place)) (EVar "places"),  (EVar "item") ])])
+			[ icall ".add" [ EAt (EInt (placeSeq network place)) (EVar "places"),  (EVar "item") ],
+			  icall "CA_LOG_TOKEN_ADD" [ EVar "ctx", EInt (placeId place), ECall "Base.asString" [ EVar "item" ] ] ])
 
 {- This is not good aproach if there are more vars, but it now works -}
 safeErase :: Expression -> String -> [String] -> Instruction
@@ -470,7 +484,7 @@ workerFunction project transition = Function {
 	parameters = [ ("ctx", caContext, ParamNormal), ("var", transitionVarType project transition, ParamNormal) ],
 	declarations = [],
 	instructions = [],
-	extraCode = transitionCode transition,
+	extraCode = Maybe.fromJust $ transitionCode transition,
 	returnType = TVoid,
 	functionSource = Just ("*" ++ show (transitionId transition) ++ "/function", 1)
 }
@@ -485,13 +499,13 @@ initFunction place = Function {
 			("place", TPointer $ TPlace (fromNelType (placeType place)), ParamNormal)],
 		declarations = [],
 		instructions = [],
-		extraCode = placeInitCode place,
+		extraCode = Maybe.fromJust $ placeInitCode place,
 		returnType = TVoid,
 		functionSource = Just ("*" ++ show (placeId place) ++ "/init_function", 1)
 	}
 
 placesWithInit :: Network -> [Place]
-placesWithInit network = [ p | p <- places network, placeInitCode p /= "" ]
+placesWithInit network = [ p | p <- places network, Maybe.isJust (placeInitCode p) ]
 
 startFunctionName :: Network -> String
 startFunctionName network = "init_network_" ++ show (networkId network)
@@ -517,7 +531,9 @@ startFunction project network = Function {
 		initPlaces = (concatMap initPlaceFromExpr (places network)) ++ (map callInitPlace (placesWithInit network))
 		initPlace p = initPlaceFromExpr p ++ [ callInitPlace p ]
 		registerTransitions = [ icall "._register_transition" [
-			EVar "ctx", EInt (transitionId t), EVar ("(TransitionFn*)" ++ transitionFunctionName t) ] | t <- transitions network ]
+			EVar "ctx", EInt (transitionId t),
+			EVar ("(TransitionFn*)" ++ transitionFunctionName t),
+			EVar ("(TransitionFn*)" ++ transitionEnableTestFunctionName t) ] | t <- transitions network ]
 		placeVar p = EAt (EInt (ps p)) (EVar "places")
 		callInitPlace p =
 			 icall (initFunctionName p) [ EVar "ctx", EAddr (placeVar p) ]
@@ -534,7 +550,7 @@ createNetworkFunctions project network =
 		transitionTestF = [ transitionEnableTestFunction project network t | t <- transitions network ]
 		initF = map initFunction (placesWithInit network)
 		reportF = [ reportFunction project network ]
-		workerF =  [ workerFunction project t | t <- transitions network ] {- workerFunction -}
+		workerF =  [ workerFunction project t | t <- transitions network, hasCode t ] {- workerFunction -}
 
 instancesCount :: Project -> Expression
 instancesCount project = ECall "+" $ map (processedInstances project) (networks project)
@@ -556,6 +572,7 @@ createMainFunction project = Function {
 		IInline $ "const char *p_names[] = {" ++ addDelimiter "," [ "\"" ++ parameterName p ++ "\"" | p <- parameters ] ++ "};",
 		IInline $ "const char *p_descs[] = {" ++ addDelimiter "," [ "\"" ++ parameterDescription p ++ "\"" | p <- parameters ] ++ "};",
 		IInline $ "int *p_data[] = {" ++ addDelimiter "," [ "&" ++ (parameterGlobalName . parameterName) p | p <- parameters ] ++ "};",
+		icall "ca_project_description" [ EString (projectDescription project) ],
 		icall "ca_parse_args" [ EVar "argc", EVar "argv", EInt (length parameters), EVar "p_names", EVar "p_data", EVar "p_descs" ],
 		icall "ca_set_node_to_process" [ EVar "node_to_process" ]
 	 ]
