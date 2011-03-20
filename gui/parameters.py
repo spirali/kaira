@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -20,6 +20,7 @@
 import gtk
 import gtkutils
 from objectlist import ObjectList
+from project import Parameter
 
 def parameters_dialog(parameter, mainwindow):
 	builder = gtkutils.load_ui("parameter-dialog")
@@ -69,9 +70,10 @@ class ParametersWidget(ObjectList):
 		self._edit_parameter(selected)
 
 	def _add_parameter(self, selected):
-		param = self.project.new_parameter()
+		param = Parameter()
 		if parameters_dialog(param, self.mainwindow):
 			self.add_object(param)
+			self.project.add_parameter(param)
 
 	def _edit_parameter(self, selected):
 		if selected and parameters_dialog(selected, self.mainwindow):

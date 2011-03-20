@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -21,6 +21,7 @@ import gtk
 from objectlist import ObjectList
 from codeedit import CodeEditor
 import gtkutils
+from project import Function
 
 class FunctionsWidget(ObjectList):
 
@@ -46,9 +47,10 @@ class FunctionsWidget(ObjectList):
 		self._edit_function_code(selected)
 
 	def _add_function(self, selected):
-		obj = self.project.new_function()
+		obj = Function()
 		if function_dialog(obj, self.app.window):
 			self.add_object(obj)
+			self.project.add_function(obj)
 
 	def _edit_function(self, selected):
 		if selected and function_dialog(selected, self.app.window):

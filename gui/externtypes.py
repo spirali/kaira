@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -21,6 +21,7 @@ import gtk
 import gtkutils
 from objectlist import ObjectList
 from codeedit import CodeEditor
+from project import ExternType
 
 def extern_type_dialog(obj, mainwindow):
 	builder = gtkutils.load_ui("externtype-dialog")
@@ -97,9 +98,10 @@ class ExternTypesWidget(ObjectList):
 		return [obj, obj.get_name(), obj.get_raw_type(), obj.get_transport_mode(), obj.get_function_list_string()]
 
 	def _add_type(self, selected):
-		obj = self.project.new_extern_type()
+		obj = ExternType()
 		if extern_type_dialog(obj, self.app.window):
 			self.add_object(obj)
+			self.project.add_extern_type(obj)
 
 	def _edit_type(self, selected):
 		if selected and extern_type_dialog(selected, self.app.window):

@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -188,21 +188,18 @@ class Project(EventSource):
 				return e
 		raise "Event '" + name + "' not found"
 
-	def new_extern_type(self):
-		obj = ExternType()
+	def add_extern_type(self, obj):
 		self.extern_types.append(obj)
 		self.changed()
-		return obj
 
 	def remove_extern_type(self, obj):
 		self.extern_types.remove(obj)
 		self.changed()
 
-	def new_function(self):
-		obj = Function(self)
+	def add_function(self, obj):
+		obj.project = self
 		self.functions.append(obj)
 		self.changed()
-		return obj
 
 	def remove_function(self, obj):
 		self.functions.remove(obj)
@@ -222,13 +219,11 @@ class Project(EventSource):
 				return et.get_raw_type()
 		return None
 
-	def new_parameter(self):
+	def add_parameter(self, obj):
+		obj.project = self
 		self.reset_param_values_cache()
-		p = Parameter()
-		p.set_callback("changed", self.reset_param_values_cache)
-		self.parameters.append(p)
+		self.parameters.append(obj)
 		self.changed()
-		return p
 
 	def get_parameters(self):
 		return self.parameters
@@ -312,13 +307,11 @@ class Project(EventSource):
 			e.append(self._build_option_as_xml(t))
 		return e
 
-class Parameter(EventSource):
-	"""
-		Events: changed
-	"""
+class Parameter:
+
+	project = None
 
 	def __init__(self):
-		EventSource.__init__(self)
 		self.name = ""
 		self.type = "Int"
 		self.description = ""
@@ -353,7 +346,8 @@ class Parameter(EventSource):
 		self.changed()
 
 	def changed(self):
-		self.emit_event("changed")
+		if self.project:
+			self.project.reset_param_values_cache()
 
 	def as_xml(self):
 		e = xml.Element("parameter")
@@ -498,11 +492,12 @@ class Event(FunctionBase):
 
 class Function(FunctionBase):
 
-	def __init__(self, project):
+	project = None
+
+	def __init__(self):
 		FunctionBase.__init__(self, "")
 		self.return_type = ""
 		self.parameters = ""
-		self.project = project
 		self.with_context = False
 
 	def get_parameters(self):
@@ -574,14 +569,15 @@ def load_project_from_xml(root, filename):
 	return project, idtable
 
 def load_parameter(element, project):
-	p = project.new_parameter()
+	p = Parameter()
 	p.set_name(utils.xml_str(element, "name"))
 	p.set_description(utils.xml_str(element, "description", ""))
 	p.set_default(utils.xml_str(element, "default", "0"))
 	p.set_type(utils.xml_str(element, "type"))
+	project.add_parameter(p)
 
 def load_extern_type(element, project):
-	p = project.new_extern_type()
+	p = ExternType()
 	p.set_name(utils.xml_str(element, "name"))
 	p.set_raw_type(utils.xml_str(element, "raw-type"))
 	p.set_transport_mode(utils.xml_str(element, "transport-mode"))
@@ -589,14 +585,16 @@ def load_extern_type(element, project):
 	for e in element.findall("code"):
 		name = utils.xml_str(e, "name")
 		p.set_function_code(name, e.text)
+	project.add_extern_type(p)
 
 def load_function(element, project):
-	f = project.new_function()
+	f = Function()
 	f.set_name(utils.xml_str(element, "name"))
 	f.set_return_type(utils.xml_str(element, "return-type"))
 	f.set_parameters(utils.xml_str(element, "parameters"))
 	f.set_with_context(utils.xml_bool(element, "with-context", False))
 	f.set_function_code(element.text)
+	project.add_function(f)
 
 def load_event(element, project):
 	name = utils.xml_str(element, "name")
