@@ -113,3 +113,6 @@ class SimpleList(gtk.ScrolledWindow):
 				return i
 			i = self.liststore.iter_next(i)
 		return None
+
+	def get_column(self, column):
+		return [ self.liststore.get_value(row.iter, column) for row in self.liststore ]

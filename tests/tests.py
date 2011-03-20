@@ -39,24 +39,33 @@ class BuildingTest(TestCase):
 
 	def test_helloworld(self):
 		self.build(os.path.join(TEST_PROJECTS, "helloworlds", "helloworld.proj"), "Hello world 12\n")
+
 	def test_helloworld2(self):
 		self.build(os.path.join(TEST_PROJECTS, "helloworlds", "helloworld2.proj"), "Hello world 5\n")
+
 	def test_strings(self):
 		self.build(os.path.join(TEST_PROJECTS, "strings", "strings.proj"), "String\nOk\nOk\nOk\nOk\n")
+
 	def test_externtypes(self):
 		output = "10 20\n107 207\n10 20\n257 77750 A looong string!!!!!\n"
 		self.build(os.path.join(TEST_PROJECTS, "externtypes", "externtypes.proj"), output)
+
 	def test_packing(self):
 		output = "0\n1\n2\n3\n4\n0\n1\n2\n3\n4\n5\n5\n6\n7\n8\n9\n100\n100\n"
 		self.build(os.path.join(TEST_PROJECTS, "packing", "packing.proj"), output)
+
 	def test_broken1(self):
 		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken1.proj"), "*104/inscription:1:Inscription is empty\n")
+
 	def test_broken2(self):
 		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken2.proj"), "*102/type:1:Type is empty\n")
+
 	def test_parameters(self):
 		self.build(os.path.join(TEST_PROJECTS, "parameters", "parameters.proj"), "9 7\n", ["-pfirst=10", "-psecond=7"])
+
 	def test_bidirection(self):
 		self.build(os.path.join(TEST_PROJECTS, "bidirection", "bidirection.proj"), "11\n12\n13\n")
+
 	def test_scheduler(self):
 		output = self.build(os.path.join(TEST_PROJECTS, "scheduler", "scheduler.proj"), None)
 		d = { "First" : 0, "Second" : 0 }
@@ -64,6 +73,7 @@ class BuildingTest(TestCase):
 			if line:
 				d[line] += 1
 		self.assertEquals(d, { "First": 5, "Second": 5 })
+
 	def test_workers(self):
 		def check_output(output):
 			self.assertEquals(76127, sum([ int(x) for x in output.split("\n") if x.strip() != "" ]))
@@ -72,10 +82,13 @@ class BuildingTest(TestCase):
 		check_output(output)
 		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params + [ "--processes=3" ])
 		check_output(output)
+
 	def test_functions(self):
 		self.build(os.path.join(TEST_PROJECTS, "functions", "functions.proj"), "9 9\n")
+
 	def test_tuples(self):
 		self.build(os.path.join(TEST_PROJECTS, "tuples", "tuples.proj"), "Ok\n")
+
 	def test_log(self):
 		self.build(os.path.join(TEST_PROJECTS, "log", "log.proj"), "", make_args = [ "debug" ], program_name="log_debug")
 		directory = os.path.join(TEST_PROJECTS, "log")
@@ -83,6 +96,9 @@ class BuildingTest(TestCase):
 		RunProgram(os.path.join(KAIRA_TOOLS, "logmerge.py"), [ "log2" ], cwd = directory).run()
 		self.assertTrue(os.path.isfile(os.path.join(TEST_PROJECTS, "log", "log1.klog")))
 		self.assertTrue(os.path.isfile(os.path.join(TEST_PROJECTS, "log", "log2.klog")))
+
+	def test_build(self):
+		self.build(os.path.join(TEST_PROJECTS, "build", "build.proj"), "1: 10\n2: 20\n")
 
 	def test_getmore(self):
 		self.build(os.path.join(TEST_PROJECTS, "getmore", "getmore.proj"), "Ok 7 13\n")

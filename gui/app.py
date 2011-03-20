@@ -299,16 +299,18 @@ class App:
 			param_values = {}
 		self._start_build(project, project_builded, translation_table = transtable)
 
-	def show_error_dialog(self, text):
-		error_dlg = gtk.MessageDialog( \
-			parent=self.window, \
-			type=gtk.MESSAGE_ERROR, \
-			message_format=text, \
-			buttons=gtk.BUTTONS_OK)
+	def show_message_dialog(self, text, type):
+		error_dlg = gtk.MessageDialog(parent=self.window, type=type, message_format=text, buttons=gtk.BUTTONS_OK)
 		try:
 			error_dlg.run()
 		finally:
 			error_dlg.destroy()
+
+	def show_error_dialog(self, text):
+		self.show_message_dialog(text, gtk.MESSAGE_ERROR)
+
+	def show_info_dialog(self, text):
+		self.show_message_dialog(text, gtk.MESSAGE_INFO)
 
 	def console_write(self, text, tag_name = "normal"):
 		self.window.console.write(text, tag_name)

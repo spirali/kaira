@@ -255,6 +255,11 @@ class Project(EventSource):
 		makefile.set("INCLUDE", "-I" + paths.CAILIE_DIR)
 		makefile.set("MPICC", "mpicc")
 
+		if self.get_build_option("OTHER_FILES"):
+			other_deps = [ os.path.splitext(f)[0] + ".o" for f in self.get_build_option("OTHER_FILES").split("\n") ]
+		else:
+			other_deps = []
+
 		name_o = self.get_name() + ".o"
 		name_cpp = self.get_name() + ".cpp"
 		name_debug = self.get_name() + "_debug"
@@ -265,26 +270,30 @@ class Project(EventSource):
 		makefile.rule("mpi", [self.get_name() + "_mpi"])
 		makefile.rule("mpidebug", [self.get_name() + "_mpidebug"])
 
-		deps = [ name_o ]
+		deps = [ name_o ] + other_deps
+		deps_debug = [ name_debug_o ] + other_deps
 		makefile.rule(self.get_name(), deps, "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
 
-		makefile.rule(name_debug, [name_debug_o], "$(CC) " + name_debug_o + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
+		makefile.rule(name_debug, deps_debug, "$(CC) " + " ".join(deps_debug) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
 
 		makefile.rule(self.get_name() + "_mpi", deps, "$(MPICC) -cc=${CC} " + " ".join(deps)
 			+ " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) -lmpicailie" )
 
-		makefile.rule(self.get_name() + "_mpidebug", [ name_debug_o ], "$(MPICC) -cc=${CC} " + " ".join( [ name_debug_o ] )
+		makefile.rule(self.get_name() + "_mpidebug", deps_debug, "$(MPICC) -cc=${CC} " + " ".join(deps_debug)
 			+ " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) -lmpicailie" )
 
 		makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
 		makefile.rule(name_debug_o, [ name_cpp, "head.cpp" ], "$(CC) -DCA_LOG_ON $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))
 		makefile.rule("clean", [], "rm -f *.o {0} {0}_debug {0}_mpi {0}_mpidebug".format(self.get_name()))
+		makefile.rule(".cpp.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
+		makefile.rule(".cc.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
+		makefile.rule(".c.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
 		makefile.write_to_file(os.path.join(self.get_directory(), "makefile"))
 
 	def _build_option_as_xml(self, name):
 		element = xml.Element("build-option")
 		element.set("name", name)
-		element.set("value", self.build_options[name])
+		element.text = self.build_options[name]
 		return element
 
 
@@ -596,7 +605,9 @@ def load_event(element, project):
 
 def load_build_option(element, project):
 	name = utils.xml_str(element, "name")
-	value = utils.xml_str(element, "value")
+	value = element.text
+	if value is None: # For backward compatability
+		return
 	project.set_build_option(name, value)
 
 def load_configuration(element, project):

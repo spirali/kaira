@@ -42,7 +42,7 @@ class ProjectConfig(gtk.Notebook):
 		w = EventsWidget(app.project, app)
 		self.append_page(w, gtk.Label("Events"))
 
-		w = BuildOptionsWidget(app.project)
+		w = BuildOptionsWidget(app.project, app)
 		self.append_page(w, gtk.Label("Build"))
 
 		self.show_all()
