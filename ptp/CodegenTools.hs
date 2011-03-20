@@ -1,5 +1,5 @@
 {-
-    Copyright (C) 2010 Stanislav Bohm
+    Copyright (C) 2010, 2011 Stanislav Bohm
 
     This file is part of Kaira.
 
@@ -42,6 +42,9 @@ idefine name t expr = IDefine name t (Just expr)
 
 idefineEmpty :: String -> Type -> Instruction
 idefineEmpty name t = IDefine name t Nothing
+
+idefineVars :: [VarDeclaration] -> [Instruction]
+idefineVars decls = [ idefineEmpty name t | (name, t) <- decls ]
 
 declarationsJoin :: Declarations -> Declarations -> Declarations
 declarationsJoin da db = Declarations {
@@ -173,16 +176,17 @@ canBeDirectlyPacked (TTuple types) = all canBeDirectlyPacked types
 canBeDirectlyPacked (TData _ _ TransportDirect _) = True
 canBeDirectlyPacked _ = False
 
-statementVarList :: [VarDeclaration] -> [Instruction] -> [VarDeclaration]
-statementVarList decls instructions =
-	decls ++ foldl idefs [] instructions
+-- |Return declarations in instructions (ie, it search for IDefine instructions)
+statementVarList :: [Instruction] -> [VarDeclaration]
+statementVarList instructions =
+	foldl idefs [] instructions
 	where
 		idefs lst (IDefine name t _) = (name, t) : lst
 		idefs lst _ = lst
 
 statementDeclarations :: [VarDeclaration] -> [Instruction] -> Declarations
 statementDeclarations decls instructions =
-	makeDeclarations (statementVarList decls instructions) []
+	makeDeclarations (decls ++ statementVarList instructions) []
 
 paramFromVar :: ParamType -> [VarDeclaration] -> [ParamDeclaration]
 paramFromVar pt decls = [ (name, t, pt) | (name, t) <- decls ]

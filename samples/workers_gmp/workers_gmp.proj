@@ -19,10 +19,10 @@
 		memset(packer.peek(), 0, 1);
 	}
 	packer.move(s);
-</code></extern-type><function name="bi" parameters="Int i" return-type="BigInt">	return mpz_class(i);
-</function><function name="bi_add" parameters="BigInt a, BigInt b" return-type="BigInt">	return a + b;
-</function><function name="bi_lt" parameters="BigInt a, BigInt b" return-type="Bool">	return a &lt; b;
-</function><build-option name="CC" value="g++" /><build-option name="LIBS" value="-lgmp" /><build-option name="CFLAGS" value="-O2 -Wall" /></configuration><net id="101"><area count_expr="5" id="102" sx="136" sy="185" x="284" y="73" /><place id="103" init_string="bi(0)" place_type="BigInt" radius="20" x="109" y="207" /><place id="104" init_string="" place_type="Int" radius="20" x="182" y="208"><code>	int t;
+</code></extern-type><function name="bi" parameters="Int i" return-type="BigInt" with-context="False">	return mpz_class(i);
+</function><function name="bi_add" parameters="BigInt a, BigInt b" return-type="BigInt" with-context="False">	return a + b;
+</function><function name="bi_lt" parameters="BigInt a, BigInt b" return-type="Bool" with-context="False">	return a &lt; b;
+</function><build-option name="CC">g++</build-option><build-option name="LIBS">-lgmp</build-option><build-option name="CFLAGS">-O2</build-option></configuration><net id="101"><area count_expr="5" id="102" name="" sx="136" sy="185" x="284" y="73" /><place id="103" init_string="bi(0)" place_type="BigInt" radius="20" x="109" y="207" /><place id="104" init_string="" place_type="Int" radius="20" x="182" y="208"><code>	int t;
 	for (t = 0; t &lt; 5; t++) {
 		place-&gt;add(t);
 	}

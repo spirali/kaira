@@ -83,7 +83,6 @@ data Function = Function {
 	functionName :: String,
 	instructions :: [Instruction],
 	parameters :: [ParamDeclaration],
-	declarations :: [VarDeclaration],
 	extraCode :: String,
 	returnType :: Type,
 	functionSource :: Maybe (String, Int)

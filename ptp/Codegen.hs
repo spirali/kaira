@@ -161,9 +161,9 @@ emitInstruction scope (IIf expr branch1 branch2) =
 	Text ("if (" ++ emitExpression scope expr ++ ") ") <+> emitInstruction scope branch1 <+> Text "else " <+> emitInstruction scope branch2
 emitTupleMember index = "t_" ++ show index
 
-initialScope :: Function -> Scope
-initialScope function = Scope { scopeDeclarations = decls }
-	where decls = makeDeclarations (varFromParam (parameters function) ++ declarations function) stdFunctions
+-- initialScope :: Function -> Declaration -> Scope
+-- initialScope function fundecls = Scope { scopeDeclarations = decls }
+--where decls = makeDeclarations (varFromParam (parameters function) ++ declarations function) fundecls
 
 typeString :: Type -> String
 typeString (TArray t) = "std::vector<" ++ typeString t ++ " >"
@@ -218,11 +218,11 @@ emitFunction fundecls function =
 	prefix <+> Text functionDeclaration <+> Eol <+> body <+> suffix
 	where
 		functionDeclaration = typeString (returnType function) ++ " " ++ functionName function ++ "(" ++ paramString ++ ")"
-		decls = makeDeclarations (statementVarList (declarations function) (instructions function)) fundecls
+		decls = makeDeclarations (varFromParam (parameters function) ++ statementVarList (instructions function)) fundecls
 		body = emitInstruction scope (addConstructors decls statement)
-		scope = initialScope function
+		scope = Scope { scopeDeclarations = decls }
 		paramString = addDelimiter "," $ declareParam (parameters function)
-		statement = makeStatement (declarations function) (instructions function ++ extraInstructions)
+		statement = makeStatement [] (instructions function ++ extraInstructions)
 		(prefix, suffix) = case functionSource function of
 				Just x -> (LineDirective (Just x), LineDirective Nothing)
 				Nothing -> (Empty, Empty)
@@ -307,8 +307,7 @@ gatherInstructionTypes _ = Set.empty
 
 gatherTypes :: Function -> TypeSet
 gatherTypes f =
-	Set.unions $ [ varDeclarationTypes (declarations f), paramDeclarationTypes (parameters f)] ++
-		map gatherInstructionTypes (instructions f)
+	Set.unions $ [ paramDeclarationTypes (parameters f)] ++ map gatherInstructionTypes (instructions f)
 
 {-
 	subTypes' x returns subtypes with x

@@ -200,7 +200,6 @@ reportFunction project network = Function {
 	parameters = [ ("ctx", caContext, ParamNormal),
 		("places", TPointer $ (placesTuple network), ParamNormal),
 		("out", TPointer $ TRaw "CaOutput", ParamNormal) ],
-	declarations = [],
 	instructions = header ++ concat (countedMap reportPlace (places network)) ++ concatMap reportTransition (transitions network),
 	extraCode = "",
 	returnType = TVoid,
@@ -237,8 +236,7 @@ transitionFunction :: Project -> Network -> Transition -> Function
 transitionFunction project network transition = Function {
 		functionName = transitionFunctionName transition,
 		parameters = [ ("ctx", caContext, ParamNormal), ("places", TPointer $ placesTuple network, ParamNormal)],
-		declarations = decls,
-		instructions = [instructions, IReturn (EInt 0)],
+		instructions = idefineVars decls ++ [instructions, IReturn (EInt 0)],
 		extraCode = "",
 		returnType = TInt,
 		functionSource = Nothing
@@ -255,8 +253,7 @@ transitionEnableTestFunction :: Project -> Network -> Transition -> Function
 transitionEnableTestFunction project network transition = Function {
 	functionName = transitionEnableTestFunctionName transition,
 	parameters = [ ("ctx", caContext, ParamNormal), ("places", TPointer $ placesTuple network, ParamNormal)],
-	declarations = decls,
-	instructions = [ instructions, IReturn (EInt 0) ],
+	instructions = idefineVars decls ++ [ instructions, IReturn (EInt 0) ],
 	extraCode = "",
 	returnType = TInt,
 	functionSource = Nothing
@@ -446,7 +443,6 @@ recvFunction project network = Function {
 		("data_id", TRaw "int", ParamNormal),
 		("data", TRaw "void*", ParamNormal),
 		("data_size", TRaw "int", ParamNormal) ],
-	declarations = [],
 	extraCode = [],
 	returnType = TVoid,
 	instructions = [
@@ -482,7 +478,6 @@ workerFunction :: Project -> Transition -> Function
 workerFunction project transition = Function {
 	functionName = workerFunctionName transition,
 	parameters = [ ("ctx", caContext, ParamNormal), ("var", transitionVarType project transition, ParamNormal) ],
-	declarations = [],
 	instructions = [],
 	extraCode = Maybe.fromJust $ transitionCode transition,
 	returnType = TVoid,
@@ -497,7 +492,6 @@ initFunction place = Function {
 		functionName = initFunctionName place,
 		parameters = [ ("ctx", caContext, ParamNormal),
 			("place", TPointer $ TPlace (fromNelType (placeType place)), ParamNormal)],
-		declarations = [],
 		instructions = [],
 		extraCode = Maybe.fromJust $ placeInitCode place,
 		returnType = TVoid,
@@ -514,8 +508,8 @@ startFunction :: Project -> Network -> Function
 startFunction project network = Function {
 	functionName = startFunctionName network,
 	parameters = [ ("ctx", caContext, ParamNormal) ],
-	declarations = [ ("places", TPointer $ placesTuple network) ],
-	instructions = [ allocPlaces, initCtx ] ++ registerTransitions ++ eventNodeInit ++ initPlaces,
+	instructions = [ idefineEmpty "places" (TPointer $ placesTuple network), allocPlaces, initCtx ]
+		++ registerTransitions ++ eventNodeInit ++ initPlaces,
 	extraCode = "",
 	returnType = TVoid,
 	functionSource = Nothing
@@ -559,8 +553,7 @@ createMainFunction :: Project -> Function
 createMainFunction project = Function {
 	functionName = "main",
 	parameters = [ ("argc", TRaw "int", ParamNormal), ("argv", (TPointer . TPointer . TRaw) "char", ParamNormal) ],
-	declarations = [ ("nodes", TInt) ],
-	instructions = parseArgs ++ [ i1, i2 ],
+	instructions = idefineEmpty "nodes" TInt : parseArgs ++ [ i1, i2 ],
 	extraCode = [],
 	returnType = TInt,
 	functionSource = Nothing
@@ -587,7 +580,6 @@ createMainInitFunction :: Project -> Function
 createMainInitFunction project = Function {
 	functionName = "main_init",
 	parameters = [("ctx", caContext, ParamNormal)],
-	declarations = [],
 	instructions = startNetworks,
 	extraCode = [],
 	returnType = TVoid,
@@ -606,7 +598,6 @@ functionWithCode :: String -> Type -> [ParamDeclaration] -> String -> Function
 functionWithCode name returnType params code = Function {
 	functionName = name,
 	parameters = params,
-	declarations = [],
 	instructions = [],
 	extraCode = code,
 	returnType = returnType,
@@ -644,7 +635,6 @@ parameterAccessFunction :: Parameter -> Function
 parameterAccessFunction parameter = Function {
 	functionName = "parameter_" ++ parameterName parameter,
 	parameters = [],
-	declarations = [],
 	instructions = [ (IReturn . EVar . parameterGlobalName . parameterName) parameter ],
 	extraCode = "",
 	returnType = fromNelType $ parameterType parameter,
@@ -663,7 +653,6 @@ nodeToProcessFunction :: Project -> Function
 nodeToProcessFunction project = Function {
 	functionName = "node_to_process",
 	parameters = [ ("node", TInt, ParamNormal) ],
-	declarations = [],
 	extraCode = [],
 	returnType = TInt,
 	instructions = [ IReturn $ ECall "%" [ (EVar "node"), (EVar "ca_process_count") ] ],

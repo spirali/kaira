@@ -246,7 +246,7 @@ class Project(EventSource):
 		makefile.set("CC", self.get_build_option("CC"))
 		makefile.set("CFLAGS", self.get_build_option("CFLAGS"))
 		makefile.set("LIBDIR", "-L" + paths.CAILIE_DIR)
-		makefile.set("LIBS", "-lcailie -lpthread -lrt" + self.get_build_option("LIBS"))
+		makefile.set("LIBS", "-lcailie -lpthread -lrt " + self.get_build_option("LIBS"))
 		makefile.set("INCLUDE", "-I" + paths.CAILIE_DIR)
 		makefile.set("MPICC", "mpicc")
 

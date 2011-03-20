@@ -13,7 +13,8 @@
 	size_t s = obj-&gt;str.size();
 	packer.pack_size(s);
 	packer.pack(obj-&gt;str.c_str(), s);
-</code></extern-type><build-option name="CC" value="g++" /><build-option name="LIBS" value="" /><build-option name="CFLAGS" value="-O2" /></configuration><net id="101"><area count_expr="3" id="102" sx="300" sy="230" x="456" y="41" /><place id="103" init_string="" place_type="MyType" radius="20" x="93" y="44"><code>	MyType m;
+</code></extern-type><function name="fun1" parameters="MyType a" return-type="MyType" with-context="False">	return a;
+</function><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net id="101"><area count_expr="3" id="102" name="" sx="300" sy="230" x="456" y="41" /><place id="103" init_string="" place_type="MyType" radius="20" x="93" y="44"><code>	MyType m;
 	m.i = 10;
 	m.j = 20;
 	place-&gt;add(m);
