@@ -155,7 +155,7 @@ checkEdges project network decls binded processedEdges (edge:rest) level okEvent
 
 {- Variant for packing edges -}
 checkEdges project network decls binded processedEdges (edge:rest) level okEvent guards =
-	makeStatement [] [
+	IStatement [
 		IIf (ECall "<" [ ECall "List.size" [ placeExpr ], ECall "+" [ limitExpr, EInt (length edgesWithSamePlace)]])
 			operation INoop,
 		(checkEdges project network decls binded (edge:processedEdges) rest (level + 1) okEvent guards)
@@ -266,9 +266,9 @@ transitionEnableTestFunction project network transition = Function {
 {-
 	Erasing dependancy is added for reason that { List.eraseAt(l, x); List.eraseAt(l, y); } is problem if x < y
 -}
-transitionOkEvent project network transition = makeStatement [ ("var", transitionVarType project transition) ] body
+transitionOkEvent project network transition = IStatement body
 	where
-		body = prolog ++ map erase eraseDependancy ++ packing ++ map setVar decls ++ call ++ applyResult ++
+		body = declsCode ++ prolog ++ map erase eraseDependancy ++ packing ++ map setVar decls ++ call ++ applyResult ++
 				(sendInstructions project network transition) ++ [ IReturn (EInt 1) ]
 		localOutEdges = filter (Maybe.isNothing . edgeTarget) $ transitionFilterEdges network (edgesOut transition)
 		setVar (name, _) = ISet (EAt (EString name) (EVar "var")) (EVar name)
@@ -287,11 +287,12 @@ transitionOkEvent project network transition = makeStatement [ ("var", transitio
 		call = if hasCode transition then
 			[ icall (workerFunctionName transition) [ EVar "ctx", EVar "var" ], logEnd ] else []
 		prolog = if hasCode transition then [ logStart ] ++ logRemove else [ logEnd ] ++ logRemove
+		declsCode = [ idefineEmpty "var" $ transitionVarType project transition ]
 		applyResult = map addToPlace localOutEdges
 		addToPlace edge = case edgeInscription edge of
 			EdgeExpression expr -> addToPlaceOne edge expr
 			EdgePacking name _ -> addToPlaceMany edge name
-		addToPlaceOne edge expr = makeStatement [] [
+		addToPlaceOne edge expr = IStatement [
 			icall "CA_LOG_TOKEN_ADD" [ EVar "ctx", EInt $ edgePlaceId edge, ECall "Base.asString" [ preprocess expr ] ],
 			icall ".add" [ placeExpr edge, preprocess expr ]]
 		addToPlaceMany edge name = IForeach "token" "token_c" (EAt (EString name) (EVar "var"))
@@ -324,17 +325,18 @@ sendInstructions project network transition =
 {- Create code that stores expression into packer -}
 packCode :: Expression -> Type -> Expression -> Instruction
 packCode packer t expr | canBeDirectlyPacked t =
-	makeStatement [ ("data", t) ] [
-		ISet (EVar "data") expr,
+	IStatement [
+		idefine "data" t expr,
 		icall ".pack" [ packer, EAddr (EVar "data"), exprMemSize t expr ]
 	]
-packCode packer TString expr = makeStatement [ ("data", TString), ("size", TRaw "size_t") ] [
-			ISet (EVar "data") expr,
-			ISet (EVar "size") $ ECall ".size" [EVar "data"],
+
+packCode packer TString expr = IStatement [
+			idefine "data" TString expr,
+			idefine "size" sizeType $ ECall ".size" [EVar "data"],
 			icall ".pack_size" [ packer, EVar "size" ],
 			icall ".pack" [ packer, ECall ".c_str" [ EVar "data" ], EVar "size" ]]
 packCode packer (TTuple types) expr =
-	makeStatement [] [ packCode packer t (EAt (EInt x) expr) | (x, t) <- zip [0..] types ]
+	IStatement [ packCode packer t (EAt (EInt x) expr) | (x, t) <- zip [0..] types ]
 packCode packer (TData name rawType TransportCustom functions) var =
 	icall (name ++ "_pack") [ packer, var ]
 packCode packer t expr = error "packCode: Type cannot be packed"
@@ -360,9 +362,9 @@ caPacker etype item reserved =
 sendStatement :: Project -> Network -> Network -> Transition -> Edge -> Instruction
 {- Version for normal edges -}
 sendStatement project fromNetwork toNetwork transition edge | isNormalEdge edge =
-	makeStatement [] [
+	IStatement [
 		idefine "item" etype (preprocess expr),
-		idefine "reserved" (TRaw "size_t") (ECall "._get_reserved_prefix_size" [ EVar "ctx" ]),
+		idefine "reserved" sizeType (ECall "._get_reserved_prefix_size" [ EVar "ctx" ]),
 		idefine "packer" (TRaw "CaPacker") (caPacker etype (EVar "item") (EVar "reserved")),
 		packCode packer etype (EVar "item"),
 		icall "ca_send" [
@@ -381,28 +383,18 @@ sendStatement project fromNetwork toNetwork transition edge | isNormalEdge edge 
 			(preprocess . Maybe.fromJust . edgeTarget) edge ]
 {- Version for packing edge -}
 sendStatement project fromNetwork toNetwork transition edge =
-	makeStatement' [] [ ("target", TInt, target) ]
-	 [
-	IForeach "item" "i" (EAt (EString name) (EVar "var")) [
-	makeStatement [] [
-		idefine "reserved" (TRaw "size_t") (ECall "._get_reserved_prefix_size" [ EVar "ctx" ]),
-		idefine "packer" (TRaw "CaPacker") (caPacker etype (EVar "item") (EVar "reserved")),
-		packCode packer etype (EVar "item"),
-		icall "ca_send" [
-			EVar "ctx",
-			EVar "target",
-			dataId,
-			packer ]
+	IStatement [ idefine "target" TInt target,
+		IForeach "item" "i" (EAt (EString name) (EVar "var")) [
+		IStatement [
+			idefine "reserved" sizeType (ECall "._get_reserved_prefix_size" [ EVar "ctx" ]),
+			idefine "packer" (TRaw "CaPacker") (caPacker etype (EVar "item") (EVar "reserved")),
+			packCode packer etype (EVar "item"),
+			icall "ca_send" [
+				EVar "ctx",
+				EVar "target",
+				dataId,
+				packer ]
 	]]]
-	{-icall "ca_send" [
-
-
-		ExprVar "ctx",
-		ExprVar "target",
-		dataId,
-		ExprAddr $ ExprVar "data",
-		ExprCall "sizeof" [ExprVar (typeString (edgePlaceType project edge))]
-	]]]-}
 	where
 		packer = EVar "packer"
 		etype = fromNelType (edgePlaceType project edge)
@@ -457,7 +449,7 @@ recvStatement network place =
 	IIf condition ifStatement INoop
 	where
 		condition = ECall "==" [ EVar "data_id", EInt (placeId place) ]
-		ifStatement = makeStatement []
+		ifStatement = IStatement
 			(unpackCode (EVar "unpacker") (fromNelType (placeType place)) "item" ++
 			[ icall ".add" [ EAt (EInt (placeSeq network place)) (EVar "places"),  (EVar "item") ],
 			  icall "CA_LOG_TOKEN_ADD" [ EVar "ctx", EInt (placeId place), ECall "Base.asString" [ EVar "item" ] ] ])
@@ -465,7 +457,7 @@ recvStatement network place =
 {- This is not good aproach if there are more vars, but it now works -}
 safeErase :: Expression -> String -> [String] -> Instruction
 safeErase list v [] = icall ".remove_at" [ list, EVar v ]
-safeErase list v deps = makeStatement [ ("tmp", TInt) ] $ [ ISet (EVar "tmp") (EVar v) ] ++ erase deps
+safeErase list v deps = IStatement $ [ idefine "tmp" TInt (EVar v) ] ++ erase deps
 	where
 		erase [] = [ safeErase list "tmp" [] ]
 		erase (d:ds) =
@@ -606,7 +598,7 @@ functionWithCode name returnType params code = Function {
 knownTypeFunctions :: [(String, String -> (Type, [ParamDeclaration]))]
 knownTypeFunctions = [
 	("getstring", \raw -> (TRaw "std::string", [ ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
-	("getsize", \raw -> (TRaw "size_t", [ ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
+	("getsize", \raw -> (sizeType, [ ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
 	("pack", \raw -> (TVoid, [ ("packer", TRaw "CaPacker &", ParamNormal), ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
 	("unpack", \raw -> (TRaw raw, [ ("unpacker", TRaw "CaUnpacker &", ParamNormal) ])) ]
 

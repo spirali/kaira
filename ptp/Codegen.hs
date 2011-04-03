@@ -127,12 +127,12 @@ emitInstruction :: Scope -> Instruction -> SourceCode
 emitInstruction scope (IExpr expr) = Text (emitExpression scope expr ++ ";") <+> Eol
 emitInstruction scope (ISet expr1 expr2) =
 	Text (emitExpression scope expr1 ++ " = " ++ emitExpression scope expr2 ++ ";") <+> Eol
-emitInstruction scope (IStatement decls instructions) =
-	Text "{" <+> Block (declarationsCode <+> instructionsCode) <+> Text "}" <+> Eol
+emitInstruction scope (IStatement instructions) =
+	Text "{" <+> Block instructionsCode <+> Text "}" <+> Eol
 	where
 		instructionsCode = joinMap (emitInstruction newScope) instructions
-		newScope = addDeclarations scope (statementDeclarations decls instructions)
-		declarationsCode = emitVarDeclarations newScope decls
+		newScope = addDeclarations scope (statementDeclarations instructions)
+
 emitInstruction scope (IDefine name t (Just expr)) =
 	Text (typeString t ++ " " ++ name ++ " = " ++ emitExpression scope expr ++ ";") <+> Eol
 emitInstruction scope (IDefine name t Nothing) =
@@ -222,7 +222,7 @@ emitFunction fundecls function =
 		body = emitInstruction scope (addConstructors decls statement)
 		scope = Scope { scopeDeclarations = decls }
 		paramString = addDelimiter "," $ declareParam (parameters function)
-		statement = makeStatement [] (instructions function ++ extraInstructions)
+		statement = IStatement (instructions function ++ extraInstructions)
 		(prefix, suffix) = case functionSource function of
 				Just x -> (LineDirective (Just x), LineDirective Nothing)
 				Nothing -> (Empty, Empty)
@@ -296,8 +296,7 @@ gatherInstructionTypes (IExpr expr) = gatherExprTypes expr
 gatherInstructionTypes (ISet _ expr) = gatherExprTypes expr
 gatherInstructionTypes (IIf expr i1 i2) =
 	Set.unions [ gatherExprTypes expr, gatherInstructionTypes i1, gatherInstructionTypes i2 ]
-gatherInstructionTypes (IStatement decls instrs) =
-	Set.union (varDeclarationTypes decls) $ Set.unions (map gatherInstructionTypes instrs)
+gatherInstructionTypes (IStatement instrs) = Set.unions (map gatherInstructionTypes instrs)
 gatherInstructionTypes (IForeach _ _ expr instrs) =
 	Set.union (gatherExprTypes expr) $ Set.unions (map gatherInstructionTypes instrs)
 gatherInstructionTypes (IDefine _ t (Just expr)) = Set.union (Set.singleton t) (gatherExprTypes expr)
