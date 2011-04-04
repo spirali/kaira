@@ -387,7 +387,14 @@ class App:
 		p.cwd = proj.get_directory()
 		p.start([proj.get_exported_filename()] + extra_args)
 
-	def _try_make_error_with_link(self, item_id, pos, message):
+	def _try_make_error_with_link(self, id_string, item_id, pos, message):
+		if pos in ["getstring", "getsize", "pack", "unpack"] and item_id is None:
+			item = self.project.find_extern_type(id_string)
+			self.console_write_link(id_string + "/" + pos, 
+				lambda: self.extern_type_function_edit(item, pos, lambda e, f: self._project_changed()))
+			self.console_write(":" + message)
+			return True
+
 		item = self.project.get_item(item_id)
 		if pos == "function" and item.is_transition():
 			self.console_write_link(str(item_id) + "/" + pos, lambda: self.transition_edit(item))
@@ -397,16 +404,23 @@ class App:
 			self.console_write_link(str(item_id) + "/" + pos, lambda: self.place_edit(item))
 			self.console_write(":" + message)
 			return True
+		if pos == "user_function":
+			self.console_write_link(item.get_name(), lambda: self.function_edit(item))
+			self.console_write(":" + message)
+			return True
 		return False
 
 	def _process_error_line(self, line, error_messages, translation_table):
 		if line.startswith("*"):
 			sections = line[1:].split(":",1)
-			item_id, pos = sections[0].split("/")
-			item_id = int(item_id)
-			if translation_table:
+			id_string, pos = sections[0].split("/")
+			try:
+				item_id = int(id_string)
+			except ValueError, e:
+				item_id = None
+			if translation_table and item_id is not None:
 				item_id = translation_table[item_id]
-			if self._try_make_error_with_link(item_id, pos, sections[1]):
+			if self._try_make_error_with_link(id_string, item_id, pos, sections[1]):
 				return
 			if error_messages is None:
 				self.console_write(line)

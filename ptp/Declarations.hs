@@ -108,6 +108,7 @@ data Parameter = Parameter {
 } deriving (Show)
 
 data UserFunction = UserFunction {
+	ufunctionId :: ID,
 	ufunctionName :: String,
 	ufunctionParameters :: [NelVarDeclaration],
 	ufunctionReturnType :: NelType,
