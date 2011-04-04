@@ -173,7 +173,7 @@ typeString (TPointer t) = typeString t ++ "*"
 typeString (TStruct name _) = name
 typeString TString = "std::string"
 typeString TBool = "bool"
-typeString (TData _ rawType _ _) = rawType
+typeString (TData _ _ rawType _ _) = rawType
 typeString x = typeSafeString x
 
 -- |Converts type to string in way that string can be used as part of identifier
@@ -191,7 +191,7 @@ typeSafeString (TArray t) = "Array_" ++ typeSafeString t
 typeSafeString (TRaw d) = d
 typeSafeString (TPointer t) = "Ptr_" ++ typeSafeString t
 typeSafeString (TStruct name _) = name
-typeSafeString (TData name _ _ _) = name
+typeSafeString (TData _ name _ _ _) = name
 --typeSafeString x = error $ "typeSafeString: " ++ show x
 
 declareVar :: Scope -> String -> String
@@ -273,7 +273,7 @@ emitTypeDeclaration (TStruct name decls) =
 			| otherwise = "\t" ++ name ++ "(" ++ addDelimiter "," (map (\(n,t) -> const t ++ typeString t ++ " & " ++ n) decls) ++ ") {\n"
 				++ concatMap (\(n,t) -> "\t\tthis->" ++ n ++ " = " ++ n ++ ";\n") decls ++ "\t}\n"
 		const t = case t of
-			(TData _ _ _ _) -> ""
+			(TData _ _ _ _ _) -> ""
 			(TPointer _) -> ""
 			_ -> "const "
 
@@ -355,8 +355,8 @@ exprAsString decls x =
 		TDouble -> ECall "ca_double_to_string" [x]
 		TString -> x
 		TTuple [] -> EString "()"
-		(TData name _ _ functions) | hasKey "getstring" functions -> ECall (name ++ "_getstring") [x]
-		(TData name _ _ _) -> ECall "std::string" [ EString name ]
+		(TData _ name _ _ functions) | hasKey "getstring" functions -> ECall (name ++ "_getstring") [x]
+		(TData _ name _ _ _) -> ECall "std::string" [ EString name ]
 		TTuple types -> ECall "+" $ [ ECall "std::string"
 			[ EString "(" ], ECall "Base.asString" [ EAt (EInt 0) x ]]
 				++ concat [ [EString ",", ECall "Base.asString"

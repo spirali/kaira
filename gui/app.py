@@ -397,6 +397,14 @@ class App:
 			self.console_write_link(str(item_id) + "/" + pos, lambda: self.place_edit(item))
 			self.console_write(":" + message)
 			return True
+		if pos == "my_function":
+			self.console_write_link(str(item_id) + "/" + pos, lambda: self.function_edit(item))
+			self.console_write(":" + message)
+			return True
+		if pos in ["getstring", "getsize", "pack", "unpack"]:
+			self.console_write_link(str(item_id) + "/" + pos, lambda: self.extern_type_function_edit(item, pos, lambda: self._project_changed()))
+			self.console_write(":" + message)
+			return True
 		return False
 
 	def _process_error_line(self, line, error_messages, translation_table):

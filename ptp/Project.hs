@@ -153,8 +153,9 @@ edgeNetwork project edge =
 		edgeOfNetwork n = List.elem (edgePlaceId edge) (map placeId (places n))
 
 externTypeFromElement :: Xml.Element -> NelVarDeclaration
-externTypeFromElement e = (name, TypeData name rawType transportMode codes)
+externTypeFromElement e = (name, TypeData id name rawType transportMode codes)
 	where
+		id = read (xmlAttr "id" e)
 		name = xmlAttr "name" e
 		rawType = xmlAttr "raw-type" e
 		codes = [ (xmlAttr "name" e, Xml.strContent e) | e <- Xml.findElements (qstr "code") e ]
@@ -179,7 +180,7 @@ eventFromElement e = Event {
 
 userFunctionFromElement :: TypeTable -> Xml.Element -> UserFunction
 userFunctionFromElement types e = UserFunction {
-	ufunctionName = xmlAttr "name" e,
+	ufunctionId = read (xmlAttr "id" e), ufunctionName = xmlAttr "name" e,
 	ufunctionReturnType = parseType types source $ xmlAttr "return-type" e,
 	ufunctionParameters = parseParameters types source $ xmlAttr "parameters" e,
 	ufunctionWithContext = xmlAttrBool "with-context" e,

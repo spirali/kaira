@@ -30,7 +30,7 @@ data NelType =
 	TypeDouble |
 	TypeTuple [NelType] |
 	TypeArray NelType |
-	TypeData String String TransportMode [ (String, String) ] {- name, rawName, transportMode, functions -}
+	TypeData ID String String TransportMode [ (String, String) ] {- id, name, rawName, transportMode, functions -}
 	deriving (Show, Eq, Ord)
 
 type VarSet = Set.Set String
@@ -108,6 +108,7 @@ data Parameter = Parameter {
 } deriving (Show)
 
 data UserFunction = UserFunction {
+	ufunctionId :: ID,
 	ufunctionName :: String,
 	ufunctionParameters :: [NelVarDeclaration],
 	ufunctionReturnType :: NelType,

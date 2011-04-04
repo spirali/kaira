@@ -111,6 +111,12 @@ class Project(EventSource):
 		self.changed()
 
 	def get_item(self, id):
+		for function in self.functions:
+			if function.id == id:
+				return function
+		for extern in self.extern_types:
+			if extern.id == id:
+				return extern
 		return self.net.get_item(id)
 
 	def has_error_messages(self, item):
@@ -362,7 +368,9 @@ class ExternType:
 		Transport modes: "Disabled", "Direct", "Custom"
 	"""
 
-	def __init__(self, name = "", raw_type = "", transport_mode = "Disabled"):
+	def __init__(self, project, name = "", raw_type = "", transport_mode = "Disabled"):
+		self.project = project
+		self.id = self.project.new_id()
 		self.name = name
 		self.raw_type = raw_type
 		self.transport_mode = transport_mode
@@ -428,6 +436,7 @@ class ExternType:
 
 	def as_xml(self):
 		e = xml.Element("extern-type")
+		e.set("id", str(self.id))
 		e.set("name", self.name)
 		e.set("raw-type", self.raw_type)
 		e.set("transport-mode", self.transport_mode)
@@ -494,8 +503,10 @@ class Function(FunctionBase):
 
 	project = None
 
-	def __init__(self):
+	def __init__(self, project):
 		FunctionBase.__init__(self, "")
+		self.project = project
+		self.id = self.project.new_id()
 		self.return_type = ""
 		self.parameters = ""
 		self.with_context = False
@@ -546,6 +557,7 @@ class Function(FunctionBase):
 
 	def as_xml(self):
 		e = xml.Element("function")
+		e.set("id", str(self.id))
 		e.set("name", self.name)
 		e.set("return-type", self.return_type)
 		e.set("parameters", self.parameters)
@@ -577,7 +589,7 @@ def load_parameter(element, project):
 	project.add_parameter(p)
 
 def load_extern_type(element, project):
-	p = ExternType()
+	p = ExternType(project)
 	p.set_name(utils.xml_str(element, "name"))
 	p.set_raw_type(utils.xml_str(element, "raw-type"))
 	p.set_transport_mode(utils.xml_str(element, "transport-mode"))
@@ -588,7 +600,7 @@ def load_extern_type(element, project):
 	project.add_extern_type(p)
 
 def load_function(element, project):
-	f = Function()
+	f = Function(project)
 	f.set_name(utils.xml_str(element, "name"))
 	f.set_return_type(utils.xml_str(element, "return-type"))
 	f.set_parameters(utils.xml_str(element, "parameters"))
