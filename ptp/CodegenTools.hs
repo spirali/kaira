@@ -164,8 +164,8 @@ exprMemSize TFloat expr = ECall "sizeof" [EVar "float"]
 exprMemSize TDouble expr = ECall "sizeof" [EVar "double"]
 exprMemSize TString expr = ECall "+" [ ECall "sizeof" [ EType "size_t" ], ECall ".size" [ expr ] ]
 exprMemSize (TTuple types) expr = ECall "+" [ exprMemSize t (EAt (EInt x) expr) | (x, t) <- zip [0..] types ]
-exprMemSize (TData _ _ rawType TransportDirect _) expr = ECall "sizeof" [ EType rawType ]
-exprMemSize (TData _ name _ TransportCustom _) expr = ECall (name ++ "_getsize") [ expr ]
+exprMemSize (TData _ rawType TransportDirect _) expr = ECall "sizeof" [ EType rawType ]
+exprMemSize (TData name _ TransportCustom _) expr = ECall (name ++ "_getsize") [ expr ]
 exprMemSize t expr = error $ "exprMemSize: " ++ show t
 
 canBeDirectlyPacked :: Type -> Bool
@@ -173,7 +173,7 @@ canBeDirectlyPacked TInt = True
 canBeDirectlyPacked TDouble = True
 canBeDirectlyPacked TFloat = True
 canBeDirectlyPacked (TTuple types) = all canBeDirectlyPacked types
-canBeDirectlyPacked (TData _ _ _ TransportDirect _) = True
+canBeDirectlyPacked (TData _ _ TransportDirect _) = True
 canBeDirectlyPacked _ = False
 
 -- |Return declarations in instructions (ie, it search for IDefine instructions)
@@ -201,7 +201,7 @@ fromNelType TypeDouble = TDouble
 fromNelType TypeString = TString
 fromNelType TypeBool = TBool
 fromNelType (TypeArray t) = TArray (fromNelType t)
-fromNelType (TypeData a b c d e) = TData a b c d e
+fromNelType (TypeData a b c d) = TData a b c d
 fromNelType (TypeTuple ts) = TTuple $ map fromNelType ts
 
 fromNelVarDeclaration :: NelVarDeclaration -> VarDeclaration

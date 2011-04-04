@@ -69,7 +69,7 @@ patternCheck project decls binded var (TypeTuple types) (ExprTuple exprs) errEve
 patternCheck project decls binded var t (ExprVar v) errEvent | not (Set.member v binded) = ([], [ISet (EVar v) (EVar var)])
 patternCheck project decls binded var t (ExprVar v) errEvent =
 	case List.lookup v decls of
-		Just (TData _ name _ _ _) -> error $ "Extern types cannot be compared " ++ show name ++ " " ++ v
+		Just (TData name _ _ _) -> error $ "Extern types cannot be compared " ++ show name ++ " " ++ v
 		Just _ -> ([], [(IIf (ECall "!=" [(EVar v), (EVar var)]) errEvent INoop)])
 		Nothing -> error "patternCheck: This cannot happend"
 patternCheck project decls binded var t x errEvent = ([], [(IIf (ECall "!=" [process x, (EVar var)]) errEvent INoop)])
@@ -335,7 +335,7 @@ packCode packer TString expr = makeStatement [ ("data", TString), ("size", TRaw 
 			icall ".pack" [ packer, ECall ".c_str" [ EVar "data" ], EVar "size" ]]
 packCode packer (TTuple types) expr =
 	makeStatement [] [ packCode packer t (EAt (EInt x) expr) | (x, t) <- zip [0..] types ]
-packCode packer (TData _ name rawType TransportCustom functions) var =
+packCode packer (TData name rawType TransportCustom functions) var =
 	icall (name ++ "_pack") [ packer, var ]
 packCode packer t expr = error "packCode: Type cannot be packed"
 
@@ -348,8 +348,8 @@ unpackCode unpacker (TTuple types) var =
 	concat [ unpackCode unpacker t name | (name, t) <- vars ] ++
 		[ idefine var (TTuple types) (ETuple [ EVar name | (name, t) <- vars ])]
 	where vars = [ (var ++ show i, t) | (i, t) <- zip [0..] types ]
-unpackCode unpacker (TData id name rawType TransportCustom functions) var =
-	[ idefine var (TData id name rawType TransportCustom functions) (ECall (name ++ "_unpack") [ unpacker ]) ]
+unpackCode unpacker datatype@(TData name rawType TransportCustom functions) var =
+	[ idefine var datatype (ECall (name ++ "_unpack") [ unpacker ]) ]
 
 unpackCode unpacker t var = error $ "unpackCode: Type cannot be unpacked"
 
@@ -594,15 +594,18 @@ createMainInitFunction project = Function {
 		startNetwork n = IIf (ECall "&&" [ test1 n, test2 n ]) (startI n) INoop
 
 
-functionWithCode :: ID -> String -> Type -> [ParamDeclaration] -> String -> Function
-functionWithCode id name returnType params code = Function {
+functionWithCode :: Maybe String -> String -> Type -> [ParamDeclaration] -> String -> Function
+functionWithCode source name returnType params code = Function {
 	functionName = name,
 	parameters = params,
 	instructions = [],
 	extraCode = code,
 	returnType = returnType,
-	functionSource = Just ("*" ++ show id ++ "/" ++ drop (last ((-1) : List.elemIndices '_' name) + 1) name, 1)
+	functionSource = case source of
+		Just x -> Just ("*" ++ x, 1)
+		Nothing -> Nothing
 }
+
 knownTypeFunctions :: [(String, String -> (Type, [ParamDeclaration]))]
 knownTypeFunctions = [
 	("getstring", \raw -> (TRaw "std::string", [ ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
@@ -610,13 +613,19 @@ knownTypeFunctions = [
 	("pack", \raw -> (TVoid, [ ("packer", TRaw "CaPacker &", ParamNormal), ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
 	("unpack", \raw -> (TRaw raw, [ ("unpacker", TRaw "CaUnpacker &", ParamNormal) ])) ]
 
+
 typeFunctions :: Type -> [Function]
-typeFunctions (TData typeId typeName rawType transportMode ((fname, code):rest)) =
-	(functionWithCode typeId (typeName ++ "_" ++ fname) returnType params code)
-		: typeFunctions (TData typeId typeName rawType transportMode rest)
-	where (returnType, params) = case List.lookup fname knownTypeFunctions of
-		Just x -> x rawType
-		Nothing -> error $ "typeFunctions: Unknown function " ++ fname
+typeFunctions (TData typeName rawType _ functions) =
+	map typeFunction functions
+	where
+		typeFunction (fname, code) =
+			let
+				source = (Just $ typeName ++ "/" ++ fname)
+				name = (typeName ++ "_" ++ fname)
+				(returnType, params) = case List.lookup fname knownTypeFunctions of
+					Just x -> x rawType
+					Nothing -> error $ "typeFunctions: Unknown function " ++ fname
+			in functionWithCode source name returnType params code
 typeFunctions _ = []
 
 eventTable :: [ (String, (Type, [ParamDeclaration])) ]
@@ -626,7 +635,7 @@ eventTable = [
 
 createEventFunction :: Event -> Function
 createEventFunction event =
-	functionWithCode (-1) (eventName event) returnType params (eventCode event)
+	functionWithCode Nothing (eventName event) returnType params (eventCode event)
 	where (returnType, params) = case List.lookup (eventName event) eventTable of
 		Just x -> x
 		Nothing -> error $ "createEventFunction: Unknown event " ++ (eventName event)
@@ -643,12 +652,13 @@ parameterAccessFunction parameter = Function {
 
 createUserFunction :: UserFunction -> Function
 createUserFunction ufunction =
-	(functionWithCode (-1) (ufunctionName ufunction)
+	(functionWithCode source (ufunctionName ufunction)
 		(fromNelType (ufunctionReturnType ufunction))
 		(if ufunctionWithContext ufunction then ("ctx", caContext, ParamNormal):params else params)
 		(ufunctionCode ufunction))
-		{ functionSource = Just ("*" ++ show (ufunctionId ufunction) ++ "/my_function", 1) }
-	where params = paramFromVar ParamConst (fromNelVarDeclarations (ufunctionParameters ufunction))
+	where
+		params = paramFromVar ParamConst (fromNelVarDeclarations (ufunctionParameters ufunction))
+		source = Just (show (ufunctionId ufunction) ++ "/user_function")
 
 nodeToProcessFunction :: Project -> Function
 nodeToProcessFunction project = Function {

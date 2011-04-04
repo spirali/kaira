@@ -36,7 +36,7 @@ data Type = TUndefined |
 			TPlace Type |
 			TRaw String |
 			TPointer Type |
-			TData ID String String TransportMode [ (String, String) ] | {- id, name, rawName, transportMode, functions -}
+			TData String String TransportMode [ (String, String) ] | {- name, rawName, transportMode, functions -}
 			TStruct String [VarDeclaration]
 	deriving (Show, Eq, Ord)
 

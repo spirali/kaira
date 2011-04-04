@@ -122,7 +122,7 @@ standardTypes =
 		("Bool", TypeBool) ]
 
 isTransportable :: NelType -> Bool
-isTransportable (TypeData _ _ _ TransportDisabled _) = False
+isTransportable (TypeData _ _ TransportDisabled _) = False
 isTransportable (TypeTuple types) = all isTransportable types
 isTransportable _ = True
 

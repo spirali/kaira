@@ -30,7 +30,7 @@ data NelType =
 	TypeDouble |
 	TypeTuple [NelType] |
 	TypeArray NelType |
-	TypeData ID String String TransportMode [ (String, String) ] {- id, name, rawName, transportMode, functions -}
+	TypeData String String TransportMode [ (String, String) ] {- name, rawName, transportMode, functions -}
 	deriving (Show, Eq, Ord)
 
 type VarSet = Set.Set String

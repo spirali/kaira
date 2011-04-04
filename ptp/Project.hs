@@ -153,9 +153,8 @@ edgeNetwork project edge =
 		edgeOfNetwork n = List.elem (edgePlaceId edge) (map placeId (places n))
 
 externTypeFromElement :: Xml.Element -> NelVarDeclaration
-externTypeFromElement e = (name, TypeData id name rawType transportMode codes)
+externTypeFromElement e = (name, TypeData name rawType transportMode codes)
 	where
-		id = read (xmlAttr "id" e)
 		name = xmlAttr "name" e
 		rawType = xmlAttr "raw-type" e
 		codes = [ (xmlAttr "name" e, Xml.strContent e) | e <- Xml.findElements (qstr "code") e ]
