@@ -132,6 +132,10 @@ class MainWindow(gtk.Window):
 
 		file_menu.append(gtk.SeparatorMenuItem())
 
+		item = gtk.MenuItem("_Connect to application")
+		item.connect("activate", lambda w: self.app.connect_to_application())
+		file_menu.append(item)
+
 		item = gtk.MenuItem("Open lo_g")
 		item.connect("activate", lambda w: self.app.load_log())
 		file_menu.append(item)

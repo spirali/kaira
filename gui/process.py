@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -44,8 +44,11 @@ class ReadLineThread(Thread):
 			with self.lock:
 				if self.exit_flag:
 					return
-			if not self.on_line(line):
+			if not self.on_line(line, self.stream):
 				return
+
+	def readline(self):
+		return self.stream.readline()
 
 	def safe_call(self, callback, *params):
 		if callback is None:
@@ -72,24 +75,38 @@ class ProcessThread(ReadLineThread):
 		self.process.wait()
 		return self.safe_call(self.exit_callback, self.process.returncode)
 
-	def on_line(self, line):
-		return self.safe_call(self.line_callback, line)
+	def on_line(self, line, stream):
+		return self.safe_call(self.line_callback, line, stream)
 
 
 class ConnectionThread(ReadLineThread):
 
-	def __init__(self, stream, line_callback, exit_callback):
-		ReadLineThread.__init__(self, stream)
+	def __init__(self, host, port, line_callback, exit_callback, connect_callback):
+		ReadLineThread.__init__(self, None)
+		self.host = host
+		self.port = port
 		self.line_callback = line_callback
 		self.exit_callback = exit_callback
+		self.connect_callback = connect_callback
+		self.sock = None
 
-	def on_exit(self):
-		self.stream.close()
-		return self.safe_call(self.exit_callback)
+	def run(self):
+		try:
+			self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			self.sock.connect((self.host, self.port))
+			self.stream = os.fdopen(self.sock.fileno(),"r")
+			self.safe_call(self.connect_callback, self.stream)
+			ReadLineThread.run(self)
+		except socket.error, e:
+			self.on_exit(str(e))
 
-	def on_line(self, line):
-		return self.safe_call(self.line_callback, line)
+	def on_exit(self, message = None):
+		if self.stream:
+			self.stream.close()
+		return self.safe_call(self.exit_callback, message)
 
+	def on_line(self, line, stream):
+		return self.safe_call(self.line_callback, line, stream)
 
 
 class Process:
@@ -134,39 +151,39 @@ class Process:
 
 class Connection:
 
-	def __init__(self, hostname, port, line_callback = None, exit_callback = None):
+	def __init__(self, hostname, port, line_callback = None, exit_callback = None, connect_callback = None):
 		self.hostname = hostname
 		self.port = port
 		self.line_callback = line_callback
 		self.exit_callback = exit_callback
+		self.connect_callback = connect_callback
 
 	def start(self):
-		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.sock.connect((self.hostname, self.port))
-		stream = os.fdopen(self.sock.fileno(),"r")
-		self.thread = ConnectionThread(stream, self.line_callback, self.exit_callback)
+		self.thread = ConnectionThread(self.hostname, self.port, self.line_callback, self.exit_callback, self.connect_callback)
 		self.thread.start()
 
 	def write(self, text):
-		self.sock.send(text)
+		self.thread.sock.send(text)
 
 class CommandWrapper:
 
-	def __init__(self, backend, exit_callback = None):
+	def __init__(self, backend):
 		self.backend = backend
 		self.callbacks = []
 		self.lock = Lock()
-		self.exit_callback = exit_callback
 
 	def start(self, *params):
 		self.backend.line_callback = self._line_callback
-		self.backend.exit_callback = self.exit_callback
 		self.backend.start(*params)
 
-	def run_command(self, command, callback):
-		with self.lock:
-			self.callbacks.append(callback)
-		self.backend.write(command + "\n")
+	def run_command(self, command, callback, lines=None):
+
+		if callback:
+			with self.lock:
+				self.callbacks.append((callback, lines))
+
+		if command is not None:
+			self.backend.write(command + "\n")
 
 	def run_command_expect_ok(self, command):
 		def expect_ok(line):
@@ -177,14 +194,22 @@ class CommandWrapper:
 	def shutdown(self):
 		self.backend.shutdown()
 
-	def _line_callback(self, line):
+	def readline(self):
+		""" Read line from backned. !! You can use this only if you are in "callback" !! """
+		return self.backend.readline()
+
+	def _line_callback(self, line, stream):
 		if line.startswith("ERROR:"):
 			print line
 			return False
 
 		with self.lock:
-			assert self.callbacks
-			cb = self.callbacks[0]
+			assert self.callbacks, line
+			cb, lines = self.callbacks[0]
 			del self.callbacks[0]
-		cb(line)
+		if lines is None:
+			cb(line)
+		else:
+			buffer = [ line ] + [ stream.readline() for i in xrange(lines - 1) ]
+			cb(buffer)
 		return True

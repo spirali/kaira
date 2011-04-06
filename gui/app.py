@@ -27,13 +27,13 @@ import gtkutils
 import paths
 from mainwindow import MainWindow, Tab
 from netview import NetView
-from simview import SimViewTab
 from parameters import ParametersValueDialog
 from externtypes import ExternTypeEditor
 from projectconfig import ProjectConfig
 from simulation import Simulation, SimulationException
 from functions import FunctionEditor
 from drawing import VisualConfig
+import simview
 import codeedit
 import process
 import utils
@@ -271,22 +271,34 @@ class App:
 		self.edit_sourcefile(self.project.get_head_filename())
 
 	def simulation_start(self, try_reuse_params):
+		def output(line, stream):
+			self.console_write("OUTPUT: " + line, "output")
+			return True
+
 		def project_builded(project):
+			sprocess = process.Process(project.get_executable_filename(), output)
+			sprocess.cwd = project.get_directory()
+			# FIXME: Timeout
+			other_params = [ "-p%s=%s" % (p,param_values[p]) for p in param_values ]
+			first_line = sprocess.start_and_get_first_line(["-s", "auto", "-b", "--process=1"] + other_params)
 			try:
-				simulation = Simulation(project, param_values)
-				self.window.add_tab(SimViewTab(self, simulation))
-			except SimulationException as e:
-				self.console_write(str(e), "error")
+				port = int(first_line)
+			except ValueError:
+				self.console_write("Simulated program return invalid first line: " + first_line, "error")
+				return
 
-		project, idtable = self.project.copy()
-		transtable = utils.inverse_dict(idtable) # Table new_id -> old_id
+			simulation = self.new_simulation()
+			simulation.quit_on_shutdown = True
+			simulation.set_callback("inited", lambda: self.window.add_tab(simview.SimViewTab(self, simulation)))
+			simulation.set_callback("shutdown", lambda: sprocess.shutdown())
+			simulation.connect("localhost", port)
 
-		if project.get_parameters(): # Project has parameters
+		if self.project.get_parameters(): # Project has parameters
 			cache = self.project.get_param_value_cache()
 			if try_reuse_params and cache is not None:
 				param_values = cache
 			else:
-				dialog = ParametersValueDialog(self.window, project.get_parameters())
+				dialog = ParametersValueDialog(self.window, self.project.get_parameters())
 				try:
 					if dialog.run() == gtk.RESPONSE_OK:
 						param_values = dialog.get_values()
@@ -297,7 +309,7 @@ class App:
 					dialog.destroy()
 		else:
 			param_values = {}
-		self._start_build(project, project_builded, translation_table = transtable)
+		self._start_build(self.project, project_builded)
 
 	def show_message_dialog(self, text, type):
 		error_dlg = gtk.MessageDialog(parent=self.window, type=type, message_format=text, buttons=gtk.BUTTONS_OK)
@@ -341,6 +353,28 @@ class App:
 			surface.finish()
 		self.console_write("Network exported to 'network.svg'.", "success")
 
+	def new_simulation(self):
+		simulation = Simulation()
+		simulation.set_callback("error", lambda line: self.console_write(line, "error"))
+		return simulation
+
+
+	def connect_to_application(self):
+		def inited():
+			self.console_write("Connected\n", "success")
+			self.window.add_tab(simview.SimViewTab(self, simulation, "{0}:{1}".format(host, port)))
+
+		address = simview.connect_dialog(self.window);
+		if address is None:
+			return
+
+		host = address[0]
+		port = address[1]
+		simulation = self.new_simulation()
+		simulation.set_callback("inited", inited)
+		self.console_write("Connecting to {0}:{1} ...\n".format(host, port))
+		simulation.connect(host, port)
+
 	def _project_changed(self):
 		self.nv.net_changed()
 
@@ -351,7 +385,7 @@ class App:
 		def on_exit(code):
 			if build_ok_callback and code == 0:
 				build_ok_callback(project)
-		def on_line(line):
+		def on_line(line, stream):
 			self._process_error_line(line, None, translation_table)
 			return True
 		p = process.Process("make",on_line, on_exit)
@@ -378,7 +412,7 @@ class App:
 					self._process_error_line(line, error_messages, translation_table)
 				self.project.set_error_messages(error_messages)
 				self.console_write("Building failed\n", "error")
-		def on_line(line):
+		def on_line(line, stream):
 			stdout.append(line)
 			return True
 		if not self.export_project(proj):

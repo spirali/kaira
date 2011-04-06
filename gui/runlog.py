@@ -136,26 +136,14 @@ class Log:
 			lines_count = int(settings.get("description-lines"))
 			self.process_count = int(settings.get("process-count"))
 			proj = xml.fromstring("\n".join([ f.readline() for i in xrange(lines_count) ]))
-			self.project, idtable = project.load_project_from_xml(proj, "")
-
-			place_content = {}
-			areas_instances = {}
+			self.project, self.idtable = project.load_project_from_xml(proj, "")
 
 			self.node_to_process = {}
 
-			for process_id in xrange(self.process_count):
-				report = xml.fromstring(f.readline())
-				pc, transitions, ai = simulation.extract_report(report)
-				pc = utils.translate(idtable, pc)
-				transitions = utils.translate(idtable, transitions)
-				place_content = utils.join_dicts(pc, place_content, utils.join_dicts)
-				areas_instances = utils.join_dicts(ai, areas_instances, lambda x,y: x + y)
-				for area in ai.values():
-					for iid, node, running in area:
-						self.node_to_process[node] = process_id
+			lines = [ f.readline() for i in xrange(self.process_count) ]
+			place_content, self.areas_instances, transitions, self.node_to_process = \
+				simulation.join_reports(lines, self.idtable)
 
-			self.idtable = idtable
-			self.areas_instances = areas_instances
 			frame = LogFrame(0, place_content, "I")
 			self.frames = [ frame.copy() ]
 
@@ -163,14 +151,14 @@ class Log:
 			inf = float("inf")
 			if next_time < inf:
 				diff, next_time = self.load_frame_diff(f, next_time)
-				frame = diff.apply_on_frame(frame, self.project, idtable)
+				frame = diff.apply_on_frame(frame, self.project, self.idtable)
 				while next_time < inf:
 					if len(self.frames) % CACHE_FRAME_PERIOD == 0:
 						self.frames.append(frame.copy())
 					else:
 						self.frames.append(diff)
 					diff, next_time = self.load_frame_diff(f, next_time)
-					frame = diff.apply_on_frame(frame, self.project, idtable)
+					frame = diff.apply_on_frame(frame, self.project, self.idtable)
 				self.frames.append(diff)
 			self.maxtime = self.frames[-1].get_time()
 

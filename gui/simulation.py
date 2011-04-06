@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -21,6 +21,7 @@ import xml.etree.ElementTree as xml
 import process
 import utils
 import random
+from project import load_project_from_xml
 from events import EventSource
 
 class SimulationException(Exception):
@@ -28,40 +29,47 @@ class SimulationException(Exception):
 
 class Simulation(EventSource):
 	"""
-		Events: changed, inited, output, error
+		Events: changed, inited, error, shutdown
 	"""
 
-	def __init__(self, project, param_values):
+	controller = None
+	project = None
+	process_count = None
+	idtable = None
+	quit_on_shutdown = False
+
+	def __init__(self):
 		EventSource.__init__(self)
-		self.project = project
-		self.enabled_transitions = {}
 		self.areas_instances = {}
 		self.places_content = {}
 		self.random = random.Random()
-		self.process = process.Process(project.get_executable_filename(),self._simulator_output)
-		self.process.cwd = project.get_directory()
-		# FIXME: Timeout
 
-		other_params = [ "-p%s=%s" % (p,param_values[p]) for p in param_values ]
-		first_line = self.process.start_and_get_first_line( ["-msim"] + other_params )
-		try:
-			port = int(first_line)
-		except ValueError:
-			raise SimulationException("Simulation failed: " + first_line)
+	def connect(self, host, port):
+		def connected(stream):
+			self.controller = controller
+			self.read_header(stream)
+			self.query_reports(lambda: self.emit_event("inited"))
+		connection = process.Connection(host, port, exit_callback = self.controller_exit, connect_callback = connected)
+		controller = process.CommandWrapper(connection)
+		controller.start()
 
-		self.controller = process.CommandWrapper(process.Connection("localhost", port), self.controller_exit)
-		self.controller.start()
-		self.query_first_reports()
+	def controller_exit(self, message):
+		if message:
+			self.emit_event("error", message + "\n")
 
-	def controller_exit(self):
 		if self.controller:
-			self.emit_event("error", "Simulation terminated\n")
-			self.controller = None
+			self.emit_event("error", "Traced process terminated\n")
+
+		self.controller = None
 
 	def shutdown(self):
-		self.process.shutdown()
+		if self.controller:
+			if self.quit_on_shutdown:
+				self.controller.run_command("QUIT", None)
+			else:
+				self.controller.run_command("DETACH", None)
 		self.controller = None
-		# Shutdown of the controller is not necessary because when the simulator is terminated then socket is closed
+		self.emit_event("shutdown")
 
 	def get_net(self):
 		return self.project.net
@@ -81,15 +89,23 @@ class Simulation(EventSource):
 	def get_tokens_of_place(self, place):
 		return self.places_content[place.get_id()]
 
-	def query_reports(self):
-		def reports_callback(line):
-			self._process_report(xml.fromstring(line))
-		self.controller.run_command("REPORTS", reports_callback)
+	def read_header(self, stream):
+		header = xml.fromstring(stream.readline())
+		lines_count = int(header.get("description-lines"))
+		self.process_count = int(header.get("process-count"))
+		project_string = "\n".join((stream.readline() for i in xrange(lines_count)))
+		self.project, self.idtable = load_project_from_xml(xml.fromstring(project_string), "")
 
-	def query_first_reports(self):
-		def reports_callback(line):
-			self._process_first_report(xml.fromstring(line))
-		self.controller.run_command("REPORTS", reports_callback)
+	def query_reports(self, callback = None):
+		def reports_callback(lines):
+			self.places_content, areas_instances_data, self.enabled_transitions, self.node_to_process = \
+				join_reports(lines, self.idtable)
+			for network_id in areas_instances_data:
+					self.areas_instances[network_id] = InstancedArea(areas_instances_data[network_id])
+			if callback:
+				callback()
+			self.emit_event("changed")
+		self.controller.run_command("REPORTS", reports_callback, self.process_count)
 
 	def fire_transition(self, transition, iid):
 		if self.controller:
@@ -105,28 +121,6 @@ class Simulation(EventSource):
 	def enabled_instances_of_transition(self, transition):
 		return self.enabled_transitions[transition.get_id()]
 
-	def _process_report(self, root):
-		places_content, enabled_transitions, areas_instances_data = extract_report(root)
-		self.enabled_transitions = enabled_transitions
-		self.places_content = places_content
-		for network_id in areas_instances_data:
-			instanced_area = self.areas_instances[network_id]
-			for iid, node, running in areas_instances_data[network_id]:
-				instanced_area.set_running(iid, running)
-		self.emit_event("changed")
-
-	def _process_first_report(self, root):
-		places_content, enabled_transitions, areas_instances_data = extract_report(root)
-		self.enabled_transitions = enabled_transitions
-		self.places_content = places_content
-		self.areas_instances = {}
-		for network_id in areas_instances_data:
-			self.areas_instances[network_id] = InstancedArea(areas_instances_data[network_id])
-		self.emit_event("inited")
-
-	def _simulator_output(self, line):
-		self.emit_event("output", "OUTPUT: " + line)
-		return True
 
 class InstancedArea:
 
@@ -169,3 +163,23 @@ def extract_report(root):
 			if utils.xml_bool(transition_e, "enable") and running:
 				transitions[transition_id].append(iid)
 	return (places_content, transitions, areas_instances)
+
+def join_reports(lines, idtable):
+	place_content = {}
+	areas_instances = {}
+	node_to_process = {}
+	transitions = {}
+
+	for process_id, line in enumerate(lines):
+		report = xml.fromstring(line)
+		pc, tr, ai = extract_report(report)
+		pc = utils.translate(idtable, pc)
+		tr = utils.translate(idtable, tr)
+		place_content = utils.join_dicts(pc, place_content, utils.join_dicts)
+		areas_instances = utils.join_dicts(ai, areas_instances, lambda x,y: x + y)
+		transitions = utils.join_dicts(tr, transitions, lambda x,y: x + y)
+		for area in ai.values():
+			for iid, node, running in area:
+				node_to_process[node] = process_id
+
+	return place_content, areas_instances, transitions, node_to_process

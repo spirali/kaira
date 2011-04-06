@@ -16,8 +16,8 @@ mpicailie.o: cailie.cpp cailie.h
 %.o: %.cpp %.h
 	${CC} -c $*.cpp ${CFLAGS}
 
-libcailie.a: cailie.o cailie_threads.o cailie_sim.o
-	ar rcs libcailie.a cailie.o cailie_threads.o cailie_sim.o
+libcailie.a: cailie.o cailie_threads.o
+	ar rcs libcailie.a cailie.o cailie_threads.o
 
 libmpicailie.a: mpicailie.o cailie_mpi.o
 	ar rcs libmpicailie.a mpicailie.o cailie_mpi.o

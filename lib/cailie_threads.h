@@ -16,8 +16,12 @@ class CaThreadsModule : public CaModule {
 		CaContext * get_context(int node) { return _contexts[node]; }
 		CaThreadsProcess * get_process(int process_id) { return _processes[process_id]; }
 		int get_nodes_count() { return nodes_count; }
-
+		int process_commands(FILE *comm_in, FILE *comm_out);
 	protected:
+
+		void write_reports(FILE *out);
+		void fire_transition(int transition_id, int iid);
+
 		CaThreadsProcess **_processes;
 		CaContext **_contexts;
 		void queue_add(int node, CaThreadsPacket *packet);
@@ -33,6 +37,7 @@ class CaThreadsProcess : public CaProcess {
 		void queue_add(CaThreadsPacket *packet);
 		void send(CaContext *ctx, int target, int data_id, void *data, size_t size);
 		void send_to_all(CaContext *ctx, int data_id, const void *data, size_t size);
+		void send_to_all_processes(int data_id, const void *data, size_t size);
 		int recv();
 		void idle();
 		void quit(CaContext *ctx);
@@ -46,6 +51,8 @@ class CaThreadsProcess : public CaProcess {
 
 		CaThreadsModule * get_module() { return _module; }
 	protected:
+		void process_packets(CaThreadsPacket *packet);
+
 		pthread_mutex_t _lock;
 		CaThreadsPacket *_packet;
 		CaThreadsModule *_module;

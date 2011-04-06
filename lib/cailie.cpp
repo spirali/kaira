@@ -13,7 +13,6 @@
 #ifndef CA_MPI
 
 #include "cailie_threads.h"
-#include "cailie_sim.h"
 static std::string module_name = "threads";
 
 #else
@@ -29,6 +28,8 @@ int ca_process_count = 0;
 const char *ca_project_description_string = NULL;
 int ca_log_on = 0;
 std::string ca_log_default_name = "";
+int ca_listen_port = -1;
+int ca_block_on_start = 0;
 
 CaContext::CaContext(int node, CaProcess *process)
 {
@@ -54,8 +55,10 @@ void CaContext::quit()
 
 void CaContext::halt()
 {
-  _halt_flag = true;
-  _process->context_halted(this);
+	if (!_halt_flag) {
+		_halt_flag = true;
+		_process->context_halted(this);
+	}
 }
 
 void CaContext::start_logging(const std::string& logname)
@@ -159,6 +162,29 @@ void CaProcess::write_report(FILE *out)
 	}
 	CaOutputBlock *block = output.back();
 	block->write(out);
+	delete block;
+	fputs("\n", out);
+}
+
+void ca_write_header(FILE *out)
+{
+	int lines = 1;
+	for (const char *c = ca_project_description_string; (*c) != 0; c++) {
+		if ((*c) == '\n') {
+			lines++;
+		}
+	}
+
+	CaOutput output;
+	CaContextsMap::iterator i;
+	output.child("header");
+	output.set("process-count", ca_process_count);
+	output.set("description-lines", lines);
+	CaOutputBlock *block = output.back();
+	block->write(out);
+	delete block;
+	fputs("\n", out);
+	fputs(ca_project_description_string, out);
 	fputs("\n", out);
 }
 
@@ -174,17 +200,7 @@ void CaProcess::init_log(const std::string &logname)
 			lines++;
 		}
 	}
-
-	CaOutput output;
-	CaContextsMap::iterator i;
-	output.child("log");
-	output.set("process-count", ca_process_count);
-	output.set("description-lines", lines);
-	_logger->write(output.back());
-	_logger->log_string("\n");
-
-	_logger->log_string(ca_project_description_string);
-	_logger->log_string("\n");
+	ca_write_header(_logger->get_file());
 	write_report(_logger->get_file());
 	_logger->log_time();
 	_logger->flush();
@@ -219,6 +235,11 @@ void CaProcess::start_scheduler() {
 
 	if (ca_log_on) {
 		init_log(ca_log_default_name);
+	}
+
+	recv();
+	if (_running_nodes == 0) {
+		return;
 	}
 
 	CaContextsMap::iterator i;
@@ -300,9 +321,6 @@ void ca_main(int nodes_count, InitFn *init_fn) {
 	if (module_name == "threads") {
 		m = new CaThreadsModule();
 	}
-	if (module_name == "sim") {
-		m = new CaSimModule();
-	}
 	#endif
 	if (m == NULL) {
 		fprintf(stderr, "Unknown module '%s'\n", module_name.c_str());
@@ -359,7 +377,7 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 	MPI_Init(&argc, &argv);
 	#endif
 
-	while ((c = getopt_long (argc, argv, "hp:m:r:l:", longopts, NULL)) != -1)
+	while ((c = getopt_long (argc, argv, "hp:m:r:l:s:b", longopts, NULL)) != -1)
 		switch (c) {
 			case 'm': {
 				module_name = optarg;
@@ -389,7 +407,7 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 				char *s = str;
 				while ( (*s) != 0 && (*s) != '=') { s++; }
 				if ((*s) == 0) {
-					printf("Invalid format of -p\n");
+					fprintf(stderr, "Invalid format of -p\n");
 					exit(1);
 				}
 				*s = 0;
@@ -401,7 +419,21 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 				ca_log_on = 1;
 				ca_log_default_name = optarg;
 			} break;
-
+			case 's': {
+				if (!strcmp(optarg, "auto")) {
+					ca_listen_port = 0;
+					break;
+				}
+				ca_listen_port = atoi(optarg);
+				if (ca_listen_port == 0) {
+					fprintf(stderr, "Invalid value for -s\n");
+					exit(1);
+				}
+				break;
+			}
+			case 'b': {
+				ca_block_on_start = 1;
+			} break;
 			case '?':
 			default:
 				exit(1);
@@ -410,7 +442,7 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 	for (t = 0; t < params_count; t++) {
 		if (!setted[t]) {
 			exit_f = true;
-			printf("Mandatory parameter '%s' required\n", param_names[t]);
+			fprintf(stderr, "Mandatory parameter '%s' required\n", param_names[t]);
 		}
 	}
 	if (exit_f) { exit(1); }

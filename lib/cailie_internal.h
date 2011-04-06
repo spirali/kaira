@@ -38,8 +38,8 @@ class CaProcess {
 		virtual void start_logging(CaContext *ctx, const std::string& logname) = 0;
 		virtual void stop_logging(CaContext *ctx) = 0;
 
-      protected:
 		void write_report(FILE *out);
+      protected:
 		int _process_id;
 		CaContextsMap _contexts;
 		int _running_nodes;
@@ -77,5 +77,8 @@ class CaJob {
 
 extern NodeToProcessFn *ca_node_to_process;
 extern std::string ca_log_default_name;
+void ca_write_header(FILE *out);
+extern int ca_listen_port;
+extern int ca_block_on_start;
 
 #endif

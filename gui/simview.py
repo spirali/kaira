@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -26,10 +26,10 @@ import utils
 import mainwindow
 
 class SimViewTab(mainwindow.Tab):
-	def __init__(self, app, simulation):
+	def __init__(self, app, simulation, tabname = "Simulation"):
 		self.simulation = simulation
 		simview = SimView(app, simulation)
-		mainwindow.Tab.__init__(self, "Simulation", simview, None)
+		mainwindow.Tab.__init__(self, tabname, simview, None)
 
 	def close(self):
 		mainwindow.Tab.close(self)
@@ -39,11 +39,10 @@ class SimView(gtk.VBox):
 	def __init__(self, app, simulation):
 		gtk.VBox.__init__(self)
 		self.simulation = simulation
-		self.registered = False
 
 		self.pack_start(self._buttons(), False, False)
 		self.canvas_sc = gtk.ScrolledWindow()
-		self.canvas = self._create_canvas(app.nv.get_zoom())
+		self.canvas = self._create_canvas(1)
 		self.canvas.set_size_and_viewport_by_net()
 		self.canvas_sc.add_with_viewport(self.canvas)
 
@@ -57,9 +56,7 @@ class SimView(gtk.VBox):
 		self.pack_start(self.instance_canvas_sc)
 
 		simulation.set_callback("changed", self._simulation_changed)
-		simulation.set_callback("inited", self._simulation_inited)
-		simulation.set_callback("output", lambda line: app.console_write(line, "output"))
-		simulation.set_callback("error", lambda line: app.console_write(line, "error"))
+		self._visualconfigs()
 
 	def redraw(self):
 		self.instance_canvas.redraw()
@@ -86,7 +83,7 @@ class SimView(gtk.VBox):
 			self.canvas_sc.show()
 
 	def _create_canvas(self, zoom):
-		c = NetCanvas(self.get_net(), None, VisualConfig(), zoom = zoom)
+		c = NetCanvas(self.get_net(), None, VisualConfig(), zoom = 1)
 		c.set_callback("button_down", self._button_down)
 		c.show()
 		return c
@@ -136,21 +133,19 @@ class SimView(gtk.VBox):
 			cr.show_text("HALTED")
 			cr.stroke()
 
-	def _simulation_inited(self):
+	def _visualconfigs(self):
 		def area_callbacks(area, i):
 			vconfig = InstanceVisualConfig(self.simulation, area, i)
 			draw_fn = lambda cr,w,h,vx,vy: self._instance_draw(cr, w, h, vx, vy, vconfig, area, i)
 			click_fn = lambda position: self._on_instance_click(position, area, i)
 			return (draw_fn, click_fn)
-		if not self.registered:
-			self.registered = True
-			for area in self.get_net().areas():
-				callbacks = [ area_callbacks(area, i) for i in xrange(self.simulation.get_area_instances_number(area)) ]
-				sz, pos = self._view_for_area(area)
-				self.instance_canvas.register_line(sz, pos, callbacks)
-			self.instance_canvas.end_of_registration()
-			self.canvas.set_vconfig(OverviewVisualConfig(self.simulation))
-		self.redraw()
+
+		for area in self.get_net().areas():
+			callbacks = [ area_callbacks(area, i) for i in xrange(self.simulation.get_area_instances_number(area)) ]
+			sz, pos = self._view_for_area(area)
+			self.instance_canvas.register_line(sz, pos, callbacks)
+		self.instance_canvas.end_of_registration()
+		self.canvas.set_vconfig(OverviewVisualConfig(self.simulation))
 
 	def _view_for_area(self, area):
 		sz = utils.vector_add(area.get_size(), (80, 95))
@@ -201,3 +196,21 @@ class InstanceVisualConfig(VisualConfig):
 			tokens = self.simulation.get_tokens_of_place(item)
 			d.set_tokens(tokens[self.iid])
 		return d
+
+def connect_dialog(mainwindow):
+	builder = gtkutils.load_ui("connect-dialog")
+	dlg = builder.get_object("connect-dialog")
+	try:
+
+		host = builder.get_object("host")
+		port = builder.get_object("port")
+		port.set_value(10000)
+
+		dlg.set_title("Connect")
+		dlg.set_transient_for(mainwindow)
+		if dlg.run() == gtk.RESPONSE_OK:
+			return (host.get_text(), int(port.get_value()))
+		return None
+	finally:
+		dlg.destroy()
+
