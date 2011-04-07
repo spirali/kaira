@@ -70,7 +70,7 @@ data Instruction =
 	ISet Expression Expression |
 	IIf Expression Instruction Instruction |
 	IForeach String String Expression [Instruction] | {- var counterVar array body -}
-	IStatement [VarDeclaration] [Instruction] |
+	IStatement [Instruction] |
 	IDefine String Type (Maybe Expression) |
 	IReturn Expression |
 	IContinue |

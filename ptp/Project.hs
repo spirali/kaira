@@ -179,7 +179,7 @@ eventFromElement e = Event {
 
 userFunctionFromElement :: TypeTable -> Xml.Element -> UserFunction
 userFunctionFromElement types e = UserFunction {
-	ufunctionName = xmlAttr "name" e,
+	ufunctionId = read (xmlAttr "id" e), ufunctionName = xmlAttr "name" e,
 	ufunctionReturnType = parseType types source $ xmlAttr "return-type" e,
 	ufunctionParameters = parseParameters types source $ xmlAttr "parameters" e,
 	ufunctionWithContext = xmlAttrBool "with-context" e,

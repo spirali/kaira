@@ -30,13 +30,6 @@ import qualified Data.Map as Map
 -- | Shortcut for instruction calling fuction
 icall name params = IExpr $ ECall name params
 
-makeStatement :: [VarDeclaration] -> [Instruction] -> Instruction
-makeStatement decls = IStatement decls
-
-makeStatement' :: [VarDeclaration] -> [(String, Type, Expression)] -> [Instruction] -> Instruction
-makeStatement' decls declsWithInit instructions =
-	makeStatement decls $ [ idefine name t init | (name, t, init) <- declsWithInit ] ++ instructions
-
 idefine :: String -> Type -> Expression -> Instruction
 idefine name t expr = IDefine name t (Just expr)
 
@@ -52,6 +45,8 @@ declarationsJoin da db = Declarations {
 	funDeclarations = funDeclarations da ++ funDeclarations db
 }
 
+sizeType = TRaw "size_t"
+
 returnTypeOfFunction :: Declarations -> String -> Type
 returnTypeOfFunction declarations name =
 	case List.find (\(n, r, p) -> n == name) (funDeclarations declarations) of
@@ -63,6 +58,10 @@ makeDeclarations vars funs = Declarations {
 	varDeclarations = vars,
 	funDeclarations = funs
 }
+
+makeStatement :: [VarDeclaration] -> [Instruction] -> Instruction
+makeStatement decls instructions = 
+	IStatement $ [ idefineEmpty name t | (name, t) <- decls ] ++ instructions
 
 emptyDeclarations = makeDeclarations [] []
 
@@ -132,7 +131,7 @@ instructionExprs :: Instruction -> [Expression]
 instructionExprs (IExpr expr) = [expr]
 instructionExprs (ISet expr1 expr2) = [expr1, expr2]
 instructionExprs (IIf expr i1 i2) = [ expr ] ++ instructionExprs i1 ++ instructionExprs i2
-instructionExprs (IStatement decls instrs) = concatMap instructionExprs instrs
+instructionExprs (IStatement instrs) = concatMap instructionExprs instrs
 instructionExprs (IForeach _ _ expr instrs) = concatMap instructionExprs instrs
 instructionExprs INoop = []
 instructionExprs _ = []
@@ -141,7 +140,7 @@ mapExprs :: (Expression -> Expression) -> Instruction -> Instruction
 mapExprs fn (IExpr e) = IExpr $ fn e
 mapExprs fn (ISet e1 e2) = ISet (fn e1) (fn e2)
 mapExprs fn (IIf e i1 i2) = IIf (fn e) (mapExprs fn i1) (mapExprs fn i2)
-mapExprs fn (IStatement decls is) = IStatement decls $ map (mapExprs fn) is
+mapExprs fn (IStatement instrs) = IStatement $ map (mapExprs fn) instrs
 mapExprs fn (IDefine name t (Just expr)) = IDefine name t $ Just (fn expr)
 mapExprs fn (IForeach a b e is) = IForeach a b (fn e) $ map (mapExprs fn) is
 mapExprs fn x = x
@@ -150,9 +149,9 @@ mapExprs' :: (Declarations -> Expression -> Expression) -> Declarations -> Instr
 mapExprs' fn decls (IExpr e) = IExpr $ fn decls e
 mapExprs' fn decls (ISet e1 e2) = ISet (fn decls e1) (fn decls e2)
 mapExprs' fn decls (IIf e i1 i2) = IIf (fn decls e) (mapExprs' fn decls i1) (mapExprs' fn decls i2)
-mapExprs' fn decls (IStatement d is) =
-	IStatement d $ map (mapExprs' fn newDecls) is
-	where newDecls = statementDeclarations d is `declarationsJoin` decls
+mapExprs' fn decls (IStatement instructions) =
+	IStatement $ map (mapExprs' fn newDecls) instructions
+	where newDecls = statementDeclarations instructions `declarationsJoin` decls
 mapExprs' fn decls (IDefine name t (Just expr)) = IDefine name t $ Just (fn decls expr)
 mapExprs' fn decls (IForeach a b e is) = IForeach a b (fn decls e) $ map (mapExprs' fn decls) is
 mapExprs' fn decls x = x
@@ -184,9 +183,9 @@ statementVarList instructions =
 		idefs lst (IDefine name t _) = (name, t) : lst
 		idefs lst _ = lst
 
-statementDeclarations :: [VarDeclaration] -> [Instruction] -> Declarations
-statementDeclarations decls instructions =
-	makeDeclarations (decls ++ statementVarList instructions) []
+statementDeclarations :: [Instruction] -> Declarations
+statementDeclarations instructions =
+	makeDeclarations (statementVarList instructions) []
 
 paramFromVar :: ParamType -> [VarDeclaration] -> [ParamDeclaration]
 paramFromVar pt decls = [ (name, t, pt) | (name, t) <- decls ]
