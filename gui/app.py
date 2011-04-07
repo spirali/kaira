@@ -60,9 +60,15 @@ class App:
 				self.console_write("File '%s' not found\n" % args[0], "error")
 
 	def run(self):
-		gtk.gdk.threads_init()
-		self.window.show()
-		gtk.main()
+		try:
+			gtk.gdk.threads_init()
+			self.window.show()
+			gtk.main()
+		finally:
+			self.shutdown()
+
+	def shutdown(self):
+		self.window.close_all_tabs()
 
 	def set_project(self, project):
 		self.project = project
