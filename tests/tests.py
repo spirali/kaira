@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 from testutils import RunProgram
 from unittest import TestCase
@@ -36,6 +37,14 @@ class BuildingTest(TestCase):
 		RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
 		RunProgram("python", [ CMDUTILS, "--export", filename ]).run()
 		RunProgram(PTP_BIN, [ name + ".xml", name + ".cpp" ]).fail(final_output)
+
+	def failed_make(self, filename, stderr, make_args = []):
+		name, ext = os.path.splitext(filename)
+		directory = os.path.dirname(name)
+		RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
+		RunProgram("python", [ CMDUTILS, "--export", filename ]).run()
+		RunProgram(PTP_BIN, [ name + ".xml", name + ".cpp" ]).run()
+		RunProgram("make", make_args, cwd = directory).fail(expected_stderr_prefix = stderr)
 
 	def test_helloworld(self):
 		self.build(os.path.join(TEST_PROJECTS, "helloworlds", "helloworld.proj"), "Hello world 12\n")
@@ -103,7 +112,11 @@ class BuildingTest(TestCase):
 	def test_getmore(self):
 		self.build(os.path.join(TEST_PROJECTS, "getmore", "getmore.proj"), "Ok 7 13\n")
 
+	def test_broken_userfunction(self):
+		self.failed_make(os.path.join(TEST_PROJECTS, "broken", "broken_userfunction.proj"), "*106/user_function:")
 
+	def test_broken_externtype_function(self):
+		self.failed_make(os.path.join(TEST_PROJECTS, "broken", "broken_externtype_function.proj"), "*MyType/getsize:1"), 
 
 if __name__ == '__main__':
     unittest.main()

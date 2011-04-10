@@ -18,22 +18,25 @@ class RunProgram:
 			self.error("Stderr is not empty but: %s" % errs)
 		if pr.returncode != 0:
 			self.error("Return code is not zero")
-		if expected_output is not None:
-			if output != expected_output:
-				self.error("Excepted %s, got %s" % (expected_output, output))
+		self.check_output(expected_output, output)
 		return output
 
-	def fail(self, expected_output = None):
+	def fail(self, expected_stdout = None, expected_stderr = None, expected_stderr_prefix = None):
 		pr = subprocess.Popen([self.filename] + self.parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd = self.cwd)
 		output,errs = pr.communicate()
 		if pr.returncode == 0:
 			self.error("Expected fail, but return code is zero")
-		if expected_output is not None:
-			if output != expected_output:
-				self.error("Excepted %s, got %s" % (expected_output, output))
+		self.check_output(expected_stdout, output)
+		self.check_output(expected_stderr, errs)
+		self.check_output(expected_stderr_prefix, errs, lambda e, o: o.startswith(e))
+
+	def check_output(self, expected, output, f = lambda a, b: a == b):
+		if expected is not None:
+			if not f(expected, output):
+				self.error("Excepted >>{0}<<, got >>{1}<<".format(expected, output))
 
 	def error(self, text):
-		raise Exception("Invalid output '%s/%s': %s" % (self.filename, self.parameters, text))
+		raise Exception("Program '%s/%s': %s" % (self.filename, self.parameters, text))
 
 
 	

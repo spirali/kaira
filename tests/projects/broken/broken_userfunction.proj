@@ -1,0 +1,2 @@
+<project><configuration><function id="106" name="myFunction" parameters="" return-type="Int" with-context="False">	bad code
+</function><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net id="101"><place id="102" init_string="" place_type="Int" radius="20" x="400" y="100" /><transition guard="" id="103" name="" sx="70" sy="35" x="400" y="250" /><edge from_item="102" id="104" inscription="x" inscription_x="425" inscription_y="175" to_item="103" /></net></project>
