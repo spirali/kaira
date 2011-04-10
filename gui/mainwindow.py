@@ -200,6 +200,14 @@ class MainWindow(gtk.Window):
 		item.connect("activate", lambda w: self.app.edit_headfile())
 		edit_menu.append(item)
 
+		edit_menu.append(gtk.SeparatorMenuItem())
+
+		item = gtk.MenuItem("Edit _settings")
+		item.connect("activate", lambda w: self.app.edit_settings())
+		edit_menu.append(item)
+
+
+
 		tool_menu = gtk.Menu()
 		item = gtk.MenuItem("Export network to SVG")
 		item.connect("activate", lambda w: self.app.export_to_svg())

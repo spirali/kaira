@@ -40,6 +40,7 @@ import utils
 import cairo
 import runlog
 import logview
+import settings
 
 class App:
 	
@@ -49,6 +50,9 @@ class App:
 		self.nv = None
 		self._open_welcome_tab()
 		self.grid_size = 1
+		self.settings = {
+			"save-before-build" : True
+		}
 
 		if args:
 			if os.path.isfile(args[0]):
@@ -184,9 +188,9 @@ class App:
 		finally:
 			dialog.destroy()
 
-	def _save_project(self):
+	def _save_project(self, silent = False):
 		self.window.foreach_tab(lambda tab: tab.project_save())
-		if self._catch_io_error(self.project.save, True, False):
+		if self._catch_io_error(self.project.save, True, False) and not silent:
 			self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
 
 	def build_project(self):
@@ -266,6 +270,12 @@ class App:
 			return
 		w = ProjectConfig(self)
 		self.window.add_tab(Tab("Project", w, "project-config"))
+
+	def edit_settings(self):
+		if self.window.switch_to_tab_by_key("settings"):
+			return
+		w = settings.SettingsWidget(self)
+		self.window.add_tab(Tab("Settings", w, "settings"))
 
 	def edit_sourcefile(self, filename):
 		tab_tag = "file:" + filename
@@ -381,6 +391,12 @@ class App:
 		self.console_write("Connecting to {0}:{1} ...\n".format(host, port))
 		simulation.connect(host, port)
 
+	def get_settings(self, name):
+		return self.settings[name]
+
+	def set_settings(self, name, value):
+		self.settings[name] = value
+
 	def _project_changed(self):
 		self.nv.net_changed()
 
@@ -402,6 +418,8 @@ class App:
 			p.start([target])
 
 	def _start_build(self, proj, build_ok_callback):
+		if self.get_settings("save-before-build"):
+			self._save_project(silent = True)
 		extra_args = [ proj.get_emitted_source_filename() ]
 		self._start_ptp(proj, lambda lines: self._run_makefile(proj, build_ok_callback), extra_args = extra_args)
 
