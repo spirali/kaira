@@ -29,7 +29,6 @@ class Net:
 	
 	def __init__(self, project):
 		self.project = project
-		self.id = project.new_id()
 		self.items = []
 		self.change_callback = lambda n: None
 
@@ -40,6 +39,8 @@ class Net:
 		return self.project.new_id()
 
 	def add_item(self, item):
+		if item.id is None:
+			item.id = self.new_id()
 		self.items.append(item)
 		self.changed()
 
@@ -58,31 +59,33 @@ class Net:
 		for drawing in drawings:
 			drawing.draw_top(cr)
 
-	def add_place(self, position):
-		place = Place(self, position)
+	def add_place(self, position, id = None):
+		place = Place(self, id, position)
 		self.add_item(place)
+		self.changed()
 		return place
 
-	def add_transition(self, position):
-		transition = Transition(self, position)
+	def add_transition(self, position, id = None):
+		transition = Transition(self, id, position)
 		self.add_item(transition)
+		self.changed()
 		return transition
 
-	def add_edge(self, item1, item2, points):
-		edge = Edge(self, item1, item2, points)
+	def add_edge(self, item1, item2, points, id = None):
+		edge = Edge(self, id, item1, item2, points)
 		self.add_item(edge)
+		self.changed()
 		return edge
 
-	def add_area(self, position, size):
-		area = NetArea(self, position, size)
+	def add_area(self, position, size, id = None):
+		area = NetArea(self, id, position, size)
 		self.add_item(area)
 		self.changed()
 		return area
 
 	def as_xml(self):
 		e = xml.Element("net")
-		e.set("id", str(self.id))
-		
+
 		for item in self.items:
 			e.append(item.as_xml())
 		return e
@@ -129,7 +132,7 @@ class Net:
 			ps = area.places()
 			ts = area.transitions()
 			if len(ps) == 0 or len(ts) == 0:
-				raise ExportException("Each area has have at least one transition and one place.")
+				raise ExportException("Each area has to have at least one transition and one place.")
 			for p in ps: all_places.remove(p)
 			for t in ts: all_transitions.remove(t)
 			result.append(self.export_subnet(area.get_id(), area.get_count_expr(), ps, ts))
@@ -200,9 +203,9 @@ class Net:
 
 class NetItem(object):
 
-	def __init__(self, net):
+	def __init__(self, net, id):
 		self.net = net
-		self.id = net.new_id()
+		self.id = id
 
 	def get_id(self):
 		return self.id
@@ -232,10 +235,11 @@ class NetItem(object):
 
 class NetElement(NetItem):
 
-	def __init__(self, net, position):
-		NetItem.__init__(self, net)
+	code = ""
+
+	def __init__(self, net, id, position):
+		NetItem.__init__(self, net, id)
 		self.position = position
-		self.code = ""
 
 	def has_code(self):
 		return self.code.strip() != ""
@@ -281,11 +285,9 @@ class NetElement(NetItem):
 
 class Transition(NetElement):
 
-	def __init__(self, net, position):
-		NetElement.__init__(self, net, position)
-		self.size = (70, 35)
-		self.name = ""
-		self.guard = ""
+	size = (70, 35)
+	name = ""
+	guard = ""
 
 	def get_name(self):
 		return self.name
@@ -410,11 +412,9 @@ class Transition(NetElement):
 
 class Place(NetElement):
 
-	def __init__(self, net, position):
-		NetElement.__init__(self, net, position)
-		self.radius = 20
-		self.place_type = ""
-		self.init_string = ""
+	radius = 20
+	place_type = ""
+	init_string = ""
 
 	def get_radius(self):
 		return self.radius
@@ -501,12 +501,13 @@ class Place(NetElement):
 
 class Edge(NetItem):
 
-	def __init__(self, net, from_item, to_item, points):
-		NetItem.__init__(self, net)
+	bidirectional = False
+
+	def __init__(self, net, id, from_item, to_item, points):
+		NetItem.__init__(self, net, id)
 		self.from_item = from_item
 		self.to_item = to_item
 		self.points = points
-		self.bidirectional = False
 		self.inscription = ""
 		self.inscription_position = None
 		self.inscription_size = (0,0) # real value obtained by dirty hack in EdgeDrawing
@@ -647,12 +648,13 @@ class Edge(NetItem):
 
 class NetArea(NetItem):
 
-	def __init__(self, net, position, size):
-		NetItem.__init__(self, net)
+	name = ""
+	count_expr = ""
+
+	def __init__(self, net, id, position, size):
+		NetItem.__init__(self, net, id)
 		self.position = position
 		self.size = size
-		self.count_expr = ""
-		self.name = ""
 
 	def get_size(self):
 		return self.size
@@ -739,63 +741,63 @@ def load_code(element):
 	else:
 		return ""
 
-def load_place(element, net, idtable):
-	place = net.add_place((xml_int(element,"x"), xml_int(element, "y")))
+def load_place(element, net, loader):
+	id = loader.get_id(element)
+	place = net.add_place((xml_int(element,"x"), xml_int(element, "y")), id)
 	place.radius = xml_int(element,"radius")
 	place.place_type = xml_str(element,"place_type", "")
 	place.init_string = xml_str(element,"init_string", "")
 	place.code = load_code(element)
-	idtable[xml_int(element, "id")] = place.id
 
-def load_transition(element, net, idtable):
-	transition = net.add_transition((xml_int(element,"x"), xml_int(element, "y")))
+def load_transition(element, net, loader):
+	id = loader.get_id(element)
+	transition = net.add_transition((xml_int(element,"x"), xml_int(element, "y")), id)
 	sx = xml_int(element,"sx")
 	sy = xml_int(element,"sy")
 	transition.size = (sx, sy)
 	transition.name = xml_str(element,"name", "")
 	transition.guard = xml_str(element,"guard", "")
 	transition.code = load_code(element)
-	idtable[xml_int(element, "id")] = transition.id
 
-def load_edge(element, net, idtable):
-	fitem = net.item_by_id(idtable[xml_int(element, "from_item")])
-	titem = net.item_by_id(idtable[xml_int(element, "to_item")])
+def load_edge(element, net, loader):
+	id = loader.get_id(element)
+	fitem = net.item_by_id(loader.translate_id(xml_int(element, "from_item")))
+	assert fitem is not None
+	titem = net.item_by_id(loader.translate_id(xml_int(element, "to_item")))
+	assert titem is not None
 	points = [ (xml_int(e, "x"), xml_int(e,"y")) for e in element.findall("point") ]
-	edge = net.add_edge(fitem, titem, points)
+	edge = net.add_edge(fitem, titem, points, id)
 	edge.bidirectional = utils.xml_bool(element, "bidirectional", False)
 
-	if element.get("inscription"):
+	if element.get("inscription") is not None:
 		edge.inscription = xml_str(element, "inscription")
 		ix = xml_int(element, "inscription_x")
 		iy = xml_int(element, "inscription_y")
 		edge.inscription_position = (ix, iy)
 
-	idtable[xml_int(element, "id")] = edge.id
-
-def load_area(element, net, idtable):
+def load_area(element, net, loader):
+	id = loader.get_id(element)
 	sx = xml_int(element,"sx")
 	sy = xml_int(element,"sy")
 	px = xml_int(element, "x")
 	py = xml_int(element, "y")
-	area = net.add_area((px, py), (sx, sy))
+	area = net.add_area((px, py), (sx, sy), id)
 	area.count_expr = xml_str(element,"count_expr", "")
 	area.name = xml_str(element, "name", "")
-	idtable[xml_int(element, "id")] = area.id
 
-def load_net(element, project):
+def load_net(element, project, loader):
 	net = Net(project)
-	idtable = {}
 
 	for e in element.findall("area"):
-		load_area(e, net, idtable)
+		load_area(e, net, loader)
 
 	for e in element.findall("place"):
-		load_place(e, net, idtable)
+		load_place(e, net, loader)
 
 	for e in element.findall("transition"):
-		load_transition(e, net, idtable)
+		load_transition(e, net, loader)
 
 	for e in element.findall("edge"):
-		load_edge(e, net, idtable)
+		load_edge(e, net, loader)
 
-	return net, idtable
+	return net

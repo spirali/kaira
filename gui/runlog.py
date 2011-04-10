@@ -60,13 +60,13 @@ class LogFrameDiff:
 		self.time = time
 		self.actions = actions
 
-	def apply_on_frame(self, frame, project, idtable):
+	def apply_on_frame(self, frame, project):
 		frame.time = self.time
 		frame.started = []
 		frame.ended = []
 		frame.blocked = []
 		for action in self.actions.split("\n"):
-			self.parse_action(frame, action, idtable)
+			self.parse_action(frame, action)
 
 		for transition_id, iid in frame.started: # Reset input packing edges
 			for edge in project.get_net().get_item(transition_id).edges_to(postprocess = True):
@@ -75,24 +75,24 @@ class LogFrameDiff:
 
 		return frame
 
-	def parse_action(self, frame, action, idtable):
+	def parse_action(self, frame, action):
 		action_type = action[0]
 		if action_type == "A":
 			iid, place_id, token_name = action.split(" ", 3)
 			iid = int(iid[1:])
 			place_id = int(place_id)
-			frame.place_content[idtable[place_id]][iid].append(token_name)
+			frame.place_content[place_id][iid].append(token_name)
 		if action_type == "R":
 			iid, place_id, token_name = action.split(" ", 3)
 			iid = int(iid[1:])
 			place_id = int(place_id)
-			frame.place_content[idtable[place_id]][iid].remove(token_name)
+			frame.place_content[place_id][iid].remove(token_name)
 
 		if action_type == "S":
 			iid, transition_id = action.split(" ", 2)
 			iid = int(iid[1:])
 			transition_id = int(transition_id)
-			item = (idtable[transition_id], iid)
+			item = (transition_id, iid)
 			frame.running.append(item)
 			frame.started.append(item)
 			frame.name = "S"
@@ -101,7 +101,7 @@ class LogFrameDiff:
 			iid, transition_id = action.split(" ", 2)
 			iid = int(iid[1:])
 			transition_id = int(transition_id)
-			item = (idtable[transition_id], iid)
+			item = (transition_id, iid)
 			if item in frame.running:
 				frame.running.remove(item)
 			frame.ended.append(item)
@@ -136,13 +136,13 @@ class Log:
 			lines_count = int(settings.get("description-lines"))
 			self.process_count = int(settings.get("process-count"))
 			proj = xml.fromstring("\n".join([ f.readline() for i in xrange(lines_count) ]))
-			self.project, self.idtable = project.load_project_from_xml(proj, "")
+			self.project = project.load_project_from_xml(proj, "")
 
 			self.node_to_process = {}
 
 			lines = [ f.readline() for i in xrange(self.process_count) ]
 			place_content, self.areas_instances, transitions, self.node_to_process = \
-				simulation.join_reports(lines, self.idtable)
+				simulation.join_reports(lines)
 
 			frame = LogFrame(0, place_content, "I")
 			self.frames = [ frame.copy() ]
@@ -151,14 +151,14 @@ class Log:
 			inf = float("inf")
 			if next_time < inf:
 				diff, next_time = self.load_frame_diff(f, next_time)
-				frame = diff.apply_on_frame(frame, self.project, self.idtable)
+				frame = diff.apply_on_frame(frame, self.project)
 				while next_time < inf:
 					if len(self.frames) % CACHE_FRAME_PERIOD == 0:
 						self.frames.append(frame.copy())
 					else:
 						self.frames.append(diff)
 					diff, next_time = self.load_frame_diff(f, next_time)
-					frame = diff.apply_on_frame(frame, self.project, self.idtable)
+					frame = diff.apply_on_frame(frame, self.project)
 				self.frames.append(diff)
 			self.maxtime = self.frames[-1].get_time()
 
@@ -195,7 +195,7 @@ class Log:
 		if frame.full_frame:
 			return frame.copy()
 		else:
-			return frame.apply_on_frame(self.get_frame(pos - 1), self.project, self.idtable)
+			return frame.apply_on_frame(self.get_frame(pos - 1), self.project)
 
 	def get_time_string(self, frame):
 		maxtime = time_to_string(self.maxtime)
@@ -274,7 +274,7 @@ class Log:
 			if frame.full_frame:
 				f = frame.copy()
 			else:
-				f = frame.apply_on_frame(f, self.project, self.idtable)
+				f = frame.apply_on_frame(f, self.project)
 			i = 0
 			time = f.get_time()
 			for p in places:

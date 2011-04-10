@@ -205,8 +205,7 @@ class Project(EventSource):
 				return t
 
 	def add_function(self, obj):
-		obj.project = self
-		obj.id = self.new_id()
+		obj.set_project(self)
 		self.functions.append(obj)
 		self.changed()
 
@@ -502,13 +501,18 @@ class Event(FunctionBase):
 class Function(FunctionBase):
 
 	project = None
-	id = None
 
-	def __init__(self):
+	def __init__(self, id = None):
 		FunctionBase.__init__(self, "")
 		self.return_type = ""
 		self.parameters = ""
 		self.with_context = False
+		self.id = id
+
+	def set_project(self, project):
+		self.project = project
+		if self.id is None:
+			self.id = project.new_id()
 
 	def get_parameters(self):
 		return self.parameters
@@ -564,20 +568,32 @@ class Function(FunctionBase):
 		e.text = self.code
 		return e
 
+class BasicLoader:
+
+	def __init__(self, project):
+		self.project = project
+
+	def get_id(self, element):
+		id = utils.xml_int(element, "id", 0)
+		self.project.id_counter = max(self.project.id_counter, id)
+		return id
+
+	def translate_id(self, id):
+		return id
 
 def load_project(filename):
 	doc = xml.parse(filename)
-	root = doc.getroot()
-	project, idtable = load_project_from_xml(root, filename)
-	return project
+	return load_project_from_xml(doc.getroot(), filename)
 
 def load_project_from_xml(root, filename):
 	project = Project(filename)
-	net, idtable = load_net(root.find("net"), project)
+	loader = BasicLoader(project)
+	net = load_net(root.find("net"), project, loader)
 	if root.find("configuration"):
-		load_configuration(root.find("configuration"), project, idtable)
+		load_configuration(root.find("configuration"), project, loader)
 	project.set_net(net)
-	return project, idtable
+	project.id_counter += 1
+	return project
 
 def load_parameter(element, project):
 	p = Parameter()
@@ -598,15 +614,15 @@ def load_extern_type(element, project):
 		p.set_function_code(name, e.text)
 	project.add_extern_type(p)
 
-def load_function(element, project, idtable):
-	f = Function()
+def load_function(element, project, loader):
+	id = loader.get_id(element)
+	f = Function(id)
 	f.set_name(utils.xml_str(element, "name"))
 	f.set_return_type(utils.xml_str(element, "return-type"))
 	f.set_parameters(utils.xml_str(element, "parameters"))
 	f.set_with_context(utils.xml_bool(element, "with-context", False))
 	f.set_function_code(element.text)
 	project.add_function(f)
-	idtable[utils.xml_int(element, "id", 0)] = f.id
 
 def load_event(element, project):
 	name = utils.xml_str(element, "name")
@@ -620,7 +636,7 @@ def load_build_option(element, project):
 		return
 	project.set_build_option(name, value)
 
-def load_configuration(element, project, idtable):
+def load_configuration(element, project, loader):
 	for e in element.findall("parameter"):
 		load_parameter(e, project)
 	for e in element.findall("extern-type"):
@@ -630,7 +646,7 @@ def load_configuration(element, project, idtable):
 	for e in element.findall("build-option"):
 		load_build_option(e, project)
 	for e in element.findall("function"):
-		load_function(e, project, idtable)
+		load_function(e, project, loader)
 
 def new_empty_project(directory):
 	os.mkdir(directory)

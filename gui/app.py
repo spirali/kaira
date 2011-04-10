@@ -387,12 +387,12 @@ class App:
 	def _project_filename_changed(self):
 		self.window.set_title("Kaira (" + self.project.get_name() + ")")
 
-	def _run_makefile(self, project, translation_table, build_ok_callback = None, target = None):
+	def _run_makefile(self, project, build_ok_callback = None, target = None):
 		def on_exit(code):
 			if build_ok_callback and code == 0:
 				build_ok_callback(project)
 		def on_line(line, stream):
-			self._process_error_line(line, None, translation_table)
+			self._process_error_line(line, None)
 			return True
 		p = process.Process("make",on_line, on_exit)
 		p.cwd = project.get_directory()
@@ -401,12 +401,11 @@ class App:
 		else:
 			p.start([target])
 
-	def _start_build(self, proj, build_ok_callback, translation_table = None):
+	def _start_build(self, proj, build_ok_callback):
 		extra_args = [ proj.get_emitted_source_filename() ]
-		self._start_ptp(proj, lambda lines: self._run_makefile(proj, translation_table, build_ok_callback), 
-			translation_table, extra_args = extra_args)
+		self._start_ptp(proj, lambda lines: self._run_makefile(proj, build_ok_callback), extra_args = extra_args)
 
-	def _start_ptp(self, proj, build_ok_callback = None, translation_table = None, extra_args = []):
+	def _start_ptp(self, proj, build_ok_callback = None, extra_args = []):
 		stdout = []
 		def on_exit(code):
 			error_messages = {}
@@ -415,7 +414,7 @@ class App:
 				build_ok_callback(stdout)
 			else:
 				for line in stdout:
-					self._process_error_line(line, error_messages, translation_table)
+					self._process_error_line(line, error_messages)
 				self.project.set_error_messages(error_messages)
 				self.console_write("Building failed\n", "error")
 		def on_line(line, stream):
@@ -450,7 +449,7 @@ class App:
 			return True
 		return False
 
-	def _process_error_line(self, line, error_messages, translation_table):
+	def _process_error_line(self, line, error_messages):
 		if line.startswith("*"):
 			sections = line[1:].split(":",1)
 			id_string, pos = sections[0].split("/")
@@ -458,8 +457,6 @@ class App:
 				item_id = int(id_string)
 			except ValueError, e:
 				item_id = None
-			if translation_table and item_id is not None:
-				item_id = translation_table[item_id]
 			if self._try_make_error_with_link(id_string, item_id, pos, sections[1]):
 				return
 			if error_messages is None:

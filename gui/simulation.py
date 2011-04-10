@@ -35,7 +35,6 @@ class Simulation(EventSource):
 	controller = None
 	project = None
 	process_count = None
-	idtable = None
 	quit_on_shutdown = False
 
 	def __init__(self):
@@ -94,12 +93,12 @@ class Simulation(EventSource):
 		lines_count = int(header.get("description-lines"))
 		self.process_count = int(header.get("process-count"))
 		project_string = "\n".join((stream.readline() for i in xrange(lines_count)))
-		self.project, self.idtable = load_project_from_xml(xml.fromstring(project_string), "")
+		self.project = load_project_from_xml(xml.fromstring(project_string), "")
 
 	def query_reports(self, callback = None):
 		def reports_callback(lines):
 			self.places_content, areas_instances_data, self.enabled_transitions, self.node_to_process = \
-				join_reports(lines, self.idtable)
+				join_reports(lines)
 			for network_id in areas_instances_data:
 					self.areas_instances[network_id] = InstancedArea(areas_instances_data[network_id])
 			if callback:
@@ -164,7 +163,7 @@ def extract_report(root):
 				transitions[transition_id].append(iid)
 	return (places_content, transitions, areas_instances)
 
-def join_reports(lines, idtable):
+def join_reports(lines):
 	place_content = {}
 	areas_instances = {}
 	node_to_process = {}
@@ -173,8 +172,6 @@ def join_reports(lines, idtable):
 	for process_id, line in enumerate(lines):
 		report = xml.fromstring(line)
 		pc, tr, ai = extract_report(report)
-		pc = utils.translate(idtable, pc)
-		tr = utils.translate(idtable, tr)
 		place_content = utils.join_dicts(pc, place_content, utils.join_dicts)
 		areas_instances = utils.join_dicts(ai, areas_instances, lambda x,y: x + y)
 		transitions = utils.join_dicts(tr, transitions, lambda x,y: x + y)
