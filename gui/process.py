@@ -94,7 +94,7 @@ class ConnectionThread(ReadLineThread):
 		try:
 			self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			self.sock.connect((self.host, self.port))
-			self.stream = os.fdopen(self.sock.fileno(),"r")
+			self.stream = self.sock.makefile("r")
 			self.safe_call(self.connect_callback, self.stream)
 			ReadLineThread.run(self)
 		except socket.error, e:
