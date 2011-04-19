@@ -22,7 +22,6 @@ import gtksourceview2 as gtksourceview
 import gtk
 import pango
 import os
-import events
 import mainwindow
 
 class CodeEditor(gtk.VBox):

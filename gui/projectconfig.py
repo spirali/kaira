@@ -18,7 +18,7 @@
 #
 
 from parameters import ParametersWidget
-from externtypes import ExternTypesWidget, ExternTypeEditor
+from externtypes import ExternTypesWidget
 from functions import EventsWidget, FunctionsWidget
 from build import BuildOptionsWidget
 

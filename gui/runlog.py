@@ -21,7 +21,6 @@ import xml.etree.ElementTree as xml
 
 import project
 import simulation
-import utils
 import copy
 import os
 

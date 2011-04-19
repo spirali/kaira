@@ -140,7 +140,6 @@ class NetTool:
 
 		if self.selected_item:
 			if self.action:
-				rel = utils.vector_diff(position, self.mouse_last_pos)
 				self.action.mouse_move(position)
 			else:
 				action = self.selected_item.get_action(position, self)

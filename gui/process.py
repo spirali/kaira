@@ -18,7 +18,6 @@
 #
 
 import gtk
-import os
 import socket
 from subprocess import Popen, PIPE, STDOUT
 from threading import Thread, Lock

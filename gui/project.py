@@ -17,10 +17,9 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from net import Net, load_net, ExportException
+from net import Net, load_net
 import xml.etree.ElementTree as xml
 import utils
-import copy
 import os
 import paths
 from events import EventSource

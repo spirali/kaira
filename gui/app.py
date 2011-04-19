@@ -22,7 +22,6 @@ import gtk
 import project
 import os
 import sys
-import subprocess
 import gtkutils
 import paths
 from mainwindow import MainWindow, Tab
@@ -30,13 +29,12 @@ from netview import NetView
 from parameters import ParametersValueDialog
 from externtypes import ExternTypeEditor
 from projectconfig import ProjectConfig
-from simulation import Simulation, SimulationException
+from simulation import Simulation
 from functions import FunctionEditor
 from drawing import VisualConfig
 import simview
 import codeedit
 import process
-import utils
 import cairo
 import runlog
 import logview
@@ -473,7 +471,7 @@ class App:
 			id_string, pos = sections[0].split("/")
 			try:
 				item_id = int(id_string)
-			except ValueError, e:
+			except ValueError:
 				item_id = None
 			if self._try_make_error_with_link(id_string, item_id, pos, sections[1]):
 				return

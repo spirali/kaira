@@ -18,7 +18,6 @@
 #
 
 import gtk
-import gtkutils
 import nettools
 import paths
 import os
