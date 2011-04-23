@@ -286,7 +286,7 @@ class Project(EventSource):
 
 		makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
 		makefile.rule(name_debug_o, [ name_cpp, "head.cpp" ], "$(CC) -DCA_LOG_ON $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))
-		makefile.rule("clean", [], "rm -f *.o {0} {0}_debug {0}_mpi {0}_mpidebug".format(self.get_name()))
+		makefile.rule("clean", [], "rm -f {0} {0}_debug {0}_mpi {0}_mpidebug {1}".format(self.get_name()," ".join(deps)))
 		makefile.rule(".cpp.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
 		makefile.rule(".cc.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
 		makefile.rule(".c.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
