@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -67,7 +67,6 @@ class CodeEditor(gtk.VBox):
 		buffer.create_mark("end", buffer.get_iter_at_mark(mark), False)
 		buffer.delete_mark(mark)
 		buffer.end_not_undoable_action()
-
 		buffer.place_cursor(buffer.get_iter_at_line_offset(start_line, start_char))
 		buffer.set_language(lan)
 		buffer.set_highlight_syntax(True)
@@ -133,7 +132,7 @@ class TransitionCodeEditor(CodeEditor):
 			code = transition.get_code()
 		head = "struct Vars {\n" + "".join(["\t" + v.strip() + ";\n" for v in variables ]) + "};\n\n"
 		line = 5 + len(variables)
-		CodeEditor.__init__(self, "void transition_function(CaContext *ctx, Vars & var)\n{\n", code, "}\n", (line,1), head)
+		CodeEditor.__init__(self, "void transition_function(CaContext *ctx, Vars & var)\n{\n", code, "}\n", (line,0), head)
 
 
 	def buffer_changed(self, buffer):
@@ -147,7 +146,8 @@ class PlaceCodeEditor(CodeEditor):
 			code = "\t\n"
 		else:
 			code = place.get_code()
-		CodeEditor.__init__(self, "void init_place(CaContext *ctx, %s * place)\n{\n" % place_type, code, "}\n", (2,1))
+		begin = "void init_place(CaContext *ctx, {1} * place)\n{\n".format(place_type)
+		CodeEditor.__init__(self, begin, code, "}\n", (2,0))
 
 
 	def buffer_changed(self, buffer):
