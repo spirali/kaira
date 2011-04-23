@@ -146,7 +146,7 @@ class PlaceCodeEditor(CodeEditor):
 			code = "\t\n"
 		else:
 			code = place.get_code()
-		begin = "void init_place(CaContext *ctx, {1} * place)\n{\n".format(place_type)
+		begin = "void init_place(CaContext *ctx, {0} * place)\n{{\n".format(place_type)
 		CodeEditor.__init__(self, begin, code, "}\n", (2,0))
 
 
