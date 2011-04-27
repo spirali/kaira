@@ -588,7 +588,7 @@ def load_project_from_xml(root, filename):
 	project = Project(filename)
 	loader = BasicLoader(project)
 	net = load_net(root.find("net"), project, loader)
-	if root.find("configuration"):
+	if root.find("configuration") is not None:
 		load_configuration(root.find("configuration"), project, loader)
 	project.set_net(net)
 	project.id_counter += 1
