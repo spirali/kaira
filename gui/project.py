@@ -165,9 +165,7 @@ class Project(EventSource):
 		description.text = xml.tostring(self.as_xml())
 		root.append(description)
 
-		xml_nets = self.net.export_xml()
-		for e in xml_nets:
-			root.append(e)
+		root.append(self.net.export_xml())
 
 		f = open(filename, "w")
 		try:

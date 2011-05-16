@@ -70,16 +70,9 @@ addDeclarations scope decls =
 	Scope $ decls `declarationsJoin` scopeDeclarations scope
 
 emitCall scope ('.':name) (obj:params) =
-	emitExpression scope obj ++ dotOrArrow ++ name ++ "(" ++ addDelimiter "," (map (emitExpression scope) params) ++ ")"
-	where dotOrArrow =
-		case exprType (scopeDeclarations scope) obj of
-			TStruct _ _ -> "."
-			TPointer _ -> "->"
-			TRaw _ -> "."
-			TString -> "."
-			TPlace _ -> "."
-			x -> error $ "Invalid type for calling method '" ++ name ++ "' at " ++ show obj ++ "/" ++ show x
-
+	emitExpression scope obj ++ "." ++ name ++ "(" ++ addDelimiter "," (map (emitExpression scope) params) ++ ")"
+emitCall scope ('-':'>':name) (obj:params) =
+	emitExpression scope obj ++ "->" ++ name ++ "(" ++ addDelimiter "," (map (emitExpression scope) params) ++ ")"
 emitCall scope "Base.asString" [x] = emitExpression scope $ exprAsString (scopeDeclarations scope) x
 emitCall scope "List.size" [e1] = emitExpression scope e1 ++ ".size()"
 emitCall scope "List.clear" [e1] = emitExpression scope e1 ++ ".clear()"
@@ -110,11 +103,11 @@ emitExpression scope (EAt (EInt index) expr) =
 emitExpression scope (EAt (EString index) expr) =
 	case exprType (scopeDeclarations scope) expr of
 		TStruct _ _ -> emitExpression scope expr ++ "." ++ index
-		TPointer _ -> emitExpression scope expr ++ "->" ++ index
-		x -> error $ "Unsuported type in emitExpression (EAt): " ++ show index
+		_ -> emitExpression scope expr ++ "->" ++ index
 
 emitExpression scope (EAddr expr) = "&(" ++ emitExpression scope expr ++ ")"
 emitExpression scope (EDeref expr) = "*(" ++ emitExpression scope expr ++ ")"
+emitExpression scope (ENew expr) = "new " ++ emitExpression scope expr
 emitExpression scope x = error $ "EmitExpression: " ++ show x
 
 emitVarDeclarations :: Scope -> [VarDeclaration] -> SourceCode
@@ -170,7 +163,6 @@ typeString (TArray t) = "std::vector<" ++ typeString t ++ " >"
 typeString (TPlace t) = "CaPlace<" ++ typeString t ++ " >"
 typeString (TRaw d) = d
 typeString (TPointer t) = typeString t ++ "*"
-typeString (TStruct name _) = name
 typeString TString = "std::string"
 typeString TBool = "bool"
 typeString (TData _ rawType _ _) = rawType
@@ -191,6 +183,7 @@ typeSafeString (TArray t) = "Array_" ++ typeSafeString t
 typeSafeString (TRaw d) = d
 typeSafeString (TPointer t) = "Ptr_" ++ typeSafeString t
 typeSafeString (TStruct name _) = name
+typeSafeString (TClass name _ _ _) = name
 typeSafeString (TData name _ _ _) = name
 --typeSafeString x = error $ "typeSafeString: " ++ show x
 
@@ -206,19 +199,20 @@ declareVar' ((name,t):vs) = (typeString t ++ " " ++ name) : declareVar' vs
 
 declareParam :: [ParamDeclaration] -> [String]
 declareParam [] = []
-declareParam ((name,(TPointer t), _):vs) = (typeString t ++ "* " ++ name) : declareParam vs
-declareParam ((name,(TRaw d), _):vs) = (d ++ " " ++ name) : declareParam vs
-declareParam ((name,t, ptype):vs)
-	| t == TInt = (typeString t ++ " " ++ name) : declareParam vs
-	| t == TString || ptype == ParamConst = ("const " ++ typeString t ++ " & " ++ name) : declareParam vs
-	| otherwise = (typeString t ++ " & " ++ name) : declareParam vs
+{- declareParam ((name,(TPointer t), _):vs) = (typeString t ++ "* " ++ name) : declareParam vs
+declareParam ((name,(TRaw d), _):vs) = (d ++ " " ++ name) : declareParam vs -}
+declareParam ((name,t, ParamRef):vs) = (typeString t ++ " & " ++ name) : declareParam vs
+declareParam ((name,t, ParamConst):vs) = ("const " ++ typeString t ++ " & " ++ name) : declareParam vs
+declareParam ((name,t, ParamNormal):vs) = (typeString t ++ " " ++ name) : declareParam vs
 
 emitFunction :: [FunDeclaration] -> Function -> SourceCode
 emitFunction fundecls function =
 	prefix <+> Text functionDeclaration <+> Eol <+> body <+> suffix
 	where
-		functionDeclaration = typeString (returnType function) ++ " " ++ functionName function ++ "(" ++ paramString ++ ")"
-		decls = makeDeclarations (varFromParam (parameters function) ++ statementVarList (instructions function)) fundecls
+		functionDeclaration = typeString (returnType function) ++ " "
+			++ functionName function ++ "(" ++ paramString ++ ")" ++ iCall
+		decls = makeDeclarations (varFromParam (parameters function)
+			++ statementVarList (instructions function)) fundecls
 		body = emitInstruction scope (addConstructors decls statement)
 		scope = Scope { scopeDeclarations = decls }
 		paramString = addDelimiter "," $ declareParam (parameters function)
@@ -229,6 +223,9 @@ emitFunction fundecls function =
 		extraInstructions = case extraCode function of
 				"" -> [INoop]
 				x -> [IInline x]
+		iCall = case initCall function of
+			Just x -> " : " ++ emitExpression scope x
+			Nothing -> ""
 
 emitGlobals :: [VarDeclaration] -> String
 emitGlobals [] = ""
@@ -244,25 +241,25 @@ orderTypeByDepedancy types =
 makeFunctionDeclaration :: Function -> FunDeclaration
 makeFunctionDeclaration function = (functionName function, returnType function, [ t | (_, t, _) <- parameters function ])
 
-emitProgram :: String -> String -> [VarDeclaration] -> [Function] -> String
-emitProgram fileName prologue globals functions =
+emitProgram :: String -> String -> TypeSet -> [VarDeclaration] -> [Function] -> String
+emitProgram fileName prologue types globals functions =
 	sourceCodeToStr fileName $
 	Text prologue <+> typeDeclarations <+> Text (emitGlobals globals) <+> Eol <+> joinMap (emitFunction fundecls) functions
 	where
-		typeDeclarations = Text $ concatMap emitTypeDeclaration orderedTypes
-		allTypes = Set.fold (\t s -> Set.union s $ subTypes' t) Set.empty (Set.unions (map gatherTypes functions))
+		typeDeclarations = Text $ concatMap (emitTypeDeclaration fundecls) orderedTypes
+		allTypes = Set.fold (\t s -> Set.union s $ subTypes' t) Set.empty types -- (Set.unions (map gatherTypes functions))
 		allDefinedTypes = Set.filter isDefined allTypes
 		orderedTypes = orderTypeByDepedancy allDefinedTypes
 		fundecls = map makeFunctionDeclaration functions ++ stdFunctions
 
-emitTypeDeclaration :: Type -> String
-emitTypeDeclaration (TTuple types) =
-	emitTypeDeclaration (TStruct name decls)
+emitTypeDeclaration :: [FunDeclaration] -> Type -> String
+emitTypeDeclaration fundecls (TTuple types) =
+	emitTypeDeclaration fundecls (TStruct name decls)
 	where
 		name = typeSafeString (TTuple types)
 		decls = zip (map (\x -> "t_" ++ show x) [0..]) types
 
-emitTypeDeclaration (TStruct name decls) =
+emitTypeDeclaration fundecls (TStruct name decls) =
 	"struct " ++ name ++ " {\n" ++ constructor1 ++ "\n" ++ constructor2 ++ innerPart decls ++ "};\n"
 	where
 		innerPart [] = ""
@@ -277,7 +274,17 @@ emitTypeDeclaration (TStruct name decls) =
 			(TPointer _) -> ""
 			_ -> "const "
 
-emitTypeDeclaration _ = ""
+emitTypeDeclaration fundecls (TClass name ancestor methods attributes) =
+	"class " ++ name ++ inheritance ++ " {\n\tpublic:\n" ++ methodsCode ++ attrCode attributes ++ "};\n"
+	where
+		attrCode [] = ""
+		attrCode ((name, t):ts) = "\t" ++ typeString t ++ " " ++ name ++ ";\n" ++ attrCode ts
+		inheritance = case ancestor of
+			Nothing -> ""
+			Just x -> " : public " ++ x
+		methodsCode = sourceCodeToStr "" $ Block $ joinMap (emitFunction fundecls) methods
+
+emitTypeDeclaration _ _ = ""
 
 varDeclarationTypes :: [VarDeclaration] -> TypeSet
 varDeclarationTypes decls = Set.fromList [ t | (n,t) <- decls ]
@@ -319,6 +326,7 @@ subTypes (TPlace t) = subTypes' t
 subTypes (TTuple types) = Set.unions $ map subTypes' types
 subTypes (TPointer t) = subTypes' t
 subTypes (TStruct _ decls) = Set.unions $ map (subTypes'.snd) decls
+subTypes (TClass name _ _ decls) = Set.unions $ map (subTypes'.snd) decls
 subTypes _ = Set.empty
 
 subTypes' :: Type -> TypeSet
@@ -328,6 +336,7 @@ subTypes' tt = Set.union (Set.singleton tt) (case tt of
 	(TTuple types) -> Set.unions $ map subTypes' types
 	(TPointer t) -> subTypes' t
 	(TStruct name decls) -> Set.unions $ map (subTypes'.snd) decls
+	(TClass name _ _ decls) -> Set.unions $ map (subTypes'.snd) decls
 	_ -> Set.empty)
 
 addConstructors :: Declarations -> Instruction -> Instruction

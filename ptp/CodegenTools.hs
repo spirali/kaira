@@ -60,7 +60,7 @@ makeDeclarations vars funs = Declarations {
 }
 
 makeStatement :: [VarDeclaration] -> [Instruction] -> Instruction
-makeStatement decls instructions = 
+makeStatement decls instructions =
 	IStatement $ [ idefineEmpty name t | (name, t) <- decls ] ++ instructions
 
 emptyDeclarations = makeDeclarations [] []
@@ -85,10 +85,20 @@ exprType declarations (EAt (EInt i) place) =
 
 exprType declarations (EAt (EString s) place) =
 	case exprType declarations place of
+		TPointer (TClass _ _ _ ds) -> case List.lookup s ds of
+						Nothing -> TUndefined 
+						Just y -> y
 		TStruct _ ds -> case List.lookup s ds of
 						Nothing -> error "exprType, item of struct not found"
 						Just y -> y
+		TPointer (TStruct _ ds) -> case List.lookup s ds of
+						Nothing -> error "exprType, item of struct not found"
+						Just y -> y
+		TClass _ _ _ ds -> case List.lookup s ds of
+						Nothing -> error "exprType, item in class not found"
+						Just y -> y
 		TUndefined -> TUndefined
+		TPointer _ -> TUndefined 
 		x -> error $ "exprType: Unsuported type for ExprAt (string): " ++ show x
 
 exprType declarations (EAt index place) =
@@ -112,6 +122,7 @@ isUndefined TUndefined = True
 isUndefined (TTuple types) = any isUndefined types
 isUndefined (TArray t) = isUndefined t
 isUndefined (TStruct _ decls) = any (isUndefined . snd) decls
+isUndefined (TClass _ _ _ decls) = any (isUndefined . snd) decls
 isUndefined _ = False
 
 isDefined :: Type -> Bool

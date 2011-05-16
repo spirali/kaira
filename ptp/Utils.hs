@@ -73,3 +73,12 @@ dependacyOrder fn items =
 						error "Items cannot be ordered"
 					else
 						process notOrdered (ordered ++ Set.toList newOrdered)
+
+-- |[[1,2,3],[2,4],[5]] ==> [[1,2,3,4],[5]]
+joinOverlapped :: (Eq a) => [[a]] -> [[a]]
+joinOverlapped [] = []
+joinOverlapped (x:rest) =
+	List.foldr List.union x contains : notContains
+	where
+		hasIntersection x y = (not . null) (x `List.intersect` y)
+		(contains, notContains) = List.partition (hasIntersection x) (joinOverlapped rest)

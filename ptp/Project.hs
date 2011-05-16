@@ -19,14 +19,9 @@
 
 module Project (
 	projectFromXml,
-	placeSeqById,
-	placeSeq,
 	placeType,
 	placeTypeById,
-	placeTypeById',
 	transitionById,
-	placeTypeByEdge,
-	edgeNetwork,
 	edgePlaceType,
 	isNormalEdge,
 	parameterTypeByName,
@@ -83,9 +78,9 @@ edgeFromElement :: Xml.Element -> Edge
 edgeFromElement e =
 	Edge {
 		edgePlaceId = xmlAttrInt "place-id" e,
-		edgeInscription = parseEdgeInscription (source e "inscription") $ xmlAttr "expr" e,
-		edgeTarget = parseExpr' (source e "target") $ xmlAttr' "target" e ""
-	}
+		edgeInscription = expr,
+		edgeTarget = path
+	} where (expr, path) = parseEdgeInscription (source e "inscription") $ xmlAttr "expr" e
 
 transitionFromElement :: Xml.Element -> Transition
 transitionFromElement e =
@@ -111,6 +106,7 @@ transitionsFromElement :: Xml.Element -> [Transition]
 transitionsFromElement e =
 	map transitionFromElement $ Xml.findElements (qstr "transition") e
 
+{-
 networkFromElement :: TypeTable -> NelExpression -> Xml.Element -> Network
 networkFromElement types addr e =
 	Network {
@@ -121,6 +117,7 @@ networkFromElement types addr e =
 		instances = parseExpr (source e "instances") $ xmlAttr "instances" e
 	}
 
+
 addressesFromElement :: Xml.Element -> [NelExpression]
 addressesFromElement e =
 	getAddress (Xml.findElements (qstr "net") e) (ExprInt 0)
@@ -128,6 +125,7 @@ addressesFromElement e =
 		networkSize e = parseExpr (source e "instances") $ xmlAttr "instances" e
 		getAddress [] _ = []
 		getAddress (e:es) n = n:(getAddress es $ ExprCall "+" [ n,networkSize e])
+-}
 
 parameterFromElement :: TypeTable -> Xml.Element -> Parameter
 parameterFromElement types e = Parameter {
@@ -139,11 +137,13 @@ parameterFromElement types e = Parameter {
 idFromElement :: Xml.Element -> ID
 idFromElement = xmlAttrInt "id"
 
+{-
 placeToNetworkList :: Project -> [(ID, Network)]
 placeToNetworkList project =
 	concatMap extractPlaces (networks project)
 	where extractPlaces network = [ (placeId y, network) | y <- places network ]
 
+{-
 edgeNetwork :: Project -> Edge -> Network
 edgeNetwork project edge =
 	case List.find edgeOfNetwork (networks project) of
@@ -151,6 +151,8 @@ edgeNetwork project edge =
 		Nothing -> error "edgeNetwork: Network not found"
 	where
 		edgeOfNetwork n = List.elem (edgePlaceId edge) (map placeId (places n))
+-}
+-}
 
 externTypeFromElement :: Xml.Element -> NelVarDeclaration
 externTypeFromElement e = (name, TypeData name rawType transportMode codes)
@@ -190,7 +192,8 @@ projectFromXml :: String -> Project
 projectFromXml xml =
 	Project {
 			projectName = "project",
-			networks = networks,
+			places = placesFromElement types net,
+			transitions = transitionsFromElement net,
 			projectParameters = params,
 			typeTable = types,
 			events = events,
@@ -199,11 +202,8 @@ projectFromXml xml =
 		 }
 	where
 		root = head $ Xml.onlyElems (Xml.parseXML xml)
-		addresses = addressesFromElement root
-		networkElements = Xml.findElements (qstr "net") root
-		networks = map loadNet $ zip addresses networkElements
-		loadNet (a,e) = networkFromElement types a e
 		configuration = Maybe.fromJust $ Xml.findElement (qstr "configuration") root
+		net = Maybe.fromJust $ Xml.findElement (qstr "net") root
 		params = map (parameterFromElement types) $ Xml.findElements (qstr "parameter") configuration
 		events = map eventFromElement $ Xml.findElements (qstr "event") configuration
 		types = projectTypesFromElement configuration

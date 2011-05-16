@@ -37,7 +37,8 @@ data Type = TUndefined |
 			TRaw String |
 			TPointer Type |
 			TData String String TransportMode [ (String, String) ] | {- name, rawName, transportMode, functions -}
-			TStruct String [VarDeclaration]
+			TStruct String [VarDeclaration] |
+			TClass String (Maybe String) [Function] [VarDeclaration] {- name, ancestor, methods, decls -}
 	deriving (Show, Eq, Ord)
 
 type VarDeclaration = (String, Type)
@@ -62,7 +63,8 @@ data Expression =
 	EAt Expression Expression {- index container -} |
 	EDeref Expression |
 	ECast Expression Type |
-	ETrue | ExprFalse
+	ETrue | ExprFalse |
+	ENew Expression
 	deriving (Show, Eq, Ord)
 
 data Instruction =
@@ -76,7 +78,7 @@ data Instruction =
 	IContinue |
 	IInline String |
 	INoop
-	deriving (Show, Eq)
+	deriving (Show, Eq, Ord)
 
 
 data Function = Function {
@@ -85,6 +87,7 @@ data Function = Function {
 	parameters :: [ParamDeclaration],
 	extraCode :: String,
 	returnType :: Type,
-	functionSource :: Maybe (String, Int)
-} deriving (Show)
+	functionSource :: Maybe (String, Int),
+	initCall :: Maybe Expression
+} deriving (Show, Eq, Ord)
 

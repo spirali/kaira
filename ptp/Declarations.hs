@@ -46,7 +46,11 @@ data NelExpression =
 	ExprInt Int |
 	ExprString String |
 	ExprTuple [NelExpression] |
-	ExprTrue | ExprFalse
+	ExprTrue | ExprFalse |
+	ExprPath Path
+	deriving (Show, Eq, Ord)
+
+data Path = AbsPath [ NelExpression ] | RelPath Int [ NelExpression ]
 	deriving (Show, Eq, Ord)
 
 data Place = Place {
@@ -62,7 +66,7 @@ instance Eq Place where p1 == p2 = placeId p1 == placeId p2
 data Edge = Edge {
 	edgePlaceId :: ID,
 	edgeInscription :: EdgeInscription,
-	edgeTarget :: Maybe NelExpression
+	edgeTarget :: Path
 } deriving (Show,Eq)
 
 data EdgeInscription = EdgeExpression NelExpression | EdgePacking String (Maybe NelExpression) deriving (Show, Eq)
@@ -76,19 +80,23 @@ data Transition = Transition {
 	guard :: NelExpression
 } deriving (Show)
 
+instance Eq Transition where t1 == t2 = transitionId t1 == transitionId t2
+
+{-
 data Network = Network {
 	networkId :: ID,
 	places :: [Place],
 	transitions :: [Transition],
 	address :: NelExpression, {- address is considered as input expression, but in fact it is computed from "instances" and calling "+" -}
 	instances :: NelExpression
-} deriving (Show)
+} deriving (Show) -}
 
-instance Eq Network where n1 == n2 = networkId n1 == networkId n2
+-- instance Eq Network where n1 == n2 = networkId n1 == networkId n2
 
 data Project = Project {
 	projectName :: String,
-	networks :: [Network],
+	places :: [Place],
+	transitions :: [Transition],
 	projectParameters :: [Parameter],
 	typeTable :: TypeTable,
 	events :: [Event],
@@ -116,8 +124,14 @@ data UserFunction = UserFunction {
 	ufunctionWithContext :: Bool
 } deriving (Show)
 
+data Unit = Unit {
+	unitId :: ID,
+	unitPlaces :: [Place],
+	unitTransitions :: [Transition]
+} deriving (Show)
+
 data TransportMode = TransportDisabled | TransportDirect | TransportCustom
 	deriving (Show, Eq, Ord)
 
-data ParamType = ParamNormal | ParamConst
+data ParamType = ParamNormal | ParamConst | ParamRef
 	deriving (Show, Eq, Ord)

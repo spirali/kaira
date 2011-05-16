@@ -114,11 +114,11 @@ newVars' :: String -> [String]
 newVars' prefix = map (\x -> prefix ++ "_" ++ show x) [1 .. ]
 
 standardTypes =
-	Map.fromList [ 
-		("Int", TypeInt), 
-		("Float", TypeFloat), 
-		("Double", TypeDouble), 
-		("String", TypeString), 
+	Map.fromList [
+		("Int", TypeInt),
+		("Float", TypeFloat),
+		("Double", TypeDouble),
+		("String", TypeString),
 		("Bool", TypeBool) ]
 
 isTransportable :: NelType -> Bool
@@ -131,6 +131,9 @@ unionsVariableTypes decls =
 	Map.unionsWith unionFn decls
 	where
 		unionFn a b = if a == b then a else error $ "Type inference failed " ++ show a ++ "/" ++ show b
+
+unionVariableTypes :: Map.Map String NelType -> Map.Map String NelType -> Map.Map String NelType
+unionVariableTypes a b = unionsVariableTypes [a, b]
 
 parameterTypeByName :: Project -> String -> NelType
 parameterTypeByName project paramName =

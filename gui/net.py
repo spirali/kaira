@@ -109,38 +109,15 @@ class Net:
 	def areas(self):
 		return [ item for item in self.items if item.is_area() ]
 
-	def export_subnet(self, id, count_expr, places, transitions):
+	def export_xml(self):
 		e = xml.Element("net")
-		e.set("id", str(id))
-		e.set("instances", count_expr)
 
-		for place in places:
+		for place in self.places():
 			e.append(place.export_xml())
 
-		for transition in transitions:
+		for transition in self.transitions():
 			e.append(transition.export_xml())
 		return e
-
-	def export_xml(self):
-		all_places = self.places()
-		all_transitions = self.transitions()
-
-		if len(all_places) == 0 and len(all_transitions) == 0:
-			raise ExportException("Network is empty.")
-		result = []
-		for area in self.areas():
-			ps = area.places()
-			ts = area.transitions()
-			if len(ps) == 0 or len(ts) == 0:
-				raise ExportException("Each area has to have at least one transition and one place.")
-			for p in ps: all_places.remove(p)
-			for t in ts: all_transitions.remove(t)
-			result.append(self.export_subnet(area.get_id(), area.get_count_expr(), ps, ts))
-		if all_places or all_transitions:
-			if len(all_places) == 0 or len(all_transitions) == 0:
-				raise ExportException("Default area has to be empty or have at least one transition and one place.")
-			result.append(self.export_subnet(self.new_id(), "1", all_places, all_transitions))
-		return result
 
 	def item_by_id(self, id):
 		for item in self.items:
@@ -331,12 +308,7 @@ class Transition(NetElement):
 			ea = xml.Element(name)
 			ea.set("place-id", str(place.get_id()))
 			ea.set("id", str(edge.get_id()))
-			if "@" in edge.inscription:
-				a, b = edge.inscription.split("@")
-				ea.set("expr", a)
-				ea.set("target", b)
-			else:
-				ea.set("expr", edge.inscription)
+			ea.set("expr", edge.inscription)
 			return ea
 		
 
