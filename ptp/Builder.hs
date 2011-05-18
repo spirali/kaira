@@ -64,7 +64,7 @@ nameFromId :: String -> ID -> String
 nameFromId name id = name ++ "_" ++ (show id)
 
 unitType :: Unit -> Type
-unitType unit = TClass className (Just "CaUnit") [ constr ] attributes
+unitType unit = TClass className (Just "CaUnit") [ constr, reportFunction unit ] attributes
 	where
 	className = nameFromId "Unit" $ unitId unit
 	placeVar place = (nameFromId "place" (placeId place), (TPlace . fromNelType . placeType) place)
@@ -74,6 +74,9 @@ unitType unit = TClass className (Just "CaUnit") [ constr ] attributes
 		parameters = [ ("def", caUnitDef, ParamNormal), ("path", caPath, ParamConst) ],
 		initCall = Just $ ECall "CaUnit" [ EVar "def", EVar "path" ]
 	}
+
+placeAttr :: Place -> Expression -> Expression
+placeAttr place expr = EAt (EString $ nameFromId "place" (placeId place)) expr
 
 initPlace :: Project -> Expression -> Place -> [Instruction]
 initPlace project expr place = initConsts ++ callInitFn
@@ -95,11 +98,11 @@ initCaUnit project unit = function {
 
 unit :: Project -> Transition -> Unit
 unit project transition =
-	Maybe.fromJust $ List.find ((List.elem transition) . unitTransitions) (projectUnits project)
+	just "unit" $ List.find ((List.elem transition) . unitTransitions) (projectUnits project)
 
 placeUnit :: Project -> Place -> Unit
 placeUnit project place =
-	Maybe.fromJust $ List.find ((List.elem place) . unitPlaces) (projectUnits project)
+	just "placeUnit" $ List.find ((List.elem place) . unitPlaces) (projectUnits project)
 
 edgeUnit :: Project -> Edge -> Unit
 edgeUnit project edge = placeUnit project $ edgePlace project edge
@@ -152,7 +155,7 @@ placeInUnit expr place = EAt (EString $ nameFromId "place" (placeId place)) expr
 matchTest :: Project -> Int -> [Edge] -> Set.Set String -> Instruction -> Instruction
 matchTest project level [] binded instruction = instruction
 matchTest project level edges@(edge@(Edge placeId (EdgeExpression expr) _):rest) binded instruction =
-	IForeach varName varCounter placeExpr body
+	IForeach elementType varName varCounter placeExpr body
 	where
 		varName = "c_" ++ show level
 		varCounter = varName ++ "_i"
@@ -161,7 +164,9 @@ matchTest project level edges@(edge@(Edge placeId (EdgeExpression expr) _):rest)
 			matchTest project (level + 1) rest newBinded instruction ]
 		processed = zip [0..] $ (List.\\) (edgesIn (transitionOfEdge project edge)) edges
 		fromSamePlace = filter (\(i, (Edge pId _ _)) -> pId == placeId) processed
-		placeExpr = EAt (EString $ nameFromId "place" (edgePlaceId edge)) (EVar "u")
+		placeExpr = placeAttr place (EVar "u")
+		place = placeById project placeId
+		elementType = fromNelType $ placeType place
 		tokenCheck | fromSamePlace == [] = INoop
 			   | otherwise = IIf (callIfMore "||"
 						[ ECall "==" [EVar ("c_" ++ show i ++ "_i"), EVar varCounter] | (i, e) <- fromSamePlace ])
@@ -194,38 +199,34 @@ absPathToExpression project fn abspath (RelPath n es) =
 	ECall ".apply" $ abspath : (EInt n) : (EInt $ length es) : map (toExpression project fn) es
 absPathToExpression project fn abspath path = pathToExpression project fn path
 
-{-
-processEdge ::  Project -> Edge -> String -> [String] -> [Instruction] -> Instruction
-processEdge network (Edge placeId expr _) var restrictions body =
-		IForeach var counterVar (EAt (EInt seq) (EVar "places")) (prefix:body)
-	where
-		counterVar = var ++ "_i"
-		seq = placeSeqById network placeId
-		t = placeTypeById network placeId
-		prefix = if restrictions == [] then INoop else
-			IIf (callIfMore "||" [ ECall "==" [(EVar v), (EVar counterVar)] | v <- restrictions ]) IContinue INoop
+asStringCall :: NelType -> Expression -> Expression
+asStringCall TypeString expr = expr
+asStringCall TypeInt expr = ECall "ca_int_to_string" [expr]
+asStringCall TypeFloat expr = ECall "ca_float_to_string" [expr]
+asStringCall TypeDouble expr = ECall "ca_double_to_string" [expr]
+asStringCall (TypeTuple []) expr = EString "()"
+asStringCall (TypeTuple (t:types)) expr = ECall "+" $ [ ECall "std::string" [ EString "(" ], asStringCall t (EAt (EInt 0) expr)]
+			++ concat (countedMap code types) ++ [ EString ")" ]
+	where code i t = [ EString ",", asStringCall t (EAt (EInt (i + 1)) expr) ]
+asStringCall (TypeData name _ _ functions) expr | hasKey "getstring" functions = ECall (name ++ "_getstring") [expr]
+asStringCall (TypeData name _ _ _) expr = ECall "std::string" [ EString name ]
 
-checkEdges project network decls binded processedEdges (edge:rest) level okEvent guards | isNormalEdge edge =
-	processEdge network edge var (compRestrictions (zip [0..] (reverse processedEdges))) $ [
-		patternCheckStatement project decls binded var edgeType expr IContinue ] ++
-			map guardCode coveredGuards ++
-			[ checkEdges project network decls newVars (edge:processedEdges) rest (level + 1) okEvent uncoveredGuards ]
+reportFunction :: Unit -> Function
+reportFunction unit = function {
+	functionName = "report_places",
+	parameters = [ ("out", TRaw "CaOutput", ParamRef) ],
+	instructions = concatMap reportPlace (unitPlaces unit)
+	}
 	where
-		newVars = Set.union binded $ freeVariables expr
-		(coveredGuards, uncoveredGuards) = List.partition (isCovered newVars) guards
-		edgeType = placeTypeByEdge project edge
-		processExpr e = processInputExpr project EVar e
-		guardCode guard = if guard == ExprTrue then INoop else IIf (ECall "!" [ processExpr guard ]) IContinue INoop
-		EdgeExpression expr = edgeInscription edge
-		varCounterName level = "c_" ++ show level ++ "_i"
-		var = "c_" ++ show level
-		compRestrictions :: [(Int, Edge)] -> [String]
-		compRestrictions [] = []
-		compRestrictions ((level, e):es)
-			| edgePlaceId edge == edgePlaceId e = (varCounterName level):compRestrictions es
-			| otherwise = compRestrictions es
--}
-
+		reportPlace place = [
+			icall ".child" [ EVar "out", EString "place" ],
+			icall ".set" [ EVar "out", EString "id", EInt (placeId place) ],
+			IForeach (fromNelType $ placeType place) "x" "x_c" (placeAttr place (EVar "this")) [
+				icall ".child" [ EVar "out", EString "token" ],
+				icall ".set" [ EVar "out", EString "value", asStringCall (placeType place) (EVar "x") ],
+				icall ".back" [ EVar "out" ]
+			],
+			icall ".back" [ EVar "out"]]
 
 normalInEdges transition = filter isNormalEdge (edgesIn transition)
 

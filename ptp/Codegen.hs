@@ -73,7 +73,6 @@ emitCall scope ('.':name) (obj:params) =
 	emitExpression scope obj ++ "." ++ name ++ "(" ++ addDelimiter "," (map (emitExpression scope) params) ++ ")"
 emitCall scope ('-':'>':name) (obj:params) =
 	emitExpression scope obj ++ "->" ++ name ++ "(" ++ addDelimiter "," (map (emitExpression scope) params) ++ ")"
-emitCall scope "Base.asString" [x] = emitExpression scope $ exprAsString (scopeDeclarations scope) x
 emitCall scope "List.size" [e1] = emitExpression scope e1 ++ ".size()"
 emitCall scope "List.clear" [e1] = emitExpression scope e1 ++ ".clear()"
 emitCall scope "List.eraseAt" [e1,e2] =
@@ -133,14 +132,10 @@ emitInstruction scope (IDefine name t Nothing) =
 emitInstruction scope (IReturn expr) = Text ("return " ++ emitExpression scope expr ++ ";") <+> Eol
 emitInstruction scope IContinue = Text "continue;" <+> Eol
 emitInstruction scope INoop = Empty
-emitInstruction scope (IForeach var counterVar expr body) =
+emitInstruction scope (IForeach elementType var counterVar expr body) =
 	Text ("for (" ++ varDecl ++ "; " ++ cycleTest ++ "; " ++ counterVar ++ "++) {")
 	<+> Block (setVar <+> joinMap emit body) <+> Text "}" <+> Eol
 	where
-		elementType = case exprType (scopeDeclarations scope) expr  of
-						TArray t -> t
-						TPlace t -> t
-						_ -> error "Unsuported type for IForeach"
 		arrayLen = "(" ++ emitExpression scope expr ++ ").size()"
 		setVar = Text (typeString elementType ++ " " ++ var ++ " = " ++ emitExpression scope expr ++ "[" ++ counterVar ++ "];") <+> Eol
 		varDecl = "size_t " ++ counterVar ++ " = 0"
@@ -304,8 +299,8 @@ gatherInstructionTypes (ISet _ expr) = gatherExprTypes expr
 gatherInstructionTypes (IIf expr i1 i2) =
 	Set.unions [ gatherExprTypes expr, gatherInstructionTypes i1, gatherInstructionTypes i2 ]
 gatherInstructionTypes (IStatement instrs) = Set.unions (map gatherInstructionTypes instrs)
-gatherInstructionTypes (IForeach _ _ expr instrs) =
-	Set.union (gatherExprTypes expr) $ Set.unions (map gatherInstructionTypes instrs)
+gatherInstructionTypes (IForeach t _ _ expr instrs) =
+	Set.union (gatherExprTypes expr) $ Set.unions (Set.singleton t:(map gatherInstructionTypes instrs))
 gatherInstructionTypes (IDefine _ t (Just expr)) = Set.union (Set.singleton t) (gatherExprTypes expr)
 gatherInstructionTypes (IDefine _ t Nothing) = Set.singleton t
 gatherInstructionTypes INoop = Set.empty
@@ -352,24 +347,6 @@ addConstructors decls i =
        addConstr decls (EDeref e) = EDeref $ addConstr decls e
        addConstr decls (EAddr e) = EAddr $ addConstr decls e
        addConstr decls x = x
-
-exprAsString :: Declarations -> Expression -> Expression
-exprAsString decls (EString x) = EString x
-exprAsString decls (EInt x) = EString $ show x
-exprAsString decls x =
-	case exprType decls x of
-		TInt -> ECall "ca_int_to_string" [x]
-		TFloat -> ECall "ca_float_to_string" [x]
-		TDouble -> ECall "ca_double_to_string" [x]
-		TString -> x
-		TTuple [] -> EString "()"
-		(TData name _ _ functions) | hasKey "getstring" functions -> ECall (name ++ "_getstring") [x]
-		(TData name _ _ _) -> ECall "std::string" [ EString name ]
-		TTuple types -> ECall "+" $ [ ECall "std::string"
-			[ EString "(" ], ECall "Base.asString" [ EAt (EInt 0) x ]]
-				++ concat [ [EString ",", ECall "Base.asString"
-					[ EAt (EInt i) x ]] | i <- [1..length types-1]] ++ [ EString ")" ]
-		t -> error $ "exprAsString: " ++ show x ++ "/" ++ show t
 
 sourceCodeToStr :: String -> SourceCode -> String
 sourceCodeToStr originalFilename code =

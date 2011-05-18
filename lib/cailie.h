@@ -10,6 +10,7 @@
 #include "place.h"
 #include "unit.h"
 #include "process.h"
+#include "output.h"
 
 class CaContext {
 

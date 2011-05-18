@@ -2,10 +2,12 @@
 #ifndef CAILIE_UNIT_H
 #define CAILIE_UNIT_H
 
-#include "path.h"
 #include <stdlib.h>
 #include <vector>
 #include <pthread.h>
+
+#include "path.h"
+#include "output.h"
 
 class CaUnit;
 class CaUnitDef;
@@ -48,9 +50,12 @@ class CaUnitDef {
 		void unlock() { pthread_mutex_unlock(&mutex); }
 
 		int get_transition_count() const { return transitions_count; }
+		int get_units_count() const { return units.size(); }
 		std::vector<CaTransition*> get_transitions() const;
 
 		std::vector<CaUnit*> get_units() const { return units; }
+
+		void reports(CaOutput &output);
 
 	protected:
 		CaUnitInitFn *init_fn;	
@@ -68,6 +73,9 @@ class CaUnit {
 
 		void lock() { pthread_mutex_lock(&mutex); }
 		void unlock() { pthread_mutex_unlock(&mutex); }
+
+		void report(CaUnitDef *def, CaOutput &out);
+		virtual void report_places(CaOutput &out) = 0;
 
 		CaPath path;
 	protected:

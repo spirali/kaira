@@ -19,11 +19,11 @@
 
 import gtk
 
-from canvas import NetCanvas, MultiCanvas
+from canvas import NetCanvas
 from drawing import VisualConfig
 import gtkutils
-import utils
 import mainwindow
+import simulation
 
 class SimViewTab(mainwindow.Tab):
 	def __init__(self, app, simulation, tabname = "Simulation"):
@@ -35,167 +35,68 @@ class SimViewTab(mainwindow.Tab):
 		mainwindow.Tab.close(self)
 		self.simulation.shutdown()
 
-class SimView(gtk.VBox):
+class SimView(gtk.HBox):
 	def __init__(self, app, simulation):
-		gtk.VBox.__init__(self)
+		gtk.HBox.__init__(self)
 		self.simulation = simulation
 
-		self.pack_start(self._buttons(), False, False)
+		self.pack_start(self._panel(), False, False)
 		self.canvas_sc = gtk.ScrolledWindow()
-		self.canvas = self._create_canvas(1)
+		self.canvas = self._create_canvas()
 		self.canvas.set_size_and_viewport_by_net()
 		self.canvas_sc.add_with_viewport(self.canvas)
 
-		self.instance_canvas_sc = gtk.ScrolledWindow()
-		self.instance_canvas = self._create_instances_canvas()
-		self.instance_canvas_sc.add_with_viewport(self.instance_canvas)
-		self.instance_canvas.show_all()
-
 		self.pack_start(self.canvas_sc)
 		self.show_all()
-		self.pack_start(self.instance_canvas_sc)
 
 		simulation.set_callback("changed", self._simulation_changed)
-		self._visualconfigs()
 
 	def redraw(self):
-		self.instance_canvas.redraw()
 		self.canvas.redraw()
 
 	def get_net(self):
 		return self.simulation.get_net()
 
-	def _buttons(self):
-		button1 = gtk.ToggleButton("Instances")
-		button1.connect("toggled", self._view_change)
-
-		toolbar = gtk.Toolbar()
-		toolbar.add(button1)
-		toolbar.show_all()
-		return toolbar
-
-	def _view_change(self, button):
-		if button.get_active():
-			self.instance_canvas_sc.show()
-			self.canvas_sc.hide()
-		else:
-			self.instance_canvas_sc.hide()
-			self.canvas_sc.show()
-
-	def _create_canvas(self, zoom):
-		c = NetCanvas(self.get_net(), None, VisualConfig(), zoom = 1)
-		c.set_callback("button_down", self._button_down)
+	def _create_canvas(self):
+		c = NetCanvas(self.get_net(), None, SimVisualConfig(self), zoom = 1)
+		#c.set_callback("button_down", self._button_down)
 		c.show()
 		return c
 
-	def _create_instances_canvas(self):
-		c = MultiCanvas()
-		return c
-
-	def _button_down(self, event, position):
-		if event.button == 3:
-			self._context_menu(event, position)
-			return
-		net = self.simulation.get_net()
-		t = net.get_transition_at_position(position)
-		if t:
-			self.simulation.fire_transition_random_instance(t)
-
-	def _context_menu(self, event, position):
-		def fire_fn(i):
-			return lambda w: self.simulation.fire_transition(t, i)
-		t = self.simulation.get_net().get_transition_at_position(position)
-		if t:
-			iids = self.simulation.enabled_instances_of_transition(t)
-			if iids:
-				gtkutils.show_context_menu([("Fire " + str(i), fire_fn(i)) for i in iids ], event)
-
-	def _on_instance_click(self, position, area, i):
-		net = self.simulation.get_net()
-		t = net.get_transition_at_position(position)
-		# FIXME: Only transitions inside area can be clicked
-		if t:
-			self.simulation.fire_transition(t, i)
-
-	def _instance_draw(self, cr, width, height, vx, vy, vconfig, area, i):
-		self.simulation.get_net().draw(cr, vconfig)
-		cr.set_source_rgba(0.3,0.3,0.3,0.5)
-		cr.rectangle(vx,vy,width, 15)
-		cr.fill()
-		cr.move_to(vx + 10, vy + 11)
-		cr.set_source_rgb(1.0,1.0,1.0)
-		cr.show_text("node=%s   iid=%s" % (self.simulation.get_instance_node(area, i), i))
-		cr.stroke()
-
-		if not self.simulation.is_instance_running(area, i):
-			cr.move_to(vx + 10, vy + 26)
-			cr.set_source_rgb(1.0,0.1,0.1)
-			cr.show_text("HALTED")
-			cr.stroke()
-
-	def _visualconfigs(self):
-		def area_callbacks(area, i):
-			vconfig = InstanceVisualConfig(self.simulation, area, i)
-			draw_fn = lambda cr,w,h,vx,vy: self._instance_draw(cr, w, h, vx, vy, vconfig, area, i)
-			click_fn = lambda position: self._on_instance_click(position, area, i)
-			return (draw_fn, click_fn)
-
-		for area in self.get_net().areas():
-			callbacks = [ area_callbacks(area, i) for i in xrange(self.simulation.get_area_instances_number(area)) ]
-			sz, pos = self._view_for_area(area)
-			self.instance_canvas.register_line(sz, pos, callbacks)
-		self.instance_canvas.end_of_registration()
-		self.canvas.set_vconfig(OverviewVisualConfig(self.simulation))
-
-	def _view_for_area(self, area):
-		sz = utils.vector_add(area.get_size(), (80, 95))
-		pos = utils.vector_diff(area.get_position(), (40, 55))
-		return (sz, pos)
+	def _panel(self):
+		lst = gtkutils.SimpleList((("_", object), ("Path",str)))
+		lst.set_size_request(80,10)
+		lst.append((None, "Overview"))
+		for path in self.simulation.running_paths():
+			lst.append((path, str(path)))
+		lst.select_first()
+		return lst
 
 	def _simulation_changed(self):
 		self.redraw()
 
 
-class OverviewVisualConfig(VisualConfig):
+class SimVisualConfig(VisualConfig):
 
-	def __init__(self, simulation):
-		self.simulation = simulation
+	def __init__(self, simview):
+		self.simview = simview
+
+	def get_instance(self):
+		return self.simview.simulation.get_instance(simulation.path_from_string("/"))
 
 	def transition_drawing(self, item):
 		d = VisualConfig.transition_drawing(self, item)
-		if len(self.simulation.enabled_instances_of_transition(item)) > 0:
-			d.set_highlight((0.1,0.90,0.1,0.5))
+		"""if len(self.simulation.enabled_instances_of_transition(item)) > 0:
+			d.set_highlight((0.1,0.90,0.1,0.5))"""
 		return d
 
 	def place_drawing(self, item):
 		d = VisualConfig.place_drawing(self, item)
-		tokens = self.simulation.get_tokens_of_place(item)
-		r = []
-		for iid in tokens:
-			r += [ t + "@" + str(iid) for t in tokens[iid] ]
-		d.set_tokens(r)
+		tokens = self.get_instance().get_tokens(item)
+		if tokens:
+			d.set_tokens(tokens)
 		return d
 
-
-class InstanceVisualConfig(VisualConfig):
-
-	def __init__(self, simulation, area, iid):
-		self.simulation = simulation
-		self.area = area
-		self.iid = iid
-
-	def transition_drawing(self, item):
-		d = VisualConfig.transition_drawing(self, item)
-		if self.simulation.is_transition_enabled(item, self.iid):
-			d.set_highlight((0.1,0.90,0.1,0.5))
-		return d
-
-	def place_drawing(self, item):
-		d = VisualConfig.place_drawing(self, item)
-		if self.area.is_inside(item):
-			tokens = self.simulation.get_tokens_of_place(item)
-			d.set_tokens(tokens[self.iid])
-		return d
 
 def connect_dialog(mainwindow):
 	builder = gtkutils.load_ui("connect-dialog")

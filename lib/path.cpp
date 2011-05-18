@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <sstream>
 #include "path.h"
 
 CaPath caRoot(0);
@@ -96,13 +97,17 @@ CaPath CaPath::apply(int levelup, int count, ...)
 	return CaPath(nodes);
 }
 
-void CaPath::print() const
+std::string CaPath::as_string() const
 {
-	int d = 0;
-	printf("P:");
-	while (nodes[d] != -1) {
-		printf("%i/", nodes[d]);
-		d++;
-	}
-	printf("\n");
+    if (*nodes == -1) {
+        return "/";
+    }
+
+    std::stringstream s;
+    int *i = nodes;
+    do {
+        s << "/" << *i;
+        i++;
+    } while(*i != -1);
+    return s.str();
 }

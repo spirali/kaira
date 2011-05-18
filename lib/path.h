@@ -2,6 +2,8 @@
 #ifndef CAILIE_PATH_H
 #define CAILIE_PATH_H
 
+#include <string>
+
 class CaPath {
 	public:
 		CaPath(int *nodes);
@@ -15,8 +17,7 @@ class CaPath {
 		int depth() const;
 		CaPath apply(int levelup, int count, ...);
 
-		void print() const;
-
+		std::string as_string() const;
 	protected:
 		int *nodes;
 		void set_data(int *nodes);

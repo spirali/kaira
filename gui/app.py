@@ -499,7 +499,7 @@ class App:
 
 	def _open_welcome_tab(self):
 		label = gtk.Label()
-		line1 = "<span size='xx-large'>Kaira</span>\nv0.1\n\n"
+		line1 = "<span size='xx-large'>Kaira</span>\nv0.2\n\n"
 		line2 = "News &amp; documentation can be found at\n"
 		line3 = "<a href='http://verif.cs.vsb.cz/kaira'>http://verif.cs.vsb.cz/kaira</a>"
 		label.set_markup(line1 + line2 + line3)

@@ -39,8 +39,6 @@ class Simulation(EventSource):
 
 	def __init__(self):
 		EventSource.__init__(self)
-		self.areas_instances = {}
-		self.places_content = {}
 		self.random = random.Random()
 
 	def connect(self, host, port):
@@ -73,38 +71,25 @@ class Simulation(EventSource):
 	def get_net(self):
 		return self.project.net
 
-	def get_area_instances_number(self, area):
-		return self.areas_instances[area.get_id()].number_of_instances()
-
-	def get_instance_node(self, area, iid):
-		return self.areas_instances[area.get_id()].get_node(iid)
-
-	def is_instance_running(self, area, iid):
-		return self.areas_instances[area.get_id()].is_running(iid)
-
-	def is_transition_enabled(self, transition, iid):
-		return iid in self.enabled_transitions[transition.get_id()]
-
-	def get_tokens_of_place(self, place):
-		return self.places_content[place.get_id()]
-
 	def read_header(self, stream):
 		header = xml.fromstring(stream.readline())
 		lines_count = int(header.get("description-lines"))
-		self.process_count = int(header.get("process-count"))
 		project_string = "\n".join((stream.readline() for i in xrange(lines_count)))
 		self.project = load_project_from_xml(xml.fromstring(project_string), "")
 
 	def query_reports(self, callback = None):
-		def reports_callback(lines):
-			self.places_content, areas_instances_data, self.enabled_transitions, self.node_to_process = \
-				join_reports(lines)
-			for network_id in areas_instances_data:
-					self.areas_instances[network_id] = InstancedArea(areas_instances_data[network_id])
+		def reports_callback(line):
+			root = xml.fromstring(line)
+			self.units = [ Unit(e) for e in root.findall("unit") ]
+			self.instances = {}
+			for u in self.units:
+				if not self.instances.has_key(u.path):
+					self.instances[u.path] = NetworkInstance(u.path)
+				self.instances[u.path].add_unit(u)
 			if callback:
 				callback()
 			self.emit_event("changed")
-		self.controller.run_command("REPORTS", reports_callback, self.process_count)
+		self.controller.run_command("REPORTS", reports_callback)
 
 	def fire_transition(self, transition, iid):
 		if self.controller:
@@ -117,66 +102,65 @@ class Simulation(EventSource):
 			iid = self.random.choice(enabled_iids)
 			self.fire_transition(transition, iid)
 
-	def enabled_instances_of_transition(self, transition):
-		return self.enabled_transitions[transition.get_id()]
+	def running_paths(self):
+		return self.instances.keys()
 
+	def get_instance(self, path):
+		return self.instances[path]
 
-class InstancedArea:
+class Path:
+	def __init__(self, items, absolute = True):
+		self.items = tuple(items)
+		self.absolute = absolute
 
-	def __init__(self, data):
-		self.instances = {}	
-		for iid, node, running in data:
-			self.instances[iid] = [node, running]
+	def __eq__(self, path):
+		return self.absolute == path.absolute and self.items == path.items
 
-	def number_of_instances(self):
-		return len(self.instances)
+	def __hash__(self):
+		return hash(self.items)
 
-	def set_running(self, iid, value):
-		self.instances[iid][1] = value
+	def __str__(self):
+		start = "/" if self.absolute else "./"
+		return start + "/".join(map(str,self.items))
 
-	def is_running(self, iid):
-		return self.instances[iid][1]
+def path_from_string(string):
+    assert string != ""
+    if string[-1] == "/":
+        string = string[:-1]
+    items = string.split("/")
+    if items[0] == "":
+        return Path(map(int, items[1:]))
+    elif items[0] == ".":
+        return Path(map(int, items[1:]), False)
+    else:
+        return Path(map(int, items), False)
 
-	def get_node(self, iid):
-		return self.instances[iid][0]
+class Unit:
 
-def extract_report(root):
-	places_content = {}
-	transitions = {}
-	areas_instances = {}
-	for node_e in root.findall("node"):
-		area_id = utils.xml_int(node_e, "network-id")
-		iid = utils.xml_int(node_e,"iid")
-		node = utils.xml_int(node_e,"node")
-		running = utils.xml_bool(node_e, "running")
-		areas_instances.setdefault(area_id,[])
-		areas_instances[area_id].append( (iid, node, running) )
-		for place_e in node_e.findall("place"):
-			tokens = [ utils.xml_str(e,"value") for e in place_e.findall("token") ]
-			place_id = utils.xml_int(place_e,"id")
-			place_content = places_content.setdefault(place_id, {})
-			place_content[iid] = tokens
-		for transition_e in node_e.findall("transition"):
-			transition_id = utils.xml_int(transition_e, "id")
-			transitions.setdefault(transition_id,[])
-			if utils.xml_bool(transition_e, "enable") and running:
-				transitions[transition_id].append(iid)
-	return (places_content, transitions, areas_instances)
+	def __init__(self, unit_element):
+		self.places = {}
+		self.path = path_from_string(unit_element.get("path"))
+		for place in unit_element.findall("place"):
+			tokens = [ e.get("value") for e in place.findall("token") ]
+			self.places[int(place.get("id"))] = tokens
 
-def join_reports(lines):
-	place_content = {}
-	areas_instances = {}
-	node_to_process = {}
-	transitions = {}
+	def has_place(self, place):
+		return self.places.has_key(place.get_id())
 
-	for process_id, line in enumerate(lines):
-		report = xml.fromstring(line)
-		pc, tr, ai = extract_report(report)
-		place_content = utils.join_dicts(pc, place_content, utils.join_dicts)
-		areas_instances = utils.join_dicts(ai, areas_instances, lambda x,y: x + y)
-		transitions = utils.join_dicts(tr, transitions, lambda x,y: x + y)
-		for area in ai.values():
-			for iid, node, running in area:
-				node_to_process[node] = process_id
+	def get_tokens(self, place):
+		return self.places[place.get_id()]
 
-	return place_content, areas_instances, transitions, node_to_process
+class NetworkInstance:
+
+	def __init__(self, path):
+		self.path = path
+		self.units = []
+
+	def add_unit(self, unit):
+		self.units.append(unit)
+
+	def get_tokens(self, place):
+		for u in self.units:
+			if u.has_place(place):
+				return u.get_tokens(place)
+		return None

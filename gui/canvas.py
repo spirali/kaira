@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010, 2011 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #

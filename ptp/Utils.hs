@@ -24,6 +24,10 @@ import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.Maybe as Maybe
 
+just :: String -> Maybe a -> a
+just str (Just x) = x
+just str Nothing = error $ "just: " ++ str
+
 addDelimiter :: String -> [String] -> String
 addDelimiter d xs = List.concat $ List.intersperse d xs
 

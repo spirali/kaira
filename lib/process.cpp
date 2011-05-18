@@ -3,6 +3,10 @@
 #include <stdio.h>
 
 #include "process.h"
+#include "listener.h"
+
+extern int ca_listen_port;
+extern int ca_block_on_start;
 
 CaThread::CaThread()
 {
@@ -82,6 +86,7 @@ void CaThread::join()
 
 void CaThread::run_scheduler()
 {
+	process_messages();
 	jobs = process->create_jobs();
 	for (;;) {
 		int i;
@@ -107,6 +112,29 @@ CaProcess::CaProcess(int threads_count, int defs_count, CaUnitDef **defs)
 
 void CaProcess::start()
 {
+	CaListener listener(this);
+	pthread_barrier_t start_barrier;
+
+	if (ca_listen_port != -1) {
+		listener.init(ca_listen_port);
+		if (ca_listen_port == 0) {
+			printf("%i\n", listener.get_port());
+			fflush(stdout);
+		}
+
+		if (ca_block_on_start) {
+			pthread_barrier_init(&start_barrier, NULL, 2);
+			listener.set_start_barrier(&start_barrier);
+		}
+
+		listener.start();
+
+		if (ca_block_on_start) {
+			pthread_barrier_wait(&start_barrier);
+			pthread_barrier_destroy(&start_barrier);
+		}
+	}
+
 	int t;
 	for (t = 0; t < threads_count; t++) {
 		threads[t].start();
@@ -142,6 +170,36 @@ void CaProcess::inform_new_unit(CaUnitDef *def, CaUnit *unit)
 	for (int t = 0; t < threads_count; t++) {
 		threads[t].add_message(new CaMessageNewUnit(def, unit));
 	}
+}
+
+void CaProcess::send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2)
+{
+	for (int t = 0; t < threads_count; t++) {
+		threads[t].add_message(new CaMessageBarriers(barrier1, barrier2));
+	}
+}
+
+void CaProcess::write_reports(FILE *out) const
+{
+	CaOutput output;
+	output.child("units");
+	for (int t = 0; t < defs_count; t++) {
+		defs[t]->reports(output);
+	}
+	CaOutputBlock *block = output.back();
+	block->write(out);
+	fprintf(out, "\n");
+	fflush(stdout);
+	delete block;
+}
+
+int CaProcess::get_units_count() const
+{
+	int count = 0;
+	for (int t = 0; t < defs_count; t++) {
+		count += defs[t]->get_units_count();
+	}
+	return count;
 }
 
 int CaJob::test_and_fire(CaThread *thread)

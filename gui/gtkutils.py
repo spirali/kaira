@@ -116,3 +116,6 @@ class SimpleList(gtk.ScrolledWindow):
 
 	def get_column(self, column):
 		return [ self.liststore.get_value(row.iter, column) for row in self.liststore ]
+
+	def select_first(self):
+		self.listview.get_selection().select_iter(self.liststore.get_iter_first())

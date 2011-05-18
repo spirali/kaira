@@ -25,6 +25,13 @@ void CaUnitDef::register_transition(int i,
 	transitions[i].set_var_size(var_size);
 }
 
+void CaUnitDef::reports(CaOutput &output)
+{
+	std::vector<CaUnit*>::iterator i;
+	for (i = units.begin(); i != units.end(); i++) {
+		(*i)->report(this, output);
+	}
+}
 
 std::vector<CaTransition*> CaUnitDef::get_transitions() const
 {
@@ -58,4 +65,12 @@ CaUnit * CaUnitDef::lookup_or_start(const CaPath &path, int *start_flag)
 CaUnit::CaUnit(CaUnitDef *def, const CaPath &p) : path(p) 
 { 
 	pthread_mutex_init(&mutex, NULL); 
+}
+
+void CaUnit::report(CaUnitDef *def, CaOutput &out)
+{
+	out.child("unit");
+	out.set("path", path.as_string());
+	report_places(out);
+	out.back();
 }

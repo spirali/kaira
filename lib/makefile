@@ -16,11 +16,11 @@ mpi: libmpicailie.a
 %.o: %.cpp %.h
 	${CC} -c $*.cpp ${CFLAGS}
 
-libcailie.a: cailie.o unit.o path.o process.o messages.o
+libcailie.a: cailie.o unit.o path.o process.o messages.o output.o listener.o
 	ar rcs libcailie.a $^
 
 #libmpicailie.a: mpicailie.o cailie_mpi.o
 #	ar rcs libmpicailie.a mpicailie.o cailie_mpi.o
 
 clean:
-	rm -f libmpicailie.a libcailie.a test *.o
+	rm -f libmpicailie.a libcailie.a *.o

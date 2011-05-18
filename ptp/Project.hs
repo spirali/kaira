@@ -1,5 +1,5 @@
 {-
-    Copyright (C) 2010 Stanislav Bohm
+    Copyright (C) 2010, 2011 Stanislav Bohm
 
     This file is part of Kaira.
 
@@ -31,6 +31,7 @@ import Declarations
 import Parser
 import ProjectTools
 import Base
+import Utils
 import qualified Data.Map as Map
 import qualified Data.Maybe as Maybe
 import qualified Data.List as List
@@ -106,27 +107,6 @@ transitionsFromElement :: Xml.Element -> [Transition]
 transitionsFromElement e =
 	map transitionFromElement $ Xml.findElements (qstr "transition") e
 
-{-
-networkFromElement :: TypeTable -> NelExpression -> Xml.Element -> Network
-networkFromElement types addr e =
-	Network {
-		networkId = idFromElement e,
-		places = placesFromElement types e,
-		transitions = transitionsFromElement e,
-		address = addr,
-		instances = parseExpr (source e "instances") $ xmlAttr "instances" e
-	}
-
-
-addressesFromElement :: Xml.Element -> [NelExpression]
-addressesFromElement e =
-	getAddress (Xml.findElements (qstr "net") e) (ExprInt 0)
-	where
-		networkSize e = parseExpr (source e "instances") $ xmlAttr "instances" e
-		getAddress [] _ = []
-		getAddress (e:es) n = n:(getAddress es $ ExprCall "+" [ n,networkSize e])
--}
-
 parameterFromElement :: TypeTable -> Xml.Element -> Parameter
 parameterFromElement types e = Parameter {
 	parameterName = xmlAttr "name" e,
@@ -136,23 +116,6 @@ parameterFromElement types e = Parameter {
 
 idFromElement :: Xml.Element -> ID
 idFromElement = xmlAttrInt "id"
-
-{-
-placeToNetworkList :: Project -> [(ID, Network)]
-placeToNetworkList project =
-	concatMap extractPlaces (networks project)
-	where extractPlaces network = [ (placeId y, network) | y <- places network ]
-
-{-
-edgeNetwork :: Project -> Edge -> Network
-edgeNetwork project edge =
-	case List.find edgeOfNetwork (networks project) of
-		Just n -> n
-		Nothing -> error "edgeNetwork: Network not found"
-	where
-		edgeOfNetwork n = List.elem (edgePlaceId edge) (map placeId (places n))
--}
--}
 
 externTypeFromElement :: Xml.Element -> NelVarDeclaration
 externTypeFromElement e = (name, TypeData name rawType transportMode codes)
@@ -202,10 +165,10 @@ projectFromXml xml =
 		 }
 	where
 		root = head $ Xml.onlyElems (Xml.parseXML xml)
-		configuration = Maybe.fromJust $ Xml.findElement (qstr "configuration") root
-		net = Maybe.fromJust $ Xml.findElement (qstr "net") root
+		configuration = just "<configuration>" $ Xml.findElement (qstr "configuration") root
+		net = just "<net>" $ Xml.findElement (qstr "net") root
 		params = map (parameterFromElement types) $ Xml.findElements (qstr "parameter") configuration
 		events = map eventFromElement $ Xml.findElements (qstr "event") configuration
 		types = projectTypesFromElement configuration
 		ufunctions = map (userFunctionFromElement types) $ Xml.findElements (qstr "function") configuration
-		description = Maybe.fromJust $ Xml.findElement (qstr "description") root
+		description = just "<description>" $ Xml.findElement (qstr "description") root

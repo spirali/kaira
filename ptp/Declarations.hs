@@ -1,5 +1,5 @@
 {-
-    Copyright (C) 2010 Stanislav Bohm
+    Copyright (C) 2010, 2011 Stanislav Bohm
 
     This file is part of Kaira.
 
@@ -81,17 +81,6 @@ data Transition = Transition {
 } deriving (Show)
 
 instance Eq Transition where t1 == t2 = transitionId t1 == transitionId t2
-
-{-
-data Network = Network {
-	networkId :: ID,
-	places :: [Place],
-	transitions :: [Transition],
-	address :: NelExpression, {- address is considered as input expression, but in fact it is computed from "instances" and calling "+" -}
-	instances :: NelExpression
-} deriving (Show) -}
-
--- instance Eq Network where n1 == n2 = networkId n1 == networkId n2
 
 data Project = Project {
 	projectName :: String,

@@ -143,7 +143,7 @@ instructionExprs (IExpr expr) = [expr]
 instructionExprs (ISet expr1 expr2) = [expr1, expr2]
 instructionExprs (IIf expr i1 i2) = [ expr ] ++ instructionExprs i1 ++ instructionExprs i2
 instructionExprs (IStatement instrs) = concatMap instructionExprs instrs
-instructionExprs (IForeach _ _ expr instrs) = concatMap instructionExprs instrs
+instructionExprs (IForeach _ _ _ expr instrs) = concatMap instructionExprs instrs
 instructionExprs INoop = []
 instructionExprs _ = []
 
@@ -153,7 +153,7 @@ mapExprs fn (ISet e1 e2) = ISet (fn e1) (fn e2)
 mapExprs fn (IIf e i1 i2) = IIf (fn e) (mapExprs fn i1) (mapExprs fn i2)
 mapExprs fn (IStatement instrs) = IStatement $ map (mapExprs fn) instrs
 mapExprs fn (IDefine name t (Just expr)) = IDefine name t $ Just (fn expr)
-mapExprs fn (IForeach a b e is) = IForeach a b (fn e) $ map (mapExprs fn) is
+mapExprs fn (IForeach t a b e is) = IForeach t a b (fn e) $ map (mapExprs fn) is
 mapExprs fn x = x
 
 mapExprs' :: (Declarations -> Expression -> Expression) -> Declarations -> Instruction -> Instruction
@@ -164,7 +164,7 @@ mapExprs' fn decls (IStatement instructions) =
 	IStatement $ map (mapExprs' fn newDecls) instructions
 	where newDecls = statementDeclarations instructions `declarationsJoin` decls
 mapExprs' fn decls (IDefine name t (Just expr)) = IDefine name t $ Just (fn decls expr)
-mapExprs' fn decls (IForeach a b e is) = IForeach a b (fn decls e) $ map (mapExprs' fn decls) is
+mapExprs' fn decls (IForeach t a b e is) = IForeach t a b (fn decls e) $ map (mapExprs' fn decls) is
 mapExprs' fn decls x = x
 
 -- |Returns expression that computes size of memory footprint of result of expr

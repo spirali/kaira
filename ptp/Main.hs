@@ -1,5 +1,5 @@
 {-
-    Copyright (C) 2010 Stanislav Bohm
+    Copyright (C) 2010, 2011 Stanislav Bohm
 
     This file is part of Kaira.
 
@@ -53,7 +53,7 @@ parseArgs (fin:param:args) | "--" `List.isPrefixOf` param =
 		_ -> putStr $ "Invalid parameter " ++ param ++ "\n"
 	where
 		typePrint str project = (typeString . fromNelType) (parseType (typeTable project) "<cmd>" str)
-		placeTypePrint str project = (typeString . TPlace . fromNelType) (placeTypeById' project (read str))
+		placeTypePrint str project = (typeString . TPlace . fromNelType) (placeTypeById project (read str))
 		transitionVars str project = case transitionVarType project (transitionById project (read str)) of
 			TStruct _ types -> addDelimiter "\n" (map (\(n,t) -> typeString t ++ " " ++ n) $! types)
 			_  -> error "Invalid type"
