@@ -1,5 +1,6 @@
 
 #include "unit.h"
+#include <alloca.h>
 
 CaUnitDef::CaUnitDef(CaUnitInitFn *init_fn, int transitions_count) 
 {
@@ -16,6 +17,7 @@ CaUnitDef::~CaUnitDef()
 }
 
 void CaUnitDef::register_transition(int i, 
+			int id,
 			CaEnableFn *enable_fn, 
 			CaFireFn *fire_fn, 
 			size_t var_size)
@@ -23,6 +25,7 @@ void CaUnitDef::register_transition(int i,
 	transitions[i].set_enable_fn(enable_fn);
 	transitions[i].set_fire_fn(fire_fn);
 	transitions[i].set_var_size(var_size);
+	transitions[i].set_id(id);
 }
 
 void CaUnitDef::reports(CaOutput &output)
@@ -71,6 +74,20 @@ void CaUnit::report(CaUnitDef *def, CaOutput &out)
 {
 	out.child("unit");
 	out.set("path", path.as_string());
+	std::vector<CaTransition*> ts = def->get_transitions();
+	std::vector<CaTransition*>::iterator i;
+	for (i = ts.begin(); i != ts.end(); i++) {
+		out.child("transition");
+		out.set("id", (*i)->get_id());
+		out.set("enabled", (*i)->is_enabled(this));
+		out.back();
+	}
 	report_places(out);
 	out.back();
+}
+
+bool CaTransition::is_enabled(CaUnit *unit)
+{
+	void *vars = alloca(var_size);
+	return is_enabled(unit, vars);
 }

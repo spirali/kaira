@@ -121,7 +121,7 @@ initCaUnitDef unit = [
 	where
 		transitions = unitTransitions unit
 		varName = nameFromId "unitdef" (unitId unit)
-		register n t = icall "->register_transition" [ EVar varName, EInt n, arg1 t, arg2 t, arg3 t]
+		register n t = icall "->register_transition" [ EVar varName, EInt n, EInt (transitionId t), arg1 t, arg2 t, arg3 t]
 		arg1 t = EVar $ "(CaEnableFn*) " ++ transitionFnName t
 		arg2 t = EVar $ "(CaFireFn*) " ++ fireFnName t
 		arg3 t = ECall "sizeof" [ EVar (nameFromId "Vars" (transitionId t)) ]

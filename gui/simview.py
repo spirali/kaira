@@ -86,8 +86,8 @@ class SimVisualConfig(VisualConfig):
 
 	def transition_drawing(self, item):
 		d = VisualConfig.transition_drawing(self, item)
-		"""if len(self.simulation.enabled_instances_of_transition(item)) > 0:
-			d.set_highlight((0.1,0.90,0.1,0.5))"""
+		if self.get_instance().is_enabled(item):
+			d.set_highlight((0.1,0.90,0.1,0.5))
 		return d
 
 	def place_drawing(self, item):

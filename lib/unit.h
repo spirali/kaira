@@ -24,13 +24,18 @@ class CaTransition {
 		void set_var_size(size_t size) { this->var_size = size; }
 
 		size_t get_var_size() const { return var_size; }
-		int is_enabled(CaUnit *unit, void *vars) { enable_fn(unit, vars); }
+		bool is_enabled(CaUnit *unit);
+		bool is_enabled(CaUnit *unit, void *vars) { return enable_fn(unit, vars); }
 		void fire(CaThread *thread, CaUnit *unit, void *vars) { fire_fn(thread, unit, vars); }
+
+		void set_id(int id) { this->id = id; }
+		int get_id() { return id; }
 
 	protected:
 		CaEnableFn *enable_fn;
 		CaFireFn *fire_fn;
 		size_t var_size;
+		int id;
 };
 
 class CaUnitDef {
@@ -39,6 +44,7 @@ class CaUnitDef {
 		~CaUnitDef();
 
 		void register_transition(int i, 
+			int id,
 			CaEnableFn *enable_fn, 
 			CaFireFn *fire_fn, 
 			size_t var_size);

@@ -19,7 +19,6 @@
 
 import xml.etree.ElementTree as xml
 import process
-import utils
 import random
 from project import load_project_from_xml
 from events import EventSource
@@ -139,16 +138,27 @@ class Unit:
 
 	def __init__(self, unit_element):
 		self.places = {}
+		self.transitions = {}
 		self.path = path_from_string(unit_element.get("path"))
+
 		for place in unit_element.findall("place"):
 			tokens = [ e.get("value") for e in place.findall("token") ]
 			self.places[int(place.get("id"))] = tokens
+
+		for t in unit_element.findall("transition"):
+			self.transitions[int(t.get("id"))] = bool(int(t.get("enabled")))
 
 	def has_place(self, place):
 		return self.places.has_key(place.get_id())
 
 	def get_tokens(self, place):
 		return self.places[place.get_id()]
+
+	def has_transition(self, transition):
+		return self.transitions.has_key(transition.get_id())
+
+	def is_enabled(self, transition):
+		return self.transitions[transition.get_id()]
 
 class NetworkInstance:
 
@@ -164,3 +174,9 @@ class NetworkInstance:
 			if u.has_place(place):
 				return u.get_tokens(place)
 		return None
+
+	def is_enabled(self, transition):
+		for u in self.units:
+			if u.has_transition(transition):
+				return u.is_enabled(transition)
+		return False
