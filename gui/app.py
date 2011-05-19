@@ -1,5 +1,6 @@
 #
 #    Copyright (C) 2010, 2011 Stanislav Bohm
+#                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
 #
@@ -226,8 +227,9 @@ class App:
 	def _add_project_file_filters(self, dialog):
 		self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files = True)
 
-	def transition_edit(self, transition):
+	def transition_edit(self, transition, line_no = -1):
 		if self.window.switch_to_tab_by_key(transition):
+			self.window.jump_in_tab(transition, line_no)
 			return
 
 		def open_tab(stdout):
@@ -236,17 +238,22 @@ class App:
 			else:
 				name = "T: <unnamed" + str(transition.get_id()) + ">"
 			editor = codeedit.TransitionCodeEditor(transition, [ line for line in stdout if line.strip() != "" ])
+			editor.jump_to_line(line_no)
 			self.window.add_tab(Tab(name, editor, transition))
+			editor.view.grab_focus()
 		self._start_ptp(self.project, open_tab, extra_args = [ "--transition-vars", str(transition.get_id()) ])
 
-	def place_edit(self, place):
+	def place_edit(self, place, line_no = -1):
 		if self.window.switch_to_tab_by_key(place):
+			self.window.jump_in_tab(place, line_no)
 			return
 
 		def open_tab(stdout):
 			name = "P: " + str(place.get_id())
 			editor = codeedit.PlaceCodeEditor(place, stdout[0].strip())
+			editor.jump_to_line(line_no)
 			self.window.add_tab(Tab(name, editor, place))
+			editor.view.grab_focus()
 		self._start_ptp(self.project, open_tab, extra_args = [ "--place-type", str(place.get_id())])
 
 	def extern_type_function_edit(self, extern_type, fn_name, callback):
@@ -257,11 +264,14 @@ class App:
 		editor = ExternTypeEditor(extern_type, fn_name, callback)
 		self.window.add_tab(Tab(name, editor, tag))
 
-	def function_edit(self, function):
+	def function_edit(self, function, line_no = -1):
 		if self.window.switch_to_tab_by_key(function):
+			self.window.jump_in_tab(function, line_no)
 			return
 		editor = FunctionEditor(function)
+		editor.jump_to_line(line_no)
 		self.window.add_tab(Tab(function.get_name(), editor, function))
+		editor.view.grab_focus()
 
 	def project_config(self):
 		if self.window.switch_to_tab_by_key("project-config"):
@@ -450,17 +460,20 @@ class App:
 			self.console_write(":" + message)
 			return True
 
+		try: line_no = int(message[:message.find(":")])
+		except Exception: line_no = -1
+		
 		item = self.project.get_item(item_id)
 		if pos == "function" and item.is_transition():
-			self.console_write_link(str(item_id) + "/" + pos, lambda: self.transition_edit(item))
+			self.console_write_link(str(item_id) + "/" + pos, lambda: self.transition_edit(item, line_no))
 			self.console_write(":" + message)
 			return True
 		if pos == "init_function" and item.is_place():
-			self.console_write_link(str(item_id) + "/" + pos, lambda: self.place_edit(item))
+			self.console_write_link(str(item_id) + "/" + pos, lambda: self.place_edit(item, line_no))
 			self.console_write(":" + message)
 			return True
 		if pos == "user_function":
-			self.console_write_link(item.get_name(), lambda: self.function_edit(item))
+			self.console_write_link(item.get_name(), lambda: self.function_edit(item, line_no))
 			self.console_write(":" + message)
 			return True
 		return False

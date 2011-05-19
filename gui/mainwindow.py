@@ -1,5 +1,6 @@
 #
 #    Copyright (C) 2010, 2011 Stanislav Bohm
+#                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
 #
@@ -89,6 +90,12 @@ class MainWindow(gtk.Window):
 				self.switch_to_tab(tab)
 				return True
 		return False
+
+	def jump_in_tab(self, key, line_no):
+		for tab in self.tablist:
+			if tab.get_key() == key:
+				tab.widget.jump_to_line(line_no)
+				tab.widget.view.grab_focus()
 
 	def close_tab(self, tab):
 		num = self.notebook.page_num(tab.get_widget())

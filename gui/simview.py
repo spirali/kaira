@@ -1,5 +1,6 @@
 #
 #    Copyright (C) 2010, 2011 Stanislav Bohm
+#                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
 #
@@ -38,6 +39,7 @@ class SimViewTab(mainwindow.Tab):
 class SimView(gtk.VBox):
 	def __init__(self, app, simulation):
 		gtk.VBox.__init__(self)
+		self.app = app
 		self.simulation = simulation
 
 		self.pack_start(self._buttons(), False, False)
@@ -92,14 +94,41 @@ class SimView(gtk.VBox):
 		c = MultiCanvas()
 		return c
 
+	def tokens_inside(self, place):
+		tokens = self.simulation.get_tokens_of_place(place)
+		r = []
+		for iid in tokens:
+			r += [ t + "@" + str(iid) for t in tokens[iid] ]
+		if len(r) < 7:
+			return
+
+		text_buffer = gtk.TextBuffer()
+		text_buffer.insert(text_buffer.get_end_iter(), '\n'.join(r))
+		text_area = gtk.TextView()
+		text_area.set_buffer(text_buffer)
+		text_area.set_editable(False)
+		text_area.set_cursor_visible(False)
+
+		sw = gtk.ScrolledWindow()
+		sw.add(text_area)
+		vbox = gtk.VBox()
+		vbox.pack_start(sw)
+		vbox.show_all()
+
+		self.app.window.add_tab(mainwindow.Tab("Tokens inside", vbox))
+
 	def _button_down(self, event, position):
 		if event.button == 3:
 			self._context_menu(event, position)
 			return
 		net = self.simulation.get_net()
-		t = net.get_transition_at_position(position)
-		if t:
-			self.simulation.fire_transition_random_instance(t)
+		item = net.get_item_at_position(position, lambda i: not i.is_area())
+		if item == None:
+			return
+		if item.is_transition():
+			self.simulation.fire_transition_random_instance(item)
+		elif item.is_place():
+			self.tokens_inside(item)
 
 	def _context_menu(self, event, position):
 		def fire_fn(i):
@@ -112,10 +141,13 @@ class SimView(gtk.VBox):
 
 	def _on_instance_click(self, position, area, i):
 		net = self.simulation.get_net()
-		t = net.get_transition_at_position(position)
-		# FIXME: Only transitions inside area can be clicked
-		if t:
-			self.simulation.fire_transition(t, i)
+		item = net.get_item_at_position(position, lambda i: not i.is_area())
+		if item == None:
+			return
+		if item.is_transition():
+			self.simulation.fire_transition(item, i)
+		elif item.is_place():
+			self.tokens_inside(item)
 
 	def _instance_draw(self, cr, width, height, vx, vy, vconfig, area, i):
 		self.simulation.get_net().draw(cr, vconfig)
@@ -173,6 +205,8 @@ class OverviewVisualConfig(VisualConfig):
 		r = []
 		for iid in tokens:
 			r += [ t + "@" + str(iid) for t in tokens[iid] ]
+		if len(r) > 6:
+			r = r[:6] + ["..."]
 		d.set_tokens(r)
 		return d
 
@@ -194,7 +228,10 @@ class InstanceVisualConfig(VisualConfig):
 		d = VisualConfig.place_drawing(self, item)
 		if self.area.is_inside(item):
 			tokens = self.simulation.get_tokens_of_place(item)
-			d.set_tokens(tokens[self.iid])
+			r = tokens[self.iid]
+			if len(r) > 6:
+				r = r[:6] + ["..."]
+			d.set_tokens(r)
 		return d
 
 def connect_dialog(mainwindow):
