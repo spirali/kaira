@@ -227,9 +227,8 @@ class App:
 	def _add_project_file_filters(self, dialog):
 		self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files = True)
 
-	def transition_edit(self, transition, line_no = -1):
-		if self.window.switch_to_tab_by_key(transition):
-			self.window.jump_in_tab(transition, line_no)
+	def transition_edit(self, transition, line_no = None):
+		if self.window.switch_to_tab_by_key(transition, lambda tab: tab.widget.jump_to_line(line_no)):
 			return
 
 		def open_tab(stdout):
@@ -240,12 +239,10 @@ class App:
 			editor = codeedit.TransitionCodeEditor(transition, [ line for line in stdout if line.strip() != "" ])
 			editor.jump_to_line(line_no)
 			self.window.add_tab(Tab(name, editor, transition))
-			editor.view.grab_focus()
 		self._start_ptp(self.project, open_tab, extra_args = [ "--transition-vars", str(transition.get_id()) ])
 
-	def place_edit(self, place, line_no = -1):
-		if self.window.switch_to_tab_by_key(place):
-			self.window.jump_in_tab(place, line_no)
+	def place_edit(self, place, line_no = None):
+		if self.window.switch_to_tab_by_key(place, lambda tab: tab.widget.jump_to_line(line_no)):
 			return
 
 		def open_tab(stdout):
@@ -253,7 +250,6 @@ class App:
 			editor = codeedit.PlaceCodeEditor(place, stdout[0].strip())
 			editor.jump_to_line(line_no)
 			self.window.add_tab(Tab(name, editor, place))
-			editor.view.grab_focus()
 		self._start_ptp(self.project, open_tab, extra_args = [ "--place-type", str(place.get_id())])
 
 	def extern_type_function_edit(self, extern_type, fn_name, callback):
@@ -264,14 +260,12 @@ class App:
 		editor = ExternTypeEditor(extern_type, fn_name, callback)
 		self.window.add_tab(Tab(name, editor, tag))
 
-	def function_edit(self, function, line_no = -1):
-		if self.window.switch_to_tab_by_key(function):
-			self.window.jump_in_tab(function, line_no)
+	def function_edit(self, function, line_no = None):
+		if self.window.switch_to_tab_by_key(function, lambda tab: tab.widget.jump_to_line(line_no)):
 			return
 		editor = FunctionEditor(function)
 		editor.jump_to_line(line_no)
 		self.window.add_tab(Tab(function.get_name(), editor, function))
-		editor.view.grab_focus()
 
 	def project_config(self):
 		if self.window.switch_to_tab_by_key("project-config"):
@@ -461,7 +455,7 @@ class App:
 			return True
 
 		try: line_no = int(message[:message.find(":")])
-		except Exception: line_no = -1
+		except Exception: line_no = None
 		
 		item = self.project.get_item(item_id)
 		if pos == "function" and item.is_transition():

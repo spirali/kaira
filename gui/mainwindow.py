@@ -84,18 +84,14 @@ class MainWindow(gtk.Window):
 		num = self.notebook.page_num(tab.get_widget())
 		self.notebook.set_current_page(num)
 
-	def switch_to_tab_by_key(self, key):
+	def switch_to_tab_by_key(self, key, fn = None):
 		for tab in self.tablist:
 			if tab.get_key() == key:
 				self.switch_to_tab(tab)
+				if fn:
+					fn(tab)
 				return True
 		return False
-
-	def jump_in_tab(self, key, line_no):
-		for tab in self.tablist:
-			if tab.get_key() == key:
-				tab.widget.jump_to_line(line_no)
-				tab.widget.view.grab_focus()
 
 	def close_tab(self, tab):
 		num = self.notebook.page_num(tab.get_widget())
