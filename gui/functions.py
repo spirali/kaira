@@ -99,7 +99,7 @@ class FunctionEditor(CodeEditor):
 		self.function = function
 		declaration = function.get_function_declaration()
 		code = function.get_function_code()
-		CodeEditor.__init__(self, declaration + "\n{\n", code, "}\n", (2, 1))
+		CodeEditor.__init__(self, declaration + "\n{\n", code, "}\n", (2, 0))
 
 	def buffer_changed(self, buffer):
 		self.function.set_function_code(self.get_text())
