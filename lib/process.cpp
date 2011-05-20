@@ -202,6 +202,22 @@ int CaProcess::get_units_count() const
 	return count;
 }
 
+void CaProcess::fire_transition(int transition_id, const CaPath &path)
+{
+	int t;
+	for (t = 0; t < defs_count; t++) {
+		CaTransition *tr = defs[t]->get_transition(transition_id);
+		if (tr) {
+			CaUnit *u = defs[t]->lookup(path);
+			if (u) {
+				CaJob job(u, tr);
+				job.test_and_fire(&threads[t]);
+			}
+			break;
+		}
+	}
+}
+
 int CaJob::test_and_fire(CaThread *thread)
 {
 	unit->lock();

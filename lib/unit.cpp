@@ -54,15 +54,34 @@ CaUnit * CaUnitDef::start_unit(const CaPath &path)
 
 CaUnit * CaUnitDef::lookup_or_start(const CaPath &path, int *start_flag)
 {
-	std::vector<CaUnit*>::iterator i;
-	for (i = units.begin(); i != units.end(); i++) {
-		if ((*i)->path == path) {
-			*start_flag = 0;
-			return *i;
-		}
+	CaUnit *u = lookup(path);
+	if (u) {
+		*start_flag = 0;
+		return u;
 	}
 	*start_flag = 1;
 	return start_unit(path);
+}
+
+CaUnit * CaUnitDef::lookup(const CaPath &path)
+{
+	std::vector<CaUnit*>::iterator i;
+	for (i = units.begin(); i != units.end(); i++) {
+		if ((*i)->path == path) {
+			return *i;
+		}
+	}
+	return NULL;
+}
+
+CaTransition * CaUnitDef::get_transition(int transition_id)
+{
+	int t;
+	for (t = 0; t < transitions_count; t++) {
+		if (transitions[t].get_id() == transition_id) {
+			return &transitions[t];
+		}
+	}
 }
 
 CaUnit::CaUnit(CaUnitDef *def, const CaPath &p) : path(p) 

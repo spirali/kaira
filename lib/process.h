@@ -64,6 +64,7 @@ class CaProcess {
 		int get_threads_count() const { return threads_count; }
 		int get_units_count() const;
 		void write_reports(FILE *out) const;
+		void fire_transition(int transition_id, const CaPath &path);
 
 	protected:
 		int threads_count;

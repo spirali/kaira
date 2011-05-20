@@ -74,7 +74,10 @@ class SimpleList(gtk.ScrolledWindow):
 		self.listview.connect(signal_name, callback)
 
 	def append(self, data):
-		self.liststore.append(data)
+		return self.liststore.append(data)
+
+	def clear(self):
+		self.liststore.clear()
 
 	def get_selection(self, column):
 		model, i = self.listview.get_selection().get_selected()
@@ -117,5 +120,8 @@ class SimpleList(gtk.ScrolledWindow):
 	def get_column(self, column):
 		return [ self.liststore.get_value(row.iter, column) for row in self.liststore ]
 
+	def select_iter(self, iter):
+		self.listview.get_selection().select_iter(iter)
+
 	def select_first(self):
-		self.listview.get_selection().select_iter(self.liststore.get_iter_first())
+		self.select_iter(self.liststore.get_iter_first())

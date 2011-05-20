@@ -9,6 +9,7 @@ class CaPath {
 		CaPath(int *nodes);
 		CaPath(const CaPath &path);
 		CaPath(int count, ...);
+		CaPath(const char *string);
 		~CaPath();
 
 		CaPath & operator= (const CaPath & path);

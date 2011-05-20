@@ -23,7 +23,6 @@ from canvas import NetCanvas
 from drawing import VisualConfig
 import gtkutils
 import mainwindow
-import simulation
 
 class SimViewTab(mainwindow.Tab):
 	def __init__(self, app, simulation, tabname = "Simulation"):
@@ -57,23 +56,51 @@ class SimView(gtk.HBox):
 	def get_net(self):
 		return self.simulation.get_net()
 
+	def get_instance(self):
+		path = self.tree.get_selection(0)
+		if path is None:
+			return self.simulation.get_overview()
+		else:
+			return self.simulation.get_instance(path)
+
 	def _create_canvas(self):
 		c = NetCanvas(self.get_net(), None, SimVisualConfig(self), zoom = 1)
-		#c.set_callback("button_down", self._button_down)
+		c.set_callback("button_down", self._button_down)
 		c.show()
 		return c
 
+	def _refresh_tree(self):
+		selected_path = self.tree.get_selection(0)
+		self.tree.clear()
+		self.tree.append((None, "Overview"))
+		if selected_path is None:
+			self.tree.select_first()
+		paths = self.simulation.running_paths()
+		paths.sort()
+		for path in paths:
+			i = self.tree.append((path, str(path)))
+			if path == selected_path:
+				self.tree.select_iter(i)
+
 	def _panel(self):
-		lst = gtkutils.SimpleList((("_", object), ("Path",str)))
-		lst.set_size_request(80,10)
-		lst.append((None, "Overview"))
-		for path in self.simulation.running_paths():
-			lst.append((path, str(path)))
-		lst.select_first()
-		return lst
+		self.tree = gtkutils.SimpleList((("_", object), ("Path",str)))
+		self.tree.set_size_request(80,10)
+		self._refresh_tree()
+		self.tree.select_first()
+		self.tree.connect_view("cursor-changed", self._path_changed);
+		return self.tree
+
+	def _path_changed(self, w):
+		self.redraw()
 
 	def _simulation_changed(self):
+		self._refresh_tree()
 		self.redraw()
+
+	def _button_down(self, event, pos):
+		item = self.simulation.get_net().get_item_at_position(pos, lambda i: i.is_transition())
+		if item:
+			self.get_instance().fire_transition(item)
 
 
 class SimVisualConfig(VisualConfig):
@@ -81,18 +108,15 @@ class SimVisualConfig(VisualConfig):
 	def __init__(self, simview):
 		self.simview = simview
 
-	def get_instance(self):
-		return self.simview.simulation.get_instance(simulation.path_from_string("/"))
-
 	def transition_drawing(self, item):
 		d = VisualConfig.transition_drawing(self, item)
-		if self.get_instance().is_enabled(item):
+		if self.simview.get_instance().is_enabled(item):
 			d.set_highlight((0.1,0.90,0.1,0.5))
 		return d
 
 	def place_drawing(self, item):
 		d = VisualConfig.place_drawing(self, item)
-		tokens = self.get_instance().get_tokens(item)
+		tokens = self.simview.get_instance().get_tokens(item)
 		if tokens:
 			d.set_tokens(tokens)
 		return d

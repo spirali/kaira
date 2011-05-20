@@ -83,23 +83,17 @@ class Simulation(EventSource):
 			self.instances = {}
 			for u in self.units:
 				if not self.instances.has_key(u.path):
-					self.instances[u.path] = NetworkInstance(u.path)
+					self.instances[u.path] = NetworkInstance(self, u.path)
 				self.instances[u.path].add_unit(u)
 			if callback:
 				callback()
 			self.emit_event("changed")
 		self.controller.run_command("REPORTS", reports_callback)
 
-	def fire_transition(self, transition, iid):
+	def fire_transition(self, transition, path):
 		if self.controller:
-			self.controller.run_command_expect_ok("FIRE " + str(transition.get_id()) + " " + str(iid))
+			self.controller.run_command_expect_ok("FIRE " + str(transition.get_id()) + " " + str(path))
 			self.query_reports()
-
-	def fire_transition_random_instance(self, transition):
-		enabled_iids = self.enabled_instances_of_transition(transition)
-		if len(enabled_iids) > 0:
-			iid = self.random.choice(enabled_iids)
-			self.fire_transition(transition, iid)
 
 	def running_paths(self):
 		return self.instances.keys()
@@ -107,12 +101,17 @@ class Simulation(EventSource):
 	def get_instance(self, path):
 		return self.instances[path]
 
+	def get_overview(self):
+		return OverviewInstance(self, self.units)
+
 class Path:
 	def __init__(self, items, absolute = True):
 		self.items = tuple(items)
 		self.absolute = absolute
 
 	def __eq__(self, path):
+		if not isinstance(path, Path):
+			return False
 		return self.absolute == path.absolute and self.items == path.items
 
 	def __hash__(self):
@@ -121,6 +120,9 @@ class Path:
 	def __str__(self):
 		start = "/" if self.absolute else "./"
 		return start + "/".join(map(str,self.items))
+
+	def __cmp__(self, path):
+		return cmp(self.items, path.items)
 
 def path_from_string(string):
     assert string != ""
@@ -162,9 +164,10 @@ class Unit:
 
 class NetworkInstance:
 
-	def __init__(self, path):
+	def __init__(self, simulation, path):
 		self.path = path
 		self.units = []
+		self.simulation = simulation
 
 	def add_unit(self, unit):
 		self.units.append(unit)
@@ -180,3 +183,31 @@ class NetworkInstance:
 			if u.has_transition(transition):
 				return u.is_enabled(transition)
 		return False
+
+	def fire_transition(self, transition):
+		self.simulation.fire_transition(transition, self.path)
+
+class OverviewInstance:
+
+	def __init__(self, simulation, units):
+		self.simulation = simulation
+		self.units = units
+
+	def get_tokens(self, place):
+		tokens = []
+		for u in self.units:
+			if u.has_place(place):
+				tokens += [ t + "@" + str(u.path) for t in u.get_tokens(place) ]
+		return tokens
+
+	def is_enabled(self, transition):
+		for u in self.units:
+			if u.has_transition(transition):
+				return u.is_enabled(transition)
+		return False
+
+	def fire_transition(self, transition):
+		units = [ u for u in self.units if u.has_transition(transition) and u.is_enabled(transition) ]
+		if units:
+			u = self.simulation.random.choice(units)
+			self.simulation.fire_transition(transition, u.path)

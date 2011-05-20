@@ -4,7 +4,9 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <sstream>
+
 #include "path.h"
+#include "output.h"
 
 CaPath caRoot(0);
 
@@ -32,8 +34,38 @@ bool CaPath::operator== (const CaPath & path) {
 	while(*a == *b) {
 		if (*a == -1)
 			return 1;
+		a++;
+		b++;
 	}
 	return 0;
+}
+
+CaPath::CaPath(const char *string)
+{
+	int len = strlen(string);
+	char *tmp = (char*) alloca(len + 1);
+	int *nodes = (int*) alloca(sizeof(int) * (len + 1));
+	int i = 0;
+	int n = 0;
+
+	if (string[i] == '/')
+		i++;
+
+	while (string[i] != 0) {
+		char *c = tmp;
+		while(isdigit(string[i])) {
+			*c = string[i];
+			c++;
+			i++;
+		}
+		*c = 0;
+		sscanf(tmp, "%i", &nodes[n]);
+		n++;
+		if (string[i] == '/')
+			i++;
+	}
+	nodes[n] = -1;
+	set_data(nodes);
 }
 
 CaPath::~CaPath()

@@ -160,9 +160,6 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 		while(t > 0 && (s[t] == '\n' || s[t] == '\r')) { s[t] = 0; t--; }
 
 		if (!strcmp(line, "QUIT")) {
-			/*for (t = 0; t < nodes_count; t++) {
-				_contexts[t]->halt();
-			}*/
 			exit(0);
 			return; 
 		}
@@ -176,18 +173,16 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 			continue;
 		}
 		if (strcmp(line, "FIRE") > 0) {
-			/* int transition_id, iid;
-			if (2 != sscanf(line, "FIRE %i %i", &transition_id, &iid)) {
+			int transition_id;
+			char path_string[LINE_LENGTH_LIMIT];
+			if (2 != sscanf(line, "FIRE %i %s", &transition_id, path_string)) {
 				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
-			fire_transition(transition_id, iid);
-			int t;
-			for (t = 0; t < ca_process_count; t++) {
-				_processes[t]->recv();
-			}
+			CaPath path(path_string);
+			process->fire_transition(transition_id, path);
 			fprintf(comm_out, "Ok\n");
-			continue; */
+			continue;
 		}
 		fprintf(comm_out, "Unknown command\n");
 	}

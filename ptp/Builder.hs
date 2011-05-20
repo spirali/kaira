@@ -20,7 +20,7 @@
 
 module Builder (
 	createProgram,
-	transitionVarType
+	varStruct
 ) where
 
 import Declarations

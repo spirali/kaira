@@ -63,6 +63,10 @@ class CaUnitDef {
 
 		void reports(CaOutput &output);
 
+		CaTransition * get_transition(int transition_id);
+
+		CaUnit * lookup(const CaPath &path);
+
 	protected:
 		CaUnitInitFn *init_fn;	
 		int transitions_count;

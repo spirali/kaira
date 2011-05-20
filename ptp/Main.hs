@@ -54,9 +54,12 @@ parseArgs (fin:param:args) | "--" `List.isPrefixOf` param =
 	where
 		typePrint str project = (typeString . fromNelType) (parseType (typeTable project) "<cmd>" str)
 		placeTypePrint str project = (typeString . TPlace . fromNelType) (placeTypeById project (read str))
-		transitionVars str project = case transitionVarType project (transitionById project (read str)) of
-			TStruct _ types -> addDelimiter "\n" (map (\(n,t) -> typeString t ++ " " ++ n) $! types)
+		transitionVars str project = case varStruct project (transitionById project (read str)) of
+			TStruct _ types -> addDelimiter "\n" (map (\(n,t) -> typeString t ++ " " ++ n) $! publicTypes types)
 			_  -> error "Invalid type"
+		isPublic ('_':'_':_) = False
+		isPublic _ = True
+		publicTypes types = filter (\(n,t) -> isPublic n) types
 
 parseArgs [fin, fout] = printHandle $ buildProgram fin fout
 parseArgs _ = putStr "Usage: ptp <project_file> [options]\n" >> System.exitWith (ExitFailure 1)
