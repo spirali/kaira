@@ -41,12 +41,11 @@ import ProjectTools
 
 languageDef = emptyDef { Token.commentStart    = "/*"
 	, Token.commentEnd      = "*/"
-	, Token.commentLine     = "//"
 	, Token.identStart      = letter
 	, Token.identLetter     = alphaNum <|> char '_'
 	, Token.reservedNames   = []
 	, Token.caseSensitive   = True
-	, Token.reservedOpNames = [ "+", "-", "*", "/", "%", "==", "!="
+	, Token.reservedOpNames = [ "+", "-", "*", "//", "%", "==", "!="
 	, "<", ">", "<=", ">=", "&&", "||" ]
 }
 lexer = Token.makeTokenParser languageDef
@@ -108,7 +107,7 @@ expressionParser = buildExpressionParser optable baseExpr
 optable = [
 	[ Infix (opBinary "%") AssocLeft ],
 	[ Infix (opBinary "*") AssocLeft ],
-	[ Infix (opBinary "/") AssocLeft ],
+	[ Infix (opBinary "//") AssocLeft ],
 	[ Infix (opBinary "+") AssocLeft ],
 	[ Infix (opBinary "-") AssocLeft ],
 	[ Infix (opBinary ">") AssocLeft ],

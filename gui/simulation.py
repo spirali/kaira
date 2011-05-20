@@ -122,7 +122,11 @@ class Path:
 		return start + "/".join(map(str,self.items))
 
 	def __cmp__(self, path):
-		return cmp(self.items, path.items)
+		c = cmp(len(self.items), len(path.items))
+		if c == 0:
+			return cmp(self.items, path.items)
+		else:
+			return c
 
 def path_from_string(string):
     assert string != ""

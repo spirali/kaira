@@ -197,7 +197,7 @@ pathToExpression project fn (RelPath n es) = ECall "caPathRel" $ (EInt n) : map 
 absPathToExpression :: Project -> (String -> Expression) -> Expression -> Path -> Expression
 absPathToExpression project fn abspath (RelPath n es) =
 	ECall ".apply" $ abspath : (EInt n) : (EInt $ length es) : map (toExpression project fn) es
-absPathToExpression project fn abspath path = pathToExpression project fn path
+absPathToExpression project fn abspath (AbsPath es) = ECall "CaPath" $ EInt (length es) : map (toExpression project fn) es
 
 asStringCall :: NelType -> Expression -> Expression
 asStringCall TypeString expr = expr
@@ -310,7 +310,7 @@ mainFunction project = function {
 	parameters = projectParameters project
 	units = projectUnits project
 	initUnits = concatMap initCaUnitDef units
-	defsArray =	IInline $ "CaUnitDef *defs[] = {" ++ addDelimiter "," [ nameFromId "unitdef" i | i <- [ 0, length units - 1 ] ] ++ "};"
+	defsArray =	IInline $ "CaUnitDef *defs[] = {" ++ addDelimiter "," [ nameFromId "unitdef" i | i <- [ 0 .. length units - 1 ] ] ++ "};"
 	parseArgs = [
 		IInline $ "const char *p_names[] = {" ++ addDelimiter "," [ "\"" ++ parameterName p ++ "\"" | p <- parameters ] ++ "};",
 		IInline $ "const char *p_descs[] = {" ++ addDelimiter "," [ "\"" ++ parameterDescription p ++ "\"" | p <- parameters ] ++ "};",

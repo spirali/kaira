@@ -129,7 +129,10 @@ outputTransitions project place =
 projectUnits :: Project -> [Unit]
 projectUnits project = countedMap unit $ joinOverlapped initSets
 	where
-		initSets = map (inputPlaces project) $ transitions project
+		initSets = (map (inputPlaces project) $ transitions project) ++ orphans
+		orphans = case (places project) List.\\ (concatMap (inputPlaces project) $ transitions project) of
+			[] -> []
+			x -> [x]
 		unit n places = Unit { unitPlaces = places,
 			unitId = n,
 			unitTransitions = List.foldr List.union [] $ map (outputTransitions project) places }
