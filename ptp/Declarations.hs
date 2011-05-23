@@ -50,7 +50,10 @@ data NelExpression =
 	ExprPath Path
 	deriving (Show, Eq, Ord)
 
-data Path = AbsPath [ NelExpression ] | RelPath Int [ NelExpression ]
+data PathItem = PathSingleton NelExpression | PathRange NelExpression NelExpression
+	deriving (Show, Eq, Ord)
+
+data Path = AbsPath [ PathItem ] | RelPath Int [ PathItem ]
 	deriving (Show, Eq, Ord)
 
 data Place = Place {
@@ -58,7 +61,8 @@ data Place = Place {
 	placeName :: String,
 	placeType :: NelType,
 	placeInitCode :: Maybe String,
-	placeInitExprs :: [NelExpression]
+	placeInitExprs :: [NelExpression],
+	placePaths :: Maybe Path
 } deriving (Show)
 
 instance Eq Place where p1 == p2 = placeId p1 == placeId p2

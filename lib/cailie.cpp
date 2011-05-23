@@ -17,7 +17,6 @@ void ca_project_description(const char *str) {
 
 void ca_main(int defs_count, CaUnitDef **defs)
 {
-	defs[0]->start_unit(caRoot);
 	CaProcess process(1, defs_count, defs);
 	process.start();
 }

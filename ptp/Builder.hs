@@ -113,18 +113,19 @@ transitionFnName t = nameFromId "transition" (transitionId t)
 fireFnName :: Transition -> String
 fireFnName t = nameFromId "fire" (transitionId t)
 
-initCaUnitDef :: Unit -> [Instruction]
-initCaUnitDef unit = [
+initCaUnitDef :: Project -> Unit -> [Instruction]
+initCaUnitDef project unit = [
 	idefine varName caUnitDef $
 		ENew (ECall "CaUnitDef" [ EVar $ "init_unit_" ++ show (unitId unit), EInt (length transitions)])
-	] ++ countedMap register transitions
+	] ++ countedMap registerTransition transitions ++ map registerInit (unitInitPaths unit)
 	where
 		transitions = unitTransitions unit
 		varName = nameFromId "unitdef" (unitId unit)
-		register n t = icall "->register_transition" [ EVar varName, EInt n, EInt (transitionId t), arg1 t, arg2 t, arg3 t]
+		registerTransition n t = icall "->register_transition" [ EVar varName, EInt n, EInt (transitionId t), arg1 t, arg2 t, arg3 t]
 		arg1 t = EVar $ "(CaEnableFn*) " ++ transitionFnName t
 		arg2 t = EVar $ "(CaFireFn*) " ++ fireFnName t
 		arg3 t = ECall "sizeof" [ EVar (nameFromId "Vars" (transitionId t)) ]
+		registerInit p = icall "->register_init" [ EVar varName, multiPathCode project varNotAllowed p ]
 
 
 varStruct :: Project -> Transition -> Type
@@ -186,18 +187,35 @@ toExpression project fn (ExprCall name exprs)
 toExpression project fn (ExprTuple exprs) = ETuple [ toExpression project fn expr | expr <- exprs ]
 toExpression project fn x = error $ "Input expression contains: " ++ show x
 
-toExpressionWithoutVars :: Project -> NelExpression -> Expression
-toExpressionWithoutVars project expr = toExpression project (\x -> error "Variable found") expr
+varNotAllowed x = error "Variable not allowed"
 
+toExpressionWithoutVars :: Project -> NelExpression -> Expression
+toExpressionWithoutVars project expr = toExpression project varNotAllowed expr
+
+pathItemExpression :: PathItem -> NelExpression
+pathItemExpression (PathSingleton x) = x
+pathItemExpression _ = error $ "Path is multipath"
 
 pathToExpression :: Project -> (String -> Expression) -> Path -> Expression
-pathToExpression project fn (AbsPath es) = ECall "caPathAbs" $ map (toExpression project fn) es
-pathToExpression project fn (RelPath n es) = ECall "caPathRel" $ (EInt n) : map (toExpression project fn) es
+pathToExpression project fn (AbsPath es) = ECall "caPathAbs" $ map (toExpression project fn . pathItemExpression) es
+pathToExpression project fn (RelPath n es) = ECall "caPathRel" $ (EInt n) : map (toExpression project fn . pathItemExpression) es
 
 absPathToExpression :: Project -> (String -> Expression) -> Expression -> Path -> Expression
-absPathToExpression project fn abspath (RelPath n es) =
-	ECall ".apply" $ abspath : (EInt n) : (EInt $ length es) : map (toExpression project fn) es
-absPathToExpression project fn abspath (AbsPath es) = ECall "CaPath" $ EInt (length es) : map (toExpression project fn) es
+absPathToExpression project varfn abspath (RelPath n es) =
+	ECall ".apply" $ abspath : (EInt n) : (EInt $ length es) : map (toExpression project varfn . pathItemExpression) es
+absPathToExpression project varfn abspath (AbsPath es) =
+	ECall "CaPath" $ EInt (length es) : map (toExpression project varfn . pathItemExpression) es
+
+multiPathCode :: Project -> (String -> Expression) -> Path -> Expression
+multiPathCode project varfn (AbsPath es) =
+	ECall "CaMultiPath" $ (EString $ map definition es) : (map (toExpression project varfn) $ concatMap args es)
+	where
+		definition (PathSingleton _) = 's'
+		definition (PathRange _ _) = 'r'
+		args (PathSingleton x) = [x]
+		args (PathRange x y) = [x, y]
+
+multiPathCode project varfn _ = error $ "multiPathCode: relative path"
 
 asStringCall :: NelType -> Expression -> Expression
 asStringCall TypeString expr = expr
@@ -249,7 +267,7 @@ fireFn project transition = function {
 	callWorker | hasCode transition = IStatement [
 		icall "->unlock" [ EVar "u" ],
 		icall (nameFromId "worker" $ transitionId transition) [ ECall ("CaContext") [], EDeref $ EVar "vars" ] ]
-	 			| otherwise = icall ".unlock" [ EVar "u" ]
+			| otherwise = icall "->unlock" [ EVar "u" ]
 	processOutput edge = IStatement [
 		idefine "target" (TPointer $ unitType u) (ECast (ECall "->get_unit" [ (EVar "thread"),
 				absPathToExpression project varFn (EAt (EString "path") (EVar "u")) (edgeTarget edge),
@@ -309,7 +327,7 @@ mainFunction project = function {
 	startCailie = [ defsArray, icall "ca_main" [ EInt (length units), EVar "defs" ] ]
 	parameters = projectParameters project
 	units = projectUnits project
-	initUnits = concatMap initCaUnitDef units
+	initUnits = concatMap (initCaUnitDef project) units
 	defsArray =	IInline $ "CaUnitDef *defs[] = {" ++ addDelimiter "," [ nameFromId "unitdef" i | i <- [ 0 .. length units - 1 ] ] ++ "};"
 	parseArgs = [
 		IInline $ "const char *p_names[] = {" ++ addDelimiter "," [ "\"" ++ parameterName p ++ "\"" | p <- parameters ] ++ "};",

@@ -56,14 +56,14 @@ int CaThread::process_messages()
 	if (m == NULL) {
 		return 0;
 	}
-	
+
 	do {
 		m->process(this);
 		CaMessage *next = m->next;
 		delete m;
 		m = next;
 	} while (m);
-	
+
 	return 1;
 }
 
@@ -89,8 +89,7 @@ void CaThread::run_scheduler()
 	process_messages();
 	jobs = process->create_jobs();
 	for (;;) {
-		int i;
-		for (i = 0; i < jobs.size(); i++) {
+		for (size_t i = 0; i < jobs.size(); i++) {
 			jobs[i].test_and_fire(this);
 		}
 		process_messages();
@@ -136,6 +135,11 @@ void CaProcess::start()
 	}
 
 	int t;
+
+	for (t = 0; t < defs_count; t++) {
+		defs[t]->init_all();
+	}
+
 	for (t = 0; t < threads_count; t++) {
 		threads[t].start();
 	}
@@ -221,7 +225,7 @@ void CaProcess::fire_transition(int transition_id, const CaPath &path)
 int CaJob::test_and_fire(CaThread *thread)
 {
 	unit->lock();
-	
+
 	void *vars = alloca(transition->get_var_size());
 	int r = transition->is_enabled(unit, vars);
 	if (!r) {

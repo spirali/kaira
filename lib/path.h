@@ -24,6 +24,37 @@ class CaPath {
 		void set_data(int *nodes);
 };
 
+class CaMultiPath {
+
+    public:
+        class Iterator {
+            public:
+                Iterator(const CaMultiPath &mpath);
+                ~Iterator();
+                bool has_next() { return has_next_path; }
+                CaPath next();
+
+            protected:
+                const CaMultiPath &mpath;
+                int *nodes;
+                bool has_next_path;
+        };
+
+
+		CaMultiPath(const CaMultiPath &mpath);
+		CaMultiPath(const std::string &definition, ...);
+		~CaMultiPath();
+		CaMultiPath & operator= (const CaMultiPath & mpath);
+
+		Iterator get_iterator() { return Iterator(*this); }
+
+	protected:
+        size_t args_count() const;
+        size_t path_size() const { return definition.size(); }
+		std::string definition;
+		int *args;
+};
+
 extern CaPath caRoot;
 
 #endif

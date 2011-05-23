@@ -43,36 +43,37 @@ class CaUnitDef {
 		CaUnitDef(CaUnitInitFn *init_fn, int transitions_count);
 		~CaUnitDef();
 
-		void register_transition(int i, 
+		void register_transition(int i,
 			int id,
-			CaEnableFn *enable_fn, 
-			CaFireFn *fire_fn, 
+			CaEnableFn *enable_fn,
+			CaFireFn *fire_fn,
 			size_t var_size);
+		void register_init(const CaMultiPath &mpath) { init_paths.push_back(mpath); }
 
 		CaUnit * start_unit(const CaPath &path);
 		CaUnit * lookup_or_start(const CaPath &path, int *start_flag);
+		CaUnit * lookup(const CaPath &path);
 
 		void lock() { pthread_mutex_lock(&mutex); }
 		void unlock() { pthread_mutex_unlock(&mutex); }
 
+		void reports(CaOutput &output);
+		void init_all();
+
 		int get_transition_count() const { return transitions_count; }
 		int get_units_count() const { return units.size(); }
 		std::vector<CaTransition*> get_transitions() const;
-
 		std::vector<CaUnit*> get_units() const { return units; }
-
-		void reports(CaOutput &output);
-
 		CaTransition * get_transition(int transition_id);
 
-		CaUnit * lookup(const CaPath &path);
 
 	protected:
-		CaUnitInitFn *init_fn;	
+		CaUnitInitFn *init_fn;
 		int transitions_count;
 		CaTransition *transitions;
 		std::vector<CaUnit*> units;
 		pthread_mutex_t mutex;
+		std::vector<CaMultiPath> init_paths;
 };
 
 class CaUnit {

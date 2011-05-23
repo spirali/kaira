@@ -68,7 +68,7 @@ static int ca_init_listen_socket(int port)
 
 int CaListener::get_port()
 {
-	// If -s was "auto" then print port number at stdout 
+	// If -s was "auto" then print port number at stdout
 	struct sockaddr_in sockname;
 	socklen_t len = sizeof(sockname);
 	if (getsockname(listen_socket, (struct sockaddr *) &sockname, &len) < 0) {
@@ -110,8 +110,8 @@ void CaListener::main()
 			perror("ERROR");
 			exit(-1);
 		}
-		setlinebuf(stdout); 
-		/* Because simulator typically runs with redirected stdout, 
+		setlinebuf(stdout);
+		/* Because simulator typically runs with redirected stdout,
 			we need to switch back to more expected behavior as in normal
 			 run of program in console */
 
@@ -120,7 +120,6 @@ void CaListener::main()
 		/* Init barriers */
 		pthread_barrier_t barrier1;
 		pthread_barrier_t barrier2;
-		pthread_barrier_t barrier3;
 
 		int threads_count = process->get_threads_count();
 		pthread_barrier_init(&barrier1, NULL, threads_count + 1);
@@ -161,11 +160,11 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 
 		if (!strcmp(line, "QUIT")) {
 			exit(0);
-			return; 
+			return;
 		}
 
-		if (!strcmp(line, "DETACH")) { 
-			return; 
+		if (!strcmp(line, "DETACH")) {
+			return;
 		}
 
 		if (!strcmp(line, "REPORTS")) {

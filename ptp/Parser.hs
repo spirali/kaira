@@ -46,7 +46,7 @@ languageDef = emptyDef { Token.commentStart    = "/*"
 	, Token.reservedNames   = []
 	, Token.caseSensitive   = True
 	, Token.reservedOpNames = [ "+", "-", "*", "//", "%", "==", "!="
-	, "<", ">", "<=", ">=", "&&", "||" ]
+	, "<", ">", "<=", ">=", "&&", "||", ",", "!", "..", "[", "]" ]
 }
 lexer = Token.makeTokenParser languageDef
 
@@ -97,7 +97,17 @@ tupleParser = do
 		[x] -> return x
 		_ -> return (ExprTuple exprs)
 
-pathItems = sepBy expressionParser (char '/')
+pathRange = do
+	reservedOp "["
+	x <- expressionParser
+	reservedOp ".."
+	y <- expressionParser
+	reservedOp "]"
+	return (PathRange x y)
+
+pathItem = pathRange <|> do { x <- expressionParser; return (PathSingleton x) }
+
+pathItems = (sepBy pathItem (char '/'))
 
 pathParser = do { char '/'; items <- pathItems; return (AbsPath items) }
 	<|> do { items <- pathItems; return (RelPath 0 items) }
@@ -161,8 +171,16 @@ edgeInscriptionParser = do
 guardParser :: Parser NelExpression
 guardParser = do { eof; return ExprTrue; } <|> expressionParser
 
-initExprParser :: Parser [NelExpression]
-initExprParser = sepEndBy expressionParser semi
+eagerPath :: [NelExpression] -> Parser ([NelExpression], Maybe Path)
+eagerPath xs = do
+	reservedOp "!"
+	p <- do { eof; return (AbsPath []) } <|> pathParser
+	return (xs, Just p)
+
+initExprParser :: Parser ([NelExpression], Maybe Path)
+initExprParser = do
+	x <- sepEndBy expressionParser semi
+	eagerPath x <|> do { eof; return (x, Nothing) }
 
 strErrorMessage :: ParseError -> String
 strErrorMessage perror =
@@ -198,7 +216,7 @@ parseEdgeInscription source str = parseHelper edgeInscriptionParser source str
 parseGuard :: String -> String -> NelExpression
 parseGuard = parseHelper guardParser
 
-parseInitExpr :: String -> String -> [NelExpression]
+parseInitExpr :: String -> String -> ([NelExpression], Maybe Path)
 parseInitExpr = parseHelper initExprParser
 
 -- |Parses "Int a, String b" as [("a", TInt), ("b", TString)]

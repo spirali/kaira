@@ -1,8 +1,9 @@
 
 #include "unit.h"
+#include <stdio.h>
 #include <alloca.h>
 
-CaUnitDef::CaUnitDef(CaUnitInitFn *init_fn, int transitions_count) 
+CaUnitDef::CaUnitDef(CaUnitInitFn *init_fn, int transitions_count)
 {
 	pthread_mutex_init(&mutex, NULL);
 	this->init_fn = init_fn;
@@ -16,10 +17,10 @@ CaUnitDef::~CaUnitDef()
 	delete [] transitions;
 }
 
-void CaUnitDef::register_transition(int i, 
+void CaUnitDef::register_transition(int i,
 			int id,
-			CaEnableFn *enable_fn, 
-			CaFireFn *fire_fn, 
+			CaEnableFn *enable_fn,
+			CaFireFn *fire_fn,
 			size_t var_size)
 {
 	transitions[i].set_enable_fn(enable_fn);
@@ -82,11 +83,25 @@ CaTransition * CaUnitDef::get_transition(int transition_id)
 			return &transitions[t];
 		}
 	}
+	return NULL;
 }
 
-CaUnit::CaUnit(CaUnitDef *def, const CaPath &p) : path(p) 
-{ 
-	pthread_mutex_init(&mutex, NULL); 
+void CaUnitDef::init_all()
+{
+    std::vector<CaMultiPath>::iterator i;
+    for (i = init_paths.begin(); i != init_paths.end(); i++)
+    {
+        CaMultiPath::Iterator iter = i->get_iterator();
+        while(iter.has_next()) {
+            start_unit(iter.next());
+        }
+    }
+    init_paths.clear();
+}
+
+CaUnit::CaUnit(CaUnitDef *def, const CaPath &p) : path(p)
+{
+	pthread_mutex_init(&mutex, NULL);
 }
 
 void CaUnit::report(CaUnitDef *def, CaOutput &out)

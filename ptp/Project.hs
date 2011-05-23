@@ -72,8 +72,10 @@ placeFromElement types e =
 		placeName =  xmlAttr "name" e,
 		placeType = parseType types (source e "type") $ xmlAttr "type" e,
 		placeInitCode = codeContent e,
-		placeInitExprs = parseInitExpr (source e "init") $ xmlAttr' "init-expr" e ""
+		placeInitExprs = initExpression,
+		placePaths = paths
 	}
+	where (initExpression, paths) = parseInitExpr (source e "init") $ xmlAttr' "init-expr" e ""
 
 edgeFromElement :: Xml.Element -> Edge
 edgeFromElement e =

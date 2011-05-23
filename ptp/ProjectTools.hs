@@ -49,19 +49,21 @@ hasCode = Maybe.isJust . transitionCode
 hasInitCode :: Place -> Bool
 hasInitCode = Maybe.isJust . placeInitCode
 
-pathFreeVariables :: Path -> Map.Map String NelType
-pathFreeVariables path = case path of
+pathItemFreeVariables :: Project -> PathItem -> Map.Map String NelType
+pathItemFreeVariables project (PathSingleton x) = variableTypes project x TypeInt
+pathItemFreeVariables project (PathRange x y) = unionVariableTypes (variableTypes project x TypeInt) (variableTypes project y TypeInt)
+
+pathFreeVariables :: Project -> Path -> Map.Map String NelType
+pathFreeVariables project path = case path of
 		(AbsPath es) -> listVariables es
 		(RelPath 0 es) -> listVariables es
 	where
-		listVariables [] = Map.empty
-		listVariables (ExprVar x:rest) = unionVariableTypes (Map.singleton x TypeInt) (listVariables rest)
-		listVariables (_:rest) = listVariables rest
+		listVariables x = unionsVariableTypes $ map (pathItemFreeVariables project) x
 
 -- |Return all variables in edge (main expression, target, limit)
 extractEdgeVariables :: Project -> Edge -> Map.Map String NelType
 extractEdgeVariables project edge =
-	unionVariableTypes (pathFreeVariables (edgeTarget edge)) (case edgeInscription edge of
+	unionVariableTypes (pathFreeVariables project (edgeTarget edge)) (case edgeInscription edge of
 		EdgeExpression x -> (variableTypes project x (edgePlaceType project edge))
 		EdgePacking name (Just x) -> unionVariableTypes (Map.singleton name $ TypeArray (edgePlaceType project edge)) (variableTypes project x TypeInt)
 		EdgePacking name Nothing -> Map.singleton name $ TypeArray (edgePlaceType project edge))
@@ -136,3 +138,7 @@ projectUnits project = countedMap unit $ joinOverlapped initSets
 		unit n places = Unit { unitPlaces = places,
 			unitId = n,
 			unitTransitions = List.foldr List.union [] $ map (outputTransitions project) places }
+
+unitInitPaths :: Unit -> [Path]
+unitInitPaths unit = Maybe.catMaybes $ map placePaths (unitPlaces unit)
+
