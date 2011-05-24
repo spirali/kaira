@@ -294,7 +294,7 @@ class App:
 			sprocess.cwd = project.get_directory()
 			# FIXME: Timeout
 			other_params = [ "-p%s=%s" % (p,param_values[p]) for p in param_values ]
-			first_line = sprocess.start_and_get_first_line(["-s", "auto", "-b", "--process=1"] + other_params)
+			first_line = sprocess.start_and_get_first_line(["-s", "auto", "-b"] + other_params)
 			try:
 				port = int(first_line)
 			except ValueError:

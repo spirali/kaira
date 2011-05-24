@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <stdarg.h>
 
-int ca_process_count = 0;
+int ca_threads_count = 1;
 const char *ca_project_description_string = NULL;
 int ca_log_on = 0;
 std::string ca_log_default_name = "";
@@ -17,7 +17,7 @@ void ca_project_description(const char *str) {
 
 void ca_main(int defs_count, CaUnitDef **defs)
 {
-	CaProcess process(1, defs_count, defs);
+	CaProcess process(ca_threads_count, defs_count, defs);
 	process.start();
 }
 
@@ -46,7 +46,7 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 	int c;
 	struct option longopts[] = {
 		{ "help",	0,	NULL, 'h' },
-		{ "processes",	1,	NULL, 'r' },
+		{ "threads",	1,	NULL, 'r' },
 		{ NULL,		0,	NULL,  0}
 	};
 
@@ -77,7 +77,7 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 				exit(0);
 			}
 			case 'r': {
-			      ca_process_count = atoi(optarg);
+			      ca_threads_count = atoi(optarg);
 			      break;
 			}
 			case 'p': {

@@ -82,7 +82,7 @@ initPlace :: Project -> Expression -> Place -> [Instruction]
 initPlace project expr place = initConsts ++ callInitFn
 	where
 	callInitFn | hasInitCode place =
-		[ icall (nameFromId "place_init" (placeId place)) [  ECall ("CaContext") [], expr ] ]
+		[ icall (nameFromId "place_init" (placeId place)) [  EVar "ctx", expr ] ]
 				| otherwise = []
 	initConsts = [ icall ".add" [ expr, toExpressionWithoutVars project nelExpr ] | nelExpr <- placeInitExprs place ]
 
@@ -91,7 +91,10 @@ initCaUnit project unit = function {
 	functionName = nameFromId "init_unit" (unitId unit),
 	returnType = caUnit,
 	parameters = [ ("def", caUnitDef, ParamNormal), ("path", caPath, ParamConst) ],
-	instructions = [ idefine "unit" (TPointer $ unitType unit) $ ENew (ECall (nameFromId "Unit" (unitId unit)) [ EVar "def", EVar "path" ]) ] ++
+	instructions = [ idefine "unit" (TPointer $ unitType unit) $
+		ENew (ECall (nameFromId "Unit" (unitId unit)) [ EVar "def", EVar "path" ]),
+		idefine "ctx" caContext (ECall "CaContext" [])
+	] ++
 		initPlaces ++ [ IReturn $ EVar "unit" ]
 } where
 	initPlaces = concat [ initPlace project (placeInUnit (EVar "unit") place) place | place <- unitPlaces unit ]
@@ -266,7 +269,8 @@ fireFn project transition = function {
 		 EAt (EString $ "__token_" ++ show i) (EVar "vars") ]
 	callWorker | hasCode transition = IStatement [
 		icall "->unlock" [ EVar "u" ],
-		icall (nameFromId "worker" $ transitionId transition) [ ECall ("CaContext") [], EDeref $ EVar "vars" ] ]
+		idefine "ctx" caContext (ECall "CaContext" []),
+		icall (nameFromId "worker" $ transitionId transition) [ EVar "ctx", EDeref $ EVar "vars" ] ]
 			| otherwise = icall "->unlock" [ EVar "u" ]
 	processOutput edge = IStatement [
 		idefine "target" (TPointer $ unitType u) (ECast (ECall "->get_unit" [ (EVar "thread"),
@@ -302,7 +306,7 @@ transitionFn project transition = function {
 workerFunction :: Project -> Transition -> Function
 workerFunction project transition = function {
 	functionName = nameFromId "worker" (transitionId transition),
-	parameters = [ ("ctx", caContext, ParamConst), ("var", varStruct project transition, ParamRef) ],
+	parameters = [ ("ctx", caContext, ParamRef), ("var", varStruct project transition, ParamRef) ],
 	extraCode = Maybe.fromJust $ transitionCode transition,
 	functionSource = Just ("*" ++ show (transitionId transition) ++ "/function", 1)
 }
@@ -310,8 +314,8 @@ workerFunction project transition = function {
 placeInitFunction :: Place -> Function
 placeInitFunction place = function {
 		functionName = nameFromId "place_init" $ placeId place,
-		parameters = [ ("ctx", caContext, ParamNormal),
-			("place", TPointer $ TPlace (fromNelType (placeType place)), ParamNormal)],
+		parameters = [ ("ctx", caContext, ParamRef),
+			("place", TPlace (fromNelType (placeType place)), ParamRef)],
 		extraCode = Maybe.fromJust $ placeInitCode place,
 		returnType = TVoid,
 		functionSource = Just ("*" ++ show (placeId place) ++ "/init_function", 1)
