@@ -120,8 +120,12 @@ void CaUnit::report(CaUnitDef *def, CaOutput &out)
 	out.back();
 }
 
+static void empty_fire(CaThread *thread, CaUnit *unit, void *vars)
+{
+
+}
+
 bool CaTransition::is_enabled(CaUnit *unit)
 {
-	void *vars = alloca(var_size);
-	return is_enabled(unit, vars);
+	return call(NULL, unit, empty_fire);
 }

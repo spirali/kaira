@@ -60,7 +60,7 @@ class CaProcess {
 		void inform_new_unit(CaUnitDef *def, CaUnit *unit);
 
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
-	
+
 		int get_threads_count() const { return threads_count; }
 		int get_units_count() const;
 		void write_reports(FILE *out) const;

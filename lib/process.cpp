@@ -226,12 +226,10 @@ int CaJob::test_and_fire(CaThread *thread)
 {
 	unit->lock();
 
-	void *vars = alloca(transition->get_var_size());
-	int r = transition->is_enabled(unit, vars);
+	int r = transition->call(thread, unit);
 	if (!r) {
 		unit->unlock();
 		return 0;
 	}
-	transition->fire(thread, unit, vars);
 	return 1;
 }

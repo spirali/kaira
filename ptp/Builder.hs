@@ -42,6 +42,7 @@ caUnit = TPointer $ TRaw "CaUnit"
 caUnitDef = TPointer $ TRaw "CaUnitDef"
 caContext = TRaw "CaContext"
 caPath = TRaw "CaPath"
+caThread = TPointer $ TRaw "CaThread"
 
 transitionVarType = undefined
 
@@ -255,7 +256,7 @@ fireFn :: Project -> Transition -> Function
 fireFn project transition = function {
 	functionName = fireFnName transition,
 	parameters = [
-		("thread", TPointer $ TRaw "CaThread", ParamNormal),
+		("thread", caThread, ParamNormal),
 		("unit" , caUnit, ParamNormal),
 		("vars", TPointer $ varStruct project transition, ParamNormal)
 	],
@@ -291,16 +292,20 @@ transitionFn :: Project -> Transition -> Function
 transitionFn project transition = function {
 	functionName = transitionFnName transition,
 	returnType = TInt,
-	parameters = [ ("unit", caUnit, ParamNormal),
-		("vars", TPointer $ varStruct project transition, ParamNormal) ],
+	parameters = [
+		("thread", caThread, ParamNormal),
+		("unit", caUnit, ParamNormal),
+		("firefn", TPointer (TRaw "CaFireFn"), ParamNormal) ],
 	instructions = [
 		idefine "u" (TPointer unitT) $ ECast (EVar "unit") (TPointer unitT),
+		idefineEmpty "vars" (varStruct project transition),
 		matchTest project 0 (edgesIn transition) Set.empty matched,
 		IReturn (EInt 0)
 	]
 } where
 	unitT = unitType (unit project transition)
-	matched = IStatement $ map tokenSet [0 .. length (normalInEdges transition) - 1] ++ [ IReturn (EInt 1) ]
+	matched = IStatement $ map tokenSet [0 .. length (normalInEdges transition) - 1] ++
+		[ icall "firefn" [ EVar "thread", EVar "u", EAddr (EVar "vars") ], IReturn (EInt 1) ]
 	tokenSet i = ISet (EAt (EString $ "__token_" ++ show i) (EVar "vars")) (EVar $ "c_" ++ show i ++ "_i")
 
 workerFunction :: Project -> Transition -> Function

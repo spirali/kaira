@@ -14,8 +14,8 @@ class CaUnitDef;
 class CaThread;
 
 typedef CaUnit*(CaUnitInitFn)(CaUnitDef*, const CaPath &path);
-typedef int(CaEnableFn)(CaUnit*, void *);
-typedef void(CaFireFn)(CaThread*, CaUnit *, void *);
+typedef void(CaFireFn)(CaThread *, CaUnit *, void *);
+typedef int(CaEnableFn)(CaThread *, CaUnit*, CaFireFn *);
 
 class CaTransition {
 	public:
@@ -25,8 +25,8 @@ class CaTransition {
 
 		size_t get_var_size() const { return var_size; }
 		bool is_enabled(CaUnit *unit);
-		bool is_enabled(CaUnit *unit, void *vars) { return enable_fn(unit, vars); }
-		void fire(CaThread *thread, CaUnit *unit, void *vars) { fire_fn(thread, unit, vars); }
+		bool call(CaThread * thread, CaUnit *unit, CaFireFn *firefn) { return enable_fn(thread, unit, firefn); }
+		bool call(CaThread * thread, CaUnit *unit) { return call(thread, unit, fire_fn); }
 
 		void set_id(int id) { this->id = id; }
 		int get_id() { return id; }
