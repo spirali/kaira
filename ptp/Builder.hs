@@ -348,7 +348,7 @@ mainFunction project = function {
 
 createProgram :: String -> Project -> String
 createProgram filename project =
-	emitProgram (FilePath.takeFileName filename) prologue types [] functions
+	emitProgram (FilePath.takeFileName filename) prologue types globals functions
 	where
 		functions = placeInitFs ++ workerFs ++ fireFs ++ transitionFs ++ unitFs ++ [mainF]
 		mainF = mainFunction project
@@ -362,6 +362,7 @@ createProgram filename project =
 		unitTypes = map unitType units
 		units = projectUnits project
 		prologue = "#include <stdio.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n#include \"head.cpp\"\n\n"
+		globals = [ (parameterGlobalName $ parameterName p, fromNelType $ parameterType p) | p <- projectParameters project ]
 
 test =
 	readFile "../vtwo/vtwo.xml" >>= return . (createProgram "testxyz") .
