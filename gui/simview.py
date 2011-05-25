@@ -205,8 +205,6 @@ class OverviewVisualConfig(VisualConfig):
 		r = []
 		for iid in tokens:
 			r += [ t + "@" + str(iid) for t in tokens[iid] ]
-		if len(r) > 6:
-			r = r[:6] + ["..."]
 		d.set_tokens(r)
 		return d
 
