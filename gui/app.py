@@ -288,17 +288,23 @@ class App:
 	def edit_headfile(self):
 		self.edit_sourcefile(self.project.get_head_filename())
 
-	def simulation_start(self, try_reuse_params):
+	def simulation_start(self, try_reuse_params, valgrind = False):
 		def output(line, stream):
 			self.console_write("OUTPUT: " + line, "output")
 			return True
 
 		def project_builded(project):
-			sprocess = process.Process(project.get_executable_filename(), output)
+			if valgrind:
+				program_name = "valgrind"
+				parameters = [ "-q", project.get_executable_filename(), "-s", "auto", "-b", "--process=1"]
+			else:
+				program_name = project.get_executable_filename()
+				parameters = ["-s", "auto", "-b", "--process=1"]
+			sprocess = process.Process(program_name, output)
 			sprocess.cwd = project.get_directory()
 			# FIXME: Timeout
 			other_params = [ "-p%s=%s" % (p,param_values[p]) for p in param_values ]
-			first_line = sprocess.start_and_get_first_line(["-s", "auto", "-b", "--process=1"] + other_params)
+			first_line = sprocess.start_and_get_first_line(parameters + other_params)
 			try:
 				port = int(first_line)
 			except ValueError:

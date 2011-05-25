@@ -165,6 +165,12 @@ class MainWindow(gtk.Window):
 		item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("F8"), 0, gtk.ACCEL_VISIBLE)
 		build_menu.append(item)
 
+		build_menu.append(gtk.SeparatorMenuItem())
+
+		item = gtk.MenuItem("Run _simulation in Valgrind")
+		item.connect("activate", lambda w: self.app.simulation_start(False, valgrind = True))
+		build_menu.append(item)
+
 		view_menu = gtk.Menu()
 
 		item = gtk.RadioMenuItem(None, "No grid")
