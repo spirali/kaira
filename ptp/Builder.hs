@@ -177,6 +177,19 @@ matchTest project level edges@(edge@(Edge placeId (EdgeExpression expr) _):rest)
 						[ ECall "==" [EVar ("c_" ++ show i ++ "_i"), EVar varCounter] | (i, e) <- fromSamePlace ])
 					IContinue INoop
 		tokenSet = ISet (EAt (EString $ "__token_" ++ show level) (EVar "vars")) (EVar varCounter)
+matchTest project level (edge@(Edge placeId (EdgePacking name (Just limit)) _):rest) binded instruction =
+	IIf (ECall ">=" [ ECall ".size" [ placeExpr ], ECall "+" [ limitExpr, EInt (length fromSamePlace - 1)]]) body INoop
+	where
+		place = placeById project placeId
+		placeExpr = placeAttr place (EVar "u")
+		limitExpr = toExpression project varFn limit
+		varFn varName = EAt (EString varName) (EVar "vars")
+		body = matchTest project (level + 1) rest binded instruction
+		fromSamePlace = filter (\(Edge pId _ _) -> pId == placeId) (edgesIn (transitionOfEdge project edge))
+
+
+matchTest project level edges@(edge@(Edge placeId (EdgePacking name (Nothing)) _):rest) binded instruction =
+	error "Input packing edge without limit"
 
 toExpression :: Project -> (String -> Expression) -> NelExpression -> Expression
 toExpression project fn (ExprInt x) = EInt x
@@ -251,6 +264,7 @@ reportFunction unit = function {
 			icall ".back" [ EVar "out"]]
 
 normalInEdges transition = filter isNormalEdge (edgesIn transition)
+packingInEdges transition = filter isPackingEdge (edgesIn transition)
 
 fireFn :: Project -> Transition -> Function
 fireFn project transition = function {
@@ -262,12 +276,14 @@ fireFn project transition = function {
 	],
 	instructions = [
 		idefine "u" (TPointer unitT) $ ECast (EVar "unit") (TPointer unitT),
-		IStatement $ countedMap removeToken (normalInEdges transition),
+		IStatement $ countedMap removeToken (normalInEdges transition) ++ map setPacking (packingInEdges transition),
 		callWorker ] ++ map processOutput (edgesOut transition)
 } where
 	unitT = unitType (unit project transition)
-	removeToken i edge = icall ".remove_at" [ EAt (EString $ nameFromId "place" (edgePlaceId edge)) (EVar "u"),
-		 EAt (EString $ "__token_" ++ show i) (EVar "vars") ]
+	ePlace edge var = EAt (EString $ nameFromId "place" (edgePlaceId edge)) (EVar var)
+	removeToken i edge = icall ".remove_at" [ ePlace edge "u",EAt (EString $ "__token_" ++ show i) (EVar "vars") ]
+	setPacking edge = case edgeInscription edge of
+		(EdgePacking name _) -> ISet (EAt (EString name) (EVar "vars")) $ ECall ".to_vector_and_clear" [ ePlace edge "u" ]
 	callWorker | hasCode transition = IStatement [
 		icall "->unlock" [ EVar "u" ],
 		idefine "ctx" caContext (ECall "CaContext" []),
@@ -281,9 +297,9 @@ fireFn project transition = function {
 		putInstruction edge,
 		icall "->unlock" [ EVar "target" ] ] where u = edgeUnit project edge
 	putInstruction edge = case edgeInscription edge of
-		EdgeExpression expr -> icall ".add" [ EAt (EString (nameFromId "place" (edgePlaceId edge))) (EVar "target"),
-			toExpression project varFn expr ]
-
+		EdgeExpression expr -> icall ".add" [ ePlace edge "target", toExpression project varFn expr ]
+		EdgePacking str Nothing -> icall ".add_all" [ ePlace edge "target", varFn str ]
+		EdgePacking _ (Just _) -> error "Packing expression with limit on output edge"
 	varFn varName = EAt (EString varName) (EVar "vars")
 
 

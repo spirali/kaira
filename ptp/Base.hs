@@ -98,6 +98,11 @@ isNormalEdge edge = case edgeInscription edge of
 	EdgeExpression _ -> True
 	_ -> False
 
+isPackingEdge :: Edge -> Bool
+isPackingEdge edge = case edgeInscription edge of
+	EdgePacking _  _-> True
+	_ -> False
+
 orderNormalEdgesByDependancy :: [Edge] -> [Edge]
 orderNormalEdgesByDependancy edges =
 	process edges [] Set.empty

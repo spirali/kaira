@@ -215,7 +215,7 @@ void CaProcess::fire_transition(int transition_id, const CaPath &path)
 			CaUnit *u = defs[t]->lookup(path);
 			if (u) {
 				CaJob job(u, tr);
-				job.test_and_fire(&threads[t]);
+				job.test_and_fire(&threads[0]);
 			}
 			break;
 		}
@@ -225,7 +225,6 @@ void CaProcess::fire_transition(int transition_id, const CaPath &path)
 int CaJob::test_and_fire(CaThread *thread)
 {
 	unit->lock();
-
 	int r = transition->call(thread, unit);
 	if (!r) {
 		unit->unlock();
