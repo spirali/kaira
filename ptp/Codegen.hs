@@ -91,13 +91,14 @@ emitExpression scope (EType s) = s
 emitExpression scope (EInt i) = show i
 emitExpression scope (EString str) = "\"" ++ escapeString str ++ "\""
 emitExpression scope (ECall name params) = emitCall scope name params
+emitExpression scope ENull = "NULL"
 emitExpression scope (ECast e t) = "((" ++ typeString t ++ ") " ++ emitExpression scope e ++ ")"
 {- Tuple at -}
 emitExpression scope (EAt (EInt index) expr) =
 	case exprType (scopeDeclarations scope) expr of
-		TTuple _ -> emitExpression scope expr ++ "." ++ emitTupleMember index
 		TPointer (TTuple _) -> emitExpression scope expr ++ "->" ++ emitTupleMember index
-		t -> error $ "Unsuported type in emitExpression (EAt): " ++ show index ++ " " ++ show expr ++ "/" ++ show t
+		_ -> emitExpression scope expr ++ "." ++ emitTupleMember index
+		-- t -> "Unsuported type in emitExpression (EAt): " ++ show index ++ " " ++ show expr ++ "/" ++ show t
 
 emitExpression scope (EAt (EString index) expr) =
 	case exprType (scopeDeclarations scope) expr of
@@ -142,6 +143,8 @@ emitInstruction scope (IForeach elementType var counterVar expr body) =
 		cycleTest = counterVar ++ " < " ++ arrayLen
 		emit = emitInstruction
 			(addDeclarations scope (makeDeclarations [ (counterVar, TInt), (var, elementType) ] []))
+emitInstruction scope (IWhile expr i) = Text ("while (" ++ emitExpression scope expr ++ ")") <+> Block (emitInstruction scope i)
+emitInstruction scope (IDo expr i) = Text "do " <+> emitInstruction scope i  <+> Text ("while (" ++ emitExpression scope expr ++ ");")
 emitInstruction scope (IInline str) = Text str <+> Eol
 emitInstruction scope (IIf expr branch1 INoop) =
 	Text ("if (" ++ emitExpression scope expr ++ ") ") <+> emitInstruction scope branch1
@@ -155,7 +158,7 @@ emitTupleMember index = "t_" ++ show index
 
 typeString :: Type -> String
 typeString (TArray t) = "std::vector<" ++ typeString t ++ " >"
-typeString (TPlace t) = "CaPlace<" ++ typeString t ++ " >"
+typeString (TTemplate t1 t2) = typeString t1 ++ "<" ++ typeString t2 ++ " >"
 typeString (TRaw d) = d
 typeString (TPointer t) = typeString t ++ "*"
 typeString TString = "std::string"
@@ -170,7 +173,7 @@ typeSafeString TInt = "int"
 typeSafeString TFloat = "float"
 typeSafeString TDouble = "double"
 typeSafeString TString = "string"
-typeSafeString (TPlace t) = "place_" ++ typeSafeString t
+typeSafeString (TTemplate t1 t2) = typeSafeString t1 ++ "_" ++ typeSafeString t2
 typeSafeString TBool = "bool"
 typeSafeString (TTuple ts) = "Tuple" ++ show (length ts) ++ "_" ++ addDelimiter "_" (map typeSafeString ts)
 typeSafeString TUndefined = "<undefined>"
@@ -317,7 +320,7 @@ gatherTypes f =
 
 subTypes :: Type -> TypeSet
 subTypes (TArray t) = subTypes' t
-subTypes (TPlace t) = subTypes' t
+subTypes (TTemplate t1 t2) = Set.union (subTypes' t1) (subTypes' t2)
 subTypes (TTuple types) = Set.unions $ map subTypes' types
 subTypes (TPointer t) = subTypes' t
 subTypes (TStruct _ decls) = Set.unions $ map (subTypes'.snd) decls
@@ -327,7 +330,7 @@ subTypes _ = Set.empty
 subTypes' :: Type -> TypeSet
 subTypes' tt = Set.union (Set.singleton tt) (case tt of
 	(TArray t) -> subTypes' t
-	(TPlace t) -> subTypes' t
+	(TTemplate t1 t2) -> Set.union (subTypes' t1) (subTypes' t2)
 	(TTuple types) -> Set.unions $ map subTypes' types
 	(TPointer t) -> subTypes' t
 	(TStruct name decls) -> Set.unions $ map (subTypes'.snd) decls

@@ -33,13 +33,16 @@ data Type = TUndefined |
 			TBool |
 			TTuple [Type] |
 			TArray Type |
-			TPlace Type |
 			TRaw String |
 			TPointer Type |
 			TData String String TransportMode [ (String, String) ] | {- name, rawName, transportMode, functions -}
 			TStruct String [VarDeclaration] |
-			TClass String (Maybe String) [Function] [VarDeclaration] {- name, ancestor, methods, decls -}
+			TClass String (Maybe String) [Function] [VarDeclaration] | {- name, ancestor, methods, decls -}
+			TTemplate Type Type
 	deriving (Show, Eq, Ord)
+
+caPlace = TTemplate (TRaw "CaPlace")
+caToken = TTemplate (TRaw "CaToken")
 
 type VarDeclaration = (String, Type)
 type ParamDeclaration = (String, Type, ParamType)
@@ -64,7 +67,8 @@ data Expression =
 	EDeref Expression |
 	ECast Expression Type |
 	ETrue | ExprFalse |
-	ENew Expression
+	ENew Expression |
+	ENull
 	deriving (Show, Eq, Ord)
 
 data Instruction =
@@ -72,6 +76,8 @@ data Instruction =
 	ISet Expression Expression |
 	IIf Expression Instruction Instruction |
 	IForeach Type String String Expression [Instruction] | {- elementType var counterVar array body -}
+	IWhile Expression Instruction |
+	IDo Expression Instruction |
 	IStatement [Instruction] |
 	IDefine String Type (Maybe Expression) |
 	IReturn Expression |

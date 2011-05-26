@@ -68,7 +68,7 @@ unitType :: Unit -> Type
 unitType unit = TClass className (Just "CaUnit") [ constr, reportFunction unit ] attributes
 	where
 	className = nameFromId "Unit" $ unitId unit
-	placeVar place = (nameFromId "place" (placeId place), (TPlace . fromNelType . placeType) place)
+	placeVar place = (nameFromId "place" (placeId place), (caPlace . fromNelType . placeType) place)
 	attributes = map placeVar (unitPlaces unit)
 	constr = constructor {
 		functionName = className,
@@ -137,22 +137,23 @@ varStruct project transition =
 	TStruct (nameFromId "Vars" (transitionId transition)) $ visible ++ intern
 	where
 		visible = fromNelVarDeclarations $ transitionFreeVariables project transition
-		intern = [ ("__token_" ++ show i, TInt) | i <- [0 .. length (normalInEdges transition) - 1] ]
+		intern = countedMap internDecl (normalInEdges transition)
+		internDecl n edge = ("__token_" ++ show n, TPointer $ caToken $ fromNelType $ placeTypeById project (edgePlaceId edge))
 
 transitionOfEdge :: Project -> Edge -> Transition
 transitionOfEdge project edge = Maybe.fromJust $ List.find hasEdge (transitions project)
 	where hasEdge t = List.elem edge $ edgesIn t ++ edgesOut t
 
 {- There is bug in expression like: (x, x) or (x+1, x) if x is not binded -}
-patternCheck :: Project -> Expression -> NelExpression -> Set.Set String -> Instruction
-patternCheck project source expr binded =
+patternCheck :: Project -> Expression -> NelExpression -> Set.Set String -> Instruction -> Instruction
+patternCheck project source expr binded failed =
 	case expr of
 		ExprVar x | not (x `Set.member` binded) -> ISet (EAt (EString x) (EVar "vars")) source
 		ExprTuple xs -> IStatement $ countedMap checkTupleItem xs
-		_ -> IIf (ECall "!=" [ source, (toExpression project varFn expr)]) IContinue INoop
+		_ -> IIf (ECall "!=" [ source, (toExpression project varFn expr)]) failed INoop
 	where
 		varFn varName = EAt (EString varName) (EVar "vars")
-		checkTupleItem i expr = patternCheck project (EAt (EInt i) source) expr binded
+		checkTupleItem i expr = patternCheck project (EAt (EInt i) source) expr binded failed
 
 placeInUnit :: Expression -> Place -> Expression
 placeInUnit expr place = EAt (EString $ nameFromId "place" (placeId place)) expr
@@ -160,12 +161,14 @@ placeInUnit expr place = EAt (EString $ nameFromId "place" (placeId place)) expr
 matchTest :: Project -> Int -> [Edge] -> Set.Set String -> Instruction -> Instruction
 matchTest project level [] binded instruction = instruction
 matchTest project level edges@(edge@(Edge placeId (EdgeExpression expr) _):rest) binded instruction =
-	IForeach elementType varName varCounter placeExpr body
+	IStatement $ [ idefine varName (TPointer $ caToken elementType) (ECall ".begin" [ placeExpr ]),
+		IDo (ECall "!=" [ EVar varName, ECall ".begin" [ placeExpr ]]) (IStatement $ body ++ [ failedI ] )
+	]
 	where
 		varName = "c_" ++ show level
-		varCounter = varName ++ "_i"
 		newBinded = Set.union binded $ freeVariables expr
-		body = [ tokenCheck, tokenSet, patternCheck project (EVar varName) expr binded,
+		failedI = IStatement [ ISet (EVar varName) (EAt (EString "next") (EVar varName)), IContinue ]
+		body = [ tokenCheck, patternCheck project (EAt (EString "element") (EVar varName)) expr binded failedI,
 			matchTest project (level + 1) rest newBinded instruction ]
 		processed = zip [0..] $ (List.\\) (edgesIn (transitionOfEdge project edge)) edges
 		fromSamePlace = filter (\(i, (Edge pId _ _)) -> pId == placeId) processed
@@ -174,9 +177,9 @@ matchTest project level edges@(edge@(Edge placeId (EdgeExpression expr) _):rest)
 		elementType = fromNelType $ placeType place
 		tokenCheck | fromSamePlace == [] = INoop
 			   | otherwise = IIf (callIfMore "||"
-						[ ECall "==" [EVar ("c_" ++ show i ++ "_i"), EVar varCounter] | (i, e) <- fromSamePlace ])
-					IContinue INoop
-		tokenSet = ISet (EAt (EString $ "__token_" ++ show level) (EVar "vars")) (EVar varCounter)
+						[ ECall "==" [EVar ("c_" ++ show i), EVar varName] | (i, e) <- fromSamePlace ])
+					failedI INoop
+
 matchTest project level (edge@(Edge placeId (EdgePacking name (Just limit)) _):rest) binded instruction =
 	IIf (ECall ">=" [ ECall ".size" [ placeExpr ], ECall "+" [ limitExpr, EInt (length fromSamePlace - 1)]]) body INoop
 	where
@@ -250,17 +253,22 @@ reportFunction :: Unit -> Function
 reportFunction unit = function {
 	functionName = "report_places",
 	parameters = [ ("out", TRaw "CaOutput", ParamRef) ],
-	instructions = concatMap reportPlace (unitPlaces unit)
+	instructions = map reportPlace (unitPlaces unit)
 	}
 	where
-		reportPlace place = [
+		beginCall place = ECall ".begin" [ placeAttr place (EVar "this") ]
+		reportPlace place = IStatement [
 			icall ".child" [ EVar "out", EString "place" ],
 			icall ".set" [ EVar "out", EString "id", EInt (placeId place) ],
-			IForeach (fromNelType $ placeType place) "x" "x_c" (placeAttr place (EVar "this")) [
-				icall ".child" [ EVar "out", EString "token" ],
-				icall ".set" [ EVar "out", EString "value", asStringCall (placeType place) (EVar "x") ],
-				icall ".back" [ EVar "out" ]
-			],
+			idefine "t" (TPointer $ caToken $ fromNelType (placeType place)) (beginCall place),
+			IIf (ECall "!=" [ ENull, (EVar "t") ]) (IStatement [
+				IDo (ECall "!=" [ EVar "t", beginCall place ]) $ IStatement [
+					icall ".child" [ EVar "out", EString "token" ],
+					icall ".set" [ EVar "out", EString "value", asStringCall (placeType place) (EAt (EString "element") (EVar "t")) ],
+					icall ".back" [ EVar "out" ],
+					ISet (EVar "t") (EAt (EString "next") (EVar "t"))
+				]
+			]) INoop,
 			icall ".back" [ EVar "out"]]
 
 normalInEdges transition = filter isNormalEdge (edgesIn transition)
@@ -281,7 +289,7 @@ fireFn project transition = function {
 } where
 	unitT = unitType (unit project transition)
 	ePlace edge var = EAt (EString $ nameFromId "place" (edgePlaceId edge)) (EVar var)
-	removeToken i edge = icall ".remove_at" [ ePlace edge "u",EAt (EString $ "__token_" ++ show i) (EVar "vars") ]
+	removeToken i edge = icall ".remove" [ ePlace edge "u",EAt (EString $ "__token_" ++ show i) (EVar "vars") ]
 	setPacking edge = case edgeInscription edge of
 		(EdgePacking name _) -> ISet (EAt (EString name) (EVar "vars")) $ ECall ".to_vector_and_clear" [ ePlace edge "u" ]
 	callWorker | hasCode transition = IStatement [
@@ -302,8 +310,6 @@ fireFn project transition = function {
 		EdgePacking _ (Just _) -> error "Packing expression with limit on output edge"
 	varFn varName = EAt (EString varName) (EVar "vars")
 
-
-
 transitionFn :: Project -> Transition -> Function
 transitionFn project transition = function {
 	functionName = transitionFnName transition,
@@ -314,6 +320,7 @@ transitionFn project transition = function {
 		("firefn", TPointer (TRaw "CaFireFn"), ParamNormal) ],
 	instructions = [
 		idefine "u" (TPointer unitT) $ ECast (EVar "unit") (TPointer unitT),
+		checkPlaces,
 		idefineEmpty "vars" (varStruct project transition),
 		matchTest project 0 (edgesIn transition) Set.empty matched,
 		IReturn (EInt 0)
@@ -322,7 +329,18 @@ transitionFn project transition = function {
 	unitT = unitType (unit project transition)
 	matched = IStatement $ map tokenSet [0 .. length (normalInEdges transition) - 1] ++
 		[ icall "firefn" [ EVar "thread", EVar "u", EAddr (EVar "vars") ], IReturn (EInt 1) ]
-	tokenSet i = ISet (EAt (EString $ "__token_" ++ show i) (EVar "vars")) (EVar $ "c_" ++ show i ++ "_i")
+	tokenSet i = ISet (EAt (EString $ "__token_" ++ show i) (EVar "vars")) (EVar $ "c_" ++ show i)
+	checkPlaces = IStatement $ map checkPlace (places project)
+	checkPlace place = let n = needTokens' (placeId place) (edgesIn transition) in
+		if n == 0 then
+			INoop
+		else
+			IIf (ECall "<" [ ECall ".size" [ placeAttr place (EVar "u")], EInt n ]) (IReturn $ EInt 0) INoop
+	needTokens placeId edge | edgePlaceId edge == placeId = case edgeInscription edge of
+		EdgeExpression _ -> 1
+		EdgePacking _ _ -> 0
+	needTokens placeId edge = 0
+	needTokens' placeId edges = sum $ map (needTokens placeId) edges
 
 workerFunction :: Project -> Transition -> Function
 workerFunction project transition = function {
@@ -336,7 +354,7 @@ placeInitFunction :: Place -> Function
 placeInitFunction place = function {
 		functionName = nameFromId "place_init" $ placeId place,
 		parameters = [ ("ctx", caContext, ParamRef),
-			("place", TPlace (fromNelType (placeType place)), ParamRef)],
+			("place", caPlace (fromNelType (placeType place)), ParamRef)],
 		extraCode = Maybe.fromJust $ placeInitCode place,
 		returnType = TVoid,
 		functionSource = Just ("*" ++ show (placeId place) ++ "/init_function", 1)
