@@ -33,24 +33,12 @@ import Utils
 import ProjectTools
 import CodegenTools
 
-data Scope = Scope {
-	scopeDeclarations :: Declarations
-} deriving (Show)
-
 data SourceCode = Text String
 	| Join SourceCode SourceCode
 	| Block SourceCode
 	| Eol
 	| LineDirective (Maybe (String, Int)) -- Nothing means "return to original source file"
 	| Empty
-
-stdFunctions = [
-	("+", TInt, [TInt, TInt]),
-	("*", TInt, [TInt, TInt]),
-	("-", TInt, [TInt, TInt]),
-	("%", TInt, [TInt, TInt]),
-	("/", TInt, [TInt, TInt]),
-	(".iid", TInt, []) ]
 
 (<+>) :: SourceCode -> SourceCode -> SourceCode
 a <+> Empty = a
@@ -65,156 +53,80 @@ joinMap f = foldr ((<+>) . f) Empty
 
 infixFunctions = [ "+", "-", "/", "*", "!=", "==", "||", "&&", ">=", "<=", ">", "<", "%" ]
 
-addDeclarations :: Scope -> Declarations -> Scope
-addDeclarations scope decls =
-	Scope $ decls `declarationsJoin` scopeDeclarations scope
+emitCall ('.':name) (obj:params) =
+	emitExpression obj ++ "." ++ name ++ "(" ++ addDelimiter "," (map emitExpression params) ++ ")"
+emitCall ('-':'>':name) (obj:params) =
+	emitExpression obj ++ "->" ++ name ++ "(" ++ addDelimiter "," (map emitExpression params) ++ ")"
+emitCall name [e1] | name `elem` infixFunctions = 	emitExpression e1
+emitCall name (e:rest) | name `elem` infixFunctions =
+	"(" ++ emitExpression e ++ " " ++ name ++ " " ++ emitCall name rest ++ ")"
+emitCall name params =
+	name ++ "(" ++ addDelimiter "," (map emitExpression params) ++ ")"
 
-emitCall scope ('.':name) (obj:params) =
-	emitExpression scope obj ++ "." ++ name ++ "(" ++ addDelimiter "," (map (emitExpression scope) params) ++ ")"
-emitCall scope ('-':'>':name) (obj:params) =
-	emitExpression scope obj ++ "->" ++ name ++ "(" ++ addDelimiter "," (map (emitExpression scope) params) ++ ")"
-emitCall scope "List.size" [e1] = emitExpression scope e1 ++ ".size()"
-emitCall scope "List.clear" [e1] = emitExpression scope e1 ++ ".clear()"
-emitCall scope "List.eraseAt" [e1,e2] =
-	emitExpression scope e1 ++ ".erase(" ++ emitExpression scope e1 ++ ".begin()+" ++ emitExpression scope e2 ++ ")"
-emitCall scope "List.append" [e1,e2] =
-	emitExpression scope e1 ++ ".push_back(" ++ emitExpression scope e2 ++ ")"
-emitCall scope name [e1] | name `elem` infixFunctions = 	emitExpression scope e1
-emitCall scope name (e:rest) | name `elem` infixFunctions =
-	"(" ++ emitExpression scope e ++ " " ++ name ++ " " ++ emitCall scope name rest ++ ")"
-emitCall scope name params =
-	name ++ "(" ++ addDelimiter "," (map (emitExpression scope) params) ++ ")"
+emitExpression :: Expression -> String
+emitExpression (EVar s) = s
+emitExpression (EType s) = s
+emitExpression (EInt i) = show i
+emitExpression (EString str) = "\"" ++ escapeString str ++ "\""
+emitExpression (ECall name params) = emitCall name params
+emitExpression ENull = "NULL"
+emitExpression (ECast e t) = "((" ++ typeString t ++ ") " ++ emitExpression e ++ ")"
+emitExpression (EMember name expr) = emitExpression expr ++ "." ++ name
+emitExpression (EMemberPtr name expr) = emitExpression expr ++ "->" ++ name
 
-emitExpression :: Scope -> Expression -> String
-emitExpression scope (EVar s) = s
-emitExpression scope (EType s) = s
-emitExpression scope (EInt i) = show i
-emitExpression scope (EString str) = "\"" ++ escapeString str ++ "\""
-emitExpression scope (ECall name params) = emitCall scope name params
-emitExpression scope ENull = "NULL"
-emitExpression scope (ECast e t) = "((" ++ typeString t ++ ") " ++ emitExpression scope e ++ ")"
-{- Tuple at -}
-emitExpression scope (EAt (EInt index) expr) =
-	case exprType (scopeDeclarations scope) expr of
-		TPointer (TTuple _) -> emitExpression scope expr ++ "->" ++ emitTupleMember index
-		_ -> emitExpression scope expr ++ "." ++ emitTupleMember index
-		-- t -> "Unsuported type in emitExpression (EAt): " ++ show index ++ " " ++ show expr ++ "/" ++ show t
+emitExpression (EAddr expr) = "&(" ++ emitExpression expr ++ ")"
+emitExpression (EDeref expr) = "*(" ++ emitExpression expr ++ ")"
+emitExpression (ENew expr) = "new " ++ emitExpression expr
+emitExpression x = error $ "EmitExpression: " ++ show x
 
-emitExpression scope (EAt (EString index) expr) =
-	case exprType (scopeDeclarations scope) expr of
-		TStruct _ _ -> emitExpression scope expr ++ "." ++ index
-		_ -> emitExpression scope expr ++ "->" ++ index
-
-emitExpression scope (EAddr expr) = "&(" ++ emitExpression scope expr ++ ")"
-emitExpression scope (EDeref expr) = "*(" ++ emitExpression scope expr ++ ")"
-emitExpression scope (ENew expr) = "new " ++ emitExpression scope expr
-emitExpression scope x = error $ "EmitExpression: " ++ show x
-
-emitVarDeclarations :: Scope -> [VarDeclaration] -> SourceCode
-emitVarDeclarations scope vdecls =
-	joinMap declare vdecls
-	where
-		declare (name, t) = Text (typeString t ++ " " ++ name ++ ";") <+> Eol
-
-emitInstruction :: Scope -> Instruction -> SourceCode
-emitInstruction scope (IExpr expr) = Text (emitExpression scope expr ++ ";") <+> Eol
-emitInstruction scope (ISet expr1 expr2) =
-	Text (emitExpression scope expr1 ++ " = " ++ emitExpression scope expr2 ++ ";") <+> Eol
-emitInstruction scope (IStatement instructions) =
+emitInstruction :: Instruction -> SourceCode
+emitInstruction (IExpr expr) = Text (emitExpression expr ++ ";") <+> Eol
+emitInstruction (ISet expr1 expr2) =
+	Text (emitExpression expr1 ++ " = " ++ emitExpression expr2 ++ ";") <+> Eol
+emitInstruction (IStatement instructions) =
 	Text "{" <+> Block instructionsCode <+> Text "}" <+> Eol
 	where
-		instructionsCode = joinMap (emitInstruction newScope) instructions
-		newScope = addDeclarations scope (statementDeclarations instructions)
+		instructionsCode = joinMap emitInstruction instructions
 
-emitInstruction scope (IDefine name t (Just expr)) =
-	Text (typeString t ++ " " ++ name ++ " = " ++ emitExpression scope expr ++ ";") <+> Eol
-emitInstruction scope (IDefine name t Nothing) =
+emitInstruction (IDefine name t (Just expr)) =
+	Text (typeString t ++ " " ++ name ++ " = " ++ emitExpression expr ++ ";") <+> Eol
+emitInstruction (IDefine name t Nothing) =
 	Text (typeString t ++ " " ++ name ++ ";") <+> Eol
-emitInstruction scope (IReturn expr) = Text ("return " ++ emitExpression scope expr ++ ";") <+> Eol
-emitInstruction scope IContinue = Text "continue;" <+> Eol
-emitInstruction scope INoop = Empty
-emitInstruction scope (IForeach elementType var counterVar expr body) =
+emitInstruction (IReturn expr) = Text ("return " ++ emitExpression expr ++ ";") <+> Eol
+emitInstruction IContinue = Text "continue;" <+> Eol
+emitInstruction INoop = Empty
+emitInstruction (IForeach elementType var counterVar expr body) =
 	Text ("for (" ++ varDecl ++ "; " ++ cycleTest ++ "; " ++ counterVar ++ "++) {")
-	<+> Block (setVar <+> joinMap emit body) <+> Text "}" <+> Eol
+	<+> Block (setVar <+> joinMap emitInstruction body) <+> Text "}" <+> Eol
 	where
-		arrayLen = "(" ++ emitExpression scope expr ++ ").size()"
-		setVar = Text (typeString elementType ++ " " ++ var ++ " = " ++ emitExpression scope expr ++ "[" ++ counterVar ++ "];") <+> Eol
+		arrayLen = "(" ++ emitExpression expr ++ ").size()"
+		setVar = Text (typeString elementType ++ " " ++ var ++ " = " ++ emitExpression expr ++ "[" ++ counterVar ++ "];") <+> Eol
 		varDecl = "size_t " ++ counterVar ++ " = 0"
 		cycleTest = counterVar ++ " < " ++ arrayLen
-		emit = emitInstruction
-			(addDeclarations scope (makeDeclarations [ (counterVar, TInt), (var, elementType) ] []))
-emitInstruction scope (IWhile expr i) = Text ("while (" ++ emitExpression scope expr ++ ")") <+> Block (emitInstruction scope i)
-emitInstruction scope (IDo expr i) = Text "do " <+> emitInstruction scope i  <+> Text ("while (" ++ emitExpression scope expr ++ ");")
-emitInstruction scope (IInline str) = Text str <+> Eol
-emitInstruction scope (IIf expr branch1 INoop) =
-	Text ("if (" ++ emitExpression scope expr ++ ") ") <+> emitInstruction scope branch1
-emitInstruction scope (IIf expr branch1 branch2) =
-	Text ("if (" ++ emitExpression scope expr ++ ") ") <+> emitInstruction scope branch1 <+> Text "else " <+> emitInstruction scope branch2
+
+emitInstruction (IWhile expr i) = Text ("while (" ++ emitExpression expr ++ ")") <+> Block (emitInstruction i)
+emitInstruction (IDo expr i) = Text "do " <+> emitInstruction i  <+> Text ("while (" ++ emitExpression expr ++ ");")
+emitInstruction (IInline str) = Text str <+> Eol
+emitInstruction (IIf expr branch1 INoop) =
+	Text ("if (" ++ emitExpression expr ++ ") ") <+> emitInstruction branch1
+emitInstruction (IIf expr branch1 branch2) =
+	Text ("if (" ++ emitExpression expr ++ ") ") <+> emitInstruction branch1 <+> Text "else " <+> emitInstruction branch2
 emitTupleMember index = "t_" ++ show index
-
--- initialScope :: Function -> Declaration -> Scope
--- initialScope function fundecls = Scope { scopeDeclarations = decls }
---where decls = makeDeclarations (varFromParam (parameters function) ++ declarations function) fundecls
-
-typeString :: Type -> String
-typeString (TArray t) = "std::vector<" ++ typeString t ++ " >"
-typeString (TTemplate t1 t2) = typeString t1 ++ "<" ++ typeString t2 ++ " >"
-typeString (TRaw d) = d
-typeString (TPointer t) = typeString t ++ "*"
-typeString TString = "std::string"
-typeString TBool = "bool"
-typeString (TData _ rawType _ _) = rawType
-typeString x = typeSafeString x
-
--- |Converts type to string in way that string can be used as part of identifier
-typeSafeString :: Type -> String
-typeSafeString TVoid = "void"
-typeSafeString TInt = "int"
-typeSafeString TFloat = "float"
-typeSafeString TDouble = "double"
-typeSafeString TString = "string"
-typeSafeString (TTemplate t1 t2) = typeSafeString t1 ++ "_" ++ typeSafeString t2
-typeSafeString TBool = "bool"
-typeSafeString (TTuple ts) = "Tuple" ++ show (length ts) ++ "_" ++ addDelimiter "_" (map typeSafeString ts)
-typeSafeString TUndefined = "<undefined>"
-typeSafeString (TArray t) = "Array_" ++ typeSafeString t
-typeSafeString (TRaw d) = d
-typeSafeString (TPointer t) = "Ptr_" ++ typeSafeString t
-typeSafeString (TStruct name _) = name
-typeSafeString (TClass name _ _ _) = name
-typeSafeString (TData name _ _ _) = name
---typeSafeString x = error $ "typeSafeString: " ++ show x
-
-declareVar :: Scope -> String -> String
-declareVar scope varName =
-	case varType (scopeDeclarations scope) varName of
-		TUndefined -> error "Undefined variable cannot be defined"
-		t -> typeString t ++ " " ++ varName
-
-declareVar' :: [VarDeclaration] -> [String]
-declareVar' [] = []
-declareVar' ((name,t):vs) = (typeString t ++ " " ++ name) : declareVar' vs
 
 declareParam :: [ParamDeclaration] -> [String]
 declareParam [] = []
-{- declareParam ((name,(TPointer t), _):vs) = (typeString t ++ "* " ++ name) : declareParam vs
-declareParam ((name,(TRaw d), _):vs) = (d ++ " " ++ name) : declareParam vs -}
 declareParam ((name,t, ParamRef):vs) = (typeString t ++ " & " ++ name) : declareParam vs
 declareParam ((name,t, ParamConst):vs) = ("const " ++ typeString t ++ " & " ++ name) : declareParam vs
 declareParam ((name,t, ParamNormal):vs) = (typeString t ++ " " ++ name) : declareParam vs
 
-emitFunction :: [FunDeclaration] -> Function -> SourceCode
-emitFunction fundecls function =
+emitFunction :: Function -> SourceCode
+emitFunction function =
 	prefix <+> Text functionDeclaration <+> Eol <+> body <+> suffix
 	where
 		functionDeclaration = typeString (returnType function) ++ " "
 			++ functionName function ++ "(" ++ paramString ++ ")" ++ iCall
-		decls = makeDeclarations (varFromParam (parameters function)
-			++ statementVarList (instructions function)) fundecls
-		body = emitInstruction scope (addConstructors decls statement)
-		scope = Scope { scopeDeclarations = decls }
 		paramString = addDelimiter "," $ declareParam (parameters function)
-		statement = IStatement (instructions function ++ extraInstructions)
+		body = emitInstruction $ IStatement (instructions function ++ extraInstructions)
 		(prefix, suffix) = case functionSource function of
 				Just x -> (LineDirective (Just x), LineDirective Nothing)
 				Nothing -> (Empty, Empty)
@@ -222,7 +134,7 @@ emitFunction fundecls function =
 				"" -> [INoop]
 				x -> [IInline x]
 		iCall = case initCall function of
-			Just x -> " : " ++ emitExpression scope x
+			Just x -> " : " ++ emitExpression x
 			Nothing -> ""
 
 emitGlobals :: [VarDeclaration] -> String
@@ -236,28 +148,17 @@ orderTypeByDepedancy types =
 	where
 		orderFn ordered t = Set.empty == Set.difference (subTypes t) (Set.fromList ordered)
 
-makeFunctionDeclaration :: Function -> FunDeclaration
-makeFunctionDeclaration function = (functionName function, returnType function, [ t | (_, t, _) <- parameters function ])
-
 emitProgram :: String -> String -> TypeSet -> [VarDeclaration] -> [Function] -> String
 emitProgram fileName prologue types globals functions =
 	sourceCodeToStr fileName $
-	Text prologue <+> typeDeclarations <+> Text (emitGlobals globals) <+> Eol <+> joinMap (emitFunction fundecls) functions
+	Text prologue <+> typeDeclarations <+> Text (emitGlobals globals) <+> Eol <+> joinMap emitFunction functions
 	where
-		typeDeclarations = Text $ concatMap (emitTypeDeclaration fundecls) orderedTypes
+		typeDeclarations = Text $ concatMap emitTypeDeclaration orderedTypes
 		allTypes = Set.fold (\t s -> Set.union s $ subTypes' t) Set.empty types -- (Set.unions (map gatherTypes functions))
-		allDefinedTypes = Set.filter isDefined allTypes
-		orderedTypes = orderTypeByDepedancy allDefinedTypes
-		fundecls = map makeFunctionDeclaration functions ++ stdFunctions
+		orderedTypes = orderTypeByDepedancy allTypes
 
-emitTypeDeclaration :: [FunDeclaration] -> Type -> String
-emitTypeDeclaration fundecls (TTuple types) =
-	emitTypeDeclaration fundecls (TStruct name decls)
-	where
-		name = typeSafeString (TTuple types)
-		decls = zip (map (\x -> "t_" ++ show x) [0..]) types
-
-emitTypeDeclaration fundecls (TStruct name decls) =
+emitTypeDeclaration :: Type -> String
+emitTypeDeclaration (TStruct name decls) =
 	"struct " ++ name ++ " {\n" ++ constructor1 ++ "\n" ++ constructor2 ++ innerPart decls ++ "};\n"
 	where
 		innerPart [] = ""
@@ -272,7 +173,7 @@ emitTypeDeclaration fundecls (TStruct name decls) =
 			(TPointer _) -> ""
 			_ -> "const "
 
-emitTypeDeclaration fundecls (TClass name ancestor methods attributes) =
+emitTypeDeclaration (TClass name ancestor methods attributes) =
 	"class " ++ name ++ inheritance ++ " {\n\tpublic:\n" ++ methodsCode ++ attrCode attributes ++ "};\n"
 	where
 		attrCode [] = ""
@@ -280,38 +181,9 @@ emitTypeDeclaration fundecls (TClass name ancestor methods attributes) =
 		inheritance = case ancestor of
 			Nothing -> ""
 			Just x -> " : public " ++ x
-		methodsCode = sourceCodeToStr "" $ Block $ joinMap (emitFunction fundecls) methods
+		methodsCode = sourceCodeToStr "" $ Block $ joinMap emitFunction methods
 
-emitTypeDeclaration _ _ = ""
-
-varDeclarationTypes :: [VarDeclaration] -> TypeSet
-varDeclarationTypes decls = Set.fromList [ t | (n,t) <- decls ]
-
-paramDeclarationTypes :: [ParamDeclaration] -> TypeSet
-paramDeclarationTypes decls = Set.fromList [ t | (n,t,_) <- decls ]
-
-gatherExprTypes :: Expression -> TypeSet
-gatherExprTypes x =
-	case exprType emptyDeclarations x of -- FIXME: not emptyDeclarations
-		TUndefined -> Set.empty
-		t -> Set.singleton t
-
-gatherInstructionTypes :: Instruction -> TypeSet
-gatherInstructionTypes (IExpr expr) = gatherExprTypes expr
-gatherInstructionTypes (ISet _ expr) = gatherExprTypes expr
-gatherInstructionTypes (IIf expr i1 i2) =
-	Set.unions [ gatherExprTypes expr, gatherInstructionTypes i1, gatherInstructionTypes i2 ]
-gatherInstructionTypes (IStatement instrs) = Set.unions (map gatherInstructionTypes instrs)
-gatherInstructionTypes (IForeach t _ _ expr instrs) =
-	Set.union (gatherExprTypes expr) $ Set.unions (Set.singleton t:(map gatherInstructionTypes instrs))
-gatherInstructionTypes (IDefine _ t (Just expr)) = Set.union (Set.singleton t) (gatherExprTypes expr)
-gatherInstructionTypes (IDefine _ t Nothing) = Set.singleton t
-gatherInstructionTypes INoop = Set.empty
-gatherInstructionTypes _ = Set.empty
-
-gatherTypes :: Function -> TypeSet
-gatherTypes f =
-	Set.unions $ [ paramDeclarationTypes (parameters f)] ++ map gatherInstructionTypes (instructions f)
+emitTypeDeclaration _ = ""
 
 {-
 	subTypes' x returns subtypes with x
@@ -321,7 +193,6 @@ gatherTypes f =
 subTypes :: Type -> TypeSet
 subTypes (TArray t) = subTypes' t
 subTypes (TTemplate t1 t2) = Set.union (subTypes' t1) (subTypes' t2)
-subTypes (TTuple types) = Set.unions $ map subTypes' types
 subTypes (TPointer t) = subTypes' t
 subTypes (TStruct _ decls) = Set.unions $ map (subTypes'.snd) decls
 subTypes (TClass name _ _ decls) = Set.unions $ map (subTypes'.snd) decls
@@ -331,25 +202,10 @@ subTypes' :: Type -> TypeSet
 subTypes' tt = Set.union (Set.singleton tt) (case tt of
 	(TArray t) -> subTypes' t
 	(TTemplate t1 t2) -> Set.union (subTypes' t1) (subTypes' t2)
-	(TTuple types) -> Set.unions $ map subTypes' types
 	(TPointer t) -> subTypes' t
 	(TStruct name decls) -> Set.unions $ map (subTypes'.snd) decls
 	(TClass name _ _ decls) -> Set.unions $ map (subTypes'.snd) decls
 	_ -> Set.empty)
-
-addConstructors :: Declarations -> Instruction -> Instruction
-addConstructors decls i =
-	mapExprs' addConstr decls i
-	where
-       addConstr decls (ETuple xs) =
-			let t = (exprType decls (ETuple xs)) in
-				ECast (ECall (typeSafeString t) $ map (addConstr decls) xs) t
-
-       addConstr decls (ECall name exprs) = ECall name $ map (addConstr decls) exprs
-       addConstr decls (EAt a b) = EAt (addConstr decls a) (addConstr decls b)
-       addConstr decls (EDeref e) = EDeref $ addConstr decls e
-       addConstr decls (EAddr e) = EAddr $ addConstr decls e
-       addConstr decls x = x
 
 sourceCodeToStr :: String -> SourceCode -> String
 sourceCodeToStr originalFilename code =

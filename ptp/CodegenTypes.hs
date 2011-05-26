@@ -31,7 +31,6 @@ data Type = TUndefined |
 			TDouble |
 			TString |
 			TBool |
-			TTuple [Type] |
 			TArray Type |
 			TRaw String |
 			TPointer Type |
@@ -46,14 +45,7 @@ caToken = TTemplate (TRaw "CaToken")
 
 type VarDeclaration = (String, Type)
 type ParamDeclaration = (String, Type, ParamType)
-type FunDeclaration = (String, Type, [Type])
 type TypeSet = Set.Set Type
-
-data Declarations = Declarations {
-	varDeclarations :: [VarDeclaration],
-	funDeclarations :: [FunDeclaration]
-} deriving (Show, Eq)
-
 
 data Expression =
 	ECall String [Expression] |
@@ -61,9 +53,9 @@ data Expression =
 	EType String |
 	EInt Int |
 	EString String |
-	ETuple [Expression] |
 	EAddr Expression |
-	EAt Expression Expression {- index container -} |
+	EMember String Expression |
+	EMemberPtr String Expression |
 	EDeref Expression |
 	ECast Expression Type |
 	ETrue | ExprFalse |

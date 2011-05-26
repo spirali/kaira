@@ -21,6 +21,7 @@ module CodegenTools where
 
 import Declarations
 import CodegenTypes
+import Utils
 
 import qualified Data.Set as Set
 import qualified Data.List as List
@@ -36,100 +37,7 @@ idefine name t expr = IDefine name t (Just expr)
 idefineEmpty :: String -> Type -> Instruction
 idefineEmpty name t = IDefine name t Nothing
 
-idefineVars :: [VarDeclaration] -> [Instruction]
-idefineVars decls = [ idefineEmpty name t | (name, t) <- decls ]
-
-declarationsJoin :: Declarations -> Declarations -> Declarations
-declarationsJoin da db = Declarations {
-	varDeclarations = varDeclarations da ++ varDeclarations db,
-	funDeclarations = funDeclarations da ++ funDeclarations db
-}
-
 sizeType = TRaw "size_t"
-
-returnTypeOfFunction :: Declarations -> String -> Type
-returnTypeOfFunction declarations name =
-	case List.find (\(n, r, p) -> n == name) (funDeclarations declarations) of
-		Just (n, r, p) -> r
-		Nothing -> TUndefined
-
-makeDeclarations :: [VarDeclaration] -> [FunDeclaration] -> Declarations
-makeDeclarations vars funs = Declarations {
-	varDeclarations = vars,
-	funDeclarations = funs
-}
-
-makeStatement :: [VarDeclaration] -> [Instruction] -> Instruction
-makeStatement decls instructions =
-	IStatement $ [ idefineEmpty name t | (name, t) <- decls ] ++ instructions
-
-emptyDeclarations = makeDeclarations [] []
-
-varType :: Declarations -> String -> Type
-varType decls vname = case List.lookup vname (varDeclarations decls) of
-	Just x -> x
-	Nothing -> TUndefined
-
-exprType :: Declarations -> Expression -> Type
-exprType declarations (EInt _) = TInt
-exprType declarations (EString _) = TString
-exprType declarations (EVar x) = varType declarations x
-exprType declarations (ETuple exprs) = TTuple $ map (exprType declarations) exprs
-exprType declarations (EAt (EInt i) place) =
-	case exprType declarations place of
-		TArray t -> t
-		TPointer (TTuple elements) -> elements !! i
-		TTuple elements -> elements !! i
-		TUndefined -> TUndefined
-		x -> error $ "exprType: Unsuported type for ExprAt (int): " ++ show place
-
-exprType declarations (EAt (EString s) place) =
-	case exprType declarations place of
-		TPointer (TClass _ _ _ ds) -> case List.lookup s ds of
-						Nothing -> TUndefined 
-						Just y -> y
-		TStruct _ ds -> case List.lookup s ds of
-						Nothing -> error "exprType, item of struct not found"
-						Just y -> y
-		TPointer (TStruct _ ds) -> case List.lookup s ds of
-						Nothing -> error "exprType, item of struct not found"
-						Just y -> y
-		TClass _ _ _ ds -> case List.lookup s ds of
-						Nothing -> error "exprType, item in class not found"
-						Just y -> y
-		TUndefined -> TUndefined
-		TPointer _ -> TUndefined 
-		x -> error $ "exprType: Unsuported type for ExprAt (string): " ++ show x
-
-exprType declarations (EAt index place) =
-	case exprType declarations place of
-		TArray t -> t
-		TUndefined -> TUndefined
-		x -> error $ "exprType: Unsuported type for ExprAt: " ++ show x ++ "/" ++ show index
-exprType declarations (EAddr t) = TPointer $ exprType declarations t
-exprType declarations (ECall name _) = returnTypeOfFunction declarations name
-exprType declarations (ECast _ t) = t
-exprType declarations x = error $ "exprType unimplemented: " ++ show x
-
-mapVars :: (String -> Expression) -> Expression -> Expression
-mapVars fn (EVar x) = fn x
-mapVars fn (ETuple exprs) = ETuple [ mapVars fn e | e <- exprs ]
-mapVars fn (ECall name exprs) = ECall name [ mapVars fn e | e <- exprs ]
-mapVars fn e = e
-
-isUndefined :: Type -> Bool
-isUndefined TUndefined = True
-isUndefined (TTuple types) = any isUndefined types
-isUndefined (TArray t) = isUndefined t
-isUndefined (TStruct _ decls) = any (isUndefined . snd) decls
-isUndefined (TClass _ _ _ decls) = any (isUndefined . snd) decls
-isUndefined _ = False
-
-isDefined :: Type -> Bool
-isDefined = not . isUndefined
-
-freeVarsFromStruct :: Expression -> Expression -> Expression
-freeVarsFromStruct structExpr = mapVars (\varName -> EAt (EString varName) structExpr)
 
 -- | Makes expression that call function if there is more then one expression, otherwise expression is returned
 callIfMore :: String -> [Expression] -> Expression
@@ -147,33 +55,13 @@ instructionExprs (IForeach _ _ _ expr instrs) = concatMap instructionExprs instr
 instructionExprs INoop = []
 instructionExprs _ = []
 
-mapExprs :: (Expression -> Expression) -> Instruction -> Instruction
-mapExprs fn (IExpr e) = IExpr $ fn e
-mapExprs fn (ISet e1 e2) = ISet (fn e1) (fn e2)
-mapExprs fn (IIf e i1 i2) = IIf (fn e) (mapExprs fn i1) (mapExprs fn i2)
-mapExprs fn (IStatement instrs) = IStatement $ map (mapExprs fn) instrs
-mapExprs fn (IDefine name t (Just expr)) = IDefine name t $ Just (fn expr)
-mapExprs fn (IForeach t a b e is) = IForeach t a b (fn e) $ map (mapExprs fn) is
-mapExprs fn x = x
-
-mapExprs' :: (Declarations -> Expression -> Expression) -> Declarations -> Instruction -> Instruction
-mapExprs' fn decls (IExpr e) = IExpr $ fn decls e
-mapExprs' fn decls (ISet e1 e2) = ISet (fn decls e1) (fn decls e2)
-mapExprs' fn decls (IIf e i1 i2) = IIf (fn decls e) (mapExprs' fn decls i1) (mapExprs' fn decls i2)
-mapExprs' fn decls (IStatement instructions) =
-	IStatement $ map (mapExprs' fn newDecls) instructions
-	where newDecls = statementDeclarations instructions `declarationsJoin` decls
-mapExprs' fn decls (IDefine name t (Just expr)) = IDefine name t $ Just (fn decls expr)
-mapExprs' fn decls (IForeach t a b e is) = IForeach t a b (fn decls e) $ map (mapExprs' fn decls) is
-mapExprs' fn decls x = x
-
 -- |Returns expression that computes size of memory footprint of result of expr
 exprMemSize :: Type -> Expression -> Expression
 exprMemSize TInt expr = ECall "sizeof" [EVar "int"]
 exprMemSize TFloat expr = ECall "sizeof" [EVar "float"]
 exprMemSize TDouble expr = ECall "sizeof" [EVar "double"]
 exprMemSize TString expr = ECall "+" [ ECall "sizeof" [ EType "size_t" ], ECall ".size" [ expr ] ]
-exprMemSize (TTuple types) expr = ECall "+" [ exprMemSize t (EAt (EInt x) expr) | (x, t) <- zip [0..] types ]
+-- exprMemSize (TTuple types) expr = ECall "+" [ exprMemSize t (EAt (EInt x) expr) | (x, t) <- zip [0..] types ]
 exprMemSize (TData _ rawType TransportDirect _) expr = ECall "sizeof" [ EType rawType ]
 exprMemSize (TData name _ TransportCustom _) expr = ECall (name ++ "_getsize") [ expr ]
 exprMemSize t expr = error $ "exprMemSize: " ++ show t
@@ -182,27 +70,38 @@ canBeDirectlyPacked :: Type -> Bool
 canBeDirectlyPacked TInt = True
 canBeDirectlyPacked TDouble = True
 canBeDirectlyPacked TFloat = True
-canBeDirectlyPacked (TTuple types) = all canBeDirectlyPacked types
 canBeDirectlyPacked (TData _ _ TransportDirect _) = True
+canBeDirectlyPacked (TStruct _ _) = error "canBeDirectlyPacked: Struct not implemented"
 canBeDirectlyPacked _ = False
 
 -- |Return declarations in instructions (ie, it search for IDefine instructions)
-statementVarList :: [Instruction] -> [VarDeclaration]
-statementVarList instructions =
-	foldl idefs [] instructions
-	where
-		idefs lst (IDefine name t _) = (name, t) : lst
-		idefs lst _ = lst
 
-statementDeclarations :: [Instruction] -> Declarations
-statementDeclarations instructions =
-	makeDeclarations (statementVarList instructions) []
+typeString :: Type -> String
+typeString (TArray t) = "std::vector<" ++ typeString t ++ " >"
+typeString (TTemplate t1 t2) = typeString t1 ++ "<" ++ typeString t2 ++ " >"
+typeString (TRaw d) = d
+typeString (TPointer t) = typeString t ++ "*"
+typeString TString = "std::string"
+typeString TBool = "bool"
+typeString (TData _ rawType _ _) = rawType
+typeString x = typeSafeString x
 
-paramFromVar :: ParamType -> [VarDeclaration] -> [ParamDeclaration]
-paramFromVar pt decls = [ (name, t, pt) | (name, t) <- decls ]
-
-varFromParam :: [ParamDeclaration] -> [VarDeclaration]
-varFromParam decls = [ (name, t) | (name, t, _) <- decls ]
+-- |Converts type to string in way that string can be used as part of identifier
+typeSafeString :: Type -> String
+typeSafeString TVoid = "void"
+typeSafeString TInt = "int"
+typeSafeString TFloat = "float"
+typeSafeString TDouble = "double"
+typeSafeString TString = "string"
+typeSafeString (TTemplate t1 t2) = typeSafeString t1 ++ "_" ++ typeSafeString t2
+typeSafeString TBool = "bool"
+typeSafeString TUndefined = "<undefined>"
+typeSafeString (TArray t) = "Array_" ++ typeSafeString t
+typeSafeString (TRaw d) = d
+typeSafeString (TPointer t) = "Ptr_" ++ typeSafeString t
+typeSafeString (TStruct name _) = name
+typeSafeString (TClass name _ _ _) = name
+typeSafeString (TData name _ _ _) = name
 
 fromNelType :: NelType -> Type
 fromNelType TypeInt = TInt
@@ -212,7 +111,11 @@ fromNelType TypeString = TString
 fromNelType TypeBool = TBool
 fromNelType (TypeArray t) = TArray (fromNelType t)
 fromNelType (TypeData a b c d) = TData a b c d
-fromNelType (TypeTuple ts) = TTuple $ map fromNelType ts
+fromNelType (TypeTuple ts) = TStruct name decls
+	where
+		types = map fromNelType ts
+		decls = zip [ "t_" ++ show i | i <- [0..]] types
+		name = "Tuple" ++ show (length ts) ++ "_" ++ addDelimiter "_" (map typeSafeString types)
 
 fromNelVarDeclaration :: NelVarDeclaration -> VarDeclaration
 fromNelVarDeclaration (n, t) = (n, fromNelType t)
