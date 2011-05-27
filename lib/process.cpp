@@ -25,7 +25,7 @@ CaUnit * CaThread::get_unit(const CaPath &path, int def_id)
 	CaUnitDef *def = process->get_def(def_id);
 	def->lock();
 	int spawn_flag;
-	CaUnit *unit = def->lookup_or_start(path, &spawn_flag);
+	CaUnit *unit = def->lookup_or_start(this, path, &spawn_flag);
 	if (spawn_flag) {
 		process->inform_new_unit(def, unit);
 	}
@@ -84,11 +84,16 @@ void CaThread::join()
 	pthread_join(thread, NULL);
 }
 
+void CaThread::quit_all()
+{
+	process->quit_all();
+}
+
 void CaThread::run_scheduler()
 {
 	process_messages();
 	jobs = process->create_jobs();
-	for (;;) {
+	while (!process->quit_flag) {
 		for (size_t i = 0; i < jobs.size(); i++) {
 			jobs[i].test_and_fire(this);
 		}
@@ -111,6 +116,7 @@ CaProcess::CaProcess(int threads_count, int defs_count, CaUnitDef **defs)
 
 void CaProcess::start()
 {
+	quit_flag = false;
 	CaListener listener(this);
 	pthread_barrier_t start_barrier;
 
@@ -137,7 +143,7 @@ void CaProcess::start()
 	int t;
 
 	for (t = 0; t < defs_count; t++) {
-		defs[t]->init_all();
+		defs[t]->init_all(&threads[0]);
 	}
 
 	for (t = 0; t < threads_count; t++) {
@@ -183,10 +189,16 @@ void CaProcess::send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *ba
 	}
 }
 
+void CaProcess::quit_all()
+{
+	quit_flag = true;
+}
+
 void CaProcess::write_reports(FILE *out) const
 {
 	CaOutput output;
 	output.child("units");
+	output.set("running", !quit_flag);
 	for (int t = 0; t < defs_count; t++) {
 		defs[t]->reports(output);
 	}

@@ -33,6 +33,4 @@ class CaMessageBarriers  : public CaMessage {
 		pthread_barrier_t *barrier2;
 };
 
-
-
 #endif

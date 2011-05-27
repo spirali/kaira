@@ -172,6 +172,10 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 			continue;
 		}
 		if (strcmp(line, "FIRE") > 0) {
+			if (process->quit_flag) {
+				fprintf(comm_out, "Network is terminated\n");
+				continue;
+			}
 			int transition_id;
 			char path_string[LINE_LENGTH_LIMIT];
 			if (2 != sscanf(line, "FIRE %i %s", &transition_id, path_string)) {

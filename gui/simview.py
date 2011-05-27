@@ -110,7 +110,8 @@ class SimVisualConfig(VisualConfig):
 
 	def transition_drawing(self, item):
 		d = VisualConfig.transition_drawing(self, item)
-		if self.simview.get_instance().is_enabled(item):
+		running = self.simview.simulation.network_running
+		if running and self.simview.get_instance().is_enabled(item):
 			d.set_highlight((0.1,0.90,0.1,0.5))
 		return d
 

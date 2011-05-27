@@ -78,6 +78,15 @@ void CaOutput::_set(const std::string & name, const std::string & value)
 	block->set(name, value);
 }
 
+void CaOutput::set(const std::string & name, const bool value)
+{
+	if (value) {
+		_set(name, "true");
+	} else {
+		_set(name, "false");
+	}
+}
+
 void CaOutput::set(const std::string & name, const int value)
 {
 	_set(name, ca_int_to_string(value));

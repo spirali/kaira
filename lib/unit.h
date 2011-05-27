@@ -13,7 +13,7 @@ class CaUnit;
 class CaUnitDef;
 class CaThread;
 
-typedef CaUnit*(CaUnitInitFn)(CaUnitDef*, const CaPath &path);
+typedef CaUnit*(CaUnitInitFn)(CaThread *thread, CaUnitDef*, const CaPath &path);
 typedef void(CaFireFn)(CaThread *, CaUnit *, void *);
 typedef int(CaEnableFn)(CaThread *, CaUnit*, CaFireFn *);
 
@@ -50,15 +50,15 @@ class CaUnitDef {
 			size_t var_size);
 		void register_init(const CaMultiPath &mpath) { init_paths.push_back(mpath); }
 
-		CaUnit * start_unit(const CaPath &path);
-		CaUnit * lookup_or_start(const CaPath &path, int *start_flag);
+		CaUnit * start_unit(CaThread *thread, const CaPath &path);
+		CaUnit * lookup_or_start(CaThread *thread, const CaPath &path, int *start_flag);
 		CaUnit * lookup(const CaPath &path);
 
 		void lock() { pthread_mutex_lock(&mutex); }
 		void unlock() { pthread_mutex_unlock(&mutex); }
 
 		void reports(CaOutput &output);
-		void init_all();
+		void init_all(CaThread *thread);
 
 		int get_transition_count() const { return transitions_count; }
 		int get_units_count() const { return units.size(); }

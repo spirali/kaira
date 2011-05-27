@@ -40,6 +40,8 @@ class CaThread {
 		int process_messages();
 
 		void add_job(const CaJob &job) { jobs.push_back(job); }
+
+		void quit_all();
 	protected:
 		CaProcess *process;
 		pthread_t thread;
@@ -66,6 +68,9 @@ class CaProcess {
 		void write_reports(FILE *out) const;
 		void fire_transition(int transition_id, const CaPath &path);
 
+		void quit_all();
+
+		bool quit_flag;
 	protected:
 		int threads_count;
 		int defs_count;

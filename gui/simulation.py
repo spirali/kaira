@@ -23,6 +23,8 @@ import random
 from project import load_project_from_xml
 from events import EventSource
 
+import utils
+
 class SimulationException(Exception):
 	pass
 
@@ -79,6 +81,9 @@ class Simulation(EventSource):
 	def query_reports(self, callback = None):
 		def reports_callback(line):
 			root = xml.fromstring(line)
+			self.network_running = utils.xml_bool(root, "running")
+			if not self.network_running:
+				self.emit_event("error", "Network terminated\n")
 			self.units = [ Unit(e) for e in root.findall("unit") ]
 			self.instances = {}
 			for u in self.units:
@@ -91,6 +96,8 @@ class Simulation(EventSource):
 		self.controller.run_command("REPORTS", reports_callback)
 
 	def fire_transition(self, transition, path):
+		if not self.network_running:
+			return
 		if self.controller:
 			self.controller.run_command_expect_ok("FIRE " + str(transition.get_id()) + " " + str(path))
 			self.query_reports()
@@ -152,7 +159,7 @@ class Unit:
 			self.places[int(place.get("id"))] = tokens
 
 		for t in unit_element.findall("transition"):
-			self.transitions[int(t.get("id"))] = bool(int(t.get("enabled")))
+			self.transitions[int(t.get("id"))] = utils.xml_bool(t, "enabled")
 
 	def has_place(self, place):
 		return self.places.has_key(place.get_id())

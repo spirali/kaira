@@ -91,10 +91,10 @@ initCaUnit :: Project -> Unit -> Function
 initCaUnit project unit = function {
 	functionName = nameFromId "init_unit" (unitId unit),
 	returnType = caUnit,
-	parameters = [ ("def", caUnitDef, ParamNormal), ("path", caPath, ParamConst) ],
+	parameters = [ ("thread", caThread, ParamNormal), ("def", caUnitDef, ParamNormal), ("path", caPath, ParamConst) ],
 	instructions = [ idefine "unit" (TPointer $ unitType unit) $
 		ENew (ECall (nameFromId "Unit" (unitId unit)) [ EVar "def", EVar "path" ]),
-		idefine "ctx" caContext (ECall "CaContext" [])
+		idefine "ctx" caContext (ECall "CaContext" [ EVar "thread", EVar "unit" ])
 	] ++
 		initPlaces ++ [ IReturn $ EVar "unit" ]
 } where
@@ -301,7 +301,7 @@ fireFn project transition = function {
 		(EdgePacking name _) -> ISet (EMemberPtr name (EVar "vars")) $ ECall ".to_vector_and_clear" [ ePlace edge "u" ]
 	callWorker | hasCode transition = IStatement [
 		icall "->unlock" [ EVar "u" ],
-		idefine "ctx" caContext (ECall "CaContext" []),
+		idefine "ctx" caContext (ECall "CaContext" [ EVar "thread", EVar "unit" ]),
 		icall (nameFromId "worker" $ transitionId transition) [ EVar "ctx", EDeref $ EVar "vars" ] ]
 			| otherwise = icall "->unlock" [ EVar "u" ]
 	processOutput edge = IStatement [

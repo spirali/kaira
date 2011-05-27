@@ -46,14 +46,14 @@ std::vector<CaTransition*> CaUnitDef::get_transitions() const
 	return ts;
 }
 
-CaUnit * CaUnitDef::start_unit(const CaPath &path)
+CaUnit * CaUnitDef::start_unit(CaThread *thread, const CaPath &path)
 {
-	CaUnit *unit = init_fn(this, path);
+	CaUnit *unit = init_fn(thread, this, path);
 	units.push_back(unit);
 	return unit;
 }
 
-CaUnit * CaUnitDef::lookup_or_start(const CaPath &path, int *start_flag)
+CaUnit * CaUnitDef::lookup_or_start(CaThread *thread, const CaPath &path, int *start_flag)
 {
 	CaUnit *u = lookup(path);
 	if (u) {
@@ -61,7 +61,7 @@ CaUnit * CaUnitDef::lookup_or_start(const CaPath &path, int *start_flag)
 		return u;
 	}
 	*start_flag = 1;
-	return start_unit(path);
+	return start_unit(thread, path);
 }
 
 CaUnit * CaUnitDef::lookup(const CaPath &path)
@@ -86,14 +86,14 @@ CaTransition * CaUnitDef::get_transition(int transition_id)
 	return NULL;
 }
 
-void CaUnitDef::init_all()
+void CaUnitDef::init_all(CaThread *thread)
 {
     std::vector<CaMultiPath>::iterator i;
     for (i = init_paths.begin(); i != init_paths.end(); i++)
     {
         CaMultiPath::Iterator iter = i->get_iterator();
         while(iter.has_next()) {
-            start_unit(iter.next());
+            start_unit(thread, iter.next());
         }
     }
     init_paths.clear();

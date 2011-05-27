@@ -13,7 +13,14 @@
 #include "output.h"
 
 class CaContext {
+	public:
+		CaContext(CaThread *thread, CaUnit *unit) : thread(thread), unit(unit) {}
 
+		void quit() { thread->quit_all(); }
+
+	protected:
+		CaThread *thread;
+		CaUnit *unit;
 };
 
 /* Start */
