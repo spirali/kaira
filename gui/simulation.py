@@ -213,8 +213,8 @@ class OverviewInstance:
 
 	def is_enabled(self, transition):
 		for u in self.units:
-			if u.has_transition(transition):
-				return u.is_enabled(transition)
+			if u.has_transition(transition) and u.is_enabled(transition):
+				return True
 		return False
 
 	def fire_transition(self, transition):

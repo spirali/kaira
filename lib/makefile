@@ -1,5 +1,5 @@
 
-CFLAGS=-ggdb
+CFLAGS=-ggdb -Wall
 CC=g++
 MPICC=mpicc
 

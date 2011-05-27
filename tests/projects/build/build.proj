@@ -1,7 +1,7 @@
 <project><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2 -DTESTME</build-option><build-option name="OTHER_FILES">file.cpp
-src/file.cpp</build-option></configuration><net id="101"><place id="102" init_string="0" place_type="Int" radius="20" x="159" y="105" /><transition guard="" id="103" name="" sx="70" sy="35" x="255" y="158"><code>	#ifdef TESTME
+src/file.cpp</build-option></configuration><net><place id="102" init_string="0!" place_type="Int" radius="20" x="159" y="105" /><transition guard="" id="103" name="" sx="70" sy="35" x="255" y="158"><code>	#ifdef TESTME
 	function1(10);
 	function2(20);
 	#endif
-	ctx-&gt;quit();
+	ctx.quit();
 </code></transition><edge from_item="102" id="104" inscription="0" inscription_x="216" inscription_y="93" to_item="103"><point x="255" y="105" /></edge></net></project>

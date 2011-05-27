@@ -121,10 +121,10 @@ CaPath CaPath::apply(int levelup, int count, ...)
 	for (t = 0; t < d; t++) {
 		nodes[t] = this->nodes[t];
 	}
-	for (; t < count; t++) {
-		nodes[t] = va_arg(vl, int);
+	for (t = 0; t < count; t++) {
+		nodes[t + d] = va_arg(vl, int);
 	}
-	nodes[t] = -1;
+	nodes[t + d] = -1;
 	va_end(vl);
 	return CaPath(nodes);
 }
@@ -144,6 +144,16 @@ std::string CaPath::as_string() const
 	return s.str();
 }
 
+int CaPath::last_component() const
+{
+	int i = 0;
+	int t = 0;
+	while(nodes[t] != -1) {
+		i = nodes[t];
+		t++;
+	}
+	return i;
+}
 
 CaMultiPath::CaMultiPath(const std::string &definition, ...) : definition(definition)
 {

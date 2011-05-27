@@ -17,6 +17,8 @@ class CaContext {
 		CaContext(CaThread *thread, CaUnit *unit) : thread(thread), unit(unit) {}
 
 		void quit() { thread->quit_all(); }
+		int iid() { return unit->path.last_component(); }
+		const CaPath & path() { return unit->path; }
 
 	protected:
 		CaThread *thread;

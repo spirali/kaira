@@ -402,11 +402,18 @@ mainFunction project = function {
 		icall "ca_parse_args" [ EVar "argc", EVar "argv", EInt (length parameters), EVar "p_names", EVar "p_data", EVar "p_descs" ]
 	 ]
 
+parameterAccessFunction :: Parameter -> Function
+parameterAccessFunction parameter = function {
+	functionName = "parameter_" ++ parameterName parameter,
+	instructions = [ (IReturn . EVar . parameterGlobalName . parameterName) parameter ],
+	returnType = fromNelType $ parameterType parameter
+}
+
 createProgram :: String -> Project -> String
 createProgram filename project =
 	emitProgram (FilePath.takeFileName filename) prologue types globals functions
 	where
-		functions = userFs ++ placeInitFs ++ workerFs ++ fireFs ++ transitionFs ++ unitFs ++ [mainF]
+		functions = paramFs ++ userFs ++ placeInitFs ++ workerFs ++ fireFs ++ transitionFs ++ unitFs ++ [mainF]
 		mainF = mainFunction project
 		unitFs = map (initCaUnit project) units
 		transitionFs = map (transitionFn project) $ transitions project
@@ -418,6 +425,7 @@ createProgram filename project =
 		unitTypes = map unitType units
 		units = projectUnits project
 		userFs = map makeUserFunction (userFunctions project)
+		paramFs = map parameterAccessFunction (projectParameters project)
 		prologue = "#include <stdio.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n#include \"head.cpp\"\n\n"
 		globals = [ (parameterGlobalName $ parameterName p, fromNelType $ parameterType p) | p <- projectParameters project ]
 

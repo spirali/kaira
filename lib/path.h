@@ -19,6 +19,8 @@ class CaPath {
 		CaPath apply(int levelup, int count, ...);
 
 		std::string as_string() const;
+
+		int last_component() const;
 	protected:
 		int *nodes;
 		void set_data(int *nodes);
