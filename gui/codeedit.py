@@ -132,7 +132,7 @@ class TransitionCodeEditor(CodeEditor):
 			code = transition.get_code()
 		head = "struct Vars {\n" + "".join(["\t" + v.strip() + ";\n" for v in variables ]) + "};\n\n"
 		line = 5 + len(variables)
-		CodeEditor.__init__(self, "void transition_function(CaContext *ctx, Vars & var)\n{\n", code, "}\n", (line,0), head)
+		CodeEditor.__init__(self, "void transition_function(CaContext &ctx, Vars &var)\n{\n", code, "}\n", (line,0), head)
 
 
 	def buffer_changed(self, buffer):
@@ -146,7 +146,7 @@ class PlaceCodeEditor(CodeEditor):
 			code = "\t\n"
 		else:
 			code = place.get_code()
-		begin = "void init_place(CaContext *ctx, {0} * place)\n{{\n".format(place_type)
+		begin = "void init_place(CaContext &ctx, {0} &place)\n{{\n".format(place_type)
 		CodeEditor.__init__(self, begin, code, "}\n", (2,0))
 
 

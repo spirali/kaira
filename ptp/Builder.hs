@@ -87,6 +87,10 @@ initPlace project expr place = initConsts ++ callInitFn
 				| otherwise = []
 	initConsts = [ icall ".add" [ expr, toExpressionWithoutVars project (placeType place) nelExpr ] | nelExpr <- placeInitExprs place ]
 
+defineContext :: Expression -> Expression -> Instruction
+defineContext thread unit = idefine "ctx" caContext (ECall "CaContext" [ thread, unit ])
+
+
 initCaUnit :: Project -> Unit -> Function
 initCaUnit project unit = function {
 	functionName = nameFromId "init_unit" (unitId unit),
@@ -94,7 +98,7 @@ initCaUnit project unit = function {
 	parameters = [ ("thread", caThread, ParamNormal), ("def", caUnitDef, ParamNormal), ("path", caPath, ParamConst) ],
 	instructions = [ idefine "unit" (TPointer $ unitType unit) $
 		ENew (ECall (nameFromId "Unit" (unitId unit)) [ EVar "def", EVar "path" ]),
-		idefine "ctx" caContext (ECall "CaContext" [ EVar "thread", EVar "unit" ])
+		defineContext (EVar "thread") (EVar "unit")
 	] ++
 		initPlaces ++ [ IReturn $ EVar "unit" ]
 } where
@@ -290,6 +294,7 @@ fireFn project transition = function {
 		("vars", TPointer $ varStruct project transition, ParamNormal)
 	],
 	instructions = [
+		defineContext (EVar "thread") (EVar "unit"),
 		idefine "u" (TPointer unitT) $ ECast (EVar "unit") (TPointer unitT),
 		IStatement $ countedMap removeToken (normalInEdges transition) ++ map setPacking (packingInEdges transition),
 		callWorker ] ++ map processOutput (edgesOut transition)
@@ -301,7 +306,6 @@ fireFn project transition = function {
 		(EdgePacking name _) -> ISet (EMemberPtr name (EVar "vars")) $ ECall ".to_vector_and_clear" [ ePlace edge "u" ]
 	callWorker | hasCode transition = IStatement [
 		icall "->unlock" [ EVar "u" ],
-		idefine "ctx" caContext (ECall "CaContext" [ EVar "thread", EVar "unit" ]),
 		icall (nameFromId "worker" $ transitionId transition) [ EVar "ctx", EDeref $ EVar "vars" ] ]
 			| otherwise = icall "->unlock" [ EVar "u" ]
 	processOutput edge = IStatement [
@@ -327,6 +331,7 @@ transitionFn project transition = function {
 		("unit", caUnit, ParamNormal),
 		("firefn", TPointer (TRaw "CaFireFn"), ParamNormal) ],
 	instructions = [
+		defineContext (EVar "thread") (EVar "unit"),
 		idefine "u" (TPointer unitT) $ ECast (EVar "unit") (TPointer unitT),
 		checkPlaces,
 		idefineEmpty "vars" (varStruct project transition),
@@ -368,6 +373,15 @@ placeInitFunction place = function {
 		functionSource = Just ("*" ++ show (placeId place) ++ "/init_function", 1)
 }
 
+makeUserFunction :: UserFunction -> Function
+makeUserFunction ufunction = function {
+		functionName = ufunctionName ufunction,
+		returnType = fromNelType (ufunctionReturnType ufunction),
+		parameters = if ufunctionWithContext ufunction then ("ctx", caContext, ParamNormal):params else params,
+		extraCode = ufunctionCode ufunction,
+		functionSource = Just ("*" ++ show (ufunctionId ufunction) ++ "/user_function", 1)
+	} where params = [ (name, t, ParamConst) | (name, t) <- fromNelVarDeclarations (ufunctionParameters ufunction) ]
+
 mainFunction :: Project -> Function
 mainFunction project = function {
 	functionName = "main",
@@ -392,7 +406,7 @@ createProgram :: String -> Project -> String
 createProgram filename project =
 	emitProgram (FilePath.takeFileName filename) prologue types globals functions
 	where
-		functions = placeInitFs ++ workerFs ++ fireFs ++ transitionFs ++ unitFs ++ [mainF]
+		functions = userFs ++ placeInitFs ++ workerFs ++ fireFs ++ transitionFs ++ unitFs ++ [mainF]
 		mainF = mainFunction project
 		unitFs = map (initCaUnit project) units
 		transitionFs = map (transitionFn project) $ transitions project
@@ -403,6 +417,7 @@ createProgram filename project =
 		varStructs = map (varStruct project) $ transitions project
 		unitTypes = map unitType units
 		units = projectUnits project
+		userFs = map makeUserFunction (userFunctions project)
 		prologue = "#include <stdio.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n#include \"head.cpp\"\n\n"
 		globals = [ (parameterGlobalName $ parameterName p, fromNelType $ parameterType p) | p <- projectParameters project ]
 

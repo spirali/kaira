@@ -40,8 +40,8 @@ class Project(EventSource):
 		self.error_messages = {}
 		self.functions = []
 		self.events = [
-			Event("node_init", "void", "CaContext *ctx"),
-			Event("node_quit", "void", "CaContext *ctx")
+			Event("node_init", "void", "CaContext &ctx"),
+			Event("node_quit", "void", "CaContext &ctx")
 		]
 		self.build_options = {
 			"CC" : "g++",
@@ -536,7 +536,7 @@ class Function(FunctionBase):
 		else:
 			params_str =	[ self.project.type_to_ctype(t) + " &" + n for (t, n) in p ]
 			if self.with_context:
-				params_str.insert(0, "CaContext *ctx")
+				params_str.insert(0, "CaContext &ctx")
 			return ", ".join(params_str)
 
 	def get_c_return_type(self):
