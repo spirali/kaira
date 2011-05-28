@@ -97,20 +97,38 @@ tupleParser = do
 		[x] -> return x
 		_ -> return (ExprTuple exprs)
 
+data ParserPath = PPItem PathItem | PPUp
+
+buildPath :: [ParserPath] -> (Int, [PathItem])
+buildPath (PPUp:rest) = (n + 1, p) where (n, p) = buildPath rest
+buildPath rest = (0, cleanup rest)
+	where
+		cleanup [] = []
+		cleanup (PPItem _ : PPUp : rest) = cleanup rest
+		cleanup (PPItem i : rest) = i : cleanup rest
+
 pathRange = do
 	reservedOp "["
 	x <- expressionParser
 	reservedOp ".."
 	y <- expressionParser
 	reservedOp "]"
-	return (PathRange x y)
+	return $ PPItem (PathRange x y)
 
-pathItem = pathRange <|> do { x <- expressionParser; return (PathSingleton x) }
+pathUp :: Parser ParserPath
+pathUp = do
+	char '.'; char '.';
+	return PPUp;
+
+pathItem = pathUp <|> pathRange <|> do { x <- expressionParser; return $ PPItem (PathSingleton x) }
 
 pathItems = (sepBy pathItem (char '/'))
 
-pathParser = do { char '/'; items <- pathItems; return (AbsPath items) }
-	<|> do { items <- pathItems; return (RelPath 0 items) }
+pathParser = do { char '/'; items <- pathItems; return (AbsPath (pitems items)) }
+	<|> do { items <- pathItems; return (RelPath (level items) (pitems items)) }
+	where
+		level = fst . buildPath
+		pitems = snd . buildPath
 
 expressionParser :: Parser NelExpression
 expressionParser = buildExpressionParser optable baseExpr

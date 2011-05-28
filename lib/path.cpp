@@ -107,12 +107,10 @@ void CaPath::set_data(int *nodes)
 
 CaPath CaPath::apply(int levelup, int count, ...)
 {
-	if (levelup != 0) {
-		printf("levelup not implemented\n");
-		abort();
+	int d = depth() - levelup;
+	if (d < 0) {
+		d = 0;
 	}
-
-	int d = depth();
 
 	int nodes[d + count + 1];
 	int t;

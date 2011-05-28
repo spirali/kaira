@@ -56,7 +56,7 @@ pathItemFreeVariables project (PathRange x y) = unionVariableTypes (variableType
 pathFreeVariables :: Project -> Path -> Map.Map String NelType
 pathFreeVariables project path = case path of
 		(AbsPath es) -> listVariables es
-		(RelPath 0 es) -> listVariables es
+		(RelPath _ es) -> listVariables es
 	where
 		listVariables x = unionsVariableTypes $ map (pathItemFreeVariables project) x
 
