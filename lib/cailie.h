@@ -11,6 +11,7 @@
 #include "unit.h"
 #include "process.h"
 #include "output.h"
+#include "packing.h"
 
 class CaContext {
 	public:

@@ -409,11 +409,35 @@ parameterAccessFunction parameter = function {
 	returnType = fromNelType $ parameterType parameter
 }
 
+knownTypeFunctions :: [(String, String -> (Type, [ParamDeclaration]))]
+knownTypeFunctions = [
+	("getstring", \raw -> (TRaw "std::string", [ ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
+	("getsize", \raw -> (sizeType, [ ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
+	("pack", \raw -> (TVoid, [ ("packer", TRaw "CaPacker &", ParamNormal), ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
+	("unpack", \raw -> (TRaw raw, [ ("unpacker", TRaw "CaUnpacker &", ParamNormal) ])) ]
+
+
+typeFunctions :: NelType -> [Function]
+typeFunctions (TypeData typeName rawType _ functions) =
+	map typeFunction functions
+	where
+		typeFunction (fname, code) = function {
+			functionName = (typeName ++ "_" ++ fname),
+			returnType = rtype,
+			parameters = params,
+			functionSource = Just (typeName ++ "/" ++ fname, 1),
+			extraCode = code
+		} where
+			(rtype, params) = case List.lookup fname knownTypeFunctions of
+				Just x -> x rawType
+				Nothing -> error $ "typeFunctions: Unknown function: " ++ fname
+typeFunctions _ = []
+
 createProgram :: String -> Project -> String
 createProgram filename project =
 	emitProgram (FilePath.takeFileName filename) prologue types globals functions
 	where
-		functions = paramFs ++ userFs ++ placeInitFs ++ workerFs ++ fireFs ++ transitionFs ++ unitFs ++ [mainF]
+		functions = paramFs ++ userFs ++ typeFs ++ placeInitFs ++ workerFs ++ fireFs ++ transitionFs ++ unitFs ++ [mainF]
 		mainF = mainFunction project
 		unitFs = map (initCaUnit project) units
 		transitionFs = map (transitionFn project) $ transitions project
@@ -425,6 +449,7 @@ createProgram filename project =
 		unitTypes = map unitType units
 		units = projectUnits project
 		userFs = map makeUserFunction (userFunctions project)
+		typeFs = concatMap typeFunctions (Map.elems (typeTable project))
 		paramFs = map parameterAccessFunction (projectParameters project)
 		prologue = "#include <stdio.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n#include \"head.cpp\"\n\n"
 		globals = [ (parameterGlobalName $ parameterName p, fromNelType $ parameterType p) | p <- projectParameters project ]

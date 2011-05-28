@@ -27,6 +27,7 @@ module Codegen (
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
+import qualified Data.Maybe as Maybe
 import Declarations
 import CodegenTypes
 import Utils
@@ -123,9 +124,7 @@ emitFunction :: Function -> SourceCode
 emitFunction function =
 	prefix <+> Text functionDeclaration <+> Eol <+> body <+> suffix
 	where
-		functionDeclaration = typeString (returnType function) ++ " "
-			++ functionName function ++ "(" ++ paramString ++ ")" ++ iCall
-		paramString = addDelimiter "," $ declareParam (parameters function)
+		functionDeclaration = declareFunction function ++ iCall
 		body = emitInstruction $ IStatement (instructions function ++ extraInstructions)
 		(prefix, suffix) = case functionSource function of
 				Just x -> (LineDirective (Just x), LineDirective Nothing)
@@ -136,6 +135,11 @@ emitFunction function =
 		iCall = case initCall function of
 			Just x -> " : " ++ emitExpression x
 			Nothing -> ""
+
+declareFunction :: Function -> String
+declareFunction function = typeString (returnType function) ++ " "
+			++ functionName function ++ "(" ++ paramString ++ ")"
+	where paramString = addDelimiter "," $ declareParam (parameters function)
 
 emitGlobals :: [VarDeclaration] -> String
 emitGlobals [] = ""
@@ -151,11 +155,18 @@ orderTypeByDepedancy types =
 emitProgram :: String -> String -> TypeSet -> [VarDeclaration] -> [Function] -> String
 emitProgram fileName prologue types globals functions =
 	sourceCodeToStr fileName $
-	Text prologue <+> typeDeclarations <+> Text (emitGlobals globals) <+> Eol <+> joinMap emitFunction functions
+	Text prologue <+> typedefs <+> funDecls <+> typeDeclarations <+> Text (emitGlobals globals) <+> Eol <+> joinMap emitFunction functions
 	where
 		typeDeclarations = Text $ concatMap emitTypeDeclaration orderedTypes
-		allTypes = Set.fold (\t s -> Set.union s $ subTypes' t) Set.empty types -- (Set.unions (map gatherTypes functions))
+		allTypes = Set.fold (\t s -> Set.union s $ subTypes' t) Set.empty types
 		orderedTypes = orderTypeByDepedancy allTypes
+		funDecls = joinMap (\f -> Text $ declareFunction f ++ ";\n") functions
+		typedefs = joinMap Text $ Maybe.mapMaybe typedef $ Set.toList allTypes
+
+typedef :: Type -> Maybe String
+typedef (TStruct name _) = Just $ "struct " ++ name ++ ";\n"
+typedef (TClass name _ _ _) = Just $ "class " ++ name ++ ";\n"
+typedef _ = Nothing
 
 emitTypeDeclaration :: Type -> String
 emitTypeDeclaration (TStruct name decls) =

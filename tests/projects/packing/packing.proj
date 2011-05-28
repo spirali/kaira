@@ -1,4 +1,4 @@
-<project><configuration><build-option name="CC" value="g++" /><build-option name="LIBS" value="" /><build-option name="CFLAGS" value="-O2" /></configuration><net id="101"><area count_expr="2" id="102" sx="274" sy="88" x="236" y="23" /><place id="103" init_string="" place_type="Int" radius="20" x="117" y="38"><code>	int t;
+<project><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net><area count_expr="2" id="102" name="" sx="274" sy="88" x="236" y="23" /><place id="103" init_string="" place_type="Int" radius="20" x="117" y="38"><code>	int t;
 	for (t = 0; t &lt; 10; t++) {
 		place-&gt;add(t);
 	}

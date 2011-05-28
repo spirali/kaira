@@ -13,15 +13,15 @@
 	size_t s = obj-&gt;str.size();
 	packer.pack_size(s);
 	packer.pack(obj-&gt;str.c_str(), s);
-</code></extern-type><function name="fun1" parameters="MyType a" return-type="MyType" with-context="False">	return a;
-</function><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net id="101"><area count_expr="3" id="102" name="" sx="300" sy="230" x="456" y="41" /><place id="103" init_string="" place_type="MyType" radius="20" x="93" y="44"><code>	MyType m;
+</code></extern-type><function id="0" name="fun1" parameters="MyType a" return-type="MyType" with-context="False">	return a;
+</function><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net><place id="103" init_string="!" place_type="MyType" radius="19" x="93" y="44"><code>	MyType m;
 	m.i = 10;
 	m.j = 20;
-	place-&gt;add(m);
-</code></place><place id="104" init_string="" place_type="MyTypePointer" radius="20" x="250" y="41"><code>	MyType *m = new MyType;
+	place.add(m);
+</code></place><place id="104" init_string="!" place_type="MyTypePointer" radius="20" x="250" y="41"><code>	MyType *m = new MyType;
 	m-&gt;i = 107;
 	m-&gt;j = 207;
-	place-&gt;add(m);
+	place.add(m);
 </code></place><place id="105" init_string="" place_type="(MyType, MyTypePointer)" radius="20" x="170" y="208" /><place id="106" init_string="" place_type="(MyType, MyType2Pointer)" radius="20" x="534" y="92" /><transition guard="" id="107" name="" sx="70" sy="35" x="164" y="128" /><transition guard="" id="108" name="" sx="70" sy="35" x="298" y="182"><code>	printf("%i %i\n", var.a.i, var.a.j);
 	printf("%i %i\n", var.b-&gt;i, var.b-&gt;j);	
 	delete var.b;
@@ -34,5 +34,5 @@
 </code></transition><transition guard="" id="109" name="" sx="70" sy="35" x="535" y="173"><code>	printf("%i %i\n", var.c.i, var.c.j);
 	printf("%i %i %s\n", var.d-&gt;c, var.d-&gt;d, var.d-&gt;str.c_str());	
 	delete var.d;
-	ctx-&gt;quit();
+	ctx.quit();
 </code></transition><edge from_item="103" id="110" inscription="x" inscription_x="99" inscription_y="94" to_item="107"><point x="96" y="126" /></edge><edge from_item="104" id="111" inscription="y" inscription_x="263" inscription_y="97" to_item="107"><point x="254" y="130" /></edge><edge from_item="107" id="112" inscription="(x, y)" inscription_x="171" inscription_y="166" to_item="105" /><edge from_item="105" id="113" inscription="(a, b)" inscription_x="113" inscription_y="216" to_item="108" /><edge from_item="108" id="114" inscription="(c, d)@2" inscription_x="376" inscription_y="130" to_item="106"><point x="389" y="94" /></edge><edge from_item="106" id="115" inscription="(c, d)" inscription_x="539" inscription_y="133" to_item="109" /></net></project>
