@@ -42,7 +42,6 @@ template<class T> class CaPlace {
 			for (i = elements.begin(); i != elements.end(); i++) {
 				add(*i);
 			}
-			tokens_count += elements.size();
 		}
 
 		void remove(CaToken<T> *t) {

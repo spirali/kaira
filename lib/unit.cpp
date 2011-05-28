@@ -93,7 +93,10 @@ void CaUnitDef::init_all(CaThread *thread)
     {
         CaMultiPath::Iterator iter = i->get_iterator();
         while(iter.has_next()) {
-            start_unit(thread, iter.next());
+			CaPath p = iter.next();
+			if (!lookup(p)) {
+				start_unit(thread, p);
+			}
         }
     }
     init_paths.clear();
