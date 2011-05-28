@@ -116,7 +116,7 @@ class BuildingTest(TestCase):
 		self.failed_make(os.path.join(TEST_PROJECTS, "broken", "broken_userfunction.proj"), "*106/user_function:")
 
 	def test_broken_externtype_function(self):
-		self.failed_make(os.path.join(TEST_PROJECTS, "broken", "broken_externtype_function.proj"), "*MyType/getsize:1"), 
+		self.failed_make(os.path.join(TEST_PROJECTS, "broken", "broken_externtype_function.proj"), "*MyType/getsize"), 
 
 if __name__ == '__main__':
     unittest.main()

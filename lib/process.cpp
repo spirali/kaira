@@ -8,9 +8,8 @@
 extern int ca_listen_port;
 extern int ca_block_on_start;
 
-CaThread::CaThread()
+CaThread::CaThread() : messages(NULL),first_job(NULL), last_job(NULL)
 {
-	messages = NULL;
 	pthread_mutex_init(&messages_mutex, NULL);
 }
 
@@ -92,10 +91,36 @@ void CaThread::quit_all()
 void CaThread::run_scheduler()
 {
 	process_messages();
-	jobs = process->create_jobs();
+	first_job = process->create_jobs();
+	if (first_job) {
+		CaJob *j = first_job->next;
+		last_job = first_job;
+		while (j) {
+			last_job = j;
+			j = j->next;
+		}
+	} else {
+		last_job = NULL;
+	}
 	while (!process->quit_flag) {
-		for (size_t i = 0; i < jobs.size(); i++) {
-			jobs[i].test_and_fire(this);
+		CaJob *j = first_job;
+		CaJob *prev = NULL;
+		while(j) {
+			if (j->test_and_fire(this)) {
+				if (j->next) {
+					if (prev) {
+						prev->next = j->next;
+					} else {
+						first_job = j->next;
+					}
+					last_job->next = j;
+					last_job = j;
+					j->next = NULL;
+				}
+				break;
+			}
+			prev = j;
+			j = j->next;
 		}
 		process_messages();
 	}
@@ -155,9 +180,10 @@ void CaProcess::start()
 	}
 }
 
-std::vector<CaJob> CaProcess::create_jobs() const
+CaJob * CaProcess::create_jobs() const
 {
-	std::vector<CaJob> jobs;
+	CaJob *first = new CaJob(NULL, NULL);
+	CaJob *job = first;
 	int t;
 	for (t = 0; t < defs_count; t++) {
 		defs[t]->lock();
@@ -168,11 +194,15 @@ std::vector<CaJob> CaProcess::create_jobs() const
 		std::vector<CaTransition*>::iterator j;
 		for (j = transitions.begin(); j != transitions.end(); j++) {
 			for (i = units.begin(); i != units.end(); i++) {
-				jobs.push_back(CaJob(*i, *j));
+				job->next = new CaJob(*i, *j);
+				job = job->next;
 			}
 		}
 	}
-	return jobs;
+	job->next = NULL;
+	job = first->next;
+	delete first;
+	return job;
 }
 
 void CaProcess::inform_new_unit(CaUnitDef *def, CaUnit *unit)

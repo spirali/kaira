@@ -425,7 +425,7 @@ typeFunctions (TypeData typeName rawType _ functions) =
 			functionName = (typeName ++ "_" ++ fname),
 			returnType = rtype,
 			parameters = params,
-			functionSource = Just (typeName ++ "/" ++ fname, 1),
+			functionSource = Just ("*" ++ typeName ++ "/" ++ fname, 1),
 			extraCode = code
 		} where
 			(rtype, params) = case List.lookup fname knownTypeFunctions of

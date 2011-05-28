@@ -20,6 +20,8 @@ class CaJob  {
 
 	int test_and_fire(CaThread *thread);
 
+	CaJob *next;
+
 	protected:
 	CaUnit *unit;
 	CaTransition *transition;
@@ -39,15 +41,24 @@ class CaThread {
 		void add_message(CaMessage *message);
 		int process_messages();
 
-		void add_job(const CaJob &job) { jobs.push_back(job); }
-
+		void add_job(CaJob *job) {
+			job->next = NULL;
+			if (last_job) {
+				last_job->next = job;
+				last_job = job;
+			} else {
+				first_job = job;
+				last_job = job;
+			}
+		}
 		void quit_all();
 	protected:
 		CaProcess *process;
 		pthread_t thread;
 		pthread_mutex_t messages_mutex;
 		CaMessage *messages;
-		std::vector<CaJob> jobs;
+		CaJob *first_job;
+		CaJob *last_job;
 };
 
 class CaProcess {
@@ -55,7 +66,7 @@ class CaProcess {
 		CaProcess(int threads_count, int defs_count, CaUnitDef **defs);
 		virtual ~CaProcess() { delete [] threads; }
 		void start();
-		std::vector<CaJob> create_jobs() const;
+		CaJob * create_jobs() const;
 
 		CaUnitDef *get_def(int def_id) const { return defs[def_id]; }
 
