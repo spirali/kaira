@@ -166,6 +166,15 @@ patternCheck project source t expr binded failed =
 placeInUnit :: Expression -> Place -> Expression
 placeInUnit expr place = EMemberPtr (nameFromId "place" (placeId place)) expr
 
+coveredExpr :: NelExpression -> VarSet -> Bool
+coveredExpr expr binded = freeVariables expr `Set.isSubsetOf` binded
+
+guardInstruction :: Project -> Transition -> (String -> Expression) -> Instruction -> Instruction
+guardInstruction project transition varFn failedI
+	| guard transition == ExprTrue = INoop
+	| otherwise = IIf (ECall "!" [ toExpression project varFn TypeBool (guard transition) ]) failedI INoop
+
+
 matchTest :: Project -> Int -> [Edge] -> Set.Set String -> Instruction -> Instruction
 matchTest project level [] binded instruction = instruction
 matchTest project level edges@(edge@(Edge placeId (EdgeExpression expr) _):rest) binded instruction =
@@ -176,17 +185,22 @@ matchTest project level edges@(edge@(Edge placeId (EdgeExpression expr) _):rest)
 		varName = "c_" ++ show level
 		newBinded = Set.union binded $ freeVariables expr
 		failedI = IStatement [ ISet (EVar varName) (EMemberPtr "next" (EVar varName)), IContinue ]
-		body = [ tokenCheck, patternCheck project (EMemberPtr "element" (EVar varName)) (placeType place) expr binded failedI,
+		body = [ tokenCheck, patternCheck project (EMemberPtr "element" (EVar varName)) (placeType place) expr binded failedI, guardI,
 			matchTest project (level + 1) rest newBinded instruction ]
-		processed = zip [0..] $ (List.\\) (edgesIn (transitionOfEdge project edge)) edges
+		transition = transitionOfEdge project edge
+		processed = zip [0..] $ (List.\\) (edgesIn transition) edges
 		fromSamePlace = filter (\(i, (Edge pId _ _)) -> pId == placeId) processed
 		placeExpr = placeAttr place (EVar "u")
 		place = placeById project placeId
 		elementType = fromNelType $ placeType place
+		guardI | coveredExpr (guard transition) newBinded && not (coveredExpr (guard transition) binded) =
+				guardInstruction project transition varFn failedI
+				| otherwise = INoop
 		tokenCheck | fromSamePlace == [] = INoop
 			   | otherwise = IIf (callIfMore "||"
 						[ ECall "==" [EVar ("c_" ++ show i), EVar varName] | (i, e) <- fromSamePlace ])
 					failedI INoop
+		varFn varName = EMember varName (EVar "vars")
 
 matchTest project level (edge@(Edge placeId (EdgePacking name (Just limit)) _):rest) binded instruction =
 	IIf (ECall ">=" [ ECall ".size" [ placeExpr ], ECall "+" [ limitExpr, EInt (length fromSamePlace - 1)]]) body INoop
@@ -334,6 +348,7 @@ transitionFn project transition = function {
 		defineContext (EVar "thread") (EVar "unit"),
 		idefine "u" (TPointer unitT) $ ECast (EVar "unit") (TPointer unitT),
 		checkPlaces,
+		guardI,
 		idefineEmpty "vars" (varStruct project transition),
 		matchTest project 0 (edgesIn transition) Set.empty matched,
 		IReturn (EInt 0)
@@ -354,6 +369,11 @@ transitionFn project transition = function {
 		EdgePacking _ _ -> 0
 	needTokens placeId edge = 0
 	needTokens' placeId edges = sum $ map (needTokens placeId) edges
+	guardI | coveredExpr (guard transition) Set.empty =
+			guardInstruction project transition varFn (IReturn $ EInt 0)
+			| otherwise = INoop
+	varFn varName = EMember varName (EVar "vars")
+
 
 workerFunction :: Project -> Transition -> Function
 workerFunction project transition = function {
