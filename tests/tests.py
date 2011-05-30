@@ -89,7 +89,7 @@ class BuildingTest(TestCase):
 		params = [ "-pLIMIT=1000", "-pSIZE=20" ]
 		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params)
 		check_output(output)
-		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params + [ "--processes=3" ])
+		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params + [ "--threads=3" ])
 		check_output(output)
 
 	def test_functions(self):
