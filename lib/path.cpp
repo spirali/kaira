@@ -6,6 +6,7 @@
 
 #include "path.h"
 #include "output.h"
+#include "process.h"
 
 CaPath caRoot(0);
 
@@ -84,6 +85,15 @@ CaPath::CaPath(int count, ...)
 	}
 	nodes[t] = -1;
 	va_end(vl);
+}
+
+int CaPath::owner_id(CaProcess *process, int unit_id) const
+{
+	if (nodes[0] == -1) {
+		return 0;
+	} else {
+		return (nodes[0] + 1) % process->get_process_count();
+	}
 }
 
 int CaPath::depth() const

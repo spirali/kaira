@@ -8,6 +8,8 @@
 #include "unit.h"
 #include "messages.h"
 
+#define CA_RESERVED_PREFIX 0
+
 class CaProcess;
 class CaThread;
 
@@ -31,7 +33,7 @@ class CaThread {
 	public:
 		CaThread();
 		~CaThread();
-		CaUnit * get_unit(const CaPath &path, int def_id);
+		CaUnit * get_local_unit(const CaPath &path, int def_id);
 		void set_process(CaProcess *process) { this->process = process; }
 
 		void start();
@@ -52,6 +54,9 @@ class CaThread {
 			}
 		}
 		void quit_all();
+
+		void send(const CaPath &path, int unit_id, int place_pos, const CaPacker &packer);
+		CaProcess * get_process() const { return process; }
 	protected:
 		CaProcess *process;
 		pthread_t thread;
@@ -63,7 +68,7 @@ class CaThread {
 
 class CaProcess {
 	public:
-		CaProcess(int threads_count, int defs_count, CaUnitDef **defs);
+		CaProcess(int process_id, int process_count, int threads_count, int defs_count, CaUnitDef **defs);
 		virtual ~CaProcess() { delete [] threads; }
 		void start();
 		CaJob * create_jobs() const;
@@ -76,6 +81,8 @@ class CaProcess {
 
 		int get_threads_count() const { return threads_count; }
 		int get_units_count() const;
+		int get_process_count() const { return process_count; }
+		int get_process_id() const { return process_id; }
 		void write_reports(FILE *out) const;
 		void fire_transition(int transition_id, const CaPath &path);
 
@@ -83,6 +90,8 @@ class CaProcess {
 
 		bool quit_flag;
 	protected:
+		int process_id;
+		int process_count;
 		int threads_count;
 		int defs_count;
 		CaUnitDef **defs;

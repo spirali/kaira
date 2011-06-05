@@ -94,7 +94,8 @@ data Project = Project {
 	typeTable :: TypeTable,
 	events :: [Event],
 	userFunctions :: [UserFunction],
-	projectDescription :: String
+	projectDescription :: String,
+	forcePackers :: Bool
 } deriving (Show)
 
 data Event = Event {

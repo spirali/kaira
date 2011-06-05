@@ -1,9 +1,11 @@
 
-#include "unit.h"
 #include <stdio.h>
 #include <alloca.h>
 
-CaUnitDef::CaUnitDef(CaUnitInitFn *init_fn, int transitions_count)
+#include "unit.h"
+#include "process.h"
+
+CaUnitDef::CaUnitDef(int id, CaUnitInitFn *init_fn, int transitions_count) : id(id)
 {
 	pthread_mutex_init(&mutex, NULL);
 	this->init_fn = init_fn;
@@ -89,12 +91,13 @@ CaTransition * CaUnitDef::get_transition(int transition_id)
 void CaUnitDef::init_all(CaThread *thread)
 {
     std::vector<CaMultiPath>::iterator i;
+	CaProcess *process = thread->get_process();
     for (i = init_paths.begin(); i != init_paths.end(); i++)
     {
         CaMultiPath::Iterator iter = i->get_iterator();
         while(iter.has_next()) {
 			CaPath p = iter.next();
-			if (!lookup(p)) {
+			if (p.owner_id(process, id) == process->get_process_id() && !lookup(p)) {
 				start_unit(thread, p);
 			}
         }

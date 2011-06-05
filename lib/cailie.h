@@ -19,6 +19,7 @@ class CaContext {
 
 		void quit() { thread->quit_all(); }
 		int iid() { return unit->path.last_component(); }
+		int process_id() { return thread->get_process()->get_process_id(); }
 		const CaPath & path() { return unit->path; }
 
 	protected:
@@ -30,7 +31,7 @@ class CaContext {
 void ca_main(int defs_count, CaUnitDef **defs);
 
 /* Others */
-void ca_parse_args(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs);
+void ca_init(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs);
 void ca_project_description(const char *str);
 
 #endif

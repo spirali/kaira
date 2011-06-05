@@ -163,7 +163,8 @@ projectFromXml xml =
 			typeTable = types,
 			events = events,
 			userFunctions = ufunctions,
-			projectDescription = Xml.strContent description
+			projectDescription = Xml.strContent description,
+			forcePackers = fpackers
 		 }
 	where
 		root = head $ Xml.onlyElems (Xml.parseXML xml)
@@ -174,3 +175,4 @@ projectFromXml xml =
 		types = projectTypesFromElement configuration
 		ufunctions = map (userFunctionFromElement types) $ Xml.findElements (qstr "function") configuration
 		description = just "<description>" $ Xml.findElement (qstr "description") root
+		fpackers = xmlAttrBool "value" $ just "<force-packers>" $ Xml.findElement (qstr "force-packers") configuration

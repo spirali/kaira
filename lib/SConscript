@@ -1,0 +1,4 @@
+Import("source_files")
+
+env = Environment(CCFLAGS="-O2 -ggdb -Wall")
+env.StaticLibrary("cailie", source_files)

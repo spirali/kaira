@@ -25,9 +25,9 @@ import Builder
 import Project
 import Parser
 import Codegen
-import CodegenTools
 import CodegenTypes
 import Declarations
+import BuilderTools
 import Utils
 import qualified Control.Exception as E
 import qualified Data.List as List

@@ -37,6 +37,7 @@ import Codegen
 import CodegenTypes
 import CodegenTools
 import Utils
+import BuilderTools
 
 caUnit = TPointer $ TRaw "CaUnit"
 caUnitDef = TPointer $ TRaw "CaUnitDef"
@@ -45,9 +46,6 @@ caPath = TRaw "CaPath"
 caThread = TPointer $ TRaw "CaThread"
 
 transitionVarType = undefined
-
-parameterGlobalName :: String -> String
-parameterGlobalName x = "__parameter_" ++ x
 
 function = Function {
 	functionName = "",
@@ -65,7 +63,7 @@ nameFromId :: String -> ID -> String
 nameFromId name id = name ++ "_" ++ (show id)
 
 unitType :: Unit -> Type
-unitType unit = TClass className (Just "CaUnit") [ constr, reportFunction unit ] attributes
+unitType unit = TClass className (Just "CaUnit") [ constr, reportFunction unit, receiveFunction unit ] attributes
 	where
 	className = nameFromId "Unit" $ unitId unit
 	placeVar place = (nameFromId "place" (placeId place), (caPlace . fromNelType . placeType) place)
@@ -124,7 +122,7 @@ fireFnName t = nameFromId "fire" (transitionId t)
 initCaUnitDef :: Project -> Unit -> [Instruction]
 initCaUnitDef project unit = [
 	idefine varName caUnitDef $
-		ENew (ECall "CaUnitDef" [ EVar $ "init_unit_" ++ show (unitId unit), EInt (length transitions)])
+		ENew (ECall "CaUnitDef" [ EInt $ unitId unit, EVar $ "init_unit_" ++ show (unitId unit), EInt (length transitions)])
 	] ++ countedMap registerTransition transitions ++ map registerInit (unitInitPaths unit)
 	where
 		transitions = unitTransitions unit
@@ -157,7 +155,7 @@ patternCheck project source t expr binded failed =
 		_ -> IIf (ECall "!=" [ source, (toExpression project varFn t expr)]) failed INoop
 	where
 		varFn varName = EMember varName (EVar "vars")
-		checkTupleItem i (t, expr) = patternCheck project (EMember ("t_" ++ show i) source) t expr binded failed
+		checkTupleItem i (t, expr) = patternCheck project (tupleMember i source) t expr binded failed
 		checkTuple xs =
 			case t of
 				TypeTuple ts -> IStatement $ countedMap checkTupleItem (zip ts xs)
@@ -216,27 +214,6 @@ matchTest project level (edge@(Edge placeId (EdgePacking name (Just limit)) _):r
 matchTest project level edges@(edge@(Edge placeId (EdgePacking name (Nothing)) _):rest) binded instruction =
 	error "Input packing edge without limit"
 
-toExpression :: Project -> (String -> Expression) -> NelType -> NelExpression -> Expression
-toExpression project fn (TypeInt) (ExprInt x) = EInt x
-toExpression project fn (TypeString) (ExprString x) = EString x
-toExpression project fn _ (ExprVar x) = fn x
-toExpression project fn _ (ExprParam x) = EVar $ parameterGlobalName x
-toExpression project fn TypeInt (ExprCall "iid" []) = ECall ".iid" [ EVar "ctx" ]
-toExpression project fn _ (ExprCall name exprs)
-	| isBasicNelFunction name = ECall name params
-	| isUserFunctionWithoutContext project name = ECall name params
-	| isUserFunctionWithContext project name = ECall name (EVar "ctx":params)
-		where params = [ toExpression project fn t expr | (t, expr) <- zip (nelFunctionParams project name) exprs ]
-toExpression project fn t@(TypeTuple ts) (ExprTuple exprs) = ECall constructor [ toExpression project fn t expr | (t, expr) <- zip ts exprs ]
-	where constructor = case fromNelType t of
-			TStruct name _ -> name
-toExpression project fn t x = error $ "Derivation failed: " ++ show x ++ "/" ++ show t
-
-varNotAllowed x = error "Variable not allowed"
-
-toExpressionWithoutVars :: Project -> NelType -> NelExpression -> Expression
-toExpressionWithoutVars project = toExpression project varNotAllowed
-
 pathItemExpression :: PathItem -> NelExpression
 pathItemExpression (PathSingleton x) = x
 pathItemExpression _ = error $ "Path is multipath"
@@ -262,18 +239,6 @@ multiPathCode project varfn (AbsPath es) =
 
 multiPathCode project varfn _ = error $ "multiPathCode: relative path"
 
-asStringCall :: NelType -> Expression -> Expression
-asStringCall TypeString expr = expr
-asStringCall TypeInt expr = ECall "ca_int_to_string" [expr]
-asStringCall TypeFloat expr = ECall "ca_float_to_string" [expr]
-asStringCall TypeDouble expr = ECall "ca_double_to_string" [expr]
-asStringCall (TypeTuple []) expr = EString "()"
-asStringCall (TypeTuple (t:types)) expr = ECall "+" $ [ ECall "std::string" [ EString "(" ], asStringCall t (EMember "t_0" expr)]
-			++ concat (countedMap code types) ++ [ EString ")" ]
-	where code i t = [ EString ",", asStringCall t (EMember ("t_" ++ show (i + 1)) expr) ]
-asStringCall (TypeData name _ _ functions) expr | hasKey "getstring" functions = ECall (name ++ "_getstring") [expr]
-asStringCall (TypeData name _ _ _) expr = ECall "std::string" [ EString name ]
-
 reportFunction :: Unit -> Function
 reportFunction unit = function {
 	functionName = "report_places",
@@ -296,8 +261,29 @@ reportFunction unit = function {
 			]) INoop,
 			icall ".back" [ EVar "out"]]
 
+receiveFunction :: Unit -> Function
+receiveFunction unit = function {
+	functionName = "receive",
+	parameters = [ ("place_pos", TInt, ParamNormal), ("unpacker", TRaw "CaUnpacker", ParamRef) ],
+	instructions = countedMap processPlace (unitPlaces unit)
+} where
+	processPlace i place = IIf (ECall "==" [ EVar "place_pos", EInt i ]) (IStatement $ unpack (placeType place) ++ [
+		icall ".add" [ placeAttr place (EVar "this"), EVar "item" ]]) INoop
+	unpack t | isDirectlyPackable t = [
+		idefineEmpty "item" (fromNelType t),
+		icall ".unpack" [ EVar "unpacker", ECall "sizeof" [ EVar "item" ]] ]
+
+
 normalInEdges transition = filter isNormalEdge (edgesIn transition)
 packingInEdges transition = filter isPackingEdge (edgesIn transition)
+
+sendToken :: Expression -> Int -> Int -> NelType -> Expression -> Instruction
+sendToken targetPath unitId placeNumber t source = IStatement [
+	idefine "size" sizeType (exprMemSize t source),
+	idefine "packer" (TRaw "CaPacker") $ ECall "CaPacker" [ EVar "size", EVar "CA_RESERVED_PREFIX" ],
+	idefine "item" (fromNelType t) source,
+	pack t (EVar "packer") (EVar "size") (EAddr (EVar "item")),
+	icall "->send" [ EVar "thread", targetPath, EInt unitId, EInt placeNumber, EVar "packer" ]]
 
 fireFn :: Project -> Transition -> Function
 fireFn project transition = function {
@@ -322,19 +308,31 @@ fireFn project transition = function {
 		icall "->unlock" [ EVar "u" ],
 		icall (nameFromId "worker" $ transitionId transition) [ EVar "ctx", EDeref $ EVar "vars" ] ]
 			| otherwise = icall "->unlock" [ EVar "u" ]
-	processOutput edge = IStatement [
-		idefine "target" (TPointer $ unitType u) (ECast (ECall "->get_unit" [ (EVar "thread"),
-				absPathToExpression project varFn (EMemberPtr "path" (EVar "u")) (edgeTarget edge),
-				EInt (unitId u)]) (TPointer $ unitType u)),
-		icall "->lock" [ EVar "target" ],
-		putInstruction edge,
-		icall "->unlock" [ EVar "target" ] ] where u = edgeUnit project edge
+	processOutput edge = IStatement $ [
+		idefine "path" caPath $ absPathToExpression project varFn (EMemberPtr "path" (EVar "u")) (edgeTarget edge) ] ++
+		if forcePackers project then [ sendInstruction edge ] else [
+			idefine "target" (TPointer $ unitType u) (ECast (ECall "->get_local_unit" [ (EVar "thread"),
+					EVar "path",
+					EInt (unitId u)]) (TPointer $ unitType u)),
+			IIf (EVar "target") (IStatement [
+				icall "->lock" [ EVar "target" ],
+				putInstruction edge,
+				icall "->unlock" [ EVar "target" ]
+			]) (sendInstruction edge) ] where u = edgeUnit project edge
 	putInstruction edge = case edgeInscription edge of
 		EdgeExpression expr -> icall ".add" [ ePlace edge "target",
 			toExpression project varFn (placeTypeById project (edgePlaceId edge)) expr ]
 		EdgePacking str Nothing -> icall ".add_all" [ ePlace edge "target", varFn str ]
 		EdgePacking _ (Just _) -> error "Packing expression with limit on output edge"
+	sendInstruction edge = case edgeInscription edge of
+		EdgeExpression expr -> sendToken (EVar "path") (uId edge) (pPos edge) (tokenType edge) $ toExpression project varFn (tokenType edge) expr
+		EdgePacking str Nothing -> INoop
+		EdgePacking _ (Just _) -> error "Packing expression with limit on output edge"
+	tokenType edge = placeTypeById project (edgePlaceId edge)
 	varFn varName = EMemberPtr varName (EVar "vars")
+	uId edge = unitId $ edgeUnit project edge
+	pPos edge = placePos (edgeUnit project edge) (edgePlace project edge)
+
 
 transitionFn :: Project -> Transition -> Function
 transitionFn project transition = function {
@@ -419,7 +417,7 @@ mainFunction project = function {
 		IInline $ "const char *p_descs[] = {" ++ addDelimiter "," [ "\"" ++ parameterDescription p ++ "\"" | p <- parameters ] ++ "};",
 		IInline $ "int *p_data[] = {" ++ addDelimiter "," [ "&" ++ parameterGlobalName (parameterName p) | p <- parameters ] ++ "};",
 		icall "ca_project_description" [ EString (projectDescription project) ],
-		icall "ca_parse_args" [ EVar "argc", EVar "argv", EInt (length parameters), EVar "p_names", EVar "p_data", EVar "p_descs" ]
+		icall "ca_init" [ EVar "argc", EVar "argv", EInt (length parameters), EVar "p_names", EVar "p_data", EVar "p_descs" ]
 	 ]
 
 parameterAccessFunction :: Parameter -> Function

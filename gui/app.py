@@ -348,11 +348,7 @@ class App:
 		self.window.foreach_tab(lambda tab: tab.project_export())
 		if proj is None:
 			proj = self.project
-		try:
-			proj.export(proj.get_exported_filename())
-		except project.ExportException as e:
-			self.console_write(str(e) + "\n", "error")
-			return False
+		proj.export(proj.get_exported_filename())
 		return True
 
 	def hide_error_messages(self):

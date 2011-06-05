@@ -19,7 +19,7 @@ CaThread::~CaThread()
 }
 
 
-CaUnit * CaThread::get_unit(const CaPath &path, int def_id)
+CaUnit * CaThread::get_local_unit(const CaPath &path, int def_id)
 {
 	CaUnitDef *def = process->get_def(def_id);
 	def->lock();
@@ -88,6 +88,15 @@ void CaThread::quit_all()
 	process->quit_all();
 }
 
+void CaThread::send(const CaPath &path, int unit_id, int place_pos, const CaPacker &packer)
+{
+	CaUnpacker unpacker(packer.get_buffer());
+	CaUnit *unit = get_local_unit(path, unit_id);
+	unit->lock();
+	unit->receive(place_pos, unpacker);
+	unit->unlock();
+}
+
 void CaThread::run_scheduler()
 {
 	process_messages();
@@ -126,8 +135,10 @@ void CaThread::run_scheduler()
 	}
 }
 
-CaProcess::CaProcess(int threads_count, int defs_count, CaUnitDef **defs)
+CaProcess::CaProcess(int process_id, int process_count, int threads_count, int defs_count, CaUnitDef **defs)
 {
+	this->process_id = process_id;
+	this->process_count = process_count;
 	this->defs_count = defs_count;
 	this->defs = defs;
 	this->threads_count = threads_count;
@@ -138,6 +149,7 @@ CaProcess::CaProcess(int threads_count, int defs_count, CaUnitDef **defs)
 		threads[t].set_process(this);
 	}
 }
+
 
 void CaProcess::start()
 {

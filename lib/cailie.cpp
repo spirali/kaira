@@ -4,6 +4,10 @@
 #include <assert.h>
 #include <stdarg.h>
 
+#ifdef CA_MPI
+#include <mpi.h>
+#endif
+
 int ca_threads_count = 1;
 const char *ca_project_description_string = NULL;
 int ca_log_on = 0;
@@ -17,7 +21,15 @@ void ca_project_description(const char *str) {
 
 void ca_main(int defs_count, CaUnitDef **defs)
 {
-	CaProcess process(ca_threads_count, defs_count, defs);
+	#ifdef CA_MPI
+		int process_count, process_id;
+		MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
+		MPI_Comm_size(MPI_COMM_WORLD, &process_count);
+	#else 
+		int process_count = 1;
+		int process_id = 0;
+	#endif
+	CaProcess process(process_id, process_count, ca_threads_count, defs_count, defs);
 	process.start();
 }
 
@@ -40,7 +52,14 @@ static int ca_set_argument(int params_count, const char **param_names, int **par
 	exit(1);
 }
 
-void ca_parse_args(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs)
+#ifdef CA_MPI
+void ca_finalize()
+{
+	MPI_Finalize();
+}
+#endif
+
+void ca_init(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs)
 {
 	size_t t;
 	int c;
@@ -57,6 +76,7 @@ void ca_parse_args(int argc, char **argv, size_t params_count, const char **para
 
 	#ifdef CA_MPI
 	MPI_Init(&argc, &argv);
+	atexit(ca_finalize);
 	#endif
 
 	while ((c = getopt_long (argc, argv, "hp:m:r:l:s:b", longopts, NULL)) != -1)

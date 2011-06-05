@@ -4,6 +4,8 @@
 
 #include <string>
 
+class CaProcess;
+
 class CaPath {
 	public:
 		CaPath(int *nodes);
@@ -21,6 +23,7 @@ class CaPath {
 		std::string as_string() const;
 
 		int last_component() const;
+		int owner_id(CaProcess *process, int unit_id) const;
 	protected:
 		int *nodes;
 		void set_data(int *nodes);

@@ -8,6 +8,7 @@
 
 #include "path.h"
 #include "output.h"
+#include "packing.h"
 
 class CaUnit;
 class CaUnitDef;
@@ -40,7 +41,7 @@ class CaTransition {
 
 class CaUnitDef {
 	public:
-		CaUnitDef(CaUnitInitFn *init_fn, int transitions_count);
+		CaUnitDef(int id, CaUnitInitFn *init_fn, int transitions_count);
 		~CaUnitDef();
 
 		void register_transition(int i,
@@ -74,6 +75,7 @@ class CaUnitDef {
 		std::vector<CaUnit*> units;
 		pthread_mutex_t mutex;
 		std::vector<CaMultiPath> init_paths;
+		int id;
 };
 
 class CaUnit {
@@ -87,6 +89,7 @@ class CaUnit {
 
 		void report(CaUnitDef *def, CaOutput &out);
 		virtual void report_places(CaOutput &out) = 0;
+		virtual void receive(int place_pos, CaUnpacker &unpacker) = 0;
 
 		CaPath path;
 	protected:

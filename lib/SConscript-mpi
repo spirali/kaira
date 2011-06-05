@@ -1,0 +1,4 @@
+Import("source_files")
+
+env = Environment(CXX="mpicc", CCFLAGS="-O2 -ggdb -D CA_MPI")
+env.StaticLibrary("cailiempi", source_files)

@@ -142,3 +142,9 @@ projectUnits project = countedMap unit $ joinOverlapped initSets
 unitInitPaths :: Unit -> [Path]
 unitInitPaths unit = Maybe.catMaybes $ map placePaths (unitPlaces unit)
 
+placePos :: Unit -> Place -> Int
+placePos unit place = index 0 (unitPlaces unit)
+	where
+		index i [] = -1
+		index i (x : rest) | x == place = i
+						| otherwise = index (1 + i) rest

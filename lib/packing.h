@@ -3,20 +3,22 @@
 #define CAILIE_PACKING_H
 
 #include <string>
+#include <string.h>
 
 class CaPacker {
 
 	public:
 		CaPacker(size_t size);
 		CaPacker(size_t size, size_t reserved);
+		CaPacker() { delete [] buffer; }
 		void pack(const void *mem, size_t size) { memcpy(buffer_pos, mem, size); buffer_pos += size;  }
 		void pack_size(size_t data) { pack(&data, sizeof(size_t)); }
 		void pack_string(std::string str) { size_t s = str.size(); pack_size(s); pack(str.c_str(), s); }
 		void pack_int(int data) { pack(&data, sizeof(int)); }
 		void * peek() { return buffer_pos; }
 		void move(size_t size) { buffer_pos += size; }
-		size_t get_size() { return size; }
-		void * get_buffer() { return buffer; }
+		size_t get_size() const { return size; }
+		void * get_buffer() const { return buffer; }
 	protected:
 		char *buffer_pos;
 		size_t size;

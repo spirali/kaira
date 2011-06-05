@@ -45,35 +45,6 @@ callIfMore _ [] = error "callIfMore called with empty list"
 callIfMore _ [x] = x
 callIfMore name xs = ECall name xs
 
--- | Return all expressions in instruction
-instructionExprs :: Instruction -> [Expression]
-instructionExprs (IExpr expr) = [expr]
-instructionExprs (ISet expr1 expr2) = [expr1, expr2]
-instructionExprs (IIf expr i1 i2) = [ expr ] ++ instructionExprs i1 ++ instructionExprs i2
-instructionExprs (IStatement instrs) = concatMap instructionExprs instrs
-instructionExprs (IForeach _ _ _ expr instrs) = concatMap instructionExprs instrs
-instructionExprs INoop = []
-instructionExprs _ = []
-
--- |Returns expression that computes size of memory footprint of result of expr
-exprMemSize :: Type -> Expression -> Expression
-exprMemSize TInt expr = ECall "sizeof" [EVar "int"]
-exprMemSize TFloat expr = ECall "sizeof" [EVar "float"]
-exprMemSize TDouble expr = ECall "sizeof" [EVar "double"]
-exprMemSize TString expr = ECall "+" [ ECall "sizeof" [ EType "size_t" ], ECall ".size" [ expr ] ]
--- exprMemSize (TTuple types) expr = ECall "+" [ exprMemSize t (EAt (EInt x) expr) | (x, t) <- zip [0..] types ]
-exprMemSize (TData _ rawType TransportDirect _) expr = ECall "sizeof" [ EType rawType ]
-exprMemSize (TData name _ TransportCustom _) expr = ECall (name ++ "_getsize") [ expr ]
-exprMemSize t expr = error $ "exprMemSize: " ++ show t
-
-canBeDirectlyPacked :: Type -> Bool
-canBeDirectlyPacked TInt = True
-canBeDirectlyPacked TDouble = True
-canBeDirectlyPacked TFloat = True
-canBeDirectlyPacked (TData _ _ TransportDirect _) = True
-canBeDirectlyPacked (TStruct _ _) = error "canBeDirectlyPacked: Struct not implemented"
-canBeDirectlyPacked _ = False
-
 -- |Return declarations in instructions (ie, it search for IDefine instructions)
 
 typeString :: Type -> String
@@ -102,26 +73,6 @@ typeSafeString (TPointer t) = "Ptr_" ++ typeSafeString t
 typeSafeString (TStruct name _) = name
 typeSafeString (TClass name _ _ _) = name
 typeSafeString (TData name _ _ _) = name
-
-fromNelType :: NelType -> Type
-fromNelType TypeInt = TInt
-fromNelType TypeFloat = TFloat
-fromNelType TypeDouble = TDouble
-fromNelType TypeString = TString
-fromNelType TypeBool = TBool
-fromNelType (TypeArray t) = TArray (fromNelType t)
-fromNelType (TypeData a b c d) = TData a b c d
-fromNelType (TypeTuple ts) = TStruct name decls
-	where
-		types = map fromNelType ts
-		decls = zip [ "t_" ++ show i | i <- [0..]] types
-		name = "Tuple" ++ show (length ts) ++ "_" ++ addDelimiter "_" (map typeSafeString types)
-
-fromNelVarDeclaration :: NelVarDeclaration -> VarDeclaration
-fromNelVarDeclaration (n, t) = (n, fromNelType t)
-
-fromNelVarDeclarations :: [NelVarDeclaration] -> [VarDeclaration]
-fromNelVarDeclarations = map fromNelVarDeclaration
 
 escapeString :: String -> String
 escapeString str = concatMap escapeChar str
