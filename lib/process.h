@@ -101,6 +101,7 @@ class CaProcess {
 		void fire_transition(int transition_id, const CaPath &path);
 
 		void quit_all();
+		void quit() { quit_flag = true; }
 
 		bool quit_flag;
 	protected:

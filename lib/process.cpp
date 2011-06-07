@@ -65,15 +65,22 @@ int CaThread::process_messages()
 
 				char *buffer = (char*) alloca(msg_size); // FIXME: For large packets alloc memory on heap
 				MPI_Recv(buffer, msg_size, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-				CaPacket *packet = (CaPacket*) buffer;
-				char *next_data = (char*) (packet + 1);
-				CaPath path((int*) (next_data));
-				next_data += path.get_size();
-				CaUnpacker unpacker(next_data);
-				CaUnit *unit = get_local_unit(path, packet->unit_id);
-				unit->lock();
-				unit->receive(packet->place_pos, unpacker);
-				unit->unlock();
+
+				if (status.MPI_TAG == CA_MPI_TAG_TOKENS) {
+					CaPacket *packet = (CaPacket*) buffer;
+					char *next_data = (char*) (packet + 1);
+					CaPath path((int*) (next_data));
+					next_data += path.get_size();
+					CaUnpacker unpacker(next_data);
+					CaUnit *unit = get_local_unit(path, packet->unit_id);
+					unit->lock();
+					unit->receive(packet->place_pos, unpacker);
+					unit->unlock();
+				} else if (status.MPI_TAG == CA_MPI_TAG_QUIT) {
+					process->quit();
+				} else {
+					fprintf(stderr, "Invalid message tag\n");
+				}
 				MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
 				if (!flag)
 					break;
@@ -128,11 +135,6 @@ void CaThread::send(const CaPath &path, int unit_id, int place_pos, const CaPack
 	char *buffer = packer.get_buffer();
 
 	#ifdef CA_MPI
-		int *x = (int*) buffer;
-		{
-		CaUnpacker unpacker(buffer);
-		}
-
 		CaPacket *packet = (CaPacket*) packer.get_buffer();
 		packet->unit_id = unit_id;
 		packet->place_pos = place_pos;
@@ -288,7 +290,10 @@ void CaProcess::send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *ba
 
 void CaProcess::quit_all()
 {
-	quit_flag = true;
+	#ifdef CA_MPI
+	ca_mpi_send_to_all(NULL, 0, MPI_CHAR, CA_MPI_TAG_QUIT, process_count);
+	#endif
+	quit();
 }
 
 void CaProcess::write_reports(FILE *out) const

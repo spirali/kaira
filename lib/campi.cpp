@@ -2,6 +2,13 @@
 #include "campi.h"
 #include <stdlib.h>
 
+void ca_mpi_send_to_all(void *buffer, int size, MPI_Datatype datatype, int tag, int process_count)
+{
+	for (int t = 0; t < process_count; t++) {
+		MPI_Send(buffer, size, datatype, t, tag, MPI_COMM_WORLD);
+	}
+}
+
 CaMpiRequests::CaMpiRequests()
 {
 	requests_capacity = 4;

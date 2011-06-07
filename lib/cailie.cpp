@@ -19,7 +19,7 @@ void ca_project_description(const char *str) {
 	ca_project_description_string = str;
 }
 
-void ca_main(int defs_count, CaUnitDef **defs)
+int ca_main(int defs_count, CaUnitDef **defs)
 {
 	#ifdef CA_MPI
 		int process_count, process_id;
@@ -31,6 +31,7 @@ void ca_main(int defs_count, CaUnitDef **defs)
 	#endif
 	CaProcess process(process_id, process_count, ca_threads_count, defs_count, defs);
 	process.start();
+	return 0;
 }
 
 static int ca_set_argument(int params_count, const char **param_names, int **param_data, char *name, char *value)

@@ -407,7 +407,7 @@ mainFunction project = function {
 	instructions = parseArgs ++ initUnits ++ startCailie,
 	returnType = TInt
 } where
-	startCailie = [ defsArray, icall "ca_main" [ EInt (length units), EVar "defs" ] ]
+	startCailie = [ defsArray, IReturn $ ECall "ca_main" [ EInt (length units), EVar "defs" ] ]
 	parameters = projectParameters project
 	units = projectUnits project
 	initUnits = concatMap (initCaUnitDef project) units

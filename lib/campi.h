@@ -5,7 +5,8 @@
 #include <mpi.h>
 
 enum {
-	CA_MPI_TAG_TOKENS = 1
+	CA_MPI_TAG_TOKENS = 1,
+	CA_MPI_TAG_QUIT
 };
 
 struct CaPacket {
@@ -28,5 +29,7 @@ class CaMpiRequests {
 		size_t requests_count;
 		size_t requests_capacity;
 };
+
+void ca_mpi_send_to_all(void *buffer, int size, MPI_Datatype datatype, int tag, int process_count);
 
 #endif

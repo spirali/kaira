@@ -28,7 +28,7 @@ class CaContext {
 };
 
 /* Start */
-void ca_main(int defs_count, CaUnitDef **defs);
+int ca_main(int defs_count, CaUnitDef **defs);
 
 /* Others */
 void ca_init(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs);
