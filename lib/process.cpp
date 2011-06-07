@@ -18,6 +18,10 @@ CaThread::~CaThread()
 	pthread_mutex_destroy(&messages_mutex);
 }
 
+CaUnit * CaThread::get_unit(const CaPath &path, int def_id)
+{
+ 	return path.owner_id(process, def_id) == process->get_process_id() ? get_local_unit(path, def_id) : NULL;
+}
 
 CaUnit * CaThread::get_local_unit(const CaPath &path, int def_id)
 {
@@ -47,13 +51,44 @@ void CaThread::add_message(CaMessage *message)
 
 int CaThread::process_messages()
 {
+	int result = 0;
+	#ifdef CA_MPI
+		requests.check();
+		int flag;
+		MPI_Status status;
+		MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
+
+		if (flag) {
+			for(;;) {
+				int msg_size;
+				MPI_Get_count(&status, MPI_CHAR, &msg_size);
+
+				char *buffer = (char*) alloca(msg_size); // FIXME: For large packets alloc memory on heap
+				MPI_Recv(buffer, msg_size, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+				CaPacket *packet = (CaPacket*) buffer;
+				char *next_data = (char*) (packet + 1);
+				CaPath path((int*) (next_data));
+				next_data += path.get_size();
+				CaUnpacker unpacker(next_data);
+				CaUnit *unit = get_local_unit(path, packet->unit_id);
+				unit->lock();
+				unit->receive(packet->place_pos, unpacker);
+				unit->unlock();
+				MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
+				if (!flag)
+					break;
+			}
+			result = 1;
+		}
+	#endif
+
 	CaMessage *m;
 	pthread_mutex_lock(&messages_mutex);
 	m = messages;
 	messages = NULL;
 	pthread_mutex_unlock(&messages_mutex);
 	if (m == NULL) {
-		return 0;
+		return result;
 	}
 
 	do {
@@ -90,11 +125,32 @@ void CaThread::quit_all()
 
 void CaThread::send(const CaPath &path, int unit_id, int place_pos, const CaPacker &packer)
 {
-	CaUnpacker unpacker(packer.get_buffer());
-	CaUnit *unit = get_local_unit(path, unit_id);
-	unit->lock();
-	unit->receive(place_pos, unpacker);
-	unit->unlock();
+	char *buffer = packer.get_buffer();
+
+	#ifdef CA_MPI
+		int *x = (int*) buffer;
+		{
+		CaUnpacker unpacker(buffer);
+		}
+
+		CaPacket *packet = (CaPacket*) packer.get_buffer();
+		packet->unit_id = unit_id;
+		packet->place_pos = place_pos;
+		packet->tokens_count = 1;
+		path.copy_to_mem(packet + 1);
+		MPI_Request *request = requests.new_request(buffer);
+		MPI_Isend(packet, packer.get_size(), MPI_CHAR, path.owner_id(process, unit_id), CA_MPI_TAG_TOKENS, MPI_COMM_WORLD, request);
+	#else
+		/* Normally this is never called for threads backend, because all units are local 
+			and packing is not used. But in with "forced packing" enabled this function is called
+			so we have to deliver data */
+		CaUnit *unit = get_local_unit(path, unit_id);
+		unit->lock();
+		CaUnpacker unpacker(buffer);
+		unit->receive(place_pos, unpacker);
+		unit->unlock();
+		free(buffer);
+	#endif
 }
 
 void CaThread::run_scheduler()
@@ -149,7 +205,6 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 		threads[t].set_process(this);
 	}
 }
-
 
 void CaProcess::start()
 {

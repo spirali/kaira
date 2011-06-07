@@ -3,6 +3,7 @@
 #define CAILIE_PATH_H
 
 #include <string>
+#include <string.h>
 
 class CaProcess;
 
@@ -18,12 +19,17 @@ class CaPath {
 		bool operator== (const CaPath & path);
 
 		int depth() const;
+		size_t get_size() const { return sizeof(int) * (depth() + 1); }
 		CaPath apply(int levelup, int count, ...);
 
 		std::string as_string() const;
 
 		int last_component() const;
 		int owner_id(CaProcess *process, int unit_id) const;
+
+		void copy_to_mem(void *mem) const { memcpy(mem, nodes, get_size()); }
+
+
 	protected:
 		int *nodes;
 		void set_data(int *nodes);

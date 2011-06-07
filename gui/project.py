@@ -259,7 +259,7 @@ class Project(EventSource):
 		makefile.set("LIBDIR", "-L" + paths.CAILIE_LIB_DIR)
 		makefile.set("LIBS", "-lcailie -lpthread -lrt " + self.get_build_option("LIBS"))
 		makefile.set("INCLUDE", "-I" + paths.CAILIE_DIR)
-		makefile.set("MPICC", "mpicc")
+		makefile.set("MPICC", "mpic++")
 		makefile.set("MPILIBDIR", "-L" + paths.CAILIE_MPI_LIB_DIR)
 
 		if self.get_build_option("OTHER_FILES"):
@@ -271,6 +271,7 @@ class Project(EventSource):
 		name_cpp = self.get_name() + ".cpp"
 		name_debug = self.get_name() + "_debug"
 		name_debug_o = self.get_name() + "_debug.o"
+		name_mpi_o = self.get_name() + "_mpi.o"
 
 		makefile.rule("all", [self.get_name()])
 		makefile.rule("debug", [name_debug])
@@ -279,18 +280,17 @@ class Project(EventSource):
 
 		deps = [ name_o ] + other_deps
 		deps_debug = [ name_debug_o ] + other_deps
+		deps_mpi = [ name_mpi_o ] + other_deps
 		makefile.rule(self.get_name(), deps, "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
 
 		makefile.rule(name_debug, deps_debug, "$(CC) " + " ".join(deps_debug) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
 
-		makefile.rule(self.get_name() + "_mpi", deps, "$(MPICC) -cc=${CC} " + " ".join(deps)
-			+ " -o $@ $(CFLAGS) $(INCLUDE) $(MPILIBDIR) -lcailiempi" )
-
-		makefile.rule(self.get_name() + "_mpidebug", deps_debug, "$(MPICC) -cc=${CC} " + " ".join(deps_debug)
+		makefile.rule(self.get_name() + "_mpi", deps_mpi, "$(MPICC) -D CA_MPI " + " ".join(deps_mpi)
 			+ " -o $@ $(CFLAGS) $(INCLUDE) $(MPILIBDIR) -lcailiempi" )
 
 		makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
-		makefile.rule(name_debug_o, [ name_cpp, "head.cpp" ], "$(CC) -DCA_LOG_ON $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))
+		makefile.rule(name_debug_o, [ name_cpp, "head.cpp" ], "$(CC) -DCA_LOG $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))
+		makefile.rule(name_mpi_o, [ name_cpp, "head.cpp" ], "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
 		makefile.rule("clean", [], "rm -f {0} {0}_debug {0}_mpi {0}_mpidebug {1}".format(self.get_name()," ".join(deps)))
 		makefile.rule(".cpp.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
 		makefile.rule(".cc.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")

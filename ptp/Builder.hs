@@ -270,9 +270,9 @@ receiveFunction unit = function {
 	processPlace i place = IIf (ECall "==" [ EVar "place_pos", EInt i ]) (IStatement $ unpack (placeType place) ++ [
 		icall ".add" [ placeAttr place (EVar "this"), EVar "item" ]]) INoop
 	unpack t | isDirectlyPackable t = [
-		idefineEmpty "item" (fromNelType t),
-		icall ".unpack" [ EVar "unpacker", ECall "sizeof" [ EVar "item" ]] ]
-
+		idefine "item" (fromNelType t) $ EDeref $ ECast
+			(ECall ".unpack" [ EVar "unpacker", ECall "sizeof" [ EType (typeString (fromNelType t)) ]])
+			(TPointer (fromNelType t)) ]
 
 normalInEdges transition = filter isNormalEdge (edgesIn transition)
 packingInEdges transition = filter isPackingEdge (edgesIn transition)
@@ -280,7 +280,7 @@ packingInEdges transition = filter isPackingEdge (edgesIn transition)
 sendToken :: Expression -> Int -> Int -> NelType -> Expression -> Instruction
 sendToken targetPath unitId placeNumber t source = IStatement [
 	idefine "size" sizeType (exprMemSize t source),
-	idefine "packer" (TRaw "CaPacker") $ ECall "CaPacker" [ EVar "size", EVar "CA_RESERVED_PREFIX" ],
+	idefine "packer" (TRaw "CaPacker") $ ECall "CaPacker" [ EVar "size", ECall "CA_RESERVED_PREFIX" [ EVar "path" ] ],
 	idefine "item" (fromNelType t) source,
 	pack t (EVar "packer") (EVar "size") (EAddr (EVar "item")),
 	icall "->send" [ EVar "thread", targetPath, EInt unitId, EInt placeNumber, EVar "packer" ]]
@@ -311,7 +311,7 @@ fireFn project transition = function {
 	processOutput edge = IStatement $ [
 		idefine "path" caPath $ absPathToExpression project varFn (EMemberPtr "path" (EVar "u")) (edgeTarget edge) ] ++
 		if forcePackers project then [ sendInstruction edge ] else [
-			idefine "target" (TPointer $ unitType u) (ECast (ECall "->get_local_unit" [ (EVar "thread"),
+			idefine "target" (TPointer $ unitType u) (ECast (ECall "->get_unit" [ (EVar "thread"),
 					EVar "path",
 					EInt (unitId u)]) (TPointer $ unitType u)),
 			IIf (EVar "target") (IStatement [

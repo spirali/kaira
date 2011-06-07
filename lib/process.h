@@ -8,7 +8,16 @@
 #include "unit.h"
 #include "messages.h"
 
-#define CA_RESERVED_PREFIX 0
+#ifdef CA_MPI
+
+#include "campi.h"
+#define CA_RESERVED_PREFIX(path) (sizeof(CaPacket) + (path).get_size())
+
+#else // CA_MPI not defined
+
+#define CA_RESERVED_PREFIX(path) 0
+
+#endif
 
 class CaProcess;
 class CaThread;
@@ -33,6 +42,7 @@ class CaThread {
 	public:
 		CaThread();
 		~CaThread();
+		CaUnit * get_unit(const CaPath &path, int def_id); 
 		CaUnit * get_local_unit(const CaPath &path, int def_id);
 		void set_process(CaProcess *process) { this->process = process; }
 
@@ -64,6 +74,10 @@ class CaThread {
 		CaMessage *messages;
 		CaJob *first_job;
 		CaJob *last_job;
+
+		#ifdef CA_MPI
+		CaMpiRequests requests;
+		#endif
 };
 
 class CaProcess {
