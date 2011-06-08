@@ -27,6 +27,19 @@ import qualified Data.Set as Set
 import qualified Data.List as List
 import qualified Data.Map as Map
 
+function :: Function
+function = Function {
+	functionName = "",
+	parameters = [],
+	returnType = TVoid,
+	instructions = [],
+	extraCode = "",
+	functionSource = Nothing,
+	initCalls = []
+}
+
+constructor :: Function
+constructor = function { returnType = TRaw "" }
 
 -- | Shortcut for instruction calling fuction
 icall name params = IExpr $ ECall name params

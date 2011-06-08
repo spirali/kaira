@@ -41,11 +41,27 @@ fromNelType TypeString = TString
 fromNelType TypeBool = TBool
 fromNelType (TypeArray t) = TArray (fromNelType t)
 fromNelType (TypeData a b c d) = TData a b c d
-fromNelType (TypeTuple ts) = TStruct name decls
+fromNelType tt@(TypeTuple ts) = TClass name Nothing [ c0, c1, c2 ] decls
 	where
 		types = map fromNelType ts
 		decls = zip [ "t_" ++ show i | i <- [0..]] types
 		name = "Tuple" ++ show (length ts) ++ "_" ++ addDelimiter "_" (map typeSafeString types)
+		c0 = constructor { functionName = name }
+		c1 = constructor {
+			functionName = name,
+			parameters = [ (n, t, ParamConst) | (n, t) <- decls ],
+			initCalls = [ ECall n [ EVar n ] | (n, t) <- decls ]
+		}
+		c2 | isDirectlyPackable tt = constructor {
+				functionName = name,
+				parameters = [ ("unpacker", TRaw "CaUnpacker", ParamRef) ],
+				instructions = [ icall "memcpy" [ EVar "this", ECall ".unpack" [ EVar "unpacker", sizeOfType name ], sizeOfType name ]]
+			}
+			| otherwise = constructor {
+				functionName = name,
+				parameters = [ ("unpacker", TRaw "CaUnpacker", ParamRef) ],
+				initCalls = [ ECall n [ unpack (EVar "unpacker") nt ] | ((n, t), nt) <- zip decls ts ]
+			}
 
 fromNelVarDeclaration :: NelVarDeclaration -> VarDeclaration
 fromNelVarDeclaration (n, t) = (n, fromNelType t)
@@ -66,7 +82,7 @@ toExpression project fn _ (ExprCall name exprs)
 		where params = [ toExpression project fn t expr | (t, expr) <- zip (nelFunctionParams project name) exprs ]
 toExpression project fn t@(TypeTuple ts) (ExprTuple exprs) = ECall constructor [ toExpression project fn t expr | (t, expr) <- zip ts exprs ]
 	where constructor = case fromNelType t of
-			TStruct name _ -> name
+			TClass name _ _ _ -> name
 toExpression project fn t x = error $ "Derivation failed: " ++ show x ++ "/" ++ show t
 
 varNotAllowed x = error "Variable not allowed"
@@ -82,6 +98,7 @@ exprMemSize :: NelType -> Expression -> Expression
 exprMemSize TypeInt expr = sizeOfType "int"
 exprMemSize TypeFloat expr = sizeOfType "float"
 exprMemSize TypeDouble expr = sizeOfType "double"
+exprMemSize TypeString (EString s) = ECall "+" [ sizeOfType "size_t", EInt (length s) ]
 exprMemSize TypeString expr = ECall "+" [ sizeOfType "size_t", ECall ".size" [ expr ] ]
 exprMemSize (TypeData _ rawType TransportDirect _) expr = ECall "sizeof" [ EType rawType ]
 exprMemSize (TypeData name _ TransportCustom _) expr = ECall (name ++ "_getsize") [ expr ]
@@ -90,12 +107,23 @@ exprMemSize t expr = error $ "exprMemSize: " ++ show t
 
 isDirectlyPackable :: NelType -> Bool
 isDirectlyPackable (TypeData _ _ TransportCustom _) = False
+isDirectlyPackable TypeString = False
 isDirectlyPackable (TypeData name _ TransportDisabled _) = error $ "Type '" ++ name ++ "' transport disabled"
 isDirectlyPackable (TypeTuple ts) = all isDirectlyPackable ts
 isDirectlyPackable _ = True
 
 pack :: NelType -> Expression -> Expression -> Expression -> Instruction
-pack t packer size source | isDirectlyPackable t = icall ".pack" [ packer, source, size ]
+pack TypeString packer size source = icall ".pack_string" [ packer, source ]
+pack t packer size source | isDirectlyPackable t = icall ".pack" [ packer, EAddr source, size ]
+pack (TypeTuple ts) packer size source = IStatement [ pack t packer (exprMemSize t (expr i)) (expr i) | (t, i) <- zip ts [0..] ]
+	where expr i = tupleMember i source
+
+unpack :: Expression -> NelType -> Expression
+unpack packer TypeInt = ECall ".unpack_int" [ packer ]
+unpack packer TypeFloat = ECall ".unpack_float" [ packer ]
+unpack packer TypeDouble = ECall ".unpack_double" [ packer ]
+unpack packer TypeString = ECall ".unpack_string" [ packer ]
+unpack packer t@(TypeTuple _) = ECall (typeString (fromNelType t)) [ packer ]
 
 asStringCall :: NelType -> Expression -> Expression
 asStringCall TypeString expr = expr

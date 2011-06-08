@@ -86,6 +86,6 @@ data Function = Function {
 	extraCode :: String,
 	returnType :: Type,
 	functionSource :: Maybe (String, Int),
-	initCall :: Maybe Expression
+	initCalls :: [ Expression ]
 } deriving (Show, Eq, Ord)
 

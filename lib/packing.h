@@ -32,6 +32,8 @@ class CaUnpacker {
 		void * unpack(size_t size) { void *p = buffer_pos; buffer_pos += size; return p; }
 		void unpack(void *data, size_t size) { memcpy(data, buffer_pos, size); buffer_pos += size; }
 		size_t unpack_size() { size_t *data = (size_t*)unpack(sizeof(size_t)); return *data; }
+		double unpack_double() { double *data = (double*)unpack(sizeof(double)); return *data; }
+		float unpack_float() { float *data = (float*)unpack(sizeof(float)); return *data; }
 		int unpack_int() { int *data = (int*)unpack(sizeof(int)); return *data; }
 		std::string unpack_string() { size_t s = unpack_size(); return std::string((char*) unpack(s), s); }
 		void * peek() { return buffer_pos; }

@@ -132,9 +132,9 @@ emitFunction function =
 		extraInstructions = case extraCode function of
 				"" -> [INoop]
 				x -> [IInline x]
-		iCall = case initCall function of
-			Just x -> " : " ++ emitExpression x
-			Nothing -> ""
+		iCall = case initCalls function of
+			[] -> ""
+			xs -> " : " ++ (addDelimiter "," $ map emitExpression xs)
 
 declareFunction :: Function -> String
 declareFunction function = typeString (returnType function) ++ " "

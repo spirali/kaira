@@ -223,6 +223,10 @@ class Project(EventSource):
 			return "int"
 		if t == "Bool":
 			return "bool"
+		if t == "Float":
+			return "float"
+		if t == "Double":
+			return "double"
 		if t == "String":
 			return "std::string"
 		for et in self.extern_types:

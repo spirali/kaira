@@ -45,20 +45,6 @@ caContext = TRaw "CaContext"
 caPath = TRaw "CaPath"
 caThread = TPointer $ TRaw "CaThread"
 
-transitionVarType = undefined
-
-function = Function {
-	functionName = "",
-	parameters = [],
-	returnType = TVoid,
-	instructions = [],
-	extraCode = "",
-	functionSource = Nothing,
-	initCall = Nothing
-}
-
-constructor = function { returnType = TRaw "" }
-
 nameFromId :: String -> ID -> String
 nameFromId name id = name ++ "_" ++ (show id)
 
@@ -71,7 +57,7 @@ unitType unit = TClass className (Just "CaUnit") [ constr, reportFunction unit, 
 	constr = constructor {
 		functionName = className,
 		parameters = [ ("def", caUnitDef, ParamNormal), ("path", caPath, ParamConst) ],
-		initCall = Just $ ECall "CaUnit" [ EVar "def", EVar "path" ]
+		initCalls = [ ECall "CaUnit" [ EVar "def", EVar "path" ] ]
 	}
 
 placeAttr :: Place -> Expression -> Expression
@@ -267,12 +253,8 @@ receiveFunction unit = function {
 	parameters = [ ("place_pos", TInt, ParamNormal), ("unpacker", TRaw "CaUnpacker", ParamRef) ],
 	instructions = countedMap processPlace (unitPlaces unit)
 } where
-	processPlace i place = IIf (ECall "==" [ EVar "place_pos", EInt i ]) (IStatement $ unpack (placeType place) ++ [
-		icall ".add" [ placeAttr place (EVar "this"), EVar "item" ]]) INoop
-	unpack t | isDirectlyPackable t = [
-		idefine "item" (fromNelType t) $ EDeref $ ECast
-			(ECall ".unpack" [ EVar "unpacker", ECall "sizeof" [ EType (typeString (fromNelType t)) ]])
-			(TPointer (fromNelType t)) ]
+	processPlace i place = IIf (ECall "==" [ EVar "place_pos", EInt i ]) (add place $ unpack (EVar "unpacker") (placeType place)) INoop
+	add place expr = icall ".add" [ placeAttr place (EVar "this"), expr ]
 
 normalInEdges transition = filter isNormalEdge (edgesIn transition)
 packingInEdges transition = filter isPackingEdge (edgesIn transition)
@@ -282,7 +264,7 @@ sendToken targetPath unitId placeNumber t source = IStatement [
 	idefine "size" sizeType (exprMemSize t source),
 	idefine "packer" (TRaw "CaPacker") $ ECall "CaPacker" [ EVar "size", ECall "CA_RESERVED_PREFIX" [ EVar "path" ] ],
 	idefine "item" (fromNelType t) source,
-	pack t (EVar "packer") (EVar "size") (EAddr (EVar "item")),
+	pack t (EVar "packer") (EVar "size") (EVar "item"),
 	icall "->send" [ EVar "thread", targetPath, EInt unitId, EInt placeNumber, EVar "packer" ]]
 
 fireFn :: Project -> Transition -> Function
@@ -469,7 +451,7 @@ createProgram filename project =
 		userFs = map makeUserFunction (userFunctions project)
 		typeFs = concatMap typeFunctions (Map.elems (typeTable project))
 		paramFs = map parameterAccessFunction (projectParameters project)
-		prologue = "#include <stdio.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n#include \"head.cpp\"\n\n"
+		prologue = "#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n#include \"head.cpp\"\n\n"
 		globals = [ (parameterGlobalName $ parameterName p, fromNelType $ parameterType p) | p <- projectParameters project ]
 
 test =
