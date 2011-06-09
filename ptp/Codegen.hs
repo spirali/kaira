@@ -164,26 +164,10 @@ emitProgram fileName prologue types globals functions =
 		typedefs = joinMap Text $ Maybe.mapMaybe typedef $ Set.toList allTypes
 
 typedef :: Type -> Maybe String
-typedef (TStruct name _) = Just $ "struct " ++ name ++ ";\n"
 typedef (TClass name _ _ _) = Just $ "class " ++ name ++ ";\n"
 typedef _ = Nothing
 
 emitTypeDeclaration :: Type -> String
-emitTypeDeclaration (TStruct name decls) =
-	"struct " ++ name ++ " {\n" ++ constructor1 ++ "\n" ++ constructor2 ++ innerPart decls ++ "};\n"
-	where
-		innerPart [] = ""
-		innerPart ((name, t):ts) = "\t" ++ typeString t ++ " " ++ name ++ ";\n" ++ innerPart ts
-		constructor1 = "\t" ++ name ++ "() {}"
-		constructor2
-			| decls == [] = ""
-			| otherwise = "\t" ++ name ++ "(" ++ addDelimiter "," (map (\(n,t) -> const t ++ typeString t ++ " & " ++ n) decls) ++ ") {\n"
-				++ concatMap (\(n,t) -> "\t\tthis->" ++ n ++ " = " ++ n ++ ";\n") decls ++ "\t}\n"
-		const t = case t of
-			(TData _ _ _ _) -> ""
-			(TPointer _) -> ""
-			_ -> "const "
-
 emitTypeDeclaration (TClass name ancestor methods attributes) =
 	"class " ++ name ++ inheritance ++ " {\n\tpublic:\n" ++ methodsCode ++ attrCode attributes ++ "};\n"
 	where
@@ -205,7 +189,6 @@ subTypes :: Type -> TypeSet
 subTypes (TArray t) = subTypes' t
 subTypes (TTemplate t1 t2) = Set.union (subTypes' t1) (subTypes' t2)
 subTypes (TPointer t) = subTypes' t
-subTypes (TStruct _ decls) = Set.unions $ map (subTypes'.snd) decls
 subTypes (TClass name _ _ decls) = Set.unions $ map (subTypes'.snd) decls
 subTypes _ = Set.empty
 
@@ -214,7 +197,6 @@ subTypes' tt = Set.union (Set.singleton tt) (case tt of
 	(TArray t) -> subTypes' t
 	(TTemplate t1 t2) -> Set.union (subTypes' t1) (subTypes' t2)
 	(TPointer t) -> subTypes' t
-	(TStruct name decls) -> Set.unions $ map (subTypes'.snd) decls
 	(TClass name _ _ decls) -> Set.unions $ map (subTypes'.snd) decls
 	_ -> Set.empty)
 

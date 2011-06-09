@@ -83,7 +83,6 @@ typeSafeString TUndefined = "<undefined>"
 typeSafeString (TArray t) = "Array_" ++ typeSafeString t
 typeSafeString (TRaw d) = d
 typeSafeString (TPointer t) = "Ptr_" ++ typeSafeString t
-typeSafeString (TStruct name _) = name
 typeSafeString (TClass name _ _ _) = name
 typeSafeString (TData name _ _ _) = name
 
@@ -94,3 +93,7 @@ escapeString str = concatMap escapeChar str
 		escapeChar '\n' = "\\n"
 		escapeChar '\t' = "\\t"
 		escapeChar x = [x]
+
+struct :: String -> [VarDeclaration] -> Type
+struct name decls = TClass name Nothing [ constr ] decls
+	where constr = constructor { functionName = name }

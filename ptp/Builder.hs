@@ -122,7 +122,7 @@ initCaUnitDef project unit = [
 
 varStruct :: Project -> Transition -> Type
 varStruct project transition =
-	TStruct (nameFromId "Vars" (transitionId transition)) $ visible ++ intern
+	struct (nameFromId "Vars" (transitionId transition)) $ visible ++ intern
 	where
 		visible = fromNelVarDeclarations $ transitionFreeVariables project transition
 		intern = countedMap internDecl (normalInEdges transition)

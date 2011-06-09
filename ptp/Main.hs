@@ -55,7 +55,7 @@ parseArgs (fin:param:args) | "--" `List.isPrefixOf` param =
 		typePrint str project = (typeString . fromNelType) (parseType (typeTable project) "<cmd>" str)
 		placeTypePrint str project = (typeString . caPlace . fromNelType) (placeTypeById project (read str))
 		transitionVars str project = case varStruct project (transitionById project (read str)) of
-			TStruct _ types -> addDelimiter "\n" (map (\(n,t) -> typeString t ++ " " ++ n) $! publicTypes types)
+			TClass _ _ _ types -> addDelimiter "\n" (map (\(n,t) -> typeString t ++ " " ++ n) $! publicTypes types)
 			_  -> error "Invalid type"
 		isPublic ('_':'_':_) = False
 		isPublic _ = True
