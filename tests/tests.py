@@ -91,6 +91,12 @@ class BuildingTest(TestCase):
 		check_output(output)
 		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params + [ "--threads=3" ])
 		check_output(output)
+		p = params + [ "--threads=10" ]
+		path = os.path.join(TEST_PROJECTS, "workers")
+		program_name = os.path.join(path, "workers")
+		for x in xrange(100):
+			output = RunProgram(program_name, p, cwd = path).run(None)
+			check_output(output)
 
 	def test_functions(self):
 		self.build(os.path.join(TEST_PROJECTS, "functions", "functions.proj"), "9 9\n")

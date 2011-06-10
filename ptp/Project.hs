@@ -91,7 +91,7 @@ transitionFromElement e =
 		transitionName = name,
 		transitionId = id,
 		edgesIn = orderEdgesByDependancy edgesIn,
-		edgesOut = edgesOut,
+		edgesOut = orderOutputEdges edgesOut,
 		transitionCode = codeContent e,
 		guard = parseGuard (source e "guard") $ xmlAttr' "guard" e ""
 	}

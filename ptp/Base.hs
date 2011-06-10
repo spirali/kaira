@@ -161,4 +161,6 @@ variableTypes project (ExprCall name params) t
 		unionsVariableTypes $ zipWith (variableTypes project) params (nelFunctionParams project name)
 variableTypes project x y = error $ "Type inference failed: " ++ show x ++ "/" ++ show y
 
-
+orderOutputEdges :: [Edge] -> [Edge]
+orderOutputEdges edges = packing ++ normal
+	where (packing, normal) = List.partition isPackingEdge edges
