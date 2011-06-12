@@ -18,19 +18,23 @@
 #
 
 import project
-import sys
+import argparse
 
-def export(filename):
+def export(filename, force_packers):
 	p = project.load_project(filename)
+	if force_packers:
+		p.set_force_packers(True)
 	p.write_project_files()
 	p.export(p.get_exported_filename())
 
-def main(args):
-	if len(args) == 2 and args[0] == "--export":
-		export(args[1])
+def main():
+	parser = argparse.ArgumentParser(description='Kaira gui command line controller')
+	parser.add_argument('--export', metavar='filename', type=str)
+	parser.add_argument('--force-packers', action='store_true')
+	args = parser.parse_args()
+	if args.export:
+		export(args.export, args.force_packers)
 		return
-	print "Invalid arguments"
 
 if __name__ == "__main__":
-	args = sys.argv[1:] # Remove "cmdutils.py"
-	main(args)
+	main()
