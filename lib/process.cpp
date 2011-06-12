@@ -74,7 +74,9 @@ int CaThread::process_messages()
 					CaUnpacker unpacker(next_data);
 					CaUnit *unit = get_local_unit(path, packet->unit_id);
 					unit->lock();
-					unit->receive(packet->place_pos, unpacker);
+					for (int t = 0; t < packet->tokens_count; t++) {
+						unit->receive(packet->place_pos, unpacker);
+					}
 					unit->unlock();
 				} else if (status.MPI_TAG == CA_MPI_TAG_QUIT) {
 					process->quit();
@@ -130,7 +132,7 @@ void CaThread::quit_all()
 	process->quit_all();
 }
 
-void CaThread::send(const CaPath &path, int unit_id, int place_pos, const CaPacker &packer)
+void CaThread::multisend(const CaPath &path, int unit_id, int place_pos, int tokens_count, const CaPacker &packer)
 {
 	char *buffer = packer.get_buffer();
 
@@ -138,7 +140,7 @@ void CaThread::send(const CaPath &path, int unit_id, int place_pos, const CaPack
 		CaPacket *packet = (CaPacket*) packer.get_buffer();
 		packet->unit_id = unit_id;
 		packet->place_pos = place_pos;
-		packet->tokens_count = 1;
+		packet->tokens_count = tokens_count;
 		path.copy_to_mem(packet + 1);
 		MPI_Request *request = requests.new_request(buffer);
 		MPI_Isend(packet, packer.get_size(), MPI_CHAR, path.owner_id(process, unit_id), CA_MPI_TAG_TOKENS, MPI_COMM_WORLD, request);
@@ -149,7 +151,9 @@ void CaThread::send(const CaPath &path, int unit_id, int place_pos, const CaPack
 		CaUnit *unit = get_local_unit(path, unit_id);
 		unit->lock();
 		CaUnpacker unpacker(buffer);
-		unit->receive(place_pos, unpacker);
+		for (int t = 0; t < tokens_count; t++) {
+			unit->receive(place_pos, unpacker);
+		}
 		unit->unlock();
 		free(buffer);
 	#endif

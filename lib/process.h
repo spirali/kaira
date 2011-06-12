@@ -65,7 +65,10 @@ class CaThread {
 		}
 		void quit_all();
 
-		void send(const CaPath &path, int unit_id, int place_pos, const CaPacker &packer);
+		void send(const CaPath &path, int unit_id, int place_pos, const CaPacker &packer) {
+			multisend(path, unit_id, place_pos, 1, packer);
+		}
+		void multisend(const CaPath &path, int unit_id, int place_pos, int tokens_count, const CaPacker &packer);
 		CaProcess * get_process() const { return process; }
 	protected:
 		CaProcess *process;

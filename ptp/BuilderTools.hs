@@ -112,12 +112,12 @@ isDirectlyPackable (TypeData name _ TransportDisabled _) = error $ "Type '" ++ n
 isDirectlyPackable (TypeTuple ts) = all isDirectlyPackable ts
 isDirectlyPackable _ = True
 
-pack :: NelType -> Expression -> Expression -> Expression -> Instruction
-pack TypeString packer size source = icall ".pack_string" [ packer, source ]
-pack t packer size source | isDirectlyPackable t = icall ".pack" [ packer, EAddr source, size ]
-pack (TypeTuple ts) packer size source = IStatement [ pack t packer (exprMemSize t (expr i)) (expr i) | (t, i) <- zip ts [0..] ]
+pack :: NelType -> Expression -> Expression -> Instruction
+pack TypeString packer source = icall ".pack_string" [ packer, source ]
+pack t packer source | isDirectlyPackable t = icall ".pack" [ packer, EAddr source, exprMemSize t source ]
+pack (TypeTuple ts) packer source = IStatement [ pack t packer (expr i) | (t, i) <- zip ts [0..] ]
 	where expr i = tupleMember i source
-pack (TypeData name _ TransportCustom _) packer size source = icall (name ++ "_pack") [ packer, source ]
+pack (TypeData name _ TransportCustom _) packer source = icall (name ++ "_pack") [ packer, source ]
 
 unpack :: Expression -> NelType -> Expression
 unpack packer TypeInt = ECall ".unpack_int" [ packer ]

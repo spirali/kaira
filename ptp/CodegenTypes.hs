@@ -66,7 +66,7 @@ data Instruction =
 	IExpr Expression |
 	ISet Expression Expression |
 	IIf Expression Instruction Instruction |
-	IForeach Type String String Expression [Instruction] | {- elementType var counterVar array body -}
+	IForeach Type String Expression [Instruction] | {- elementType var source body -}
 	IWhile Expression Instruction |
 	IDo Expression Instruction |
 	IStatement [Instruction] |

@@ -57,6 +57,7 @@ class BuildingTest(TestCase):
 
 	def test_strings(self):
 		self.build(os.path.join(TEST_PROJECTS, "strings", "strings.proj"), "String\nOk\nOk\nOk\nOk\n")
+		self.build(os.path.join(TEST_PROJECTS, "strings", "strings.proj"), "String\nOk\nOk\nOk\nOk\n", force_packers = True)
 
 	def test_externtypes(self):
 		output = "10 20\n107 207\n10 20\n257 77750 A looong string!!!!!\n"

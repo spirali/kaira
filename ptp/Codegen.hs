@@ -76,7 +76,7 @@ emitExpression (EMember name expr) = emitExpression expr ++ "." ++ name
 emitExpression (EMemberPtr name expr) = emitExpression expr ++ "->" ++ name
 
 emitExpression (EAddr expr) = "&(" ++ emitExpression expr ++ ")"
-emitExpression (EDeref expr) = "*(" ++ emitExpression expr ++ ")"
+emitExpression (EDeref expr) = "(*(" ++ emitExpression expr ++ "))"
 emitExpression (ENew expr) = "new " ++ emitExpression expr
 emitExpression x = error $ "EmitExpression: " ++ show x
 
@@ -96,14 +96,12 @@ emitInstruction (IDefine name t Nothing) =
 emitInstruction (IReturn expr) = Text ("return " ++ emitExpression expr ++ ";") <+> Eol
 emitInstruction IContinue = Text "continue;" <+> Eol
 emitInstruction INoop = Empty
-emitInstruction (IForeach elementType var counterVar expr body) =
-	Text ("for (" ++ varDecl ++ "; " ++ cycleTest ++ "; " ++ counterVar ++ "++) {")
-	<+> Block (setVar <+> joinMap emitInstruction body) <+> Text "}" <+> Eol
+emitInstruction (IForeach elementType var source body) =
+	Text ("for (" ++ varDecl ++ "; " ++ cycleTest ++ "; ++" ++ var ++ ") {")
+	<+> Block (joinMap emitInstruction body) <+> Text "}" <+> Eol
 	where
-		arrayLen = "(" ++ emitExpression expr ++ ").size()"
-		setVar = Text (typeString elementType ++ " " ++ var ++ " = " ++ emitExpression expr ++ "[" ++ counterVar ++ "];") <+> Eol
-		varDecl = "size_t " ++ counterVar ++ " = 0"
-		cycleTest = counterVar ++ " < " ++ arrayLen
+		varDecl = "std::vector<" ++ typeString elementType ++ ">::iterator " ++ var ++ " = " ++ emitExpression source ++ ".begin()"
+		cycleTest = var ++ " != " ++ emitExpression source ++ ".end()"
 
 emitInstruction (IWhile expr i) = Text ("while (" ++ emitExpression expr ++ ")") <+> Block (emitInstruction i)
 emitInstruction (IDo expr i) = Text "do " <+> emitInstruction i  <+> Text ("while (" ++ emitExpression expr ++ ");")

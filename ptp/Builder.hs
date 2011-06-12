@@ -264,8 +264,19 @@ sendToken targetPath unitId placeNumber t source = IStatement [
 	idefine "size" sizeType (exprMemSize t source),
 	idefine "packer" (TRaw "CaPacker") $ ECall "CaPacker" [ EVar "size", ECall "CA_RESERVED_PREFIX" [ EVar "path" ] ],
 	idefine "item" (fromNelType t) source,
-	pack t (EVar "packer") (EVar "size") (EVar "item"),
+	pack t (EVar "packer") (EVar "item"),
 	icall "->send" [ EVar "thread", targetPath, EInt unitId, EInt placeNumber, EVar "packer" ]]
+
+sendTokens :: Expression -> Int -> Int -> NelType -> Expression -> Instruction
+sendTokens targetPath unitId placeNumber t source = IStatement $ sizeExpr ++ [
+	idefine "packer" (TRaw "CaPacker") $ ECall "CaPacker" [ EVar "size", ECall "CA_RESERVED_PREFIX" [ EVar "path" ] ],
+	IForeach (fromNelType t) "i" source [ pack t (EVar "packer") (EDeref (EVar "i")) ],
+	icall "->multisend" [ EVar "thread", targetPath, EInt unitId, EInt placeNumber, ECall ".size" [ source ], EVar "packer" ]]
+	where
+		sizeExpr
+			| isDirectlyPackable t = [ idefine "size" sizeType $ ECall "*" [ ECall ".size" [ source ], exprMemSize t source ] ]
+			| otherwise = [ idefine "size" sizeType (EInt 0),
+				IForeach (fromNelType t) "i" source [ ISet (EVar "size") $ ECall "+" [ EVar "size", exprMemSize t (EDeref (EVar "i")) ]]]
 
 fireFn :: Project -> Transition -> Function
 fireFn project transition = function {
@@ -308,7 +319,7 @@ fireFn project transition = function {
 		EdgePacking _ (Just _) -> error "Packing expression with limit on output edge"
 	sendInstruction edge = case edgeInscription edge of
 		EdgeExpression expr -> sendToken (EVar "path") (uId edge) (pPos edge) (tokenType edge) $ toExpression project varFn (tokenType edge) expr
-		EdgePacking str Nothing -> INoop
+		EdgePacking str Nothing -> sendTokens (EVar "path") (uId edge) (pPos edge) (tokenType edge) (EMemberPtr str (EVar "vars"))
 		EdgePacking _ (Just _) -> error "Packing expression with limit on output edge"
 	tokenType edge = placeTypeById project (edgePlaceId edge)
 	varFn varName = EMemberPtr varName (EVar "vars")
