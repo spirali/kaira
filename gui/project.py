@@ -438,11 +438,11 @@ class ExternType:
 
 	def get_function_declaration(self, name):
 		if name == "getstring":
-			return "std::string getstring(" + self.raw_type + " &obj)"
+			return "std::string getstring(const " + self.raw_type + " &obj)"
 		elif name == "getsize":
-			return "size_t getstring(" + self.raw_type + " &obj)"
+			return "size_t getsize(const " + self.raw_type + " &obj)"
 		elif name == "pack":
-			return "void pack(CaPacker &packer, " + self.raw_type + " &obj)"
+			return "void pack(CaPacker &packer, const " + self.raw_type + " &obj)"
 		elif name == "unpack":
 			return self.raw_type + " unpack(CaUnpacker &unpacker)"
 

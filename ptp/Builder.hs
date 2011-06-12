@@ -409,12 +409,12 @@ parameterAccessFunction parameter = function {
 	returnType = fromNelType $ parameterType parameter
 }
 
-knownTypeFunctions :: [(String, String -> (Type, [ParamDeclaration]))]
+knownTypeFunctions :: [(String, Type -> (Type, [ParamDeclaration]))]
 knownTypeFunctions = [
-	("getstring", \raw -> (TRaw "std::string", [ ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
-	("getsize", \raw -> (sizeType, [ ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
-	("pack", \raw -> (TVoid, [ ("packer", TRaw "CaPacker &", ParamNormal), ("obj", TRaw $ raw ++ "&", ParamNormal) ])),
-	("unpack", \raw -> (TRaw raw, [ ("unpacker", TRaw "CaUnpacker &", ParamNormal) ])) ]
+	("getstring", \t -> (TRaw "std::string", [ ("obj", t, ParamConst) ])),
+	("getsize", \t -> (sizeType, [ ("obj", t, ParamConst) ])),
+	("pack", \t -> (TVoid, [ ("packer", TRaw "CaPacker", ParamRef), ("obj", t, ParamConst) ])),
+	("unpack", \t -> (t, [ ("unpacker", TRaw "CaUnpacker", ParamRef) ])) ]
 
 
 typeFunctions :: NelType -> [Function]
@@ -429,7 +429,7 @@ typeFunctions (TypeData typeName rawType _ functions) =
 			extraCode = code
 		} where
 			(rtype, params) = case List.lookup fname knownTypeFunctions of
-				Just x -> x rawType
+				Just x -> x (TRaw rawType)
 				Nothing -> error $ "typeFunctions: Unknown function: " ++ fname
 typeFunctions _ = []
 

@@ -117,12 +117,15 @@ pack TypeString packer size source = icall ".pack_string" [ packer, source ]
 pack t packer size source | isDirectlyPackable t = icall ".pack" [ packer, EAddr source, size ]
 pack (TypeTuple ts) packer size source = IStatement [ pack t packer (exprMemSize t (expr i)) (expr i) | (t, i) <- zip ts [0..] ]
 	where expr i = tupleMember i source
+pack (TypeData name _ TransportCustom _) packer size source = icall (name ++ "_pack") [ packer, source ]
 
 unpack :: Expression -> NelType -> Expression
 unpack packer TypeInt = ECall ".unpack_int" [ packer ]
 unpack packer TypeFloat = ECall ".unpack_float" [ packer ]
 unpack packer TypeDouble = ECall ".unpack_double" [ packer ]
 unpack packer TypeString = ECall ".unpack_string" [ packer ]
+unpack packer (TypeData name raw TransportDirect _) = EDeref $ ECast (ECall ".unpack" [ packer, sizeOfType raw ]) (TPointer $ TRaw raw)
+unpack packer (TypeData name _ _ _) = ECall (name ++ "_unpack") [ packer ]
 unpack packer t@(TypeTuple _) = ECall (typeString (fromNelType t)) [ packer ]
 
 asStringCall :: NelType -> Expression -> Expression
@@ -134,5 +137,6 @@ asStringCall (TypeTuple []) expr = EString "()"
 asStringCall (TypeTuple (t:types)) expr = ECall "+" $ [ ECall "std::string" [ EString "(" ], asStringCall t (tupleMember 0 expr)]
 			++ concat (countedMap code types) ++ [ EString ")" ]
 	where code i t = [ EString ",", asStringCall t (tupleMember (i + 1) expr) ]
-asStringCall (TypeData name _ _ functions) expr | hasKey "getstring" functions = ECall (name ++ "_getstring") [expr]
-asStringCall (TypeData name _ _ _) expr = ECall "std::string" [ EString name ]
+asStringCall (TypeData name _ _ functions) expr
+	| hasKey "getstring" functions = ECall (name ++ "_getstring") [expr]
+	| otherwise = ECall "std::string" [ EString name ]
