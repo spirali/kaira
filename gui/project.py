@@ -262,6 +262,7 @@ class Project(EventSource):
 		makefile.set("CFLAGS", self.get_build_option("CFLAGS"))
 		makefile.set("LIBDIR", "-L" + paths.CAILIE_LIB_DIR)
 		makefile.set("LIBS", "-lcailie -lpthread -lrt " + self.get_build_option("LIBS"))
+		makefile.set("MPILIBS", "-lcailiempi -lpthread -lrt " + self.get_build_option("LIBS"))
 		makefile.set("INCLUDE", "-I" + paths.CAILIE_DIR)
 		makefile.set("MPICC", "mpic++")
 		makefile.set("MPILIBDIR", "-L" + paths.CAILIE_MPI_LIB_DIR)
@@ -290,7 +291,7 @@ class Project(EventSource):
 		makefile.rule(name_debug, deps_debug, "$(CC) " + " ".join(deps_debug) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
 
 		makefile.rule(self.get_name() + "_mpi", deps_mpi, "$(MPICC) -D CA_MPI " + " ".join(deps_mpi)
-			+ " -o $@ $(CFLAGS) $(INCLUDE) $(MPILIBDIR) -lcailiempi" )
+			+ " -o $@ $(CFLAGS) $(INCLUDE) $(MPILIBDIR) $(MPILIBS)" )
 
 		makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
 		makefile.rule(name_debug_o, [ name_cpp, "head.cpp" ], "$(CC) -DCA_LOG $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))

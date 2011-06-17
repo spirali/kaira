@@ -30,19 +30,23 @@ class LogFrame:
 
 	full_frame = True
 
-	def __init__(self, time, place_content, name):
+	def __init__(self, time, units, name):
 		self.time = time
-		self.place_content = place_content
+		self.units = units
 		self.running = []
 		self.started = []
 		self.ended = []
 		self.name = name
 
-	def get_tokens(self, place, iid = None):
-		if iid is None:
-			return self.place_content[place.get_id()]
+	def get_units(self, path):
+		if path is None:
+			return self.units
 		else:
-			return self.place_content[place.get_id()][iid]
+			return (unit for unit in self.units if unit.path == path)
+
+	def get_tokens(self, place, path):
+		units = (unit for unit in self.get_units(path) if unit.has_place(place))
+		return sum(( [ token + "@" + str(unit.path) for token in unit.get_tokens(place) ] for unit in units ), [])
 
 	def get_time(self):
 		return self.time
@@ -134,16 +138,15 @@ class Log:
 			settings = xml.fromstring(f.readline())
 			lines_count = int(settings.get("description-lines"))
 			self.process_count = int(settings.get("process-count"))
+			self.threads_count = int(settings.get("process-count"))
 			proj = xml.fromstring("\n".join([ f.readline() for i in xrange(lines_count) ]))
 			self.project = project.load_project_from_xml(proj, "")
 
 			self.node_to_process = {}
 
-			lines = [ f.readline() for i in xrange(self.process_count) ]
-			place_content, self.areas_instances, transitions, self.node_to_process = \
-				simulation.join_reports(lines)
-
-			frame = LogFrame(0, place_content, "I")
+			reports = [ xml.fromstring(f.readline()) for i in xrange(self.process_count) ]
+			units = sum([[ simulation.Unit(e) for e in report.findall("unit") ] for report in reports], [])
+			frame = LogFrame(0, units, "I")
 			self.frames = [ frame.copy() ]
 
 			next_time = self.parse_time(f.readline())
@@ -160,9 +163,10 @@ class Log:
 					frame = diff.apply_on_frame(frame, self.project)
 				self.frames.append(diff)
 			self.maxtime = self.frames[-1].get_time()
+			self.paths = [ unit.path for unit in self.frames[-1].units ]
 
-	def nodes_count(self):
-		return sum( [ len(instances) for instances in self.areas_instances.values() ] )
+	def get_paths(self):
+		return self.paths
 
 	def frames_count(self):
 		return len(self.frames)
@@ -181,14 +185,6 @@ class Log:
 			line = f.readline()
 		return (LogFrameDiff(time, "\n".join(lines)), self.parse_time(line))
 
-	def get_area_instances_number(self, area):
-		return len(self.areas_instances[area.get_id()])
-
-	def get_instance_node(self, area, iid):
-		for i, node, running in self.areas_instances[area.get_id()]:
-			if iid == i:
-				return node
-
 	def get_frame(self, pos):
 		frame = self.frames[pos]
 		if frame.full_frame:
@@ -200,129 +196,11 @@ class Log:
 		maxtime = time_to_string(self.maxtime)
 		return "{0:0>{1}}".format(time_to_string(frame.get_time()), len(maxtime))
 
-	def get_default_area_id(self):
-		x = [ area.get_id() for area in self.project.net.areas() ]
-		y = [ i for i in self.areas_instances if i not in x ]
-		if y:
-			return y[0]
-		else:
-			return None
-
-	def area_address(self, area_id):
-		for iid, node, running in self.areas_instances[area_id]:
-			if iid == 0:
-				return node
-
-	def transition_to_node_table(self):
-		default_id = self.get_default_area_id()
-		result = {}
-		for transition in self.project.net.transitions():
-			area = transition.area()
-			if area is None:
-				area_id = default_id
-			else:
-				area_id = area.get_id()
-			address = self.area_address(area_id)
-			result[transition.get_id()] = [ i + address for i in xrange(len(self.areas_instances[area_id])) ]
-		return result
-
 	def get_mapping(self):
-		result = []
-		for area_id, area_content in self.areas_instances.items():
-			area = self.project.get_item(area_id)
-			if area:
-				area_name = area.get_name()
-			else:
-				area_name = "Default area"
-			for iid, node, running in area_content:
-				result.append((node, iid, area_name, self.node_to_process[node]))
-		result.sort(key=lambda i: i[0])
-		return result
-
+		return []
 
 	def get_statistics(self):
-		places = self.project.net.places()
-		init = self.frames[0]
-		tokens = []
-		tokens_names = []
-		nodes = [ [] for i in xrange(self.nodes_count()) ]
-		nodes_names = [ "node={0}".format(i) for i in xrange(self.nodes_count()) ]
-		processes = [ [] for i in xrange(self.process_count) ]
-		processes_names = [ "process={0}".format(i) for i in xrange(self.process_count) ]
-		transition_table = self.transition_to_node_table()
-
-		transitions = []
-		transitions_names = []
-		transitions_pos = {}
-
-		for t in self.project.net.transitions():
-			instances = transition_table[t.get_id()]
-			for i, node in enumerate(instances):
-				transitions_names.append("{0}@{1}".format(t.get_name(), i))
-				transitions_pos[(t.get_id(), node)] = len(transitions)
-				transitions.append([])
-
-		for p in places:
-			content = init.place_content[p.get_id()]
-			for iid in content:
-				tokens.append([(0,len(content[iid]))])
-				tokens_names.append(str(p.get_id()) + "@" + str(iid))
-
-		f = init.copy()
-		for frame in self.frames[1:]:
-			if frame.full_frame:
-				f = frame.copy()
-			else:
-				f = frame.apply_on_frame(f, self.project)
-			i = 0
-			time = f.get_time()
-			for p in places:
-				content = f.place_content[p.get_id()]
-				for iid in content:
-					t, v = tokens[i][-1]
-					if len(content[iid]) != v:
-						tokens[i].append((time, len(content[iid])))
-					i += 1
-			for transition_id, iid in f.started:
-				node = transition_table[transition_id][iid]
-				value = (time, 0)
-				nodes[node].append(value)
-				processes[self.node_to_process[node]].append(value)
-				transitions[transitions_pos[(transition_id, node)]].append(value)
-
-			for transition_id, iid in f.ended:
-				node = transition_table[transition_id][iid]
-				value = (time, None)
-				nodes[node].append(value)
-				processes[self.node_to_process[node]].append(value)
-				transitions[transitions_pos[(transition_id, node)]].append(value)
-
-			written = []
-			value1 = (time, 1)
-			value2 = (time, 2)
-			for node, transition_id in f.blocked:
-				if nodes[node] and nodes[node][-1][1] == 0:
-					v = value2
-				else:
-					v = value1
-				t = transitions_pos[(transition_id, node)]
-				if not transitions[t] or transitions[t][-1][1] != v[1]:
-					transitions[t].append(v)
-				if node not in written:
-					if not nodes[node] or nodes[node][-1][1] != 1:
-						nodes[node].append(value1)
-					written.append(node)
-
-		result = {}
-		result["tokens"] = tokens
-		result["tokens_names"] = tokens_names
-		result["nodes"] = nodes
-		result["nodes_names"] = nodes_names
-		result["processes"] = processes
-		result["processes_names"] = processes_names
-		result["transitions"] = transitions
-		result["transitions_names"] = transitions_names
-		return result
+		return {}
 
 def time_to_string(nanosec):
 	s = nanosec / 1000000000

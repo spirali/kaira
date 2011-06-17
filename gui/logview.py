@@ -18,12 +18,21 @@
 #
 
 import gtk
-from canvas import NetCanvas, MultiCanvas
 from drawing import VisualConfig
-import utils
 import gtkutils
 import chart
 import runlog
+import simview
+
+class LogNetView(simview.NetRunView):
+
+	def __init__(self, logview):
+		simview.NetRunView.__init__(self, logview.log.project.get_net(), logview.log.get_paths(), LogviewVisualConfig(self))
+		self.logview = logview
+
+	def get_frame(self):
+		return self.logview.frame
+
 
 class LogView(gtk.VBox):
 	def __init__(self, app, log):
@@ -32,18 +41,14 @@ class LogView(gtk.VBox):
 		self.statistics = self.log.get_statistics()
 		self.frame = log.get_frame(0)
 
-		canvas_sc = gtk.ScrolledWindow()
-		self.canvas = self._create_canvas()
-		self.canvas.set_size_and_viewport_by_net()
-		canvas_sc.add_with_viewport(self.canvas)
-
-		instance_canvas_sc = gtk.ScrolledWindow()
-		self.instance_canvas = self._create_instances_canvas()
-		instance_canvas_sc.add_with_viewport(self.instance_canvas)
-		self.instance_canvas.show_all()
-
+		self.netview = LogNetView(self)
 		self.show_all()
 
+		self.views = [
+			("Network", self.netview),
+		]
+
+		"""
 		self.views = [
 			("Network", canvas_sc),
 			("Instances", instance_canvas_sc),
@@ -52,11 +57,11 @@ class LogView(gtk.VBox):
 			("Nodes", self._nodes_utilization()),
 			("Transitions", self._transitions_utilization()),
 			("Places", self._place_chart()),
-		]
+		] """
 		self.pack_start(self._controlls(), False, False)
 		for name, item in self.views:
 			self.pack_start(item)
-		canvas_sc.show_all()
+		self.netview.show_all()
 
 	def get_frame_pos(self):
 		return int(self.scale.get_value())
@@ -110,42 +115,10 @@ class LogView(gtk.VBox):
 		self.info_label.set_markup("<span font_family='monospace' background='{2}'>{0}</span>{1}".format(name, time, colors[name]))
 
 	def redraw(self):
-		self.instance_canvas.redraw()
-		self.canvas.redraw()
+		self.netview.redraw()
 
-	def _create_canvas(self):
-		c = NetCanvas(self.log.project.get_net(), None, OverviewVisualConfig(self))
-		c.show()
-		return c
-
-	def _instance_draw(self, cr, width, height, vx, vy, vconfig, area, i):
-		self.log.project.get_net().draw(cr, vconfig)
-		cr.set_source_rgba(0.3,0.3,0.3,0.5)
-		cr.rectangle(vx,vy,width, 15)
-		cr.fill()
-		cr.move_to(vx + 10, vy + 11)
-		cr.set_source_rgb(1.0,1.0,1.0)
-		cr.show_text("node=%s   iid=%s" % (self.log.get_instance_node(area, i), i))
-		cr.stroke()
-
-	def _view_for_area(self, area):
-		sz = utils.vector_add(area.get_size(), (80, 95))
-		pos = utils.vector_diff(area.get_position(), (40, 55))
-		return (sz, pos)
-
-	def _create_instances_canvas(self):
-		def area_callbacks(area, i):
-			vconfig = InstanceVisualConfig(self, area, i)
-			draw_fn = lambda cr,w,h,vx,vy: self._instance_draw(cr, w, h, vx, vy, vconfig, area, i)
-			click_fn = lambda position: self._on_instance_click(position, area, i)
-			return (draw_fn, click_fn)
-		c = MultiCanvas()
-		for area in self.log.project.get_net().areas():
-			callbacks = [ area_callbacks(area, i) for i in xrange(self.log.get_area_instances_number(area)) ]
-			sz, pos = self._view_for_area(area)
-			c.register_line(sz, pos, callbacks)
-		c.end_of_registration()
-		return c
+	def get_path(self):
+		return self.netview.get_path()
 
 	def _place_chart(self):
 		vbox = gtk.HBox()
@@ -220,59 +193,22 @@ class LogView(gtk.VBox):
 			else:
 				item.hide()
 
-def filter_by_id(items, id):
-	return [ x[1] for x in items if x[0] == id ]
-
 color_running = ((0.7,0.7,0.1,0.5))
 color_started = ((0.1,0.9,0.1,0.5))
 color_ended = ((0.8,0.3,0.3,0.5))
 
-class OverviewVisualConfig(VisualConfig):
+class LogviewVisualConfig(VisualConfig):
 
-	def __init__(self, logview):
-		self.logview = logview
-
-	def place_drawing(self, item):
-		d = VisualConfig.place_drawing(self, item)
-		tokens = self.logview.frame.get_tokens(item)
-		r = []
-		for iid in tokens:
-			r += [ t + "@" + str(iid) for t in tokens[iid] ]
-		d.set_tokens(r)
-		return d
-
-	def transition_drawing(self, item):
-		frame = self.logview.frame
-		d = VisualConfig.transition_drawing(self, item)
-		if filter_by_id(frame.running, item.get_id()):
-				d.set_highlight(color_running)
-		if filter_by_id(frame.started, item.get_id()):
-				d.set_highlight(color_started)
-		if filter_by_id(frame.ended, item.get_id()):
-				d.set_highlight(color_ended)
-		return d
-
-
-class InstanceVisualConfig(VisualConfig):
-
-	def __init__(self, logview, area, iid):
-		self.logview = logview
-		self.area = area
-		self.iid = iid
+	def __init__(self, lognetview):
+		self.lognetview = lognetview
 
 	def place_drawing(self, item):
 		d = VisualConfig.place_drawing(self, item)
-		if self.area.is_inside(item):
-			d.set_tokens(self.logview.frame.get_tokens(item, self.iid))
+		tokens = self.lognetview.get_frame().get_tokens(item, self.lognetview.get_path())
+		if tokens:
+			d.set_tokens(tokens)
 		return d
 
 	def transition_drawing(self, item):
-		frame = self.logview.frame
 		d = VisualConfig.transition_drawing(self, item)
-		if self.iid in filter_by_id(frame.running, item.get_id()):
-				d.set_highlight(color_running)
-		if self.iid in filter_by_id(frame.started, item.get_id()):
-				d.set_highlight(color_started)
-		if self.iid in filter_by_id(frame.ended, item.get_id()):
-				d.set_highlight(color_ended)
 		return d

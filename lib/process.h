@@ -7,6 +7,7 @@
 #include "path.h"
 #include "unit.h"
 #include "messages.h"
+#include "logging.h"
 
 #ifdef CA_MPI
 
@@ -42,9 +43,10 @@ class CaThread {
 	public:
 		CaThread();
 		~CaThread();
+		int get_id() { return id; }
 		CaUnit * get_unit(const CaPath &path, int def_id); 
 		CaUnit * get_local_unit(const CaPath &path, int def_id);
-		void set_process(CaProcess *process) { this->process = process; }
+		void set_process(CaProcess *process, int id) { this->process = process; this->id = id; }
 
 		void start();
 		void join();
@@ -70,6 +72,8 @@ class CaThread {
 		}
 		void multisend(const CaPath &path, int unit_id, int place_pos, int tokens_count, const CaPacker &packer);
 		CaProcess * get_process() const { return process; }
+
+		void init_log(const std::string &logname);
 	protected:
 		CaProcess *process;
 		pthread_t thread;
@@ -77,10 +81,13 @@ class CaThread {
 		CaMessage *messages;
 		CaJob *first_job;
 		CaJob *last_job;
+		int id;
 
 		#ifdef CA_MPI
 		CaMpiRequests requests;
 		#endif
+
+		CaLogger *logger;
 };
 
 class CaProcess {
@@ -105,6 +112,8 @@ class CaProcess {
 
 		void quit_all();
 		void quit() { quit_flag = true; }
+
+		void start_logging(const std::string &logname);
 
 		bool quit_flag;
 	protected:

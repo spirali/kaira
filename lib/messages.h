@@ -33,4 +33,15 @@ class CaMessageBarriers  : public CaMessage {
 		pthread_barrier_t *barrier2;
 };
 
+class CaMessageLogInit  : public CaMessage {
+	public:
+		CaMessageLogInit(std::string logname, pthread_barrier_t *barrier1, pthread_barrier_t *barrier2) 
+			: barrier1(barrier1), barrier2(barrier2), logname(logname) {}
+		void process(CaThread *thread);
+	protected:
+		pthread_barrier_t *barrier1;
+		pthread_barrier_t *barrier2;
+		std::string logname;
+};
+
 #endif

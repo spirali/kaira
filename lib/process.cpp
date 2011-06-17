@@ -7,6 +7,9 @@
 
 extern int ca_listen_port;
 extern int ca_block_on_start;
+extern int ca_log_on;
+extern std::string ca_log_default_name;
+extern const char *ca_project_description_string;
 
 CaThread::CaThread() : messages(NULL),first_job(NULL), last_job(NULL)
 {
@@ -16,6 +19,8 @@ CaThread::CaThread() : messages(NULL),first_job(NULL), last_job(NULL)
 CaThread::~CaThread()
 {
 	pthread_mutex_destroy(&messages_mutex);
+	if (logger)
+		delete logger;
 }
 
 CaUnit * CaThread::get_unit(const CaPath &path, int def_id)
@@ -132,6 +137,39 @@ void CaThread::quit_all()
 	process->quit_all();
 }
 
+void CaThread::init_log(const std::string &logname)
+{
+	if (logger) {
+		return;
+	}
+	logger = new CaLogger(logname, process->get_process_id() * process->get_threads_count() + id);
+	
+	if (id == 0) {
+		int lines = 1;
+		for (const char *c = ca_project_description_string; (*c) != 0; c++) {
+			if ((*c) == '\n') {
+				lines++;
+			}
+		}
+
+		FILE *out = logger->get_file();
+		CaOutput output;
+		output.child("header");
+		output.set("process-count", process->get_process_count());
+		output.set("threads-count", process->get_threads_count());
+		output.set("description-lines", lines);
+		CaOutputBlock *block = output.back();
+		block->write(out);
+		delete block;
+		fputs("\n", out);
+		fputs(ca_project_description_string, out);
+		fputs("\n", out);
+		process->write_reports(out);
+	}
+	logger->log_time();
+	logger->flush();
+}
+
 void CaThread::multisend(const CaPath &path, int unit_id, int place_pos, int tokens_count, const CaPacker &packer)
 {
 	char *buffer = packer.get_buffer();
@@ -208,7 +246,7 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	// TODO: ALLOCTEST
 	int t;
 	for (t = 0; t < threads_count; t++) {
-		threads[t].set_process(this);
+		threads[t].set_process(this, t);
 	}
 }
 
@@ -242,6 +280,10 @@ void CaProcess::start()
 
 	for (t = 0; t < defs_count; t++) {
 		defs[t]->init_all(&threads[0]);
+	}
+
+	if (ca_log_on) {
+		start_logging(ca_log_default_name);
 	}
 
 	for (t = 0; t < threads_count; t++) {
@@ -289,6 +331,18 @@ void CaProcess::send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *ba
 {
 	for (int t = 0; t < threads_count; t++) {
 		threads[t].add_message(new CaMessageBarriers(barrier1, barrier2));
+	}
+}
+
+
+void CaProcess::start_logging(const std::string &logname)
+{
+	pthread_barrier_t *barrier1 = new pthread_barrier_t;
+	pthread_barrier_t *barrier2 = new pthread_barrier_t;
+	pthread_barrier_init(barrier1, NULL, threads_count);
+	pthread_barrier_init(barrier2, NULL, threads_count);
+	for (int t = 0; t < threads_count; t++) {
+		threads[t].add_message(new CaMessageLogInit(logname, barrier1, barrier2));
 	}
 }
 

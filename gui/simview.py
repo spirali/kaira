@@ -34,58 +34,50 @@ class SimViewTab(mainwindow.Tab):
 		mainwindow.Tab.close(self)
 		self.simulation.shutdown()
 
-class SimView(gtk.HBox):
-	def __init__(self, app, simulation):
+class NetRunView(gtk.HBox):
+	def __init__(self, net, paths, vconfig):
 		gtk.HBox.__init__(self)
-		self.simulation = simulation
-
-		self.pack_start(self._panel(), False, False)
+		self.net = net
+		self.pack_start(self._panel(paths), False, False)
 		self.canvas_sc = gtk.ScrolledWindow()
-		self.canvas = self._create_canvas()
+		self.canvas = self._create_canvas(vconfig)
 		self.canvas.set_size_and_viewport_by_net()
 		self.canvas_sc.add_with_viewport(self.canvas)
 
 		self.pack_start(self.canvas_sc)
 		self.show_all()
 
-		simulation.set_callback("changed", self._simulation_changed)
-
 	def redraw(self):
 		self.canvas.redraw()
 
 	def get_net(self):
-		return self.simulation.get_net()
+		return self.net
 
-	def get_instance(self):
-		path = self.tree.get_selection(0)
-		if path is None:
-			return self.simulation.get_overview()
-		else:
-			return self.simulation.get_instance(path)
+	def get_path(self):
+		return self.tree.get_selection(0)
 
-	def _create_canvas(self):
-		c = NetCanvas(self.get_net(), None, SimVisualConfig(self), zoom = 1)
+	def _create_canvas(self, vconfig):
+		c = NetCanvas(self.net, None, vconfig, zoom = 1)
 		c.set_callback("button_down", self._button_down)
 		c.show()
 		return c
 
-	def _refresh_tree(self):
-		selected_path = self.tree.get_selection(0)
+	def _refresh_tree(self, paths):
+		selected_path = self.get_path()
 		self.tree.clear()
 		self.tree.append((None, "Overview"))
 		if selected_path is None:
 			self.tree.select_first()
-		paths = self.simulation.running_paths()
 		paths.sort()
 		for path in paths:
 			i = self.tree.append((path, str(path)))
 			if path == selected_path:
 				self.tree.select_iter(i)
 
-	def _panel(self):
+	def _panel(self, paths):
 		self.tree = gtkutils.SimpleList((("_", object), ("Path",str)))
 		self.tree.set_size_request(80,10)
-		self._refresh_tree()
+		self._refresh_tree(paths)
 		self.tree.select_first()
 		self.tree.connect_view("cursor-changed", self._path_changed);
 		return self.tree
@@ -93,15 +85,31 @@ class SimView(gtk.HBox):
 	def _path_changed(self, w):
 		self.redraw()
 
+	def _button_down(self, event, pos):
+		pass
+
+class SimView(NetRunView):
+
+	def __init__(self, app, simulation):
+		NetRunView.__init__(self, simulation.get_net(), simulation.running_paths(), SimVisualConfig(self))
+		self.simulation = simulation
+		simulation.set_callback("changed", self._simulation_changed)
+
+	def get_instance(self):
+		path = self.get_path()
+		if path is None:
+			return self.simulation.get_overview()
+		else:
+			return self.simulation.get_instance(path)
+
 	def _simulation_changed(self):
-		self._refresh_tree()
+		self._refresh_tree(self.simulation.running_paths())
 		self.redraw()
 
 	def _button_down(self, event, pos):
 		item = self.simulation.get_net().get_item_at_position(pos, lambda i: i.is_transition())
 		if item:
 			self.get_instance().fire_transition(item)
-
 
 class SimVisualConfig(VisualConfig):
 
@@ -121,7 +129,6 @@ class SimVisualConfig(VisualConfig):
 		if tokens:
 			d.set_tokens(tokens)
 		return d
-
 
 def connect_dialog(mainwindow):
 	builder = gtkutils.load_ui("connect-dialog")

@@ -40,16 +40,21 @@ def initial_read(filename):
 		configuration = xml.fromstring(configuration_str)
 		lines = int(configuration.get("description-lines"))
 		header += [ f.readline() for i in xrange(lines) ]
-	return ("".join(header), int(configuration.get("process-count")))
+	pcount = int(configuration.get("process-count"))
+	tcount = int(configuration.get("threads-count"))
+	return ("".join(header), pcount, tcount)
 
-def open_logile(filename):
+def open_logile(filename, has_header):
 	f = open(filename, "r")
 	f.readline() # skip firstline
-	configuration = xml.fromstring(f.readline())
-	lines = int(configuration.get("description-lines"))
-	for i in xrange(lines):
-		f.readline()
-	report = f.readline()	
+	if has_header:
+		configuration = xml.fromstring(f.readline())
+		lines = int(configuration.get("description-lines"))
+		for i in xrange(lines):
+			f.readline()
+		report = f.readline()
+	else:
+		report = None
 	initial_time = f.readline()
 	return (f, report, string_to_time(initial_time))
 
@@ -82,16 +87,19 @@ def main():
 		print "Log {0}.0 not found".format(basename)
 		sys.exit(1)
 
-	header, pcount = initial_read(basename + ".0")
+	header, pcount, tcount = initial_read(basename + ".0")
 	files = []
 	times = []
 	output = open(basename + ".klog", "w")
 	output.write(header)
 	base_time = 0
-	log_names = logfile_names(basename, pcount)
-	for filename in log_names:
-		f, report, initial_time = open_logile(filename)
-		output.write(report)
+	log_names = logfile_names(basename, pcount * tcount)
+	for i, filename in enumerate(log_names):
+		has_header = (i % tcount) == 0
+		f, report, initial_time = open_logile(filename, has_header)
+		if has_header:
+			assert report is not None
+			output.write(report)
 		files.append(f)
 		times.append(initial_time)
 
