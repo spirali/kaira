@@ -287,14 +287,20 @@ fireFn project transition = function {
 		("vars", TPointer $ varStruct project transition, ParamNormal)
 	],
 	instructions = [
+		icall "CA_LOG_TRANSITION_START" [ EVar "thread", EVar "unit", EInt (transitionId transition) ],
 		defineContext (EVar "thread") (EVar "unit"),
 		idefine "u" (TPointer unitT) $ ECast (EVar "unit") (TPointer unitT),
 		IStatement $ countedMap removeToken (normalInEdges transition) ++ map setPacking (packingInEdges transition),
-		callWorker ] ++ map processOutput (edgesOut transition)
-} where
+		callWorker, icall "CA_LOG_TRANSITION_END" [ EVar "thread", EVar "unit", EInt (transitionId transition) ] ]
+			++ map processOutput (edgesOut transition)
+	} where
 	unitT = unitType (unit project transition)
 	ePlace edge var = EMemberPtr (nameFromId "place" (edgePlaceId edge)) (EVar var)
-	removeToken i edge = icall ".remove" [ ePlace edge "u", EMemberPtr ("__token_" ++ show i) (EVar "vars") ]
+	removeToken i edge = IStatement [
+		icall "CA_LOG_TOKEN_REMOVE" [
+			EVar "thread", EVar "unit", EInt (edgePlaceId edge), asStringCall (edgePlaceType project edge) (EMemberPtr "element" (tokenExpr i)) ],
+		icall ".remove" [ ePlace edge "u", tokenExpr i ] ]
+	tokenExpr i = EMemberPtr ("__token_" ++ show i) (EVar "vars")
 	setPacking edge = case edgeInscription edge of
 		(EdgePacking name _) -> ISet (EMemberPtr name (EVar "vars")) $ ECall ".to_vector_and_clear" [ ePlace edge "u" ]
 	callWorker | hasCode transition = IStatement [
@@ -312,10 +318,14 @@ fireFn project transition = function {
 				putInstruction edge,
 				icall "->unlock" [ EVar "target" ]
 			]) (sendInstruction edge) ] where u = edgeUnit project edge
-	putInstruction edge = case edgeInscription edge of
-		EdgeExpression expr -> icall ".add" [ ePlace edge "target",
-			toExpression project varFn (placeTypeById project (edgePlaceId edge)) expr ]
-		EdgePacking str Nothing -> icall ".add_all" [ ePlace edge "target", varFn str ]
+	putInstruction edge = IStatement $ case edgeInscription edge of
+		EdgeExpression expr -> let e = toExpression project varFn (edgePlaceType project edge) expr in [
+			icall "CA_LOG_TOKEN_ADD" [ EVar "thread", EVar "target", EInt (edgePlaceId edge), asStringCall (edgePlaceType project edge) e ],
+			icall ".add" [ ePlace edge "target", e ]]
+		EdgePacking str Nothing -> [
+			icall "CA_LOG_TOKEN_ADD_MORE" [ EVar "thread", EVar "target", EInt (edgePlaceId edge), varFn str,
+				EType $ fromNelType (edgePlaceType project edge), asStringCall (edgePlaceType project edge) (EVar "CA_LOG_ITEM") ],
+			icall ".add_all" [ ePlace edge "target", varFn str ]]
 		EdgePacking _ (Just _) -> error "Packing expression with limit on output edge"
 	sendInstruction edge = case edgeInscription edge of
 		EdgeExpression expr -> sendToken (EVar "path") (uId edge) (pPos edge) (tokenType edge) $ toExpression project varFn (tokenType edge) expr

@@ -13,21 +13,25 @@
 #include "output.h"
 #include "packing.h"
 
-#ifdef CA_LOG_ON
+#ifdef CA_LOG
 
-#define CA_LOG_TRANSITION_START(thread, unit, transition_id) ((ctx)->log_transition_start(transition_id))
-#define CA_LOG_TRANSITION_END(thread, unit, transition_id) ((ctx)->log_transition_end(transition_id))
-#define CA_LOG_TOKEN_ADD(thread, unit, place_id, token_string) ((ctx)->log_token_add(place_id, token_string))
-#define CA_LOG_TOKEN_REMOVE(thread, unit, place_id, token_string) ((ctx)->log_token_remove(place_id, token_string))
+#define CA_LOG_TRANSITION_START(thread, unit, transition_id) ((thread)->log_transition_start(unit, transition_id))
+#define CA_LOG_TRANSITION_END(thread, unit, transition_id) ((thread)->log_transition_end(unit, transition_id))
+#define CA_LOG_TOKEN_ADD(thread, unit, place_id, token_string) ((thread)->log_token_add(unit, place_id, token_string))
+#define CA_LOG_TOKEN_ADD_MORE(thread, unit, place_id, array, type, expr) { for (std::vector<type>::iterator __i = (array).begin(); __i != (array).end(); ++__i) { ((thread)->log_token_add(unit, place_id, expr)); } }
+#define CA_LOG_TOKEN_REMOVE(thread, unit, place_id, token_string) ((thread)->log_token_remove(unit, place_id, token_string))
 #define CA_LOG_TOKEN_CLEAN(thread, unit, place_id) ((ctx)->log_token_clean(place_id, token_string))
+
+#define CA_LOG_ITEM (*__i)
 
 #else
 
-#define CA_LOG_TRANSITION_START(thread, transition_id)
-#define CA_LOG_TRANSITION_END(thread, transition_id)
-#define CA_LOG_TOKEN_ADD(thread, place_id, token_string)
-#define CA_LOG_TOKEN_REMOVE(thread, place_id, token_string)
-#define CA_LOG_TOKEN_CLEAN(thread, place_id)
+#define CA_LOG_TRANSITION_START(thread, unit, transition_id)
+#define CA_LOG_TRANSITION_END(thread, unit, transition_id)
+#define CA_LOG_TOKEN_ADD(thread, unit, place_id, token_string)
+#define CA_LOG_TOKEN_ADD_MORE(thread, unit, place_id, array, type, expr)
+#define CA_LOG_TOKEN_REMOVE(thread, unit, place_id, token_string)
+#define CA_LOG_TOKEN_CLEAN(thread, unit, place_id)
 
 #endif // CA_LOG
 

@@ -26,33 +26,74 @@ import os
 
 CACHE_FRAME_PERIOD = 200
 
+class LogNetworkInstance:
+
+	def __init__(self, path):
+		self.path = path
+		self.tokens = {}
+
+	def get_tokens(self, place):
+		place_id = place.get_id()
+		if self.tokens.has_key(place_id):
+			return self.tokens[place_id]
+		else:
+			return []
+
+	def add_unit(self, unit):
+		for place_id in unit.places:
+			self.tokens[place_id] = unit.places[place_id]
+
+	def add_token(self, place_id, token_name):
+		if self.tokens.has_key(place_id):
+			self.tokens[place_id].append(token_name)
+		else:
+			self.tokens[place_id] = [ token_name ]
+
+	def remove_token(self, place_id, token_name):
+		self.tokens[place_id].remove(token_name)
+
+	def clear_tokens(self, place_id):
+		self.tokens[place_id] = []
+
+
 class LogFrame:
 
 	full_frame = True
 
-	def __init__(self, time, units, name):
+	def __init__(self, time, instances, name):
 		self.time = time
-		self.units = units
+		self.instances = instances
 		self.running = []
 		self.started = []
 		self.ended = []
 		self.name = name
 
-	def get_units(self, path):
+	def get_instances(self, path):
 		if path is None:
-			return self.units
+			return self.instances.values()
 		else:
-			return (unit for unit in self.units if unit.path == path)
+			return (i for p, i in self.instances.items() if p == path)
 
 	def get_tokens(self, place, path):
-		units = (unit for unit in self.get_units(path) if unit.has_place(place))
-		return sum(( [ token + "@" + str(unit.path) for token in unit.get_tokens(place) ] for unit in units ), [])
+		instances = self.get_instances(path)
+		return sum(( [ token + "@" + str(i.path) for token in i.get_tokens(place) ] for i in instances ), [])
 
 	def get_time(self):
 		return self.time
 
 	def copy(self):
 		return copy.deepcopy(self)
+
+	def remove_token(self, path, place_id, token_name):
+		self.instances[path].remove_token(place_id, token_name)
+
+	def add_token(self, path, place_id, token_name):
+		if self.instances.has_key(path):
+			i = self.instances[path]
+		else:
+			i = LogNetworkInstance(path)
+			self.instances[path] = i
+		i.add_token(place_id, token_name)
 
 
 class LogFrameDiff:
@@ -71,42 +112,37 @@ class LogFrameDiff:
 		for action in self.actions.split("\n"):
 			self.parse_action(frame, action)
 
-		for transition_id, iid in frame.started: # Reset input packing edges
+		for path, transition_id in frame.started: # Reset input packing edges
 			for edge in project.get_net().get_item(transition_id).edges_to(postprocess = True):
 				if edge.is_packing_edge():
-					frame.place_content[edge.from_item.get_id()][iid] = []
-
+					frame.instances[path].clear_tokens(edge.from_item.get_id())
 		return frame
 
 	def parse_action(self, frame, action):
 		action_type = action[0]
 		if action_type == "A":
-			iid, place_id, token_name = action.split(" ", 3)
-			iid = int(iid[1:])
+			path, place_id, token_name = action[1:].split(" ", 3)
+			path = simulation.path_from_string(path)
 			place_id = int(place_id)
-			frame.place_content[place_id][iid].append(token_name)
+			frame.add_token(path, place_id, token_name)
+
 		if action_type == "R":
-			iid, place_id, token_name = action.split(" ", 3)
-			iid = int(iid[1:])
+			path, place_id, token_name = action[1:].split(" ", 3)
+			path = simulation.path_from_string(path)
 			place_id = int(place_id)
-			frame.place_content[place_id][iid].remove(token_name)
+			frame.remove_token(path, place_id, token_name)
 
 		if action_type == "S":
-			iid, transition_id = action.split(" ", 2)
-			iid = int(iid[1:])
-			transition_id = int(transition_id)
-			item = (transition_id, iid)
+			path, transition_id = action[1:].split(" ", 2)
+			item = (simulation.path_from_string(path), int(transition_id))
 			frame.running.append(item)
 			frame.started.append(item)
 			frame.name = "S"
 
 		if action_type == "E":
-			iid, transition_id = action.split(" ", 2)
-			iid = int(iid[1:])
-			transition_id = int(transition_id)
-			item = (transition_id, iid)
-			if item in frame.running:
-				frame.running.remove(item)
+			path, transition_id = action[1:].split(" ", 2)
+			item = (simulation.path_from_string(path), int(transition_id))
+			frame.running.remove(item)
 			frame.ended.append(item)
 			frame.name = "E"
 
@@ -146,7 +182,15 @@ class Log:
 
 			reports = [ xml.fromstring(f.readline()) for i in xrange(self.process_count) ]
 			units = sum([[ simulation.Unit(e) for e in report.findall("unit") ] for report in reports], [])
-			frame = LogFrame(0, units, "I")
+			instances = {}
+			for unit in units:
+				if instances.has_key(unit.path):
+					i = instances[unit.path]
+				else:
+					i = LogNetworkInstance(unit.path)
+					instances[unit.path] = i
+				i.add_unit(unit)
+			frame = LogFrame(0, instances, "I")
 			self.frames = [ frame.copy() ]
 
 			next_time = self.parse_time(f.readline())
@@ -163,7 +207,7 @@ class Log:
 					frame = diff.apply_on_frame(frame, self.project)
 				self.frames.append(diff)
 			self.maxtime = self.frames[-1].get_time()
-			self.paths = [ unit.path for unit in self.frames[-1].units ]
+			self.paths = [ path for path in frame.instances ]
 
 	def get_paths(self):
 		return self.paths

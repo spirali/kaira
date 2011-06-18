@@ -74,6 +74,23 @@ class CaThread {
 		CaProcess * get_process() const { return process; }
 
 		void init_log(const std::string &logname);
+
+		void log_transition_start(CaUnit *unit, int transition_id) {
+			if (logger) { logger->log_transition_start(unit, transition_id); }
+		}
+
+		void log_transition_end(CaUnit *unit, int transition_id) {
+			if (logger) { logger->log_transition_end(unit, transition_id); }
+		}
+
+		void log_token_add(CaUnit *unit, int place_id, const std::string &token_string) {
+			if (logger) { logger->log_token_add(unit, place_id, token_string); }
+		}
+
+		void log_token_remove(CaUnit *unit, int place_id, const std::string &token_string) {
+			if (logger) { logger->log_token_remove(unit, place_id, token_string); }
+		}
+
 	protected:
 		CaProcess *process;
 		pthread_t thread;

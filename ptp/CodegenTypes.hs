@@ -49,7 +49,7 @@ type TypeSet = Set.Set Type
 data Expression =
 	ECall String [Expression] |
 	EVar String |
-	EType String |
+	EType Type |
 	EInt Int |
 	EString String |
 	EAddr Expression |

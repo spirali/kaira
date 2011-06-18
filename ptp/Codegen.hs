@@ -66,7 +66,7 @@ emitCall name params =
 
 emitExpression :: Expression -> String
 emitExpression (EVar s) = s
-emitExpression (EType s) = s
+emitExpression (EType t) = typeString t
 emitExpression (EInt i) = show i
 emitExpression (EString str) = "\"" ++ escapeString str ++ "\""
 emitExpression (ECall name params) = emitCall name params

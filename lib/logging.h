@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <string>
 #include "output.h"
+#include "path.h"
+
+class CaUnit;
 
 class CaLogger {
 	public:
@@ -16,10 +19,10 @@ class CaLogger {
 		void log(const char *form, ...);
 		void log_string(const std::string &str);
 		void log_int(int i);
-		void log_token_add(int iid, int place_id, const std::string &token_name);
-		void log_token_remove(int iid, int place_id, const std::string &token_name);
-		void log_transition_start(int iid, int transition_id);
-		void log_transition_end(int iid, int transition_id);
+		void log_token_add(CaUnit *unit, int place_id, const std::string &token_name);
+		void log_token_remove(CaUnit *unit, int place_id, const std::string &token_name);
+		void log_transition_start(CaUnit *unit, int transition_id);
+		void log_transition_end(CaUnit *unit, int transition_id);
 		void log_receive();
 		void flush();
 		void write(CaOutputBlock *block);

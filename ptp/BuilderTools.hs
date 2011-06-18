@@ -55,7 +55,7 @@ fromNelType tt@(TypeTuple ts) = TClass name Nothing [ c0, c1, c2 ] decls
 		c2 | isDirectlyPackable tt = constructor {
 				functionName = name,
 				parameters = [ ("unpacker", TRaw "CaUnpacker", ParamRef) ],
-				instructions = [ icall "memcpy" [ EVar "this", ECall ".unpack" [ EVar "unpacker", sizeOfType name ], sizeOfType name ]]
+				instructions = [ icall "memcpy" [ EVar "this", ECall ".unpack" [ EVar "unpacker", sizeOfType (TRaw name) ], sizeOfType (TRaw name) ]]
 			}
 			| otherwise = constructor {
 				functionName = name,
@@ -90,17 +90,17 @@ varNotAllowed x = error "Variable not allowed"
 toExpressionWithoutVars :: Project -> NelType -> NelExpression -> Expression
 toExpressionWithoutVars project = toExpression project varNotAllowed
 
-sizeOfType :: String -> Expression
-sizeOfType name = ECall "sizeof" [ EType name ]
+sizeOfType :: Type -> Expression
+sizeOfType t = ECall "sizeof" [ EType t ]
 
 -- |Returns expression that computes size of memory footprint of result of expr
 exprMemSize :: NelType -> Expression -> Expression
-exprMemSize TypeInt expr = sizeOfType "int"
-exprMemSize TypeFloat expr = sizeOfType "float"
-exprMemSize TypeDouble expr = sizeOfType "double"
-exprMemSize TypeString (EString s) = ECall "+" [ sizeOfType "size_t", EInt (length s) ]
-exprMemSize TypeString expr = ECall "+" [ sizeOfType "size_t", ECall ".size" [ expr ] ]
-exprMemSize (TypeData _ rawType TransportDirect _) expr = ECall "sizeof" [ EType rawType ]
+exprMemSize TypeInt expr = sizeOfType TInt
+exprMemSize TypeFloat expr = sizeOfType TFloat
+exprMemSize TypeDouble expr = sizeOfType TDouble
+exprMemSize TypeString (EString s) = ECall "+" [ sizeOfType sizeType, EInt (length s) ]
+exprMemSize TypeString expr = ECall "+" [ sizeOfType sizeType, ECall ".size" [ expr ] ]
+exprMemSize (TypeData _ rawType TransportDirect _) expr = ECall "sizeof" [ EType (TRaw rawType) ]
 exprMemSize (TypeData name _ TransportCustom _) expr = ECall (name ++ "_getsize") [ expr ]
 exprMemSize (TypeTuple types) expr = ECall "+" [ exprMemSize t (tupleMember x expr) | (x, t) <- zip [0..] types ]
 exprMemSize t expr = error $ "exprMemSize: " ++ show t
@@ -124,7 +124,7 @@ unpack packer TypeInt = ECall ".unpack_int" [ packer ]
 unpack packer TypeFloat = ECall ".unpack_float" [ packer ]
 unpack packer TypeDouble = ECall ".unpack_double" [ packer ]
 unpack packer TypeString = ECall ".unpack_string" [ packer ]
-unpack packer (TypeData name raw TransportDirect _) = EDeref $ ECast (ECall ".unpack" [ packer, sizeOfType raw ]) (TPointer $ TRaw raw)
+unpack packer (TypeData name raw TransportDirect _) = EDeref $ ECast (ECall ".unpack" [ packer, sizeOfType (TRaw raw) ]) (TPointer $ TRaw raw)
 unpack packer (TypeData name _ _ _) = ECall (name ++ "_unpack") [ packer ]
 unpack packer t@(TypeTuple _) = ECall (typeString (fromNelType t)) [ packer ]
 

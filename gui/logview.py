@@ -210,5 +210,16 @@ class LogviewVisualConfig(VisualConfig):
 		return d
 
 	def transition_drawing(self, item):
+		def transition_filter(items, path):
+			return filter (lambda i: i[1] == item.get_id() and (path is None or i[0] == path), items)
 		d = VisualConfig.transition_drawing(self, item)
+		frame = self.lognetview.get_frame()
+		path = self.lognetview.get_path()
+		if transition_filter(frame.running, path):
+			d.set_highlight(color_running)
+		if transition_filter(frame.ended, path):
+			d.set_highlight(color_ended)
+		if transition_filter(frame.started, path):
+			d.set_highlight(color_started)
+
 		return d

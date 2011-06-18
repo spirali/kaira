@@ -1,6 +1,7 @@
 
 #include <stdarg.h>
 #include "logging.h"
+#include "unit.h"
 
 CaLogger::CaLogger(const std::string &logname, int log_id)
 {
@@ -49,28 +50,28 @@ void CaLogger::flush()
 	fflush(file);
 }
 
-void CaLogger::log_token_add(int iid, int place_id, const std::string &token_name)
+void CaLogger::log_token_add(CaUnit *unit, int place_id, const std::string &token_name)
 {
-	fprintf(file, "A%i %i %s\n", iid, place_id, token_name.c_str());
+	fprintf(file, "A%s %i %s\n", unit->path.as_string().c_str(), place_id, token_name.c_str());
 	fflush(file);
 }
 
-void CaLogger::log_token_remove(int iid, int place_id, const std::string &token_name)
+void CaLogger::log_token_remove(CaUnit *unit, int place_id, const std::string &token_name)
 {
-	fprintf(file, "R%i %i %s\n", iid, place_id, token_name.c_str());
+	fprintf(file, "R%s %i %s\n", unit->path.as_string().c_str(), place_id, token_name.c_str());
 }
 
-void CaLogger::log_transition_start(int iid, int transition_id)
+void CaLogger::log_transition_start(CaUnit *unit, int transition_id)
 {
 	log_time();
-	fprintf(file, "S%i %i\n", iid, transition_id);
+	fprintf(file, "S%s %i\n", unit->path.as_string().c_str(), transition_id);
 	flush();
 }
 
-void CaLogger::log_transition_end(int iid, int transition_id)
+void CaLogger::log_transition_end(CaUnit *unit, int transition_id)
 {
 	log_time();
-	fprintf(file, "E%i %i\n", iid, transition_id);
+	fprintf(file, "E%s %i\n", unit->path.as_string().c_str(), transition_id);
 	flush();
 }
 
