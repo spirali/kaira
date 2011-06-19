@@ -39,6 +39,42 @@ class CaJob  {
 	CaTransition *transition;
 };
 
+class CaProcess {
+	public:
+		CaProcess(int process_id, int process_count, int threads_count, int defs_count, CaUnitDef **defs);
+		virtual ~CaProcess();
+		void start();
+		CaJob * create_jobs() const;
+
+		CaUnitDef *get_def(int def_id) const { return defs[def_id]; }
+
+		void inform_new_unit(CaUnitDef *def, CaUnit *unit);
+
+		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
+
+		int get_threads_count() const { return threads_count; }
+		int get_units_count() const;
+		int get_process_count() const { return process_count; }
+		int get_process_id() const { return process_id; }
+		void write_reports(FILE *out) const;
+		void fire_transition(int transition_id, const CaPath &path);
+
+		void quit_all();
+		void quit() { quit_flag = true; }
+
+		void start_logging(const std::string &logname);
+		void stop_logging();
+
+		bool quit_flag;
+	protected:
+		int process_id;
+		int process_count;
+		int threads_count;
+		int defs_count;
+		CaUnitDef **defs;
+		CaThread *threads;
+};
+
 class CaThread {
 	public:
 		CaThread();
@@ -74,6 +110,7 @@ class CaThread {
 		CaProcess * get_process() const { return process; }
 
 		void init_log(const std::string &logname);
+		void close_log() { if (logger) { delete logger; logger = NULL; } }
 
 		void log_transition_start(CaUnit *unit, int transition_id) {
 			if (logger) { logger->log_transition_start(unit, transition_id); }
@@ -91,6 +128,9 @@ class CaThread {
 			if (logger) { logger->log_token_remove(unit, place_id, token_string); }
 		}
 
+		void start_logging(const std::string &logname) { process->start_logging(logname); }
+		void stop_logging() { process->stop_logging(); }
+
 	protected:
 		CaProcess *process;
 		pthread_t thread;
@@ -105,41 +145,6 @@ class CaThread {
 		#endif
 
 		CaLogger *logger;
-};
-
-class CaProcess {
-	public:
-		CaProcess(int process_id, int process_count, int threads_count, int defs_count, CaUnitDef **defs);
-		virtual ~CaProcess() { delete [] threads; }
-		void start();
-		CaJob * create_jobs() const;
-
-		CaUnitDef *get_def(int def_id) const { return defs[def_id]; }
-
-		void inform_new_unit(CaUnitDef *def, CaUnit *unit);
-
-		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
-
-		int get_threads_count() const { return threads_count; }
-		int get_units_count() const;
-		int get_process_count() const { return process_count; }
-		int get_process_id() const { return process_id; }
-		void write_reports(FILE *out) const;
-		void fire_transition(int transition_id, const CaPath &path);
-
-		void quit_all();
-		void quit() { quit_flag = true; }
-
-		void start_logging(const std::string &logname);
-
-		bool quit_flag;
-	protected:
-		int process_id;
-		int process_count;
-		int threads_count;
-		int defs_count;
-		CaUnitDef **defs;
-		CaThread *threads;
 };
 
 #endif

@@ -48,3 +48,8 @@ void CaMessageLogInit::process(CaThread *thread)
 		delete barrier2;
 	}
 }
+
+void CaMessageLogClose::process(CaThread *thread)
+{
+	thread->close_log();
+}

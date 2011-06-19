@@ -20,7 +20,7 @@ CaThread::~CaThread()
 {
 	pthread_mutex_destroy(&messages_mutex);
 	if (logger)
-		delete logger;
+		close_log();
 }
 
 CaUnit * CaThread::get_unit(const CaPath &path, int def_id)
@@ -253,6 +253,11 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	}
 }
 
+CaProcess::~CaProcess()
+{
+	delete [] threads;
+}
+
 void CaProcess::start()
 {
 	quit_flag = false;
@@ -346,6 +351,13 @@ void CaProcess::start_logging(const std::string &logname)
 	pthread_barrier_init(barrier2, NULL, threads_count);
 	for (int t = 0; t < threads_count; t++) {
 		threads[t].add_message(new CaMessageLogInit(logname, barrier1, barrier2));
+	}
+}
+
+void CaProcess::stop_logging()
+{
+	for (int t = 0; t < threads_count; t++) {
+		threads[t].add_message(new CaMessageLogClose);
 	}
 }
 

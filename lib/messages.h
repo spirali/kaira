@@ -44,4 +44,11 @@ class CaMessageLogInit  : public CaMessage {
 		std::string logname;
 };
 
+class CaMessageLogClose : public CaMessage {
+	public:
+		CaMessageLogClose() : CaMessage() {}
+		void process(CaThread *thread);
+};
+
+
 #endif

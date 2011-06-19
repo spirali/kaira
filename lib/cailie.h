@@ -42,6 +42,8 @@ class CaContext {
 		int process_id() { return thread->get_process()->get_process_id(); }
 		const CaPath & path() { return unit->path; }
 
+		void start_logging(std::string &logname) { thread->start_logging(logname); }
+		void stop_logging() { thread->stop_logging(); }
 	protected:
 		CaThread *thread;
 		CaUnit *unit;
