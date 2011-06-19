@@ -250,11 +250,14 @@ reportFunction unit = function {
 receiveFunction :: Unit -> Function
 receiveFunction unit = function {
 	functionName = "receive",
-	parameters = [ ("place_pos", TInt, ParamNormal), ("unpacker", TRaw "CaUnpacker", ParamRef) ],
+	parameters = [ ("thread", caThread, ParamNormal), ("place_pos", TInt, ParamNormal), ("unpacker", TRaw "CaUnpacker", ParamRef) ],
 	instructions = countedMap processPlace (unitPlaces unit)
 } where
 	processPlace i place = IIf (ECall "==" [ EVar "place_pos", EInt i ]) (add place $ unpack (EVar "unpacker") (placeType place)) INoop
-	add place expr = icall ".add" [ placeAttr place (EVar "this"), expr ]
+	add place expr = IStatement [
+		icall ".add" [ placeAttr place (EVar "this"), expr ],
+		icall "CA_LOG_TOKEN_ADD" [ EVar "thread", EVar "this", EInt (placeId place),
+			asStringCall (placeType place) (EMemberPtr "element" (ECall ".last" [ placeAttr place (EVar "this") ]))]]
 
 normalInEdges transition = filter isNormalEdge (edgesIn transition)
 packingInEdges transition = filter isPackingEdge (edgesIn transition)
@@ -319,9 +322,10 @@ fireFn project transition = function {
 				icall "->unlock" [ EVar "target" ]
 			]) (sendInstruction edge) ] where u = edgeUnit project edge
 	putInstruction edge = IStatement $ case edgeInscription edge of
-		EdgeExpression expr -> let e = toExpression project varFn (edgePlaceType project edge) expr in [
-			icall "CA_LOG_TOKEN_ADD" [ EVar "thread", EVar "target", EInt (edgePlaceId edge), asStringCall (edgePlaceType project edge) e ],
-			icall ".add" [ ePlace edge "target", e ]]
+		EdgeExpression expr -> [
+			icall ".add" [ ePlace edge "target", toExpression project varFn (edgePlaceType project edge) expr ],
+			icall "CA_LOG_TOKEN_ADD" [ EVar "thread", EVar "target", EInt (edgePlaceId edge),
+				asStringCall (edgePlaceType project edge) (EMemberPtr "element" (ECall ".last" [ePlace edge "target"]))]]
 		EdgePacking str Nothing -> [
 			icall "CA_LOG_TOKEN_ADD_MORE" [ EVar "thread", EVar "target", EInt (edgePlaceId edge), varFn str,
 				EType $ fromNelType (edgePlaceType project edge), asStringCall (edgePlaceType project edge) (EVar "CA_LOG_ITEM") ],

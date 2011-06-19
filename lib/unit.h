@@ -89,7 +89,7 @@ class CaUnit {
 
 		void report(CaUnitDef *def, CaOutput &out);
 		virtual void report_places(CaOutput &out) = 0;
-		virtual void receive(int place_pos, CaUnpacker &unpacker) = 0;
+		virtual void receive(CaThread *thread, int place_pos, CaUnpacker &unpacker) = 0;
 
 		CaPath path;
 	protected:

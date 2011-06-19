@@ -64,6 +64,9 @@ int CaThread::process_messages()
 		MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
 
 		if (flag) {
+			if (logger) {
+				logger->log_receive();
+			}
 			for(;;) {
 				int msg_size;
 				MPI_Get_count(&status, MPI_CHAR, &msg_size);
@@ -80,7 +83,7 @@ int CaThread::process_messages()
 					CaUnit *unit = get_local_unit(path, packet->unit_id);
 					unit->lock();
 					for (int t = 0; t < packet->tokens_count; t++) {
-						unit->receive(packet->place_pos, unpacker);
+						unit->receive(this, packet->place_pos, unpacker);
 					}
 					unit->unlock();
 				} else if (status.MPI_TAG == CA_MPI_TAG_QUIT) {
@@ -190,7 +193,7 @@ void CaThread::multisend(const CaPath &path, int unit_id, int place_pos, int tok
 		unit->lock();
 		CaUnpacker unpacker(buffer);
 		for (int t = 0; t < tokens_count; t++) {
-			unit->receive(place_pos, unpacker);
+			unit->receive(this, place_pos, unpacker);
 		}
 		unit->unlock();
 		free(buffer);

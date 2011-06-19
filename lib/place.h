@@ -88,6 +88,9 @@ template<class T> class CaPlace {
 		CaToken<T> * begin() { return token; }
 
 		size_t size() { return tokens_count; }
+
+		CaToken<T> *last() { return token->prev; }
+
 	protected:
 		/* This is naive implementation, it needs benchmarks
 			to choose correct implementation */

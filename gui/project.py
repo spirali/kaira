@@ -277,6 +277,7 @@ class Project(EventSource):
 		name_debug = self.get_name() + "_debug"
 		name_debug_o = self.get_name() + "_debug.o"
 		name_mpi_o = self.get_name() + "_mpi.o"
+		name_mpi_debug_o = self.get_name() + "_mpi_debug.o"
 
 		makefile.rule("all", [self.get_name()])
 		makefile.rule("debug", [name_debug])
@@ -286,17 +287,21 @@ class Project(EventSource):
 		deps = [ name_o ] + other_deps
 		deps_debug = [ name_debug_o ] + other_deps
 		deps_mpi = [ name_mpi_o ] + other_deps
+		deps_mpi_debug = [ name_mpi_debug_o ] + other_deps
 		makefile.rule(self.get_name(), deps, "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
 
 		makefile.rule(name_debug, deps_debug, "$(CC) " + " ".join(deps_debug) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
 
 		makefile.rule(self.get_name() + "_mpi", deps_mpi, "$(MPICC) -D CA_MPI " + " ".join(deps_mpi)
 			+ " -o $@ $(CFLAGS) $(INCLUDE) $(MPILIBDIR) $(MPILIBS)" )
+		makefile.rule(self.get_name() + "_mpidebug", deps_mpi_debug, "$(MPICC) -D CA_MPI " + " ".join(deps_mpi_debug)
+			+ " -o $@ $(CFLAGS) $(INCLUDE) $(MPILIBDIR) $(MPILIBS)" )
 
 		makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
 		makefile.rule(name_debug_o, [ name_cpp, "head.cpp" ], "$(CC) -DCA_LOG $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))
 		makefile.rule(name_mpi_o, [ name_cpp, "head.cpp" ], "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
-		all = deps + [ name_o, name_mpi_o, name_debug_o ]
+		makefile.rule(name_mpi_debug_o, [ name_cpp, "head.cpp" ], "$(MPICC) -DCA_MPI -DCA_LOG $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_debug_o))
+		all = deps + [ name_o, name_mpi_o, name_debug_o, name_mpi_debug_o ]
 		makefile.rule("clean", [], "rm -f {0} {0}_debug {0}_mpi {0}_mpidebug {1}".format(self.get_name()," ".join(all)))
 		makefile.rule(".cpp.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
 		makefile.rule(".cc.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
