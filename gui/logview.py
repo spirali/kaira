@@ -46,6 +46,7 @@ class LogView(gtk.VBox):
 
 		self.views = [
 			("Network", self.netview),
+			("Places", self._place_chart()),
 		]
 
 		"""

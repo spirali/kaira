@@ -34,18 +34,20 @@ class LogNetworkInstance:
 
 	def get_tokens(self, place):
 		place_id = place.get_id()
-		if self.tokens.has_key(place_id):
-			return self.tokens[place_id]
+		tokens = self.tokens.get(place_id)
+		if tokens:
+			return tokens
 		else:
-			return []
+			return ()
 
 	def add_unit(self, unit):
 		for place_id in unit.places:
 			self.tokens[place_id] = unit.places[place_id]
 
 	def add_token(self, place_id, token_name):
-		if self.tokens.has_key(place_id):
-			self.tokens[place_id].append(token_name)
+		t = self.tokens.get(place_id)
+		if t:
+			t.append(token_name)
 		else:
 			self.tokens[place_id] = [ token_name ]
 
@@ -78,6 +80,13 @@ class LogFrame:
 		instances = self.get_instances(path)
 		return sum(( [ token + "@" + str(i.path) for token in i.get_tokens(place) ] for i in instances ), [])
 
+	def get_tokens_count(self, place, path):
+		i = self.instances.get(path)
+		if i is None:
+			return 0
+		else:
+			return len(self.instances[path].get_tokens(place))
+
 	def get_time(self):
 		return self.time
 
@@ -88,9 +97,8 @@ class LogFrame:
 		self.instances[path].remove_token(place_id, token_name)
 
 	def add_token(self, path, place_id, token_name):
-		if self.instances.has_key(path):
-			i = self.instances[path]
-		else:
+		i = self.instances.get(path)
+		if i is None:
 			i = LogNetworkInstance(path)
 			self.instances[path] = i
 		i.add_token(place_id, token_name)
@@ -184,9 +192,8 @@ class Log:
 			units = sum([[ simulation.Unit(e) for e in report.findall("unit") ] for report in reports], [])
 			instances = {}
 			for unit in units:
-				if instances.has_key(unit.path):
-					i = instances[unit.path]
-				else:
+				i = instances.get(unit.path)
+				if i is None:
 					i = LogNetworkInstance(unit.path)
 					instances[unit.path] = i
 				i.add_unit(unit)
@@ -208,6 +215,7 @@ class Log:
 				self.frames.append(diff)
 			self.maxtime = self.frames[-1].get_time()
 			self.paths = [ path for path in frame.instances ]
+			self.paths.sort()
 
 	def get_paths(self):
 		return self.paths
@@ -244,7 +252,31 @@ class Log:
 		return []
 
 	def get_statistics(self):
-		return {}
+		places = self.project.get_net().places()
+		path_places = [ (path, place) for path in self.paths for place in places ]
+		tokens_names = [ "{0}@{1}".format(place.get_id(), path) for path, place in path_places ]
+		tokens = [ [(0, self.frames[0].get_tokens_count(place, path))]
+			for path, place in path_places ]
+		for frame in self.frames:
+			if frame.full_frame:
+				f = frame.copy()
+			else:
+				f = frame.apply_on_frame(f, self.project)
+			for i, (path, place) in enumerate(path_places):
+				count = f.get_tokens_count(place, path)
+				if count != tokens[i][-1][1]:
+					tokens[i].append((f.time, count))
+
+		# Remove the place from the table if there is only zero during all history
+		for i, t in reversed(list(enumerate(tokens))):
+			if t == [ (0,0) ]:
+				del tokens[i]
+				del tokens_names[i]
+
+		return {
+			"tokens_names" : tokens_names,
+			"tokens" : tokens
+		}
 
 def time_to_string(nanosec):
 	s = nanosec / 1000000000
