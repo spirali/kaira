@@ -85,6 +85,9 @@ int CaThread::process_messages()
 					for (int t = 0; t < packet->tokens_count; t++) {
 						unit->receive(this, packet->place_pos, unpacker);
 					}
+					if (logger) {
+						unit->log_status(logger, process->get_def(packet->unit_id));
+					}
 					unit->unlock();
 				} else if (status.MPI_TAG == CA_MPI_TAG_QUIT) {
 					process->quit();

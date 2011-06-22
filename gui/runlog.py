@@ -21,6 +21,7 @@ import xml.etree.ElementTree as xml
 
 import project
 import simulation
+import utils
 import copy
 import os
 
@@ -69,6 +70,9 @@ class LogFrame:
 		self.started = []
 		self.ended = []
 		self.name = name
+		self.enabled = set()
+		self.notenabled = set()
+
 
 	def get_instances(self, path):
 		if path is None:
@@ -116,7 +120,8 @@ class LogFrameDiff:
 		frame.time = self.time
 		frame.started = []
 		frame.ended = []
-		frame.blocked = []
+		frame.enabled = set()
+		frame.notenabled = set()
 		for action in self.actions.split("\n"):
 			self.parse_action(frame, action)
 
@@ -124,6 +129,7 @@ class LogFrameDiff:
 			for edge in project.get_net().get_item(transition_id).edges_to(postprocess = True):
 				if edge.is_packing_edge():
 					frame.instances[path].clear_tokens(edge.from_item.get_id())
+		frame.notenabled = frame.notenabled.difference(frame.enabled)
 		return frame
 
 	def parse_action(self, frame, action):
@@ -157,10 +163,16 @@ class LogFrameDiff:
 		if action_type == "C":
 			frame.name = "R"
 
-		if action_type == "T":
-			args = action.split(" ")
-			node = int(args[0][1:])
-			frame.blocked += [ (node, int(t)) for t in args[1:] ]
+		if action_type == "U":
+			args = action[1:].split(" ")
+			path = simulation.path_from_string(args[0])
+			for i in args[1:]:
+				transition_id = int(i[1:])
+				p = (path, transition_id)
+				if i[0] == "+":
+					frame.enabled.add(p)
+				else:
+					frame.notenabled.add(p)
 
 	def get_time(self):
 		return self.time
@@ -189,7 +201,9 @@ class Log:
 			self.node_to_process = {}
 
 			reports = [ xml.fromstring(f.readline()) for i in xrange(self.process_count) ]
-			units = sum([[ simulation.Unit(e) for e in report.findall("unit") ] for report in reports], [])
+			elements = sum([[ e for e in report.findall("unit") ] for report in reports ], [])
+			units = [ simulation.Unit(e) for e in elements ]
+
 			instances = {}
 			for unit in units:
 				i = instances.get(unit.path)
@@ -198,6 +212,13 @@ class Log:
 					instances[unit.path] = i
 				i.add_unit(unit)
 			frame = LogFrame(0, instances, "I")
+
+			for e in elements:
+				path = simulation.path_from_string(e.get("path"))
+				for t in e.findall("transition"):
+					if utils.xml_bool(t, "enabled"):
+						frame.enabled.add((path, utils.xml_int(t, "id")))
+
 			self.frames = [ frame.copy() ]
 
 			next_time = self.parse_time(f.readline())
@@ -251,12 +272,49 @@ class Log:
 	def get_mapping(self):
 		return []
 
+	def process_transition_data(self, tdata):
+		net = self.project.get_net()
+
+		# Create utilization of transitions from tdata
+		keys = tdata.keys()
+		keys.sort(key=lambda x: x[0])
+		transitions = []
+		transitions_names = []
+		for t in keys:
+			working = []
+			for time, value in tdata[t][0]:
+				if value == 0:
+					new = None
+				else:
+					new = value
+				working.append((time, new))
+			enabled = [ (time, 0 if value else None) for time, value in tdata[t][1] ]
+			if len(working) > 1:
+				transitions.append([enabled, working])
+				transitions_names.append(net.get_item(t[1]).get_name() + "@" + str(t[0]))
+		return {
+			"transitions" : transitions,
+			"transitions_names" : transitions_names,
+		}
+
 	def get_statistics(self):
-		places = self.project.get_net().places()
-		path_places = [ (path, place) for path in self.paths for place in places ]
+		def transition_started(f, t):
+			lst = tdata[t][0]
+			lst.append((f.time, lst[-1][1] + 1))
+		def transition_ended(f, t):
+			lst = tdata[t][0]
+			lst.append((f.time, lst[-1][1] - 1))
+
+		net = self.project.get_net()
+		path_places = [ (path, place) for path in self.paths for place in net.places() ]
+		path_transitions = [ (path, transition) for path in self.paths for transition in net.transitions() ]
 		tokens_names = [ "{0}@{1}".format(place.get_id(), path) for path, place in path_places ]
-		tokens = [ [(0, self.frames[0].get_tokens_count(place, path))]
-			for path, place in path_places ]
+		tokens = [ [(0, self.frames[0].get_tokens_count(place, path))] for path, place in path_places ]
+		tdata = {}
+		for path, transition in path_transitions:
+			t = (path, transition.get_id())
+			tdata[t] = ([ (0, 0) ], [ (0, t in self.frames[0].enabled) ])
+
 		for frame in self.frames:
 			if frame.full_frame:
 				f = frame.copy()
@@ -267,16 +325,35 @@ class Log:
 				if count != tokens[i][-1][1]:
 					tokens[i].append((f.time, count))
 
+			for t in f.started:
+				transition_started(f, t)
+
+			for t in f.ended:
+				transition_ended(f, t)
+
+			for t in f.notenabled:
+				lst = tdata[t][1]
+				if lst[-1][1]: # transition was enabled
+					lst.append((f.time, False))
+
+			for t in f.enabled:
+				lst = tdata[t][1]
+				if not lst[-1][1]: # transition was not enabled
+					lst.append((f.time, True))
+
+
 		# Remove the place from the table if there is only zero during all history
 		for i, t in reversed(list(enumerate(tokens))):
 			if t == [ (0,0) ]:
 				del tokens[i]
 				del tokens_names[i]
 
-		return {
+		statistics = {
 			"tokens_names" : tokens_names,
-			"tokens" : tokens
+			"tokens" : tokens,
 		}
+
+		return dict(statistics.items() + self.process_transition_data(tdata).items())
 
 def time_to_string(nanosec):
 	s = nanosec / 1000000000

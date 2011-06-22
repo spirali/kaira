@@ -13,6 +13,7 @@
 class CaUnit;
 class CaUnitDef;
 class CaThread;
+class CaLogger;
 
 typedef CaUnit*(CaUnitInitFn)(CaThread *thread, CaUnitDef*, const CaPath &path);
 typedef void(CaFireFn)(CaThread *, CaUnit *, void *);
@@ -91,6 +92,7 @@ class CaUnit {
 		virtual void report_places(CaOutput &out) = 0;
 		virtual void receive(CaThread *thread, int place_pos, CaUnpacker &unpacker) = 0;
 
+		void log_status(CaLogger *logger, CaUnitDef *def);
 		CaPath path;
 	protected:
 		pthread_mutex_t mutex;

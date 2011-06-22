@@ -128,6 +128,10 @@ class CaThread {
 			if (logger) { logger->log_token_remove(unit, place_id, token_string); }
 		}
 
+		void log_unit_status(CaUnit *unit, int def_id) {
+			if (logger) { unit->log_status(logger, process->get_def(def_id)); }
+		}
+
 		void start_logging(const std::string &logname) { process->start_logging(logname); }
 		void stop_logging() { process->stop_logging(); }
 

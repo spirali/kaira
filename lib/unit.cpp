@@ -126,6 +126,21 @@ void CaUnit::report(CaUnitDef *def, CaOutput &out)
 	out.back();
 }
 
+void CaUnit::log_status(CaLogger *logger, CaUnitDef *def)
+{
+	logger->log("U%s", path.as_string().c_str());
+	std::vector<CaTransition*> ts = def->get_transitions();
+	std::vector<CaTransition*>::iterator i;
+	for (i = ts.begin(); i != ts.end(); i++) {
+		if ((*i)->is_enabled(this)) {
+			logger->log(" +%i", (*i)->get_id());
+		} else {
+			logger->log(" -%i", (*i)->get_id());
+		}
+	}
+	logger->log("\n");
+}
+
 static void empty_fire(CaThread *thread, CaUnit *unit, void *vars)
 {
 

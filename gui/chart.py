@@ -334,14 +334,18 @@ class UtilizationChart:
 			cr.show_text(self.xlabel_format(t))
 			cr.restore()
 
-		for i, v in enumerate(self.values):
-			for (begin, t), (end, x) in utils.pairs_generator(v):
-				if t is None:
-					continue
-				s = areaw * (begin - min_time) / timespan + start
-				e = areaw * (end - min_time) / timespan + start
-				color1, color2 = self.colors[t]
-				self._gradient_box(cr, s,i * boxh + legend_space + 10, e - s, boxh - 20, color1, color2)
+		for i, u in enumerate(self.values):
+			posy = i * boxh + legend_space + 10
+			for j, v in enumerate(u):
+				posyy = (float(boxh) - 20) / len(u) * j + posy
+				h = (float(boxh) - 20) / len(u)
+				for (begin, t), (end, x) in utils.pairs_generator(v):
+					if t is None:
+						continue
+					s = areaw * (begin - min_time) / timespan + start
+					e = areaw * (end - min_time) / timespan + start
+					color1, color2 = self.colors[t]
+					self._gradient_box(cr, s, posyy, e - s, h, color1, color2)
 
 		x = start
 		for color1, color2, label in self.legend:

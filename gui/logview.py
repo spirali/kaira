@@ -46,6 +46,7 @@ class LogView(gtk.VBox):
 
 		self.views = [
 			("Network", self.netview),
+			("Transitions", self._transitions_utilization()),
 			("Places", self._place_chart()),
 		]
 
@@ -171,10 +172,10 @@ class LogView(gtk.VBox):
 	def _transitions_utilization(self):
 		sc = gtk.ScrolledWindow()
 		sc.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
-		colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)), ((0.5,0.2,0.2), (0.9,0.0,0.0)), ((0.2,0.2,0.5), (0.0,0.0,0.9)) ]
+		colors = [ ((0.6,0.6,0.2), (0.85,0.85,0.0)), ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
 		values = self.statistics["transitions"]
 		names = self.statistics["transitions_names"]
-		legend = [ ((0.2,0.5,0.2), (0.0,0.9,0.0), "Running"), ((0.5,0.2,0.2), (0.9,0.0,0.0), "Node conflict"), ((0.2,0.2,0.5), (0.0,0.0,0.9), "Transition conflict") ]
+		legend = [ ((0.6,0.6,0.2), (0.85,0.85,0.0), "Enabled"), ((0.2,0.5,0.2), (0.0,0.9,0.0), "Node conflict") ]
 		return self._utilization_chart(values, names, colors, legend)
 
 	def _mapping_table(self):

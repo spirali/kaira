@@ -20,6 +20,7 @@
 #define CA_LOG_TOKEN_ADD(thread, unit, place_id, token_string) ((thread)->log_token_add(unit, place_id, token_string))
 #define CA_LOG_TOKEN_ADD_MORE(thread, unit, place_id, array, type, expr) { for (std::vector<type>::iterator __i = (array).begin(); __i != (array).end(); ++__i) { ((thread)->log_token_add(unit, place_id, expr)); } }
 #define CA_LOG_TOKEN_REMOVE(thread, unit, place_id, token_string) ((thread)->log_token_remove(unit, place_id, token_string))
+#define CA_LOG_UNIT_STATUS(thread, unit, def_id) ((thread)->log_unit_status(unit, def_id))
 
 #define CA_LOG_ITEM (*__i)
 
@@ -30,6 +31,7 @@
 #define CA_LOG_TOKEN_ADD(thread, unit, place_id, token_string)
 #define CA_LOG_TOKEN_ADD_MORE(thread, unit, place_id, array, type, expr)
 #define CA_LOG_TOKEN_REMOVE(thread, unit, place_id, token_string)
+#define CA_LOG_UNIT_STATUS(thread, unit, def_id)
 
 #endif // CA_LOG
 

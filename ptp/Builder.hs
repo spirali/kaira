@@ -294,9 +294,11 @@ fireFn project transition = function {
 		defineContext (EVar "thread") (EVar "unit"),
 		idefine "u" (TPointer unitT) $ ECast (EVar "unit") (TPointer unitT),
 		IStatement $ countedMap removeToken (normalInEdges transition) ++ map setPacking (packingInEdges transition),
+		logStatus "unit" (unit project transition),
 		callWorker, icall "CA_LOG_TRANSITION_END" [ EVar "thread", EVar "unit", EInt (transitionId transition) ] ]
 			++ map processOutput (edgesOut transition)
 	} where
+	logStatus var unit = icall "CA_LOG_UNIT_STATUS" [ EVar "thread", EVar var, EInt (unitId unit) ]
 	unitT = unitType (unit project transition)
 	ePlace edge var = EMemberPtr (nameFromId "place" (edgePlaceId edge)) (EVar var)
 	removeToken i edge = IStatement [
@@ -325,11 +327,13 @@ fireFn project transition = function {
 		EdgeExpression expr -> [
 			icall ".add" [ ePlace edge "target", toExpression project varFn (edgePlaceType project edge) expr ],
 			icall "CA_LOG_TOKEN_ADD" [ EVar "thread", EVar "target", EInt (edgePlaceId edge),
-				asStringCall (edgePlaceType project edge) (EMemberPtr "element" (ECall ".last" [ePlace edge "target"]))]]
+				asStringCall (edgePlaceType project edge) (EMemberPtr "element" (ECall ".last" [ePlace edge "target"]))],
+			logStatus "target" (placeUnit project (edgePlace project edge)) ]
 		EdgePacking str Nothing -> [
 			icall "CA_LOG_TOKEN_ADD_MORE" [ EVar "thread", EVar "target", EInt (edgePlaceId edge), varFn str,
 				EType $ fromNelType (edgePlaceType project edge), asStringCall (edgePlaceType project edge) (EVar "CA_LOG_ITEM") ],
-			icall ".add_all" [ ePlace edge "target", varFn str ]]
+			icall ".add_all" [ ePlace edge "target", varFn str ],
+			logStatus "target" (placeUnit project (edgePlace project edge)) ]
 		EdgePacking _ (Just _) -> error "Packing expression with limit on output edge"
 	sendInstruction edge = case edgeInscription edge of
 		EdgeExpression expr -> sendToken (EVar "path") (uId edge) (pPos edge) (tokenType edge) $ toExpression project varFn (tokenType edge) expr
