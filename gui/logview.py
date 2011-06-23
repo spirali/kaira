@@ -50,16 +50,6 @@ class LogView(gtk.VBox):
 			("Places", self._place_chart()),
 		]
 
-		"""
-		self.views = [
-			("Network", canvas_sc),
-			("Instances", instance_canvas_sc),
-			("Mapping", self._mapping_table()),
-			("Process", self._processes_utilization()),
-			("Nodes", self._nodes_utilization()),
-			("Transitions", self._transitions_utilization()),
-			("Places", self._place_chart()),
-		] """
 		self.pack_start(self._controlls(), False, False)
 		for name, item in self.views:
 			self.pack_start(item)
@@ -109,12 +99,21 @@ class LogView(gtk.VBox):
 		self.redraw()
 
 	def update_labels(self):
+		def format(num, max):
+			if num is not None:
+				return "{0:0>{1}}".format(num, len(str(max)))
+			else:
+				return "-" * len(str(max))
+
 		max = str(self.log.frames_count() - 1)
 		self.counter_label.set_text("{0:0>{2}}/{1}".format(self.get_frame_pos(), max, len(max)))
 		time = self.log.get_time_string(self.frame)
 		colors = { "I": "gray", "S" : "green", "E" : "#cc4c4c", "R": "lightblue" }
 		name = self.frame.name
-		self.info_label.set_markup("<span font_family='monospace' background='{2}'>{0}</span>{1}".format(name, time, colors[name]))
+		process = format(self.frame.get_process_id(self.log), self.log.process_count)
+		thread = format(self.frame.get_thread_id(self.log), self.log.threads_count)
+		text = "{3}:{4}<span font_family='monospace' background='{2}'>{0}</span>{1}".format(name, time, colors[name], process, thread)
+		self.info_label.set_markup(text)
 
 	def redraw(self):
 		self.netview.redraw()
@@ -153,39 +152,12 @@ class LogView(gtk.VBox):
 		sc.add_with_viewport(w)
 		return sc
 
-	def _nodes_utilization(self):
-		colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)), ((0.5,0.2,0.2), (0.9,0.0,0.0)) ]
-		values = self.statistics["nodes"]
-		names = self.statistics["nodes_names"]
-		legend = [ ((0.2,0.5,0.2), (0.0,0.9,0.0), "Running"), ((0.5,0.2,0.2), (0.9,0.0,0.0), "Node conflict") ]
-		return self._utilization_chart(values, names, colors, legend)
-
-	def _processes_utilization(self):
-		sc = gtk.ScrolledWindow()
-		sc.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
-		colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
-		values = self.statistics["processes"]
-		names = self.statistics["processes_names"]
-		legend = [ ((0.2,0.5,0.2), (0.0,0.9,0.0), "Running") ]
-		return self._utilization_chart(values, names, colors, legend)
-
 	def _transitions_utilization(self):
-		sc = gtk.ScrolledWindow()
-		sc.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
 		colors = [ ((0.6,0.6,0.2), (0.85,0.85,0.0)), ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
 		values = self.statistics["transitions"]
 		names = self.statistics["transitions_names"]
-		legend = [ ((0.6,0.6,0.2), (0.85,0.85,0.0), "Enabled"), ((0.2,0.5,0.2), (0.0,0.9,0.0), "Node conflict") ]
+		legend = [ ((0.6,0.6,0.2), (0.85,0.85,0.0), "Enabled"), ((0.2,0.5,0.2), (0.0,0.9,0.0), "Running") ]
 		return self._utilization_chart(values, names, colors, legend)
-
-	def _mapping_table(self):
-		sc = gtk.ScrolledWindow()
-		sc.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-		lst = gtkutils.SimpleList((("Node", int), ("iid", int), ("area", str), ("Process", str)))
-		sc.add_with_viewport(lst)
-		for item in self.log.get_mapping():
-			lst.append(item)
-		return sc
 
 	def _view_change(self, combo):
 		text = combo.get_active_text()

@@ -61,8 +61,6 @@ def open_logile(filename, has_header):
 def copy_until_time(output, f, process_id):
 	line = f.readline()
 	while line and not line[0].isdigit():
-		if line == "C\n":
-			line = "C{0}\n".format(process_id)
 		output.write(line)
 		line = f.readline()
 	return string_to_time(line)
@@ -73,7 +71,7 @@ def process_logs(output, files, times, base_time):
 	while time != inf:
 		for i in xrange(len(files)):
 			if times[i] == time:
-				output.write("{0}\n".format(time - base_time))
+				output.write("{0} {1}\n".format(time - base_time, i))
 				times[i] = copy_until_time(output, files[i], str(i))
 		time = min(times)
 

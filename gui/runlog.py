@@ -63,8 +63,9 @@ class LogFrame:
 
 	full_frame = True
 
-	def __init__(self, time, instances, name):
+	def __init__(self, time, computing_node, instances, name):
 		self.time = time
+		self.computing_node = computing_node
 		self.instances = instances
 		self.running = []
 		self.started = []
@@ -73,6 +74,13 @@ class LogFrame:
 		self.enabled = set()
 		self.notenabled = set()
 
+	def get_process_id(self, log):
+		if self.computing_node is not None:
+			return self.computing_node / log.threads_count
+
+	def get_thread_id(self, log):
+		if self.computing_node is not None:
+			return self.computing_node % log.threads_count
 
 	def get_instances(self, path):
 		if path is None:
@@ -112,12 +120,15 @@ class LogFrameDiff:
 
 	full_frame = False
 
-	def __init__(self, time, actions):
+	""" computation_node = process_id * threads_count + thread_id """
+	def __init__(self, time, computing_node, actions):
 		self.time = time
+		self.computing_node = computing_node
 		self.actions = actions
 
 	def apply_on_frame(self, frame, project):
 		frame.time = self.time
+		frame.computing_node = self.computing_node
 		frame.started = []
 		frame.ended = []
 		frame.enabled = set()
@@ -194,7 +205,7 @@ class Log:
 			settings = xml.fromstring(f.readline())
 			lines_count = int(settings.get("description-lines"))
 			self.process_count = int(settings.get("process-count"))
-			self.threads_count = int(settings.get("process-count"))
+			self.threads_count = int(settings.get("threads-count"))
 			proj = xml.fromstring("\n".join([ f.readline() for i in xrange(lines_count) ]))
 			self.project = project.load_project_from_xml(proj, "")
 
@@ -211,7 +222,7 @@ class Log:
 					i = LogNetworkInstance(unit.path)
 					instances[unit.path] = i
 				i.add_unit(unit)
-			frame = LogFrame(0, instances, "I")
+			frame = LogFrame(0, None, instances, "I")
 
 			for e in elements:
 				path = simulation.path_from_string(e.get("path"))
@@ -221,17 +232,17 @@ class Log:
 
 			self.frames = [ frame.copy() ]
 
-			next_time = self.parse_time(f.readline())
+			next_time, computing_node = self.parse_timeblock(f.readline())
 			inf = float("inf")
 			if next_time < inf:
-				diff, next_time = self.load_frame_diff(f, next_time)
+				diff, (next_time, comuping_node) = self.load_frame_diff(f, next_time, computing_node)
 				frame = diff.apply_on_frame(frame, self.project)
 				while next_time < inf:
 					if len(self.frames) % CACHE_FRAME_PERIOD == 0:
 						self.frames.append(frame.copy())
 					else:
 						self.frames.append(diff)
-					diff, next_time = self.load_frame_diff(f, next_time)
+					diff, (next_time, computing_node) = self.load_frame_diff(f, next_time, computing_node)
 					frame = diff.apply_on_frame(frame, self.project)
 				self.frames.append(diff)
 			self.maxtime = self.frames[-1].get_time()
@@ -244,19 +255,20 @@ class Log:
 	def frames_count(self):
 		return len(self.frames)
 
-	def parse_time(self, string):
+	def parse_timeblock(self, string):
 		if string == "":
-			return float("inf")
+			return (float("inf"), -1)
 		else:
-			return int(string)
+			time, computing_node = string.split()
+			return int(time), int(computing_node)
 
-	def load_frame_diff(self, f, time):
+	def load_frame_diff(self, f, time, computing_node):
 		lines = []
 		line = f.readline()
 		while line and not line[0].isdigit():
 			lines.append(line.strip())
 			line = f.readline()
-		return (LogFrameDiff(time, "\n".join(lines)), self.parse_time(line))
+		return (LogFrameDiff(time, computing_node, "\n".join(lines)), self.parse_timeblock(line))
 
 	def get_frame(self, pos):
 		frame = self.frames[pos]
