@@ -88,6 +88,9 @@ class CaUnit {
 		void lock() { pthread_mutex_lock(&mutex); }
 		void unlock() { pthread_mutex_unlock(&mutex); }
 
+		int trylock() { return pthread_mutex_trylock(&mutex); }
+
+
 		void report(CaUnitDef *def, CaOutput &out);
 		virtual void report_places(CaOutput &out) = 0;
 		virtual void receive(CaThread *thread, int place_pos, CaUnpacker &unpacker) = 0;

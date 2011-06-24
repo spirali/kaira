@@ -4,6 +4,7 @@
 
 #include "process.h"
 #include "listener.h"
+#include <sched.h>
 
 extern int ca_listen_port;
 extern int ca_block_on_start;
@@ -237,7 +238,10 @@ void CaThread::run_scheduler()
 			prev = j;
 			j = j->next;
 		}
-		process_messages();
+		int r = process_messages();
+		if (j == NULL && !r) {
+			sched_yield();
+		}
 	}
 }
 
@@ -414,7 +418,9 @@ void CaProcess::fire_transition(int transition_id, const CaPath &path)
 
 int CaJob::test_and_fire(CaThread *thread)
 {
-	unit->lock();
+	if (unit->trylock()) {
+		return 0;
+	}
 	int r = transition->call(thread, unit);
 	if (!r) {
 		unit->unlock();
