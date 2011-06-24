@@ -281,9 +281,6 @@ class Log:
 		maxtime = time_to_string(self.maxtime)
 		return "{0:0>{1}}".format(time_to_string(frame.get_time()), len(maxtime))
 
-	def get_mapping(self):
-		return []
-
 	def process_transition_data(self, tdata):
 		net = self.project.get_net()
 
@@ -316,6 +313,12 @@ class Log:
 		def transition_ended(f, t):
 			lst = tdata[t][0]
 			lst.append((f.time, lst[-1][1] - 1))
+		def postprocess_pdata(v):
+			time, value = v
+			if value == 0:
+				return (time, None)
+			else:
+				return (time, value - 1)
 
 		net = self.project.get_net()
 		path_places = [ (path, place) for path in self.paths for place in net.places() ]
@@ -323,6 +326,7 @@ class Log:
 		tokens_names = [ "{0}@{1}".format(place.get_id(), path) for path, place in path_places ]
 		tokens = [ [(0, self.frames[0].get_tokens_count(place, path))] for path, place in path_places ]
 		tdata = {}
+		pdata = [ [ [(0, None)] for j in xrange(self.threads_count) ] for i in xrange(self.process_count) ]
 		for path, transition in path_transitions:
 			t = (path, transition.get_id())
 			tdata[t] = ([ (0, 0) ], [ (0, t in self.frames[0].enabled) ])
@@ -332,6 +336,7 @@ class Log:
 				f = frame.copy()
 			else:
 				f = frame.apply_on_frame(f, self.project)
+
 			for i, (path, place) in enumerate(path_places):
 				count = f.get_tokens_count(place, path)
 				if count != tokens[i][-1][1]:
@@ -353,6 +358,14 @@ class Log:
 				if not lst[-1][1]: # transition was not enabled
 					lst.append((f.time, True))
 
+			n = f.computing_node
+			if n is not None:
+				lst = pdata[n / self.threads_count][n % self.threads_count]
+				if f.started:
+					lst.append((f.time, 0))
+				elif f.ended:
+					lst.append((f.time, None))
+
 
 		# Remove the place from the table if there is only zero during all history
 		for i, t in reversed(list(enumerate(tokens))):
@@ -363,6 +376,8 @@ class Log:
 		statistics = {
 			"tokens_names" : tokens_names,
 			"tokens" : tokens,
+			"processes_names" : [ "process " + str(i) for i in xrange(self.process_count) ],
+			"processes" : pdata
 		}
 
 		return dict(statistics.items() + self.process_transition_data(tdata).items())

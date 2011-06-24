@@ -46,6 +46,7 @@ class LogView(gtk.VBox):
 
 		self.views = [
 			("Network", self.netview),
+			("Processes", self._processes_utilization()),
 			("Transitions", self._transitions_utilization()),
 			("Places", self._place_chart()),
 		]
@@ -152,11 +153,18 @@ class LogView(gtk.VBox):
 		sc.add_with_viewport(w)
 		return sc
 
+	def _processes_utilization(self):
+		colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
+		values = self.statistics["processes"]
+		names = self.statistics["processes_names"]
+		legend = [ (0, "Running") ]
+		return self._utilization_chart(values, names, colors, legend)
+
 	def _transitions_utilization(self):
 		colors = [ ((0.6,0.6,0.2), (0.85,0.85,0.0)), ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
 		values = self.statistics["transitions"]
 		names = self.statistics["transitions_names"]
-		legend = [ ((0.6,0.6,0.2), (0.85,0.85,0.0), "Enabled"), ((0.2,0.5,0.2), (0.0,0.9,0.0), "Running") ]
+		legend = [ (0, "Enabled"), (1, "Running") ]
 		return self._utilization_chart(values, names, colors, legend)
 
 	def _view_change(self, combo):

@@ -348,8 +348,8 @@ class UtilizationChart:
 					self._gradient_box(cr, s, posyy, e - s, h, color1, color2)
 
 		x = start
-		for color1, color2, label in self.legend:
-			self._gradient_box(cr, x, 12, 15, 15, color1, color2)
+		for color, label in self.legend:
+			self._gradient_box(cr, x, 12, 15, 15, self.colors[color][0], self.colors[color][1])
 			sx, sy = utils.text_size(cr, label)
 			cr.move_to(x + 20, 19 + sy / 2)
 			cr.show_text(label)
