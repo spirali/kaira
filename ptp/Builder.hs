@@ -161,7 +161,7 @@ guardInstruction project transition varFn failedI
 
 matchTest :: Project -> Int -> [Edge] -> Set.Set String -> Instruction -> Instruction
 matchTest project level [] binded instruction = instruction
-matchTest project level edges@(edge@(Edge placeId (EdgeExpression expr) _):rest) binded instruction =
+matchTest project level edges@(edge@(Edge _ placeId (EdgeExpression expr) _ _):rest) binded instruction =
 	IStatement $ [ idefine varName (TPointer $ caToken elementType) (ECall ".begin" [ placeExpr ]),
 		IDo (ECall "!=" [ EVar varName, ECall ".begin" [ placeExpr ]]) (IStatement $ body ++ [ failedI ] )
 	]
@@ -173,7 +173,7 @@ matchTest project level edges@(edge@(Edge placeId (EdgeExpression expr) _):rest)
 			matchTest project (level + 1) rest newBinded instruction ]
 		transition = transitionOfEdge project edge
 		processed = zip [0..] $ (List.\\) (edgesIn transition) edges
-		fromSamePlace = filter (\(i, (Edge pId _ _)) -> pId == placeId) processed
+		fromSamePlace = filter (\(i, e) -> edgePlaceId e == placeId) processed
 		placeExpr = placeAttr place (EVar "u")
 		place = placeById project placeId
 		elementType = fromNelType $ placeType place
@@ -186,7 +186,7 @@ matchTest project level edges@(edge@(Edge placeId (EdgeExpression expr) _):rest)
 					failedI INoop
 		varFn varName = EMember varName (EVar "vars")
 
-matchTest project level (edge@(Edge placeId (EdgePacking name (Just limit)) _):rest) binded instruction =
+matchTest project level (edge@(Edge _ placeId (EdgePacking name (Just limit)) _ _):rest) binded instruction =
 	IIf (ECall ">=" [ ECall ".size" [ placeExpr ], ECall "+" [ limitExpr, EInt (length fromSamePlace - 1)]]) body INoop
 	where
 		place = placeById project placeId
@@ -194,10 +194,9 @@ matchTest project level (edge@(Edge placeId (EdgePacking name (Just limit)) _):r
 		limitExpr = toExpression project varFn TypeInt limit
 		varFn varName = EMember varName (EVar "vars")
 		body = matchTest project (level + 1) rest binded instruction
-		fromSamePlace = filter (\(Edge pId _ _) -> pId == placeId) (edgesIn (transitionOfEdge project edge))
+		fromSamePlace = filter (\e -> edgePlaceId e == placeId) (edgesIn (transitionOfEdge project edge))
 
-
-matchTest project level edges@(edge@(Edge placeId (EdgePacking name (Nothing)) _):rest) binded instruction =
+matchTest project level edges@(edge@(Edge _ placeId (EdgePacking name (Nothing)) _ _):rest) binded instruction =
 	error "Input packing edge without limit"
 
 pathItemExpression :: PathItem -> NelExpression
@@ -312,7 +311,10 @@ fireFn project transition = function {
 		icall "->unlock" [ EVar "u" ],
 		icall (nameFromId "worker" $ transitionId transition) [ EVar "ctx", EDeref $ EVar "vars" ] ]
 			| otherwise = icall "->unlock" [ EVar "u" ]
-	processOutput edge = IStatement $ [
+	processOutput edge
+		| edgeGuard edge == ExprTrue = putTokens edge
+		| otherwise = IIf (toExpression project varFn TypeBool (edgeGuard edge)) (putTokens edge) INoop
+	putTokens edge = IStatement $ [
 		idefine "path" caPath $ absPathToExpression project varFn (EMemberPtr "path" (EVar "u")) (edgeTarget edge) ] ++
 		if forcePackers project then [ sendInstruction edge ] else [
 			idefine "target" (TPointer $ unitType u) (ECast (ECall "->get_unit" [ (EVar "thread"),

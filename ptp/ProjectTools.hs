@@ -63,10 +63,14 @@ pathFreeVariables project path = case path of
 -- |Return all variables in edge (main expression, target, limit)
 extractEdgeVariables :: Project -> Edge -> Map.Map String NelType
 extractEdgeVariables project edge =
-	unionVariableTypes (pathFreeVariables project (edgeTarget edge)) (case edgeInscription edge of
-		EdgeExpression x -> (variableTypes project x (edgePlaceType project edge))
-		EdgePacking name (Just x) -> unionVariableTypes (Map.singleton name $ TypeArray (edgePlaceType project edge)) (variableTypes project x TypeInt)
-		EdgePacking name Nothing -> Map.singleton name $ TypeArray (edgePlaceType project edge))
+	unionsVariableTypes [ target, guard, inscription ]
+	where
+		target = (pathFreeVariables project (edgeTarget edge))
+		guard = variableTypes project (edgeGuard edge) TypeBool
+		inscription = (case edgeInscription edge of
+			EdgeExpression x -> (variableTypes project x (edgePlaceType project edge))
+			EdgePacking name (Just x) -> unionVariableTypes (Map.singleton name $ TypeArray (edgePlaceType project edge)) (variableTypes project x TypeInt)
+			EdgePacking name Nothing -> Map.singleton name $ TypeArray (edgePlaceType project edge))
 
 edgesFreeVariables :: Project -> [Edge] -> [NelVarDeclaration]
 edgesFreeVariables project edges =

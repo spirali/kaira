@@ -46,7 +46,7 @@ languageDef = emptyDef { Token.commentStart    = "/*"
 	, Token.reservedNames   = []
 	, Token.caseSensitive   = True
 	, Token.reservedOpNames = [ "+", "-", "*", "//", "%", "==", "!="
-	, "<", ">", "<=", ">=", "&&", "||", ",", "!", "..", "[", "]" ]
+	, "<", ">", "<=", ">=", "&&", "||", ",", "!", "..", "[", "]", "?" ]
 }
 lexer = Token.makeTokenParser languageDef
 
@@ -180,11 +180,12 @@ edgePackingParser = do
 	s <- identifier
 	do { x <- (parens expressionParser); return (s, Just x) } <|> return (s, Nothing)
 
-edgeInscriptionParser :: Parser (EdgeInscription, Path)
+edgeInscriptionParser :: Parser (EdgeInscription, Path, NelExpression)
 edgeInscriptionParser = do
 	mainExpr <- do { (name, limit) <- edgePackingParser; return (EdgePacking name limit) } <|> (expressionParser >>= (return . EdgeExpression))
 	path <- do { char '@'; path <- pathParser; return path } <|> do { return $ RelPath 0 []; }
-	return (mainExpr, path)
+	guard <- (reservedOp "?" >> expressionParser >>= return) <|> do { return ExprTrue; }
+	return (mainExpr, path, guard)
 
 guardParser :: Parser NelExpression
 guardParser = do { eof; return ExprTrue; } <|> expressionParser
@@ -227,7 +228,7 @@ parseExpr' :: String -> String -> Maybe NelExpression
 parseExpr' source "" = Nothing
 parseExpr' source x = Just $ parseExpr source x
 
-parseEdgeInscription :: String -> String -> (EdgeInscription, Path)
+parseEdgeInscription :: String -> String -> (EdgeInscription, Path, NelExpression)
 parseEdgeInscription source "" = error $ source ++ ":1:Inscription is empty"
 parseEdgeInscription source str = parseHelper edgeInscriptionParser source str
 

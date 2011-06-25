@@ -77,6 +77,9 @@ class BuildingTest(TestCase):
 	def test_parameters(self):
 		self.build(os.path.join(TEST_PROJECTS, "parameters", "parameters.proj"), "9 7\n", ["-pfirst=10", "-psecond=7"])
 
+	def test_eguards(self):
+		self.build(os.path.join(TEST_PROJECTS, "eguards", "eguards.proj"), "3\n")
+
 	def test_bidirection(self):
 		self.build(os.path.join(TEST_PROJECTS, "bidirection", "bidirection.proj"), "11\n12\n13\n")
 

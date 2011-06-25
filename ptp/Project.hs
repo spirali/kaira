@@ -80,10 +80,12 @@ placeFromElement types e =
 edgeFromElement :: Xml.Element -> Edge
 edgeFromElement e =
 	Edge {
+		edgeId = xmlAttrInt "id" e,
 		edgePlaceId = xmlAttrInt "place-id" e,
 		edgeInscription = expr,
-		edgeTarget = path
-	} where (expr, path) = parseEdgeInscription (source e "inscription") $ xmlAttr "expr" e
+		edgeTarget = path,
+		edgeGuard = guard
+	} where (expr, path, guard) = parseEdgeInscription (source e "inscription") $ xmlAttr "expr" e
 
 transitionFromElement :: Xml.Element -> Transition
 transitionFromElement e =

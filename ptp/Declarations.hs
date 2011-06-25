@@ -68,10 +68,14 @@ data Place = Place {
 instance Eq Place where p1 == p2 = placeId p1 == placeId p2
 
 data Edge = Edge {
+	edgeId :: ID,
 	edgePlaceId :: ID,
 	edgeInscription :: EdgeInscription,
-	edgeTarget :: Path
-} deriving (Show,Eq)
+	edgeTarget :: Path,
+	edgeGuard :: NelExpression
+} deriving (Show)
+
+instance Eq Edge where e1 == e2 = edgeId e1 == edgeId e2
 
 data EdgeInscription = EdgeExpression NelExpression | EdgePacking String (Maybe NelExpression) deriving (Show, Eq)
 

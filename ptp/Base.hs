@@ -152,6 +152,8 @@ variableTypes project (ExprParam paramName) t | (parameterTypeByName project par
 variableTypes project (ExprInt _) (TypeInt) = Map.empty
 variableTypes project (ExprString _) (TypeString) = Map.empty
 variableTypes project (ExprTuple []) (TypeTuple []) = Map.empty
+variableTypes project ExprTrue TypeBool = Map.empty
+variableTypes project ExprFalse TypeBool = Map.empty
 variableTypes project (ExprTuple exprs) (TypeTuple types)
 	| length exprs == length types =
 		unionsVariableTypes $ zipWith (variableTypes project) exprs types
