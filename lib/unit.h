@@ -23,9 +23,6 @@ class CaTransition {
 	public:
 		void set_enable_fn(CaEnableFn *enable_fn) { this->enable_fn = enable_fn; }
 		void set_fire_fn(CaFireFn *fire_fn) { this->fire_fn = fire_fn; }
-		void set_var_size(size_t size) { this->var_size = size; }
-
-		size_t get_var_size() const { return var_size; }
 		bool is_enabled(CaUnit *unit);
 		bool call(CaThread * thread, CaUnit *unit, CaFireFn *firefn) { return enable_fn(thread, unit, firefn); }
 		bool call(CaThread * thread, CaUnit *unit) { return call(thread, unit, fire_fn); }
@@ -36,7 +33,6 @@ class CaTransition {
 	protected:
 		CaEnableFn *enable_fn;
 		CaFireFn *fire_fn;
-		size_t var_size;
 		int id;
 };
 
@@ -48,8 +44,7 @@ class CaUnitDef {
 		void register_transition(int i,
 			int id,
 			CaEnableFn *enable_fn,
-			CaFireFn *fire_fn,
-			size_t var_size);
+			CaFireFn *fire_fn);
 		void register_init(const CaMultiPath &mpath) { init_paths.push_back(mpath); }
 
 		CaUnit * start_unit(CaThread *thread, const CaPath &path);

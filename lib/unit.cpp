@@ -22,12 +22,10 @@ CaUnitDef::~CaUnitDef()
 void CaUnitDef::register_transition(int i,
 			int id,
 			CaEnableFn *enable_fn,
-			CaFireFn *fire_fn,
-			size_t var_size)
+			CaFireFn *fire_fn)
 {
 	transitions[i].set_enable_fn(enable_fn);
 	transitions[i].set_fire_fn(fire_fn);
-	transitions[i].set_var_size(var_size);
 	transitions[i].set_id(id);
 }
 
