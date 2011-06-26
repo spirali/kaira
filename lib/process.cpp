@@ -12,7 +12,7 @@ extern int ca_log_on;
 extern std::string ca_log_default_name;
 extern const char *ca_project_description_string;
 
-CaThread::CaThread() : messages(NULL),first_job(NULL), last_job(NULL)
+CaThread::CaThread() : messages(NULL),first_job(NULL), last_job(NULL), logger(NULL)
 {
 	pthread_mutex_init(&messages_mutex, NULL);
 }
