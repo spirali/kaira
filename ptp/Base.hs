@@ -166,3 +166,11 @@ variableTypes project x y = error $ "Type inference failed: " ++ show x ++ "/" +
 orderOutputEdges :: [Edge] -> [Edge]
 orderOutputEdges edges = packing ++ normal
 	where (packing, normal) = List.partition isPackingEdge edges
+
+isPathSingleton :: PathItem -> Bool
+isPathSingleton (PathSingleton _) = True
+isPathSingleton _ = False
+
+isSimplepath :: Path -> Bool
+isSimplepath (AbsPath ps) = all isPathSingleton ps
+isSimplepath (RelPath _ ps) = all isPathSingleton ps

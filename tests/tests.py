@@ -134,5 +134,8 @@ class BuildingTest(TestCase):
 	def test_broken_externtype_function(self):
 		self.failed_make(os.path.join(TEST_PROJECTS, "broken", "broken_externtype_function.proj"), "*MyType/getsize"), 
 
+	def test_multicast(self):
+		self.build(os.path.join(TEST_PROJECTS, "multicast", "multicast.proj"), "18000\n")
+
 if __name__ == '__main__':
     unittest.main()

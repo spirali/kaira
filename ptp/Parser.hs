@@ -108,11 +108,11 @@ buildPath rest = (0, cleanup rest)
 		cleanup (PPItem i : rest) = i : cleanup rest
 
 pathRange = do
-	reservedOp "["
+	char '['; whiteSpace
 	x <- expressionParser
 	reservedOp ".."
 	y <- expressionParser
-	reservedOp "]"
+	char ']'; whiteSpace
 	return $ PPItem (PathRange x y)
 
 pathUp :: Parser ParserPath

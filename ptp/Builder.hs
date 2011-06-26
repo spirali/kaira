@@ -43,6 +43,8 @@ caUnit = TPointer $ TRaw "CaUnit"
 caUnitDef = TPointer $ TRaw "CaUnitDef"
 caContext = TRaw "CaContext"
 caPath = TRaw "CaPath"
+caMultiPath = TRaw "CaMultiPath"
+caMultiPathIter = TRaw "CaMultiPath::Iterator"
 caThread = TPointer $ TRaw "CaThread"
 
 nameFromId :: String -> ID -> String
@@ -117,7 +119,8 @@ initCaUnitDef project unit = [
 		arg1 t = EVar $ "(CaEnableFn*) " ++ transitionFnName t
 		arg2 t = EVar $ "(CaFireFn*) " ++ fireFnName t
 		arg3 t = ECall "sizeof" [ EVar (nameFromId "Vars" (transitionId t)) ]
-		registerInit p = icall "->register_init" [ EVar varName, multiPathCode project varNotAllowed p ]
+		registerInit p = icall "->register_init" [ EVar varName, multiPathCode project varNotAllowed p undefined ]
+			-- We can use udefined as last argument because it has to be absolute path
 
 
 varStruct :: Project -> Transition -> Type
@@ -213,16 +216,17 @@ absPathToExpression project varfn abspath (RelPath n es) =
 absPathToExpression project varfn abspath (AbsPath es) =
 	ECall "CaPath" $ EInt (length es) : map (toExpression project varfn TypeInt . pathItemExpression) es
 
-multiPathCode :: Project -> (String -> Expression) -> Path -> Expression
-multiPathCode project varfn (AbsPath es) =
-	ECall "CaMultiPath" $ (EString $ map definition es) : (map (toExpression project varfn TypeInt) $ concatMap args es)
+multiPathCode :: Project -> (String -> Expression) -> Path -> Expression -> Expression
+multiPathCode project varfn path absPath =
+	ECall "CaMultiPath" $ prefix ++ (EString $ map definition es) : (map (toExpression project varfn TypeInt) $ concatMap args es)
 	where
+		(prefix, es) = case path of
+			(AbsPath es) -> ([], es)
+			(RelPath lvlup es) -> ([ absPath, EInt lvlup ], es)
 		definition (PathSingleton _) = 's'
 		definition (PathRange _ _) = 'r'
 		args (PathSingleton x) = [x]
 		args (PathRange x y) = [x, y]
-
-multiPathCode project varfn _ = error $ "multiPathCode: relative path"
 
 reportFunction :: Unit -> Function
 reportFunction unit = function {
@@ -314,9 +318,18 @@ fireFn project transition = function {
 	processOutput edge
 		| edgeGuard edge == ExprTrue = putTokens edge
 		| otherwise = IIf (toExpression project varFn TypeBool (edgeGuard edge)) (putTokens edge) INoop
-	putTokens edge = IStatement $ [
-		idefine "path" caPath $ absPathToExpression project varFn (EMemberPtr "path" (EVar "u")) (edgeTarget edge) ] ++
-		if forcePackers project then [ sendInstruction edge ] else [
+	putTokens edge
+		| isSimplepath (edgeTarget edge) = IStatement $ [
+			idefine "path" caPath $ absPathToExpression project varFn (EMemberPtr "path" (EVar "u")) (edgeTarget edge) ]
+				++ putTokensToUnit edge
+		| otherwise = IStatement $ [
+				idefine "mpath" caMultiPath $ multiPathCode project varFn (edgeTarget edge) (EMemberPtr "path" (EVar "u")),
+				idefine "iter" caMultiPathIter $ ECall ".get_iterator" [ EVar "mpath" ],
+				IWhile (ECall ".has_next" [ EVar "iter" ]) $ IStatement
+					(idefine "path" caPath (ECall ".next" [ EVar "iter" ]) : putTokensToUnit edge) ]
+	putTokensToUnit edge
+		| forcePackers project = [ sendInstruction edge ]
+		| otherwise = [
 			idefine "target" (TPointer $ unitType u) (ECast (ECall "->get_unit" [ (EVar "thread"),
 					EVar "path",
 					EInt (unitId u)]) (TPointer $ unitType u)),

@@ -185,6 +185,44 @@ CaMultiPath::CaMultiPath(const std::string &definition, ...) : definition(defini
 	va_end(vl);
 }
 
+CaMultiPath::CaMultiPath(const CaPath &path, int levelup, const std::string &def, ...)
+{
+	int pd = path.depth() - levelup;
+	if (pd < 0)
+		pd = 0;
+
+	char *beginning = (char*) alloca(pd + 1);
+	for (int t = 0; t < pd; t++) {
+		beginning[t] = 'r';
+	}
+	beginning[pd] = 0;
+
+	definition = std::string(beginning) + def;
+	size_t count = args_count() + pd;
+	args = new int[count];
+
+	for (int t = 0; t < pd; t++) {
+		args[t] = 'r';
+	}
+
+	int i = 0;
+	va_list vl;
+	va_start(vl, def);
+	for (size_t t = pd; t < definition.size(); t++) {
+		switch (definition[t]) {
+		case 's':
+			args[i++] = va_arg(vl, int);
+			break;
+		case 'r':
+			args[i++] = va_arg(vl, int);
+			args[i++] = va_arg(vl, int);
+			break;
+		}
+
+	}
+	va_end(vl);
+}
+
 CaMultiPath & CaMultiPath::operator= (const CaMultiPath & mpath)
 {
 	int count = mpath.args_count();

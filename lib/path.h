@@ -29,6 +29,7 @@ class CaPath {
 
 		void copy_to_mem(void *mem) const { memcpy(mem, nodes, get_size()); }
 
+		int get_node(int i) const { return nodes[i]; }
 
 	protected:
 		int *nodes;
@@ -42,7 +43,7 @@ class CaMultiPath {
             public:
                 Iterator(const CaMultiPath &mpath);
                 ~Iterator();
-                bool has_next() { return has_next_path; }
+                bool has_next() const { return has_next_path; }
                 CaPath next();
 
             protected:
@@ -54,6 +55,7 @@ class CaMultiPath {
 
 		CaMultiPath(const CaMultiPath &mpath);
 		CaMultiPath(const std::string &definition, ...);
+		CaMultiPath(const CaPath &path, int levelup, const std::string &definition, ...);
 		~CaMultiPath();
 		CaMultiPath & operator= (const CaMultiPath & mpath);
 
