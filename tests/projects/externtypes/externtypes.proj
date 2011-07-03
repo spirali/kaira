@@ -14,11 +14,11 @@
 	packer.pack_size(s);
 	packer.pack(obj.str.c_str(), s);
 </code></extern-type><function id="0" name="fun1" parameters="MyType a" return-type="MyType" with-context="False">	return a;
-</function><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net><place id="103" init_string="!" place_type="MyType" radius="19" x="93" y="44"><code>	MyType m;
+</function><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net><place id="103" init_string="" place_type="MyType" radius="19" x="93" y="44"><code>	MyType m;
 	m.i = 10;
 	m.j = 20;
 	place.add(m);
-</code></place><place id="104" init_string="!" place_type="MyType" radius="20" x="250" y="41"><code>	MyType m;
+</code></place><place id="104" init_string="" place_type="MyType" radius="20" x="250" y="41"><code>	MyType m;
 	m.i = 107;
 	m.j = 207;
 	place.add(m);

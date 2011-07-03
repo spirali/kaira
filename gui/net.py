@@ -117,6 +117,9 @@ class Net:
 
 		for transition in self.transitions():
 			e.append(transition.export_xml())
+
+		for transition in self.areas():
+			e.append(transition.export_xml())
 		return e
 
 	def item_by_id(self, id):
@@ -617,11 +620,10 @@ class Edge(NetItem):
 	def is_packing_edge(self):
 		return self.inscription and self.inscription[0] == "~"
 
-
 class NetArea(NetItem):
 
 	name = ""
-	count_expr = ""
+	init_expr = ""
 
 	def __init__(self, net, id, position, size):
 		NetItem.__init__(self, net, id)
@@ -642,12 +644,12 @@ class NetArea(NetItem):
 		self.position = position
 		self.changed()
 
-	def set_count_expr(self, count_expr):
-		self.count_expr = count_expr
+	def set_init_expr(self, init_expr):
+		self.init_expr = init_expr
 		self.changed()
 
-	def get_count_expr(self):
-		return self.count_expr
+	def get_init_expr(self):
+		return self.init_expr
 
 	def set_name(self, name):
 		self.name = name
@@ -677,7 +679,7 @@ class NetArea(NetItem):
 			return factory.get_move_action(self.get_position, self.set_position, position)
 
 	def get_text_entries(self):
-		return [ ("Count", self.get_count_expr, self.set_count_expr),
+		return [ ("Init", self.get_init_expr, self.set_init_expr),
 				("Name", self.get_name, self.set_name) ]
 
 	def is_area(self):
@@ -685,12 +687,23 @@ class NetArea(NetItem):
 
 	def as_xml(self):
 		e = self.create_xml_element("area")
-		e.set("count_expr", self.count_expr)
+		e.set("init-expr", self.init_expr)
 		e.set("name", self.name)
 		e.set("x", str(self.position[0]))
 		e.set("y", str(self.position[1]))
 		e.set("sx", str(self.size[0]))
 		e.set("sy", str(self.size[1]))
+		return e
+
+	def export_xml(self):
+		e = self.create_xml_element("area")
+		e.set("init-expr", self.init_expr)
+		e.set("name", self.name)
+		items = [ item for item in self.net.places() if self.is_inside(item) ]
+		for item in items:
+			element = xml.Element("place")
+			element.set("id", str(item.id))
+			e.append(element)
 		return e
 
 	def is_inside(self, item):
@@ -754,7 +767,7 @@ def load_area(element, net, loader):
 	px = xml_int(element, "x")
 	py = xml_int(element, "y")
 	area = net.add_area((px, py), (sx, sy), id)
-	area.count_expr = xml_str(element,"count_expr", "")
+	area.init_expr = xml_str(element,"init-expr", "")
 	area.name = xml_str(element, "name", "")
 
 def load_net(element, project, loader):

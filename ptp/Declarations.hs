@@ -61,8 +61,7 @@ data Place = Place {
 	placeName :: String,
 	placeType :: NelType,
 	placeInitCode :: Maybe String,
-	placeInitExprs :: [NelExpression],
-	placePaths :: Maybe Path
+	placeInitExprs :: [NelExpression]
 } deriving (Show)
 
 instance Eq Place where p1 == p2 = placeId p1 == placeId p2
@@ -90,6 +89,14 @@ data Transition = Transition {
 
 instance Eq Transition where t1 == t2 = transitionId t1 == transitionId t2
 
+data Area = Area {
+	areaId :: ID,
+	areaPlaces :: [Place],
+	areaInit :: Maybe Path
+} deriving (Show)
+
+instance Eq Area where a1 == a2 = areaId a1 == areaId a2
+
 data Project = Project {
 	projectName :: String,
 	places :: [Place],
@@ -99,6 +106,7 @@ data Project = Project {
 	events :: [Event],
 	userFunctions :: [UserFunction],
 	projectDescription :: String,
+	areas :: [Area],
 	forcePackers :: Bool
 } deriving (Show)
 

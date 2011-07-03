@@ -98,26 +98,19 @@ lookupBy errString fn id (x:xs)
 placeById :: Project -> ID -> Place
 placeById project id = lookupBy ("placeById: Place " ++ show id) placeId id (places project)
 
-{-
-placeSeqById :: Project -> ID -> Int
-placeSeqById project id =  placeSeq project $ placeById project id
--}
-
 transitionById :: Project -> ID -> Transition
 transitionById project id =
 	lookupBy "TransitionById: Not found" transitionId id (transitions project)
 
-{-
-placeSeq :: Project -> Place -> Int
-placeSeq project place =
-	case List.elemIndex place (places project) of
-		Just x -> x
-		Nothing -> error $ "Place not found"
--}
+areasOfPlace :: Project -> Place -> [Area]
+areasOfPlace project place = filter isInside (areas project)
+	where isInside area = place `elem` (areaPlaces area)
+
+areasOfUnit :: Project -> Unit -> [Area]
+areasOfUnit project unit = List.nub $ concatMap (areasOfPlace project) (unitPlaces unit)
 
 edgePlace :: Project -> Edge -> Place
 edgePlace project = (placeById project) . edgePlaceId
-
 
 placeTypeById :: Project -> ID -> NelType
 placeTypeById project = placeType . (placeById project)
@@ -132,6 +125,9 @@ outputTransitions :: Project -> Place -> [Transition]
 outputTransitions project place =
 	filter (\t -> place `elem` inputPlaces project t) (transitions project)
 
+hasInit :: Place -> Bool
+hasInit place = not (null (placeInitExprs place)) || hasInitCode place
+
 projectUnits :: Project -> [Unit]
 projectUnits project = countedMap unit $ joinOverlapped initSets
 	where
@@ -143,8 +139,13 @@ projectUnits project = countedMap unit $ joinOverlapped initSets
 			unitId = n,
 			unitTransitions = List.foldr List.union [] $ map (outputTransitions project) places }
 
-unitInitPaths :: Unit -> [Path]
-unitInitPaths unit = Maybe.catMaybes $ map placePaths (unitPlaces unit)
+unitInitPaths :: Project -> Unit -> [Path]
+unitInitPaths project unit | any hasInit (unitPlaces unit) =
+	case areasOfUnit project unit of
+		[] -> [ AbsPath [] ]
+		[area] -> Maybe.maybeToList (areaInit area)
+		_ -> error "Invalid placed areas"
+unitInitPaths project unit = []
 
 placePos :: Unit -> Place -> Int
 placePos unit place = index 0 (unitPlaces unit)

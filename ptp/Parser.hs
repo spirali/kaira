@@ -24,6 +24,7 @@ module Parser (
 	parseEdgeInscription,
 	parseGuard,
 	parseParameters,
+	parsePath,
 	parseInitExpr
 ) where
 
@@ -190,16 +191,8 @@ edgeInscriptionParser = do
 guardParser :: Parser NelExpression
 guardParser = do { eof; return ExprTrue; } <|> expressionParser
 
-eagerPath :: [NelExpression] -> Parser ([NelExpression], Maybe Path)
-eagerPath xs = do
-	reservedOp "!"
-	p <- do { eof; return (AbsPath []) } <|> pathParser
-	return (xs, Just p)
-
-initExprParser :: Parser ([NelExpression], Maybe Path)
-initExprParser = do
-	x <- sepEndBy expressionParser semi
-	eagerPath x <|> do { eof; return (x, Nothing) }
+initExprParser :: Parser [NelExpression]
+initExprParser = sepEndBy expressionParser semi
 
 strErrorMessage :: ParseError -> String
 strErrorMessage perror =
@@ -235,8 +228,11 @@ parseEdgeInscription source str = parseHelper edgeInscriptionParser source str
 parseGuard :: String -> String -> NelExpression
 parseGuard = parseHelper guardParser
 
-parseInitExpr :: String -> String -> ([NelExpression], Maybe Path)
+parseInitExpr :: String -> String -> [NelExpression]
 parseInitExpr = parseHelper initExprParser
+
+parsePath :: String -> String -> Path
+parsePath = parseHelper pathParser
 
 -- |Parses "Int a, String b" as [("a", TInt), ("b", TString)]
 parseParameters :: TypeTable -> String -> String -> [NelVarDeclaration]

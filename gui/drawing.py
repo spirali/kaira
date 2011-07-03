@@ -158,11 +158,11 @@ class PlaceDrawing(DrawingBase):
 			cr.set_source_rgb(0,0,0)
 			cr.stroke()
 
-			count_text = str(len(self.tokens))
-			w, h = utils.text_size(cr, count_text)
+			init_text = str(len(self.tokens))
+			w, h = utils.text_size(cr, init_text)
 			cr.set_source_rgb(0.8,0.8,0.8)
 			cr.move_to(px + self.radius - w/2, py + h/2)
-			cr.show_text(count_text)
+			cr.show_text(init_text)
 
 			# Print token names
 			texts = [ (t, utils.text_size(cr, t)) for t in self.tokens ]
@@ -242,7 +242,7 @@ class AreaDrawing(DrawingBase):
 		self.size = item.get_size()
 		self.error_messages = None
 		self.highlight = None
-		self.count_expr = item.get_count_expr()
+		self.init_expr = item.get_init_expr()
 		self.name = item.get_name()
 
 	def draw(self, cr):
@@ -258,15 +258,14 @@ class AreaDrawing(DrawingBase):
 			cr.rectangle(px, py, sx, sy)
 			cr.stroke()
 
-		cr.set_line_width(2.5)
+		cr.set_line_width(0.5)
 		cr.set_source_rgb(0,0,0)
 		cr.rectangle(px, py, sx, sy)
 		cr.stroke()
 
-		cr.set_source_rgb(0,0,0)
-		cr.set_line_width(1.0)
+		cr.set_source_rgb(0.4,0.4,0.6)
 		cr.move_to(px, py - 5)
-		cr.show_text(self.count_expr)
+		cr.show_text(self.init_expr)
 
 		textx, texty = utils.text_size(cr, self.name)
 		cr.move_to(px + sx - textx, py - 5)
@@ -275,7 +274,7 @@ class AreaDrawing(DrawingBase):
 	def draw_top(self, cr):
 		if self.error_messages and "instances" in self.error_messages:
 			px, py = self.position
-			draw_error_box_after_text(cr, self.count_expr,(px, py - 5), self.error_messages["instances"])
+			draw_error_box_after_text(cr, self.init_expr,(px, py - 5), self.error_messages["instances"])
 
 	def z_level(self):
 		return -1

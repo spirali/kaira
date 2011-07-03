@@ -111,7 +111,7 @@ initCaUnitDef :: Project -> Unit -> [Instruction]
 initCaUnitDef project unit = [
 	idefine varName caUnitDef $
 		ENew (ECall "CaUnitDef" [ EInt $ unitId unit, EVar $ "init_unit_" ++ show (unitId unit), EInt (length transitions)])
-	] ++ countedMap registerTransition transitions ++ map registerInit (unitInitPaths unit)
+	] ++ countedMap registerTransition transitions ++ map registerInit (unitInitPaths project unit)
 	where
 		transitions = unitTransitions unit
 		varName = nameFromId "unitdef" (unitId unit)

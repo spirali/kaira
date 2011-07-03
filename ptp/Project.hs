@@ -60,7 +60,7 @@ xmlAttrBool str e = case xmlAttr str e of
 		_ -> False
 
 codeContent :: Xml.Element -> Maybe String
-codeContent e = Xml.findElement (qstr "code") e >>= return . Xml.strContent
+codeContent e = Xml.findChild (qstr "code") e >>= return . Xml.strContent
 
 source :: Xml.Element -> String -> String
 source element place = "*" ++ (xmlAttr "id" element) ++ "/" ++ place
@@ -72,10 +72,9 @@ placeFromElement types e =
 		placeName =  xmlAttr "name" e,
 		placeType = parseType types (source e "type") $ xmlAttr "type" e,
 		placeInitCode = codeContent e,
-		placeInitExprs = initExpression,
-		placePaths = paths
+		placeInitExprs = initExpression
 	}
-	where (initExpression, paths) = parseInitExpr (source e "init") $ xmlAttr' "init-expr" e ""
+	where initExpression = parseInitExpr (source e "init") $ xmlAttr' "init-expr" e ""
 
 edgeFromElement :: Xml.Element -> Edge
 edgeFromElement e =
@@ -90,26 +89,34 @@ edgeFromElement e =
 transitionFromElement :: Xml.Element -> Transition
 transitionFromElement e =
 	Transition {
-		transitionName = name,
-		transitionId = id,
+		transitionName = xmlAttr "name" e,
+		transitionId = idFromElement e,
 		edgesIn = orderEdgesByDependancy edgesIn,
 		edgesOut = orderOutputEdges edgesOut,
 		transitionCode = codeContent e,
 		guard = parseGuard (source e "guard") $ xmlAttr' "guard" e ""
 	}
 	where
-		id = idFromElement e
-		name = xmlAttr "name" e
-		edgesIn = map edgeFromElement $ Xml.findElements (qstr "edge-in") e
-		edgesOut = map edgeFromElement $ Xml.findElements (qstr "edge-out") e
+		edgesIn = map edgeFromElement $ Xml.findChildren (qstr "edge-in") e
+		edgesOut = map edgeFromElement $ Xml.findChildren (qstr "edge-out") e
 
 placesFromElement :: TypeTable -> Xml.Element -> [Place]
 placesFromElement types e =
-	map (placeFromElement types) (Xml.findElements (qstr "place") e)
+	map (placeFromElement types) (Xml.findChildren (qstr "place") e)
 
 transitionsFromElement :: Xml.Element -> [Transition]
 transitionsFromElement e =
-	map transitionFromElement $ Xml.findElements (qstr "transition") e
+	map transitionFromElement $ Xml.findChildren (qstr "transition") e
+
+areaFromElement :: [Place] -> Xml.Element -> Area
+areaFromElement places e = Area {
+		areaId = idFromElement e,
+		areaPlaces = map (pickPlace . idFromElement) (Xml.findChildren (qstr "place") e),
+		areaInit = if initExpr == "" then Nothing else Just $ parsePath (source e "init") initExpr
+	}
+	where
+		pickPlace id = lookupBy "areaFromElement" placeId id places
+		initExpr = xmlAttr' "init-expr" e ""
 
 parameterFromElement :: TypeTable -> Xml.Element -> Parameter
 parameterFromElement types e = Parameter {
@@ -126,7 +133,7 @@ externTypeFromElement e = (name, TypeData name rawType transportMode codes)
 	where
 		name = xmlAttr "name" e
 		rawType = xmlAttr "raw-type" e
-		codes = [ (xmlAttr "name" e, Xml.strContent e) | e <- Xml.findElements (qstr "code") e ]
+		codes = [ (xmlAttr "name" e, Xml.strContent e) | e <- Xml.findChildren (qstr "code") e ]
 		transportMode = case xmlAttr "transport-mode" e of
 							"Disabled" -> TransportDisabled
 							"Direct" -> TransportDirect
@@ -135,7 +142,7 @@ externTypeFromElement e = (name, TypeData name rawType transportMode codes)
 
 externTypesFromElement :: Xml.Element -> TypeTable
 externTypesFromElement e =
-	Map.fromList $ map externTypeFromElement (Xml.findElements (qstr "extern-type") e)
+	Map.fromList $ map externTypeFromElement (Xml.findChildren (qstr "extern-type") e)
 
 projectTypesFromElement :: Xml.Element -> TypeTable
 projectTypesFromElement e = Map.union (externTypesFromElement e) standardTypes
@@ -159,22 +166,25 @@ projectFromXml :: String -> Project
 projectFromXml xml =
 	Project {
 			projectName = "project",
-			places = placesFromElement types net,
+			places = places,
 			transitions = transitionsFromElement net,
 			projectParameters = params,
 			typeTable = types,
 			events = events,
 			userFunctions = ufunctions,
 			projectDescription = Xml.strContent description,
+			areas = areas,
 			forcePackers = fpackers
 		 }
 	where
 		root = head $ Xml.onlyElems (Xml.parseXML xml)
-		configuration = just "<configuration>" $ Xml.findElement (qstr "configuration") root
-		net = just "<net>" $ Xml.findElement (qstr "net") root
-		params = map (parameterFromElement types) $ Xml.findElements (qstr "parameter") configuration
-		events = map eventFromElement $ Xml.findElements (qstr "event") configuration
+		configuration = just "<configuration>" $ Xml.findChild (qstr "configuration") root
+		net = just "<net>" $ Xml.findChild (qstr "net") root
+		params = map (parameterFromElement types) $ Xml.findChildren (qstr "parameter") configuration
+		events = map eventFromElement $ Xml.findChildren (qstr "event") configuration
 		types = projectTypesFromElement configuration
-		ufunctions = map (userFunctionFromElement types) $ Xml.findElements (qstr "function") configuration
-		description = just "<description>" $ Xml.findElement (qstr "description") root
-		fpackers = xmlAttrBool "value" $ just "<force-packers>" $ Xml.findElement (qstr "force-packers") configuration
+		ufunctions = map (userFunctionFromElement types) $ Xml.findChildren (qstr "function") configuration
+		description = just "<description>" $ Xml.findChild (qstr "description") root
+		fpackers = xmlAttrBool "value" $ just "<force-packers>" $ Xml.findChild (qstr "force-packers") configuration
+		places = placesFromElement types net
+		areas = map (areaFromElement places) $ Xml.findChildren (qstr "area") net

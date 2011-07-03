@@ -1,10 +1,10 @@
-<project><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net><area count_expr="2" id="102" name="" sx="274" sy="88" x="236" y="23" /><place id="103" init_string="!" place_type="Int" radius="20" x="117" y="38"><code>	int t;
+<project><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net><area id="102" init-expr="/[2..3]" name="" sx="274" sy="88" x="236" y="23" /><place id="103" init_string="" place_type="Int" radius="20" x="117" y="38"><code>	int t;
 	for (t = 0; t &lt; 10; t++) {
 		place.add(t);
 	}
 </code></place><place id="104" init_string="" place_type="Int" radius="20" x="119" y="232" /><place id="105" init_string="" place_type="Int" radius="20" x="220" y="233"><code>	place.add(25);
 	place.add(12);	
-</code></place><place id="106" init_string="" place_type="Int" radius="20" x="152" y="435" /><place id="107" init_string="" place_type="Int" radius="20" x="345" y="319" /><place id="108" init_string="" place_type="Int" radius="20" x="218" y="396" /><place id="109" init_string="" place_type="Int" radius="20" x="87" y="552" /><place id="110" init_string="100 ! /[2 .. 3]" place_type="Int" radius="20" x="406" y="59" /><transition guard="" id="111" name="" sx="70" sy="35" x="118" y="143" /><transition guard="" id="112" name="" sx="70" sy="35" x="166" y="320"><code>	int t;
+</code></place><place id="106" init_string="" place_type="Int" radius="20" x="152" y="435" /><place id="107" init_string="" place_type="Int" radius="20" x="345" y="319" /><place id="108" init_string="" place_type="Int" radius="20" x="218" y="396" /><place id="109" init_string="" place_type="Int" radius="20" x="87" y="552" /><place id="110" init_string="100" place_type="Int" radius="20" x="406" y="59" /><transition guard="" id="111" name="" sx="70" sy="35" x="118" y="143" /><transition guard="" id="112" name="" sx="70" sy="35" x="166" y="320"><code>	int t;
 	for (t = 0; t &lt; 5; t++) {
 		var.z.push_back(t);
 	} 
