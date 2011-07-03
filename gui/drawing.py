@@ -93,6 +93,8 @@ class TransitionDrawing(DrawingBase):
 
 class PlaceDrawing(DrawingBase):
 
+	max_shown_tokens = 6
+
 	def __init__(self, item):
 		DrawingBase.__init__(self)
 		self.position = item.get_position()
@@ -143,10 +145,13 @@ class PlaceDrawing(DrawingBase):
 			cr.move_to(px + x, py + x)
 			cr.show_text(self.place_type)
 
-
 	def draw_top(self, cr):
 		px, py = self.position
+
 		if self.tokens:
+			tokens = self.tokens[:self.max_shown_tokens]
+			if len(self.tokens) != len(tokens):
+				tokens.append("...")
 			# Draw green circle
 			x = math.sqrt((self.radius * self.radius) / 2) + 15
 			cr.set_source_rgb(0.2,0.45,0)
@@ -165,10 +170,10 @@ class PlaceDrawing(DrawingBase):
 			cr.show_text(count_text)
 
 			# Print token names
-			texts = [ (t, utils.text_size(cr, t)) for t in self.tokens ]
-			texts = [ (t, (x, y + 1)) for (t, (x, y)) in texts ]
-			text_height = sum([ x[1][1] for x in texts ])
-			text_width = max([ x[1][0] for x in texts ])
+			w_size = utils.text_size(cr, "W")[1] + 3
+			texts = [ (t, utils.text_size(cr, t)[0]) for t in tokens ]
+			text_height = len(tokens) * w_size
+			text_width = max([ x[1] for x in texts ])
 
 			text_x = px + self.radius + 12
 			text_y = py - text_height / 2
@@ -180,8 +185,8 @@ class PlaceDrawing(DrawingBase):
 			cr.set_source_rgb(0.0,0.0,0.0)
 			cr.set_source_rgb(1.0,1.0,1.0)
 
-			for (t, (x, y)) in texts:
-				text_y += y
+			for (t, x) in texts:
+				text_y += w_size
 				cr.move_to(text_x, text_y)
 				cr.show_text(t)
 

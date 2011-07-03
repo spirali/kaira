@@ -115,7 +115,7 @@ class SimView(gtk.VBox):
 		vbox.pack_start(sw)
 		vbox.show_all()
 
-		self.app.window.add_tab(mainwindow.Tab("Tokens inside", vbox))
+		self.app.window.add_tab(mainwindow.Tab("Tokens of " + place.get_name(), vbox))
 
 	def _button_down(self, event, position):
 		if event.button == 3:
@@ -227,8 +227,6 @@ class InstanceVisualConfig(VisualConfig):
 		if self.area.is_inside(item):
 			tokens = self.simulation.get_tokens_of_place(item)
 			r = tokens[self.iid]
-			if len(r) > 6:
-				r = r[:6] + ["..."]
 			d.set_tokens(r)
 		return d
 
