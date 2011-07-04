@@ -1,5 +1,6 @@
 #
 #    Copyright (C) 2010, 2011 Stanislav Bohm
+#                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
 #

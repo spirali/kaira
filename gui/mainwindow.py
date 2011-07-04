@@ -1,5 +1,6 @@
 #
 #    Copyright (C) 2010, 2011 Stanislav Bohm
+#                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
 #
@@ -83,10 +84,12 @@ class MainWindow(gtk.Window):
 		num = self.notebook.page_num(tab.get_widget())
 		self.notebook.set_current_page(num)
 
-	def switch_to_tab_by_key(self, key):
+	def switch_to_tab_by_key(self, key, fn = None):
 		for tab in self.tablist:
 			if tab.get_key() == key:
 				self.switch_to_tab(tab)
+				if fn:
+					fn(tab)
 				return True
 		return False
 
@@ -160,6 +163,12 @@ class MainWindow(gtk.Window):
 		item = gtk.MenuItem("R_e-run simulation")
 		item.connect("activate", lambda w: self.app.simulation_start(True))
 		item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("F8"), 0, gtk.ACCEL_VISIBLE)
+		build_menu.append(item)
+
+		build_menu.append(gtk.SeparatorMenuItem())
+
+		item = gtk.MenuItem("Run _simulation in Valgrind")
+		item.connect("activate", lambda w: self.app.simulation_start(False, valgrind = True))
 		build_menu.append(item)
 
 		view_menu = gtk.Menu()

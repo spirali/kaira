@@ -1,5 +1,6 @@
 #
 #    Copyright (C) 2010, 2011 Stanislav Bohm
+#                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
 #
@@ -95,6 +96,17 @@ class CodeEditor(gtk.VBox):
 
 	def _toolbar(self):
 		return None
+
+	def jump_to_line(self, line_no):
+		if line_no is None:
+			return
+		start_mark = self.buffer.get_mark("start")
+		text_iter = self.buffer.get_iter_at_mark(start_mark)
+		text_iter.forward_lines(line_no - 3)
+		self.view.scroll_to_iter(text_iter, 0.1)
+		self.buffer.place_cursor(text_iter)
+		self.view.grab_focus()
+
 
 class CodeFileEditor(CodeEditor):
 

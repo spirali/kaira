@@ -1,5 +1,6 @@
 #
 #    Copyright (C) 2010, 2011 Stanislav Bohm
+#                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
 #
@@ -390,6 +391,9 @@ class Place(NetElement):
 	radius = 20
 	place_type = ""
 	init_string = ""
+
+	def get_name(self):
+		return str(self.get_id())
 
 	def get_radius(self):
 		return self.radius
