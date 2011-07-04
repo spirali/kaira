@@ -22,6 +22,7 @@ import gtk
 
 import project
 import os
+import re
 import sys
 import gtkutils
 import paths
@@ -237,8 +238,8 @@ class App:
 			else:
 				name = "T: <unnamed" + str(transition.get_id()) + ">"
 			editor = codeedit.TransitionCodeEditor(transition, [ line for line in stdout if line.strip() != "" ])
-			editor.jump_to_line(line_no)
 			self.window.add_tab(Tab(name, editor, transition))
+			editor.jump_to_line(line_no)
 		self._start_ptp(self.project, open_tab, extra_args = [ "--transition-vars", str(transition.get_id()) ])
 
 	def place_edit(self, place, line_no = None):
@@ -248,24 +249,25 @@ class App:
 		def open_tab(stdout):
 			name = "P: " + str(place.get_id())
 			editor = codeedit.PlaceCodeEditor(place, stdout[0].strip())
-			editor.jump_to_line(line_no)
 			self.window.add_tab(Tab(name, editor, place))
+			editor.jump_to_line(line_no)
 		self._start_ptp(self.project, open_tab, extra_args = [ "--place-type", str(place.get_id())])
 
-	def extern_type_function_edit(self, extern_type, fn_name, callback):
+	def extern_type_function_edit(self, extern_type, fn_name, callback, line_no = None):
 		tag = (extern_type, fn_name)
-		if self.window.switch_to_tab_by_key(tag):
+		if self.window.switch_to_tab_by_key(tag, lambda tab: tab.widget.jump_to_line(line_no)):
 			return
 		name = extern_type.get_name() + "/" + fn_name
 		editor = ExternTypeEditor(extern_type, fn_name, callback)
 		self.window.add_tab(Tab(name, editor, tag))
+		editor.jump_to_line(line_no)
 
 	def function_edit(self, function, line_no = None):
 		if self.window.switch_to_tab_by_key(function, lambda tab: tab.widget.jump_to_line(line_no)):
 			return
 		editor = FunctionEditor(function)
-		editor.jump_to_line(line_no)
 		self.window.add_tab(Tab(function.get_name(), editor, function))
+		editor.jump_to_line(line_no)
 
 	def project_config(self):
 		if self.window.switch_to_tab_by_key("project-config"):
@@ -453,28 +455,31 @@ class App:
 		p.start([proj.get_exported_filename()] + extra_args)
 
 	def _try_make_error_with_link(self, id_string, item_id, pos, message):
+		search = re.search("^\d+:", message)
+		line_no = int(search.group(0)[:-1]) if search else None
+
 		if pos in ["getstring", "getsize", "pack", "unpack"] and item_id is None:
 			item = self.project.find_extern_type(id_string)
-			self.console_write_link(id_string + "/" + pos, 
-				lambda: self.extern_type_function_edit(item, pos, lambda e, f: self._project_changed()))
-			self.console_write(":" + message)
+			self.console_write_link(id_string + "/" + pos + (":" + str(line_no) if line_no else ""),
+				lambda: self.extern_type_function_edit(item, pos, lambda e, f: self._project_changed(), line_no))
+			self.console_write(message[message.find(":"):] if line_no else ":" + message)
 			return True
 
-		try: line_no = int(message[:message.find(":")])
-		except Exception: line_no = None
-		
 		item = self.project.get_item(item_id)
 		if pos == "function" and item.is_transition():
-			self.console_write_link(str(item_id) + "/" + pos, lambda: self.transition_edit(item, line_no))
-			self.console_write(":" + message)
+			self.console_write_link(str(item_id) + "/" + pos + (":" + str(line_no) if line_no else ""),
+				lambda: self.transition_edit(item, line_no))
+			self.console_write(message[message.find(":"):] if line_no else ":" + message)
 			return True
 		if pos == "init_function" and item.is_place():
-			self.console_write_link(str(item_id) + "/" + pos, lambda: self.place_edit(item, line_no))
-			self.console_write(":" + message)
+			self.console_write_link(str(item_id) + "/" + pos + (":" + str(line_no) if line_no else ""),
+				lambda: self.place_edit(item, line_no))
+			self.console_write(message[message.find(":"):] if line_no else ":" + message)
 			return True
 		if pos == "user_function":
-			self.console_write_link(item.get_name(), lambda: self.function_edit(item, line_no))
-			self.console_write(":" + message)
+			self.console_write_link(item.get_name() + (":" + str(line_no) if line_no else ""),
+				lambda: self.function_edit(item, line_no))
+			self.console_write(message[message.find(":"):] if line_no else ":" + message)
 			return True
 		return False
 
