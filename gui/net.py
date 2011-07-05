@@ -135,7 +135,7 @@ class Net:
 	def pick_items(self, position):
 		return [ item for item in self.items if item.is_at_position(position) ]
 
-	def get_item_at_position(self, position, filter_fn):
+	def get_item_at_position(self, position, filter_fn = None):
 		for item in filter(filter_fn, self.items):
 			if item.is_at_position(position):
 				return item

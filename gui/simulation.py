@@ -187,7 +187,7 @@ class NetworkInstance:
 		for u in self.units:
 			if u.has_place(place):
 				return u.get_tokens(place)
-		return None
+		return []
 
 	def is_enabled(self, transition):
 		for u in self.units:
@@ -199,6 +199,8 @@ class NetworkInstance:
 		self.simulation.fire_transition(transition, self.path)
 
 class OverviewInstance:
+
+	path = None
 
 	def __init__(self, simulation, units):
 		self.simulation = simulation

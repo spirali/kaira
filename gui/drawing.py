@@ -113,7 +113,7 @@ class TransitionDrawing(DrawingBase):
 
 class PlaceDrawing(DrawingBase):
 
-	max_shown_tokens = 6
+	max_shown_tokens = 12
 
 	def __init__(self, item):
 		DrawingBase.__init__(self)

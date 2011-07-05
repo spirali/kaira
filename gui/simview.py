@@ -94,6 +94,7 @@ class SimView(NetRunView):
 	def __init__(self, app, simulation):
 		NetRunView.__init__(self, simulation.get_net(), simulation.running_paths(), SimVisualConfig(self))
 		self.simulation = simulation
+		self.app = app
 		simulation.set_callback("changed", self._simulation_changed)
 
 	def get_instance(self):
@@ -108,9 +109,33 @@ class SimView(NetRunView):
 		self.redraw()
 
 	def _button_down(self, event, pos):
-		item = self.simulation.get_net().get_item_at_position(pos, lambda i: i.is_transition())
-		if item:
+		item = self.simulation.get_net().get_item_at_position(pos)
+		if item is None:
+			return
+		if item.is_transition():
 			self.get_instance().fire_transition(item)
+		elif item.is_place():
+			self.open_tokens_tab(item)
+
+	def open_tokens_tab(self, place):
+		instance = self.get_instance()
+		text_buffer = gtk.TextBuffer()
+		text_buffer.insert(text_buffer.get_end_iter(), '\n'.join(instance.get_tokens(place)))
+		text_area = gtk.TextView()
+		text_area.set_buffer(text_buffer)
+		text_area.set_editable(False)
+
+		sw = gtk.ScrolledWindow()
+		sw.add(text_area)
+		vbox = gtk.VBox()
+		vbox.pack_start(sw)
+		vbox.show_all()
+
+		label = "Tokens of " + place.get_name()
+		if instance.path:
+			label += "@" + str(instance.path)
+		self.app.window.add_tab(mainwindow.Tab(label, vbox))
+
 
 class SimVisualConfig(VisualConfig):
 
@@ -126,9 +151,7 @@ class SimVisualConfig(VisualConfig):
 
 	def place_drawing(self, item):
 		d = VisualConfig.place_drawing(self, item)
-		tokens = self.simview.get_instance().get_tokens(item)
-		if tokens:
-			d.set_tokens(tokens)
+		d.set_tokens(self.simview.get_instance().get_tokens(item))
 		return d
 
 def connect_dialog(mainwindow):
