@@ -43,7 +43,10 @@ import logview
 import settings
 
 class App:
-	
+	"""
+		The class represents application, the callbacks from mainwindow 
+		(mainly from menu) calls methods of this class 
+	"""
 	def __init__(self, args):
 		self.window = MainWindow(self)
 		self.window.project_is_active(False)

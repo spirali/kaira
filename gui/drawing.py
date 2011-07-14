@@ -23,12 +23,6 @@ import utils
 
 class VisualConfig:
 
-	def get_highlight(self, item):
-		return None
-
-	def get_messages(self, item):
-		return None
-
 	def transition_drawing(self, item):
 		return TransitionDrawing(item)
 

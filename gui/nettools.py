@@ -22,6 +22,9 @@ import utils
 import gtkutils
 
 class NetTool:
+	"""
+		Base class for editing operations over network (like creating new places and transitions)	
+	"""
 
 	action = None
 	scroll_point = None
