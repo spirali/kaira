@@ -22,25 +22,33 @@ import gtk
 
 class ObjectList(gtk.VBox):
 
-	def __init__(self, list_definition, buttons, rpanel = None):
+	def __init__(self, list_definition, buttons = None, rpanel = None, context_menu = None):
 		gtk.VBox.__init__(self)
 
-		box = gtk.HButtonBox() 
-		box.set_layout(gtk.BUTTONBOX_START)
-	
-		for (name, stock, callback) in buttons:
-			if name is None:
-				button = gtk.Button(stock = stock)
-			else:
-				button = gtk.Button(name)
-			button.connect("clicked", self._callback(callback))
-			box.add(button)
+		if buttons:
+			box = gtk.HButtonBox()
+			box.set_layout(gtk.BUTTONBOX_START)
 
-		self.pack_start(box, False, False)
+			for (name, stock, callback) in buttons:
+				if name is None:
+					button = gtk.Button(stock = stock)
+				else:
+					button = gtk.Button(name)
+				button.connect("clicked", self._callback(callback))
+				box.add(button)
+
+			self.pack_start(box, False, False)
+
 
 		self.list = gtkutils.SimpleList(list_definition)
 		self.list.connect_view("cursor-changed", lambda w: self.cursor_changed(self.list.get_selection(0)))
 		self.list.connect_view("row-activated", lambda w, i, p: self.row_activated(self.list.get_selection(0)))
+
+		self.context_menu = context_menu
+		if context_menu:
+			self.list.listview.set_events(gtk.gdk.BUTTON_PRESS_MASK)
+			self.list.listview.connect("button_press_event", self._button_down)
+
 		if rpanel is None:
 			self.pack_start(self.list)
 		else:
@@ -55,6 +63,14 @@ class ObjectList(gtk.VBox):
 
 	def selected_object(self):
 		return self.list.get_selection(0)
+
+	def select_object(self, obj):
+		i = self.list.find(obj, 0)
+		if i is not None:
+			self.list.select_iter(i)
+
+	def select_first(self):
+		self.list.select_first()
 
 	def add_object(self, obj):
 		self.list.append(self.object_as_row(obj))
@@ -74,8 +90,21 @@ class ObjectList(gtk.VBox):
 		for obj in obj_list:
 			self.add_object(obj)
 
+	def refresh(self, obj_list):
+		obj = self.selected_object()
+		self.list.clear()
+		self.fill(obj_list)
+		self.select_object(obj)
+
 	def cursor_changed(self, obj):
 		pass
 
 	def row_activated(self, obj):
 		pass
+
+	def _button_down(self, w, event):
+		def call(f):
+			return lambda w: f(self.selected_object())
+		if event.button == 3 and self.context_menu:
+			menu = [ (n, call(f)) for n,f in self.context_menu ]
+			gtkutils.show_context_menu(menu, event)
