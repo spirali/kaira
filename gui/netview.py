@@ -23,6 +23,8 @@ import paths
 import os
 from canvas import NetCanvas
 from drawing import VisualConfig
+from objectlist import ObjectList
+from net import Net
 
 action_cursor = { 
 	"none" : None,
@@ -92,10 +94,9 @@ class NetViewVisualConfig(VisualConfig):
 
 class NetView(gtk.VBox):
 
-	def __init__(self, app, project, net):
+	def __init__(self, app, project):
 		gtk.VBox.__init__(self)
 		self.project = project
-		self.net = net
 		self.app = app
 		self.tool = None
 		self.entry_types = []
@@ -103,8 +104,17 @@ class NetView(gtk.VBox):
 
 		self.pack_start(self._controls(), False)
 		self.pack_start(self._editarea(), False)
-		self.drawarea = self._net_canvas()
-		self.pack_start(self.drawarea)
+
+		paned = gtk.HPaned()
+		self.pack_start(paned)
+
+		self.netlist = NetList(project, self)
+		paned.pack1(self.netlist, False)
+		self.canvas = self._net_canvas()
+		paned.pack2(self.canvas, True, True)
+		paned.show_all()
+
+		self.netlist.hide()
 
 		self.transition_edit_callback = None
 		self.place_edit_callback = None
@@ -120,24 +130,32 @@ class NetView(gtk.VBox):
 		tool.start()
 		self.focus_entry()
 
+	def get_net(self):
+		return self.netlist.selected_object()
+
+	def switch_to_net(self, net):
+		self.tool.set_net(net)
+		self.canvas.set_net(net)
+		self.canvas.set_viewport((0,0))
+
 	def get_zoom(self):
-		return self.drawarea.get_zoom()
+		return self.canvas.get_zoom()
 	
 	def focus_entry(self):
 		self.entry.grab_focus()
 
 	def set_viewport(self, viewport):
-		self.drawarea.set_viewport(viewport)
+		self.canvas.set_viewport(viewport)
 
 	def get_viewport(self):
-		return self.drawarea.get_viewport()
+		return self.canvas.get_viewport()
 
 	def redraw(self):
-		self.drawarea.redraw()
+		self.canvas.redraw()
 
 	def set_cursor(self,action_name):
-		if self.drawarea.window:
-			self.drawarea.window.set_cursor(get_cursor(action_name))
+		if self.canvas.window:
+			self.canvas.window.set_cursor(get_cursor(action_name))
 
 	def net_changed(self):
 		self.redraw()
@@ -160,12 +178,26 @@ class NetView(gtk.VBox):
 		if self.vconfig.set_mouseover_highlight(None):
 			self.redraw()
 
+	def netlist_show(self, v):
+		if v:
+			self.netlist.show()
+		else:
+			self.netlist.hide()
+
 	def _controls(self):
 		icon_arrow = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "arrow.png"))
 		icon_transition = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "transition.png"))
 		icon_place = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "place.png"))
 		icon_arc = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "arc.png"))
 		icon_area = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "area.png"))
+
+		button1 = gtk.ToggleToolButton(None)
+		button1.connect("toggled", lambda w: self.netlist_show(w.get_active()))
+		button1.set_stock_id(gtk.STOCK_INDEX)
+
+		toolbar = gtk.Toolbar()
+		toolbar.add(button1)
+		toolbar.add(gtk.SeparatorToolItem())
 
 		button1 = gtk.RadioToolButton(None,None)
 		button1.connect("toggled", lambda w: self.set_tool(nettools.SelectTool(self)))
@@ -187,7 +219,6 @@ class NetView(gtk.VBox):
 		button5.connect("toggled", lambda w: self.set_tool(nettools.AreaTool(self)))
 		button5.set_icon_widget(icon_area)
 
-		toolbar = gtk.Toolbar()
 		toolbar.add(button1)
 		toolbar.add(button2)
 		toolbar.add(button3)
@@ -197,11 +228,11 @@ class NetView(gtk.VBox):
 		toolbar.add(gtk.SeparatorToolItem())
 
 		button1 = gtk.ToolButton()
-		button1.connect("clicked", lambda w: self.drawarea.zoom_in())
+		button1.connect("clicked", lambda w: self.canvas.zoom_in())
 		button1.set_stock_id(gtk.STOCK_ZOOM_IN)
 
 		button2 = gtk.ToolButton()
-		button2.connect("clicked", lambda w: self.drawarea.zoom_out())
+		button2.connect("clicked", lambda w: self.canvas.zoom_out())
 		button2.set_stock_id(gtk.STOCK_ZOOM_OUT)
 
 		toolbar.add(button1)
@@ -215,7 +246,7 @@ class NetView(gtk.VBox):
 
 	def _net_canvas(self):
 		self.vconfig = NetViewVisualConfig(self.project)
-		c = NetCanvas(self.net, self._draw, self.vconfig)
+		c = NetCanvas(self.get_net(), self._draw, self.vconfig)
 		c.set_callback("button_down", self._button_down)
 		c.set_callback("button_up", self._button_up)
 		c.set_callback("mouse_move", self._mouse_move)
@@ -290,3 +321,50 @@ class NetView(gtk.VBox):
 		if self.entry_types and self.entry_switch.get_active_text():
 			name, get, set = self.active_entry_type()
 			self.entry.set_text(get())
+
+class NetList(ObjectList):
+
+	def __init__(self, project, netview):
+		defs = [("_", object), ("Network", str)]
+		context_menu = [ 
+				("Add", self._add),
+				("Copy", self._copy),
+				("Rename", self._rename),
+				("Remove", self._remove)
+			]
+
+		ObjectList.__init__(self, defs, context_menu = context_menu)
+		self.project = project
+		self.netview = netview
+		self.fill(project.get_nets())
+		self.select_first()
+		project.set_callback("netlist_changed", self._update)
+
+	def _add(self, obj):
+		net = Net(self.project, "Net_{0}".format(self.project.new_id()))
+		self.project.add_net(net)
+		self.netview.switch_to_net(net)
+		self.select_object(net)
+
+	def _remove(self, obj):
+		self.project.remove_net(obj)
+		net = self.project.get_nets()[0]
+		self.netview.switch_to_net(net)
+		self.select_object(net)
+
+	def _rename(self, obj):
+		pass
+
+	def _copy(self, obj):
+		net = obj.copy()
+		net.name = obj.name + "_copy"
+		self.project.add_net(net)
+
+	def _update(self):
+		self.refresh(self.project.get_nets())
+
+	def object_as_row(self, obj):
+		return (obj, obj.get_name())
+
+	def cursor_changed(self, obj):
+		self.netview.switch_to_net(obj)

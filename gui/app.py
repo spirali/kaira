@@ -90,7 +90,7 @@ class App:
 
 	def init_tabs(self):
 		self.window.close_all_tabs()
-		self.nv = NetView(self, self.project, self.project.net)
+		self.nv = NetView(self, self.project)
 		self.nv.transition_edit_callback = self.transition_edit
 		self.nv.place_edit_callback = self.place_edit
 		self.window.add_tab(Tab("Network", self.nv, has_close_button = False))

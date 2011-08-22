@@ -28,10 +28,14 @@ class ExportException(Exception):
 
 class Net:
 	
-	def __init__(self, project):
+	def __init__(self, project, name):
 		self.project = project
+		self.name = name
 		self.items = []
 		self.change_callback = lambda n: None
+
+	def get_name(self):
+		return self.name
 
 	def set_change_callback(self, callback):
 		self.change_callback = callback
@@ -86,6 +90,7 @@ class Net:
 
 	def as_xml(self):
 		e = xml.Element("net")
+		e.set("name", self.name)
 
 		for item in self.items:
 			e.append(item.as_xml())
@@ -93,7 +98,7 @@ class Net:
 
 	def copy(self):
 		xml = self.as_xml()
-		return load_net(xml, self.project)
+		return load_net(xml, self.project, NewIdLoader(self.project))
 
 	def get_item(self, id):
 		for i in self.items:
@@ -775,7 +780,10 @@ def load_area(element, net, loader):
 	area.name = xml_str(element, "name", "")
 
 def load_net(element, project, loader):
-	net = Net(project)
+	name = element.get("name")
+	if name is None:
+		name = "Main" # For backward compatability
+	net = Net(project, name)
 
 	for e in element.findall("area"):
 		load_area(e, net, loader)
@@ -790,3 +798,21 @@ def load_net(element, project, loader):
 		load_edge(e, net, loader)
 
 	return net
+
+
+class NewIdLoader:
+
+	def __init__(self, project):
+		self.project = project
+		self.idtable = {}
+
+	def get_id(self, element):
+		id = utils.xml_int(element, "id", 0)
+		new_id = self.project.new_id()
+		self.idtable[id] = new_id
+		return new_id
+
+	def translate_id(self, id):
+		return self.idtable[id]
+
+

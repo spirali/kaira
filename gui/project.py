@@ -26,7 +26,7 @@ from events import EventSource
 
 class Project(EventSource):
 	""" 
-		Events: changed, filename_changed
+		Events: changed, netlist_changed filename_changed
 	"""
 
 	force_packers = False
@@ -36,6 +36,7 @@ class Project(EventSource):
 		EventSource.__init__(self)
 		self.id_counter = 100
 		self.set_filename(file_name)
+		self.nets = []
 		self.parameters = []
 		self.extern_types = []
 		self.param_values_cache = None
@@ -55,13 +56,17 @@ class Project(EventSource):
 		self.id_counter += 1
 		return self.id_counter
 
-	def set_net(self, net):
-		self.net = net
+	def add_net(self, net):
+		self.nets.append(net)
 		net.set_change_callback(self._net_changed)
-		self.changed()
+		self.emit_event("netlist_changed")
 
-	def get_net(self):
-		return self.net
+	def remove_net(self, net):
+		self.nets.remove(net)
+		self.emit_event("netlist_changed")
+
+	def get_nets(self):
+		return self.nets
 
 	def copy(self):
 		return load_project_from_xml(self.as_xml(), self.filename)
@@ -149,9 +154,8 @@ class Project(EventSource):
 	def as_xml(self):
 		root = xml.Element("project")
 		root.append(self._configuration_element(False))
-
-		xml_net = self.net.as_xml()
-		root.append(xml_net)
+		for net in self.nets:
+			root.append(net.as_xml())
 		return root
 
 	def save(self):
@@ -171,7 +175,8 @@ class Project(EventSource):
 		description.text = xml.tostring(self.as_xml())
 		root.append(description)
 
-		root.append(self.net.export_xml())
+		for net in self.nets:
+			root.append(net.export_xml())
 
 		f = open(filename, "w")
 		try:
@@ -608,10 +613,10 @@ def load_project(filename):
 def load_project_from_xml(root, filename):
 	project = Project(filename)
 	loader = BasicLoader(project)
-	net = load_net(root.find("net"), project, loader)
 	if root.find("configuration") is not None:
 		load_configuration(root.find("configuration"), project, loader)
-	project.set_net(net)
+	for e in root.findall("net"):
+		project.add_net(load_net(e, project, loader))
 	project.id_counter += 1
 	return project
 
@@ -673,8 +678,7 @@ def new_empty_project(directory):
 	name = os.path.basename(directory)
 	project_filename = os.path.join(directory,name + ".proj")
 	project = Project(project_filename)
-	net = Net(project)
-	project.set_net(net)
+	project.add_net(Net(project, "Main"))
 	project.write_project_files()
 	project.save()
 	return project

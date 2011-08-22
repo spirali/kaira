@@ -33,7 +33,7 @@ class NetTool:
 
 	def __init__(self, netview):
 		self.netview = netview
-		self.net = netview.net
+		self.net = netview.get_net()
 
 	def start(self):
 		self.set_cursor(None)
@@ -44,6 +44,10 @@ class NetTool:
 
 	def set_cursor(self, action_name):
 		self.netview.set_cursor(action_name)
+
+	def set_net(self, net):
+		self.deselect_item()
+		self.net = net
 
 	def draw(self, cr):
 		pass

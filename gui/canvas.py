@@ -39,6 +39,10 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 		self.connect("button_release_event", self._button_up)
 		self.connect("motion_notify_event", self._mouse_move)
 
+	def set_net(self, net):
+		self.net = net
+		self.redraw()
+
 	def set_viewport(self, viewport):
 		self.viewport = viewport
 		self.redraw()
