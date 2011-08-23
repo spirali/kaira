@@ -350,10 +350,10 @@ class Transition(NetElement):
 		sy /= 2
 
 		if px >= mx + sx - 5 and py >= my + sy - 5 and px < mx + sx + 5 and py < my + sy + 5:
-			return factory.get_resize_action(self, position)
+			return factory.get_resize_action(self, position, self.resize)
 
 		if px >= mx - sx and py >= my - sy and px < mx + sx and py < my + sy:
-			return factory.get_move_action(self.get_position, self.set_position, position)
+			return factory.get_move_action(self.get_position(), self.set_position, position)
 
 	def get_border_point(self, outer_point):
 		px, py = self.position
@@ -446,10 +446,10 @@ class Place(NetElement):
 		dist = utils.point_distance(self.position, position)
 
 		if dist < self.radius + 5 and dist > self.radius - 5:
-			return factory.get_resize_action(self, position)
+			return factory.get_resize_action(self, position, self.resize)
 
 		if dist < self.radius:
-			return factory.get_move_action(self.get_position, self.set_position, position)
+			return factory.get_move_action(self.get_position(), self.set_position, position)
 
 	def resize(self, point):
 		px, py = point
@@ -607,11 +607,11 @@ class Edge(NetItem):
 			self.points[i] = p
 			self.changed()
 		if self.inscription_position and utils.position_inside_rect(position, self.inscription_position, self.inscription_size, 4):
-			return factory.get_move_action(self.get_inscription_position, self.set_inscription_position, position)
+			return factory.get_move_action(self.get_inscription_position(), self.set_inscription_position, position)
 
 		for i, p in enumerate(self.points):
 			if utils.point_distance(p, position) < 7:
-				return factory.get_move_action(lambda: p, lambda x: set_point(i, x), position)
+				return factory.get_move_action(p, lambda x: set_point(i, x), position)
 		return factory.get_empty_action()
 
 	def get_text_entries(self):
@@ -637,8 +637,23 @@ class NetArea(NetItem):
 	def get_size(self):
 		return self.size
 
-	def resize(self, point):
-		self.size = point
+	def resize_rbottom(self, original_pos, original_size, rel_change):
+		self.size = utils.vector_add(original_size, rel_change)
+		self.changed()
+
+	def resize_ltop(self, original_pos, original_size, rel_change):
+		self.size = utils.vector_diff(original_size, rel_change)
+		self.position = utils.vector_add(original_pos, rel_change)
+		self.changed()
+
+	def resize_lbottom(self, original_pos, original_size, rel_change):
+		self.size = utils.vector_add(original_size, (-rel_change[0], rel_change[1]))
+		self.position = utils.vector_add(original_pos, (rel_change[0], 0))
+		self.changed()
+
+	def resize_rtop(self, original_pos, original_size, rel_change):
+		self.size = utils.vector_add(original_size, (rel_change[0], -rel_change[1]))
+		self.position = utils.vector_add(original_pos, (0, rel_change[1]))
 		self.changed()
 
 	def get_position(self):
@@ -672,15 +687,25 @@ class NetArea(NetItem):
 		return px >= mx - 10 and py >= my - 10 and px < mx + sx + 10 and py < my + sy + 10
 
 	def get_action(self, position, factory):
+		def make_action(f, cursor):
+			return factory.get_custom_move_action(position, lambda r: f(original_pos, original_size, r), cursor)
 		px, py = position
 		mx, my = self.position
 		sx, sy = self.size
 
+		original_size = self.size
+		original_pos = self.position
 		if px >= mx + sx - 10 and py >= my + sy - 10 and px < mx + sx + 5 and py < my + sy + 5:
-			return factory.get_resize_action(self, position)
+			return make_action(self.resize_rbottom, "resize_rbottom")
 
-		if px >= mx and py >= my and px < mx + sx and py < my + sy:
-			return factory.get_move_action(self.get_position, self.set_position, position)
+		if px >= mx - 10 and py >= my - 10 and px < mx + 5 and py < my + 5:
+			return make_action(self.resize_ltop, "resize_ltop")
+
+		if px >= mx - 10 and py >= my + sy - 10 and px < mx + 5 and py < my + sy + 5:
+			return make_action(self.resize_lbottom, "resize_lbottom")
+
+		if px >= mx + sx - 10 and py >= my - 10 and px < mx + sx + 5 and py < my + 5:
+			return make_action(self.resize_rtop, "resize_rtop")
 
 	def get_text_entries(self):
 		return [ ("Init", self.get_init_expr, self.set_init_expr),

@@ -152,11 +152,16 @@ class NetTool:
 					self.set_cursor(None)
 		self.mouse_last_pos = position
 
-	def get_move_action(self, get_fn, set_fn, position):
-		return ToolActionMove(get_fn, set_fn, position, self)
+	def get_move_action(self, original_position, set_fn, position):
+		tool = ToolActionGridMove(original_position, set_fn, position, self, "move")
+		return tool
 
-	def get_resize_action(self, item, position):
-		return ToolActionResize(item, position, self)
+	def get_resize_action(self, item, position, set_fn):
+		original = utils.vector_diff(position, item.position)
+		return ToolActionGridMove(original, set_fn, position, self, "resize_rbottom")
+
+	def get_custom_move_action(self, position, fn, cursor):
+		return ToolActionCustomMove(fn, position, self, cursor)
 
 	def get_empty_action(self):
 		return ToolActionEmpty(self)
@@ -285,41 +290,37 @@ class AreaTool(NetTool):
 
 class ToolAction:
 
-	def __init__(self, position, tool):
+	def __init__(self, position, tool, cursor):
 		self.start_position = position
 		self.tool = tool
+		self.cursor = cursor
 
 	def get_rel_change(self, position):
 		return utils.vector_diff(position, self.start_position)
 
-
-class ToolActionMove(ToolAction):
-
-	def __init__(self, get_fn, set_fn, position, tool):
-		ToolAction.__init__(self, position, tool)
-		self.get_fn = get_fn
-		self.set_fn = set_fn
-		self.original_position = get_fn()
-
 	def set_cursor(self):
-		self.tool.set_cursor("move")
+		self.tool.set_cursor(self.cursor)
+
+class ToolActionGridMove(ToolAction):
+
+	def __init__(self, original_position, set_fn, position, tool, cursor):
+		ToolAction.__init__(self, position, tool, cursor)
+		self.set_fn = set_fn
+		self.original_position = original_position
 
 	def mouse_move(self, position):
 		pos = utils.vector_add(self.original_position, self.get_rel_change(position))
 		pos = utils.snap_to_grid(pos, self.tool.get_grid_size())
 		self.set_fn(pos)
 
-class ToolActionResize(ToolAction):
+class ToolActionCustomMove(ToolAction):
 
-	def __init__(self, item, position, tool):
-		ToolAction.__init__(self, position, tool)
-		self.item = item
+	def __init__(self, fn, position, tool, cursor):
+		ToolAction.__init__(self, position, tool, cursor)
+		self.fn = fn
 
 	def mouse_move(self, position):
-		self.item.resize(utils.vector_diff(position, self.item.get_position()))
-
-	def set_cursor(self):
-		self.tool.set_cursor("resize")
+		self.fn(self.get_rel_change(position))
 
 class ToolActionEmpty:
 

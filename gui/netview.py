@@ -27,7 +27,10 @@ from drawing import VisualConfig
 action_cursor = { 
 	"none" : None,
 	"move" : gtk.gdk.FLEUR, 
-	"resize" : gtk.gdk.BOTTOM_RIGHT_CORNER,
+	"resize_rbottom" : gtk.gdk.BOTTOM_RIGHT_CORNER,
+	"resize_lbottom" : gtk.gdk.BOTTOM_LEFT_CORNER,
+	"resize_rtop" : gtk.gdk.TOP_RIGHT_CORNER,
+	"resize_ltop" : gtk.gdk.TOP_LEFT_CORNER,
 	"select" : gtk.gdk.CROSSHAIR,
 	"scroll" : gtk.gdk.HAND2,
 }
