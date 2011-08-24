@@ -69,6 +69,15 @@ def position_inside_rect(position, rect_position, size, tolerance = 0):
 	sx, sy = size
 	return px >= rx - tolerance and py >= ry - tolerance and px < rx + sx + tolerance and py < ry + sy + tolerance
 
+def position_on_rect(position, rect_position, size, tolerance = 0):
+	if not position_inside_rect(position, rect_position, size, tolerance):
+		return False
+	px, py = position
+	rx, ry = rect_position
+	sx, sy = size
+	return px <= rx + tolerance or py <= ry + tolerance \
+		or px > rx + sx - tolerance or py > ry + sy - tolerance
+
 def translate(idtable, source):
 	output = {}
 	for key, value in source.items():
