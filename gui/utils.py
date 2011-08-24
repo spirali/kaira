@@ -24,6 +24,8 @@ import os
 def make_vector(point1, point2):
 	return (point2[0] - point1[0], point2[1] - point1[1])
 
+def make_vector_with_size(point1, point2, size):
+	return vector_mul_scalar(normalize_vector(make_vector(point1, point2)), size)
 
 def middle_point(point1, point2):
 	return ((point2[0] + point1[0]) / 2.0, (point2[1] + point1[1]) / 2.0)
@@ -45,11 +47,11 @@ def vector_len(vec):
 	vx, vy = vec
 	return math.sqrt(vx * vx + vy * vy)
 
-
 def normalize_vector(vec):
 	d = vector_len(vec)
+	if d == 0.0:
+		return (0.0, 0.0)
 	return (vec[0] / d, vec[1] / d)
-
 
 def position_and_size_from_points(point1, point2):
 	p1x, p1y = point1

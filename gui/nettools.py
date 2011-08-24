@@ -94,12 +94,16 @@ class NetTool:
 							lambda w: self.selected_item.toggle_bidirectional()) ]
 			}
 
-			menu_actions = [("Delete", delete_event)]
+			if self.selected_item.is_interfacebox():
+				menu_actions = [] # interface box cannot be deleted
+			else:
+				menu_actions = [("Delete", delete_event)]
 
 			if type(self.selected_item) in actions_dict:
 				menu_actions = actions_dict[type(self.selected_item)] + menu_actions
 
-			gtkutils.show_context_menu(menu_actions, event)
+			if menu_actions:
+				gtkutils.show_context_menu(menu_actions, event)
 		else:
 			self.scroll_point = (event.x, event.y)
 			self.set_cursor("scroll")
@@ -208,8 +212,13 @@ class EdgeTool(NetTool):
 		else:
 			if self.from_item:
 				if self.from_item.is_place():
-					item = self.net.get_item_at_position(position, lambda i: i.is_transition())
-				else:
+					item = self.net.get_item_at_position(position)
+					if item:
+						if item.is_interfacebox():
+							item = self.net.add_interface_node(position)
+						elif not (item.is_inode() or item.is_transition()):
+							item = None
+				else: # self.from_item is transition or inode
 					item = self.net.get_item_at_position(position, lambda i: i.is_place())
 				if item:
 					edge = self.net.add_edge(self.from_item, item, self.points)
@@ -218,8 +227,12 @@ class EdgeTool(NetTool):
 				else:
 					self.points.append(position)
 			else:
-				self.from_item = self.net.get_item_at_position(position, lambda i: i.is_transition() or i.is_place())
-				if self.from_item:
+				item = self.net.get_item_at_position(position)
+				if item:
+					if item.is_transition() or item.is_place() or item.is_inode():
+						self.from_item = item
+					elif item.is_interfacebox():
+						self.from_item = self.net.add_interface_node(position)
 					self.last_position = position
 					self.points = []
 

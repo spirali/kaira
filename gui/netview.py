@@ -66,34 +66,15 @@ class NetViewVisualConfig(VisualConfig):
 		self.mouseover_highlighted = item
 		return True
 
-	def drawing_init(self, i, drawing):
-		if i == self.mouseover_highlighted:
+	def preprocess(self, item, drawing):
+		if item == self.mouseover_highlighted:
 			drawing.set_highlight((0.6,0.6,0.8,8.0))
-		if self.project.has_error_messages(i):
+		if self.project.has_error_messages(item):
 			drawing.set_highlight((1.0, 0.0, 0.0, 0.5))
-			drawing.set_error_messages(self.project.get_error_messages(i))
-		if i == self.selected:
+			drawing.set_error_messages(self.project.get_error_messages(item))
+		if item == self.selected:
 			drawing.set_highlight((0.86,0.86,0.0,1.0))
-
-	def transition_drawing(self, item):
-		d = VisualConfig.transition_drawing(self, item)
-		self.drawing_init(item, d)
-		return d
-
-	def place_drawing(self, item):
-		d = VisualConfig.place_drawing(self, item)
-		self.drawing_init(item, d)
-		return d
-
-	def edge_drawing(self, item):
-		d = VisualConfig.edge_drawing(self, item)
-		self.drawing_init(item, d)
-		return d
-
-	def area_drawing(self, item):
-		d = VisualConfig.area_drawing(self, item)
-		self.drawing_init(item, d)
-		return d
+		return drawing
 
 class NetView(gtk.VBox):
 
@@ -345,6 +326,7 @@ class NetList(ObjectList):
 
 	def _add(self, obj):
 		net = Net(self.project, "Net_{0}".format(self.project.new_id()))
+		net.add_interface_box((20, 20), (400, 300))
 		self.project.add_net(net)
 		self.netview.switch_to_net(net)
 		self.select_object(net)

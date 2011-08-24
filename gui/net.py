@@ -33,6 +33,7 @@ class Net:
 		self.name = name
 		self.items = []
 		self.change_callback = lambda n: None
+		self.interface_box = None
 
 	def get_name(self):
 		return self.name
@@ -47,6 +48,7 @@ class Net:
 		if item.id is None:
 			item.id = self.new_id()
 		self.items.append(item)
+		self.items.sort(key = lambda i: i.z_level, reverse = True)
 		self.changed()
 
 	def remove_item(self, item):
@@ -58,7 +60,7 @@ class Net:
 
 	def draw(self, cr, vconfig):
 		drawings = [ item.get_drawing(vconfig) for item in self.items ]
-		drawings.sort(key=lambda x: x.z_level())
+		drawings.reverse()
 		for drawing in drawings:
 			drawing.draw(cr)
 		for drawing in drawings:
@@ -69,6 +71,18 @@ class Net:
 		self.add_item(place)
 		self.changed()
 		return place
+
+	def add_interface_node(self, position, id = None):
+		inode = InterfaceNode(self, id, position)
+		self.add_item(inode)
+		self.changed()
+		return inode
+
+	def add_interface_box(self, position, size, id = None):
+		self.interface_box = InterfaceBox(self, id, position, size)
+		self.add_item(self.interface_box)
+		self.changed()
+		return self.interface_box
 
 	def add_transition(self, position, id = None):
 		transition = Transition(self, id, position)
@@ -114,6 +128,9 @@ class Net:
 
 	def areas(self):
 		return [ item for item in self.items if item.is_area() ]
+
+	def inodes(self):
+		return [ item for item in self.items if item.is_inode() ]
 
 	def export_xml(self):
 		e = xml.Element("net")
@@ -189,6 +206,8 @@ class Net:
 
 class NetItem(object):
 
+	z_level = 0
+
 	def __init__(self, net, id):
 		self.net = net
 		self.id = id
@@ -211,6 +230,12 @@ class NetItem(object):
 	def is_area(self):
 		return False
 
+	def is_inode(self):
+		return False
+
+	def is_interfacebox(self):
+		return False
+
 	def delete(self):
 		self.net.delete_item(self)
 
@@ -218,6 +243,10 @@ class NetItem(object):
 		element =  xml.Element(name)
 		element.set("id", str(self.id))
 		return element
+
+	def get_text_entries(self):
+		return []
+
 
 class NetElement(NetItem):
 
@@ -629,10 +658,7 @@ class Edge(NetItem):
 	def is_packing_edge(self):
 		return self.inscription and self.inscription[0] == "~"
 
-class NetArea(NetItem):
-
-	name = ""
-	init_expr = ""
+class RectItem(NetItem):
 
 	def __init__(self, net, id, position, size):
 		NetItem.__init__(self, net, id)
@@ -668,22 +694,11 @@ class NetArea(NetItem):
 		self.position = position
 		self.changed()
 
-	def set_init_expr(self, init_expr):
-		self.init_expr = init_expr
-		self.changed()
+	def is_inside(self, item):
+		return utils.position_inside_rect(item.position, self.position, self.size)
 
-	def get_init_expr(self):
-		return self.init_expr
-
-	def set_name(self, name):
-		self.name = name
-		self.changed()
-
-	def get_name(self):
-		return self.name
-
-	def get_drawing(self, vconfig):
-		return vconfig.area_drawing(self)
+	def corners(self):
+		return (self.position, utils.vector_add(self.position, self.size))
 
 	def is_at_position(self, position):
 		return utils.position_on_rect(position, self.position, self.size, 5)
@@ -708,6 +723,29 @@ class NetArea(NetItem):
 
 		if px >= mx + sx - 10 and py >= my - 10 and px < mx + sx + 5 and py < my + 5:
 			return make_action(self.resize_rtop, "resize_rtop")
+
+class NetArea(RectItem):
+
+	name = ""
+	init_expr = ""
+	z_level = -1
+
+	def set_init_expr(self, init_expr):
+		self.init_expr = init_expr
+		self.changed()
+
+	def get_init_expr(self):
+		return self.init_expr
+
+	def set_name(self, name):
+		self.name = name
+		self.changed()
+
+	def get_name(self):
+		return self.name
+
+	def get_drawing(self, vconfig):
+		return vconfig.area_drawing(self)
 
 	def get_text_entries(self):
 		return [ ("Init", self.get_init_expr, self.set_init_expr),
@@ -737,19 +775,104 @@ class NetArea(NetItem):
 			e.append(element)
 		return e
 
-	def is_inside(self, item):
-		return utils.position_inside_rect(item.position, self.position, self.size)
-		
 	def places(self):
 		return [ place for place in self.net.places() if self.is_inside(place) ]
 
 	def transitions(self):
 		return [ transition for transition in self.net.transitions() if self.is_inside(transition) ]
 
-	def corners(self):
-		px, py = self.position
-		sx, sy = self.size
-		return (self.position, (sx + px, sy + py))
+class InterfaceBox(RectItem):
+
+	z_level = -2
+
+	def get_drawing(self, vconfig):
+		return vconfig.interface_drawing(self)
+
+	def resize_ltop(self, original_pos, original_size, rel_change):
+		orig = self.position
+		RectItem.resize_ltop(self, original_pos, original_size, rel_change)
+		self.search_and_set_nodes(orig, self.position)
+
+	def resize_lbottom(self, original_pos, original_size, rel_change):
+		orig = (self.position[0], self.position[1] + self.size[1])
+		RectItem.resize_lbottom(self, original_pos, original_size, rel_change)
+		self.search_and_set_nodes(orig, (self.position[0], self.position[1] + self.size[1]))
+
+	def resize_rtop(self, original_pos, original_size, rel_change):
+		orig = (self.position[0] + self.size[0], self.position[1])
+		RectItem.resize_rtop(self, original_pos, original_size, rel_change)
+		self.search_and_set_nodes(orig, (self.position[0] + self.size[0], self.position[1]))
+
+	def resize_rbottom(self, original_pos, original_size, rel_change):
+		orig = utils.vector_add(self.position, self.size)
+		RectItem.resize_rbottom(self, original_pos, original_size, rel_change)
+		self.search_and_set_nodes(orig, utils.vector_add(self.position, self.size))
+
+	def search_and_set_nodes(self, old, new):
+		for item in filter(lambda i: i.position[0] == old[0], self.net.inodes()):
+			item.position = (new[0], item.position[1])
+			item.changed()
+		for item in filter(lambda i: i.position[1] == old[1], self.net.inodes()):
+			item.position = (item.position[0], new[1])
+			item.changed()
+
+	def is_interfacebox(self):
+		return True
+
+	def as_xml(self):
+		e = self.create_xml_element("interface-box")
+		e.set("x", str(self.position[0]))
+		e.set("y", str(self.position[1]))
+		e.set("sx", str(self.size[0]))
+		e.set("sy", str(self.size[1]))
+		return e
+
+class InterfaceNode(NetElement):
+
+	def __init__(self, net, id, position):
+		NetItem.__init__(self, net, id)
+		self.set_position(position)
+
+	def get_drawing(self, vconfig):
+		return vconfig.interfacenode_drawing(self)
+
+	def set_position(self, position):
+		px, py = self.net.interface_box.get_position()
+		sx, sy = self.net.interface_box.get_size()
+
+		nx = max(px, min(position[0], px + sx))
+		ny = max(py, min(position[1], py + sy))
+
+		pos = [
+			(abs(px - position[0]), (px, ny)),
+			(abs(py - position[1]), (nx, py)),
+			(abs(px + sx - position[0]), (px + sx, ny)),
+			(abs(py + sy - position[1]), (nx, py + sy)),
+		]
+		self.position = min(pos, key=lambda x: x[0])[1]
+		self.changed()
+
+	def is_at_position(self, position):
+		return False
+
+	def get_action(self, position, factory):
+		return factory.get_move_action(self.position, self.set_position, position)
+
+	def is_at_position(self, position):
+		return utils.point_distance(self.position, position) < 6
+
+	def is_inode(self):
+		return True
+
+	def get_border_point(self, outer_point):
+		v = utils.make_vector_with_size(self.position, outer_point, 5.0)
+		return utils.vector_add(self.position, v)
+
+	def as_xml(self):
+		e = self.create_xml_element("interface-node")
+		e.set("x", str(self.position[0]))
+		e.set("y", str(self.position[1]))
+		return e
 
 def load_code(element):
 	if element.find("code") is not None:
@@ -801,11 +924,32 @@ def load_area(element, net, loader):
 	area.init_expr = xml_str(element,"init-expr", "")
 	area.name = xml_str(element, "name", "")
 
+def load_interface_box(element, net, loader):
+	id = loader.get_id(element)
+	sx = xml_int(element,"sx")
+	sy = xml_int(element,"sy")
+	px = xml_int(element, "x")
+	py = xml_int(element, "y")
+	net.add_interface_box((px, py), (sx, sy), id)
+
+def load_interface_node(element, net, loader):
+	id = loader.get_id(element)
+	px = xml_int(element, "x")
+	py = xml_int(element, "y")
+	net.add_interface_node((px, py), id)
+
 def load_net(element, project, loader):
 	name = element.get("name")
 	if name is None:
 		name = "Main" # For backward compatability
 	net = Net(project, name)
+
+	interface_box = element.find("interface-box")
+	if interface_box is not None:
+		load_interface_box(interface_box, net, loader)
+
+	for e in element.findall("interface-node"):
+		load_interface_node(e, net, loader)
 
 	for e in element.findall("area"):
 		load_area(e, net, loader)

@@ -24,17 +24,25 @@ import utils
 class VisualConfig:
 
 	def transition_drawing(self, item):
-		return TransitionDrawing(item)
+		return self.preprocess(item, TransitionDrawing(item))
 
 	def place_drawing(self, item):
-		return PlaceDrawing(item)
+		return self.preprocess(item, PlaceDrawing(item))
 
 	def edge_drawing(self, item):
-		return EdgeDrawing(item)
+		return self.preprocess(item, EdgeDrawing(item))
 
 	def area_drawing(self, item):
-		return AreaDrawing(item)
+		return self.preprocess(item, AreaDrawing(item))
 
+	def interface_drawing(self, item):
+		return self.preprocess(item, IntefaceDrawing(item))
+
+	def interfacenode_drawing(self, item):
+		return self.preprocess(item, IntefaceNodeDrawing(item))
+
+	def preprocess(self, item, drawing):
+		return drawing
 
 class DrawingBase:
 	
@@ -48,8 +56,8 @@ class DrawingBase:
 	def set_error_messages(self, error_messages):
 		self.error_messages = error_messages
 
-	def z_level(self):
-		return 0
+	def draw_top(self, cr):
+		pass
 
 class TransitionDrawing(DrawingBase):
 
@@ -103,7 +111,6 @@ class TransitionDrawing(DrawingBase):
 			tx = px - sx / 2
 			ty = py - self.size[1]/2 - sy/2 - 2
 			draw_error_box_after_text(cr, self.guard, (tx, ty), self.error_messages["guard"])
-
 
 class PlaceDrawing(DrawingBase):
 
@@ -252,7 +259,6 @@ class EdgeDrawing(DrawingBase):
 		if self.error_messages and "inscription" in self.error_messages:
 			draw_error_box_after_text(cr, self.inscription, self.inscription_position, self.error_messages["inscription"])
 
-
 class AreaDrawing(DrawingBase):
 
 	def __init__(self, item):
@@ -295,9 +301,53 @@ class AreaDrawing(DrawingBase):
 			px, py = self.position
 			draw_error_box_after_text(cr, self.init_expr,(px, py - 5), self.error_messages["instances"])
 
-	def z_level(self):
-		return -1
+class IntefaceDrawing(DrawingBase):
 
+	def __init__(self, item):
+		DrawingBase.__init__(self)
+		self.position = item.get_position()
+		self.size = item.get_size()
+
+	def draw(self, cr):
+		px, py = self.position
+		sx, sy = self.size
+
+		if self.highlight:
+			cr.set_line_width(13.0)
+			cr.set_source_rgba(*self.highlight)
+			cr.rectangle(px, py, sx, sy)
+			cr.stroke()
+
+		cr.set_line_width(6.0)
+		cr.set_source_rgb(0.6,0.6,0.6)
+		cr.rectangle(px, py, sx, sy)
+		cr.stroke()
+
+		cr.set_line_width(1.0)
+		cr.set_source_rgb(0.0,0.0,0.0)
+		cr.rectangle(px - 3, py - 3, sx + 6, sy + 6)
+		cr.stroke()
+		cr.rectangle(px + 3, py + 3, sx - 6, sy - 6)
+		cr.stroke()
+
+class IntefaceNodeDrawing(DrawingBase):
+
+	def __init__(self, item):
+		DrawingBase.__init__(self)
+		self.position = item.get_position()
+
+	def draw(self, cr):
+		px, py = self.position
+
+		if self.highlight:
+			cr.set_line_width(4)
+			cr.set_source_rgba(*self.highlight)
+			cr.rectangle(px - 8, py - 8, 16,  16)
+			cr.stroke()
+
+		cr.set_source_rgb(0.0,0.0,0.0)
+		cr.rectangle(px - 6, py - 6, 12,  12)
+		cr.fill()
 
 def draw_error_box_after_text(cr, text, position, lines):
 	if text is not None:
