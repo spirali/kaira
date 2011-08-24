@@ -681,10 +681,7 @@ class NetArea(NetItem):
 		return vconfig.area_drawing(self)
 
 	def is_at_position(self, position):
-		px, py = position
-		mx, my = self.position
-		sx, sy = self.size
-		return px >= mx - 10 and py >= my - 10 and px < mx + sx + 10 and py < my + sy + 10
+		return utils.position_on_rect(position, self.position, self.size, 5)
 
 	def get_action(self, position, factory):
 		def make_action(f, cursor):

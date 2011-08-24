@@ -57,6 +57,9 @@ class NetTool:
 			self.netview.set_entry_types([])
 			self.netview.highlight_off()
 
+	def is_selectable(self, item):
+		return True
+
 	def mouseover_highlight(self, item):
 		self.netview.mouseover_highlight(item)
 
@@ -167,15 +170,9 @@ class NetTool:
 		return ToolActionEmpty(self)
 
 class SelectTool(NetTool):
-
-	def is_selectable(self, item):
-		return not item.is_area()
-
+	pass
 
 class NetItemTool(NetTool):
-
-	def is_selectable(self, item):
-		return not item.is_area()
 
 	def left_button_down(self, event, position):
 		if not NetTool.left_button_down(self, event, position):
@@ -247,9 +244,6 @@ class EdgeTool(NetTool):
 class AreaTool(NetTool):
 
 	point1 = None
-
-	def is_selectable(self, item):
-		return item.is_area()
 
 	def left_button_down(self, event, position):
 		if not NetTool.left_button_down(self, event, position):
