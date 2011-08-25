@@ -28,7 +28,11 @@ class ExportException(Exception):
 
 class Net:
 	
-	def __init__(self, project, name):
+	def __init__(self, project, name, id = None):
+		if id is None:
+			self.id = project.new_id()
+		else:
+			self.id = id
 		self.project = project
 		self.name = name
 		self.items = []
@@ -37,6 +41,9 @@ class Net:
 
 	def get_name(self):
 		return self.name
+
+	def get_id(self):
+		return self.id
 
 	def set_change_callback(self, callback):
 		self.change_callback = callback
@@ -105,7 +112,7 @@ class Net:
 	def as_xml(self):
 		e = xml.Element("net")
 		e.set("name", self.name)
-
+		e.set("id", str(self.id))
 		for item in self.items:
 			e.append(item.as_xml())
 		return e
@@ -303,6 +310,7 @@ class Transition(NetElement):
 	size = (70, 35)
 	name = ""
 	guard = ""
+	subnet = None
 
 	def get_name(self):
 		return self.name
@@ -336,9 +344,15 @@ class Transition(NetElement):
 		e.set("y", str(self.position[1]))
 		e.set("sx", str(self.size[0]))
 		e.set("sy", str(self.size[1]))
+		if self.subnet:
+			e.set("subnet", str(self.subnet.get_id()))
 		if self.has_code():
 			e.append(self.xml_code_element())
 		return e
+
+	def set_subnet(self, net):
+		self.subnet = net
+		self.changed()
 
 	def export_xml(self):
 
@@ -386,7 +400,7 @@ class Transition(NetElement):
 		if px >= mx + sx - 5 and py >= my + sy - 5 and px < mx + sx + 5 and py < my + sy + 5:
 			return factory.get_resize_action(self, position, self.resize)
 
-		if px >= mx - sx and py >= my - sy and px < mx + sx and py < my + sy:
+		if px >= mx - sx - 5 and py >= my - sy - 5 and px < mx + sx + 5 and py < my + sy + 5:
 			return factory.get_move_action(self.get_position(), self.set_position, position)
 
 	def get_border_point(self, outer_point):
@@ -896,6 +910,10 @@ def load_transition(element, net, loader):
 	transition.size = (sx, sy)
 	transition.name = xml_str(element,"name", "")
 	transition.guard = xml_str(element,"guard", "")
+	if element.get("subnet") is not None:
+		""" Subnet should be network, but all networks is not yet loaded so we only remember the id
+			and we replace id by network lately """
+		transition.subnet = xml_int(element,"subnet")
 	transition.code = load_code(element)
 
 def load_edge(element, net, loader):
@@ -938,11 +956,17 @@ def load_interface_node(element, net, loader):
 	py = xml_int(element, "y")
 	net.add_interface_node((px, py), id)
 
+def nets_postload_process(project):
+	for net in project.get_nets():
+		for transition in net.transitions():
+			if transition.subnet is not None:
+				transition.subnet = project.find_net(transition.subnet)
+
 def load_net(element, project, loader):
-	name = element.get("name")
-	if name is None:
-		name = "Main" # For backward compatability
-	net = Net(project, name)
+	name = element.get("name", "Main") # Setting "Main" for backward compatability
+	id = loader.get_id(element)
+
+	net = Net(project, name, id)
 
 	interface_box = element.find("interface-box")
 	if interface_box is not None:

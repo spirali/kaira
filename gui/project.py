@@ -17,7 +17,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from net import Net, load_net
+from net import Net, load_net, nets_postload_process
 import xml.etree.ElementTree as xml
 import utils
 import os
@@ -61,12 +61,20 @@ class Project(EventSource):
 		net.set_change_callback(self._net_changed)
 		self.emit_event("netlist_changed")
 
+	def find_net(self, id):
+		for net in self.nets:
+			if net.id == id:
+				return net
+
 	def remove_net(self, net):
 		self.nets.remove(net)
 		self.emit_event("netlist_changed")
 
 	def get_nets(self):
 		return self.nets
+
+	def get_nets_with_interface(self):
+		return self.nets[1:] # Only first network has no interface
 
 	def copy(self):
 		return load_project_from_xml(self.as_xml(), self.filename)
@@ -617,6 +625,7 @@ def load_project_from_xml(root, filename):
 		load_configuration(root.find("configuration"), project, loader)
 	for e in root.findall("net"):
 		project.add_net(load_net(e, project, loader))
+	nets_postload_process(project)
 	project.id_counter += 1
 	return project
 

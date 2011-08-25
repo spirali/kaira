@@ -21,11 +21,17 @@ import gtk
 import os
 import paths
 
+def escape_menu_name(name):
+	return name.replace("_", " ")
+
 def build_menu(description):
 	menu = gtk.Menu()
 	for name, action in description:
 		item = gtk.MenuItem(name)
-		item.connect("activate", action)
+		if isinstance(action, list):
+			item.set_submenu(build_menu(action))
+		else:
+			item.connect("activate", action)
 		menu.append(item)
 	return menu
 

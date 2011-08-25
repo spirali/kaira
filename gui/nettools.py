@@ -76,6 +76,13 @@ class NetTool:
 	def get_grid_size(self):
 		return self.netview.get_grid_size()
 
+	def build_netlist_menu(self, transition):
+		def call(net):
+			return lambda w: transition.set_subnet(net)
+		menu = [ (gtkutils.escape_menu_name(net.get_name()), call(net))
+			for net in self.netview.project.get_nets_with_interface() ]
+		return [ ("<None>", call(None)) ] + menu
+
 	def right_button_down(self, event, position):
 		def delete_event(w):
 			self.selected_item.delete()
@@ -85,7 +92,9 @@ class NetTool:
 
 			actions_dict = {
 				Transition: [("Edit code", 
-					lambda w: self.netview.transition_edit_callback(self.selected_item))],
+					lambda w: self.netview.transition_edit_callback(self.selected_item)),
+					("Set subnet", self.build_netlist_menu(self.selected_item))
+				],
 				Place: [("Edit init code", 
 					lambda w: self.netview.place_edit_callback(self.selected_item))],
 				Edge: [ ("Switch direction",
