@@ -23,9 +23,6 @@ from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
 from copy import copy
 
-class ExportException(Exception):
-	pass
-
 class Net:
 	
 	def __init__(self, project, name, id = None):
@@ -141,6 +138,8 @@ class Net:
 
 	def export_xml(self):
 		e = xml.Element("net")
+		e.set("name", self.name)
+		e.set("id", str(self.id))
 
 		for place in self.places():
 			e.append(place.export_xml())

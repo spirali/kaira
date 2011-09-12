@@ -4,10 +4,10 @@
 
 #include "unit.h"
 #include "process.h"
+#include "network.h"
 
 CaUnitDef::CaUnitDef(int id, CaUnitInitFn *init_fn, int transitions_count) : id(id)
 {
-	pthread_mutex_init(&mutex, NULL);
 	this->init_fn = init_fn;
 	this->transitions_count = transitions_count;
 	this->transitions = new CaTransition[transitions_count];
@@ -15,7 +15,6 @@ CaUnitDef::CaUnitDef(int id, CaUnitInitFn *init_fn, int transitions_count) : id(
 
 CaUnitDef::~CaUnitDef()
 {
-	pthread_mutex_destroy(&mutex);
 	delete [] transitions;
 }
 
@@ -29,14 +28,6 @@ void CaUnitDef::register_transition(int i,
 	transitions[i].set_id(id);
 }
 
-void CaUnitDef::reports(CaOutput &output)
-{
-	std::vector<CaUnit*>::iterator i;
-	for (i = units.begin(); i != units.end(); i++) {
-		(*i)->report(this, output);
-	}
-}
-
 std::vector<CaTransition*> CaUnitDef::get_transitions() const
 {
 	std::vector<CaTransition*> ts;
@@ -46,33 +37,10 @@ std::vector<CaTransition*> CaUnitDef::get_transitions() const
 	return ts;
 }
 
-CaUnit * CaUnitDef::start_unit(CaThread *thread, const CaPath &path)
+CaUnit * CaUnitDef::new_unit(CaThread *thread, const CaPath &path)
 {
 	CaUnit *unit = init_fn(thread, this, path);
-	units.push_back(unit);
 	return unit;
-}
-
-CaUnit * CaUnitDef::lookup_or_start(CaThread *thread, const CaPath &path, int *start_flag)
-{
-	CaUnit *u = lookup(path);
-	if (u) {
-		*start_flag = 0;
-		return u;
-	}
-	*start_flag = 1;
-	return start_unit(thread, path);
-}
-
-CaUnit * CaUnitDef::lookup(const CaPath &path)
-{
-	std::vector<CaUnit*>::iterator i;
-	for (i = units.begin(); i != units.end(); i++) {
-		if ((*i)->path == path) {
-			return *i;
-		}
-	}
-	return NULL;
 }
 
 CaTransition * CaUnitDef::get_transition(int transition_id)
@@ -86,7 +54,8 @@ CaTransition * CaUnitDef::get_transition(int transition_id)
 	return NULL;
 }
 
-void CaUnitDef::init_all(CaThread *thread)
+
+void CaUnitDef::init_all(CaNetwork *network, CaThread *thread)
 {
     std::vector<CaMultiPath>::iterator i;
 	CaProcess *process = thread->get_process();
@@ -95,17 +64,27 @@ void CaUnitDef::init_all(CaThread *thread)
         CaMultiPath::Iterator iter = i->get_iterator();
         while(iter.has_next()) {
 			CaPath p = iter.next();
-			if (p.owner_id(process, id) == process->get_process_id() && !lookup(p)) {
-				start_unit(thread, p);
+			if (p.owner_id(process, id) == process->get_process_id() && !network->lookup(p, id)) {
+				network->start_unit(this, thread, p);
 			}
         }
     }
-    init_paths.clear();
 }
 
-CaUnit::CaUnit(CaUnitDef *def, const CaPath &p) : path(p)
+CaUnit::CaUnit(CaUnitDef *def, const CaPath &p) : path(p), def(def), active(false)
 {
 	pthread_mutex_init(&mutex, NULL);
+}
+
+void CaUnit::activate(CaNetwork *network)
+{
+	if (is_active()) {
+		return;
+	}
+	set_active(true);
+	network->lock_active();
+	network->add_to_active_units(this);
+	network->unlock_active();
 }
 
 void CaUnit::report(CaUnitDef *def, CaOutput &out)
@@ -139,12 +118,12 @@ void CaUnit::log_status(CaLogger *logger, CaUnitDef *def)
 	logger->log("\n");
 }
 
-static void empty_fire(CaThread *thread, CaUnit *unit, void *vars)
+static void empty_fire(CaThread *thread, CaNetwork *network, CaUnit *unit, void *vars)
 {
 
 }
 
 bool CaTransition::is_enabled(CaUnit *unit)
 {
-	return call(NULL, unit, empty_fire);
+	return call(NULL, NULL, unit, empty_fire);
 }

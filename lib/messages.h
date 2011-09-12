@@ -6,6 +6,7 @@
 #include "unit.h"
 
 class CaThread;
+class CaNetwork;
 
 class CaMessage {
 	public:
@@ -15,13 +16,12 @@ class CaMessage {
 		virtual void process(CaThread *thread) = 0;
 };
 
-class CaMessageNewUnit  : public CaMessage {
+class CaMessageNewNetwork  : public CaMessage {
 	public:
-		CaMessageNewUnit(CaUnitDef *def, CaUnit *unit) : def(def),unit(unit) {}
+		CaMessageNewNetwork(CaNetwork *network) : network(network) {}
 		void process(CaThread *thread);
 	protected:
-		CaUnitDef *def;
-		CaUnit *unit;
+		CaNetwork *network;
 };
 
 class CaMessageBarriers  : public CaMessage {

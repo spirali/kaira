@@ -162,18 +162,28 @@ userFunctionFromElement types e = UserFunction {
 	ufunctionCode = Xml.strContent e
 } where source = "Function " ++ xmlAttr "name" e
 
+networkFromElement :: TypeTable -> Xml.Element -> Network
+networkFromElement types e = 
+	Network {
+		networkId = xmlAttrInt "id" e,
+		places = places, 
+		transitions = transitionsFromElement e,
+		areas = areas
+	}
+	where
+		places = placesFromElement types e
+		areas = map (areaFromElement places) $ Xml.findChildren (qstr "area") e
+
 projectFromXml :: String -> Project
 projectFromXml xml =
 	Project {
 			projectName = "project",
-			places = places,
-			transitions = transitionsFromElement net,
 			projectParameters = params,
+			networks = map (networkFromElement types) $ Xml.findChildren (qstr "net") root,
 			typeTable = types,
 			events = events,
 			userFunctions = ufunctions,
 			projectDescription = Xml.strContent description,
-			areas = areas,
 			forcePackers = fpackers
 		 }
 	where
@@ -186,5 +196,4 @@ projectFromXml xml =
 		ufunctions = map (userFunctionFromElement types) $ Xml.findChildren (qstr "function") configuration
 		description = just "<description>" $ Xml.findChild (qstr "description") root
 		fpackers = xmlAttrBool "value" $ just "<force-packers>" $ Xml.findChild (qstr "force-packers") configuration
-		places = placesFromElement types net
-		areas = map (areaFromElement places) $ Xml.findChildren (qstr "area") net
+

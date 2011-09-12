@@ -12,7 +12,7 @@ extern int ca_log_on;
 extern std::string ca_log_default_name;
 extern const char *ca_project_description_string;
 
-CaThread::CaThread() : messages(NULL),first_job(NULL), last_job(NULL), logger(NULL)
+CaThread::CaThread() : messages(NULL), logger(NULL)
 {
 	pthread_mutex_init(&messages_mutex, NULL);
 }
@@ -24,22 +24,19 @@ CaThread::~CaThread()
 		close_log();
 }
 
-CaUnit * CaThread::get_unit(const CaPath &path, int def_id)
+CaUnit * CaThread::get_unit(CaNetwork *network, const CaPath &path, int def_id)
 {
- 	return path.owner_id(process, def_id) == process->get_process_id() ? get_local_unit(path, def_id) : NULL;
-}
-
-CaUnit * CaThread::get_local_unit(const CaPath &path, int def_id)
-{
-	CaUnitDef *def = process->get_def(def_id);
-	def->lock();
-	int spawn_flag;
-	CaUnit *unit = def->lookup_or_start(this, path, &spawn_flag);
-	if (spawn_flag) {
-		process->inform_new_unit(def, unit);
+ 	if (path.owner_id(process, def_id) == process->get_process_id()) {
+		CaUnit *unit = network->lookup(path, def_id);
+		if (unit) {
+			return unit;
+		} else {
+			return network->start_unit(network->get_unit_def(def_id), this, path);
+		}
 	}
-	def->unlock();
-	return unit;
+	else {
+		return NULL;
+	}
 }
 
 void CaThread::add_message(CaMessage *message)
@@ -177,7 +174,7 @@ void CaThread::init_log(const std::string &logname)
 	logger->flush();
 }
 
-void CaThread::multisend(const CaPath &path, int unit_id, int place_pos, int tokens_count, const CaPacker &packer)
+void CaThread::multisend(CaNetwork *network, const CaPath &path, int unit_id, int place_pos, int tokens_count, const CaPacker &packer)
 {
 	char *buffer = packer.get_buffer();
 
@@ -193,12 +190,13 @@ void CaThread::multisend(const CaPath &path, int unit_id, int place_pos, int tok
 		/* Normally this is never called for threads backend, because all units are local 
 			and packing is not used. But in with "forced packing" enabled this function is called
 			so we have to deliver data */
-		CaUnit *unit = get_local_unit(path, unit_id);
+		CaUnit *unit = get_unit(network, path, unit_id);
 		unit->lock();
 		CaUnpacker unpacker(buffer);
 		for (int t = 0; t < tokens_count; t++) {
 			unit->receive(this, place_pos, unpacker);
 		}
+		unit->activate(network);
 		unit->unlock();
 		free(buffer);
 	#endif
@@ -207,45 +205,40 @@ void CaThread::multisend(const CaPath &path, int unit_id, int place_pos, int tok
 void CaThread::run_scheduler()
 {
 	process_messages();
-	first_job = process->create_jobs();
-	if (first_job) {
-		CaJob *j = first_job->next;
-		last_job = first_job;
-		while (j) {
-			last_job = j;
-			j = j->next;
+
+	std::vector<CaNetwork*>::iterator net = networks.begin();
+	while(!process->quit_flag) {
+		process_messages();
+		net++;
+		if (net == networks.end()) {
+			net = networks.begin();
 		}
-	} else {
-		last_job = NULL;
-	}
-	while (!process->quit_flag) {
-		CaJob *j = first_job;
-		CaJob *prev = NULL;
-		while(j) {
-			if (j->test_and_fire(this)) {
-				if (j->next) {
-					if (prev) {
-						prev->next = j->next;
-					} else {
-						first_job = j->next;
-					}
-					last_job->next = j;
-					last_job = j;
-					j->next = NULL;
-				}
+		(*net)->lock_active();
+		CaUnit *unit = (*net)->pick_active_unit();
+		(*net)->unlock_active();
+
+		if (unit == NULL) {
+			sched_yield();
+			continue;
+		}
+
+		unit->lock();
+
+		int t;
+		for (t = 0; t < unit->get_transition_count(); t++) {
+			CaTransition *transition = unit->get_transition_at_pos(t);
+			if (transition->call(this, (*net), unit)) {
 				break;
 			}
-			prev = j;
-			j = j->next;
 		}
-		int r = process_messages();
-		if (j == NULL && !r) {
-			sched_yield();
+		if (unit->get_transition_count() == t) { // no transition fired
+			unit->set_active(false);
+			unit->unlock();
 		}
 	}
 }
 
-CaProcess::CaProcess(int process_id, int process_count, int threads_count, int defs_count, CaUnitDef **defs)
+CaProcess::CaProcess(int process_id, int process_count, int threads_count, int defs_count, CaNetworkDef **defs)
 {
 	this->process_id = process_id;
 	this->process_count = process_count;
@@ -271,6 +264,9 @@ void CaProcess::start()
 	CaListener listener(this);
 	pthread_barrier_t start_barrier;
 
+	CaNetwork *net = defs[0]->spawn(&threads[0]);
+	inform_new_network(net);
+
 	if (ca_listen_port != -1) {
 		listener.init(ca_listen_port);
 		if (ca_listen_port == 0) {
@@ -293,10 +289,6 @@ void CaProcess::start()
 
 	int t;
 
-	for (t = 0; t < defs_count; t++) {
-		defs[t]->init_all(&threads[0]);
-	}
-
 	if (ca_log_on) {
 		start_logging(ca_log_default_name);
 	}
@@ -310,35 +302,15 @@ void CaProcess::start()
 	}
 }
 
-CaJob * CaProcess::create_jobs() const
+CaThread * CaProcess::get_thread(int id)
 {
-	CaJob *first = new CaJob(NULL, NULL);
-	CaJob *job = first;
-	int t;
-	for (t = 0; t < defs_count; t++) {
-		defs[t]->lock();
-		std::vector<CaUnit*> units = defs[t]->get_units();
-		std::vector<CaTransition*> transitions = defs[t]->get_transitions();
-		defs[t]->unlock();
-		std::vector<CaUnit*>::iterator i;
-		std::vector<CaTransition*>::iterator j;
-		for (j = transitions.begin(); j != transitions.end(); j++) {
-			for (i = units.begin(); i != units.end(); i++) {
-				job->next = new CaJob(*i, *j);
-				job = job->next;
-			}
-		}
-	}
-	job->next = NULL;
-	job = first->next;
-	delete first;
-	return job;
+	return &threads[id];
 }
 
-void CaProcess::inform_new_unit(CaUnitDef *def, CaUnit *unit)
+void CaProcess::inform_new_network(CaNetwork *network)
 {
 	for (int t = 0; t < threads_count; t++) {
-		threads[t].add_message(new CaMessageNewUnit(def, unit));
+		threads[t].add_message(new CaMessageNewNetwork(network));
 	}
 }
 
@@ -379,10 +351,13 @@ void CaProcess::quit_all()
 void CaProcess::write_reports(FILE *out) const
 {
 	CaOutput output;
-	output.child("units");
+	output.child("networks");
 	output.set("running", !quit_flag);
-	for (int t = 0; t < defs_count; t++) {
-		defs[t]->reports(output);
+
+	const std::vector<CaNetwork*> &networks = threads[0].get_networks();
+	std::vector<CaNetwork*>::const_iterator i;
+	for (i = networks.begin(); i != networks.end(); i++) {
+		(*i)->reports(output);
 	}
 	CaOutputBlock *block = output.back();
 	block->write(out);
@@ -391,40 +366,14 @@ void CaProcess::write_reports(FILE *out) const
 	delete block;
 }
 
-int CaProcess::get_units_count() const
+void CaProcess::fire_transition(int transition_id, int instance_id, const CaPath &path)
 {
-	int count = 0;
-	for (int t = 0; t < defs_count; t++) {
-		count += defs[t]->get_units_count();
-	}
-	return count;
-}
-
-void CaProcess::fire_transition(int transition_id, const CaPath &path)
-{
-	int t;
-	for (t = 0; t < defs_count; t++) {
-		CaTransition *tr = defs[t]->get_transition(transition_id);
-		if (tr) {
-			CaUnit *u = defs[t]->lookup(path);
-			if (u) {
-				CaJob job(u, tr);
-				job.test_and_fire(&threads[0]);
-			}
-			break;
+	const std::vector<CaNetwork*> &networks = threads[0].get_networks();
+	std::vector<CaNetwork*>::const_iterator i;
+	for (i = networks.begin(); i != networks.end(); i++) {
+		if ((*i)->get_id() == instance_id) {
+			(*i)->fire_transition(&threads[0], transition_id, path);
+			return;
 		}
 	}
-}
-
-int CaJob::test_and_fire(CaThread *thread)
-{
-	if (unit->trylock()) {
-		return 0;
-	}
-	int r = transition->call(thread, unit);
-	if (!r) {
-		unit->unlock();
-		return 0;
-	}
-	return 1;
 }

@@ -18,7 +18,7 @@
 
 extern char * ca_project_description_string;
 
-void ca_write_header(FILE *out, int units_count)
+void ca_write_header(FILE *out, int networks_count)
 {
 	int lines = 1;
 	for (const char *c = ca_project_description_string; (*c) != 0; c++) {
@@ -29,7 +29,7 @@ void ca_write_header(FILE *out, int units_count)
 
 	CaOutput output;
 	output.child("header");
-	output.set("units-count", units_count);
+	output.set("networks-count", networks_count);
 	output.set("description-lines", lines);
 	CaOutputBlock *block = output.back();
 	block->write(out);
@@ -115,7 +115,6 @@ void CaListener::main()
 			we need to switch back to more expected behavior as in normal
 			 run of program in console */
 
-		ca_write_header(comm_out, process->get_units_count());
 
 		/* Init barriers */
 		pthread_barrier_t barrier1;
@@ -134,6 +133,8 @@ void CaListener::main()
 
 		/* Wait for all process */
 		pthread_barrier_wait(&barrier1);
+		/* Because there is always at least one thread we can use thread 0 as source of list of networks */
+		ca_write_header(comm_out, process->get_thread(0)->get_networks_count());
 		process_commands(comm_in, comm_out);
 		pthread_barrier_wait(&barrier2);
 
@@ -177,13 +178,14 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 				continue;
 			}
 			int transition_id;
+			int instance_id;
 			char path_string[LINE_LENGTH_LIMIT];
-			if (2 != sscanf(line, "FIRE %i %s", &transition_id, path_string)) {
+			if (3 != sscanf(line, "FIRE %i %i %s", &transition_id, &instance_id, path_string)) {
 				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
 			CaPath path(path_string);
-			process->fire_transition(transition_id, path);
+			process->fire_transition(transition_id, instance_id, path);
 			fprintf(comm_out, "Ok\n");
 			continue;
 		}

@@ -97,16 +97,21 @@ data Area = Area {
 
 instance Eq Area where a1 == a2 = areaId a1 == areaId a2
 
-data Project = Project {
-	projectName :: String,
+data Network = Network {
+	networkId :: ID,
 	places :: [Place],
 	transitions :: [Transition],
+	areas :: [Area]
+} deriving (Show)
+
+data Project = Project {
+	projectName :: String,
 	projectParameters :: [Parameter],
+	networks :: [Network],
 	typeTable :: TypeTable,
 	events :: [Event],
 	userFunctions :: [UserFunction],
 	projectDescription :: String,
-	areas :: [Area],
 	forcePackers :: Bool
 } deriving (Show)
 
@@ -133,7 +138,8 @@ data UserFunction = UserFunction {
 data Unit = Unit {
 	unitId :: ID,
 	unitPlaces :: [Place],
-	unitTransitions :: [Transition]
+	unitTransitions :: [Transition],
+	unitNetwork :: Network
 } deriving (Show)
 
 data TransportMode = TransportDisabled | TransportDirect | TransportCustom

@@ -86,7 +86,8 @@ class SimpleList(gtk.ScrolledWindow):
 		self.liststore.clear()
 
 	def get_selection(self, column):
-		model, i = self.listview.get_selection().get_selected()
+		selection = self.listview.get_selection()
+		model, i = selection.get_selected()
 		if i is not None:
 			return model.get_value(i, column)
 		else:

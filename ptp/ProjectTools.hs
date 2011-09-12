@@ -95,15 +95,24 @@ lookupBy errString fn id (x:xs)
 	| fn x == id = x
 	| otherwise = lookupBy errString fn id xs
 
+allPlaces :: Project -> [Place]
+allPlaces project = concatMap places (networks project)
+
+allTransitions :: Project -> [Transition]
+allTransitions project = concatMap transitions (networks project)
+
+allAreas :: Project -> [Area]
+allAreas project = concatMap areas (networks project)
+
 placeById :: Project -> ID -> Place
-placeById project id = lookupBy ("placeById: Place " ++ show id) placeId id (places project)
+placeById project id = lookupBy ("placeById: Place " ++ show id) placeId id (allPlaces project)
 
 transitionById :: Project -> ID -> Transition
 transitionById project id =
-	lookupBy "TransitionById: Not found" transitionId id (transitions project)
+	lookupBy "TransitionById: Not found" transitionId id (allTransitions project)
 
 areasOfPlace :: Project -> Place -> [Area]
-areasOfPlace project place = filter isInside (areas project)
+areasOfPlace project place = filter isInside (allAreas project)
 	where isInside area = place `elem` (areaPlaces area)
 
 areasOfUnit :: Project -> Unit -> [Area]
@@ -123,21 +132,26 @@ inputPlaces project transition = List.nub $ map ((placeById project) . edgePlace
 
 outputTransitions :: Project -> Place -> [Transition]
 outputTransitions project place =
-	filter (\t -> place `elem` inputPlaces project t) (transitions project)
+	filter (\t -> place `elem` inputPlaces project t) (allTransitions project)
 
 hasInit :: Place -> Bool
 hasInit place = not (null (placeInitExprs place)) || hasInitCode place
 
-projectUnits :: Project -> [Unit]
-projectUnits project = countedMap unit $ joinOverlapped initSets
+networkUnits :: Project -> Network -> [Unit]
+networkUnits project network = countedMap unit $ joinOverlapped initSets
 	where
-		initSets = (map (inputPlaces project) $ transitions project) ++ orphans
-		orphans = case (places project) List.\\ (concatMap (inputPlaces project) $ transitions project) of
+		initSets = (map (inputPlaces project) $ transitions network) ++ orphans
+		orphans = case (places network) List.\\
+				(concatMap (inputPlaces project) $ transitions network) of
 			[] -> []
 			x -> [x]
 		unit n places = Unit { unitPlaces = places,
 			unitId = n,
+			unitNetwork = network,
 			unitTransitions = List.foldr List.union [] $ map (outputTransitions project) places }
+
+projectUnits :: Project -> [Unit]
+projectUnits project = concatMap (networkUnits project) (networks project)
 
 unitInitPaths :: Project -> Unit -> [Path]
 unitInitPaths project unit | any hasInit (unitPlaces unit) =

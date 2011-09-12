@@ -12,6 +12,7 @@
 #include "process.h"
 #include "output.h"
 #include "packing.h"
+#include "network.h"
 
 #ifdef CA_LOG
 
@@ -52,7 +53,7 @@ class CaContext {
 };
 
 /* Start */
-int ca_main(int defs_count, CaUnitDef **defs);
+int ca_main(int defs_count, CaNetworkDef **defs);
 
 /* Others */
 void ca_init(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs);

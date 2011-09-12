@@ -73,7 +73,7 @@ class ObjectList(gtk.VBox):
 		self.list.select_first()
 
 	def add_object(self, obj):
-		self.list.append(self.object_as_row(obj))
+		return self.list.append(self.object_as_row(obj))
 
 	def get_and_remove_selected(self):
 		return self.list.get_and_remove_selection(0)
@@ -92,9 +92,12 @@ class ObjectList(gtk.VBox):
 
 	def refresh(self, obj_list):
 		obj = self.selected_object()
-		self.list.clear()
+		self.clear()
 		self.fill(obj_list)
 		self.select_object(obj)
+
+	def clear(self):
+		self.list.clear()
 
 	def cursor_changed(self, obj):
 		pass

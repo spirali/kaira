@@ -69,9 +69,6 @@ class Simulation(EventSource):
 		self.controller = None
 		self.emit_event("shutdown")
 
-	def get_net(self):
-		return self.project.net
-
 	def read_header(self, stream):
 		header = xml.fromstring(stream.readline())
 		lines_count = int(header.get("description-lines"))
@@ -81,35 +78,37 @@ class Simulation(EventSource):
 	def query_reports(self, callback = None):
 		def reports_callback(line):
 			root = xml.fromstring(line)
-			self.network_running = utils.xml_bool(root, "running")
-			if not self.network_running:
+			self.running = utils.xml_bool(root, "running")
+			if not self.running:
 				self.emit_event("error", "Network terminated\n")
-			self.units = [ Unit(e) for e in root.findall("unit") ]
-			self.instances = {}
-			for u in self.units:
-				if not self.instances.has_key(u.path):
-					self.instances[u.path] = NetworkInstance(self, u.path)
-				self.instances[u.path].add_unit(u)
+			self.instances = []
+			for e in root.findall("net"):
+				id = utils.xml_int(e, "id")
+				net = self.project.find_net(utils.xml_int(e, "net-id"))
+				i = NetInstance(id, net, self)
+				self.instances.append(i)
+				nodes = {}
+				units = [ Unit(e) for e in e.findall("unit") ]
+				i.set_units(units)
+				for unit in units:
+					node = nodes.get(unit.path)
+					if node is None:
+						node = NetNode(i, unit.path)
+						nodes[unit.path] = node
+					node.add_unit(unit)
+				i.set_nodes(nodes)
 			if callback:
 				callback()
 			self.emit_event("changed")
 		self.controller.run_command("REPORTS", reports_callback)
 
-	def fire_transition(self, transition, path):
-		if not self.network_running:
+	def fire_transition(self, transition, instance, path):
+		if not self.running:
 			return
 		if self.controller:
-			self.controller.run_command_expect_ok("FIRE " + str(transition.get_id()) + " " + str(path))
+			command = "FIRE {0} {1} {2}".format(transition.get_id(), instance.get_id(), path)
+			self.controller.run_command_expect_ok(command)
 			self.query_reports()
-
-	def running_paths(self):
-		return self.instances.keys()
-
-	def get_instance(self, path):
-		return self.instances[path]
-
-	def get_overview(self):
-		return OverviewInstance(self, self.units)
 
 class Path:
 	def __init__(self, items, absolute = True):
@@ -173,12 +172,12 @@ class Unit:
 	def is_enabled(self, transition):
 		return self.transitions[transition.get_id()]
 
-class NetworkInstance:
+class NetNode:
 
-	def __init__(self, simulation, path):
+	def __init__(self, instance, path):
 		self.path = path
 		self.units = []
-		self.simulation = simulation
+		self.instance = instance
 
 	def add_unit(self, unit):
 		self.units.append(unit)
@@ -196,14 +195,14 @@ class NetworkInstance:
 		return False
 
 	def fire_transition(self, transition):
-		self.simulation.fire_transition(transition, self.path)
+		self.instance.simulation.fire_transition(transition, self.instance, self.path)
 
-class OverviewInstance:
+class OverviewNode:
 
 	path = None
 
-	def __init__(self, simulation, units):
-		self.simulation = simulation
+	def __init__(self, instance, units):
+		self.instance = instance
 		self.units = units
 
 	def get_tokens(self, place):
@@ -222,5 +221,33 @@ class OverviewInstance:
 	def fire_transition(self, transition):
 		units = [ u for u in self.units if u.has_transition(transition) and u.is_enabled(transition) ]
 		if units:
-			u = self.simulation.random.choice(units)
-			self.simulation.fire_transition(transition, u.path)
+			u = self.instance.simulation.random.choice(units)
+			self.instance.simulation.fire_transition(transition, self.instance, u.path)
+
+class NetInstance:
+
+	def __init__(self, id, net, simulation):
+		self.id = id
+		self.net = net
+		self.simulation = simulation
+
+	def get_id(self):
+		return self.id
+
+	def set_nodes(self, nodes):
+		self.nodes = nodes
+
+	def set_units(self, units):
+		self.units = units
+
+	def running_paths(self):
+		return self.nodes.keys()
+
+	def get_node(self, path):
+		return self.nodes.get(path)
+
+	def get_overview(self):
+		return OverviewNode(self, self.units)
+
+	def get_name(self):
+		return self.net.get_name()

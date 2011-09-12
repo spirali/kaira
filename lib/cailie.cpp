@@ -19,7 +19,7 @@ void ca_project_description(const char *str) {
 	ca_project_description_string = str;
 }
 
-int ca_main(int defs_count, CaUnitDef **defs)
+int ca_main(int defs_count, CaNetworkDef **defs)
 {
 	#ifdef CA_MPI
 		int process_count, process_id;

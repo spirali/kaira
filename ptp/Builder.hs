@@ -40,6 +40,8 @@ import Utils
 import BuilderTools
 
 caUnit = TPointer $ TRaw "CaUnit"
+caNetworkDef = TPointer $ TRaw "CaNetworkDef"
+caNetwork = TPointer $ TRaw "CaNetwork"
 caUnitDef = TPointer $ TRaw "CaUnitDef"
 caContext = TRaw "CaContext"
 caPath = TRaw "CaPath"
@@ -48,12 +50,15 @@ caMultiPathIter = TRaw "CaMultiPath::Iterator"
 caThread = TPointer $ TRaw "CaThread"
 
 nameFromId :: String -> ID -> String
-nameFromId name id = name ++ "_" ++ (show id)
+nameFromId name id = name ++ "_" ++ show id
+
+nameFromId2 :: String -> ID -> ID -> String
+nameFromId2 name id1 id2 = name ++ "_" ++ show id1 ++ "_" ++ show id2
 
 unitType :: Unit -> Type
 unitType unit = TClass className (Just "CaUnit") [ constr, reportFunction unit, receiveFunction unit ] attributes
 	where
-	className = nameFromId "Unit" $ unitId unit
+	className = nameFromId2 "Unit" ((networkId . unitNetwork) unit) (unitId unit)
 	placeVar place = (nameFromId "place" (placeId place), (caPlace . fromNelType . placeType) place)
 	attributes = map placeVar (unitPlaces unit)
 	constr = constructor {
@@ -76,19 +81,22 @@ initPlace project expr place = initConsts ++ callInitFn
 defineContext :: Expression -> Expression -> Instruction
 defineContext thread unit = idefine "ctx" caContext (ECall "CaContext" [ thread, unit ])
 
+initCaUnitName :: Unit -> String
+initCaUnitName unit = nameFromId2 "init_unit" (networkId (unitNetwork unit)) (unitId unit)
 
 initCaUnit :: Project -> Unit -> Function
 initCaUnit project unit = function {
-	functionName = nameFromId "init_unit" (unitId unit),
+	functionName = initCaUnitName unit,
 	returnType = caUnit,
 	parameters = [ ("thread", caThread, ParamNormal), ("def", caUnitDef, ParamNormal), ("path", caPath, ParamConst) ],
 	instructions = [ idefine "unit" (TPointer $ unitType unit) $
-		ENew (ECall (nameFromId "Unit" (unitId unit)) [ EVar "def", EVar "path" ]),
+		ENew (ECall unitName [ EVar "def", EVar "path" ]),
 		defineContext (EVar "thread") (EVar "unit")
 	] ++
 		initPlaces ++ [ IReturn $ EVar "unit" ]
 } where
 	initPlaces = concat [ initPlace project (placeInUnit (EVar "unit") place) place | place <- unitPlaces unit ]
+	unitName = case unitType unit of TClass name _ _ _ -> name
 
 unit :: Project -> Transition -> Unit
 unit project transition =
@@ -107,20 +115,34 @@ transitionFnName t = nameFromId "transition" (transitionId t)
 fireFnName :: Transition -> String
 fireFnName t = nameFromId "fire" (transitionId t)
 
-initCaUnitDef :: Project -> Unit -> [Instruction]
-initCaUnitDef project unit = [
-	idefine varName caUnitDef $
-		ENew (ECall "CaUnitDef" [ EInt $ unitId unit, EVar $ "init_unit_" ++ show (unitId unit), EInt (length transitions)])
-	] ++ countedMap registerTransition transitions ++ map registerInit (unitInitPaths project unit)
+initCaNetworkDef :: Project -> Network -> [Instruction]
+initCaNetworkDef project network = [
+		idefine varName caNetworkDef $ ENew $
+			ECall "CaNetworkDef" [ EInt (networkId network), EInt (length units) ]
+		] ++ countedMap (initCaUnitDef project (EVar varName)) units
+	where
+		units = networkUnits project network
+		varName = nameFromId "network" (networkId network)
+
+initCaUnitDef :: Project -> Expression -> Int -> Unit -> Instruction
+initCaUnitDef project netexpr n unit =
+	IStatement $ [
+		idefine varName caUnitDef $ ENew
+			(ECall "CaUnitDef" [ EInt $ unitId unit, EVar
+				$ initCaUnitName unit, EInt (length transitions)])
+	] ++ countedMap registerTransition transitions ++ map registerInit (unitInitPaths project unit) ++ [
+		icall "->register_unit" [ netexpr, EInt n, EVar varName ]
+	]
 	where
 		transitions = unitTransitions unit
 		varName = nameFromId "unitdef" (unitId unit)
-		registerTransition n t = icall "->register_transition" [ EVar varName, EInt n, EInt (transitionId t), arg1 t, arg2 t]
+		registerTransition n t = icall "->register_transition"
+			[ EVar varName, EInt n, EInt (transitionId t), arg1 t, arg2 t]
 		arg1 t = EVar $ "(CaEnableFn*) " ++ transitionFnName t
 		arg2 t = EVar $ "(CaFireFn*) " ++ fireFnName t
-		registerInit p = icall "->register_init" [ EVar varName, multiPathCode project varNotAllowed p undefined ]
+		registerInit p = icall "->register_init"
+			[ EVar varName, multiPathCode project varNotAllowed p undefined ]
 			-- We can use udefined as last argument because it has to be absolute path
-
 
 varStruct :: Project -> Transition -> Type
 varStruct project transition =
@@ -131,7 +153,7 @@ varStruct project transition =
 		internDecl n edge = ("__token_" ++ show n, TPointer $ caToken $ fromNelType $ placeTypeById project (edgePlaceId edge))
 
 transitionOfEdge :: Project -> Edge -> Transition
-transitionOfEdge project edge = Maybe.fromJust $ List.find hasEdge (transitions project)
+transitionOfEdge project edge = Maybe.fromJust $ List.find hasEdge (allTransitions project)
 	where hasEdge t = List.elem edge $ edgesIn t ++ edgesOut t
 
 {- There is bug in expression like: (x, x) or (x+1, x) if x is not binded -}
@@ -270,13 +292,13 @@ sendToken targetPath unitId placeNumber t source = IStatement [
 	idefine "packer" (TRaw "CaPacker") $ ECall "CaPacker" [ EVar "size", ECall "CA_RESERVED_PREFIX" [ EVar "path" ] ],
 	idefine "item" (fromNelType t) source,
 	pack t (EVar "packer") (EVar "item"),
-	icall "->send" [ EVar "thread", targetPath, EInt unitId, EInt placeNumber, EVar "packer" ]]
+	icall "->send" [ EVar "thread", EVar "network", targetPath, EInt unitId, EInt placeNumber, EVar "packer" ]]
 
 sendTokens :: Expression -> Int -> Int -> NelType -> Expression -> Instruction
 sendTokens targetPath unitId placeNumber t source = IStatement $ sizeExpr ++ [
 	idefine "packer" (TRaw "CaPacker") $ ECall "CaPacker" [ EVar "size", ECall "CA_RESERVED_PREFIX" [ EVar "path" ] ],
 	IForeach (fromNelType t) "i" source [ pack t (EVar "packer") (EDeref (EVar "i")) ],
-	icall "->multisend" [ EVar "thread", targetPath, EInt unitId, EInt placeNumber, ECall ".size" [ source ], EVar "packer" ]]
+	icall "->multisend" [ EVar "thread", EVar "network", targetPath, EInt unitId, EInt placeNumber, ECall ".size" [ source ], EVar "packer" ]]
 	where
 		sizeExpr
 			| isDirectlyPackable t = [ idefine "size" sizeType $ ECall "*" [ ECall ".size" [ source ], exprMemSize t source ] ]
@@ -288,11 +310,15 @@ fireFn project transition = function {
 	functionName = fireFnName transition,
 	parameters = [
 		("thread", caThread, ParamNormal),
+		("network", caNetwork, ParamNormal),
 		("unit" , caUnit, ParamNormal),
 		("vars", TPointer $ varStruct project transition, ParamNormal)
 	],
 	instructions = [
 		icall "CA_LOG_TRANSITION_START" [ EVar "thread", EVar "unit", EInt (transitionId transition) ],
+		icall "->lock_active" [ EVar "network"],
+		icall "->add_to_active_units" [ EVar "network", EVar "unit" ],
+		icall "->unlock_active" [ EVar "network"],
 		defineContext (EVar "thread") (EVar "unit"),
 		idefine "u" (TPointer unitT) $ ECast (EVar "unit") (TPointer unitT),
 		IStatement $ countedMap removeToken (normalInEdges transition) ++ map setPacking (packingInEdges transition),
@@ -330,11 +356,13 @@ fireFn project transition = function {
 		| forcePackers project = [ sendInstruction edge ]
 		| otherwise = [
 			idefine "target" (TPointer $ unitType u) (ECast (ECall "->get_unit" [ (EVar "thread"),
+					EVar "network",
 					EVar "path",
 					EInt (unitId u)]) (TPointer $ unitType u)),
 			IIf (EVar "target") (IStatement [
 				icall "->lock" [ EVar "target" ],
 				putInstruction edge,
+				icall "->activate" [ EVar "target", EVar "network" ],
 				icall "->unlock" [ EVar "target" ]
 			]) (sendInstruction edge) ] where u = edgeUnit project edge
 	putInstruction edge = IStatement $ case edgeInscription edge of
@@ -365,6 +393,7 @@ transitionFn project transition = function {
 	returnType = TInt,
 	parameters = [
 		("thread", caThread, ParamNormal),
+		("network", caNetwork, ParamNormal),
 		("unit", caUnit, ParamNormal),
 		("firefn", TPointer (TRaw "CaFireFn"), ParamNormal) ],
 	instructions = [
@@ -379,9 +408,9 @@ transitionFn project transition = function {
 } where
 	unitT = unitType (unit project transition)
 	matched = IStatement $ map tokenSet [0 .. length (normalInEdges transition) - 1] ++
-		[ icall "firefn" [ EVar "thread", EVar "u", EAddr (EVar "vars") ], IReturn (EInt 1) ]
+		[ icall "firefn" [ EVar "thread", EVar "network", EVar "u", EAddr (EVar "vars") ], IReturn (EInt 1) ]
 	tokenSet i = ISet (EMember ("__token_" ++ show i) (EVar "vars")) (EVar $ "c_" ++ show i)
-	checkPlaces = IStatement $ map checkPlace (places project)
+	checkPlaces = IStatement $ map checkPlace (allPlaces project)
 	checkPlace place = let n = needTokens' (placeId place) (edgesIn transition) in
 		if n == 0 then
 			INoop
@@ -428,22 +457,31 @@ makeUserFunction ufunction = function {
 mainFunction :: Project -> Function
 mainFunction project = function {
 	functionName = "main",
-	parameters = [ ("argc", TRaw "int", ParamNormal), ("argv", (TPointer . TPointer . TRaw) "char", ParamNormal) ],
-	instructions = parseArgs ++ initUnits ++ startCailie,
+	parameters = [ ("argc", TRaw "int", ParamNormal),
+		("argv", (TPointer . TPointer . TRaw) "char", ParamNormal) ],
+	instructions = parseArgs ++ initNets ++ startCailie,
 	returnType = TInt
 } where
-	startCailie = [ defsArray, IReturn $ ECall "ca_main" [ EInt (length units), EVar "defs" ] ]
+	startCailie = [ defsArray, IReturn $ ECall "ca_main" [ EInt (length nets), EVar "nets" ] ]
 	parameters = projectParameters project
-	units = projectUnits project
-	initUnits = concatMap (initCaUnitDef project) units
-	defsArray =	IInline $ "CaUnitDef *defs[] = {" ++ addDelimiter "," [ nameFromId "unitdef" i | i <- [ 0 .. length units - 1 ] ] ++ "};"
+	nets = networks project
+	initNets = concatMap (initCaNetworkDef project) nets
+	defsArray =	IInline $ "CaNetworkDef *nets[] = {" ++
+		addDelimiter "," (map ((nameFromId "network") . networkId) (networks project)) ++ "};"
 	parseArgs = [
-		IInline $ "const char *p_names[] = {" ++ addDelimiter "," [ "\"" ++ parameterName p ++ "\"" | p <- parameters ] ++ "};",
-		IInline $ "const char *p_descs[] = {" ++ addDelimiter "," [ "\"" ++ parameterDescription p ++ "\"" | p <- parameters ] ++ "};",
-		IInline $ "int *p_data[] = {" ++ addDelimiter "," [ "&" ++ parameterGlobalName (parameterName p) | p <- parameters ] ++ "};",
+		IInline $ "const char *p_names[] = {" ++
+			addDelimiter "," [ "\"" ++ parameterName p ++ "\"" | p <- parameters ] ++ "};",
+		IInline $ "const char *p_descs[] = {" ++
+			addDelimiter "," [ "\"" ++ parameterDescription p ++ "\"" | p <- parameters ] ++ "};",
+		IInline $ "int *p_data[] = {" ++
+			addDelimiter "," [ "&" ++ parameterGlobalName (parameterName p) | p <- parameters ] ++ "};",
 		icall "ca_project_description" [ EString (projectDescription project) ],
-		icall "ca_init" [ EVar "argc", EVar "argv", EInt (length parameters), EVar "p_names", EVar "p_data", EVar "p_descs" ]
-	 ]
+		icall "ca_init" [ EVar "argc",
+			EVar "argv",
+			EInt (length parameters),
+			EVar "p_names",
+			EVar "p_data",
+			EVar "p_descs" ] ]
 
 parameterAccessFunction :: Parameter -> Function
 parameterAccessFunction parameter = function {
@@ -480,22 +518,24 @@ createProgram :: String -> Project -> String
 createProgram filename project =
 	emitProgram (FilePath.takeFileName filename) prologue types globals functions
 	where
-		functions = paramFs ++ userFs ++ typeFs ++ placeInitFs ++ workerFs ++ fireFs ++ transitionFs ++ unitFs ++ [mainF]
+		functions = paramFs ++ userFs ++ typeFs ++ placeInitFs ++ workerFs
+			++ fireFs ++ transitionFs ++ unitFs ++ [mainF]
 		mainF = mainFunction project
 		unitFs = map (initCaUnit project) units
-		transitionFs = map (transitionFn project) $ transitions project
-		fireFs = map (fireFn project) $ transitions project
-		workerFs = map (workerFunction project) $ filter hasCode $ transitions project
-		placeInitFs = map placeInitFunction $ filter hasInitCode $ places project
+		transitionFs = map (transitionFn project) $ allTransitions project
+		fireFs = map (fireFn project) $ allTransitions project
+		workerFs = map (workerFunction project) $ filter hasCode $ allTransitions project
+		placeInitFs = map placeInitFunction $ filter hasInitCode $ allPlaces project
 		types = Set.fromList $ varStructs ++ unitTypes
-		varStructs = map (varStruct project) $ transitions project
+		varStructs = map (varStruct project) $ allTransitions project
 		unitTypes = map unitType units
 		units = projectUnits project
 		userFs = map makeUserFunction (userFunctions project)
 		typeFs = concatMap typeFunctions (Map.elems (typeTable project))
 		paramFs = map parameterAccessFunction (projectParameters project)
 		prologue = "#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n#include <vector>\n#include <cailie.h>\n\n#include \"head.cpp\"\n\n"
-		globals = [ (parameterGlobalName $ parameterName p, fromNelType $ parameterType p) | p <- projectParameters project ]
+		globals = [ (parameterGlobalName $ parameterName p, fromNelType $ parameterType p)
+			| p <- projectParameters project ]
 
 test =
 	readFile "../vtwo/vtwo.xml" >>= return . (createProgram "testxyz") .

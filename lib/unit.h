@@ -14,18 +14,21 @@ class CaUnit;
 class CaUnitDef;
 class CaThread;
 class CaLogger;
+class CaNetwork;
 
 typedef CaUnit*(CaUnitInitFn)(CaThread *thread, CaUnitDef*, const CaPath &path);
-typedef void(CaFireFn)(CaThread *, CaUnit *, void *);
-typedef int(CaEnableFn)(CaThread *, CaUnit*, CaFireFn *);
+typedef void(CaFireFn)(CaThread *, CaNetwork *, CaUnit *, void *);
+typedef int(CaEnableFn)(CaThread *, CaNetwork *, CaUnit*, CaFireFn *);
 
 class CaTransition {
 	public:
 		void set_enable_fn(CaEnableFn *enable_fn) { this->enable_fn = enable_fn; }
 		void set_fire_fn(CaFireFn *fire_fn) { this->fire_fn = fire_fn; }
 		bool is_enabled(CaUnit *unit);
-		bool call(CaThread * thread, CaUnit *unit, CaFireFn *firefn) { return enable_fn(thread, unit, firefn); }
-		bool call(CaThread * thread, CaUnit *unit) { return call(thread, unit, fire_fn); }
+		bool call(CaThread * thread, CaNetwork *network, CaUnit *unit, CaFireFn *firefn) 
+			{ return enable_fn(thread, network, unit, firefn); }
+		bool call(CaThread * thread, CaNetwork *network, CaUnit *unit) 
+			{ return call(thread, network, unit, fire_fn); }
 
 		void set_id(int id) { this->id = id; }
 		int get_id() { return id; }
@@ -47,29 +50,17 @@ class CaUnitDef {
 			CaFireFn *fire_fn);
 		void register_init(const CaMultiPath &mpath) { init_paths.push_back(mpath); }
 
-		CaUnit * start_unit(CaThread *thread, const CaPath &path);
-		CaUnit * lookup_or_start(CaThread *thread, const CaPath &path, int *start_flag);
-		CaUnit * lookup(const CaPath &path);
-
-		void lock() { pthread_mutex_lock(&mutex); }
-		void unlock() { pthread_mutex_unlock(&mutex); }
-
-		void reports(CaOutput &output);
-		void init_all(CaThread *thread);
-
+		void init_all(CaNetwork *network, CaThread *thread);
+		CaUnit * new_unit(CaThread *thread, const CaPath &path);
 		int get_transition_count() const { return transitions_count; }
-		int get_units_count() const { return units.size(); }
 		std::vector<CaTransition*> get_transitions() const;
-		std::vector<CaUnit*> get_units() const { return units; }
 		CaTransition * get_transition(int transition_id);
-
-
+		CaTransition * get_transition_at_pos(int pos) { return &transitions[pos]; }
+		int get_id() { return id; }
 	protected:
 		CaUnitInitFn *init_fn;
 		int transitions_count;
 		CaTransition *transitions;
-		std::vector<CaUnit*> units;
-		pthread_mutex_t mutex;
 		std::vector<CaMultiPath> init_paths;
 		int id;
 };
@@ -82,6 +73,9 @@ class CaUnit {
 
 		void lock() { pthread_mutex_lock(&mutex); }
 		void unlock() { pthread_mutex_unlock(&mutex); }
+		bool is_active() { return active; }
+		void set_active(bool value) { active = value; }
+		void activate(CaNetwork *network);
 
 		int trylock() { return pthread_mutex_trylock(&mutex); }
 
@@ -91,9 +85,16 @@ class CaUnit {
 		virtual void receive(CaThread *thread, int place_pos, CaUnpacker &unpacker) = 0;
 
 		void log_status(CaLogger *logger, CaUnitDef *def);
+
+		int get_transition_count() const { return def->get_transition_count(); }
+		CaTransition * get_transition_at_pos(int pos) { return def->get_transition_at_pos(pos); }
+
+
 		CaPath path;
 	protected:
 		pthread_mutex_t mutex;
+		CaUnitDef *def;
+		bool active;
 };
 
 #endif
