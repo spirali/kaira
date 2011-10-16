@@ -257,20 +257,19 @@ class EdgeDrawing(DrawingBase):
 		cr.set_source_rgb(0.0,0.0,0.0)
 		utils.draw_polyline_nice_corners(cr, self.points, 0.5, 12, self.bidirectional, True)
 
-		if self.inscription_position:
-			point = self.inscription_position
-			# Cheal hack how to obtain inscription size
-			self.item.inscription_size = utils.text_size(cr, self.inscription)
-			sx, sy = self.item.inscription_size
-			if self.highlight:
-				cr.set_source_rgba(*self.highlight)
-				cr.rectangle(point[0], point[1], sx, sy)
-				cr.fill()
+		point = self.inscription_position
+		# Cheap hack how to obtain inscription size
+		self.item.inscription_size = utils.text_size(cr, self.inscription)
+		sx, sy = self.item.inscription_size
+		if self.highlight:
+			cr.set_source_rgba(*self.highlight)
+			cr.rectangle(point[0] - sx/2.0 + 1, point[1], sx, sy)
+			cr.fill()
 				
-			cr.set_source_rgb(0,0,0)
-			cr.set_line_width(1.0)
-			cr.move_to(point[0], point[1] + sy)
-			cr.show_text(self.inscription)
+		cr.set_source_rgb(0,0,0)
+		cr.set_line_width(1.0)
+		cr.move_to(point[0] - sx/2.0, point[1] + sy)
+		cr.show_text(self.inscription)
 
 	def draw_top(self, cr):
 		if self.error_messages and "inscription" in self.error_messages:

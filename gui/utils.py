@@ -187,6 +187,47 @@ def distance_to_line(line_point1, line_point2, point):
 
 	return abs(nx * px + ny * py + c) / math.sqrt(nx * nx + ny * ny)
 
+def nearest_point_on_line(line_start, line_vector, point):
+	lx, ly = line_vector
+	d = lx * lx + ly * ly
+	return float(point[0]*lx-line_start[1]*ly+point[1]*ly-line_start[0]*lx) / d
+
+def nearest_point_to_points(points, point):
+	if len(points) == 0:
+		return 0
+	nearest = point_distance(points[0], point)
+	index = 0
+	for i, p in enumerate(points):
+		dist = point_distance(p, point)
+		if nearest > dist:
+			nearest = dist
+			index = i
+	return index
+
+def nearest_point_of_multiline(line_points, point):
+	nearest = 100000;
+	nearest_index = -1
+	param = 0
+
+	for i, (p1, p2) in enumerate(pairs_generator(line_points)):
+		t = nearest_point_on_line(p1, make_vector(p1, p2), point)
+		if t >= 0.0 and t <= 1.0:
+			dist = distance_to_line(p1, p2, point)
+			if dist < nearest:
+				nearest = dist
+				nearest_index = i
+				param = t
+
+	tmp = nearest_point_to_points(line_points, point)
+	if nearest_index != -1:
+		if nearest_index != len(line_points) - 1:
+			d = distance_to_line(line_points[nearest_index], line_points[nearest_index + 1], point)
+			if d > 5 * vector_len(make_vector(line_points[tmp], point)):
+				return tmp, 0
+		return nearest_index, param
+	else:
+		return tmp, param
+
 def abs_vector(vector):
 	return (abs(vector[0]), abs(vector[1]))
 

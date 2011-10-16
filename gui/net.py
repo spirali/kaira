@@ -537,13 +537,14 @@ class Edge(NetItem):
 		self.inscription = ""
 		self.inscription_position = None
 		self.inscription_size = (0,0) # real value obtained by dirty hack in EdgeDrawing
+		self.inscription_point = len(self.get_all_points()) / 2 - 1
+		self.inscription_param = 0.5
+		self.offset = (0,10)
 
 	def get_inscription(self):
 		return self.inscription
 
 	def set_inscription(self, inscription):
-		if self.inscription_position is None:
-			self.inscription_position = self.default_inscription_position()
 		self.inscription = inscription
 		self.changed()
 
@@ -555,14 +556,15 @@ class Edge(NetItem):
 		self.changed()
 
 	def set_inscription_position(self, position):
+		points = self.get_all_points()
+		self.inscription_point, self.inscription_param = utils.nearest_point_of_multiline(points, position)
+		self.offset = utils.vector_diff(self.compute_insciption_point() , position)
 		self.inscription_position = position
 		self.changed()
 
 	def get_inscription_position(self):
-		if self.inscription_position is None:
-			return self.default_inscription_position()
-		else:
-			return self.inscription_position
+		self.inscription_position = utils.vector_diff(self.compute_insciption_point(), self.offset)
+		return self.inscription_position
 
 	def make_complement(self):
 		""" This function returns exact copy of the edge with changed directions,
@@ -591,15 +593,15 @@ class Edge(NetItem):
 			p2 = self.from_item.position
 		return (self.from_item.get_border_point(p1), self.to_item.get_border_point(p2))
 
-	def default_inscription_position(self):
+	def compute_insciption_point(self):
 		points = self.get_all_points()
-		bp1 = points[len(points) / 2 - 1]
-		bp2 = points[len(points) / 2]
-		vec = utils.normalize_vector(utils.make_vector(bp1, bp2))
-		vec = utils.vector_mul_scalar(vec, 5)
-		vec = (vec[1], -vec[0])
-		return utils.vector_add(utils.middle_point(bp1, bp2), vec)
-	
+		if self.inscription_point < len(points) - 1:
+			vec = utils.make_vector(points[self.inscription_point], points[self.inscription_point + 1])
+			vec = utils.vector_mul_scalar(vec, self.inscription_param)
+		else:
+			vec = (0, 0)
+		return utils.vector_add(vec, points[self.inscription_point])
+
 	def is_edge(self):
 		return True
 
@@ -635,7 +637,7 @@ class Edge(NetItem):
 		return [sp] + self.points + [ep]
 
 	def is_at_position(self, position):
-		if self.inscription_position and utils.position_inside_rect(position, self.inscription_position, self.inscription_size, 4):
+		if self.inscription_position and utils.position_inside_rect(position, utils.vector_diff(self.inscription_position, (self.inscription_size[0]/2, 0)), self.inscription_size, 4):
 			return True
 
 		for p in self.points:
@@ -653,7 +655,7 @@ class Edge(NetItem):
 		def set_point(i, p):
 			self.points[i] = p
 			self.changed()
-		if self.inscription_position and utils.position_inside_rect(position, self.inscription_position, self.inscription_size, 4):
+		if self.inscription_position and utils.position_inside_rect(position, utils.vector_diff(self.inscription_position, (self.inscription_size[0]/2, 0)), self.inscription_size, 4):
 			return factory.get_move_action(self.get_inscription_position(), self.set_inscription_position, position)
 
 		for i, p in enumerate(self.points):
