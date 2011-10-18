@@ -215,13 +215,6 @@ class MainWindow(gtk.Window):
 		item.connect("activate", lambda w: self.app.edit_settings())
 		edit_menu.append(item)
 
-
-
-		tool_menu = gtk.Menu()
-		item = gtk.MenuItem("Export network to SVG")
-		item.connect("activate", lambda w: self.app.export_to_svg())
-		tool_menu.append(item)
-
 		main_menu = gtk.MenuBar()
 		item = gtk.MenuItem("_Project")
 		item.set_submenu(file_menu)
@@ -236,10 +229,6 @@ class MainWindow(gtk.Window):
 		main_menu.append(item)
 		item = gtk.MenuItem("_Run")
 		item.set_submenu(build_menu)
-		self.project_sensitives.append(item)
-		main_menu.append(item)
-		item = gtk.MenuItem("_Tools")
-		item.set_submenu(tool_menu)
 		self.project_sensitives.append(item)
 		main_menu.append(item)
 		return main_menu

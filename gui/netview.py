@@ -25,6 +25,7 @@ from canvas import NetCanvas
 from drawing import VisualConfig
 from objectlist import ObjectList
 from net import Net
+import cairo
 
 action_cursor = { 
 	"none" : None,
@@ -314,7 +315,8 @@ class NetList(ObjectList):
 				("Add", self._add),
 				("Copy", self._copy),
 				("Rename", self._rename),
-				("Remove", self._remove)
+				("Remove", self._remove),
+				("Export to SVG", self._export_svg)
 			]
 
 		ObjectList.__init__(self, defs, context_menu = context_menu)
@@ -344,6 +346,16 @@ class NetList(ObjectList):
 		net = obj.copy()
 		net.name = obj.name + "_copy"
 		self.project.add_net(net)
+
+	def _export_svg(self, obj):
+		surface = cairo.SVGSurface("network.svg", 1000, 1000)
+		try:
+			context = cairo.Context(surface)
+			obj.draw(context, VisualConfig())
+		finally:
+			surface.finish()
+		self.netview.app.console_write("Network exported to 'network.svg'.", "success")
+
 
 	def _update(self):
 		self.refresh(self.project.get_nets())

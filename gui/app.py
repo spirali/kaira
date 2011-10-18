@@ -369,20 +369,10 @@ class App:
 	def hide_error_messages(self):
 		self.project.set_error_messages({})
 
-	def export_to_svg(self):
-		surface = cairo.SVGSurface("network.svg", 1000, 1000)
-		try:
-			context = cairo.Context(surface)
-			self.project.net.draw(context, VisualConfig())
-		finally:
-			surface.finish()
-		self.console_write("Network exported to 'network.svg'.", "success")
-
 	def new_simulation(self):
 		simulation = Simulation()
 		simulation.set_callback("error", lambda line: self.console_write(line, "error"))
 		return simulation
-
 
 	def connect_to_application(self):
 		def inited():
