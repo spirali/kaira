@@ -932,6 +932,8 @@ def load_edge(element, net, loader):
 		ix = xml_int(element, "inscription_x")
 		iy = xml_int(element, "inscription_y")
 		edge.inscription_position = (ix, iy)
+		edge.inscription_point, edge.inscription_param = utils.nearest_point_of_multiline(edge.get_all_points(), edge.inscription_position)
+		edge.offset = utils.vector_diff(edge.compute_insciption_point() , edge.inscription_position)
 
 def load_area(element, net, loader):
 	id = loader.get_id(element)
