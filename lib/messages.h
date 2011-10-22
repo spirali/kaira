@@ -3,10 +3,10 @@
 #define CAILIE_MESSAGES_H
 
 #include <pthread.h>
-#include "unit.h"
+#include <string>
 
 class CaThread;
-class CaNetwork;
+class CaNet;
 
 class CaMessage {
 	public:
@@ -16,12 +16,12 @@ class CaMessage {
 		virtual void process(CaThread *thread) = 0;
 };
 
-class CaMessageNewNetwork  : public CaMessage {
+class CaMessageNewNet  : public CaMessage {
 	public:
-		CaMessageNewNetwork(CaNetwork *network) : network(network) {}
+		CaMessageNewNet(CaNet *net) : net(net) {}
 		void process(CaThread *thread);
 	protected:
-		CaNetwork *network;
+		CaNet *net;
 };
 
 class CaMessageBarriers  : public CaMessage {

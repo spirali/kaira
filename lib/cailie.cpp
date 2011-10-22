@@ -1,5 +1,7 @@
 
 #include "cailie.h"
+#include "listener.h"
+
 #include <getopt.h>
 #include <assert.h>
 #include <stdarg.h>
@@ -19,7 +21,33 @@ void ca_project_description(const char *str) {
 	ca_project_description_string = str;
 }
 
-int ca_main(int defs_count, CaNetworkDef **defs)
+static CaListener * ca_init_listener(CaProcess *process)
+{
+	CaListener *listener = new CaListener(process);
+	pthread_barrier_t start_barrier;
+
+	listener->init(ca_listen_port);
+	if (ca_listen_port == 0) {
+		printf("%i\n", listener->get_port());
+		fflush(stdout);
+	}
+
+	if (ca_block_on_start) {
+		pthread_barrier_init(&start_barrier, NULL, 2);
+		listener->set_start_barrier(&start_barrier);
+	}
+
+	listener->start();
+
+	if (ca_block_on_start) {
+		pthread_barrier_wait(&start_barrier);
+		pthread_barrier_destroy(&start_barrier);
+	}
+
+	return listener;
+}
+
+int ca_main(int defs_count, CaNetDef **defs)
 {
 	#ifdef CA_MPI
 		int process_count, process_id;
@@ -29,8 +57,19 @@ int ca_main(int defs_count, CaNetworkDef **defs)
 		int process_count = 1;
 		int process_id = 0;
 	#endif
+
+	CaListener *listener = NULL;
 	CaProcess process(process_id, process_count, ca_threads_count, defs_count, defs);
+
+	if (ca_listen_port != -1) {
+		listener = ca_init_listener(&process);
+	}
 	process.start();
+	process.join();
+
+	if (listener != NULL) {
+		delete listener;
+	}
 	return 0;
 }
 

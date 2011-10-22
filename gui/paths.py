@@ -25,7 +25,7 @@ KAIRA_ROOT = os.path.dirname(KAIRA_GUI)
 ICONS_DIR = os.path.join(KAIRA_GUI, "icons")
 UI_DIR = os.path.join(KAIRA_GUI, "ui")
 
-PTP_BIN = os.path.join(KAIRA_ROOT, "ptp", "ptp")
+PTP_BIN = os.path.join(KAIRA_ROOT, "ptp", "ptp.py")
 CAILIE_DIR = os.path.join(KAIRA_ROOT, "lib")
 CAILIE_LIB_DIR = os.path.join(CAILIE_DIR, "build")
 CAILIE_MPI_LIB_DIR = os.path.join(CAILIE_DIR, "build-mpi")

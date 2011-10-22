@@ -25,7 +25,7 @@ import paths
 from events import EventSource
 
 class Project(EventSource):
-	""" 
+	"""
 		Events: changed, netlist_changed filename_changed
 	"""
 
@@ -264,7 +264,7 @@ class Project(EventSource):
 	def write_project_files(self):
 		self.write_makefile()
 		utils.write_file_if_not_exists(self.get_head_filename(),
-			"/* This file is included at the beginning of the main source file,\n" + 
+			"/* This file is included at the beginning of the main source file,\n" +
 			"   so definitions from this file can be used in functions in\n" +
 			"   transitions and places. */\n\n")
 

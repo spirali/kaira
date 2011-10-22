@@ -18,7 +18,7 @@
 
 extern char * ca_project_description_string;
 
-void ca_write_header(FILE *out, int networks_count)
+void ca_write_header(FILE *out, int nets_count)
 {
 	int lines = 1;
 	for (const char *c = ca_project_description_string; (*c) != 0; c++) {
@@ -29,7 +29,7 @@ void ca_write_header(FILE *out, int networks_count)
 
 	CaOutput output;
 	output.child("header");
-	output.set("networks-count", networks_count);
+	output.set("nets-count", nets_count);
 	output.set("description-lines", lines);
 	CaOutputBlock *block = output.back();
 	block->write(out);
@@ -134,7 +134,7 @@ void CaListener::main()
 		/* Wait for all process */
 		pthread_barrier_wait(&barrier1);
 		/* Because there is always at least one thread we can use thread 0 as source of list of networks */
-		ca_write_header(comm_out, process->get_thread(0)->get_networks_count());
+		ca_write_header(comm_out, process->get_thread(0)->get_nets_count());
 		process_commands(comm_in, comm_out);
 		pthread_barrier_wait(&barrier2);
 
@@ -172,6 +172,7 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 			process->write_reports(comm_out);
 			continue;
 		}
+
 		if (strcmp(line, "FIRE") > 0) {
 			if (process->quit_flag) {
 				fprintf(comm_out, "Network is terminated\n");
@@ -179,13 +180,12 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 			}
 			int transition_id;
 			int instance_id;
-			char path_string[LINE_LENGTH_LIMIT];
-			if (3 != sscanf(line, "FIRE %i %i %s", &transition_id, &instance_id, path_string)) {
+			int process_id;
+			if (3 != sscanf(line, "FIRE %i %i %i", &transition_id, &instance_id, &process_id)) {
 				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
-			CaPath path(path_string);
-			process->fire_transition(transition_id, instance_id, path);
+			process->fire_transition(transition_id, instance_id);
 			fprintf(comm_out, "Ok\n");
 			continue;
 		}

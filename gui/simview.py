@@ -19,7 +19,6 @@
 #
 
 import gtk
-
 from canvas import NetCanvas
 from drawing import VisualConfig
 import gtkutils
@@ -40,7 +39,7 @@ class NetRunView(gtk.HBox):
 	def __init__(self, instances, vconfig):
 		gtk.HBox.__init__(self)
 		vbox = gtk.VBox()
-		vbox.pack_start(self._paths_list(instances[0].running_paths()))
+		vbox.pack_start(self._tree(instances[0].get_perspectives()))
 		vbox.pack_start(self._instances_list(instances))
 		self.pack_start(vbox, False, False)
 		self.canvas_sc = gtk.ScrolledWindow()
@@ -54,18 +53,11 @@ class NetRunView(gtk.HBox):
 	def redraw(self):
 		self.canvas.redraw()
 
-	def get_path(self):
+	def get_perspective(self):
 		return self.tree.get_selection(0)
 
 	def get_instance(self):
 		return self.instances.selected_object()
-
-	def get_node(self):
-		path = self.get_path()
-		if path is None:
-			return self.get_instance().get_overview()
-		else:
-			return self.get_instance().get_node(path)
 
 	def _create_canvas(self, vconfig):
 		c = NetCanvas(self.get_instance().net, None, vconfig, zoom = 1)
@@ -73,17 +65,15 @@ class NetRunView(gtk.HBox):
 		c.show()
 		return c
 
-	def _refresh_tree(self, paths):
-		selected_path = self.get_path()
+	def _refresh_tree(self, perspectives):
+		p = self.get_perspective()
 		self.tree.clear()
-		self.tree.append((None, "Overview"))
-		if selected_path is None:
-			self.tree.select_first()
-		paths.sort()
-		for path in paths:
-			i = self.tree.append((path, str(path)))
-			if path == selected_path:
+		for pe in perspectives:
+			i = self.tree.append((pe, str(pe.get_name())))
+			if p == pe:
 				self.tree.select_iter(i)
+		if p not in perspectives:
+			self.tree.select_first()
 
 	def _refresh_instances(self, instances):
 		selected_instance = self.get_instance()
@@ -96,13 +86,13 @@ class NetRunView(gtk.HBox):
 				selected = True
 		if not selected:
 			self.instances.select_first()
-		self._refresh_tree(self.get_instance().running_paths())
+		self._refresh_tree(self.get_instance().get_perspectives())
 
 
-	def _paths_list(self, paths):
-		self.tree = gtkutils.SimpleList((("_", object), ("Path",str)))
+	def _tree(self, perspectives):
+		self.tree = gtkutils.SimpleList((("_", object), ("Views",str)))
 		self.tree.set_size_request(80,10)
-		self._refresh_tree(paths)
+		self._refresh_tree(perspectives)
 		self.tree.select_first()
 		self.tree.connect_view("cursor-changed", self._path_changed);
 		return self.tree
@@ -129,13 +119,6 @@ class SimView(NetRunView):
 		self.app = app
 		simulation.set_callback("changed", self._simulation_changed)
 
-	def get_nodes(self):
-		path = self.get_path()
-		if path is None:
-			return self.simulation.get_overview()
-		else:
-			return self.simulation.get_instance(path)
-
 	def _simulation_changed(self):
 		self._refresh_instances(self.simulation.instances)
 		self.redraw()
@@ -145,14 +128,14 @@ class SimView(NetRunView):
 		if item is None:
 			return
 		if item.is_transition():
-			self.get_node().fire_transition(item)
+			self.get_perspective().fire_transition(item)
 		elif item.is_place():
 			self.open_tokens_tab(item)
 
 	def open_tokens_tab(self, place):
-		node = self.get_node()
 		text_buffer = gtk.TextBuffer()
-		text_buffer.insert(text_buffer.get_end_iter(), '\n'.join(node.get_tokens(place)))
+		tokens = '\n'.join(map(str, self.get_perspective().get_tokens(place.get_id())))
+		text_buffer.insert(text_buffer.get_end_iter(), tokens)
 		text_area = gtk.TextView()
 		text_area.set_buffer(text_buffer)
 		text_area.set_editable(False)
@@ -164,8 +147,6 @@ class SimView(NetRunView):
 		vbox.show_all()
 
 		label = "Tokens of " + place.get_name()
-		if node.path:
-			label += "@" + str(node.path)
 		self.app.window.add_tab(mainwindow.Tab(label, vbox))
 
 
@@ -176,13 +157,14 @@ class SimVisualConfig(VisualConfig):
 
 	def transition_drawing(self, item):
 		d = VisualConfig.transition_drawing(self, item)
-		if self.simview.simulation.running and self.simview.get_node().is_enabled(item):
+		if self.simview.simulation.running and self.simview.get_perspective().is_enabled(item):
 			d.set_highlight((0.1,0.90,0.1,0.5))
 		return d
 
 	def place_drawing(self, item):
 		d = VisualConfig.place_drawing(self, item)
-		d.set_tokens(self.simview.get_node().get_tokens(item))
+		tokens = map(str, self.simview.get_perspective().get_tokens(item))
+		d.set_tokens(tokens)
 		return d
 
 def connect_dialog(mainwindow):
