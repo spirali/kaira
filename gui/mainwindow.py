@@ -156,12 +156,12 @@ class MainWindow(gtk.Window):
 		build_menu.append(item)
 
 		item = gtk.MenuItem("Run _simulation")
-		item.connect("activate", lambda w: self.app.simulation_start(False))
+		item.connect("activate", lambda w: self.app.simulation_start())
 		item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("F7"), 0, gtk.ACCEL_VISIBLE)
 		build_menu.append(item)
 
-		item = gtk.MenuItem("R_e-run simulation")
-		item.connect("activate", lambda w: self.app.simulation_start(True))
+		item = gtk.MenuItem("Confi_gure simulation")
+		item.connect("activate", lambda w: self.app.open_simconfig_dialog())
 		item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("F8"), 0, gtk.ACCEL_VISIBLE)
 		build_menu.append(item)
 

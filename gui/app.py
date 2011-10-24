@@ -28,7 +28,7 @@ import gtkutils
 import paths
 from mainwindow import MainWindow, Tab
 from netview import NetView
-from parameters import ParametersValueDialog
+from simconfig import SimConfigDialog
 from externtypes import ExternTypeEditor
 from projectconfig import ProjectConfig
 from simulation import Simulation
@@ -293,7 +293,7 @@ class App:
 	def edit_headfile(self):
 		self.edit_sourcefile(self.project.get_head_filename())
 
-	def simulation_start(self, try_reuse_params, valgrind = False):
+	def simulation_start(self, valgrind = False):
 		def output(line, stream):
 			self.console_write("OUTPUT: " + line, "output")
 			return True
@@ -308,7 +308,7 @@ class App:
 			sprocess = process.Process(program_name, output)
 			sprocess.cwd = project.get_directory()
 			# FIXME: Timeout
-			other_params = [ "-p%s=%s" % (p,param_values[p]) for p in param_values ]
+			other_params = [ "-p{0}={1}".format(k, v) for (k, v) in simconfig.parameters_values.items() ]
 			first_line = sprocess.start_and_get_first_line(parameters + other_params)
 			try:
 				port = int(first_line)
@@ -322,23 +322,22 @@ class App:
 			simulation.set_callback("shutdown", lambda: sprocess.shutdown())
 			simulation.connect("localhost", port)
 
-		if self.project.get_parameters(): # Project has parameters
-			cache = self.project.get_param_value_cache()
-			if try_reuse_params and cache is not None:
-				param_values = cache
-			else:
-				dialog = ParametersValueDialog(self.window, self.project.get_parameters())
-				try:
-					if dialog.run() == gtk.RESPONSE_OK:
-						param_values = dialog.get_values()
-						self.project.set_param_values_cache(param_values)
-					else:
-						return
-				finally:
-					dialog.destroy()
-		else:
-			param_values = {}
+		simconfig = self.project.get_simconfig()
+		if simconfig.parameters_values is None:
+			if not self.open_simconfig_dialog():
+				return
 		self._start_build(self.project, project_builded)
+
+	def open_simconfig_dialog(self):
+		dialog = SimConfigDialog(self.window, self.project)
+		try:
+			if dialog.run() == gtk.RESPONSE_OK:
+				dialog.set_simconfig(self.project)
+				return True
+			else:
+				return False
+		finally:
+			dialog.destroy()
 
 	def show_message_dialog(self, text, type):
 		error_dlg = gtk.MessageDialog(parent=self.window, type=type, message_format=text, buttons=gtk.BUTTONS_OK)

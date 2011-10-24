@@ -23,6 +23,7 @@ import utils
 import os
 import paths
 from events import EventSource
+from simconfig import SimConfig
 
 class Project(EventSource):
 	"""
@@ -39,7 +40,7 @@ class Project(EventSource):
 		self.nets = []
 		self.parameters = []
 		self.extern_types = []
-		self.param_values_cache = None
+		self.simconfig = SimConfig()
 		self.error_messages = {}
 		self.functions = []
 		self.events = [
@@ -70,6 +71,9 @@ class Project(EventSource):
 		self.nets.remove(net)
 		self.emit_event("netlist_changed")
 
+	def get_simconfig(self):
+		return self.simconfig
+
 	def get_nets(self):
 		return self.nets
 
@@ -83,6 +87,9 @@ class Project(EventSource):
 		d, fname = os.path.split(self.filename)
 		name, ext = os.path.splitext(fname)
 		return name
+
+	def reset_param_values(self):
+		self.simconfig.reset_param_values()
 
 	def get_filename(self):
 		return self.filename
@@ -109,16 +116,6 @@ class Project(EventSource):
 	def set_filename(self, filename):
 		self.filename = os.path.abspath(filename)
 		self.emit_event("filename_changed")
-
-	# Cache is used for rerunning simulation with same parameters
-	def get_param_value_cache(self):
-		return self.param_values_cache
-
-	def set_param_values_cache(self, param_values):
-		self.param_values_cache = param_values
-
-	def reset_param_values_cache(self):
-		self.param_values_cache = None
 
 	def set_error_messages(self, messages):
 		self.error_messages = messages
@@ -249,7 +246,7 @@ class Project(EventSource):
 
 	def add_parameter(self, obj):
 		obj.project = self
-		self.reset_param_values_cache()
+		self.reset_param_values()
 		self.parameters.append(obj)
 		self.changed()
 
@@ -257,7 +254,7 @@ class Project(EventSource):
 		return self.parameters
 
 	def remove_parameter(self, parameter):
-		self.reset_param_values_cache()
+		self.reset_param_values()
 		self.parameters.remove(parameter)
 		self.changed()
 
@@ -388,7 +385,7 @@ class Parameter:
 
 	def changed(self):
 		if self.project:
-			self.project.reset_param_values_cache()
+			self.project.reset_param_values()
 
 	def as_xml(self):
 		e = xml.Element("parameter")
