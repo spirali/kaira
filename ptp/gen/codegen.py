@@ -120,6 +120,12 @@ class Codegen(object):
             w.line("transition_user_fn_{0.id}(vars);", tr)
             w.line("net->lock();")
 
+        em = emitter.Emitter()
+        em.variable_emitter = lambda name: "vars." + name
+
+        for edge in tr.edges_out:
+            w.line("n->place_{0.id}.add({1});", edge.get_place(), edge.expr.emit(em))
+
         if tr.code is not None:
             w.line("net->unlock();")
         w.line("return true;")
