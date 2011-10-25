@@ -134,7 +134,7 @@ class SimView(NetRunView):
 
 	def open_tokens_tab(self, place):
 		text_buffer = gtk.TextBuffer()
-		tokens = '\n'.join(map(str, self.get_perspective().get_tokens(place.get_id())))
+		tokens = '\n'.join(map(str, self.get_perspective().get_tokens(place)))
 		text_buffer.insert(text_buffer.get_end_iter(), tokens)
 		text_area = gtk.TextView()
 		text_area.set_buffer(text_buffer)

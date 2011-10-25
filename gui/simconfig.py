@@ -51,7 +51,7 @@ class SimConfigDialog(gtk.Dialog):
 		self.entries = {}
 		self.vbox.pack_start(self.table)
 
-		self.processes_entry = self._add_entry(0, "<b>Processes</b>", "2")
+		self.processes_entry = self._add_entry(0, "<b>Processes</b>", str(project.simconfig.process_count))
 		self.table_index = 1
 		for i, p in enumerate(project.get_parameters()):
 			self._add_parameter(i + 1, p)
