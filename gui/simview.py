@@ -114,7 +114,7 @@ class NetRunView(gtk.HBox):
 class SimView(NetRunView):
 
 	def __init__(self, app, simulation):
-		NetRunView.__init__(self, simulation.instances, SimVisualConfig(self))
+		NetRunView.__init__(self, simulation.get_instances(), SimVisualConfig(self))
 		self.simulation = simulation
 		self.app = app
 		simulation.set_callback("changed", self._simulation_changed)

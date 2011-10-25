@@ -308,6 +308,7 @@ void CaProcess::write_reports(FILE *out) const
 {
 	CaOutput output;
 	output.child("process");
+	output.set("id", process_id);
 	output.set("running", !quit_flag);
 
 	const std::vector<CaNet*> &nets = threads[0].get_nets();
@@ -317,8 +318,6 @@ void CaProcess::write_reports(FILE *out) const
 	}
 	CaOutputBlock *block = output.back();
 	block->write(out);
-	fprintf(out, "\n");
-	fflush(stdout);
 	delete block;
 }
 

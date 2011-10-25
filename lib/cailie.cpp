@@ -11,6 +11,7 @@
 #endif
 
 int ca_threads_count = 1;
+int ca_process_count = 1;
 const char *ca_project_description_string = NULL;
 int ca_log_on = 0;
 std::string ca_log_default_name = "";
@@ -21,9 +22,9 @@ void ca_project_description(const char *str) {
 	ca_project_description_string = str;
 }
 
-static CaListener * ca_init_listener(CaProcess *process)
+static CaListener * ca_init_listener(int process_count, CaProcess **processes)
 {
-	CaListener *listener = new CaListener(process);
+	CaListener *listener = new CaListener(process_count, processes);
 	pthread_barrier_t start_barrier;
 
 	listener->init(ca_listen_port);
@@ -52,23 +53,36 @@ int ca_main(int defs_count, CaNetDef **defs)
 	#ifdef CA_MPI
 		int process_count, process_id;
 		MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
-		MPI_Comm_size(MPI_COMM_WORLD, &process_count);
-	#else 
-		int process_count = 1;
-		int process_id = 0;
+		MPI_Comm_size(MPI_COMM_WORLD, &ca_process_count);
 	#endif
 
 	CaListener *listener = NULL;
-	CaProcess process(process_id, process_count, ca_threads_count, defs_count, defs);
+
+	CaProcess **processes = (CaProcess**) alloca(sizeof(CaProcess*) * ca_process_count);
+
+	int t;
+	for (t = 0; t < ca_process_count; t++) {
+		processes[t] = new CaProcess(t, ca_process_count, ca_threads_count, defs_count, defs);
+	}
 
 	if (ca_listen_port != -1) {
-		listener = ca_init_listener(&process);
+		listener = ca_init_listener(ca_process_count, processes);
 	}
-	process.start();
-	process.join();
+
+	for (t = 0; t < ca_process_count; t++) {
+		processes[t]->start();
+	}
+
+	for (t = 0; t < ca_process_count; t++) {
+		processes[t]->join();
+	}
 
 	if (listener != NULL) {
 		delete listener;
+	}
+
+	for (t = 0; t < ca_process_count; t++) {
+		delete processes[t];
 	}
 	return 0;
 }
@@ -105,7 +119,7 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 	int c;
 	struct option longopts[] = {
 		{ "help",	0,	NULL, 'h' },
-		{ "threads",	1,	NULL, 'r' },
+		{ "threads",	1,	NULL, 't' },
 		{ NULL,		0,	NULL,  0}
 	};
 
@@ -119,7 +133,7 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 	atexit(ca_finalize);
 	#endif
 
-	while ((c = getopt_long (argc, argv, "hp:m:r:l:s:b", longopts, NULL)) != -1)
+	while ((c = getopt_long (argc, argv, "hp:t:l:s:br:", longopts, NULL)) != -1)
 		switch (c) {
 			case 'h': {
 				size_t max_len = 0;
@@ -136,8 +150,12 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 				}
 				exit(0);
 			}
-			case 'r': {
+			case 't': {
 			      ca_threads_count = atoi(optarg);
+			      break;
+			}
+			case 'r': {
+			      ca_process_count = atoi(optarg);
 			      break;
 			}
 			case 'p': {

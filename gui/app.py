@@ -301,10 +301,11 @@ class App:
 		def project_builded(project):
 			if valgrind:
 				program_name = "valgrind"
-				parameters = [ "-q", project.get_executable_filename(), "-s", "auto", "-b" ]
+				parameters = [ "-q", project.get_executable_filename() ]
 			else:
 				program_name = project.get_executable_filename()
-				parameters = ["-s", "auto", "-b"]
+				parameters = []
+			parameters += [ "-s", "auto", "-b", "-r", str(simconfig.process_count) ]
 			sprocess = process.Process(program_name, output)
 			sprocess.cwd = project.get_directory()
 			# FIXME: Timeout

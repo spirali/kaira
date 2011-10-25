@@ -71,31 +71,40 @@ class Simulation(EventSource):
 
 	def read_header(self, stream):
 		header = xml.fromstring(stream.readline())
-		lines_count = int(header.get("description-lines"))
+		self.process_count = utils.xml_int(header, "process-count")
+		lines_count = utils.xml_int(header, "description-lines")
 		project_string = "\n".join((stream.readline() for i in xrange(lines_count)))
 		self.project = load_project_from_xml(xml.fromstring(project_string), "")
+
+	def get_instances(self):
+		return self.instances
 
 	def query_reports(self, callback = None):
 		def reports_callback(line):
 			root = xml.fromstring(line)
-			self.running = utils.xml_bool(root, "running")
-			if not self.running:
-				self.emit_event("error", "Network terminated\n")
-			self.instances = []
-			for e in root.findall("net-instance"):
-				id = utils.xml_int(e, "id")
-				net = self.project.find_net(utils.xml_int(e, "net-id"))
-				i = NetInstance(id, net, self)
-				self.instances.append(i)
-				for pe in e.findall("place"):
-					place_id = utils.xml_int(pe, "id")
-					p = i.get_place(place_id)
-					for te in pe.findall("token"):
-						p.append(Token(te.get("value")))
-				for tre in e.findall("enabled"):
-					transition_id = utils.xml_int(tre, "id")
-					i.add_enabled(0, transition_id)
-
+			instances = {}
+			for e in root.findall("process"):
+				process_id = utils.xml_int(e, "id")
+				process_id_str = str(process_id)
+				self.running = utils.xml_bool(e, "running")
+				if not self.running:
+					self.emit_event("error", "Network terminated\n")
+				for ne in e.findall("net-instance"):
+					id = utils.xml_int(ne, "id")
+					i = instances.get(id)
+					if i is None:
+						net = self.project.find_net(utils.xml_int(ne, "net-id"))
+						i = NetInstance(id, net, self)
+						instances[id] = i
+					for pe in ne.findall("place"):
+						place_id = utils.xml_int(pe, "id")
+						p = i.get_place(place_id)
+						for te in pe.findall("token"):
+							p.append(Token(te.get("value"), process_id_str))
+					for tre in ne.findall("enabled"):
+						transition_id = utils.xml_int(tre, "id")
+						i.add_enabled(process_id, transition_id)
+			self.instances = instances.values()
 			if callback:
 				callback()
 			self.emit_event("changed")
@@ -111,9 +120,9 @@ class Simulation(EventSource):
 
 class Token:
 	
-	def __init__(self, value):
+	def __init__(self, value, addr):
 		self.value = value
-		self.addr = "0"
+		self.addr = addr
 
 	def __str__(self):
 		return self.value + "@" + self.addr
@@ -130,11 +139,18 @@ class Perspective:
 	def get_tokens(self, place):
 		return self.instance.get_place(place.get_id())
 
+	def get_enabled(self, transition):
+		return [ i for i in xrange(self.instance.simulation.process_count)
+			if self.instance.is_enabled(i, transition.get_id()) ]
+
 	def is_enabled(self, transition):
-		return self.instance.is_enabled(0, transition.get_id())
+		return len(self.get_enabled(transition)) > 0
 
 	def fire_transition(self, transition):
-		self.instance.simulation.fire_transition(transition, self.instance, 0)
+		enabled = self.get_enabled(transition)
+		if len(enabled) > 0:
+			process_id = self.instance.simulation.random.choice(enabled)
+			self.instance.simulation.fire_transition(transition, self.instance, process_id)
 
 class NetInstance:
 
