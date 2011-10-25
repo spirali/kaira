@@ -127,7 +127,7 @@ class Token:
 	def __str__(self):
 		return self.value + "@" + self.addr
 
-class Perspective:
+class Perspective(utils.EqMixin):
 
 	def __init__(self, name, instance):
 		self.name = name
@@ -135,6 +135,30 @@ class Perspective:
 
 	def get_name(self):
 		return self.name
+
+class PerspectiveProcess(Perspective):
+
+	def __init__(self, name, instance, process_id):
+		Perspective.__init__(self, name, instance)
+		self.process_id = process_id
+
+	def get_tokens(self, place):
+		return [ t for t in self.instance.get_place(place.get_id()) if t.addr == str(self.process_id) ]
+
+	def is_enabled(self, transition):
+		return self.instance.is_enabled(self.process_id, transition.get_id())
+
+	def fire_transition(self, transition):
+		self.instance.simulation.fire_transition(transition, self.instance, self.process_id)
+
+	def __eq__(self, other):
+		return (isinstance(other, self.__class__)
+			and self.process_id == other.process_id)
+
+	def __ne__(self, other):
+		return not self.__eq__(other)
+
+class PerspectiveAll(Perspective):
 
 	def get_tokens(self, place):
 		return self.instance.get_place(place.get_id())
@@ -172,7 +196,8 @@ class NetInstance:
 		return p
 
 	def get_perspectives(self):
-		return [ Perspective("All", self) ]
+		perspectives = [ PerspectiveProcess(str(i), self, i) for i in xrange(self.simulation.process_count) ]
+		return [ PerspectiveAll("All", self) ] + perspectives
 
 	def add_enabled(self, process_id, transition_id):
 		self.enabled.append((process_id, transition_id))
