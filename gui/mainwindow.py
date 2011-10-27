@@ -168,7 +168,7 @@ class MainWindow(gtk.Window):
 		build_menu.append(gtk.SeparatorMenuItem())
 
 		item = gtk.MenuItem("Run _simulation in Valgrind")
-		item.connect("activate", lambda w: self.app.simulation_start(False, valgrind = True))
+		item.connect("activate", lambda w: self.app.simulation_start(valgrind = True))
 		build_menu.append(item)
 
 		view_menu = gtk.Menu()
