@@ -218,7 +218,7 @@ class ExprTuple(Expression):
         return (t_tuple(*ts), ctx, eqs)
 
     def emit(self, emitter):
-        return emitter.tuple(self.name, self.args)
+        return emitter.tuple(self.nel_type, self.args)
 
     def get_direct_vars(self):
         return set().union(*[ e.get_direct_vars() for e in self.args ])

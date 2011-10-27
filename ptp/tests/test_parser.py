@@ -8,6 +8,7 @@ import unittest
 import base.expressions as e
 import base.neltypes as t
 from base.parser import parse_expression, parse_type
+from base.parser import parse_output_inscription
 
 class TestParser(unittest.TestCase):
 
@@ -49,6 +50,12 @@ class TestParser(unittest.TestCase):
     def test_array(self):
         self.assertEqual(parse_expression("[]"), e.ExprArray(()))
         self.assertEqual(parse_expression("[1,2,3]"), e.ExprArray((e.ExprInt(1),e.ExprInt(2),e.ExprInt(3))))
+        
+    def test_output_inscription(self):
+        self.assertEquals(parse_output_inscription("x_x"), (e.ExprVar("x_x"), None))
+        self.assertEquals(parse_output_inscription("x_x@0"), (e.ExprVar("x_x"), e.ExprInt(0)))
+        expr = (e.ExprCall("+", [ e.ExprInt(2), e.ExprVar("x")] ), e.ExprVar("y"))
+        self.assertEquals(parse_output_inscription("(2 + x)    @    y"), expr)
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testExpression']
     unittest.main()

@@ -2,7 +2,7 @@
 import emitter
 import writer
 import base.utils as utils
-from base.neltypes import Type
+from base.neltypes import Type, t_int, t_string
 
 from builder import t_place, get_ordered_types, get_edges_mathing
 
@@ -104,6 +104,44 @@ class Codegen(object):
         self.writer.raw_text(tr.code)
         self.line("}}")
 
+    def get_size_code(self, t, code):
+        if t == t_int:
+            return "sizeof({0})".format(code)
+        if t == t_string:
+            return "(sizeof(size_t) + ({0}).size())".format(code)
+        if t.name == "":
+            return "({0}).get_mem_size()".format(code)
+        raise Exception("Unknown type: " + str(t))
+
+    def get_pack_code(self, t, packer, code):
+        if t == t_int:
+            return "{0}.pack_int({1});".format(packer, code)
+        raise Exception("Unknown type: " + str(t))
+
+    def get_unpack_code(self, t, unpacker):
+        if t == t_int:
+            return "{0}.unpack_int()".format(unpacker)
+        raise Exception("Unknown type: " + str(t))
+
+    def write_send_token(self, w, em, edge):
+        if edge.target == None:
+            w.line("n->place_{0.id}.add({1});", edge.get_place(), edge.expr.emit(em))
+        else:
+            w.line("int target_{0.id} = {1};", edge, edge.target.emit(em))
+            w.line("if (target_{0.id} == thread->get_process_id()) {{", edge)
+            w.indent_push()
+            w.line("n->place_{0.id}.add({1});", edge.get_place(), edge.expr.emit(em))
+            w.indent_pop()
+            w.line("}} else {{")
+            w.indent_push()
+            t = edge.expr.nel_type
+            w.line("{0} value = {1};", em.emit_type(t), edge.expr.emit(em))
+            w.line("CaPacker packer({0});", self.get_size_code(t, "value"))
+            w.line("{0};", self.get_pack_code(t, "packer", "value"))
+            w.line("thread->send(target_{0.id}, net->get_id(), {1}, packer);", edge, edge.get_place().get_pos_id())
+            w.indent_pop()
+            w.line("}}")
+
     def write_enable(self, tr):
         self.line("bool enable_{0.id}(CaThread *thread, CaNet *net) {{", tr)
         self.indent_push()
@@ -113,7 +151,7 @@ class Codegen(object):
         for i, edge in enumerate(tr.edges_in):
             w.line("n->place_{1.id}.remove(token_{0});", i, edge.get_place())
 
-        w.line("net->activate_transition_by_pos_id({0.pos_id});", tr)
+        w.line("net->activate_transition_by_pos_id({0});", tr.get_pos_id())
 
         if tr.code is not None:
             w.line("net->unlock();")
@@ -124,7 +162,7 @@ class Codegen(object):
         em.variable_emitter = lambda name: "vars." + name
 
         for edge in tr.edges_out:
-            w.line("n->place_{0.id}.add({1});", edge.get_place(), edge.expr.emit(em))
+            self.write_send_token(w, em, edge)
 
         if tr.code is not None:
             w.line("net->unlock();")
@@ -252,6 +290,20 @@ class Codegen(object):
             self.block_end()
         self.write_method_end()
 
+    def receive_method(self, net):
+        self.write_method_start("void receive(int place_pos, CaUnpacker &unpacker)")
+        self.line("switch(place_pos) {{")
+        for place in net.places:
+            if any((edge.target is not None for edge in place.get_edges_in())):
+                self.line("case {0}:", place.get_pos_id())
+                self.indent_push()
+                self.line("place_{0.id}.add({1});", place, self.get_unpack_code(place.type, "unpacker"))
+                self.line("break;")
+                self.indent_pop()
+        self.line("}}")
+        self.write_method_end()
+
+
     def build_net(self, net):
         for tr in net.transitions:
             self.write_transition_forward(tr)
@@ -265,8 +317,8 @@ class Codegen(object):
         for place in net.places:
             self.write_var_decl("place_" + str(place.id), t_place(place.type))
 
-
         self.reports_method(net)
+        self.receive_method(net)
         self.write_class_end()
 
         self.write_spawn(net)

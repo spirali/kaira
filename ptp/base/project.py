@@ -2,17 +2,18 @@
 import base.utils as utils
 import base.parser as parser
 from base.expressions import nel_true, Env
-from base.neltypes import join_contexts, t_bool, derive_context, t_array
+from base.neltypes import join_contexts, t_bool, derive_context, t_array, t_int
 
 import xml.etree.ElementTree as xml
 
 class Edge(utils.EqMixin):
 
-    def __init__(self, id, expr, from_element, to_element):
+    def __init__(self, id, expr, from_element, to_element, target = None):
         self.id = id
         self.expr = expr
         self.from_element = from_element
         self.to_element = to_element
+        self.target = target
 
     def get_place(self):
         if isinstance(self.from_element, Place):
@@ -25,6 +26,17 @@ class Edge(utils.EqMixin):
 
     def get_exprs_and_types(self):
         return [ (self.expr, self.get_place().type) ]
+
+    def get_equations(self):
+        eq = [ (self.expr, self.get_place_type()) ]
+        if self.target:
+            eq.append((self.target, t_int))
+        return eq
+
+    def inject_types(self, env, context):
+        self.expr.inject_types(env, context)
+        if self.target:
+            self.expr.inject_types(env, context)
 
     def __repr__(self):
         return "Edge({0}, {1}, {2}, {3})".format(self.id, repr(self.expr), repr(self.from_element), repr(self.to_element))
@@ -48,14 +60,24 @@ class Place(utils.EqMixin):
             ## Cheap little hack!
             self.init_expression.nel_type = t_array(self.type)
 
+    def get_pos_id(self):
+        return self.net.places.index(self)
+
+    def get_edges_in(self):
+        result = []
+        for tr in self.net.transitions:
+            for edge in tr.edges_out:
+                if edge.get_place() == self:
+                    result.append(edge)
+        return result
+
 class Transition(utils.EqMixin):
 
     code = None
 
-    def __init__(self, net, id, pos_id, guard):
+    def __init__(self, net, id, guard):
         self.net = net
         self.id = id
-        self.pos_id = pos_id
         self.guard = guard
         self.edges_in = []
         self.edges_out = []
@@ -79,8 +101,19 @@ class Transition(utils.EqMixin):
     def get_types(self):
         return set([ t for _, t in self.get_exprs_and_types() ])
 
-    def inject_types(self, context):
-        pass
+    def inject_types(self):
+        env = self.net.project.get_env()
+        eq = []
+        for e in self.get_all_edges():
+            eq += e.get_equations()
+        context = derive_context(env, eq)
+
+        for e in self.get_all_edges():
+            e.inject_types(env, context)
+
+    def get_pos_id(self):
+        return self.net.transitions.index(self)
+
 
 class Net(object):
 
@@ -112,6 +145,8 @@ class Net(object):
     def inject_types(self):
         for place in self.places:
             place.inject_types()
+        for tr in self.transitions:
+            tr.inject_types()
 
 class Project(object):
 
@@ -138,17 +173,17 @@ def load_edge_in(element, net, transition):
 def load_edge_out(element, net, transition):
     id = utils.xml_int(element, "id")
     place_id = utils.xml_int(element, "place-id")
-    expr = parser.parse_expression(utils.xml_str(element, "expr"))
-    return Edge(id, expr, transition, net.get_place(place_id))
+    expr, target = parser.parse_output_inscription(utils.xml_str(element, "expr"))
+    return Edge(id, expr, transition, net.get_place(place_id), target)
 
-def load_transition(element, net, pos_id):
+def load_transition(element, net):
     id = utils.xml_int(element, "id")
 
     if utils.xml_str(element, "guard").strip() == "":
         guard = nel_true
     else:
         guard = parser.parse_expression(utils.xml_str(element, "guard"))
-    transition = Transition(net, id, pos_id, guard)
+    transition = Transition(net, id, guard)
     transition.edges_in = order_input_edges(map(lambda e: load_edge_in(e, net, transition), element.findall("edge-in")))
     transition.edges_out = map(lambda e: load_edge_out(e, net, transition), element.findall("edge-out"))
     if element.find("code") is not None:
@@ -165,7 +200,7 @@ def load_net(element, project):
     net = Net(project)
     net.id = utils.xml_int(element, "id")
     net.places = [ load_place(e, net) for e in element.findall("place") ]
-    net.transitions = [ load_transition(e, net, i) for i, e in enumerate(element.findall("transition")) ]
+    net.transitions = [ load_transition(e, net) for e in element.findall("transition") ]
 
     return net
 

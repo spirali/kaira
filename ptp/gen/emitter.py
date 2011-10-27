@@ -42,6 +42,9 @@ class Emitter(object):
     def variable(self, name):
         return self.variable_emitter(name)
 
+    def tuple(self, t, args):
+        return "{0}({1})".format(t.get_safe_name(), ",".join((e.emit(self) for e in args)))
+
     def set_extern(self, name, value):
         self.extern_table[name] = value
 
@@ -95,7 +98,7 @@ class Emitter(object):
 
     def emit_declarations(self, decls):
         return ",".join(("{0} {1}".format(self.emit_type(t), name) for name, t in decls))
-
+    
     def as_string(self, expr, t):
         if t.name == "":
             return "({0}).as_string()".format(expr)

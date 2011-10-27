@@ -9,6 +9,7 @@
 class CaNet;
 class CaNetDef;
 class CaThread;
+class CaUnpacker;
 
 typedef int(CaEnableFn)(CaThread *, CaNet *);
 typedef CaNet * (CaSpawnFn)(CaThread *, CaNetDef *, int id);
@@ -65,6 +66,7 @@ class CaNet {
 
 		void write_reports(CaThread *thread, CaOutput &output);
 		virtual void write_reports_content(CaThread *thread, CaOutput &output) = 0;
+		virtual void receive(int place, CaUnpacker &unpacker) = 0;
 		void fire_transition(CaThread *thread, int transition_id);
 
 		CaTransition * pick_active_transition();

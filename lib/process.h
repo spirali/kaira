@@ -65,14 +65,16 @@ class CaThread {
 		void join();
 		void run_scheduler();
 
+		int get_process_id() { return process->get_process_id(); }
+
 		void add_message(CaMessage *message);
 		int process_messages();
 		void quit_all();
 
-		void send(CaNet *net, int unit_id, int place_pos, const CaPacker &packer) {
-			multisend(net, unit_id, place_pos, 1, packer);
+		void send(int target, int net_id, int place, const CaPacker &packer) {
+			multisend(target, net_id, place, 1, packer);
 		}
-		void multisend(CaNet *net, int unit_id, int place_pos, int tokens_count, const CaPacker &packer);
+		void multisend(int target, int net_id, int place, int tokens_count, const CaPacker &packer);
 		CaProcess * get_process() const { return process; }
 
 		

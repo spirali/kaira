@@ -56,6 +56,8 @@ typeparser = Forward()
 typeargs = Optional(lpar + Group(typeparser + ZeroOrMore( Suppress( delim ) + typeparser )) + rpar, [])
 typeparser << (Optional(ident,"") + typeargs).setParseAction(lambda tokens: t.Type(tokens[0], list(tokens[1])))
 
+output = expression + Optional(Suppress("@") + expression, None)
+
 def parse_expression(string):
     return expression.parseString(string)[0]
 
@@ -67,3 +69,6 @@ def parse_expression_or_empty(string):
         return None
     else:
         return parse_expression(string)
+    
+def parse_output_inscription(string):
+    return tuple(output.parseString(string))

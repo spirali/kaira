@@ -8,6 +8,7 @@
 extern std::string ca_log_default_name;
 extern const char *ca_project_description_string;
 extern int ca_log_on;
+extern CaProcess **ca_processes;
 
 CaThread::CaThread() : messages(NULL), logger(NULL)
 {
@@ -156,10 +157,19 @@ void CaThread::init_log(const std::string &logname)
 	logger->flush();
 }
 
-void CaThread::multisend(CaNet *net, int unit_id, int place_pos, int tokens_count, const CaPacker &packer)
+void CaThread::multisend(int target, int net_id, int place_pos, int tokens_count, const CaPacker &packer)
 {
-	/* char *buffer = packer.get_buffer();
+	/* It is called only when we have more CaProcesses in non-MPI backed */
+	char *buffer = packer.get_buffer();
 
+	CaUnpacker unpacker(buffer);
+	CaProcess *p = ca_processes[target % process->get_process_count()];
+	// Dirty hack!
+	CaNet *net = p->get_thread(0)->nets[0];
+	for (int t = 0; t < tokens_count; t++) {
+		net->receive(place_pos, unpacker);
+	}
+	/*
 	#ifdef CA_MPI
 		CaPacket *packet = (CaPacket*) packer.get_buffer();
 		packet->unit_id = unit_id;
@@ -168,20 +178,7 @@ void CaThread::multisend(CaNet *net, int unit_id, int place_pos, int tokens_coun
 		path.copy_to_mem(packet + 1);
 		MPI_Request *request = requests.new_request(buffer);
 		MPI_Isend(packet, packer.get_size(), MPI_CHAR, path.owner_id(process, unit_id), CA_MPI_TAG_TOKENS, MPI_COMM_WORLD, request);
-	#else */
-		/* Normally this is never called for threads backend, because all units are local 
-			and packing is not used. But in with "forced packing" enabled this function is called
-			so we have to deliver data */
-		/*
-		CaUnit *unit = get_unit(network, path, unit_id);
-		unit->lock();
-		CaUnpacker unpacker(buffer);
-		for (int t = 0; t < tokens_count; t++) {
-			unit->receive(this, place_pos, unpacker);
-		}
-		unit->activate(network);
-		unit->unlock();
-		free(buffer);
+	#else
 	#endif */
 }
 
