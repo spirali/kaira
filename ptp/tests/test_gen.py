@@ -5,7 +5,6 @@ import unittest
 from base.parser import parse_expression
 from gen.writer import Writer
 from gen.emitter import Emitter
-from gen.codegen import Class
 from base.expressions import ISet, Env
 from base.neltypes import t_int, t_string, t_array, t_tuple, t_bool, Type
 
@@ -16,7 +15,7 @@ class TestGen(unittest.TestCase):
         w = Writer()
         w.line("test1")
         w.indent_push()
-        w.linef("test{0}", 12)
+        w.line("test{0}", 12)
         w.line("nextline")
         w.indent_push()
         w.line("line")
@@ -51,25 +50,6 @@ class TestGen(unittest.TestCase):
         self.assertEqual(e.emit_type(Type("__Place", [t_bool])), "CaPlace<bool>")
         self.assertEqual(e.emit_type(t_tuple(t_int, t_string)), "Tuple2_Int_String")
 
-
-    def test_class(self):
-        cls = Class("MyClass")
-        cls.add_method("void set_x(int x)", ["this->x = x;"])
-        cls.add_variable("x", t_int)
-        cls.add_variable("y", t_string)
-        w = Writer()
-        cls.write(w)
-        result = (
-            "class MyClass {\n"
-            "\tpublic:\n"
-            "\tvoid set_x(int x) {\n"
-            "\t\tthis->x = x;\n"
-            "\t}\n"
-            "\tint x;\n"
-            "\tstd::string y;\n"
-            "};\n"
-            )
-        self.assertEquals(w.get_string(), result)
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testWriter']
