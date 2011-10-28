@@ -41,6 +41,7 @@ class MainWindow(gtk.Window):
 		paned.pack1(self.notebook, True)
 
 		self.console = Console()
+		self.console.set_size_request(300,100)
 		paned.pack2(self.console, False)
 
 		vbox.show_all()

@@ -49,6 +49,7 @@ class App:
 	"""
 	def __init__(self, args):
 		self.window = MainWindow(self)
+		self.window.set_size_request(500,450)
 		self.window.project_is_active(False)
 		self.nv = None
 		self._open_welcome_tab()
@@ -521,7 +522,6 @@ class App:
 		line3 = "<a href='http://verif.cs.vsb.cz/kaira'>http://verif.cs.vsb.cz/kaira</a>"
 		label.set_markup(line1 + line2 + line3)
 		label.set_justify(gtk.JUSTIFY_CENTER)
-		label.set_size_request(400,300)
 		self.window.add_tab(Tab("Welcome", label, has_close_button = False))
 
 if __name__ == "__main__":
