@@ -43,6 +43,8 @@ class Edge(utils.EqMixin):
 
 class Place(utils.EqMixin):
 
+    code = None
+
     def __init__(self, net, id, type, init_expression):
         self.net = net
         self.id = id
@@ -168,6 +170,12 @@ class Project(object):
             if net.id == id:
                 return net
 
+    def get_place(self, place_id):
+        for net in self.nets:
+            place = net.get_place(place_id)
+            if place:
+                return place
+
     def inject_types(self):
         for net in self.nets:
             net.inject_types()
@@ -207,7 +215,11 @@ def load_place(element, net):
     id = utils.xml_int(element, "id")
     type = parser.parse_type(utils.xml_str(element, "type"))
     init_expr = parser.parse_expression_or_empty(utils.xml_str(element, "init-expr"))
-    return Place(net, id, type, init_expr)
+
+    place = Place(net, id, type, init_expr)
+    if element.find("code") is not None:
+        place.code = element.find("code").text
+    return place
 
 def load_net(element, project):
     net = Net(project)

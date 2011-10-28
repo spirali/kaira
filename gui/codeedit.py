@@ -152,15 +152,14 @@ class TransitionCodeEditor(CodeEditor):
 
 class PlaceCodeEditor(CodeEditor):
 	
-	def __init__(self, place, place_type):
+	def __init__(self, place, fn_def):
 		self.place = place
 		if place.get_code() == "":
 			code = "\t\n"
 		else:
 			code = place.get_code()
-		begin = "void init_place(CaContext &ctx, {0} &place)\n{{\n".format(place_type)
+		begin = "{0}\n{{\n".format(fn_def)
 		CodeEditor.__init__(self, begin, code, "}\n", (2,0))
-
 
 	def buffer_changed(self, buffer):
 		self.place.set_code(self.get_text())

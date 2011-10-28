@@ -104,6 +104,18 @@ class Codegen(object):
         self.writer.raw_text(tr.code)
         self.line("}}")
 
+    def write_place_user_function(self, place):
+        self.line(self.get_place_user_fn_header(place))
+        self.line("{{")
+        self.writer.raw_text(place.code)
+        self.line("}}")
+
+    def get_place_user_fn_header(self, place):
+        t = self.emitter.emit_type(place.type)
+        if t[-1] == ">":
+            t += " "
+        return "void place_user_fn_{0.id}(CaContext &ctx, std::vector<{1}> &tokens)".format(place, t)
+
     def get_size_code(self, t, code):
         if t == t_int:
             return "sizeof({0})".format(code)
@@ -235,10 +247,15 @@ class Codegen(object):
         self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id) {{", net)
         self.indent_push()
         self.line("Net_{0.id} *net = new Net_{0.id}(id, def);", net)
-
+        self.line("CaContext ctx(thread);")
         for place in net.places:
             if place.init_expression is not None:
                 self.line("net->place_{0.id}.add_all({1});", place, place.init_expression.emit(self.emitter))
+            if place.code is not None:
+                t = self.emitter.emit_type(place.type)
+                self.line("std::vector<{0}> tokens;", t)
+                self.line("place_user_fn_{0.id}(ctx, tokens);", place)
+                self.line("net->place_{0.id}.add_all(tokens);", place)
 
         self.line("return net;")
         self.indent_pop()
@@ -310,6 +327,11 @@ class Codegen(object):
 
 
     def build_net(self, net):
+
+        for place in net.places:
+            if place.code is not None:
+                self.write_place_user_function(place)
+
         for tr in net.transitions:
             self.write_transition_forward(tr)
 
@@ -327,6 +349,7 @@ class Codegen(object):
         self.write_class_end()
 
         self.write_spawn(net)
+
         for tr in net.transitions:
             self.write_transition(tr)
 

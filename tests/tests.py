@@ -10,23 +10,21 @@ KAIRA_ROOT = os.path.dirname(KAIRA_TESTS)
 KAIRA_GUI = os.path.join(KAIRA_ROOT,"gui")
 KAIRA_TOOLS = os.path.join(KAIRA_ROOT,"tools")
 
-PTP_BIN = os.path.join(KAIRA_ROOT, "ptp", "ptp")
+PTP_BIN = os.path.join(KAIRA_ROOT, "ptp", "ptp.py")
 CAILIE_DIR = os.path.join(KAIRA_ROOT, "lib")
 CMDUTILS = os.path.join(KAIRA_GUI, "cmdutils.py")
 
 TEST_PROJECTS = os.path.join(KAIRA_TESTS, "projects")
 
-class BuildingTest(TestCase):
+class BuildTest(TestCase):
 
-	def build(self, filename, final_output, params = [], make_args = [], program_name = None, force_packers = False):
+	def build(self, filename, final_output, params = [], make_args = [], program_name = None):
 		name, ext = os.path.splitext(filename)
 		directory = os.path.dirname(name)
 		RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
 		args = [ CMDUTILS, "--export", filename ]
-		if force_packers:
-			args.append("--force-packers")
 		RunProgram("python", args).run()
-		RunProgram(PTP_BIN, [ name + ".xml", name + ".cpp" ]).run()
+		RunProgram(PTP_BIN, [ name + ".xml", "--build", name + ".cpp" ]).run()
 		RunProgram("make", make_args, cwd = directory).run()
 		if program_name is None:
 			program_name = name
@@ -57,12 +55,10 @@ class BuildingTest(TestCase):
 
 	def test_strings(self):
 		self.build(os.path.join(TEST_PROJECTS, "strings", "strings.proj"), "String\nOk\nOk\nOk\nOk\n")
-		self.build(os.path.join(TEST_PROJECTS, "strings", "strings.proj"), "String\nOk\nOk\nOk\nOk\n", force_packers = True)
 
 	def test_externtypes(self):
 		output = "10 20\n107 207\n10 20\n257 77750 A looong string!!!!!\n"
 		self.build(os.path.join(TEST_PROJECTS, "externtypes", "externtypes.proj"), output)
-		self.build(os.path.join(TEST_PROJECTS, "externtypes", "externtypes.proj"), output, force_packers = True)
 
 	def test_packing(self):
 		output = "0\n1\n2\n3\n4\n0\n1\n2\n3\n4\n5\n5\n6\n7\n8\n9\n100\n100\n"
@@ -98,8 +94,6 @@ class BuildingTest(TestCase):
 		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params)
 		check_output(output)
 		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params + [ "--threads=3" ])
-		check_output(output)
-		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params + [ "--threads=3" ], force_packers = True)
 		check_output(output)
 		p = params + [ "--threads=10" ]
 		path = os.path.join(TEST_PROJECTS, "workers")
