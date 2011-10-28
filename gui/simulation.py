@@ -203,7 +203,7 @@ class NetInstance:
 		self.enabled.append((process_id, transition_id))
 
 	def get_name(self):
-		return "Net"
+		return "{0},{1},{2}".format(self.net.get_name(), self.id, self.id % self.simulation.process_count)
 
 	def is_enabled(self, process_id, transition_id):
 		return (process_id, transition_id) in self.enabled

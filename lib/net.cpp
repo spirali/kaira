@@ -62,7 +62,7 @@ CaNet::~CaNet()
 void CaNet::write_reports(CaThread *thread, CaOutput &output)
 {
 	output.child("net-instance");
-	output.set("id", 0);
+	output.set("id", id);
 	output.set("net-id", def->get_id());
 	write_reports_content(thread, output);
 	output.back();

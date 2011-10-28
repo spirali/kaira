@@ -182,7 +182,7 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 
 		if (strcmp(line, "FIRE") > 0) {
 			if (processes[0]->quit_flag) {
-				fprintf(comm_out, "Network is terminated\n");
+				fprintf(comm_out, "Process is terminated\n");
 				continue;
 			}
 			int transition_id;

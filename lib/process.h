@@ -44,9 +44,15 @@ class CaProcess {
 		void start_logging(const std::string &logname);
 		void stop_logging();
 
+		void spawn_net(CaThread *thread, int def_index, int id);
+		int new_net_id();
+
+		CaNet * get_net(int id);
+
 		CaThread *get_thread(int id);
 
 		bool quit_flag;
+
 	protected:
 		int process_id;
 		int process_count;
@@ -54,6 +60,9 @@ class CaProcess {
 		int defs_count;
 		CaNetDef **defs;
 		CaThread *threads;
+		std::vector<CaNet*> nets;
+		int id_counter;
+		pthread_mutex_t counter_mutex;
 };
 
 class CaThread {
@@ -77,9 +86,10 @@ class CaThread {
 		void multisend(int target, int net_id, int place, int tokens_count, const CaPacker &packer);
 		CaProcess * get_process() const { return process; }
 
-		
 		void init_log(const std::string &logname);
 		void close_log() { if (logger) { delete logger; logger = NULL; } }
+
+		void spawn_net(int def_index);
 		/*
 		void log_transition_start(CaUnit *unit, int transition_id) {
 			if (logger) { logger->log_transition_start(unit, transition_id); }

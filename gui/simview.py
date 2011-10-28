@@ -35,19 +35,19 @@ class SimViewTab(mainwindow.Tab):
 		mainwindow.Tab.close(self)
 		self.simulation.shutdown()
 
-class NetRunView(gtk.HBox):
+class NetRunView(gtk.HPaned):
 	def __init__(self, instances, vconfig):
-		gtk.HBox.__init__(self)
+		gtk.HPaned.__init__(self)
 		vbox = gtk.VBox()
 		vbox.pack_start(self._tree(instances[0].get_perspectives()))
 		vbox.pack_start(self._instances_list(instances))
-		self.pack_start(vbox, False, False)
+		self.pack1(vbox, False)
 		self.canvas_sc = gtk.ScrolledWindow()
 		self.canvas = self._create_canvas(vconfig)
 		self.canvas.set_size_and_viewport_by_net()
 		self.canvas_sc.add_with_viewport(self.canvas)
 
-		self.pack_start(self.canvas_sc)
+		self.pack2(self.canvas_sc, True)
 		self.show_all()
 
 	def redraw(self):
@@ -94,18 +94,23 @@ class NetRunView(gtk.HBox):
 		self.tree.set_size_request(80,10)
 		self._refresh_tree(perspectives)
 		self.tree.select_first()
-		self.tree.connect_view("cursor-changed", self._path_changed);
+		self.tree.connect_view("cursor-changed", self._tree_changed);
 		return self.tree
 
 	def _instances_list(self, instances):
 		self.instances = objectlist.ObjectList((("_", object), ("Instances",str)))
-		self.instances.cursor_changed = lambda s, obj: self.redraw()
+		self.instances.cursor_changed = self._instance_changed
 		self.instances.object_as_row = lambda obj: (obj, obj.get_name())
 		self.instances.fill(instances)
 		self.instances.select_first()
 		return self.instances
 
-	def _path_changed(self, w):
+	def _tree_changed(self, w):
+		self.redraw()
+
+	def _instance_changed(self, obj):
+		self.canvas.set_net(obj.net)
+		self._refresh_tree(obj.get_perspectives())
 		self.redraw()
 
 	def _button_down(self, event, pos):

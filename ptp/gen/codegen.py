@@ -153,19 +153,23 @@ class Codegen(object):
 
         w.line("net->activate_transition_by_pos_id({0});", tr.get_pos_id())
 
-        if tr.code is not None:
+        if tr.subnet is not None:
             w.line("net->unlock();")
-            w.line("transition_user_fn_{0.id}(vars);", tr)
-            w.line("net->lock();")
+            w.line("thread->spawn_net({0});", tr.subnet.get_index())
+        else: # Without subnet
+            if tr.code is not None:
+                w.line("net->unlock();")
+                w.line("transition_user_fn_{0.id}(vars);", tr)
+                w.line("net->lock();")
 
-        em = emitter.Emitter()
-        em.variable_emitter = lambda name: "vars." + name
+            em = emitter.Emitter()
+            em.variable_emitter = lambda name: "vars." + name
 
-        for edge in tr.edges_out:
-            self.write_send_token(w, em, edge)
+            for edge in tr.edges_out:
+                self.write_send_token(w, em, edge)
 
-        if tr.code is not None:
-            w.line("net->unlock();")
+            if tr.code is not None:
+                w.line("net->unlock();")
         w.line("return true;")
 
         self.write_enable_pattern_match(tr, w)

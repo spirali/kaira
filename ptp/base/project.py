@@ -2,7 +2,7 @@
 import base.utils as utils
 import base.parser as parser
 from base.expressions import nel_true, Env
-from base.neltypes import join_contexts, t_bool, derive_context, t_array, t_int
+from base.neltypes import t_bool, derive_context, t_array, t_int
 
 import xml.etree.ElementTree as xml
 
@@ -74,6 +74,7 @@ class Place(utils.EqMixin):
 class Transition(utils.EqMixin):
 
     code = None
+    subnet = None
 
     def __init__(self, net, id, guard):
         self.net = net
@@ -141,6 +142,8 @@ class Net(object):
                 result.update(t.get_subtypes())
         return result
 
+    def get_index(self):
+        return self.project.nets.index(self)
 
     def inject_types(self):
         for place in self.places:
@@ -160,6 +163,11 @@ class Project(object):
     def get_all_types(self):
         return set().union( *[ net.get_all_types() for net in self.nets ] )
 
+    def get_net(self, id):
+        for net in self.nets:
+            if net.id == id:
+                return net
+
     def inject_types(self):
         for net in self.nets:
             net.inject_types()
@@ -176,7 +184,7 @@ def load_edge_out(element, net, transition):
     expr, target = parser.parse_output_inscription(utils.xml_str(element, "expr"))
     return Edge(id, expr, transition, net.get_place(place_id), target)
 
-def load_transition(element, net):
+def load_transition(element, project, net):
     id = utils.xml_int(element, "id")
 
     if utils.xml_str(element, "guard").strip() == "":
@@ -186,6 +194,11 @@ def load_transition(element, net):
     transition = Transition(net, id, guard)
     transition.edges_in = order_input_edges(map(lambda e: load_edge_in(e, net, transition), element.findall("edge-in")))
     transition.edges_out = map(lambda e: load_edge_out(e, net, transition), element.findall("edge-out"))
+
+    subnet_id = utils.xml_int(element, "subnet", -1)
+    if subnet_id > 0:
+        transition.subnet = project.get_net(subnet_id)
+
     if element.find("code") is not None:
         transition.code = element.find("code").text
     return transition
@@ -199,16 +212,20 @@ def load_place(element, net):
 def load_net(element, project):
     net = Net(project)
     net.id = utils.xml_int(element, "id")
-    net.places = [ load_place(e, net) for e in element.findall("place") ]
-    net.transitions = [ load_transition(e, net) for e in element.findall("transition") ]
-
     return net
+
+def load_net_content(element, project, net):
+    net.places = [ load_place(e, net) for e in element.findall("place") ]
+    net.transitions = [ load_transition(e, project, net) for e in element.findall("transition") ]
 
 def load_project(element):
     description = element.find("description").text
     p = Project(description)
 
-    p.nets = [ load_net(e, p) for e in element.findall("net") ]
+    nets = [ (e, load_net(e, p)) for e in element.findall("net") ]
+    p.nets = [ net for e, net in nets ]
+    for e, net in nets:
+        load_net_content(e, p, net)
     return p
 
 def load_project_from_file(filename):

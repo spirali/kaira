@@ -60,7 +60,7 @@ int ca_main(int defs_count, CaNetDef **defs)
 
 	CaListener *listener = NULL;
 
-	CaProcess **ca_processes = (CaProcess**) alloca(sizeof(CaProcess*) * ca_process_count);
+	ca_processes = (CaProcess**) alloca(sizeof(CaProcess*) * ca_process_count);
 
 	int t;
 	for (t = 0; t < ca_process_count; t++) {

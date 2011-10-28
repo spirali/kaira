@@ -130,7 +130,7 @@ void CaThread::init_log(const std::string &logname)
 		return;
 	}
 	logger = new CaLogger(logname, process->get_process_id() * process->get_threads_count() + id);
-	
+
 	if (id == 0) {
 		int lines = 1;
 		for (const char *c = ca_project_description_string; (*c) != 0; c++) {
@@ -165,7 +165,7 @@ void CaThread::multisend(int target, int net_id, int place_pos, int tokens_count
 	CaUnpacker unpacker(buffer);
 	CaProcess *p = ca_processes[target % process->get_process_count()];
 	// Dirty hack!
-	CaNet *net = p->get_thread(0)->nets[0];
+	CaNet *net = p->get_net(net_id);
 	for (int t = 0; t < tokens_count; t++) {
 		net->receive(place_pos, unpacker);
 	}
@@ -174,7 +174,7 @@ void CaThread::multisend(int target, int net_id, int place_pos, int tokens_count
 		CaPacket *packet = (CaPacket*) packer.get_buffer();
 		packet->unit_id = unit_id;
 		packet->place_pos = place_pos;
-		packet->tokens_count = tokens_count;
+		eacket->tokens_count = tokens_count;
 		path.copy_to_mem(packet + 1);
 		MPI_Request *request = requests.new_request(buffer);
 		MPI_Isend(packet, packer.get_size(), MPI_CHAR, path.owner_id(process, unit_id), CA_MPI_TAG_TOKENS, MPI_COMM_WORLD, request);
@@ -201,22 +201,45 @@ void CaThread::run_scheduler()
 			n->unlock();
 			continue;
 		}
-		printf("TR: %i\n", tr->id);
 		tr->set_active(false);
 		if (!tr->fire(this, n)) {
-			printf("F: %i\n", tr->id);
 			n->unlock();
 		}
 	}
 }
 
+void CaThread::spawn_net(int def_index)
+{
+	process->spawn_net(this, def_index, process->new_net_id());
+}
+
+void CaProcess::spawn_net(CaThread *thread, int def_index, int id)
+{
+	CaNet *net = defs[def_index]->spawn(thread, id);
+	nets.push_back(net);
+	inform_new_network(net);
+}
+
+CaNet * CaProcess::get_net(int id)
+{
+	std::vector<CaNet*>::iterator i;
+	for (i = nets.begin(); i != nets.end(); i++) {
+		if ((*i)->get_id() == id) {
+			return (*i);
+		}
+	}
+	return NULL;
+}
+
 CaProcess::CaProcess(int process_id, int process_count, int threads_count, int defs_count, CaNetDef **defs)
 {
+	this->id_counter = process_id + process_count;
 	this->process_id = process_id;
 	this->process_count = process_count;
 	this->defs_count = defs_count;
 	this->defs = defs;
 	this->threads_count = threads_count;
+	pthread_mutex_init(&counter_mutex, NULL);
 	threads = new CaThread[threads_count];
 	// TODO: ALLOCTEST
 	int t;
@@ -224,13 +247,22 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 		threads[t].set_process(this, t);
 	}
 
-	CaNet *net = defs[0]->spawn(&threads[0], 0);
-	inform_new_network(net);
+	spawn_net(&threads[0], 0, 0);
+}
+
+int CaProcess::new_net_id()
+{
+	pthread_mutex_lock(&counter_mutex);
+	id_counter += process_count;
+	int id = id_counter;
+	pthread_mutex_unlock(&counter_mutex);
+	return id;
 }
 
 CaProcess::~CaProcess()
 {
 	delete [] threads;
+	pthread_mutex_destroy(&counter_mutex);
 }
 
 void CaProcess::start()
@@ -308,7 +340,6 @@ void CaProcess::write_reports(FILE *out) const
 	output.set("id", process_id);
 	output.set("running", !quit_flag);
 
-	const std::vector<CaNet*> &nets = threads[0].get_nets();
 	std::vector<CaNet*>::const_iterator i;
 	for (i = nets.begin(); i != nets.end(); i++) {
 		(*i)->write_reports(&threads[0], output);
@@ -320,7 +351,6 @@ void CaProcess::write_reports(FILE *out) const
 
 void CaProcess::fire_transition(int transition_id, int instance_id)
 {
-	const std::vector<CaNet*> &nets = threads[0].get_nets();
 	std::vector<CaNet*>::const_iterator i;
 	for (i = nets.begin(); i != nets.end(); i++) {
 		if ((*i)->get_id() == instance_id) {
