@@ -30,7 +30,7 @@ class Writer(object):
         if text[-1] == "\n":
             lines = lines[:-1]
         for line in lines:
-            self.line(line)
+            self.raw_line(line)
 
     def get_string(self):
         return "\n".join(self.lines) + "\n"

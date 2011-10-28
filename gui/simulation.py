@@ -72,6 +72,7 @@ class Simulation(EventSource):
 	def read_header(self, stream):
 		header = xml.fromstring(stream.readline())
 		self.process_count = utils.xml_int(header, "process-count")
+		self.process_running = [True] * self.process_count
 		lines_count = utils.xml_int(header, "description-lines")
 		project_string = "\n".join((stream.readline() for i in xrange(lines_count)))
 		self.project = load_project_from_xml(xml.fromstring(project_string), "")
@@ -79,16 +80,18 @@ class Simulation(EventSource):
 	def get_instances(self):
 		return self.instances
 
+	def is_running(self):
+		return any(self.process_running)
+
 	def query_reports(self, callback = None):
 		def reports_callback(line):
+			run_state = self.is_running()
 			root = xml.fromstring(line)
 			instances = {}
 			for e in root.findall("process"):
 				process_id = utils.xml_int(e, "id")
 				process_id_str = str(process_id)
-				self.running = utils.xml_bool(e, "running")
-				if not self.running:
-					self.emit_event("error", "Network terminated\n")
+				self.process_running[process_id] = utils.xml_bool(e, "running")
 				for ne in e.findall("net-instance"):
 					id = utils.xml_int(ne, "id")
 					i = instances.get(id)
@@ -105,13 +108,15 @@ class Simulation(EventSource):
 						transition_id = utils.xml_int(tre, "id")
 						i.add_enabled(process_id, transition_id)
 			self.instances = instances.values()
+			if not self.is_running() and run_state != self.is_running():
+				self.emit_event("error", "Simulation finished\n")
 			if callback:
 				callback()
 			self.emit_event("changed")
 		self.controller.run_command("REPORTS", reports_callback)
 
 	def fire_transition(self, transition, instance, process_id):
-		if not self.running:
+		if not self.process_running[process_id]:
 			return
 		if self.controller:
 			command = "FIRE {0} {1} {2}".format(transition.get_id(), instance.get_id(), process_id)

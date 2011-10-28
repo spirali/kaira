@@ -8,7 +8,6 @@
 extern std::string ca_log_default_name;
 extern const char *ca_project_description_string;
 extern int ca_log_on;
-extern CaProcess **ca_processes;
 
 CaThread::CaThread() : messages(NULL), logger(NULL)
 {
@@ -157,14 +156,13 @@ void CaThread::init_log(const std::string &logname)
 	logger->flush();
 }
 
-void CaThread::multisend(int target, int net_id, int place_pos, int tokens_count, const CaPacker &packer)
+void CaProcess::multisend(int target, int net_id, int place_pos, int tokens_count, const CaPacker &packer)
 {
 	/* It is called only when we have more CaProcesses in non-MPI backed */
 	char *buffer = packer.get_buffer();
 
 	CaUnpacker unpacker(buffer);
-	CaProcess *p = ca_processes[target % process->get_process_count()];
-	// Dirty hack!
+	CaProcess *p = processes[target % process_count];
 	CaNet *net = p->get_net(net_id);
 	for (int t = 0; t < tokens_count; t++) {
 		net->receive(place_pos, unpacker);
@@ -329,8 +327,12 @@ void CaProcess::quit_all()
 {
 	#ifdef CA_MPI
 	ca_mpi_send_to_all(NULL, 0, MPI_CHAR, CA_MPI_TAG_QUIT, process_count);
-	#endif
 	quit();
+	#else
+	for (int t = 0; t < process_count; t++) {
+		processes[t]->quit();
+	}
+	#endif
 }
 
 void CaProcess::write_reports(FILE *out) const

@@ -162,7 +162,7 @@ class SimVisualConfig(VisualConfig):
 
 	def transition_drawing(self, item):
 		d = VisualConfig.transition_drawing(self, item)
-		if self.simview.simulation.running and self.simview.get_perspective().is_enabled(item):
+		if self.simview.simulation.is_running() and self.simview.get_perspective().is_enabled(item):
 			d.set_highlight((0.1,0.90,0.1,0.5))
 		return d
 

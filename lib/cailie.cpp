@@ -18,8 +18,6 @@ std::string ca_log_default_name = "";
 int ca_listen_port = -1;
 int ca_block_on_start = 0;
 
-CaProcess **ca_processes;
-
 void ca_project_description(const char *str) {
 	ca_project_description_string = str;
 }
@@ -60,23 +58,24 @@ int ca_main(int defs_count, CaNetDef **defs)
 
 	CaListener *listener = NULL;
 
-	ca_processes = (CaProcess**) alloca(sizeof(CaProcess*) * ca_process_count);
+	CaProcess **processes = (CaProcess**) alloca(sizeof(CaProcess*) * ca_process_count);
 
 	int t;
 	for (t = 0; t < ca_process_count; t++) {
-		ca_processes[t] = new CaProcess(t, ca_process_count, ca_threads_count, defs_count, defs);
+		processes[t] = new CaProcess(t, ca_process_count, ca_threads_count, defs_count, defs);
+		processes[t]->set_processes(processes);
 	}
 
 	if (ca_listen_port != -1) {
-		listener = ca_init_listener(ca_process_count, ca_processes);
+		listener = ca_init_listener(ca_process_count, processes);
 	}
 
 	for (t = 0; t < ca_process_count; t++) {
-		ca_processes[t]->start();
+		processes[t]->start();
 	}
 
 	for (t = 0; t < ca_process_count; t++) {
-		ca_processes[t]->join();
+		processes[t]->join();
 	}
 
 	if (listener != NULL) {
@@ -84,7 +83,7 @@ int ca_main(int defs_count, CaNetDef **defs)
 	}
 
 	for (t = 0; t < ca_process_count; t++) {
-		delete ca_processes[t];
+		delete processes[t];
 	}
 	return 0;
 }

@@ -53,6 +53,14 @@ class CaProcess {
 
 		bool quit_flag;
 
+		void multisend(int target, int net_id, int place, int tokens_count, const CaPacker &packer);
+
+		#ifndef CA_MPI
+		void set_processes(CaProcess **processes) {
+			this->processes = processes;
+		}
+		#endif
+
 	protected:
 		int process_id;
 		int process_count;
@@ -63,6 +71,10 @@ class CaProcess {
 		std::vector<CaNet*> nets;
 		int id_counter;
 		pthread_mutex_t counter_mutex;
+
+		#ifndef CA_MPI
+		CaProcess **processes;
+		#endif
 };
 
 class CaThread {
@@ -81,9 +93,11 @@ class CaThread {
 		void quit_all();
 
 		void send(int target, int net_id, int place, const CaPacker &packer) {
-			multisend(target, net_id, place, 1, packer);
+			process->multisend(target, net_id, place, 1, packer);
 		}
-		void multisend(int target, int net_id, int place, int tokens_count, const CaPacker &packer);
+		void multisend(int target, int net_id, int place, int tokens_count, const CaPacker &packer) {
+			process->multisend(target, net_id, place, tokens_count, packer);
+		}
 		CaProcess * get_process() const { return process; }
 
 		void init_log(const std::string &logname);

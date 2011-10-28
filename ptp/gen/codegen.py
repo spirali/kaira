@@ -99,7 +99,7 @@ class Codegen(object):
         self.write_enable_check(tr)
 
     def write_transition_user_function(self, tr):
-        self.line("void transition_user_fn_{0.id}(Vars_{0.id} &var)", tr)
+        self.line("void transition_user_fn_{0.id}(CaContext &ctx, Vars_{0.id} &var)", tr)
         self.line("{{")
         self.writer.raw_text(tr.code)
         self.line("}}")
@@ -159,7 +159,8 @@ class Codegen(object):
         else: # Without subnet
             if tr.code is not None:
                 w.line("net->unlock();")
-                w.line("transition_user_fn_{0.id}(vars);", tr)
+                w.line("CaContext ctx(thread);")
+                w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
                 w.line("net->lock();")
 
             em = emitter.Emitter()
