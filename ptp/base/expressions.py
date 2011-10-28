@@ -154,6 +154,12 @@ class ExprArray(Expression):
             eqs.append((t, at))
         return (t_array(at), ctx, eqs)
 
+    def inject_types(self, env, context):
+        for e in self.value:
+            e.inject_types(env, context)
+        if self.value:
+            self.nel_type = t_array(self.value[0].nel_type)
+
 
 class ExprBool(ExprLiteral):
     nel_type = t_bool

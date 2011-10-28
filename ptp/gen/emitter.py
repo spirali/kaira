@@ -36,8 +36,8 @@ class Emitter(object):
     def const_array(self, value, t):
         if t.name != "Array" or len(t.args) != 1:
             raise Exception("Invalid type")
-        args = "".join( [ ", " + e.emit(self) for e in value ] )
-        return 'ca_array<{0} >({1}{2})'.format(self.emit_type(t.args[0]), len(value), args)
+        args = "".join( [ "(" + e.emit(self) + ")" for e in value ] )
+        return '(ca_array<{0} >{1}.end())'.format(self.emit_type(t.args[0]), args)
 
     def variable(self, name):
         return self.variable_emitter(name)

@@ -54,13 +54,15 @@ class Place(utils.EqMixin):
     def inject_types(self):
         if self.init_expression is not None:
             eq = [ (self.init_expression, t_array(self.type)) ]
-            context = derive_context(self.net.project.get_env(), eq)
+            env = self.net.project.get_env()
+            context = derive_context(env, eq)
 
             if context != {}:
                 raise Exception("Variables occurs in initial expression")
 
+            self.init_expression.inject_types(env, context)
             ## Cheap little hack!
-            self.init_expression.nel_type = t_array(self.type)
+            #self.init_expression.nel_type = t_array(self.type)
 
     def get_pos_id(self):
         return self.net.places.index(self)

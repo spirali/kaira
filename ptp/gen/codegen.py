@@ -68,7 +68,10 @@ class Codegen(object):
         for name, ta in decls:
             self.write_var_decl(name, ta)
 
-        self.write_constructor(class_name, decls, [ "{0}({0})".format(name) for name, _ in decls ], "")
+        self.write_constructor(class_name, decls, [ "{0}({0})".format(name) for name, _ in decls ])
+        self.write_method_end()
+
+        self.write_constructor(class_name, [], [])
         self.write_method_end()
 
         self.write_method_start("std::string as_string()")
@@ -180,9 +183,7 @@ class Codegen(object):
 
             for edge in tr.edges_out:
                 self.write_send_token(w, em, edge)
-
-            if tr.code is not None:
-                w.line("net->unlock();")
+            w.line("net->unlock();")
         w.line("return true;")
 
         self.write_enable_pattern_match(tr, w)
@@ -338,7 +339,7 @@ class Codegen(object):
         class_name = "Net_" + str(net.id)
         self.write_class_head(class_name, "CaNet")
 
-        self.write_constructor(class_name, [("id", "int"), ("def", "CaNetDef *")], ["CaNet(id, def)"], "")
+        self.write_constructor(class_name, [("id", "int"), ("def", "CaNetDef *")], ["CaNet(id, def)"])
         self.write_method_end()
 
         for place in net.places:
@@ -377,7 +378,7 @@ class Codegen(object):
         self.indent_pop()
         self.line("}}")
 
-    def write_constructor(self, name, args, inits, body):
+    def write_constructor(self, name, args, inits):
         decl = "{0}({1})".format(name, self.emitter.emit_declarations(args))
         if inits:
             decl += " : " + ",".join(inits)

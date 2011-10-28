@@ -58,15 +58,27 @@ int ca_main(int defs_count, CaNetDef **defs);
 void ca_init(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs);
 void ca_project_description(const char *str);
 
-template<class T> std::vector<T> ca_array(int count, ...) {
-	std::vector<T> vec;
-	va_list vl;
-	va_start(vl, count);
-	int t;
-	for (t = 0; t < count; t++) {
-		vec.push_back(va_arg(vl, T));
+
+template <typename T>
+class ca_array
+{
+	public:
+	ca_array(const T& val) {
+		vec.push_back(val);
 	}
-	va_end(vl);
-	return vec;
-}
+
+	ca_array& operator()(T val)
+	{
+		vec.push_back(val);
+		return *this;
+	}
+
+	std::vector<T> end()
+	{
+		return vec;
+	}
+	private:
+	std::vector<T> vec;
+};
+
 #endif
