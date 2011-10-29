@@ -55,10 +55,11 @@ class CaNetDef {
 
 class CaNet {
 	public:
-		CaNet(int id, CaNetDef *def);
+		CaNet(int id, int main_process_id, CaNetDef *def);
 		virtual ~CaNet();
 		
 		int get_id() const { return id; }
+		int get_main_process_id() const { return main_process_id; }
 
 		/* Lock for working with active_units */
 		void lock() { pthread_mutex_lock(&mutex); }
@@ -88,6 +89,7 @@ class CaNet {
 		CaNetDef *def;
 		pthread_mutex_t mutex;
 		int id;
+		int main_process_id;
 };
 
 #endif // CAILIE_NET_H

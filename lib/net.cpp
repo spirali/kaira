@@ -48,7 +48,8 @@ void CaNetDef::activate_transition_by_pos_id(CaNet *net, int pos_id)
 	net->activate_transition(&transitions[pos_id]);
 }
 
-CaNet::CaNet(int id, CaNetDef *def) : def(def), id(id)
+CaNet::CaNet(int id, int main_process_id, CaNetDef *def) : def(def), id(id),
+	main_process_id(main_process_id)
 {
 	pthread_mutex_init(&mutex, NULL);
 	def->activate_all_transitions(this);
@@ -68,7 +69,7 @@ void CaNet::write_reports(CaThread *thread, CaOutput &output)
 	output.back();
 }
 
-CaTransition * CaNet::pick_active_transition() 
+CaTransition * CaNet::pick_active_transition()
 {
 	if (actives.empty()) {
 		return NULL;

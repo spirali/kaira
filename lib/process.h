@@ -87,6 +87,7 @@ class CaThread {
 		void run_scheduler();
 
 		int get_process_id() { return process->get_process_id(); }
+		int get_process_count() { return process->get_process_count(); }
 
 		void add_message(CaMessage *message);
 		int process_messages();

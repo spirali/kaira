@@ -53,16 +53,7 @@ class Place(utils.EqMixin):
 
     def inject_types(self):
         if self.init_expression is not None:
-            eq = [ (self.init_expression, t_array(self.type)) ]
-            env = self.net.project.get_env()
-            context = derive_context(env, eq)
-
-            if context != {}:
-                raise Exception("Variables occurs in initial expression")
-
-            self.init_expression.inject_types(env, context)
-            ## Cheap little hack!
-            #self.init_expression.nel_type = t_array(self.type)
+            inject_types_for_empty_context(self.net.project.get_env(), self.init_expression, t_array(self.type))
 
     def get_pos_id(self):
         return self.net.places.index(self)
@@ -74,6 +65,9 @@ class Place(utils.EqMixin):
                 if edge.get_place() == self:
                     result.append(edge)
         return result
+
+    def get_areas(self):
+        return self.net.get_areas_with_place(self)
 
 class Transition(utils.EqMixin):
 
@@ -119,6 +113,26 @@ class Transition(utils.EqMixin):
     def get_pos_id(self):
         return self.net.transitions.index(self)
 
+class Area(object):
+
+    def __init__(self, net, id, expr, places):
+        self.net = net
+        self.id = id
+        self.places = places
+        self.expr = expr
+
+    def inject_types(self):
+        inject_types_for_empty_context(self.net.project.get_env(), self.expr, t_array(t_int))
+
+    def is_place_inside(self, place):
+        return place in self.places
+
+def inject_types_for_empty_context(env, expr, t):
+    eq = [ (expr, t) ]
+    context = derive_context(env, eq)
+    if context != {}:
+        raise Exception("Variables occurs in initial expression")
+    expr.inject_types(env, context)
 
 class Net(object):
 
@@ -128,6 +142,7 @@ class Net(object):
         self.project = project
         self.places = []
         self.transitions = []
+        self.areas = []
 
     def get_place(self, id):
         for place in self.places:
@@ -154,6 +169,11 @@ class Net(object):
             place.inject_types()
         for tr in self.transitions:
             tr.inject_types()
+        for area in self.areas:
+            area.inject_types()
+
+    def get_areas_with_place(self, place):
+        return [ area for area in self.areas if area.is_place_inside(place) ]
 
 class Project(object):
 
@@ -223,6 +243,12 @@ def load_place(element, net):
         place.code = element.find("code").text
     return place
 
+def load_area(element, net):
+    id = utils.xml_int(element, "id")
+    expr = parser.parse_expression_or_empty(utils.xml_str(element, "init-expr"))
+    places = [ net.get_place(utils.xml_int(e, "id")) for e in element.findall("place") ]
+    return Area(net, id, expr, places)
+
 def load_net(element, project):
     net = Net(project)
     net.id = utils.xml_int(element, "id")
@@ -231,6 +257,7 @@ def load_net(element, project):
 def load_net_content(element, project, net):
     net.places = [ load_place(e, net) for e in element.findall("place") ]
     net.transitions = [ load_transition(e, project, net) for e in element.findall("transition") ]
+    net.areas = [ load_area(e, net) for e in element.findall("area") ]
 
 def load_project(element):
     description = element.find("description").text
