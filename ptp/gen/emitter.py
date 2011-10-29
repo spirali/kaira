@@ -1,7 +1,7 @@
 
 infix_functions = [ "+", "-", "*", "/", "==", "!=", "&&", "||" ]
 
-from base.neltypes import Type
+from base.neltypes import Type, t_int, t_string
 
 class Emitter(object):
 
@@ -102,4 +102,6 @@ class Emitter(object):
     def as_string(self, expr, t):
         if t.name == "":
             return "({0}).as_string()".format(expr)
+        if t == t_string:
+            return expr
         return "ca_int_to_string({0})".format(expr)
