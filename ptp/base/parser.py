@@ -59,6 +59,8 @@ typeparser << (Optional(ident,"") + typeargs).setParseAction(lambda tokens: t.Ty
 output = expression + Optional(Suppress("@") + expression, None)
 
 def parse_expression(string):
+    if string.strip() == "":
+        raise Exception("Expression missing")
     return expression.parseString(string)[0]
 
 def parse_type(string):

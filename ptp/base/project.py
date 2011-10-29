@@ -245,7 +245,7 @@ def load_place(element, net):
 
 def load_area(element, net):
     id = utils.xml_int(element, "id")
-    expr = parser.parse_expression_or_empty(utils.xml_str(element, "init-expr"))
+    expr = parser.parse_expression(utils.xml_str(element, "init-expr"))
     places = [ net.get_place(utils.xml_int(e, "id")) for e in element.findall("place") ]
     return Area(net, id, expr, places)
 

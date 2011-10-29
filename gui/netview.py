@@ -26,9 +26,9 @@ from drawing import VisualConfig
 from objectlist import ObjectList
 from net import Net
 
-action_cursor = { 
+action_cursor = {
 	"none" : None,
-	"move" : gtk.gdk.FLEUR, 
+	"move" : gtk.gdk.FLEUR,
 	"resize_rbottom" : gtk.gdk.BOTTOM_RIGHT_CORNER,
 	"resize_lbottom" : gtk.gdk.BOTTOM_LEFT_CORNER,
 	"resize_rtop" : gtk.gdk.TOP_RIGHT_CORNER,
@@ -93,7 +93,8 @@ class NetView(gtk.VBox):
 		self.pack_start(paned)
 
 		self.netlist = NetList(project, self)
-		paned.pack1(self.netlist, False)
+		self.netlist.set_size_request(100, 100)
+		paned.pack1(self.netlist, False, True)
 		self.canvas = self._net_canvas()
 		paned.pack2(self.canvas, True, True)
 		paned.show_all()
@@ -124,7 +125,7 @@ class NetView(gtk.VBox):
 
 	def get_zoom(self):
 		return self.canvas.get_zoom()
-	
+
 	def focus_entry(self):
 		self.entry.grab_focus()
 
@@ -186,7 +187,7 @@ class NetView(gtk.VBox):
 		button1 = gtk.RadioToolButton(None,None)
 		button1.connect("toggled", lambda w: self.set_tool(nettools.SelectTool(self)))
 		button1.set_icon_widget(icon_arrow)
- 
+
 		button2 = gtk.RadioToolButton(button1,None)
 		button2.connect("toggled", lambda w: self.set_tool(nettools.TransitionTool(self)))
 		button2.set_icon_widget(icon_transition)
@@ -283,7 +284,7 @@ class NetView(gtk.VBox):
 		for name in names:
 			self.entry_switch.append_text(name)
 		self.entry.set_sensitive(bool(names))
-		
+
 		if names:
 			self.entry_switch.set_active(0)
 			name, get, set = self.active_entry_type()
@@ -310,7 +311,7 @@ class NetList(ObjectList):
 
 	def __init__(self, project, netview):
 		defs = [("_", object), ("Network", str)]
-		context_menu = [ 
+		context_menu = [
 				("Add", self._add),
 				("Copy", self._copy),
 				("Rename", self._rename),
