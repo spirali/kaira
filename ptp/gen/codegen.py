@@ -229,23 +229,31 @@ class Codegen(object):
         em.variable_emitter = lambda name: "vars." + name
 
         for i, (edge, instrs) in enumerate(matches):
+            self.line("// Edge id={0.id} expr={0.expr}", edge)
             place_t = self.emitter.emit_type(edge.get_place_type())
             place_id = edge.get_place().id
             token = "token_{0}".format(i)
             self.line("CaToken<{0}> *{1} = n->place_{2}.begin();", place_t, token, place_id)
             em.set_extern("token", token + "->element")
             em.set_extern("fail", "{0} = {0}->next; continue;".format(token))
-            self.line("do {{")
-            self.indent_push()
+            self.do_begin()
+
+            checks = [ "{0} == token_{1}".format(token, j)
+                        for j, (e, _) in enumerate(matches[:i])
+                        if edge.get_place() == e.get_place() ]
+            if checks:
+                self.if_begin(" || ".join(checks))
+                self.line("{0} = {0}->next;", token)
+                self.line("continue;")
+                self.block_end()
+
             for instr in instrs:
                 instr.emit(em, self.writer)
-
         self.writer.add_writer(fire_code)
 
         for i, (edge, instrs) in reversed(list(enumerate(matches))):
             self.line("token_{0} = token_{0}->next;", i)
-            self.indent_pop()
-            self.line("}} while (token_{0} != n->place_{1.id}.begin());", i, edge.get_place())
+            self.do_end("token_{0} != n->place_{1.id}.begin()".format(i, edge.get_place()))
 
     def build(self):
         #self.inject_types(project)
