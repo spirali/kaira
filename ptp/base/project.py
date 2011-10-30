@@ -208,16 +208,20 @@ class Project(object):
         for net in self.nets:
             net.inject_types()
 
+def get_source(element, name):
+    id = utils.xml_int(element, "id")
+    return "*{0}/{1}".format(id, name)
+
 def load_edge_in(element, net, transition):
     id = utils.xml_int(element, "id")
     place_id = utils.xml_int(element, "place-id")
-    expr = parser.parse_expression(utils.xml_str(element, "expr"))
+    expr = parser.parse_expression(utils.xml_str(element, "expr"), get_source(element, "inscription"))
     return Edge(id, expr, net.get_place(place_id), transition)
 
 def load_edge_out(element, net, transition):
     id = utils.xml_int(element, "id")
     place_id = utils.xml_int(element, "place-id")
-    expr, target = parser.parse_output_inscription(utils.xml_str(element, "expr"))
+    expr, target = parser.parse_output_inscription(utils.xml_str(element, "expr"), get_source(element, "inscription"))
     return Edge(id, expr, transition, net.get_place(place_id), target)
 
 def load_transition(element, project, net):
@@ -241,8 +245,8 @@ def load_transition(element, project, net):
 
 def load_place(element, net):
     id = utils.xml_int(element, "id")
-    type = parser.parse_type(utils.xml_str(element, "type"))
-    init_expr = parser.parse_expression_or_empty(utils.xml_str(element, "init-expr"))
+    type = parser.parse_type(utils.xml_str(element, "type"), get_source(element, "type"))
+    init_expr = parser.parse_expression_or_empty(utils.xml_str(element, "init-expr"), get_source(element, "init"))
 
     place = Place(net, id, type, init_expr)
     if element.find("code") is not None:
@@ -251,7 +255,7 @@ def load_place(element, net):
 
 def load_area(element, net):
     id = utils.xml_int(element, "id")
-    expr = parser.parse_expression(utils.xml_str(element, "init-expr"))
+    expr = parser.parse_expression(utils.xml_str(element, "init-expr"), get_source(element, "instances"))
     places = [ net.get_place(utils.xml_int(e, "id")) for e in element.findall("place") ]
     return Area(net, id, expr, places)
 

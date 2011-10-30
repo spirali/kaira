@@ -1,4 +1,12 @@
 
+class PtpException(Exception):
+
+    def __init__(self, message, source = None):
+        if source is None:
+            text = message
+        else:
+            text = source + ": " + message
+        Exception.__init__(self, text)
 
 class EqMixin(object):
 

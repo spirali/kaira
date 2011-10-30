@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 import sys
 import base.project as project
+import base.utils as utils
 from gen.codegen import Codegen
+
 
 def main(args):
 
@@ -25,4 +27,8 @@ def main(args):
     print "Usage: ptp <project.xml> <action>"
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    try:
+        main(sys.argv[1:])
+    except utils.PtpException, e:
+        print e
+        sys.exit(1)

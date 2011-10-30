@@ -3,6 +3,7 @@ from pyparsing import *
 
 import expressions as e
 import neltypes as t
+import utils
 
 digits = "0123456789"
 lpar = Suppress("(")
@@ -58,19 +59,32 @@ typeparser << (Optional(ident,"") + typeargs).setParseAction(lambda tokens: t.Ty
 
 output = expression + Optional(Suppress("@") + expression, None)
 
-def parse_expression(string):
+def parse_expression(string, source = None):
     if string.strip() == "":
-        raise Exception("Expression missing")
-    return expression.parseString(string)[0]
+        raise utils.PtpException("Expression missing", source)
+    try:
+        return expression.parseString(string)[0]
+    except ParseException, e:
+        raise utils.PtpException(e.msg, source)
 
-def parse_type(string):
-    return typeparser.parseString(string)[0]
+def parse_type(string, source = None):
+    if string.strip() == "":
+        raise utils.PtpException("Type missing", source)
+    try:
+        return typeparser.parseString(string)[0]
+    except ParseException, e:
+        raise utils.PtpException(e.msg, source)
 
-def parse_expression_or_empty(string):
+def parse_expression_or_empty(string, source):
     if string.strip() == "":
         return None
     else:
-        return parse_expression(string)
-    
-def parse_output_inscription(string):
-    return tuple(output.parseString(string))
+        return parse_expression(string, source)
+
+def parse_output_inscription(string, source):
+    if string.strip() == "":
+        raise utils.PtpException("Expression missing", source)
+    try:
+        return tuple(output.parseString(string, source))
+    except ParseException, e:
+        raise utils.PtpException(e.msg, source)

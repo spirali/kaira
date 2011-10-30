@@ -125,7 +125,10 @@ class Project(EventSource):
 		for function in self.functions:
 			if function.id == id:
 				return function
-		return self.net.get_item(id)
+		for net in self.nets:
+			item = net.get_item(id)
+			if item is not None:
+				return item
 
 	def has_error_messages(self, item):
 		return item.get_id() in self.error_messages
