@@ -109,7 +109,8 @@ class Codegen(object):
         self.line("}}")
 
     def write_place_user_function(self, place):
-        self.line(self.get_place_user_fn_header(place))
+        t = self.emitter.emit_type(place.type)
+        self.line("void place_user_fn_{0.id}(CaContext &ctx, std::vector<{1} > &tokens)".format(place, t))
         self.line("{{")
         self.writer.raw_text(place.code)
         self.line("}}")
@@ -118,7 +119,18 @@ class Codegen(object):
         t = self.emitter.emit_type(place.type)
         if t[-1] == ">":
             t += " "
-        return "void place_user_fn_{0.id}(CaContext &ctx, std::vector<{1}> &tokens)".format(place, t)
+        return "void place_fn(CaContext &ctx, std::vector<{1}> &tokens)\n{{\n".format(place, t)
+
+    def get_transition_user_fn_header(self, transition):
+        context = transition.get_context()
+        w = writer.Writer()
+        w.line("struct Vars {{")
+        for key, value in context.items():
+            w.line("\t{1} {0};", key, self.emitter.emit_type(value))
+        w.line("}};")
+        w.emptyline()
+        w.line("void transition_fn(CaContext &ctx, Vars &vars)")
+        return w.get_string()
 
     def get_size_code(self, t, code):
         if t == t_int:

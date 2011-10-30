@@ -44,8 +44,8 @@ import settings
 
 class App:
 	"""
-		The class represents application, the callbacks from mainwindow 
-		(mainly from menu) calls methods of this class 
+		The class represents application, the callbacks from mainwindow
+		(mainly from menu) calls methods of this class
 	"""
 	def __init__(self, args):
 		self.window = MainWindow(self)
@@ -137,7 +137,7 @@ class App:
 				filename = dialog.get_filename()
 				if filename[-5:] != ".proj":
 					filename = filename + ".proj"
-					
+
 				p = self._catch_io_error(lambda: project.load_project(filename))
 				if p:
 					# TODO: set statusbar
@@ -181,7 +181,7 @@ class App:
 		try:
 			dialog.set_default_response(gtk.RESPONSE_OK)
 			self._add_project_file_filters(dialog)
-		
+
 			response = dialog.run()
 			if response == gtk.RESPONSE_OK:
 				filename = dialog.get_filename()
@@ -208,7 +208,7 @@ class App:
 
 	def _catch_io_error(self, fcn, return_on_ok = None, return_on_err = None):
 		try:
-			result = fcn()	
+			result = fcn()
 			if return_on_ok == None:
 				return result
 			else:
@@ -241,10 +241,10 @@ class App:
 				name = "T:" + transition.get_name()
 			else:
 				name = "T: <unnamed" + str(transition.get_id()) + ">"
-			editor = codeedit.TransitionCodeEditor(transition, [ line for line in stdout if line.strip() != "" ])
+			editor = codeedit.TransitionCodeEditor(transition, "".join(stdout))
 			self.window.add_tab(Tab(name, editor, transition))
 			editor.jump_to_line(line_no)
-		self._start_ptp(self.project, open_tab, extra_args = [ "--transition-vars", str(transition.get_id()) ])
+		self._start_ptp(self.project, open_tab, extra_args = [ "--transition-user-fn", str(transition.get_id()) ])
 
 	def place_edit(self, place, line_no = None):
 		if self.window.switch_to_tab_by_key(place, lambda tab: tab.widget.jump_to_line(line_no)):
@@ -252,10 +252,10 @@ class App:
 
 		def open_tab(stdout):
 			name = "P: " + str(place.get_id())
-			editor = codeedit.PlaceCodeEditor(place, stdout[0].strip())
+			editor = codeedit.PlaceCodeEditor(place, "".join(stdout))
 			self.window.add_tab(Tab(name, editor, place))
 			editor.jump_to_line(line_no)
-		self._start_ptp(self.project, open_tab, extra_args = [ "--place-type", str(place.get_id())])
+		self._start_ptp(self.project, open_tab, extra_args = [ "--place-user-fn", str(place.get_id())])
 
 	def extern_type_function_edit(self, extern_type, fn_name, callback, line_no = None):
 		tag = (extern_type, fn_name)

@@ -198,6 +198,12 @@ class Project(object):
             if place:
                 return place
 
+    def get_transition(self, transition_id):
+        for net in self.nets:
+            tr = net.get_transition(transition_id)
+            if tr:
+                return tr
+
     def inject_types(self):
         for net in self.nets:
             net.inject_types()
