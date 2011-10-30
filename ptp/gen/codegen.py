@@ -76,7 +76,8 @@ class Codegen(object):
         self.write_method_end()
 
         self.write_method_start("std::string as_string()")
-        self.line('return "Tuple";')
+        self.line('return std::string("(") + {0} + ")";',
+                  ' + "," +'.join((self.emitter.as_string(e, t) for e, t in decls)))
         self.write_method_end()
         self.write_class_end()
 
