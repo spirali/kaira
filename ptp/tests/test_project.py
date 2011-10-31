@@ -40,7 +40,7 @@ class TestProject(unittest.TestCase):
         p = load_project(root)
         tr = p.nets[0].get_transition(103)
         e = tr.edges_in[0]
-        self.assertEqual(e.get_exprs_and_types(), [ (ExprVar("x"), t_int)] )
+        self.assertEqual(e.get_equations(), [ (ExprVar("x"), t_int)] )
 
 
 simple_project = """<project>

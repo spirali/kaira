@@ -152,22 +152,52 @@ class Codegen(object):
             return "{0}.unpack_int()".format(unpacker)
         raise Exception("Unknown type: " + str(t))
 
+    def is_directly_packable(self, t):
+        if t.name == "":
+            return all((self.is_directly_packable(x) for x in t.args))
+        return t == t_int
+
     def write_send_token(self, w, em, edge):
+
+        method = "add" if edge.is_normal() else "add_all"
+
         if edge.target == None:
-            w.line("n->place_{0.id}.add({1});", edge.get_place(), edge.expr.emit(em))
+            w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
         else:
             w.line("int target_{0.id} = {1};", edge, edge.target.emit(em))
             w.line("if (target_{0.id} == thread->get_process_id()) {{", edge)
             w.indent_push()
-            w.line("n->place_{0.id}.add({1});", edge.get_place(), edge.expr.emit(em))
+            w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
             w.indent_pop()
             w.line("}} else {{")
             w.indent_push()
-            t = edge.expr.nel_type
-            w.line("{0} value = {1};", em.emit_type(t), edge.expr.emit(em))
-            w.line("CaPacker packer({0});", self.get_size_code(t, "value"))
-            w.line("{0};", self.get_pack_code(t, "packer", "value"))
-            w.line("thread->send(target_{0.id}, net->get_id(), {1}, packer);", edge, edge.get_place().get_pos_id())
+            t = edge.get_place_type()
+            traw = em.emit_type(t)
+            w.line("{0} value = {1};", em.emit_type(edge.expr.nel_type), edge.expr.emit(em))
+            if edge.is_normal(): # Pack normal edge
+                w.line("CaPacker packer({0});", self.get_size_code(t, "value"))
+                w.line("{0};", self.get_pack_code(t, "packer", "value"))
+                w.line("thread->send(target_{0.id}, net->get_id(), {1}, packer);", edge, edge.get_place().get_pos_id())
+            else: # Pack packing edge
+                if self.is_directly_packable(t):
+                    w.line("size_t size = sizeof({0}) * value.size();", em.emit_type(t))
+                else:
+                    w.line("size_t size = 0;")
+                    w.line("for (std::vector<{0}>::iterator i = value.begin(); i != value.end(); i++) {{", traw)
+                    w.indent_push()
+                    w.line("size += {0};", self.get_size_code(t, "(*i)"))
+                    w.indent_pop()
+                    w.line("}}")
+                # TODO: Pack in one step if type is directly packable
+                w.line("CaPacker packer(size);")
+                w.line("for (std::vector<{0}>::iterator i = value.begin(); i != value.end(); i++) {{", traw)
+                w.indent_push()
+                w.line("{0};", self.get_pack_code(t, "packer", "(*i)"))
+                w.indent_pop()
+                w.line("}}")
+                w.line("thread->multisend(target_{0.id}, net->get_id(), {1}, value.size(), packer);",
+                       edge, edge.get_place().get_pos_id())
+
             w.indent_pop()
             w.line("}}")
 
@@ -195,7 +225,7 @@ class Codegen(object):
             em = emitter.Emitter()
             em.variable_emitter = lambda name: "vars." + name
 
-            for edge in tr.edges_out:
+            for edge in tr.get_normal_edges_out() + tr.get_packing_edges_out():
                 self.write_send_token(w, em, edge)
             w.line("net->unlock();")
         w.line("return true;")

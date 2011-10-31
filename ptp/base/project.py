@@ -8,12 +8,19 @@ import xml.etree.ElementTree as xml
 
 class Edge(utils.EqMixin):
 
-    def __init__(self, id, expr, from_element, to_element, target = None):
+    def __init__(self, id, mode, expr, from_element, to_element, target = None):
         self.id = id
         self.expr = expr
+        self.mode = mode
         self.from_element = from_element
         self.to_element = to_element
         self.target = target
+
+    def is_normal(self):
+        return self.mode == 'normal'
+
+    def is_packing(self):
+        return self.mode == 'packing'
 
     def get_place(self):
         if isinstance(self.from_element, Place):
@@ -24,11 +31,11 @@ class Edge(utils.EqMixin):
     def get_place_type(self):
         return self.get_place().type
 
-    def get_exprs_and_types(self):
-        return [ (self.expr, self.get_place().type) ]
-
     def get_equations(self):
-        eq = [ (self.expr, self.get_place_type()) ]
+        if self.is_normal():
+            eq = [ (self.expr, self.get_place_type()) ]
+        else:
+            eq = [ (self.expr, t_array(self.get_place_type())) ]
         if self.target:
             eq.append((self.target, t_int))
         return eq
@@ -81,8 +88,14 @@ class Transition(utils.EqMixin):
         self.edges_in = []
         self.edges_out = []
 
+    def get_normal_edges_out(self):
+        return [ edge for edge in self.edges_out if edge.is_normal() ]
+
+    def get_packing_edges_out(self):
+        return [ edge for edge in self.edges_out if edge.is_packing() ]
+
     def get_context(self):
-        return derive_context(self.net.project.get_env(), self.get_exprs_and_types())
+        return derive_context(self.net.project.get_env(), self.get_equations())
 
     def get_all_edges(self):
         return self.edges_in + self.edges_out
@@ -90,15 +103,15 @@ class Transition(utils.EqMixin):
     def get_basic_input_edges(self):
         return self.edges_in
 
-    def get_exprs_and_types(self):
+    def get_equations(self):
         result = []
         for e in self.get_all_edges():
-            result += e.get_exprs_and_types()
+            result += e.get_equations()
         result.append((self.guard, t_bool))
         return result
 
     def get_types(self):
-        return set([ t for _, t in self.get_exprs_and_types() ])
+        return set([ t for _, t in self.get_equations() ])
 
     def inject_types(self):
         env = self.net.project.get_env()
@@ -216,13 +229,13 @@ def load_edge_in(element, net, transition):
     id = utils.xml_int(element, "id")
     place_id = utils.xml_int(element, "place-id")
     expr = parser.parse_expression(utils.xml_str(element, "expr"), get_source(element, "inscription"))
-    return Edge(id, expr, net.get_place(place_id), transition)
+    return Edge(id, 'normal', expr, net.get_place(place_id), transition)
 
 def load_edge_out(element, net, transition):
     id = utils.xml_int(element, "id")
     place_id = utils.xml_int(element, "place-id")
-    expr, target = parser.parse_output_inscription(utils.xml_str(element, "expr"), get_source(element, "inscription"))
-    return Edge(id, expr, transition, net.get_place(place_id), target)
+    mode, expr, target = parser.parse_output_inscription(utils.xml_str(element, "expr"), get_source(element, "inscription"))
+    return Edge(id, mode, expr, transition, net.get_place(place_id), target)
 
 def load_transition(element, project, net):
     id = utils.xml_int(element, "id")

@@ -40,7 +40,7 @@ class TestBuilder(unittest.TestCase):
 
     def test_order_edges(self):
         def edges(exprs):
-            return [ Edge(0, expr, None, None) for expr in exprs ]
+            return [ Edge(0, 'normal', expr, None, None) for expr in exprs ]
         self.assertEqual(order_input_edges([]), [])
         e1 = edges([ExprVar("x"), ExprCall("+", [ ExprVar("y"), ExprVar("x") ] ), ExprVar("y")])
         e2 = edges([ExprVar("x"), ExprVar("y"), ExprCall("+", [ ExprVar("y"), ExprVar("x") ])])

@@ -57,7 +57,8 @@ typeparser = Forward()
 typeargs = Optional(lpar + Group(typeparser + ZeroOrMore( Suppress( delim ) + typeparser )) + rpar, [])
 typeparser << (Optional(ident,"") + typeargs).setParseAction(lambda tokens: t.Type(tokens[0], list(tokens[1])))
 
-output = expression + Optional(Suppress("@") + expression, None)
+packing = Suppress("~").setParseAction(lambda tokens: "packing")
+output = Optional(packing, "normal") + expression + Optional(Suppress("@") + expression, None)
 
 def parse_expression(string, source = None):
     if string.strip() == "":
@@ -81,7 +82,7 @@ def parse_expression_or_empty(string, source):
     else:
         return parse_expression(string, source)
 
-def parse_output_inscription(string, source):
+def parse_output_inscription(string, source = None):
     if string.strip() == "":
         raise utils.PtpException("Expression missing", source)
     try:
