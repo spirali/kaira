@@ -1,11 +1,7 @@
 
 from base.expressions import ISet, IIf, ExprExtern, ExprVar, IExtern, ExprCall
 from base.utils import topological_ordering
-from base.neltypes import Type
 
-def t_place(t):
-    return Type("__Place", [t])
-    
 def match_expression(env, context, expr, covered_vars, token):
         def depends_on(x, y):
             _, a = x

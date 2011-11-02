@@ -90,18 +90,4 @@ class Emitter(object):
         elif a == 1:
             if t.name == "Array":
                 return "std::vector<" + self.emit_type(t.args[0]) + ">"
-            if t.name == "__Place":
-                return "CaPlace<" + self.emit_type(t.args[0]) + ">"
-            if t.name == "__Token":
-                return "CaToken<" + self.emit_type(t.args[0]) + ">*"
         raise Exception("Type '{0}' cannot be emitted".format(t))
-
-    def emit_declarations(self, decls):
-        return ",".join(("{0} {1}".format(self.emit_type(t), name) for name, t in decls))
-    
-    def as_string(self, expr, t):
-        if t.name == "":
-            return "({0}).as_string()".format(expr)
-        if t == t_string:
-            return expr
-        return "ca_int_to_string({0})".format(expr)
