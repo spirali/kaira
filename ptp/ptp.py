@@ -2,8 +2,8 @@
 import sys
 import base.project as project
 import base.utils as utils
-from gen.codegen import Codegen
-from gen.codegen import get_place_user_fn_header, get_transition_user_fn_header
+from gencpp.builder import Builder
+from gencpp.builder import get_place_user_fn_header, get_transition_user_fn_header
 
 
 def main(args):
@@ -11,9 +11,9 @@ def main(args):
     p = project.load_project_from_file(args[0])
 
     if len(args) == 3 and args[1] == "--build":
-        gen = Codegen(p)
-        gen.build()
-        gen.write_to_file(args[2])
+        builder = Builder(p)
+        builder.build()
+        builder.write_to_file(args[2])
         return
 
     if len(args) == 3 and args[1] == "--place-user-fn":

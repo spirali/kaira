@@ -3,8 +3,8 @@
 import unittest
 
 from base.parser import parse_expression
-from gen.writer import Writer
-from gen.emitter import Emitter
+from base.writer import Writer
+from gencpp.emitter import Emitter
 from base.expressions import ISet, Env
 from base.neltypes import t_int, t_string, t_array, t_tuple, t_bool, Type
 
@@ -47,7 +47,6 @@ class TestGen(unittest.TestCase):
         self.assertEqual(e.emit_type(t_int), "int")
         self.assertEqual(e.emit_type(t_string), "std::string")
         self.assertEqual(e.emit_type(t_array(t_int)), "std::vector<int>")
-        self.assertEqual(e.emit_type(Type("__Place", [t_bool])), "CaPlace<bool>")
         self.assertEqual(e.emit_type(t_tuple(t_int, t_string)), "Tuple2_Int_String")
 
 

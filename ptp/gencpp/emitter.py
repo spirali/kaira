@@ -1,7 +1,7 @@
 
 infix_functions = [ "+", "-", "*", "/", "==", "!=", "&&", "||" ]
 
-from base.neltypes import Type, t_int, t_string
+from base.neltypes import Type
 
 class Emitter(object):
 

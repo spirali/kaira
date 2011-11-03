@@ -1,12 +1,13 @@
 
-import emitter
-import writer
+
 import base.utils as utils
 from base.neltypes import t_int, t_string
+from base.writer import Writer
+import emitter
 
-from builder import get_ordered_types, get_edges_mathing
+from base.gentools import get_ordered_types, get_edges_mathing
 
-class CppWriter(writer.Writer):
+class CppWriter(Writer):
 
     def block_begin(self):
         self.line("{{")
@@ -64,7 +65,7 @@ class CppWriter(writer.Writer):
 
 
 
-class Codegen(CppWriter):
+class Builder(CppWriter):
 
     def __init__(self, project):
         CppWriter.__init__(self)
