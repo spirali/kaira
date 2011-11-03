@@ -1,6 +1,7 @@
 
 from base.expressions import ISet, IIf, ExprExtern, ExprVar, IExtern, ExprCall
 from base.utils import topological_ordering
+from base.project import order_input_edges
 
 def match_expression(env, context, expr, covered_vars, token):
         def depends_on(x, y):
@@ -43,7 +44,7 @@ def get_edges_mathing(project, tr):
     matches = []
     covered = set()
         
-    for edge in tr.edges_in:
+    for edge in order_input_edges(tr.get_normal_edges_in()):
         token = ExprExtern("token", edge.get_place().type)
         instrs, covered = match_expression(env, context, edge.expr, covered, token)
         matches.append((edge, instrs))

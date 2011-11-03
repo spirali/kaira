@@ -223,10 +223,13 @@ class Builder(CppWriter):
 
         w = CppWriter()
 
-        for i, edge in enumerate(tr.edges_in):
+        for i, edge in enumerate(tr.get_normal_edges_in()):
             w.line("n->place_{1.id}.remove(token_{0});", i, edge.get_place())
 
         w.line("net->activate_transition_by_pos_id({0});", tr.get_pos_id())
+
+        for edge in tr.get_packing_edges_in():
+            w.line("vars.{1} = n->place_{0.id}.to_vector_and_clear();", edge.get_place(), edge.varname)
 
         if tr.subnet is not None:
             w.line("net->unlock();")
@@ -296,6 +299,16 @@ class Builder(CppWriter):
 
             for instr in instrs:
                 instr.emit(em, self)
+        for edge in tr.get_packing_edges_in():
+            need = need_tokens.get(edge.get_place(), 0)
+            self.if_begin("n->place_{0.id}.size() < {1} + {2}".format(edge.get_place(), need, edge.limit.emit(em)))
+            if matches:
+                self.line("token_{0} = token_{0}->next;", len(matches) - 1)
+                self.line("continue;")
+            else:
+                self.line("return false;")
+            self.block_end()
+
         self.add_writer(fire_code)
 
         for i, (edge, instrs) in reversed(list(enumerate(matches))):

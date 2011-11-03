@@ -59,6 +59,7 @@ typeparser << (Optional(ident,"") + typeargs).setParseAction(lambda tokens: t.Ty
 
 packing = Suppress("~").setParseAction(lambda tokens: "packing")
 output = Optional(packing, "normal") + expression + Optional(Suppress("@") + expression, None)
+input = Optional(packing, "normal") + expression
 
 def parse_expression(string, source = None):
     if string.strip() == "":
@@ -87,5 +88,13 @@ def parse_output_inscription(string, source = None):
         raise utils.PtpException("Expression missing", source)
     try:
         return tuple(output.parseString(string, source))
+    except ParseException, e:
+        raise utils.PtpException(e.msg, source)
+
+def parse_input_inscription(string, source = None):
+    if string.strip() == "":
+        raise utils.PtpException("Expression missing", source)
+    try:
+        return tuple(input.parseString(string, source))
     except ParseException, e:
         raise utils.PtpException(e.msg, source)

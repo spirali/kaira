@@ -1,19 +1,71 @@
 
 import base.utils as utils
 import base.parser as parser
-from base.expressions import nel_true, Env
+from base.expressions import nel_true, Env, ExprVar, ExprCall
 from base.neltypes import t_bool, derive_context, t_array, t_int
 
 import xml.etree.ElementTree as xml
+from base.utils import PtpException
 
-class Edge(utils.EqMixin):
+class EdgeBase(utils.EqMixin):
 
-    def __init__(self, id, mode, expr, from_element, to_element, target = None):
+    def __init__(self, id, place, transition):
         self.id = id
+        self.place = place
+        self.transition = transition
+
+    def get_place(self):
+        return self.place
+
+    def get_place_type(self):
+        return self.place.type
+
+    def get_transition(self):
+        return self.transition
+
+class EdgeIn(EdgeBase):
+
+    def __init__(self, id, place, transition, expr):
+        EdgeBase.__init__(self, id, place, transition)
+        self.expr = expr
+
+    def get_equations(self):
+        return [ (self.expr, self.get_place_type()) ]
+
+    def inject_types(self, env, context):
+        self.expr.inject_types(env, context)
+
+    def is_normal(self):
+        return True
+
+    def is_packing(self):
+        return False
+
+class EdgeInPacking(EdgeBase):
+
+    def __init__(self, id, place, transition, varname, limit):
+        EdgeBase.__init__(self, id, place, transition)
+        self.varname = varname
+        self.limit = limit
+
+    def get_equations(self):
+        return [ (ExprVar(self.varname), t_array(self.get_place_type())),
+                (self.limit, t_int) ]
+
+    def inject_types(self, env, context):
+        self.limit.inject_types(env, context)
+
+    def is_normal(self):
+        return False
+
+    def is_packing(self):
+        return True
+
+class EdgeOut(EdgeBase):
+    def __init__(self, id, place, transition, expr, mode, target):
+        EdgeBase.__init__(self, id, place, transition)
         self.expr = expr
         self.mode = mode
-        self.from_element = from_element
-        self.to_element = to_element
         self.target = target
 
     def is_normal(self):
@@ -21,15 +73,6 @@ class Edge(utils.EqMixin):
 
     def is_packing(self):
         return self.mode == 'packing'
-
-    def get_place(self):
-        if isinstance(self.from_element, Place):
-            return self.from_element
-        else:
-            return self.to_element
-
-    def get_place_type(self):
-        return self.get_place().type
 
     def get_equations(self):
         if self.is_normal():
@@ -45,8 +88,6 @@ class Edge(utils.EqMixin):
         if self.target:
             self.expr.inject_types(env, context)
 
-    def __repr__(self):
-        return "Edge({0}, {1}, {2}, {3})".format(self.id, repr(self.expr), repr(self.from_element), repr(self.to_element))
 
 class Place(utils.EqMixin):
 
@@ -93,6 +134,12 @@ class Transition(utils.EqMixin):
 
     def get_packing_edges_out(self):
         return [ edge for edge in self.edges_out if edge.is_packing() ]
+
+    def get_normal_edges_in(self):
+        return [ edge for edge in self.edges_in if edge.is_normal() ]
+
+    def get_packing_edges_in(self):
+        return [ edge for edge in self.edges_in if edge.is_packing() ]
 
     def get_context(self):
         return derive_context(self.net.project.get_env(), self.get_equations())
@@ -228,14 +275,20 @@ def get_source(element, name):
 def load_edge_in(element, net, transition):
     id = utils.xml_int(element, "id")
     place_id = utils.xml_int(element, "place-id")
-    expr = parser.parse_expression(utils.xml_str(element, "expr"), get_source(element, "inscription"))
-    return Edge(id, 'normal', expr, net.get_place(place_id), transition)
+    source = get_source(element, "inscription")
+    mode, expr = parser.parse_input_inscription(utils.xml_str(element, "expr"), source)
+    if mode == 'normal':
+        return EdgeIn(id, net.get_place(place_id), transition, expr)
+    else:
+        if not isinstance(expr, ExprCall) or len(expr.args) != 1:
+            raise PtpException("Invalid syntax for input packing expression", source)
+        return EdgeInPacking(id, net.get_place(place_id), transition, expr.name, expr.args[0])
 
 def load_edge_out(element, net, transition):
     id = utils.xml_int(element, "id")
     place_id = utils.xml_int(element, "place-id")
     mode, expr, target = parser.parse_output_inscription(utils.xml_str(element, "expr"), get_source(element, "inscription"))
-    return Edge(id, mode, expr, transition, net.get_place(place_id), target)
+    return EdgeOut(id, net.get_place(place_id), transition, expr, mode, target)
 
 def load_transition(element, project, net):
     id = utils.xml_int(element, "id")
@@ -245,7 +298,7 @@ def load_transition(element, project, net):
     else:
         guard = parser.parse_expression(utils.xml_str(element, "guard"))
     transition = Transition(net, id, guard)
-    transition.edges_in = order_input_edges(map(lambda e: load_edge_in(e, net, transition), element.findall("edge-in")))
+    transition.edges_in = map(lambda e: load_edge_in(e, net, transition), element.findall("edge-in"))
     transition.edges_out = map(lambda e: load_edge_out(e, net, transition), element.findall("edge-out"))
 
     subnet_id = utils.xml_int(element, "subnet", -1)
