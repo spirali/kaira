@@ -78,6 +78,7 @@ class Builder(CppWriter):
         self.emptyline()
         self.line('#include <cailie.h>')
         self.line('#include <algorithm>')
+        self.line('#include "head.cpp"')
         self.emptyline()
 
     def write_main(self):
