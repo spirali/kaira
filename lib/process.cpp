@@ -183,7 +183,6 @@ void CaProcess::multisend(int target, int net_id, int place_pos, int tokens_coun
 void CaThread::run_scheduler()
 {
 	process_messages();
-
 	std::vector<CaNet*>::iterator net = nets.begin();
 	while(!process->quit_flag) {
 		process_messages();

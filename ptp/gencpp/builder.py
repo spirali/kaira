@@ -178,17 +178,23 @@ class Builder(CppWriter):
             return all((self.is_directly_packable(x) for x in t.args))
         return t == t_int
 
+    def write_activation(self, w, net, transitions):
+        for tr in transitions:
+            w.line("{0}->activate_transition_by_pos_id({1});",net, tr.get_pos_id())
+
     def write_send_token(self, w, em, edge):
 
         method = "add" if edge.is_normal() else "add_all"
 
         if edge.target == None:
             w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
+            self.write_activation(w, "net", edge.get_place().get_transitions_out())
         else:
             w.line("int target_{0.id} = {1};", edge, edge.target.emit(em))
             w.line("if (target_{0.id} == thread->get_process_id()) {{", edge)
             w.indent_push()
             w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
+            self.write_activation(w, "net", edge.get_place().get_transitions_out())
             w.indent_pop()
             w.line("}} else {{")
             w.indent_push()
@@ -389,6 +395,7 @@ class Builder(CppWriter):
                 self.line("case {0}:", place.get_pos_id())
                 self.indent_push()
                 self.line("place_{0.id}.add({1});", place, self.get_unpack_code(place.type, "unpacker"))
+                self.write_activation(self, "this", place.get_transitions_out())
                 self.line("break;")
                 self.indent_pop()
         self.line("}}")

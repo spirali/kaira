@@ -32,7 +32,7 @@ class CaTransition {
 
 class CaNetDef {
 
-	public: 
+	public:
 		CaNetDef(int id, int transitions_count, CaSpawnFn *spawn_fn);
 		~CaNetDef();
 
@@ -40,11 +40,10 @@ class CaNetDef {
 
 		int get_id() const { return id; }
 		void register_transition(int i, int id, CaEnableFn *enable_fn);
-		void activate_all_transitions(CaNet *net);
-
-		void activate_transition_by_pos_id(CaNet *net, int pos_id);
-
 		CaTransition * get_transition(int transition_id);
+
+		CaTransition * copy_transitions();
+		int get_transitions_count() { return transitions_count; }
 
 	protected:
 		int id;
@@ -57,7 +56,7 @@ class CaNet {
 	public:
 		CaNet(int id, int main_process_id, CaNetDef *def);
 		virtual ~CaNet();
-		
+
 		int get_id() const { return id; }
 		int get_main_process_id() const { return main_process_id; }
 
@@ -80,9 +79,8 @@ class CaNet {
 			actives.push(tr);
 		}
 
-		void activate_transition_by_pos_id(int pos_id) {
-			def->activate_transition_by_pos_id(this, pos_id);
-		}
+		void activate_all_transitions();
+		void activate_transition_by_pos_id(int pos_id);
 
 	protected:
 		std::queue<CaTransition*> actives;
@@ -90,6 +88,7 @@ class CaNet {
 		pthread_mutex_t mutex;
 		int id;
 		int main_process_id;
+		CaTransition *transitions;
 };
 
 #endif // CAILIE_NET_H

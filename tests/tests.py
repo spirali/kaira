@@ -18,7 +18,7 @@ TEST_PROJECTS = os.path.join(KAIRA_TESTS, "projects")
 
 class BuildTest(TestCase):
 
-	def build(self, filename, final_output, params = [], make_args = [], program_name = None):
+	def build(self, filename, final_output, params = [], make_args = [], program_name = None, processes=None):
 		name, ext = os.path.splitext(filename)
 		directory = os.path.dirname(name)
 		RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
@@ -30,6 +30,8 @@ class BuildTest(TestCase):
 			program_name = name
 		else:
 			program_name = os.path.join(directory, program_name)
+		if processes is not None:
+			params = [ "-r {0}".format(processes) ] + params
 		return RunProgram(program_name, params, cwd = directory).run(final_output)
 
 	def failed_ptp(self, filename, final_output):
@@ -62,7 +64,7 @@ class BuildTest(TestCase):
 
 	def test_packing(self):
 		output = "0\n1\n2\n3\n4\n0\n1\n2\n3\n4\n5\n5\n6\n7\n8\n9\n100\n100\n"
-		self.build(os.path.join(TEST_PROJECTS, "packing", "packing.proj"), output)
+		self.build(os.path.join(TEST_PROJECTS, "packing", "packing.proj"), output, processes=3)
 
 	def test_broken1(self):
 		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken1.proj"), "*104/inscription:1:Inscription is empty\n")
@@ -126,7 +128,7 @@ class BuildTest(TestCase):
 		self.failed_make(os.path.join(TEST_PROJECTS, "broken", "broken_userfunction.proj"), "*106/user_function:")
 
 	def test_broken_externtype_function(self):
-		self.failed_make(os.path.join(TEST_PROJECTS, "broken", "broken_externtype_function.proj"), "*MyType/getsize"), 
+		self.failed_make(os.path.join(TEST_PROJECTS, "broken", "broken_externtype_function.proj"), "*MyType/getsize"),
 
 	def test_multicast(self):
 		self.build(os.path.join(TEST_PROJECTS, "multicast", "multicast.proj"), "18000\n")

@@ -1,6 +1,7 @@
 
 #include "net.h"
 #include <stdio.h>
+#include <string.h>
 
 CaNetDef::CaNetDef(int id, int transitions_count, CaSpawnFn *spawn_fn)
 {
@@ -15,17 +16,18 @@ CaNetDef::~CaNetDef()
 	delete [] transitions;
 }
 
+
+CaTransition * CaNetDef::copy_transitions()
+{
+	CaTransition *ts = new CaTransition[transitions_count];
+	memcpy(ts, transitions, transitions_count * sizeof(CaTransition));
+	return ts;
+}
+
 void CaNetDef::register_transition(int i, int id, CaEnableFn *enable_fn)
 {
 	transitions[i].id = id;
 	transitions[i].enable_fn = enable_fn;
-}
-
-void CaNetDef::activate_all_transitions(CaNet *net)
-{
-	for (int t = 0; t < transitions_count; t++) {
-		net->activate_transition(&transitions[t]);
-	}
 }
 
 CaTransition* CaNetDef::get_transition(int transition_id)
@@ -43,21 +45,30 @@ CaNet * CaNetDef::spawn(CaThread *thread, int id)
 	return spawn_fn(thread, this, id);
 }
 
-void CaNetDef::activate_transition_by_pos_id(CaNet *net, int pos_id)
-{
-	net->activate_transition(&transitions[pos_id]);
-}
-
 CaNet::CaNet(int id, int main_process_id, CaNetDef *def) : def(def), id(id),
 	main_process_id(main_process_id)
 {
 	pthread_mutex_init(&mutex, NULL);
-	def->activate_all_transitions(this);
+	transitions = def->copy_transitions();
+	activate_all_transitions();
 }
 
 CaNet::~CaNet()
 {
+	delete [] transitions;
 	pthread_mutex_destroy(&mutex);
+}
+
+void CaNet::activate_all_transitions()
+{
+	for (int t = 0; t < def->get_transitions_count(); t++) {
+		activate_transition(&transitions[t]);
+	}
+}
+
+void CaNet::activate_transition_by_pos_id(int pos_id)
+{
+	activate_transition(&transitions[pos_id]);
 }
 
 void CaNet::write_reports(CaThread *thread, CaOutput &output)

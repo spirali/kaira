@@ -114,6 +114,20 @@ class Place(utils.EqMixin):
                     result.append(edge)
         return result
 
+    def get_edges_out(self):
+        result = []
+        for tr in self.net.transitions:
+            for edge in tr.edges_in:
+                if edge.get_place() == self:
+                    result.append(edge)
+        return result
+
+    def get_transitions_out(self):
+        return list(set([ edge.get_transition() for edge in self.get_edges_out() ]))
+
+    def get_transitions_in(self):
+        return list(set([ edge.get_transition() for edge in self.get_edges_in() ]))
+
     def get_areas(self):
         return self.net.get_areas_with_place(self)
 
