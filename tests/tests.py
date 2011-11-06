@@ -60,7 +60,7 @@ class BuildTest(TestCase):
 
 	def test_externtypes(self):
 		output = "10 20\n107 207\n10 20\n257 77750 A looong string!!!!!\n"
-		self.build(os.path.join(TEST_PROJECTS, "externtypes", "externtypes.proj"), output)
+		self.build(os.path.join(TEST_PROJECTS, "externtypes", "externtypes.proj"), output, processes=2)
 
 	def test_packing(self):
 		output = "0\n1\n2\n3\n4\n0\n1\n2\n3\n4\n5\n5\n6\n7\n8\n9\n100\n100\n"

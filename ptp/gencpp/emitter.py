@@ -5,7 +5,8 @@ from base.neltypes import Type
 
 class Emitter(object):
 
-    def __init__(self):
+    def __init__(self, project):
+        self.project = project
         self.extern_table = {}
         self.variable_emitter = lambda name: name
 
@@ -87,6 +88,9 @@ class Emitter(object):
                 return "bool"
             elif t.name == "String":
                 return "std::string"
+            etype = self.project.get_extern_type(t.name)
+            if etype:
+                return etype.get_rawtype()
         elif a == 1:
             if t.name == "Array":
                 return "std::vector<" + self.emit_type(t.args[0]) + ">"

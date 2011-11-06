@@ -18,12 +18,12 @@ def main(args):
 
     if len(args) == 3 and args[1] == "--place-user-fn":
         place = p.get_place(int(args[2]))
-        print get_place_user_fn_header(place),
+        print get_place_user_fn_header(p, place),
         return
 
     if len(args) == 3 and args[1] == "--transition-user-fn":
         transition = p.get_transition(int(args[2]))
-        print get_transition_user_fn_header(transition),
+        print get_transition_user_fn_header(p, transition),
         return
 
     print "Usage: ptp <project.xml> <action>"

@@ -69,7 +69,7 @@ class Builder(CppWriter):
 
     def __init__(self, project):
         CppWriter.__init__(self)
-        self.emitter = emitter.Emitter()
+        self.emitter = emitter.Emitter(project)
         self.project = project
 
     def write_header(self):
@@ -78,6 +78,8 @@ class Builder(CppWriter):
         self.emptyline()
         self.line('#include <cailie.h>')
         self.line('#include <algorithm>')
+        self.line('#include <stdlib.h>')
+        self.line('#include <stdio.h>')
         self.line('#include "head.cpp"')
         self.emptyline()
 
@@ -111,6 +113,10 @@ class Builder(CppWriter):
         self.write_constructor(class_name, self.emit_declarations(decls), [ "{0}({0})".format(name) for name, _ in decls ])
         self.write_method_end()
 
+        args = [ "{0}({1})".format(e, self.get_unpack_code(t, "unpacker")) for e, t in decls ]
+        self.write_constructor(class_name, "CaUnpacker &unpacker", args)
+        self.write_method_end()
+
         self.write_constructor(class_name, "", [])
         self.write_method_end()
 
@@ -118,6 +124,16 @@ class Builder(CppWriter):
         self.line('return std::string("(") + {0} + ")";',
                   ' + "," +'.join((self.code_as_string(e, t) for e, t in decls)))
         self.write_method_end()
+
+        self.write_method_start("size_t get_mem_size()")
+        self.line('return {0};', ' + '.join((self.get_size_code(t, e) for e, t in decls)))
+        self.write_method_end()
+
+        self.write_method_start("void pack(CaPacker &packer)")
+        for e, t in decls:
+            self.line(self.get_pack_code(t, "packer", e) + ";")
+        self.write_method_end()
+
         self.write_class_end()
 
     def write_types(self):
@@ -142,18 +158,20 @@ class Builder(CppWriter):
         self.write_enable(tr)
         self.write_enable_check(tr)
 
-    def write_transition_user_function(self, tr):
-        self.line("void transition_user_fn_{0.id}(CaContext &ctx, Vars_{0.id} &var)", tr)
+    def write_user_function(self, declaration, code):
+        self.raw_line(declaration)
         self.line("{{")
-        self.raw_text(tr.code)
+        self.raw_text(code)
         self.line("}}")
+
+    def write_transition_user_function(self, tr):
+        declaration = "void transition_user_fn_{0.id}(CaContext &ctx, Vars_{0.id} &var)".format(tr)
+        self.write_user_function(declaration, tr.code)
 
     def write_place_user_function(self, place):
         t = self.emit_type(place.type)
-        self.line("void place_user_fn_{0.id}(CaContext &ctx, std::vector<{1} > &tokens)".format(place, t))
-        self.line("{{")
-        self.raw_text(place.code)
-        self.line("}}")
+        declaration = "void place_user_fn_{0.id}(CaContext &ctx, std::vector<{1} > &tokens)".format(place, t)
+        self.write_user_function(declaration, place.code)
 
     def get_size_code(self, t, code):
         if t == t_int:
@@ -162,16 +180,41 @@ class Builder(CppWriter):
             return "(sizeof(size_t) + ({0}).size())".format(code)
         if t.name == "":
             return "({0}).get_mem_size()".format(code)
+        etype = self.project.get_extern_type(t.name)
+        if etype:
+            if etype.get_transport_mode() == "Disabled":
+                raise utils.PtpException("Transport of type '{0.name}' is disabled".format(etype))
+            if etype.get_transport_mode() == "Direct":
+                return "sizeof({0})".format(code)
+            return "{0.name}_getsize({1})".format(etype, code)
         raise Exception("Unknown type: " + str(t))
 
     def get_pack_code(self, t, packer, code):
         if t == t_int:
             return "{0}.pack_int({1});".format(packer, code)
+        if t.name == "":
+            return "({1}).pack({0})".format(packer, code)
+        etype = self.project.get_extern_type(t.name)
+        if etype:
+            if etype.get_transport_mode() == "Disabled":
+                raise utils.PtpException("Transport of type '{0.name}' is disabled".format(etype))
+            if etype.get_transport_mode() == "Direct":
+                return "{0}.pack(&{1}, sizeof({1}))".format(packer, code)
+            return "{0.name}_pack({1}, {2})".format(etype, packer, code)
         raise Exception("Unknown type: " + str(t))
 
     def get_unpack_code(self, t, unpacker):
         if t == t_int:
             return "{0}.unpack_int()".format(unpacker)
+        if t.name == "":
+            return "{0}({1})".format(t.get_safe_name(), unpacker)
+        etype = self.project.get_extern_type(t.name)
+        if etype:
+            if etype.get_transport_mode() == "Disabled":
+                raise utils.PtpException("Transport of type '{0.name}' is disabled".format(etype))
+            if etype.get_transport_mode() == "Direct":
+                return "* (({1} *) {0}.unpack(sizeof({1})))".format(unpacker, etype.get_rawtype())
+            return "{0.name}_unpack({1})".format(etype, unpacker)
         raise Exception("Unknown type: " + str(t))
 
     def is_directly_packable(self, t):
@@ -224,6 +267,7 @@ class Builder(CppWriter):
                 w.line("thread->multisend(target_{0.id}, net->get_id(), {1}, value.size(), packer);",
                        edge, edge.get_place().get_pos_id())
             w.block_end()
+
     def write_enable(self, tr):
         self.line("bool enable_{0.id}(CaThread *thread, CaNet *net)", tr)
         self.block_begin()
@@ -248,7 +292,7 @@ class Builder(CppWriter):
                 w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
                 w.line("net->lock();")
 
-            em = emitter.Emitter()
+            em = emitter.Emitter(self.project)
             em.variable_emitter = lambda name: "vars." + name
 
             for edge in tr.get_normal_edges_out() + tr.get_packing_edges_out():
@@ -276,7 +320,7 @@ class Builder(CppWriter):
         self.line("Vars_{0.id} vars;", tr)
         self.line("Net_{0.id} *n = (Net_{0.id}*) net;", tr.net)
 
-        em = emitter.Emitter()
+        em = emitter.Emitter(self.project)
 
         need_tokens = utils.multiset([ edge.get_place() for edge, instrs in matches ])
 
@@ -322,10 +366,31 @@ class Builder(CppWriter):
             self.line("token_{0} = token_{0}->next;", i)
             self.do_end("token_{0} != n->place_{1.id}.begin()".format(i, edge.get_place()))
 
+    def write_extern_types_functions(self):
+        decls = {
+                 "getstring" : "std::string {0.name}_getstring(const {0.rawtype} &obj)",
+                 "getsize" : "size_t {0.name}_getsize(const {0.rawtype} &obj)",
+                 "pack" : "void {0.name}_pack(CaPacker &packer, const {0.rawtype} &obj)",
+                 "unpack" : "{0.rawtype} {0.name}_unpack(CaUnpacker &unpacker)"
+        }
+        def write_fn(etype, name):
+            self.write_user_function(decls[name].format(etype), etype.get_code(name))
+
+        for etype in self.project.get_extern_types():
+            if etype.has_code("getstring"):
+                write_fn(etype, "getstring")
+            if etype.get_transport_mode() == "Custom":
+                if not etype.has_code("getsize") or not etype.has_code("pack") or not etype.has_code("unpack"):
+                    raise utils.PtpException("Extern type has custom transport mode but getsize/pack/unpack missing.")
+                write_fn(etype, "getsize")
+                write_fn(etype, "pack")
+                write_fn(etype, "unpack")
+
     def build(self):
         #self.inject_types(project)
         self.project.inject_types()
         self.write_header()
+        self.write_extern_types_functions()
         self.write_types()
         for net in self.project.nets:
             self.build_net(net)
@@ -440,23 +505,30 @@ class Builder(CppWriter):
     def code_as_string(self, expr, t):
         if t.name == "":
             return "({0}).as_string()".format(expr)
+        if len(t.args) == 0:
+            etype = self.project.get_extern_type(t.name)
+            if etype:
+                if etype.has_code("getstring"):
+                    return "{1}_getstring({0})".format(expr, etype.name)
+                else:
+                    return self.emitter.const_string(etype.name);
         if t == t_string:
             return expr
         return "ca_int_to_string({0})".format(expr)
 
 
-def get_place_user_fn_header(place):
-        t = emitter.Emitter().emit_type(place.type)
+def get_place_user_fn_header(project, place):
+        t = emitter.Emitter(project).emit_type(place.type)
         if t[-1] == ">":
             t += " "
         return "void place_fn(CaContext &ctx, std::vector<{1}> &tokens)\n{{\n".format(place, t)
 
-def get_transition_user_fn_header(transition):
+def get_transition_user_fn_header(project, transition):
         context = transition.get_context()
         w = CppWriter()
         w.line("struct Vars {{")
         for key, value in context.items():
-            w.line("\t{1} {0};", key, emitter.Emitter().emit_type(value))
+            w.line("\t{1} {0};", key, emitter.Emitter(project).emit_type(value))
         w.line("}};")
         w.emptyline()
         w.line("void transition_fn(CaContext &ctx, Vars &vars)")

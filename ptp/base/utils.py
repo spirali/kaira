@@ -84,3 +84,9 @@ def multiset(lst):
         result.setdefault(i, 0)
         result[i] += 1
     return result
+
+def create_dict(lst, key):
+    d = {}
+    for item in lst:
+        d[key(item)] = item
+    return d

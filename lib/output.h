@@ -31,6 +31,9 @@ class CaOutput {
 		CaOutputBlock * back();
 		void set(const std::string &name, const int i);
 		void set(const std::string &name, const std::string &s);
+		void set(const std::string &name, const char *s) {
+			set(name, std::string(s));
+		}
 		void set(const std::string &name, const bool value);
 	private:
 		void _set(const std::string &name, const std::string &s);

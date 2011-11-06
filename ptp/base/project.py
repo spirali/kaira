@@ -249,17 +249,47 @@ class Net(object):
     def get_areas_with_place(self, place):
         return [ area for area in self.areas if area.is_place_inside(place) ]
 
+class ExternType(object):
+
+    def __init__(self, name, rawtype, transport_mode, codes):
+        self.name = name
+        self.rawtype = rawtype
+        self.transport_mode = transport_mode
+        self.codes = codes
+
+    def get_name(self):
+        return self.name
+
+    def get_rawtype(self):
+        return self.rawtype
+
+    def get_transport_mode(self):
+        return self.transport_mode
+
+    def get_code(self, name):
+        return self.codes.get(name)
+
+    def has_code(self, name):
+        return name in self.codes
+
 class Project(object):
 
     def __init__(self, description):
         self.nets = []
         self.description = description
+        self.extern_types = {}
 
     def get_env(self):
         return Env()
 
     def get_all_types(self):
         return set().union( *[ net.get_all_types() for net in self.nets ] )
+
+    def get_extern_types(self):
+        return self.extern_types.values()
+
+    def get_extern_type(self, name):
+        return self.extern_types.get(name)
 
     def get_net(self, id):
         for net in self.nets:
@@ -349,9 +379,22 @@ def load_net_content(element, project, net):
     net.transitions = [ load_transition(e, project, net) for e in element.findall("transition") ]
     net.areas = [ load_area(e, net) for e in element.findall("area") ]
 
+def load_extern_type(element):
+    name = utils.xml_str(element, "name")
+    rawtype = utils.xml_str(element, "raw-type")
+    transport_mode = utils.xml_str(element, "transport-mode")
+    codes = dict((utils.xml_str(e, "name"), e.text) for e in element.findall("code"))
+    return ExternType(name, rawtype, transport_mode, codes)
+
+def load_configuration(element, project):
+    etypes = [ load_extern_type(e) for e in element.findall("extern-type") ]
+    project.extern_types = utils.create_dict(etypes, lambda etype: etype.name)
+
 def load_project(element):
     description = element.find("description").text
     p = Project(description)
+
+    load_configuration(element.find("configuration"), p)
 
     nets = [ (e, load_net(e, p)) for e in element.findall("net") ]
     p.nets = [ net for e, net in nets ]
