@@ -11,10 +11,17 @@ class Emitter(object):
         self.variable_emitter = lambda name: name
 
     def call(self, name, args):
+        a = [ e.emit(self) for e in args ]
         if name in infix_functions and len(args) == 2:
-            return "(({1}) {0} ({2}))".format(name, args[0].emit(self), args[1].emit(self))
+            return "(({1}) {0} ({2}))".format(name, a[0], a[1])
         else:
-            return "{0}({1})".format(name, ", ".join( [ e.emit(self) for e in args ]))
+
+            ufunction = self.project.get_user_function(name)
+            if ufunction:
+                name = "ufunction_" + name
+                if ufunction.with_context:
+                    a = [ "CaContext(thread)" ] + a
+            return "{0}({1})".format(name, ", ".join(a))
 
     def const_int(self, value):
         return str(value)

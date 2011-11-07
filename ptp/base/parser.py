@@ -61,6 +61,9 @@ packing = Suppress("~").setParseAction(lambda tokens: "packing")
 output = Optional(packing, "normal") + expression + Optional(Suppress("@") + expression, None)
 input = Optional(packing, "normal") + expression
 
+parameter = (typeparser + ident).setParseAction(lambda tokens: (tokens[1], tokens[0]))
+parameters = parameter + ZeroOrMore(delim + parameter)
+
 def parse_expression(string, source = None):
     if string.strip() == "":
         raise utils.PtpException("Expression missing", source)
@@ -96,5 +99,13 @@ def parse_input_inscription(string, source = None):
         raise utils.PtpException("Expression missing", source)
     try:
         return tuple(input.parseString(string, source))
+    except ParseException, e:
+        raise utils.PtpException(e.msg, source)
+
+def parse_parameters_declaration(string, source = None):
+    if string.strip() == "":
+        return ()
+    try:
+        return tuple(parameters.parseString(string))
     except ParseException, e:
         raise utils.PtpException(e.msg, source)

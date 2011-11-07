@@ -19,14 +19,22 @@ nel_standard_functions = {
     "at": [ TypeVar(0), t_array(TypeVar(0)), t_int ],
 }
 
-class Env():
+class Env(object):
+
+    def __init__(self):
+        self.functions = nel_standard_functions.copy()
+
+    def add_function(self, name, returntype, args):
+        lst = [returntype]
+        lst.extend(args)
+        self.functions[name] = lst
 
     def find_function_decl(self, name, args_count, safevars = True):
-        ftypes = nel_standard_functions.get(name)
+        ftypes = self.functions.get(name)
         if ftypes is None:
-            raise Exception("Unknown function '{0}'".format(name))
+            raise utils.PtpException("Unknown function '{0}'".format(name))
         if len(ftypes) - 1 != args_count:
-            raise Exception("Invalid number of arguments")
+            raise utils.PtpException("Invalid number of arguments")
         if safevars:
             ftypes = rename_vars(ftypes)
         return (ftypes[0], ftypes[1:])

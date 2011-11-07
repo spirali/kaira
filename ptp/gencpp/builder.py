@@ -158,7 +158,7 @@ class Builder(CppWriter):
         self.write_enable(tr)
         self.write_enable_check(tr)
 
-    def write_user_function(self, declaration, code):
+    def write_function(self, declaration, code):
         self.raw_line(declaration)
         self.line("{{")
         self.raw_text(code)
@@ -166,12 +166,25 @@ class Builder(CppWriter):
 
     def write_transition_user_function(self, tr):
         declaration = "void transition_user_fn_{0.id}(CaContext &ctx, Vars_{0.id} &var)".format(tr)
-        self.write_user_function(declaration, tr.code)
+        self.write_function(declaration, tr.code)
 
     def write_place_user_function(self, place):
         t = self.emit_type(place.type)
         declaration = "void place_user_fn_{0.id}(CaContext &ctx, std::vector<{1} > &tokens)".format(place, t)
-        self.write_user_function(declaration, place.code)
+        self.write_function(declaration, place.code)
+
+    def write_user_function(self, ufunction):
+        params =  ufunction.get_parameters()
+        if ufunction.with_context:
+            params = [ ("ctx", "CaContext") ] + list(params)
+        returntype = self.emit_type(ufunction.get_returntype())
+        declaration = "{1} ufunction_{0}({2})".format(ufunction.get_name(),
+                                                      returntype, self.emit_declarations(params))
+        self.write_function(declaration, ufunction.get_code())
+
+    def write_user_functions(self):
+        for ufunction in self.project.get_user_functions():
+            self.write_user_function(ufunction)
 
     def get_size_code(self, t, code):
         if t == t_int:
@@ -378,7 +391,7 @@ class Builder(CppWriter):
                  "unpack" : "{0.rawtype} {0.name}_unpack(CaUnpacker &unpacker)"
         }
         def write_fn(etype, name):
-            self.write_user_function(decls[name].format(etype), etype.get_code(name))
+            self.write_function(decls[name].format(etype), etype.get_code(name))
 
         for etype in self.project.get_extern_types():
             if etype.has_code("getstring"):
@@ -396,6 +409,7 @@ class Builder(CppWriter):
         self.write_header()
         self.write_extern_types_functions()
         self.write_types()
+        self.write_user_functions()
         for net in self.project.nets:
             self.build_net(net)
         self.write_main()

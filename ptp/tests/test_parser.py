@@ -9,6 +9,7 @@ import base.expressions as e
 import base.neltypes as t
 from base.parser import parse_expression, parse_type
 from base.parser import parse_output_inscription
+from base.parser import parse_parameters_declaration
 
 class TestParser(unittest.TestCase):
 
@@ -58,6 +59,12 @@ class TestParser(unittest.TestCase):
         self.assertEquals(parse_output_inscription("(2 + x)    @    y"), expr)
         self.assertEquals(parse_output_inscription("~x_x"), ('packing', e.ExprVar("x_x"), None))
         self.assertEquals(parse_output_inscription("~x_x@0"), ('packing', e.ExprVar("x_x"), e.ExprInt(0)))
+
+    def test_parameters(self):
+        self.assertEqual(parse_parameters_declaration(""), ())
+        self.assertEqual(parse_parameters_declaration("Int a"), (("a", t.t_int),))
+        result = (("a", t.t_int),("b", t.t_int), ("str", t.t_string))
+        self.assertEqual(parse_parameters_declaration("Int a, Int b, String str"), result)
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testExpression']

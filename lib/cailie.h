@@ -41,9 +41,8 @@ class CaContext {
 		CaContext(CaThread *thread) : thread(thread) {}
 
 		void quit() { thread->quit_all(); }
-		/*
-		int iid() { return unit->path.last_component(); }
 		int process_id() { return thread->get_process()->get_process_id(); }
+		/*
 		void start_logging(std::string &logname) { thread->start_logging(logname); }
 		void stop_logging() { thread->stop_logging(); }
 		*/

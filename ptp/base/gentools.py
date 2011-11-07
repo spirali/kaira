@@ -6,15 +6,15 @@ from base.project import order_input_edges
 def match_expression(env, context, expr, covered_vars, token):
         def depends_on(x, y):
             _, a = x
-            _, b = y     
+            _, b = y
             return len(a.get_direct_vars().intersection(b.get_undirect_vars())) != 0
-        
+
         pairing = expr.get_direct_pairing(token)
-        
+
         for a, b in pairing:
             a.inject_types(env, context)
             b.inject_types(env, context)
-        
+
         ordered = topological_ordering(pairing, depends_on)
         assert ordered is not None
 
@@ -27,7 +27,7 @@ def match_expression(env, context, expr, covered_vars, token):
             else:
                 code.append(IIf(ExprCall("!=", [ e2, e1 ]), IExtern("fail")),)
         return code, c
-    
+
 #    def inject_types(self, project):
 #        for net in project.nets:
 #            for tr in net.transitions:
@@ -43,10 +43,10 @@ def get_edges_mathing(project, tr):
     context = tr.get_context()
     matches = []
     covered = set()
-        
+
     for edge in order_input_edges(tr.get_normal_edges_in()):
         token = ExprExtern("token", edge.get_place().type)
         instrs, covered = match_expression(env, context, edge.expr, covered, token)
         matches.append((edge, instrs))
-    
+
     return matches
