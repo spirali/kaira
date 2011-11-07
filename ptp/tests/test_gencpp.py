@@ -7,6 +7,7 @@ from base.writer import Writer
 from gencpp.emitter import Emitter
 from base.expressions import ISet, Env
 from base.neltypes import t_int, t_string, t_array, t_tuple
+from base.project import Project
 
 class TestGen(unittest.TestCase):
 
@@ -28,7 +29,7 @@ class TestGen(unittest.TestCase):
         self.assertEqual(w.get_string(), text)
 
     def test_emit_expressions(self):
-        e = Emitter(None)
+        e = Emitter(Project(None))
         expr = parse_expression('g(10,"Hi!", y)')
         self.assertEqual(expr.emit(e), 'g(10, "Hi!", y)')
         expr = parse_expression('10 + x')

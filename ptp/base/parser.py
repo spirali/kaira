@@ -33,7 +33,7 @@ def operator_action(tokens):
 
 ident = Word(alphanums+"_")
 expression = Forward()
-integer = Word(digits).setParseAction(lambda tokens: e.ExprInt(int(tokens[0])))
+integer = (Optional("-", "+") + Word(digits)).setParseAction(lambda tokens: e.ExprInt(int(tokens[0] + tokens[1])))
 string = dblQuotedString.setParseAction(lambda tokens: e.ExprString(tokens[0][1:-1]))
 array = Suppress("[") + Optional(Group(expression + ZeroOrMore( Suppress( delim ) + expression )), []) + Suppress("]")
 array.setParseAction(lambda tokens: e.ExprArray(tuple(tokens[0])))

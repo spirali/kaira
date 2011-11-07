@@ -16,6 +16,7 @@ class TestParser(unittest.TestCase):
     def test_literals(self):
         self.assertEqual(parse_expression("xyz"), e.ExprVar("xyz"))
         self.assertEqual(parse_expression("10"), e.ExprInt(10))
+        self.assertEqual(parse_expression("-987"), e.ExprInt(-987))
         self.assertEqual(parse_expression('"  Hi  "'), e.ExprString('  Hi  '))
 
     def test_parameter(self):
