@@ -191,7 +191,9 @@ class Builder(CppWriter):
 
     def get_pack_code(self, t, packer, code):
         if t == t_int:
-            return "{0}.pack_int({1});".format(packer, code)
+            return "{0}.pack_int({1})".format(packer, code)
+        if t == t_string:
+            return "{0}.pack_string({1})".format(packer, code)
         if t.name == "":
             return "({1}).pack({0})".format(packer, code)
         etype = self.project.get_extern_type(t.name)
@@ -206,6 +208,8 @@ class Builder(CppWriter):
     def get_unpack_code(self, t, unpacker):
         if t == t_int:
             return "{0}.unpack_int()".format(unpacker)
+        if t == t_string:
+            return "{0}.unpack_string()".format(unpacker)
         if t.name == "":
             return "{0}({1})".format(t.get_safe_name(), unpacker)
         etype = self.project.get_extern_type(t.name)
