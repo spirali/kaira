@@ -62,6 +62,9 @@ class TypeVar(EqMixin):
 t_int = Type("Int")
 t_string = Type("String")
 t_bool = Type("Bool")
+t_float = Type("Float")
+t_double = Type("Double")
+
 def t_array(x):
     return Type("Array", [x])
 def t_tuple(*args):

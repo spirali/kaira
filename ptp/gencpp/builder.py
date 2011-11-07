@@ -1,7 +1,7 @@
 
 
 import base.utils as utils
-from base.neltypes import t_int, t_string
+from base.neltypes import t_int, t_string, t_float, t_double
 from base.writer import Writer
 import emitter
 
@@ -187,7 +187,7 @@ class Builder(CppWriter):
             self.write_user_function(ufunction)
 
     def get_size_code(self, t, code):
-        if t == t_int:
+        if t == t_int or t_float or t_double:
             return "sizeof({0})".format(code)
         if t == t_string:
             return "(sizeof(size_t) + ({0}).size())".format(code)
@@ -207,6 +207,10 @@ class Builder(CppWriter):
             return "{0}.pack_int({1})".format(packer, code)
         if t == t_string:
             return "{0}.pack_string({1})".format(packer, code)
+        if t == t_float:
+            return "{0}.pack_float({1})".format(packer, code)
+        if t == t_double:
+            return "{0}.pack_double({1})".format(packer, code)
         if t.name == "":
             return "({1}).pack({0})".format(packer, code)
         etype = self.project.get_extern_type(t.name)
@@ -223,6 +227,10 @@ class Builder(CppWriter):
             return "{0}.unpack_int()".format(unpacker)
         if t == t_string:
             return "{0}.unpack_string()".format(unpacker)
+        if t == t_float:
+            return "{0}.unpack_float()".format(unpacker)
+        if t == t_double:
+            return "{0}.unpack_double()".format(unpacker)
         if t.name == "":
             return "{0}({1})".format(t.get_safe_name(), unpacker)
         etype = self.project.get_extern_type(t.name)

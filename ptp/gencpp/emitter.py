@@ -91,10 +91,15 @@ class Emitter(object):
         if a == 0:
             if t.name == "Int":
                 return "int"
-            if t.name == "Bool":
-                return "bool"
             elif t.name == "String":
                 return "std::string"
+            elif t.name == "Bool":
+                return "bool"
+            elif t.name == "Double":
+                return "double"
+            elif t.name == "Float":
+                return "float"
+
             etype = self.project.get_extern_type(t.name)
             if etype:
                 return etype.get_rawtype()

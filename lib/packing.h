@@ -14,6 +14,8 @@ class CaPacker {
 		void pack_size(size_t data) { pack(&data, sizeof(size_t)); }
 		void pack_string(std::string str) { size_t s = str.size(); pack_size(s); pack(str.c_str(), s); }
 		void pack_int(int data) { pack(&data, sizeof(int)); }
+		void pack_float(float data) { pack(&data, sizeof(float)); }
+		void pack_double(double data) { pack(&data, sizeof(double)); }
 		void * peek() { return buffer_pos; }
 		void move(size_t size) { buffer_pos += size; }
 		size_t get_size() const { return size; }
