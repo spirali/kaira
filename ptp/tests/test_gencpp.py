@@ -6,7 +6,7 @@ from base.parser import parse_expression
 from base.writer import Writer
 from gencpp.emitter import Emitter
 from base.expressions import ISet, Env
-from base.neltypes import t_int, t_string, t_array, t_tuple, t_bool, Type
+from base.neltypes import t_int, t_string, t_array, t_tuple
 
 class TestGen(unittest.TestCase):
 
@@ -28,7 +28,7 @@ class TestGen(unittest.TestCase):
         self.assertEqual(w.get_string(), text)
 
     def test_emit_expressions(self):
-        e = Emitter()
+        e = Emitter(None)
         expr = parse_expression('g(10,"Hi!", y)')
         self.assertEqual(expr.emit(e), 'g(10, "Hi!", y)')
         expr = parse_expression('10 + x')
@@ -38,12 +38,12 @@ class TestGen(unittest.TestCase):
         env = Env()
         i = ISet("a", parse_expression('10 + 20'))
         i.inject_types(env, {})
-        e, w  = Emitter(), Writer()
+        e, w  = Emitter(None), Writer()
         i.emit(e, w)
         self.assertEqual(w.get_string(), 'a = ((10) + (20));\n')
 
     def test_emit_type(self):
-        e = Emitter()
+        e = Emitter(None)
         self.assertEqual(e.emit_type(t_int), "int")
         self.assertEqual(e.emit_type(t_string), "std::string")
         self.assertEqual(e.emit_type(t_array(t_int)), "std::vector<int>")

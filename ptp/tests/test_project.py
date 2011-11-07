@@ -1,6 +1,6 @@
 
 import unittest
-from base.project import load_project, Edge
+from base.project import load_project
 import xml.etree.ElementTree as xml
 from base.expressions import ExprCall, ExprInt, ExprVar, ExprArray, nel_true
 from base.neltypes import t_int, t_bool, t_string
