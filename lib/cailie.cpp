@@ -206,4 +206,12 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 	if (exit_f) { exit(1); }
 }
 
-
+std::vector<int> ca_range(int from, int upto)
+{
+	std::vector<int> v;
+	int t;
+	for (t = from; t <= upto; t++) {
+		v.push_back(t);
+	}
+	return v;
+}

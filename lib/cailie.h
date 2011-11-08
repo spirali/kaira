@@ -80,4 +80,6 @@ class ca_array
 	std::vector<T> vec;
 };
 
+std::vector<int> ca_range(int from, int upto);
+
 #endif

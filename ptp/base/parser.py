@@ -35,8 +35,11 @@ ident = Word(alphanums+"_")
 expression = Forward()
 integer = (Optional("-", "+") + Word(digits)).setParseAction(lambda tokens: e.ExprInt(int(tokens[0] + tokens[1])))
 string = dblQuotedString.setParseAction(lambda tokens: e.ExprString(tokens[0][1:-1]))
-array = Suppress("[") + Optional(Group(expression + ZeroOrMore( Suppress( delim ) + expression )), []) + Suppress("]")
-array.setParseAction(lambda tokens: e.ExprArray(tuple(tokens[0])))
+array_normal = Optional(Group(expression + ZeroOrMore( Suppress( delim ) + expression )), [])
+array_normal.setParseAction(lambda tokens: e.ExprArray(tuple(tokens[0])))
+array_range = expression + Suppress(Literal("..")) + expression
+array_range.setParseAction(lambda tokens: e.ExprCall('range', list(tokens)))
+array = Suppress("[") + (array_range | array_normal) + Suppress("]")
 parameter = (Suppress("#") + ident).setParseAction(lambda tokens: e.ExprParam(tokens[0]))
 parens = lpar + Optional(Group(expression + ZeroOrMore( Suppress( delim ) + expression )), []) + rpar
 var_or_call = (ident + Optional(parens, None)).setParseAction(ident_action)

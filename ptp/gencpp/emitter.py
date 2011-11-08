@@ -21,6 +21,8 @@ class Emitter(object):
                 name = "ufunction_" + name
                 if ufunction.with_context:
                     a = [ "CaContext(thread)" ] + a
+            else:
+                name = "ca_" + name
             return "{0}({1})".format(name, ", ".join(a))
 
     def const_int(self, value):

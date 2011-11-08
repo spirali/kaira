@@ -17,6 +17,7 @@ nel_standard_functions = {
     "!=": [ t_bool, TypeVar(0), TypeVar(0) ],
     "length": [ t_int, t_array(TypeVar(0)) ],
     "at": [ TypeVar(0), t_array(TypeVar(0)), t_int ],
+    "range": [ t_array(t_int), t_int, t_int ],
 }
 
 class Env(object):

@@ -52,6 +52,7 @@ class TestParser(unittest.TestCase):
     def test_array(self):
         self.assertEqual(parse_expression("[]"), e.ExprArray(()))
         self.assertEqual(parse_expression("[1,2,3]"), e.ExprArray((e.ExprInt(1),e.ExprInt(2),e.ExprInt(3))))
+        self.assertEqual(parse_expression("[1 .. 4]"), e.ExprCall("range", [e.ExprInt(1), e.ExprInt(4)]))
 
     def test_output_inscription(self):
         self.assertEquals(parse_output_inscription("x_x"), ('normal', e.ExprVar("x_x"), None))
