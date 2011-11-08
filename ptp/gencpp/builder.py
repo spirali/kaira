@@ -187,7 +187,7 @@ class Builder(CppWriter):
             self.write_user_function(ufunction)
 
     def get_size_code(self, t, code):
-        if t == t_int or t_float or t_double:
+        if t == t_int or t == t_float or t == t_double:
             return "sizeof({0})".format(code)
         if t == t_string:
             return "(sizeof(size_t) + ({0}).size())".format(code)
