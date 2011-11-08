@@ -128,8 +128,8 @@ def load_edge_in(element, net, transition):
 def load_edge_out(element, net, transition):
     id = utils.xml_int(element, "id")
     place_id = utils.xml_int(element, "place-id")
-    mode, expr, target = parser.parse_output_inscription(utils.xml_str(element, "expr"), get_source(element, "inscription"))
-    return EdgeOut(id, net.get_place(place_id), transition, expr, mode, target)
+    mode, expr, target, guard = parser.parse_output_inscription(utils.xml_str(element, "expr"), get_source(element, "inscription"))
+    return EdgeOut(id, net.get_place(place_id), transition, expr, mode, target, guard)
 
 def load_transition(element, project, net):
     id = utils.xml_int(element, "id")

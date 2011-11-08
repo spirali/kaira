@@ -58,11 +58,12 @@ class EdgeInPacking(EdgeBase):
         return True
 
 class EdgeOut(EdgeBase):
-    def __init__(self, id, place, transition, expr, mode, target):
+    def __init__(self, id, place, transition, expr, mode, target, guard):
         EdgeBase.__init__(self, id, place, transition)
         self.expr = expr
         self.mode = mode
         self.target = target
+        self.guard = guard
 
     def is_normal(self):
         return self.mode == 'normal'
@@ -77,15 +78,18 @@ class EdgeOut(EdgeBase):
             eq = [ (self.expr, t_array(self.get_place_type())) ]
         if self.target:
             eq.append((self.target, t_int))
+        if self.guard:
+            eq.append((self.guard, t_bool))
         return eq
 
     def inject_types(self, env, context):
         self.expr.inject_types(env, context)
         if self.target:
-            self.expr.inject_types(env, context)
+            self.target.inject_types(env, context)
+        if self.guard:
+            self.guard.inject_types(env, context)
 
-
-class Place(utils.EqMixin):
+class Place(utils.EqByIdMixin):
 
     code = None
 
@@ -127,7 +131,7 @@ class Place(utils.EqMixin):
     def get_areas(self):
         return self.net.get_areas_with_place(self)
 
-class Transition(utils.EqMixin):
+class Transition(utils.EqByIdMixin):
 
     code = None
     subnet = None
@@ -182,6 +186,7 @@ class Transition(utils.EqMixin):
 
     def get_pos_id(self):
         return self.net.transitions.index(self)
+
 
 class Area(object):
 

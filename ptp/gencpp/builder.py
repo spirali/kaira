@@ -321,7 +321,12 @@ class Builder(CppWriter):
             em.variable_emitter = lambda name: "vars." + name
 
             for edge in tr.get_normal_edges_out() + tr.get_packing_edges_out():
-                self.write_send_token(w, em, edge)
+                if edge.guard:
+                    w.if_begin(edge.guard.emit(em))
+                    self.write_send_token(w, em, edge)
+                    w.block_end()
+                else:
+                    self.write_send_token(w, em, edge)
             w.line("net->unlock();")
         w.line("return true;")
 

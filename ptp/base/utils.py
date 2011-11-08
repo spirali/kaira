@@ -17,6 +17,15 @@ class EqMixin(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+class EqByIdMixin(object):
+
+    def __eq__(self, other):
+        return (isinstance(other, self.__class__)
+            and self.id == other.id)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
 '''
     @param fn: Function f(a, b) that returns True if a depends on b

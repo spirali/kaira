@@ -1,5 +1,5 @@
 
-infix_functions = [ "+", "-", "*", "/", "==", "!=", "&&", "||" ]
+infix_functions = [ "+", "-", "*", "/", "==", "!=", "&&", "||", "<", ">", "<=", ">=" ]
 
 from base.neltypes import Type
 
