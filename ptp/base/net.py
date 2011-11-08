@@ -168,7 +168,8 @@ class Transition(utils.EqByIdMixin):
         result = []
         for e in self.get_all_edges():
             result += e.get_equations()
-        result.append((self.guard, t_bool))
+        if self.guard:
+            result.append((self.guard, t_bool))
         return result
 
     def get_types(self):

@@ -30,8 +30,8 @@ class TestGen(unittest.TestCase):
 
     def test_emit_expressions(self):
         e = Emitter(Project(None))
-        expr = parse_expression('g(10,"Hi!", y)')
-        self.assertEqual(expr.emit(e), 'g(10, "Hi!", y)')
+        expr = parse_expression('range(10,"Hi!", y)')
+        self.assertEqual(expr.emit(e), 'ca_range(10, "Hi!", y)')
         expr = parse_expression('10 + x')
         self.assertEqual(expr.emit(e), '((10) + (x))')
 

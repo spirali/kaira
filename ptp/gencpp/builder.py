@@ -346,7 +346,8 @@ class Builder(CppWriter):
         self.block_end()
 
     def write_enable_pattern_match(self, tr, fire_code):
-        matches = get_edges_mathing(self.project, tr)
+        matches, initcode = get_edges_mathing(self.project, tr)
+
         self.line("Vars_{0.id} vars;", tr)
         self.line("Net_{0.id} *n = (Net_{0.id}*) net;", tr.net)
 
@@ -357,7 +358,11 @@ class Builder(CppWriter):
         for place, count in need_tokens.items():
             self.line("if (n->place_{0.id}.size() < {1}) return false;", place, count)
 
+
         em.variable_emitter = lambda name: "vars." + name
+        em.set_extern("fail", "return false;")
+        for i in initcode:
+            i.emit(em, self)
 
         for i, (edge, instrs) in enumerate(matches):
             self.line("// Edge id={0.id} expr={0.expr}", edge)

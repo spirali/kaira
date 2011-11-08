@@ -55,12 +55,12 @@ class TestParser(unittest.TestCase):
         self.assertEqual(parse_expression("[1 .. 4]"), e.ExprCall("range", [e.ExprInt(1), e.ExprInt(4)]))
 
     def test_output_inscription(self):
-        self.assertEquals(parse_output_inscription("x_x"), ('normal', e.ExprVar("x_x"), None))
-        self.assertEquals(parse_output_inscription("x_x@0"), ('normal', e.ExprVar("x_x"), e.ExprInt(0)))
-        expr = ('normal', e.ExprCall("+", [ e.ExprInt(2), e.ExprVar("x")] ), e.ExprVar("y"))
+        self.assertEquals(parse_output_inscription("x_x"), ('normal', e.ExprVar("x_x"), None, None))
+        self.assertEquals(parse_output_inscription("x_x@0?z"), ('normal', e.ExprVar("x_x"), e.ExprInt(0), e.ExprVar("z")))
+        expr = ('normal', e.ExprCall("+", [ e.ExprInt(2), e.ExprVar("x")] ), e.ExprVar("y"), None)
         self.assertEquals(parse_output_inscription("(2 + x)    @    y"), expr)
-        self.assertEquals(parse_output_inscription("~x_x"), ('packing', e.ExprVar("x_x"), None))
-        self.assertEquals(parse_output_inscription("~x_x@0"), ('packing', e.ExprVar("x_x"), e.ExprInt(0)))
+        self.assertEquals(parse_output_inscription("~x_x"), ('packing', e.ExprVar("x_x"), None, None))
+        self.assertEquals(parse_output_inscription("~x_x@0?abc"), ('packing', e.ExprVar("x_x"), e.ExprInt(0), e.ExprVar("abc")))
 
     def test_parameters(self):
         self.assertEqual(parse_parameters_declaration(""), ())

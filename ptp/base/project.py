@@ -134,10 +134,7 @@ def load_edge_out(element, net, transition):
 def load_transition(element, project, net):
     id = utils.xml_int(element, "id")
 
-    if utils.xml_str(element, "guard").strip() == "":
-        guard = nel_true
-    else:
-        guard = parser.parse_expression(utils.xml_str(element, "guard"))
+    guard = parser.parse_expression_or_empty(utils.xml_str(element, "guard"), get_source(element, "guard"))
     transition = Transition(net, id, guard)
     transition.edges_in = map(lambda e: load_edge_in(e, net, transition), element.findall("edge-in"))
     transition.edges_out = map(lambda e: load_edge_out(e, net, transition), element.findall("edge-out"))

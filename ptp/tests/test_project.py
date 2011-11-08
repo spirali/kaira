@@ -13,7 +13,7 @@ class TestProject(unittest.TestCase):
         self.assertEqual(p.nets[0].id, 101)
         self.assertEqual(p.nets[0].get_place(102).type, t_int)
         self.assertEqual(p.nets[0].get_transition(103).guard, ExprCall("<", [ ExprVar("x"), ExprVar("y") ]))
-        self.assertEqual(p.nets[0].get_transition(111).guard, nel_true)
+        self.assertEqual(p.nets[0].get_transition(111).guard, None)
 
         edges_in = p.nets[0].get_transition(103).edges_in
         edges_out = p.nets[0].get_transition(103).edges_out

@@ -1,5 +1,5 @@
 
-from base.expressions import ISet, IIf, ExprExtern, ExprVar, IExtern, ExprCall
+from base.expressions import ISet, IIf, ExprExtern, ExprVar, IExtern, ExprCall, INoop
 from base.utils import topological_ordering
 from base.project import order_input_edges
 
@@ -43,10 +43,19 @@ def get_edges_mathing(project, tr):
     context = tr.get_context()
     matches = []
     covered = set()
+    guard = tr.guard
+    initcode = []
+
+    if guard and len(guard.get_free_vars()) == 0:
+        initcode.append(IIf(guard, INoop(), IExtern("fail")))
+        guard = None
 
     for edge in order_input_edges(tr.get_normal_edges_in()):
         token = ExprExtern("token", edge.get_place().type)
         instrs, covered = match_expression(env, context, edge.expr, covered, token)
+        if guard and guard.get_free_vars().issubset(covered):
+            instrs.append(IIf(guard, INoop(), IExtern("fail")))
+            guard = None
         matches.append((edge, instrs))
 
-    return matches
+    return matches, initcode
