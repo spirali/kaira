@@ -58,6 +58,23 @@ class UserFunction(object):
     def get_parameters(self):
         return self.parameters
 
+class Parameter(object):
+
+    def __init__(self, name, type, description):
+        self.name = name
+        self.type = type
+        self.description = description
+
+    def get_name(self):
+        return self.name
+
+    def get_type(self):
+        return self.type
+
+    def get_description(self):
+        return self.description
+
+
 class Project(object):
 
     def __init__(self, description):
@@ -65,12 +82,15 @@ class Project(object):
         self.description = description
         self.extern_types = {}
         self.user_functions = {}
+        self.parameters = {}
 
     def get_env(self):
         env = Env()
-        for ufunction in self.user_functions.values():
+        for ufunction in self.get_user_functions():
             params = [ t for _, t in ufunction.get_parameters() ]
             env.add_function(ufunction.get_name(), ufunction.get_returntype(), params)
+        for param in self.get_parameters():
+            env.add_parameter(param.get_name(), param.get_type())
         return env
 
     def get_all_types(self):
@@ -87,6 +107,12 @@ class Project(object):
 
     def get_user_function(self, name):
         return self.user_functions.get(name)
+
+    def get_parameter(self, name):
+        return self.parameters.get(name)
+
+    def get_parameters(self):
+        return self.parameters.values()
 
     def get_net(self, id):
         for net in self.nets:
@@ -187,12 +213,21 @@ def load_user_function(element):
     returntype = parser.parse_type(utils.xml_str(element, "return-type"), None)
     return UserFunction(name, parameters, returntype, with_context, element.text)
 
+def load_parameter(element):
+    name = utils.xml_str(element, "name")
+    description = utils.xml_str(element, "description")
+    type = parser.parse_type(utils.xml_str(element, "type"), None)
+    return Parameter(name, type, description)
+
 def load_configuration(element, project):
     etypes = [ load_extern_type(e) for e in element.findall("extern-type") ]
     project.extern_types = utils.create_dict(etypes, lambda item: item.get_name())
 
     ufunctions = [ load_user_function(e) for e in element.findall("function") ]
     project.user_functions = utils.create_dict(ufunctions, lambda item: item.get_name())
+
+    parameters = [ load_parameter(e) for e in element.findall("parameter") ]
+    project.parameters = utils.create_dict(parameters, lambda item: item.get_name())
 
 def load_project(element):
     description = element.find("description").text

@@ -22,7 +22,10 @@ class Emitter(object):
                 if ufunction.with_context:
                     a = [ "CaContext(thread)" ] + a
             else:
-                name = "ca_" + name
+                if name == "process_id":
+                    name = "thread->get_process_id"
+                else:
+                    name = "ca_" + name
             return "{0}({1})".format(name, ", ".join(a))
 
     def const_int(self, value):
@@ -48,6 +51,9 @@ class Emitter(object):
             raise Exception("Invalid type")
         args = "".join( [ "(" + e.emit(self) + ")" for e in value ] )
         return '(ca_array<{0} >{1}.end())'.format(self.emit_type(t.args[0]), args)
+
+    def parameter(self, name):
+        return "__param_" + name
 
     def variable(self, name):
         return self.variable_emitter(name)

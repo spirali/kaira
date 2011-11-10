@@ -4,6 +4,7 @@ from neltypes import TypeVar, rename_vars, fresh_typevar, join_contexts_by_equat
 from neltypes import t_string, t_int, t_array, t_tuple, t_bool
 import neltypes
 import utils
+from base.utils import PtpException
 
 nel_standard_functions = {
 #   name: [ return_type, args .. ]
@@ -18,19 +19,24 @@ nel_standard_functions = {
     "length": [ t_int, t_array(TypeVar(0)) ],
     "at": [ TypeVar(0), t_array(TypeVar(0)), t_int ],
     "range": [ t_array(t_int), t_int, t_int ],
+    "process_id" : [ t_int ]
 }
 
 class Env(object):
 
     def __init__(self):
         self.functions = nel_standard_functions.copy()
+        self.parameters = {}
 
     def add_function(self, name, returntype, args):
         lst = [returntype]
         lst.extend(args)
         self.functions[name] = lst
 
-    def find_function_decl(self, name, args_count, safevars = True):
+    def add_parameter(self, name, t):
+        self.parameters[name] = t
+
+    def get_function_decl(self, name, args_count, safevars = True):
         ftypes = self.functions.get(name)
         if ftypes is None:
             raise utils.PtpException("Unknown function '{0}'".format(name))
@@ -39,6 +45,9 @@ class Env(object):
         if safevars:
             ftypes = rename_vars(ftypes)
         return (ftypes[0], ftypes[1:])
+
+    def get_parameter_type(self, name):
+        return self.parameters.get(name)
 
 
 class Expression(object):
@@ -127,6 +136,17 @@ class ExprParam(Expression):
     def __repr__(self):
         return "ExprParam({0})".format(repr(self.name))
 
+    def get_constraints(self, env):
+        t = env.get_parameter_type(self.name)
+        if t is None:
+            raise PtpException("Unknown parameter '{0}'".format(self.name))
+        return (t, {}, [])
+
+    def inject_types(self, env, context):
+        self.nel_type = env.get_parameter_type(self.name)
+
+    def emit(self, emitter):
+        return emitter.parameter(self.name)
 
 class ExprInt(ExprLiteral):
     nel_type = t_int
@@ -187,7 +207,7 @@ class ExprCall(Expression):
         return "ExprCall({0},{1})".format(repr(self.name), repr(self.args))
 
     def get_constraints(self, env):
-        returntype, targs = env.find_function_decl(self.name, len(self.args))
+        returntype, targs = env.get_function_decl(self.name, len(self.args))
         ctx = {}
         eqs = []
         for targ, arg in zip(targs, self.args):
@@ -205,7 +225,7 @@ class ExprCall(Expression):
         return set().union(*[ e.get_free_vars() for e in self.args ])
 
     def inject_types(self, env, context):
-        returntype, targs = env.find_function_decl(self.name, len(self.args))
+        returntype, targs = env.get_function_decl(self.name, len(self.args))
         types = []
         for e in self.args:
             e.inject_types(env, context)

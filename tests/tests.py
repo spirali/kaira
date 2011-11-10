@@ -73,7 +73,7 @@ class BuildTest(TestCase):
 		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken2.proj"), "*102/type:1:Type is empty\n")
 
 	def test_parameters(self):
-		self.build(os.path.join(TEST_PROJECTS, "parameters", "parameters.proj"), "9 7\n", ["-pfirst=10", "-psecond=7"])
+		self.build(os.path.join(TEST_PROJECTS, "parameters", "parameters.proj"), "9 7\n", ["-pfirst=10", "-psecond=7"], processes = 10)
 
 	def test_eguards(self):
 		self.build(os.path.join(TEST_PROJECTS, "eguards", "eguards.proj"), "3\n")

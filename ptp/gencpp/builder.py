@@ -83,11 +83,26 @@ class Builder(CppWriter):
         self.line('#include "head.cpp"')
         self.emptyline()
 
+    def write_parameters(self):
+        for p in self.project.get_parameters():
+            tstr = self.emitter.emit_type(p.get_type())
+            self.line("{0} __param_{1};", tstr, p.get_name())
+            decl = "{0} parameter_{1}()".format(tstr, p.get_name())
+            code = "\treturn __param_{0};".format(p.get_name())
+            self.write_function(decl, code)
+
     def write_main(self):
         self.line("int main(int argc, char **argv)")
         self.block_begin()
         self.line("ca_project_description({0});", self.emitter.const_string(self.project.description))
-        self.line("ca_init(argc, argv, 0, NULL, NULL, NULL);")
+        params = self.project.get_parameters()
+        names = ",".join((self.emitter.const_string(p.name) for p in params))
+        self.line("const char *pnames[] = {{{0}}};", names)
+        descriptions = ",".join((self.emitter.const_string(p.description) for p in params))
+        self.line("const char *pdesc[] = {{{0}}};", descriptions)
+        pvalues = ",".join(("&__param_" + p.name for p in params))
+        self.line("int *pvalues[] = {{{0}}};", pvalues)
+        self.line("ca_init(argc, argv, {0}, pnames, pvalues, pdesc);", len(params))
         for net in self.project.nets:
             self.register_net(net)
         defs = [ "def_" + str(net.id) for net in self.project.nets ]
@@ -425,6 +440,7 @@ class Builder(CppWriter):
         #self.inject_types(project)
         self.project.inject_types()
         self.write_header()
+        self.write_parameters()
         self.write_extern_types_functions()
         self.write_types()
         self.write_user_functions()
