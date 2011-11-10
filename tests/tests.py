@@ -67,10 +67,10 @@ class BuildTest(TestCase):
 		self.build(os.path.join(TEST_PROJECTS, "packing", "packing.proj"), output, processes=3)
 
 	def test_broken1(self):
-		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken1.proj"), "*104/inscription:1:Inscription is empty\n")
+		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken1.proj"), "*104/inscription: Expression missing\n")
 
 	def test_broken2(self):
-		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken2.proj"), "*102/type:1:Type is empty\n")
+		self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken2.proj"), "*102/type: Type missing\n")
 
 	def test_parameters(self):
 		self.build(os.path.join(TEST_PROJECTS, "parameters", "parameters.proj"), "9 7\n", ["-pfirst=10", "-psecond=7"], processes = 10)
