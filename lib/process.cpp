@@ -164,9 +164,11 @@ void CaProcess::multisend(int target, int net_id, int place_pos, int tokens_coun
 	CaUnpacker unpacker(buffer);
 	CaProcess *p = processes[target % process_count];
 	CaNet *net = p->get_net(net_id);
+	net->lock();
 	for (int t = 0; t < tokens_count; t++) {
 		net->receive(place_pos, unpacker);
 	}
+	net->unlock();
 	/*
 	#ifdef CA_MPI
 		CaPacket *packet = (CaPacket*) packer.get_buffer();

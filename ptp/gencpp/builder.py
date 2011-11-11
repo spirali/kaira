@@ -268,20 +268,34 @@ class Builder(CppWriter):
 
     def write_send_token(self, w, em, edge):
 
+        def write_lock():
+            w.if_begin("!lock")
+            w.line("n->lock();")
+            w.line("lock = true;")
+            w.block_end()
+
+        def write_unlock():
+            w.if_begin("lock")
+            w.line("n->unlock();")
+            w.line("lock = false;")
+            w.block_end()
+
         method = "add" if edge.is_normal() else "add_all"
 
         if edge.target == None:
+            write_lock()
             w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
             self.write_activation(w, "net", edge.get_place().get_transitions_out())
         else:
             w.line("int target_{0.id} = {1};", edge, edge.target.emit(em))
-            w.line("if (target_{0.id} == thread->get_process_id()) {{", edge)
-            w.indent_push()
+            w.if_begin("target_{0.id} == thread->get_process_id()".format(edge))
+            write_lock()
             w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
             self.write_activation(w, "net", edge.get_place().get_transitions_out())
             w.indent_pop()
             w.line("}} else {{")
             w.indent_push()
+            write_unlock();
             t = edge.get_place_type()
             traw = self.emit_type(t)
             w.line("{0} value = {1};", self.emit_type(edge.expr.nel_type), edge.expr.emit(em))
@@ -330,19 +344,21 @@ class Builder(CppWriter):
                 w.line("net->unlock();")
                 w.line("CaContext ctx(thread);")
                 w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
-                w.line("net->lock();")
+                w.line("bool lock = false;")
+            else:
+                w.line("bool lock = true;")
 
             em = emitter.Emitter(self.project)
             em.variable_emitter = lambda name: "vars." + name
 
-            for edge in tr.get_normal_edges_out() + tr.get_packing_edges_out():
+            for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
                 if edge.guard:
                     w.if_begin(edge.guard.emit(em))
                     self.write_send_token(w, em, edge)
                     w.block_end()
                 else:
                     self.write_send_token(w, em, edge)
-            w.line("net->unlock();")
+            w.line("if (lock) net->unlock();")
         w.line("return true;")
 
         self.write_enable_pattern_match(tr, w)

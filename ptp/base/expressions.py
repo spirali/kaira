@@ -19,7 +19,8 @@ nel_standard_functions = {
     "length": [ t_int, t_array(TypeVar(0)) ],
     "at": [ TypeVar(0), t_array(TypeVar(0)), t_int ],
     "range": [ t_array(t_int), t_int, t_int ],
-    "process_id" : [ t_int ]
+    "process_id" : [ t_int ],
+    "process_count" : [ t_int ],
 }
 
 class Env(object):

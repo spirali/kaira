@@ -24,6 +24,8 @@ class Emitter(object):
             else:
                 if name == "process_id":
                     name = "thread->get_process_id"
+                elif name == "process_count":
+                    name = "thread->get_process_count"
                 else:
                     name = "ca_" + name
             return "{0}({1})".format(name, ", ".join(a))

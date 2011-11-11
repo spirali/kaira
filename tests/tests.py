@@ -93,16 +93,24 @@ class BuildTest(TestCase):
 		def check_output(output):
 			self.assertEquals(76127, sum([ int(x) for x in output.split("\n") if x.strip() != "" ]))
 		params = [ "-pLIMIT=1000", "-pSIZE=20" ]
-		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params)
+		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params, processes=2)
 		check_output(output)
-		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params + [ "--threads=3" ])
+		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None, params + [ "--threads=3" ], processes=6)
 		check_output(output)
-		p = params + [ "--threads=10" ]
+		p = params + [ "-r 6" ]
 		path = os.path.join(TEST_PROJECTS, "workers")
 		program_name = os.path.join(path, "workers")
+		for x in xrange(70):
+			output = RunProgram(program_name, p, cwd = path).run(None)
+			check_output(output)
+		output = self.build(os.path.join(TEST_PROJECTS, "workers", "workers_fixed.proj"), None, params + [ "--threads=5" ])
+		check_output(output)
+		program_name = os.path.join(path, "workers_fixed")
+		p = params + [ "--threads=5" ]
 		for x in xrange(100):
 			output = RunProgram(program_name, p, cwd = path).run(None)
 			check_output(output)
+
 
 	def test_functions(self):
 		self.build(os.path.join(TEST_PROJECTS, "functions", "functions.proj"), "9 9\n")
