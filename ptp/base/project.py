@@ -39,7 +39,8 @@ class UserFunction(object):
         @param with_context bool
         @param code str
     """
-    def __init__(self, name, parameters, returntype, with_context, code):
+    def __init__(self, id, name, parameters, returntype, with_context, code):
+        self.id = id
         self.name = name
         self.parameters = parameters
         self.returntype = returntype
@@ -207,11 +208,12 @@ def load_extern_type(element):
     return ExternType(name, rawtype, transport_mode, codes)
 
 def load_user_function(element):
+    id = utils.xml_int(element, "id")
     name = utils.xml_str(element, "name")
     with_context = utils.xml_bool(element, "with-context")
     parameters = parser.parse_parameters_declaration(utils.xml_str(element, "parameters"), None)
     returntype = parser.parse_type(utils.xml_str(element, "return-type"), None)
-    return UserFunction(name, parameters, returntype, with_context, element.text)
+    return UserFunction(id, name, parameters, returntype, with_context, element.text)
 
 def load_parameter(element):
     name = utils.xml_str(element, "name")

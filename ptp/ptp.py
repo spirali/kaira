@@ -11,7 +11,7 @@ def main(args):
     p = project.load_project_from_file(args[0])
 
     if len(args) == 3 and args[1] == "--build":
-        builder = Builder(p)
+        builder = Builder(p, args[2])
         builder.build()
         builder.write_to_file(args[2])
         return

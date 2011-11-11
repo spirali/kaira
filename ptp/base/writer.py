@@ -43,3 +43,6 @@ class Writer(object):
     def write_to_writer(self, writer):
         for line in self.lines:
             writer.raw_line(line)
+
+    def get_next_line_number(self):
+        return len(self.lines) + 1

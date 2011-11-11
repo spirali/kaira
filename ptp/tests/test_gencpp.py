@@ -11,7 +11,6 @@ from base.project import Project
 
 class TestGen(unittest.TestCase):
 
-
     def test_writer(self):
         w = Writer()
         w.line("test1")
