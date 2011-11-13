@@ -28,7 +28,7 @@ import gtkutils
 import paths
 from mainwindow import MainWindow, Tab
 from netview import NetView
-from parameters import ParametersValueDialog
+from simconfig import SimConfigDialog
 from externtypes import ExternTypeEditor
 from projectconfig import ProjectConfig
 from simulation import Simulation
@@ -42,13 +42,16 @@ import runlog
 import logview
 import settings
 
+VERSION_STRING = '0.3'
+
 class App:
 	"""
-		The class represents application, the callbacks from mainwindow 
-		(mainly from menu) calls methods of this class 
+		The class represents application, the callbacks from mainwindow
+		(mainly from menu) calls methods of this class
 	"""
 	def __init__(self, args):
 		self.window = MainWindow(self)
+		self.window.set_size_request(500,450)
 		self.window.project_is_active(False)
 		self.nv = None
 		self._open_welcome_tab()
@@ -136,7 +139,7 @@ class App:
 				filename = dialog.get_filename()
 				if filename[-5:] != ".proj":
 					filename = filename + ".proj"
-					
+
 				p = self._catch_io_error(lambda: project.load_project(filename))
 				if p:
 					# TODO: set statusbar
@@ -180,7 +183,7 @@ class App:
 		try:
 			dialog.set_default_response(gtk.RESPONSE_OK)
 			self._add_project_file_filters(dialog)
-		
+
 			response = dialog.run()
 			if response == gtk.RESPONSE_OK:
 				filename = dialog.get_filename()
@@ -207,7 +210,7 @@ class App:
 
 	def _catch_io_error(self, fcn, return_on_ok = None, return_on_err = None):
 		try:
-			result = fcn()	
+			result = fcn()
 			if return_on_ok == None:
 				return result
 			else:
@@ -240,10 +243,10 @@ class App:
 				name = "T:" + transition.get_name()
 			else:
 				name = "T: <unnamed" + str(transition.get_id()) + ">"
-			editor = codeedit.TransitionCodeEditor(transition, [ line for line in stdout if line.strip() != "" ])
+			editor = codeedit.TransitionCodeEditor(transition, "".join(stdout))
 			self.window.add_tab(Tab(name, editor, transition))
 			editor.jump_to_line(line_no)
-		self._start_ptp(self.project, open_tab, extra_args = [ "--transition-vars", str(transition.get_id()) ])
+		self._start_ptp(self.project, open_tab, extra_args = [ "--transition-user-fn", str(transition.get_id()) ])
 
 	def place_edit(self, place, line_no = None):
 		if self.window.switch_to_tab_by_key(place, lambda tab: tab.widget.jump_to_line(line_no)):
@@ -251,10 +254,10 @@ class App:
 
 		def open_tab(stdout):
 			name = "P: " + str(place.get_id())
-			editor = codeedit.PlaceCodeEditor(place, stdout[0].strip())
+			editor = codeedit.PlaceCodeEditor(place, "".join(stdout))
 			self.window.add_tab(Tab(name, editor, place))
 			editor.jump_to_line(line_no)
-		self._start_ptp(self.project, open_tab, extra_args = [ "--place-type", str(place.get_id())])
+		self._start_ptp(self.project, open_tab, extra_args = [ "--place-user-fn", str(place.get_id())])
 
 	def extern_type_function_edit(self, extern_type, fn_name, callback, line_no = None):
 		tag = (extern_type, fn_name)
@@ -293,7 +296,7 @@ class App:
 	def edit_headfile(self):
 		self.edit_sourcefile(self.project.get_head_filename())
 
-	def simulation_start(self, try_reuse_params, valgrind = False):
+	def simulation_start(self, valgrind = False):
 		def output(line, stream):
 			self.console_write("OUTPUT: " + line, "output")
 			return True
@@ -301,14 +304,15 @@ class App:
 		def project_builded(project):
 			if valgrind:
 				program_name = "valgrind"
-				parameters = [ "-q", project.get_executable_filename(), "-s", "auto", "-b" ]
+				parameters = [ "-q", project.get_executable_filename() ]
 			else:
 				program_name = project.get_executable_filename()
-				parameters = ["-s", "auto", "-b"]
+				parameters = []
+			parameters += [ "-s", "auto", "-b", "-r", str(simconfig.process_count) ]
 			sprocess = process.Process(program_name, output)
 			sprocess.cwd = project.get_directory()
 			# FIXME: Timeout
-			other_params = [ "-p%s=%s" % (p,param_values[p]) for p in param_values ]
+			other_params = [ "-p{0}={1}".format(k, v) for (k, v) in simconfig.parameters_values.items() ]
 			first_line = sprocess.start_and_get_first_line(parameters + other_params)
 			try:
 				port = int(first_line)
@@ -322,23 +326,22 @@ class App:
 			simulation.set_callback("shutdown", lambda: sprocess.shutdown())
 			simulation.connect("localhost", port)
 
-		if self.project.get_parameters(): # Project has parameters
-			cache = self.project.get_param_value_cache()
-			if try_reuse_params and cache is not None:
-				param_values = cache
-			else:
-				dialog = ParametersValueDialog(self.window, self.project.get_parameters())
-				try:
-					if dialog.run() == gtk.RESPONSE_OK:
-						param_values = dialog.get_values()
-						self.project.set_param_values_cache(param_values)
-					else:
-						return
-				finally:
-					dialog.destroy()
-		else:
-			param_values = {}
+		simconfig = self.project.get_simconfig()
+		if simconfig.parameters_values is None:
+			if not self.open_simconfig_dialog():
+				return
 		self._start_build(self.project, project_builded)
+
+	def open_simconfig_dialog(self):
+		dialog = SimConfigDialog(self.window, self.project)
+		try:
+			if dialog.run() == gtk.RESPONSE_OK:
+				dialog.set_simconfig(self.project)
+				return True
+			else:
+				return False
+		finally:
+			dialog.destroy()
 
 	def show_message_dialog(self, text, type):
 		error_dlg = gtk.MessageDialog(parent=self.window, type=type, message_format=text, buttons=gtk.BUTTONS_OK)
@@ -419,7 +422,7 @@ class App:
 	def _start_build(self, proj, build_ok_callback):
 		if self.get_settings("save-before-build"):
 			self._save_project(silent = True)
-		extra_args = [ proj.get_emitted_source_filename() ]
+		extra_args = [ "--build", proj.get_emitted_source_filename() ]
 		self._start_ptp(proj, lambda lines: self._run_makefile(proj, build_ok_callback), extra_args = extra_args)
 
 	def _start_ptp(self, proj, build_ok_callback = None, extra_args = []):
@@ -506,12 +509,11 @@ class App:
 
 	def _open_welcome_tab(self):
 		label = gtk.Label()
-		line1 = "<span size='xx-large'>Kaira</span>\nv0.2\n\n"
+		line1 = "<span size='xx-large'>Kaira</span>\nv{0}\n\n".format(VERSION_STRING)
 		line2 = "News &amp; documentation can be found at\n"
 		line3 = "<a href='http://verif.cs.vsb.cz/kaira'>http://verif.cs.vsb.cz/kaira</a>"
 		label.set_markup(line1 + line2 + line3)
 		label.set_justify(gtk.JUSTIFY_CENTER)
-		label.set_size_request(400,300)
 		self.window.add_tab(Tab("Welcome", label, has_close_button = False))
 
 if __name__ == "__main__":

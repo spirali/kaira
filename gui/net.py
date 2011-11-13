@@ -369,6 +369,9 @@ class Transition(NetElement):
 		if self.has_code():
 			e.append(self.xml_code_element())
 
+		if self.subnet:
+			e.set("subnet", str(self.subnet.get_id()))
+
 		for edge in self.edges_to(postprocess = True):
 			ea = make_edge("edge-in", edge, edge.from_item);
 			e.append(ea)

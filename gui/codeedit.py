@@ -26,14 +26,14 @@ import os
 import mainwindow
 
 class CodeEditor(gtk.VBox):
-	
+
 	def __init__(self, start_string, middle_string, end_string, start_pos, head_paragraph = None):
 		gtk.VBox.__init__(self)
 
 		toolbar = self._toolbar()
 		if toolbar is not None:
 			self.pack_start(toolbar, False, False)
-		
+
 		sw = gtk.ScrolledWindow()
 		self.pack_start(sw)
 		sw.set_shadow_type(gtk.SHADOW_IN)
@@ -43,7 +43,7 @@ class CodeEditor(gtk.VBox):
 		sw.add(self.view)
 
 		self.show_all()
-	
+
 	def _create_buffer(self, start_string, middle_string, end_string, start_pos, head_paragraph):
 		manager = gtksourceview.LanguageManager()
 		lan = manager.get_language("cpp")
@@ -135,32 +135,30 @@ class CodeFileEditor(CodeEditor):
 
 
 class TransitionCodeEditor(CodeEditor):
-	
-	def __init__(self, transition, variables):
+
+	def __init__(self, transition, header):
 		self.transition = transition
 		if transition.get_code() == "":
 			code = "\t\n"
 		else:
 			code = transition.get_code()
-		head = "struct Vars {\n" + "".join(["\t" + v.strip() + ";\n" for v in variables ]) + "};\n\n"
-		line = 5 + len(variables)
-		CodeEditor.__init__(self, "void transition_function(CaContext &ctx, Vars &var)\n{\n", code, "}\n", (line,0), head)
+
+		line = header.count("\n") + 1
+		CodeEditor.__init__(self, "{\n", code, "}\n", (line,0), header)
 
 
 	def buffer_changed(self, buffer):
 		self.transition.set_code(self.get_text())
 
 class PlaceCodeEditor(CodeEditor):
-	
-	def __init__(self, place, place_type):
+
+	def __init__(self, place, header):
 		self.place = place
 		if place.get_code() == "":
 			code = "\t\n"
 		else:
 			code = place.get_code()
-		begin = "void init_place(CaContext &ctx, {0} &place)\n{{\n".format(place_type)
-		CodeEditor.__init__(self, begin, code, "}\n", (2,0))
-
+		CodeEditor.__init__(self, header, code, "}\n", (2,0))
 
 	def buffer_changed(self, buffer):
 		self.place.set_code(self.get_text())

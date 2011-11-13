@@ -18,10 +18,10 @@
 #
 
 import gtk
-import gtkutils
 from objectlist import ObjectList
 from codeedit import CodeEditor
 from project import ExternType
+import gtkutils
 
 def extern_type_dialog(obj, mainwindow):
 	builder = gtkutils.load_ui("externtype-dialog")

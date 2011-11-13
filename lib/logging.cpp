@@ -1,7 +1,6 @@
 
 #include <stdarg.h>
 #include "logging.h"
-#include "unit.h"
 
 CaLogger::CaLogger(const std::string &logname, int log_id)
 {
@@ -50,6 +49,7 @@ void CaLogger::flush()
 	fflush(file);
 }
 
+/*
 void CaLogger::log_token_add(CaUnit *unit, int place_id, const std::string &token_name)
 {
 	fprintf(file, "A%s %i %s\n", unit->path.as_string().c_str(), place_id, token_name.c_str());
@@ -74,6 +74,7 @@ void CaLogger::log_transition_end(CaUnit *unit, int transition_id)
 	fprintf(file, "E%s %i\n", unit->path.as_string().c_str(), transition_id);
 	flush();
 }
+*/
 
 void CaLogger::log_receive()
 {

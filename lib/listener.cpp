@@ -18,7 +18,7 @@
 
 extern char * ca_project_description_string;
 
-void ca_write_header(FILE *out, int networks_count)
+void ca_write_header(FILE *out, int process_count)
 {
 	int lines = 1;
 	for (const char *c = ca_project_description_string; (*c) != 0; c++) {
@@ -29,7 +29,7 @@ void ca_write_header(FILE *out, int networks_count)
 
 	CaOutput output;
 	output.child("header");
-	output.set("networks-count", networks_count);
+	output.set("process-count", process_count);
 	output.set("description-lines", lines);
 	CaOutputBlock *block = output.back();
 	block->write(out);
@@ -120,11 +120,13 @@ void CaListener::main()
 		pthread_barrier_t barrier1;
 		pthread_barrier_t barrier2;
 
-		int threads_count = process->get_threads_count();
+		int threads_count = processes[0]->get_threads_count() * process_count;
 		pthread_barrier_init(&barrier1, NULL, threads_count + 1);
 		pthread_barrier_init(&barrier2, NULL, threads_count + 1);
 
-		process->send_barriers(&barrier1, &barrier2);
+		for (int t = 0; t < process_count; t++) {
+			processes[t]->send_barriers(&barrier1, &barrier2);
+		}
 
 		if (start_barrier) {
 			pthread_barrier_wait(start_barrier);
@@ -134,7 +136,7 @@ void CaListener::main()
 		/* Wait for all process */
 		pthread_barrier_wait(&barrier1);
 		/* Because there is always at least one thread we can use thread 0 as source of list of networks */
-		ca_write_header(comm_out, process->get_thread(0)->get_networks_count());
+		ca_write_header(comm_out, process_count);
 		process_commands(comm_in, comm_out);
 		pthread_barrier_wait(&barrier2);
 
@@ -169,23 +171,32 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 		}
 
 		if (!strcmp(line, "REPORTS")) {
-			process->write_reports(comm_out);
+			fprintf(comm_out, "<processes>");
+			for (int t = 0; t < process_count; t++) {
+				processes[t]->write_reports(comm_out);
+			}
+			fprintf(comm_out, "</processes>\n");
+			fflush(stdout);
 			continue;
 		}
+
 		if (strcmp(line, "FIRE") > 0) {
-			if (process->quit_flag) {
-				fprintf(comm_out, "Network is terminated\n");
+			if (processes[0]->quit_flag) {
+				fprintf(comm_out, "Process is terminated\n");
 				continue;
 			}
 			int transition_id;
 			int instance_id;
-			char path_string[LINE_LENGTH_LIMIT];
-			if (3 != sscanf(line, "FIRE %i %i %s", &transition_id, &instance_id, path_string)) {
+			int process_id;
+			if (3 != sscanf(line, "FIRE %i %i %i", &transition_id, &instance_id, &process_id)) {
 				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
-			CaPath path(path_string);
-			process->fire_transition(transition_id, instance_id, path);
+			if (process_id < 0 || process_id >= process_count) {
+				fprintf(comm_out, "There is no such process\n");
+				continue;
+			}
+			processes[process_id]->fire_transition(transition_id, instance_id);
 			fprintf(comm_out, "Ok\n");
 			continue;
 		}

@@ -41,6 +41,7 @@ class MainWindow(gtk.Window):
 		paned.pack1(self.notebook, True)
 
 		self.console = Console()
+		self.console.set_size_request(300,100)
 		paned.pack2(self.console, False)
 
 		vbox.show_all()
@@ -156,19 +157,19 @@ class MainWindow(gtk.Window):
 		build_menu.append(item)
 
 		item = gtk.MenuItem("Run _simulation")
-		item.connect("activate", lambda w: self.app.simulation_start(False))
+		item.connect("activate", lambda w: self.app.simulation_start())
 		item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("F7"), 0, gtk.ACCEL_VISIBLE)
 		build_menu.append(item)
 
-		item = gtk.MenuItem("R_e-run simulation")
-		item.connect("activate", lambda w: self.app.simulation_start(True))
+		item = gtk.MenuItem("Confi_gure simulation")
+		item.connect("activate", lambda w: self.app.open_simconfig_dialog())
 		item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("F8"), 0, gtk.ACCEL_VISIBLE)
 		build_menu.append(item)
 
 		build_menu.append(gtk.SeparatorMenuItem())
 
 		item = gtk.MenuItem("Run _simulation in Valgrind")
-		item.connect("activate", lambda w: self.app.simulation_start(False, valgrind = True))
+		item.connect("activate", lambda w: self.app.simulation_start(valgrind = True))
 		build_menu.append(item)
 
 		view_menu = gtk.Menu()

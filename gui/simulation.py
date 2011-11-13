@@ -71,158 +71,115 @@ class Simulation(EventSource):
 
 	def read_header(self, stream):
 		header = xml.fromstring(stream.readline())
-		lines_count = int(header.get("description-lines"))
+		self.process_count = utils.xml_int(header, "process-count")
+		self.process_running = [True] * self.process_count
+		lines_count = utils.xml_int(header, "description-lines")
 		project_string = "\n".join((stream.readline() for i in xrange(lines_count)))
 		self.project = load_project_from_xml(xml.fromstring(project_string), "")
 
+	def get_instances(self):
+		return self.instances
+
+	def is_running(self):
+		return any(self.process_running)
+
 	def query_reports(self, callback = None):
 		def reports_callback(line):
+			run_state = self.is_running()
 			root = xml.fromstring(line)
-			self.running = utils.xml_bool(root, "running")
-			if not self.running:
-				self.emit_event("error", "Network terminated\n")
-			self.instances = []
-			for e in root.findall("net"):
-				id = utils.xml_int(e, "id")
-				net = self.project.find_net(utils.xml_int(e, "net-id"))
-				i = NetInstance(id, net, self)
-				self.instances.append(i)
-				nodes = {}
-				units = [ Unit(e) for e in e.findall("unit") ]
-				i.set_units(units)
-				for unit in units:
-					node = nodes.get(unit.path)
-					if node is None:
-						node = NetNode(i, unit.path)
-						nodes[unit.path] = node
-					node.add_unit(unit)
-				i.set_nodes(nodes)
+			instances = {}
+			for e in root.findall("process"):
+				process_id = utils.xml_int(e, "id")
+				process_id_str = str(process_id)
+				self.process_running[process_id] = utils.xml_bool(e, "running")
+				for ne in e.findall("net-instance"):
+					id = utils.xml_int(ne, "id")
+					i = instances.get(id)
+					if i is None:
+						net = self.project.find_net(utils.xml_int(ne, "net-id"))
+						i = NetInstance(id, net, self)
+						instances[id] = i
+					for pe in ne.findall("place"):
+						place_id = utils.xml_int(pe, "id")
+						p = i.get_place(place_id)
+						for te in pe.findall("token"):
+							p.append(Token(te.get("value"), process_id_str))
+					for tre in ne.findall("enabled"):
+						transition_id = utils.xml_int(tre, "id")
+						i.add_enabled(process_id, transition_id)
+			self.instances = instances.values()
+			if not self.is_running() and run_state != self.is_running():
+				self.emit_event("error", "Simulation finished\n")
 			if callback:
 				callback()
 			self.emit_event("changed")
 		self.controller.run_command("REPORTS", reports_callback)
 
-	def fire_transition(self, transition, instance, path):
-		if not self.running:
+	def fire_transition(self, transition, instance, process_id):
+		if not self.process_running[process_id]:
 			return
 		if self.controller:
-			command = "FIRE {0} {1} {2}".format(transition.get_id(), instance.get_id(), path)
+			command = "FIRE {0} {1} {2}".format(transition.get_id(), instance.get_id(), process_id)
 			self.controller.run_command_expect_ok(command)
 			self.query_reports()
 
-class Path:
-	def __init__(self, items, absolute = True):
-		self.items = tuple(items)
-		self.absolute = absolute
-
-	def __eq__(self, path):
-		if not isinstance(path, Path):
-			return False
-		return self.absolute == path.absolute and self.items == path.items
-
-	def __hash__(self):
-		return hash(self.items)
+class Token:
+	
+	def __init__(self, value, addr):
+		self.value = value
+		self.addr = addr
 
 	def __str__(self):
-		start = "/" if self.absolute else "./"
-		return start + "/".join(map(str,self.items))
+		return self.value + "@" + self.addr
 
-	def __cmp__(self, path):
-		c = cmp(len(self.items), len(path.items))
-		if c == 0:
-			return cmp(self.items, path.items)
-		else:
-			return c
+class Perspective(utils.EqMixin):
 
-def path_from_string(string):
-    assert string != ""
-    if string[-1] == "/":
-        string = string[:-1]
-    items = string.split("/")
-    if items[0] == "":
-        return Path(map(int, items[1:]))
-    elif items[0] == ".":
-        return Path(map(int, items[1:]), False)
-    else:
-        return Path(map(int, items), False)
-
-class Unit:
-
-	def __init__(self, unit_element):
-		self.places = {}
-		self.transitions = {}
-		self.path = path_from_string(unit_element.get("path"))
-
-		for place in unit_element.findall("place"):
-			tokens = [ e.get("value") for e in place.findall("token") ]
-			self.places[int(place.get("id"))] = tokens
-
-		for t in unit_element.findall("transition"):
-			self.transitions[int(t.get("id"))] = utils.xml_bool(t, "enabled")
-
-	def has_place(self, place):
-		return self.places.has_key(place.get_id())
-
-	def get_tokens(self, place):
-		return self.places[place.get_id()]
-
-	def has_transition(self, transition):
-		return self.transitions.has_key(transition.get_id())
-
-	def is_enabled(self, transition):
-		return self.transitions[transition.get_id()]
-
-class NetNode:
-
-	def __init__(self, instance, path):
-		self.path = path
-		self.units = []
+	def __init__(self, name, instance):
+		self.name = name
 		self.instance = instance
 
-	def add_unit(self, unit):
-		self.units.append(unit)
+	def get_name(self):
+		return self.name
+
+class PerspectiveProcess(Perspective):
+
+	def __init__(self, name, instance, process_id):
+		Perspective.__init__(self, name, instance)
+		self.process_id = process_id
 
 	def get_tokens(self, place):
-		for u in self.units:
-			if u.has_place(place):
-				return u.get_tokens(place)
-		return []
+		return [ t for t in self.instance.get_place(place.get_id()) if t.addr == str(self.process_id) ]
 
 	def is_enabled(self, transition):
-		for u in self.units:
-			if u.has_transition(transition):
-				return u.is_enabled(transition)
-		return False
+		return self.instance.is_enabled(self.process_id, transition.get_id())
 
 	def fire_transition(self, transition):
-		self.instance.simulation.fire_transition(transition, self.instance, self.path)
+		self.instance.simulation.fire_transition(transition, self.instance, self.process_id)
 
-class OverviewNode:
+	def __eq__(self, other):
+		return (isinstance(other, self.__class__)
+			and self.process_id == other.process_id)
 
-	path = None
+	def __ne__(self, other):
+		return not self.__eq__(other)
 
-	def __init__(self, instance, units):
-		self.instance = instance
-		self.units = units
+class PerspectiveAll(Perspective):
 
 	def get_tokens(self, place):
-		tokens = []
-		for u in self.units:
-			if u.has_place(place):
-				tokens += [ t + "@" + str(u.path) for t in u.get_tokens(place) ]
-		return tokens
+		return self.instance.get_place(place.get_id())
+
+	def get_enabled(self, transition):
+		return [ i for i in xrange(self.instance.simulation.process_count)
+			if self.instance.is_enabled(i, transition.get_id()) ]
 
 	def is_enabled(self, transition):
-		for u in self.units:
-			if u.has_transition(transition) and u.is_enabled(transition):
-				return True
-		return False
+		return len(self.get_enabled(transition)) > 0
 
 	def fire_transition(self, transition):
-		units = [ u for u in self.units if u.has_transition(transition) and u.is_enabled(transition) ]
-		if units:
-			u = self.instance.simulation.random.choice(units)
-			self.instance.simulation.fire_transition(transition, self.instance, u.path)
+		enabled = self.get_enabled(transition)
+		if len(enabled) > 0:
+			process_id = self.instance.simulation.random.choice(enabled)
+			self.instance.simulation.fire_transition(transition, self.instance, process_id)
 
 class NetInstance:
 
@@ -230,24 +187,28 @@ class NetInstance:
 		self.id = id
 		self.net = net
 		self.simulation = simulation
+		self.places = {}
+		self.enabled = []
 
 	def get_id(self):
 		return self.id
 
-	def set_nodes(self, nodes):
-		self.nodes = nodes
+	def get_place(self, place_id):
+		p = self.places.get(place_id)
+		if p is None:
+			p = []
+			self.places[place_id] = p
+		return p
 
-	def set_units(self, units):
-		self.units = units
+	def get_perspectives(self):
+		perspectives = [ PerspectiveProcess(str(i), self, i) for i in xrange(self.simulation.process_count) ]
+		return [ PerspectiveAll("All", self) ] + perspectives
 
-	def running_paths(self):
-		return self.nodes.keys()
-
-	def get_node(self, path):
-		return self.nodes.get(path)
-
-	def get_overview(self):
-		return OverviewNode(self, self.units)
+	def add_enabled(self, process_id, transition_id):
+		self.enabled.append((process_id, transition_id))
 
 	def get_name(self):
-		return self.net.get_name()
+		return "{0},{1},{2}".format(self.net.get_name(), self.id, self.id % self.simulation.process_count)
+
+	def is_enabled(self, process_id, transition_id):
+		return (process_id, transition_id) in self.enabled

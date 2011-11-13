@@ -7,9 +7,9 @@
 #include <mpi.h>
 #endif
 
-void CaMessageNewNetwork::process(CaThread *thread) 
+void CaMessageNewNet::process(CaThread *thread) 
 {
-		thread->add_network(network);
+		thread->add_network(net);
 }
 
 void CaMessageBarriers::process(CaThread *thread) 
