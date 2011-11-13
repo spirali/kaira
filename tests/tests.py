@@ -18,13 +18,16 @@ TEST_PROJECTS = os.path.join(KAIRA_TESTS, "projects")
 
 class BuildTest(TestCase):
 
+	def run_ptp(self, name):
+		return RunProgram(PTP_BIN, [ name + ".xml", "--build", name + ".cpp" ])
+
 	def build(self, filename, final_output, params = [], make_args = [], program_name = None, processes=None):
 		name, ext = os.path.splitext(filename)
 		directory = os.path.dirname(name)
 		RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
 		args = [ CMDUTILS, "--export", filename ]
 		RunProgram("python", args).run()
-		RunProgram(PTP_BIN, [ name + ".xml", "--build", name + ".cpp" ]).run()
+		self.run_ptp(name).run()
 		RunProgram("make", make_args, cwd = directory).run()
 		if program_name is None:
 			program_name = name
@@ -39,14 +42,14 @@ class BuildTest(TestCase):
 		directory = os.path.dirname(name)
 		RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
 		RunProgram("python", [ CMDUTILS, "--export", filename ]).run()
-		RunProgram(PTP_BIN, [ name + ".xml", name + ".cpp" ]).fail(final_output)
+		self.run_ptp(name).fail(final_output)
 
 	def failed_make(self, filename, stderr, make_args = []):
 		name, ext = os.path.splitext(filename)
 		directory = os.path.dirname(name)
 		RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
 		RunProgram("python", [ CMDUTILS, "--export", filename ]).run()
-		RunProgram(PTP_BIN, [ name + ".xml", name + ".cpp" ]).run()
+		self.run_ptp(name).run()
 		RunProgram("make", make_args, cwd = directory).fail(expected_stderr_prefix = stderr)
 
 	def test_helloworld(self):
