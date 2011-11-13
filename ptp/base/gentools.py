@@ -1,3 +1,21 @@
+#
+#    Copyright (C) 2011 Stanislav Bohm
+#
+#    This file is part of Kaira.
+#
+#    Kaira is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Kaira is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 from base.expressions import ISet, IIf, ExprExtern, ExprVar, IExtern, ExprCall, INoop
 from base.utils import topological_ordering
@@ -27,12 +45,6 @@ def match_expression(env, context, expr, covered_vars, token):
             else:
                 code.append(IIf(ExprCall("!=", [ e2, e1 ]), IExtern("fail")),)
         return code, c
-
-#    def inject_types(self, project):
-#        for net in project.nets:
-#            for tr in net.transitions:
-#                ctx = tr.get_context()
-#                tr.inject_types(ctx)
 
 def get_ordered_types(project):
     types_set = project.get_all_types()

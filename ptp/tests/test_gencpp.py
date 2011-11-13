@@ -1,5 +1,4 @@
 
-
 import unittest
 
 from base.parser import parse_expression

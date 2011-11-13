@@ -1,8 +1,4 @@
-'''
-Created on Oct 7, 2011
 
-@author: spirali
-'''
 import unittest
 
 from base.utils import topological_ordering, multiset
@@ -29,5 +25,4 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(multiset([]), {})
         self.assertEqual(multiset([1,2,3,4,3,3,1]), {1:2, 2:1, 3:3, 4:1})
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

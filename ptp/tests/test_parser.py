@@ -1,8 +1,4 @@
-'''
-Created on Oct 4, 2011
 
-@author: spirali
-'''
 import unittest
 
 import base.expressions as e
