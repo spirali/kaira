@@ -42,6 +42,8 @@ import runlog
 import logview
 import settings
 
+VERSION_STRING = '0.3'
+
 class App:
 	"""
 		The class represents application, the callbacks from mainwindow
@@ -517,7 +519,7 @@ class App:
 
 	def _open_welcome_tab(self):
 		label = gtk.Label()
-		line1 = "<span size='xx-large'>Kaira</span>\nv0.2\n\n"
+		line1 = "<span size='xx-large'>Kaira</span>\nv{0}\n\n".format(VERSION_STRING)
 		line2 = "News &amp; documentation can be found at\n"
 		line3 = "<a href='http://verif.cs.vsb.cz/kaira'>http://verif.cs.vsb.cz/kaira</a>"
 		label.set_markup(line1 + line2 + line3)
