@@ -143,7 +143,7 @@ class BuildTest(TestCase):
 		self.failed_make(os.path.join(TEST_PROJECTS, "broken", "broken_externtype_function.proj"), "*MyType/getsize"),
 
 	def test_multicast(self):
-		self.build(os.path.join(TEST_PROJECTS, "multicast", "multicast.proj"), "18000\n")
+		self.build(os.path.join(TEST_PROJECTS, "multicast", "multicast.proj"), "1800\n", processes=4)
 
 if __name__ == '__main__':
     unittest.main()

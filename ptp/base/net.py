@@ -58,10 +58,11 @@ class EdgeInPacking(EdgeBase):
         return True
 
 class EdgeOut(EdgeBase):
-    def __init__(self, id, place, transition, expr, mode, target, guard):
+    def __init__(self, id, place, transition, expr, mode, sendmode, target, guard):
         EdgeBase.__init__(self, id, place, transition)
         self.expr = expr
-        self.mode = mode
+        self.mode = mode # 'normal' | 'packing'
+        self.sendmode = sendmode # 'unicast' | 'multicast' | 'local'
         self.target = target
         self.guard = guard
 
@@ -71,13 +72,24 @@ class EdgeOut(EdgeBase):
     def is_packing(self):
         return self.mode == 'packing'
 
+    def is_local(self):
+        return self.sendmode == 'local'
+
+    def is_unicast(self):
+        return self.sendmode == 'unicast'
+
+    def is_multicast(self):
+        return self.sendmode == 'multicast'
+
     def get_equations(self):
         if self.is_normal():
             eq = [ (self.expr, self.get_place_type()) ]
         else:
             eq = [ (self.expr, t_array(self.get_place_type())) ]
-        if self.target:
+        if self.is_unicast():
             eq.append((self.target, t_int))
+        if self.is_multicast():
+            eq.append((self.target, t_array(t_int)))
         if self.guard:
             eq.append((self.guard, t_bool))
         return eq

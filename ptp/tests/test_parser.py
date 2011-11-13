@@ -55,12 +55,13 @@ class TestParser(unittest.TestCase):
         self.assertEqual(parse_expression("[1 .. #XX]"), e.ExprCall("range", [e.ExprInt(1), e.ExprParam("XX")]))
 
     def test_output_inscription(self):
-        self.assertEquals(parse_output_inscription("x_x"), ('normal', e.ExprVar("x_x"), None, None))
-        self.assertEquals(parse_output_inscription("x_x@0?z"), ('normal', e.ExprVar("x_x"), e.ExprInt(0), e.ExprVar("z")))
-        expr = ('normal', e.ExprCall("+", [ e.ExprInt(2), e.ExprVar("x")] ), e.ExprVar("y"), None)
-        self.assertEquals(parse_output_inscription("(2 + x)    @    y"), expr)
-        self.assertEquals(parse_output_inscription("~x_x"), ('packing', e.ExprVar("x_x"), None, None))
-        self.assertEquals(parse_output_inscription("~x_x@0?abc"), ('packing', e.ExprVar("x_x"), e.ExprInt(0), e.ExprVar("abc")))
+        self.assertEquals(parse_output_inscription("x_x"), ('normal', e.ExprVar("x_x"), ('local', None), None))
+        self.assertEquals(parse_output_inscription("x_x@0?z"), ('normal', e.ExprVar("x_x"), ('unicast', e.ExprInt(0)), e.ExprVar("z")))
+        result = ('normal', e.ExprCall("+", [ e.ExprInt(2), e.ExprVar("x")] ), ('unicast', e.ExprVar("y")), None)
+        self.assertEquals(parse_output_inscription("(2 + x)    @    y"), result)
+        self.assertEquals(parse_output_inscription("~x_x"), ('packing', e.ExprVar("x_x"), ('local', None), None))
+        result = ('packing', e.ExprVar("x_x"), ('multicast', e.ExprVar('x')), e.ExprVar("abc"))
+        self.assertEquals(parse_output_inscription("~x_x@~x?abc"), result)
 
     def test_parameters(self):
         self.assertEqual(parse_parameters_declaration(""), ())

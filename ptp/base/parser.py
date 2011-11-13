@@ -61,7 +61,10 @@ typeargs = Optional(lpar + Group(typeparser + ZeroOrMore( Suppress( delim ) + ty
 typeparser << (Optional(ident,"") + typeargs).setParseAction(lambda tokens: t.Type(tokens[0], list(tokens[1])))
 
 packing = Suppress("~").setParseAction(lambda tokens: "packing")
-output = Optional(packing, "normal") + expression + Optional(Suppress("@") + expression, None) \
+multicast = Suppress("~").setParseAction(lambda tokens: "multicast")
+output = Optional(packing, "normal") + expression \
+    + Optional(Group(Suppress("@") + Optional(multicast, "unicast") + expression), ("local", None)) \
+        .setParseAction(lambda tokens: tuple(tokens[0])) \
     + Optional(Suppress("?") + expression, None)
 input = Optional(packing, "normal") + expression
 
