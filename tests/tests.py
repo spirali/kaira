@@ -85,12 +85,13 @@ class BuildTest(TestCase):
 		self.build(os.path.join(TEST_PROJECTS, "bidirection", "bidirection.proj"), "11\n12\n13\n")
 
 	def test_scheduler(self):
-		output = self.build(os.path.join(TEST_PROJECTS, "scheduler", "scheduler.proj"), None)
+		output = self.build(os.path.join(TEST_PROJECTS, "scheduler", "scheduler.proj"), None, processes=10)
 		d = { "First" : 0, "Second" : 0 }
 		for line in output.split("\n"):
 			if line:
 				d[line] += 1
-		self.assertEquals(d, { "First": 5, "Second": 5 })
+		self.assertTrue(d["First"] > 220)
+		self.assertTrue(d["Second"] > 220)
 
 	def test_workers(self):
 		def check_output(output):
