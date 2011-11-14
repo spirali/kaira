@@ -55,12 +55,12 @@ class Env(object):
     def add_parameter(self, name, t):
         self.parameters[name] = t
 
-    def get_function_decl(self, name, args_count, safevars = True):
+    def get_function_decl(self, name, args_count, safevars = True, source = None):
         ftypes = self.functions.get(name)
         if ftypes is None:
-            raise utils.PtpException("Unknown function '{0}'".format(name))
+            raise utils.PtpException("Unknown function '{0}'".format(name), source)
         if len(ftypes) - 1 != args_count:
-            raise utils.PtpException("Invalid number of arguments")
+            raise utils.PtpException("Invalid number of arguments for function '{0}'".format(name), source)
         if safevars:
             ftypes = rename_vars(ftypes)
         return (ftypes[0], ftypes[1:])
@@ -72,6 +72,7 @@ class Env(object):
 class Expression(object):
 
     nel_type = None
+    source = None
 
     def __init__(self):
         pass
@@ -88,6 +89,14 @@ class Expression(object):
     def get_direct_pairing(self, expr):
         return [ (expr, self)]
 
+
+    def get_subexpressions(self):
+        return []
+
+    def set_source(self, source):
+        self.source = source
+        for e in self.get_subexpressions():
+            e.set_source(source)
 
     def derive_context(self, t):
         """
@@ -158,7 +167,7 @@ class ExprParam(Expression):
     def get_constraints(self, env):
         t = env.get_parameter_type(self.name)
         if t is None:
-            raise PtpException("Unknown parameter '{0}'".format(self.name))
+            raise PtpException("Unknown parameter '{0}'".format(self.name), self.source)
         return (t, {}, [])
 
     def inject_types(self, env, context):
@@ -189,6 +198,9 @@ class ExprArray(Expression):
 
     def emit(self, emitter):
         return emitter.const_array(self.value, self.nel_type)
+
+    def get_subexpressions(self):
+        return self.value
 
     def get_constraints(self, env):
         at = fresh_typevar()
@@ -225,8 +237,11 @@ class ExprCall(Expression):
     def __repr__(self):
         return "ExprCall({0},{1})".format(repr(self.name), repr(self.args))
 
+    def get_subexpressions(self):
+        return self.args
+
     def get_constraints(self, env):
-        returntype, targs = env.get_function_decl(self.name, len(self.args))
+        returntype, targs = env.get_function_decl(self.name, len(self.args), source = self.source)
         ctx = {}
         eqs = []
         for targ, arg in zip(targs, self.args):
@@ -244,7 +259,7 @@ class ExprCall(Expression):
         return set().union(*[ e.get_free_vars() for e in self.args ])
 
     def inject_types(self, env, context):
-        returntype, targs = env.get_function_decl(self.name, len(self.args))
+        returntype, targs = env.get_function_decl(self.name, len(self.args), source = self.source)
         types = []
         for e in self.args:
             e.inject_types(env, context)
@@ -258,6 +273,9 @@ class ExprTuple(Expression):
 
     def __repr__(self):
         return "ExprTuple({0})".format(repr(self.args))
+
+    def get_subexpressions(self):
+        return self.args
 
     def get_constraints(self, env):
         ts = []
@@ -320,6 +338,9 @@ class ExprCast(Expression):
     def __init__(self, expr, t):
         self.expr = expr
         self.type = t
+
+    def get_subexpressions(self):
+        return [self.expr]
 
     def get_direct_vars(self):
         return self.expr.get_direct_vars()

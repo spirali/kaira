@@ -93,13 +93,17 @@ def parse_expression(string, source = None):
     if string.strip() == "":
         raise utils.PtpException("Expression missing", source)
     try:
-        return expression.parseString(string)[0]
+        expr = expression.parseString(string)[0]
+        expr.set_source(source)
+        return expr
     except ParseException, e:
         raise utils.PtpException(e.msg, source)
 
 def parse_type(string, source = None):
     if string.strip() == "":
-        raise utils.PtpException("Type missing", source)
+        t = utils.PtpException("Type missing", source)
+        t.set_source(source)
+        return t
     try:
         return typeparser.parseString(string)[0]
     except ParseException, e:
@@ -109,13 +113,21 @@ def parse_expression_or_empty(string, source):
     if string.strip() == "":
         return None
     else:
-        return parse_expression(string, source)
+        expr = parse_expression(string, source)
+        expr.set_source(source)
+        return expr
 
 def parse_output_inscription(string, source = None):
     if string.strip() == "":
         raise utils.PtpException("Expression missing", source)
     try:
-        return tuple(output.parseString(string, source))
+        mode, expr, send, guard = output.parseString(string, source)
+        expr.set_source(source)
+        if send[1]:
+            send[1].set_source(source)
+        if guard:
+            guard.set_source(source)
+        return (mode, expr, send, guard)
     except ParseException, e:
         raise utils.PtpException(e.msg, source)
 
@@ -123,7 +135,9 @@ def parse_input_inscription(string, source = None):
     if string.strip() == "":
         raise utils.PtpException("Expression missing", source)
     try:
-        return tuple(input.parseString(string, source))
+        mode, expr = input.parseString(string, source)
+        expr.set_source(source)
+        return (mode, expr)
     except ParseException, e:
         raise utils.PtpException(e.msg, source)
 

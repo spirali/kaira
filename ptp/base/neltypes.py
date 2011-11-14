@@ -21,6 +21,8 @@ from base.utils import EqMixin
 
 class Type(EqMixin):
 
+    source = None
+
     def __init__(self, name, args = []):
         self.name = name
         self.args = tuple(args)
@@ -30,6 +32,11 @@ class Type(EqMixin):
             return "{0}({1})".format(self.name, ",".join(map(repr, self.args)))
         else:
             return self.name
+
+    def set_source(self, source):
+        self.source = source
+        for t in self.args:
+            t.set_source(source)
 
     def get_variables(self):
         return set().union(*[ t.get_variables() for t in self.args ])
