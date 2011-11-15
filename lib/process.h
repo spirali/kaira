@@ -54,6 +54,7 @@ class CaProcess {
 		bool quit_flag;
 
 		void multisend(int target, int net_id, int place, int tokens_count, const CaPacker &packer);
+		void multisend_multicast(const std::vector<int> &targets, int net_id, int place, int tokens_count, const CaPacker &packer);
 
 		#ifndef CA_MPI
 		void set_processes(CaProcess **processes) {
@@ -98,6 +99,12 @@ class CaThread {
 		}
 		void multisend(int target, int net_id, int place, int tokens_count, const CaPacker &packer) {
 			process->multisend(target, net_id, place, tokens_count, packer);
+		}
+		void send_multicast(const std::vector<int> &targets, int net_id, int place, const CaPacker &packer) {
+			process->multisend_multicast(targets, net_id, place, 1, packer);
+		}
+		void multisend_multicast(const std::vector<int> &targets, int net_id, int place, int tokens_count, const CaPacker &packer) {
+			process->multisend_multicast(targets, net_id, place, tokens_count, packer);
 		}
 		CaProcess * get_process() const { return process; }
 

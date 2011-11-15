@@ -4,6 +4,7 @@
 
 #include "process.h"
 #include <sched.h>
+#include <stdlib.h>
 
 extern std::string ca_log_default_name;
 extern const char *ca_project_description_string;
@@ -158,17 +159,9 @@ void CaThread::init_log(const std::string &logname)
 
 void CaProcess::multisend(int target, int net_id, int place_pos, int tokens_count, const CaPacker &packer)
 {
-	/* It is called only when we have more CaProcesses in non-MPI backed */
-	char *buffer = packer.get_buffer();
-
-	CaUnpacker unpacker(buffer);
-	CaProcess *p = processes[target % process_count];
-	CaNet *net = p->get_net(net_id);
-	net->lock();
-	for (int t = 0; t < tokens_count; t++) {
-		net->receive(place_pos, unpacker);
-	}
-	net->unlock();
+	std::vector<int> a(1);
+	a[0] = target;
+	multisend_multicast(a, net_id, place_pos, tokens_count, packer);
 	/*
 	#ifdef CA_MPI
 		CaPacket *packet = (CaPacket*) packer.get_buffer();
@@ -180,6 +173,23 @@ void CaProcess::multisend(int target, int net_id, int place_pos, int tokens_coun
 		MPI_Isend(packet, packer.get_size(), MPI_CHAR, path.owner_id(process, unit_id), CA_MPI_TAG_TOKENS, MPI_COMM_WORLD, request);
 	#else
 	#endif */
+}
+
+void CaProcess::multisend_multicast(const std::vector<int> &targets, int net_id, int place_pos, int tokens_count, const CaPacker &packer)
+{
+	char *buffer = packer.get_buffer();
+	std::vector<int>::const_iterator i;
+	for (i = targets.begin(); i != targets.end(); i++) {
+		CaUnpacker unpacker(buffer);
+		CaProcess *p = processes[(*i) % process_count];
+		CaNet *net = p->get_net(net_id);
+		net->lock();
+		for (int t = 0; t < tokens_count; t++) {
+			net->receive(place_pos, unpacker);
+		}
+		net->unlock();
+	}
+	free(buffer);
 }
 
 void CaThread::run_scheduler()
