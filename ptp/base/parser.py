@@ -101,11 +101,11 @@ def parse_expression(string, source = None):
 
 def parse_type(string, source = None):
     if string.strip() == "":
-        t = utils.PtpException("Type missing", source)
+        raise utils.PtpException("Type missing", source)
+    try:
+        t = typeparser.parseString(string)[0]
         t.set_source(source)
         return t
-    try:
-        return typeparser.parseString(string)[0]
     except ParseException, e:
         raise utils.PtpException(e.msg, source)
 

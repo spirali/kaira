@@ -110,7 +110,7 @@ class Expression(object):
         # Eq test is called mostly in tests and we want to e1 == e2 even one of then has
         # not injected types
         return (isinstance(other, self.__class__)
-            and utils.dict_eq(self.__dict__, other.__dict__, ("nel_type",)))
+            and utils.dict_eq(self.__dict__, other.__dict__, ("nel_type", "source")))
 
     def __ne__(self, other):
         return not self.__eq__(other)
