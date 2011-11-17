@@ -24,7 +24,7 @@ import xml.etree.ElementTree as xml
 from copy import copy
 
 class Net:
-	
+
 	def __init__(self, project, name, id = None):
 		if id is None:
 			self.id = project.new_id()
@@ -147,8 +147,11 @@ class Net:
 		for transition in self.transitions():
 			e.append(transition.export_xml())
 
-		for transition in self.areas():
-			e.append(transition.export_xml())
+		for area in self.areas():
+			e.append(area.export_xml())
+
+		if self.interface_box:
+			e.append(self.interface_box.export_xml())
 		return e
 
 	def item_by_id(self, id):
@@ -354,15 +357,6 @@ class Transition(NetElement):
 		self.changed()
 
 	def export_xml(self):
-
-		def make_edge(name, edge, place):
-			ea = xml.Element(name)
-			ea.set("place-id", str(place.get_id()))
-			ea.set("id", str(edge.get_id()))
-			ea.set("expr", edge.inscription)
-			return ea
-		
-
 		e = self.create_xml_element("transition")
 		e.set("name", self.name)
 		e.set("guard", self.guard)
@@ -373,12 +367,10 @@ class Transition(NetElement):
 			e.set("subnet", str(self.subnet.get_id()))
 
 		for edge in self.edges_to(postprocess = True):
-			ea = make_edge("edge-in", edge, edge.from_item);
-			e.append(ea)
+			e.append(edge.create_xml_export_element("edge-in"))
 
 		for edge in self.edges_from(postprocess = True):
-			ea = make_edge("edge-out", edge, edge.to_item);
-			e.append(ea)
+			e.append(edge.create_xml_export_element("edge-out"))
 		return e
 
 	def get_drawing(self, vconfig):
@@ -428,7 +420,7 @@ class Transition(NetElement):
 		return (x, y)
 
 	def get_text_entries(self):
-		return [ ("Name", self.get_name, self.set_name), 
+		return [ ("Name", self.get_name, self.set_name),
 				("Guard", self.get_guard, self.set_guard) ]
 
 	def corners(self):
@@ -463,7 +455,7 @@ class Place(NetElement):
 		self.changed()
 
 	def is_place(self):
-		return True	
+		return True
 
 	def as_xml(self):
 		e = self.create_xml_element("place")
@@ -519,7 +511,7 @@ class Place(NetElement):
 		return (nx + px, ny + py)
 
 	def get_text_entries(self):
-		return [ ("Type", self.get_place_type, self.set_place_type), 
+		return [ ("Type", self.get_place_type, self.set_place_type),
 				("Init", self.get_init_string, self.set_init_string) ]
 
 	def corners(self):
@@ -675,6 +667,16 @@ class Edge(NetItem):
 
 	def is_packing_edge(self):
 		return self.inscription and self.inscription[0] == "~"
+
+	def create_xml_export_element(self, name):
+		e = xml.Element(name)
+		e.set("id", str(self.id))
+		if self.from_item.is_place():
+			e.set("place-id", str(self.from_item.get_id()))
+		else:
+			e.set("place-id", str(self.to_item.get_id()))
+		e.set("expr", self.inscription)
+		return e
 
 class RectItem(NetItem):
 
@@ -845,6 +847,15 @@ class InterfaceBox(RectItem):
 		e.set("sy", str(self.size[1]))
 		return e
 
+	def export_xml(self):
+		e = xml.Element("interface")
+		for inode in self.net.inodes():
+			for edge in self.net.edges_from(inode, postprocess = True):
+				e.append(edge.create_xml_export_element("edge-out"))
+			for edge in self.net.edges_to(inode, postprocess = True):
+				e.append(edge.create_xml_export_element("edge-in"))
+		return e
+
 class InterfaceNode(NetElement):
 
 	def __init__(self, net, id, position):
@@ -1010,5 +1021,3 @@ class NewIdLoader:
 
 	def translate_id(self, id):
 		return self.idtable[id]
-
-

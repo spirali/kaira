@@ -219,6 +219,10 @@ def load_net_content(element, project, net):
     net.transitions = [ load_transition(e, project, net) for e in element.findall("transition") ]
     net.areas = [ load_area(e, net) for e in element.findall("area") ]
 
+    interface = element.find("interface")
+    if interface is not None:
+        net.interface_edges_out = [ load_edge_out(e, net, None) for e in interface.findall("edge-out") ]
+
 def load_extern_type(element):
     name = utils.xml_str(element, "name")
     rawtype = utils.xml_str(element, "raw-type")

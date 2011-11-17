@@ -249,6 +249,11 @@ class Net(object):
         self.places = []
         self.transitions = []
         self.areas = []
+        self.interface_edges_in = []
+        self.interface_edges_out = []
+
+    def get_interface_edges_out(self):
+        return self.interface_edges_out
 
     def get_place(self, id):
         for place in self.places:
@@ -277,6 +282,16 @@ class Net(object):
             tr.inject_types()
         for area in self.areas:
             area.inject_types()
+        self.inject_types_interface()
+
+    def inject_types_interface(self):
+        eq = []
+        env = self.project.get_env()
+        for e in self.interface_edges_in + self.interface_edges_out:
+            eq += e.get_equations()
+        context = derive_context(env, eq)
+        for e in self.interface_edges_in + self.interface_edges_out:
+            e.inject_types(env, context)
 
     def get_areas_with_place(self, place):
         return [ area for area in self.areas if area.is_place_inside(place) ]

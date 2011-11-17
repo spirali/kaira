@@ -85,7 +85,6 @@ class CppWriter(Writer):
         self.line('#line {0} "{1}"', lineno, filename)
 
 
-
 class Builder(CppWriter):
 
     def __init__(self, project, output_filename):
@@ -362,6 +361,8 @@ class Builder(CppWriter):
         self.block_begin()
 
         w = CppWriter()
+        em = emitter.Emitter(self.project)
+        em.variable_emitter = lambda name: "vars." + name
 
         for i, edge in enumerate(tr.get_normal_edges_in()):
             w.line("n->place_{1.id}.remove(token_{0});", i, edge.get_place())
@@ -372,8 +373,10 @@ class Builder(CppWriter):
             w.line("vars.{1} = n->place_{0.id}.to_vector_and_clear();", edge.get_place(), edge.varname)
 
         if tr.subnet is not None:
-            w.line("net->unlock();")
-            w.line("thread->spawn_net({0});", tr.subnet.get_index())
+            w.line("bool lock = true;")
+            w.line("Net_{0.id} *n = (Net_{0.id}*) thread->spawn_net({1});", tr.subnet, tr.subnet.get_index())
+            for edge in tr.subnet.get_interface_edges_out():
+                self.write_send_token(w, em, edge)
         else: # Without subnet
             if tr.code is not None:
                 w.line("net->unlock();")
@@ -383,9 +386,6 @@ class Builder(CppWriter):
             else:
                 w.line("bool lock = true;")
 
-            em = emitter.Emitter(self.project)
-            em.variable_emitter = lambda name: "vars." + name
-
             for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
                 if edge.guard:
                     w.if_begin(edge.guard.emit(em))
@@ -393,7 +393,7 @@ class Builder(CppWriter):
                     w.block_end()
                 else:
                     self.write_send_token(w, em, edge)
-            w.line("if (lock) net->unlock();")
+        w.line("if (lock) net->unlock();")
         w.line("return true;")
 
         self.write_enable_pattern_match(tr, w)
@@ -497,7 +497,9 @@ class Builder(CppWriter):
         self.write_types()
         self.write_user_functions()
         for net in self.project.nets:
-            self.build_net(net)
+            self.build_net_class(net)
+        for net in self.project.nets:
+            self.build_net_functions(net)
         self.write_main()
 
     def write_spawn(self, net):
@@ -572,7 +574,7 @@ class Builder(CppWriter):
         self.write_method_end()
 
 
-    def build_net(self, net):
+    def build_net_class(self, net):
 
         for place in net.places:
             if place.code is not None:
@@ -594,6 +596,8 @@ class Builder(CppWriter):
         self.reports_method(net)
         self.receive_method(net)
         self.write_class_end()
+
+    def build_net_functions(self, net):
 
         self.write_spawn(net)
 

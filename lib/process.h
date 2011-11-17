@@ -44,7 +44,7 @@ class CaProcess {
 		void start_logging(const std::string &logname);
 		void stop_logging();
 
-		void spawn_net(CaThread *thread, int def_index, int id);
+		CaNet * spawn_net(CaThread *thread, int def_index, int id);
 		int new_net_id();
 
 		CaNet * get_net(int id);
@@ -111,7 +111,7 @@ class CaThread {
 		void init_log(const std::string &logname);
 		void close_log() { if (logger) { delete logger; logger = NULL; } }
 
-		void spawn_net(int def_index);
+		CaNet * spawn_net(int def_index);
 		/*
 		void log_transition_start(CaUnit *unit, int transition_id) {
 			if (logger) { logger->log_transition_start(unit, transition_id); }

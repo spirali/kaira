@@ -217,16 +217,17 @@ void CaThread::run_scheduler()
 	}
 }
 
-void CaThread::spawn_net(int def_index)
+CaNet * CaThread::spawn_net(int def_index)
 {
-	process->spawn_net(this, def_index, process->new_net_id());
+	return process->spawn_net(this, def_index, process->new_net_id());
 }
 
-void CaProcess::spawn_net(CaThread *thread, int def_index, int id)
+CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id)
 {
 	CaNet *net = defs[def_index]->spawn(thread, id);
 	nets.push_back(net);
 	inform_new_network(net);
+	return net;
 }
 
 CaNet * CaProcess::get_net(int id)
