@@ -133,5 +133,5 @@ class Emitter(object):
                 return etype.get_rawtype()
         elif a == 1:
             if t.name == "Array":
-                return "std::vector<" + self.emit_type(t.args[0]) + ">"
+                return "std::vector<" + self.emit_type(t.args[0]) + " >"
         raise Exception("Type '{0}' cannot be emitted".format(t))

@@ -101,6 +101,7 @@ class Builder(CppWriter):
         self.line('#include <algorithm>')
         self.line('#include <stdlib.h>')
         self.line('#include <stdio.h>')
+        self.line('#include <sstream>')
         self.line('#include "head.cpp"')
         self.emptyline()
 
@@ -172,10 +173,32 @@ class Builder(CppWriter):
 
         self.write_class_end()
 
+    def write_array_as_string(self, t):
+        self.line("std::string array_{0}_as_string(const std::vector <{1} > &vector)",
+                  t.get_safe_name(), self.emit_type(t))
+        self.block_begin()
+        self.line("std::stringstream osstream;")
+        self.line('osstream << "[";')
+        self.line("if (vector.size() > 1)")
+        self.block_begin()
+        self.line("std::vector<{0} >::const_iterator i = vector.begin();", self.emit_type(t))
+        self.line("osstream << {0};", self.code_as_string("*i", t))
+        self.line("i++;")
+        self.line("for (; i != vector.end(); i++)")
+        self.block_begin()
+        self.line('osstream << "," << {0};', self.code_as_string("*i", t))
+        self.block_end()
+        self.block_end()
+        self.line('osstream << "]";')
+        self.line("return osstream.str();")
+        self.block_end()
+
     def write_types(self):
         for t in get_ordered_types(self.project):
             if t.name == "":
                 self.add_tuple_class(t)
+            if len(t.args) == 1 and t.name == "Array":
+                self.write_array_as_string(t.args[0])
 
     def write_var_struct(self, tr):
         self.write_class_head("Vars_{0.id}".format(tr))
@@ -342,13 +365,13 @@ class Builder(CppWriter):
                     w.line("size_t size = sizeof({0}) * value.size();", self.emit_type(t))
                 else:
                     w.line("size_t size = 0;")
-                    w.line("for (std::vector<{0}>::iterator i = value.begin(); i != value.end(); i++)", traw)
+                    w.line("for (std::vector<{0} >::iterator i = value.begin(); i != value.end(); i++)", traw)
                     w.block_begin()
                     w.line("size += {0};", self.get_size_code(t, "(*i)"))
                     w.block_end()
                 # TODO: Pack in one step if type is directly packable
                 w.line("CaPacker packer(size);")
-                w.line("for (std::vector<{0}>::iterator i = value.begin(); i != value.end(); i++)", traw)
+                w.line("for (std::vector<{0} >::iterator i = value.begin(); i != value.end(); i++)", traw)
                 w.block_begin()
                 w.line("{0};", self.get_pack_code(t, "packer", "(*i)"))
                 w.block_end()
@@ -435,7 +458,7 @@ class Builder(CppWriter):
             place_t = self.emit_type(edge.get_place_type())
             place_id = edge.get_place().id
             token = "token_{0}".format(i)
-            self.line("CaToken<{0}> *{1} = n->place_{2}.begin();", place_t, token, place_id)
+            self.line("CaToken<{0} > *{1} = n->place_{2}.begin();", place_t, token, place_id)
             em.set_extern("token", token + "->element")
             em.set_extern("fail", "{0} = {0}->next; continue;".format(token))
             self.do_begin()
@@ -524,7 +547,7 @@ class Builder(CppWriter):
                 self.line("net->place_{0.id}.add_all({1});", place, place.init_expression.emit(self.emitter))
             if place.code is not None:
                 t = self.emit_type(place.type)
-                self.line("std::vector<{0}> tokens;", t)
+                self.line("std::vector<{0} > tokens;", t)
                 self.line("place_user_fn_{0.id}(ctx, tokens);", place)
                 self.line("net->place_{0.id}.add_all(tokens);", place)
             self.block_end()
@@ -538,7 +561,7 @@ class Builder(CppWriter):
             self.line('output.child("place");')
             self.line('output.set("id", {0.id});', place)
             self.block_begin()
-            self.line('CaToken<{1}> *t = place_{0.id}.begin();', place, self.emit_type(place.type))
+            self.line('CaToken<{1} > *t = place_{0.id}.begin();', place, self.emit_type(place.type))
             self.if_begin("t")
 
             self.do_begin()
@@ -622,6 +645,8 @@ class Builder(CppWriter):
                     return self.emitter.const_string(etype.name);
         if t == t_string:
             return expr
+        if t.name == "Array" and len(t.args) == 1:
+            return "array_{0}_as_string({1})".format(t.args[0], expr)
         return "ca_int_to_string({0})".format(expr)
 
 

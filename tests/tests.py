@@ -147,5 +147,8 @@ class BuildTest(TestCase):
 	def test_multicast(self):
 		self.build(os.path.join(TEST_PROJECTS, "multicast", "multicast.proj"), "1800\n", processes=4)
 
+	def test_array(self):
+		self.build(os.path.join(TEST_PROJECTS, "array", "array.proj"), "Ok\n")
+
 if __name__ == '__main__':
     unittest.main()
