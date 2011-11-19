@@ -48,17 +48,17 @@ def parameters_dialog(parameter, mainwindow):
 		dlg.destroy()
 
 class ParametersWidget(ObjectList):
-	
+
 	def __init__(self, project, mainwindow):
 		defs = [("_", object), ("Name", str), ("Policy", str), ("Type", str), ("Default", str), ("Description", str) ]
 		buttons = [
-			(None, gtk.STOCK_ADD, self._add_parameter), 
-			(None, gtk.STOCK_REMOVE, self._remove_parameter), 
+			(None, gtk.STOCK_ADD, self._add_parameter),
+			(None, gtk.STOCK_REMOVE, self._remove_parameter),
 			(None, gtk.STOCK_EDIT, self._edit_parameter) ]
 		ObjectList.__init__(self, defs, buttons)
 		self.project = project
 		self.mainwindow = mainwindow
-		
+
 		self.fill(project.get_parameters())
 
 	def object_as_row(self, parameter):

@@ -17,11 +17,11 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import project
 import argparse
+import loader
 
 def export(filename, force_packers):
-	p = project.load_project(filename)
+	p = loader.load_project(filename)
 	if force_packers:
 		p.set_force_packers(True)
 	p.write_project_files()

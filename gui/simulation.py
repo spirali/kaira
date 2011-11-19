@@ -20,7 +20,7 @@
 import xml.etree.ElementTree as xml
 import process
 import random
-from project import load_project_from_xml
+from loader import load_project_from_xml
 from events import EventSource
 
 import utils

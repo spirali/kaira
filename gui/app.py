@@ -20,7 +20,6 @@
 
 import gtk
 
-import project
 import os
 import re
 import sys
@@ -29,18 +28,18 @@ import paths
 from mainwindow import MainWindow, Tab
 from netview import NetView
 from simconfig import SimConfigDialog
-from externtypes import ExternTypeEditor
 from projectconfig import ProjectConfig
 from simulation import Simulation
-from functions import FunctionEditor
-from drawing import VisualConfig
 import simview
 import codeedit
 import process
-import cairo
 import runlog
 import logview
 import settings
+import externtypes
+import functions
+import loader
+
 
 VERSION_STRING = '0.3'
 
@@ -65,7 +64,7 @@ class App:
 				if args[0][-5:] == ".klog":
 					self.open_log_tab(args[0])
 				else:
-					self.set_project(project.load_project(args[0]))
+					self.set_project(loader.load_project(args[0]))
 			else:
 				self.console_write("File '%s' not found\n" % args[0], "error")
 
@@ -109,6 +108,9 @@ class App:
 				directory[0] = d
 				project_name_changed()
 		builder = gtkutils.load_ui("newproject-dialog")
+		for project_class in loader.projects:
+			builder.get_object("newproject-extenv").append_text(project_class.get_extenv_name())
+		builder.get_object("newproject-extenv").set_active(0)
 		dlg = builder.get_object("newproject-dialog")
 		dlg.set_transient_for(self.window)
 		builder.get_object("newproject-name").connect("changed", project_name_changed)
@@ -121,7 +123,8 @@ class App:
 				if os.path.exists(dirname):
 					self.show_error_dialog("Path '%s' already exists" % dirname)
 					return
-				p = self._catch_io_error(lambda: project.new_empty_project(dirname))
+				extenv_name = builder.get_object("newproject-extenv").get_active_text()
+				p = self._catch_io_error(lambda: loader.new_empty_project(dirname, extenv_name))
 				if p is not None:
 					self.set_project(p)
 		finally:
@@ -140,7 +143,7 @@ class App:
 				if filename[-5:] != ".proj":
 					filename = filename + ".proj"
 
-				p = self._catch_io_error(lambda: project.load_project(filename))
+				p = self._catch_io_error(lambda: loader.load_project(filename))
 				if p:
 					# TODO: set statusbar
 					self.set_project(p)
@@ -243,7 +246,7 @@ class App:
 				name = "T:" + transition.get_name()
 			else:
 				name = "T: <unnamed" + str(transition.get_id()) + ">"
-			editor = codeedit.TransitionCodeEditor(transition, "".join(stdout))
+			editor = codeedit.TransitionCodeEditor(self.project, transition, "".join(stdout))
 			self.window.add_tab(Tab(name, editor, transition))
 			editor.jump_to_line(line_no)
 		self._start_ptp(self.project, open_tab, extra_args = [ "--transition-user-fn", str(transition.get_id()) ])
@@ -254,7 +257,8 @@ class App:
 
 		def open_tab(stdout):
 			name = "P: " + str(place.get_id())
-			editor = codeedit.PlaceCodeEditor(place, "".join(stdout))
+			editor = codeedit.PlaceCodeEditor(self.project, place, "".join(stdout))
+			editor = codeedit.PlaceCodeEditor(self.project, place, stdout[0].strip())
 			self.window.add_tab(Tab(name, editor, place))
 			editor.jump_to_line(line_no)
 		self._start_ptp(self.project, open_tab, extra_args = [ "--place-user-fn", str(place.get_id())])
@@ -264,14 +268,14 @@ class App:
 		if self.window.switch_to_tab_by_key(tag, lambda tab: tab.widget.jump_to_line(line_no)):
 			return
 		name = extern_type.get_name() + "/" + fn_name
-		editor = ExternTypeEditor(extern_type, fn_name, callback)
+		editor = externtypes.ExternTypeEditor(self.project, extern_type, fn_name, callback)
 		self.window.add_tab(Tab(name, editor, tag))
 		editor.jump_to_line(line_no)
 
 	def function_edit(self, function, line_no = None):
 		if self.window.switch_to_tab_by_key(function, lambda tab: tab.widget.jump_to_line(line_no)):
 			return
-		editor = FunctionEditor(function)
+		editor = functions.FunctionEditor(self.project, function)
 		self.window.add_tab(Tab(function.get_name(), editor, function))
 		editor.jump_to_line(line_no)
 
@@ -291,7 +295,7 @@ class App:
 		tab_tag = "file:" + filename
 		if self.window.switch_to_tab_by_key(tab_tag):
 			return
-		self.window.add_tab(codeedit.TabCodeFileEditor(filename, tab_tag))
+		self.window.add_tab(codeedit.TabCodeFileEditor(filename, tab_tag, self.project.get_syntax_highlight_key()))
 
 	def edit_headfile(self):
 		self.edit_sourcefile(self.project.get_head_filename())
@@ -403,7 +407,7 @@ class App:
 		self.nv.net_changed()
 
 	def _project_filename_changed(self):
-		self.window.set_title("Kaira (" + self.project.get_name() + ")")
+		self.window.set_title("Kaira - {0} ({1})".format(self.project.get_name(), self.project.get_extenv_name()))
 
 	def _run_makefile(self, project, build_ok_callback = None, target = None):
 		def on_exit(code):

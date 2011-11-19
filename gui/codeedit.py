@@ -25,152 +25,152 @@ import pango
 import os
 import mainwindow
 
+
 class CodeEditor(gtk.VBox):
 
-	def __init__(self, start_string, middle_string, end_string, start_pos, head_paragraph = None):
-		gtk.VBox.__init__(self)
+    def __init__(self, language, start_string, middle_string, end_string, start_pos, head_paragraph = None):
+        gtk.VBox.__init__(self)
 
-		toolbar = self._toolbar()
-		if toolbar is not None:
-			self.pack_start(toolbar, False, False)
+        toolbar = self._toolbar()
+        if toolbar is not None:
+            self.pack_start(toolbar, False, False)
 
-		sw = gtk.ScrolledWindow()
-		self.pack_start(sw)
-		sw.set_shadow_type(gtk.SHADOW_IN)
+        sw = gtk.ScrolledWindow()
+        self.pack_start(sw)
+        sw.set_shadow_type(gtk.SHADOW_IN)
 
-		buffer = self._create_buffer(start_string, middle_string, end_string, start_pos, head_paragraph)
-		self.view = self._create_view(buffer)
-		sw.add(self.view)
+        buffer = self._create_buffer(language, start_string, middle_string, end_string, start_pos, head_paragraph)
+        self.view = self._create_view(buffer)
+        sw.add(self.view)
 
-		self.show_all()
+        self.show_all()
 
-	def _create_buffer(self, start_string, middle_string, end_string, start_pos, head_paragraph):
-		manager = gtksourceview.LanguageManager()
-		lan = manager.get_language("cpp")
-		buffer = gtksourceview.Buffer()
-		start_line, start_char = start_pos
+    def _create_buffer(self, key, start_string, middle_string, end_string, start_pos, head_paragraph):
+        manager = gtksourceview.LanguageManager()
+        lan = manager.get_language(key)
 
-		buffer.create_tag("fixed", editable=False, background="lightgray")
-		buffer.create_tag("normal")
+        buffer = gtksourceview.Buffer()
+        start_line, start_char = start_pos
 
-		buffer.begin_not_undoable_action()
+        buffer.create_tag("fixed", editable=False, background="lightgray")
+        buffer.create_tag("normal")
 
-		if head_paragraph:
-			buffer.create_tag("fixed-paragraph", editable=False, paragraph_background="lightgray")
-			buffer.insert_with_tags_by_name(buffer.get_end_iter(), head_paragraph, "fixed-paragraph")
+        buffer.begin_not_undoable_action()
 
-		buffer.insert_with_tags_by_name(buffer.get_end_iter(), start_string, "fixed")
-		buffer.create_mark("start", buffer.get_end_iter(), True)
-		buffer.insert_with_tags_by_name(buffer.get_end_iter(), middle_string, "normal")
-		buffer.create_mark("tmp_end", buffer.get_end_iter(), True)
-		buffer.insert_with_tags_by_name(buffer.get_end_iter(), end_string, "fixed")
-		mark = buffer.get_mark("tmp_end")
-		buffer.create_mark("end", buffer.get_iter_at_mark(mark), False)
-		buffer.delete_mark(mark)
-		buffer.end_not_undoable_action()
-		buffer.place_cursor(buffer.get_iter_at_line_offset(start_line, start_char))
-		buffer.set_language(lan)
-		buffer.set_highlight_syntax(True)
-		buffer.set_highlight_matching_brackets(True)
-		buffer.connect("changed", self.buffer_changed)
-		self.buffer = buffer
-		return buffer
+        if head_paragraph:
+            buffer.create_tag("fixed-paragraph", editable=False, paragraph_background="lightgray")
+            buffer.insert_with_tags_by_name(buffer.get_end_iter(), head_paragraph, "fixed-paragraph")
 
-	def _create_view(self, buffer):
-		view = gtksourceview.View(buffer)
-		view.set_auto_indent(True)
-		font_desc = pango.FontDescription('monospace')
-		if font_desc:
-			view.modify_font(font_desc)
-		return view
+        buffer.insert_with_tags_by_name(buffer.get_end_iter(), start_string, "fixed")
+        buffer.create_mark("start", buffer.get_end_iter(), True)
+        buffer.insert_with_tags_by_name(buffer.get_end_iter(), middle_string, "normal")
+        buffer.create_mark("tmp_end", buffer.get_end_iter(), True)
+        buffer.insert_with_tags_by_name(buffer.get_end_iter(), end_string, "fixed")
+        mark = buffer.get_mark("tmp_end")
+        buffer.create_mark("end", buffer.get_iter_at_mark(mark), False)
+        buffer.delete_mark(mark)
+        buffer.end_not_undoable_action()
+        buffer.place_cursor(buffer.get_iter_at_line_offset(start_line, start_char))
+        buffer.set_language(lan)
+        buffer.set_highlight_syntax(True)
+        buffer.set_highlight_matching_brackets(True)
+        buffer.connect("changed", self.buffer_changed)
+        self.buffer = buffer
+        return buffer
 
-	def buffer_changed(self, w):
-		pass
+    def _create_view(self, buffer):
+        view = gtksourceview.View(buffer)
+        view.set_auto_indent(True)
+        font_desc = pango.FontDescription('monospace')
+        if font_desc:
+            view.modify_font(font_desc)
+        return view
 
-	def get_text(self):
-		start_mark = self.buffer.get_mark("start")
-		end_mark = self.buffer.get_mark("end")
-		start_iter = self.buffer.get_iter_at_mark(start_mark)
-		end_iter = self.buffer.get_iter_at_mark(end_mark)
-		return self.buffer.get_text(start_iter, end_iter)
+    def buffer_changed(self, w):
+        pass
 
-	def _toolbar(self):
-		return None
+    def get_text(self):
+        start_mark = self.buffer.get_mark("start")
+        end_mark = self.buffer.get_mark("end")
+        start_iter = self.buffer.get_iter_at_mark(start_mark)
+        end_iter = self.buffer.get_iter_at_mark(end_mark)
+        return self.buffer.get_text(start_iter, end_iter)
 
-	def jump_to_line(self, line_no):
-		if line_no is None:
-			return
-		start_mark = self.buffer.get_mark("start")
-		text_iter = self.buffer.get_iter_at_mark(start_mark)
-		text_iter.forward_lines(line_no - 3)
-		self.view.scroll_to_iter(text_iter, 0.1)
-		self.buffer.place_cursor(text_iter)
-		self.view.grab_focus()
+    def _toolbar(self):
+        return None
 
+    def jump_to_line(self, line_no):
+        if line_no is None:
+            return
+        start_mark = self.buffer.get_mark("start")
+        text_iter = self.buffer.get_iter_at_mark(start_mark)
+        text_iter.forward_lines(line_no - 3)
+        self.view.scroll_to_iter(text_iter, 0.1)
+        self.buffer.place_cursor(text_iter)
+        self.view.grab_focus()
 
 class CodeFileEditor(CodeEditor):
 
-	def __init__(self, filename):
-		self.filename = filename
-		if os.path.isfile(filename):
-			with open(filename, "r") as f:
-				content = f.read()
-		else:
-			content = ""
-		CodeEditor.__init__(self, "", content, "", (0,0))
-		self.view.set_show_line_numbers(True)
+    def __init__(self, filename, language):
+        self.filename = filename
 
-	def _toolbar(self):
-		button1 = gtk.Button("Save")
-		button1.connect("clicked", self.save)
-		toolbar = gtk.Toolbar()
-		toolbar.add(button1)
-		toolbar.show_all()
-		return toolbar
+        if os.path.isfile(filename):
+            with open(filename, "r") as f:
+                content = f.read()
+        else:
+            content = ""
+        CodeEditor.__init__(self, language, "", content, "", (0,0))
+        self.view.set_show_line_numbers(True)
 
-	def save(self, w = None):
-		#FIXME: catch io erros
-		with open(self.filename, "w") as f:
-			f.write(self.get_text())
+    def _toolbar(self):
+        button1 = gtk.Button("Save")
+        button1.connect("clicked", self.save)
+        toolbar = gtk.Toolbar()
+        toolbar.add(button1)
+        toolbar.show_all()
+        return toolbar
 
+    def save(self, w = None):
+        #FIXME: catch io erros
+        with open(self.filename, "w") as f:
+            f.write(self.get_text())
 
 class TransitionCodeEditor(CodeEditor):
 
-	def __init__(self, transition, header):
-		self.transition = transition
-		if transition.get_code() == "":
-			code = "\t\n"
-		else:
-			code = transition.get_code()
+    def __init__(self, project, transition, header):
+        self.transition = transition
+        if transition.get_code() == "":
+            code = "\t\n"
+        else:
+            code = transition.get_code()
 
-		line = header.count("\n") + 1
-		CodeEditor.__init__(self, "{\n", code, "}\n", (line,0), header)
+        line = header.count("\n") + 1
+        CodeEditor.__init__(self, project.get_syntax_highlight_key(), "{\n", code, "}\n", (line,0), header)
 
-
-	def buffer_changed(self, buffer):
-		self.transition.set_code(self.get_text())
+    def buffer_changed(self, buffer):
+        self.transition.set_code(self.get_text())
 
 class PlaceCodeEditor(CodeEditor):
 
-	def __init__(self, place, header):
-		self.place = place
-		if place.get_code() == "":
-			code = "\t\n"
-		else:
-			code = place.get_code()
-		CodeEditor.__init__(self, header, code, "}\n", (2,0))
+    def __init__(self, project, place, header):
+        self.place = place
+        if place.get_code() == "":
+            code = "\t\n"
+        else:
+            code = place.get_code()
+        CodeEditor.__init__(self, project.get_syntax_highlight_key(), header, code, "}\n", (2,0))
 
-	def buffer_changed(self, buffer):
-		self.place.set_code(self.get_text())
+    def buffer_changed(self, buffer):
+        self.place.set_code(self.get_text())
 
 class TabCodeFileEditor(mainwindow.Tab):
 
-	def __init__(self, filename, key):
-		name = os.path.basename(filename)
-		mainwindow.Tab.__init__(self, name, CodeFileEditor(filename), key)
+    def __init__(self, filename, key, language):
+        name = os.path.basename(filename)
+        mainwindow.Tab.__init__(self, name, CodeFileEditor(filename, language), key)
 
-	def project_save(self):
-		self.widget.save()
+    def project_save(self):
+        self.widget.save()
 
-	def project_export(self):
-		self.widget.save()
+    def project_export(self):
+        self.widget.save()
