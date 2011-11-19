@@ -1,4 +1,5 @@
 #
+#    Copyright (C) 2011 Stanislav Bohm
 #    Copyright (C) 2011 Ondrej Meca
 #
 #    This file is part of Kaira.
@@ -19,28 +20,29 @@
 import utils
 import os
 import paths
-from project import Project, ExternType, Function, Parameter
+from project import Project, ExternType, Function
 
 class ProjectCpp(Project):
 
-    def __init__(self, file_name, language):
+    def __init__(self, file_name):
         Project.__init__(self, file_name)
-        self.language = language
         self.build_options = {
             "CC" : "g++",
             "CFLAGS" : "-O2",
             "LIBS" : ""
         }
-        self.language_class = {
-            "extern_type" : ExternTypeCpp,
-            "function" : FunctionCpp,
-            "parameter" : Parameter
-        }
 
-    def get_language(self):
-        return self.language
+    @classmethod
+    def get_extenv_name(self):
+        return "C++"
 
-    def get_language_of_manager(self):
+    def get_exttype_class(self):
+        return ExternTypeCpp
+
+    def get_function_class(self):
+        return FunctionCpp
+
+    def get_syntax_highlight_key(self):
         """return language for GtkSourceView"""
         return "cpp"
 
@@ -50,12 +52,12 @@ class ProjectCpp(Project):
     def get_head_filename(self):
         return os.path.join(self.get_directory(), "head.cpp")
 
-    def write_content_to_head_file(self):
-        return """/* This file is included at the beginning of the main source file,\n\
-               so definitions from this file can be used in functions in\n\
-               transitions and places. */\n\n"""
+    def get_initial_head_file_content(self):
+        return "/* This file is included at the beginning of the main source file,\n" \
+               "   so definitions from this file can be used in functions in\n" \
+               "   transitions and places. */\n\n"
 
-    def type_to_lang_type(self, t):
+    def type_to_raw_type(self, t):
         if t == "__Context":
             return "CaContext"
         if t == "Int":
@@ -73,7 +75,7 @@ class ProjectCpp(Project):
                 return et.get_raw_type()
         return None
 
-    def get_source_file(self):
+    def get_source_file_patterns(self):
         return ["*.cpp", "*.cc", "*.c"]
 
     def write_makefile(self):
@@ -154,17 +156,17 @@ class FunctionCpp(Function):
         Function.__init__(self, id)
 
     def get_function_declaration(self):
-        return self.get_lang_return_type() + " " + self.name + "(" + self.get_lang_parameters() + ")"
+        return self.get_raw_return_type() + " " + self.name + "(" + self.get_raw_parameters() + ")"
 
-    def get_lang_parameters(self):
+    def get_raw_parameters(self):
         p = self.split_parameters()
         if p is None:
             return "Invalid format of parameters"
         else:
-            params_str =    [ self.project.type_to_lang_type(t) + " &" + n for (t, n) in p ]
+            params_str =    [ self.project.type_to_raw_type(t) + " &" + n for (t, n) in p ]
             if self.with_context:
                 params_str.insert(0, "CaContext &ctx")
             return ", ".join(params_str)
 
-    def get_lang_return_type(self):
-        return self.project.type_to_lang_type(self.return_type)
+    def get_raw_return_type(self):
+        return self.project.type_to_raw_type(self.return_type)

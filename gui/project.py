@@ -21,7 +21,6 @@
 import xml.etree.ElementTree as xml
 import utils
 import os
-import loader
 
 from events import EventSource
 
@@ -43,9 +42,6 @@ class Project(EventSource):
 		self.param_values_cache = None
 		self.error_messages = {}
 		self.functions = []
-
-	def get_instance_of(self, name):
-		return self.language_class[name]
 
 	def get_build_option(self, name):
 		if name in self.build_options:
@@ -80,9 +76,6 @@ class Project(EventSource):
 
 	def get_nets_with_interface(self):
 		return self.nets[1:] # Only first network has no interface
-
-	def copy(self):
-		return loader.load_project_from_xml(self.as_xml(), self.filename)
 
 	def get_name(self):
 		d, fname = os.path.split(self.filename)
@@ -153,7 +146,7 @@ class Project(EventSource):
 
 	def as_xml(self):
 		root = xml.Element("project")
-		root.set("language", self.get_language())
+		root.set("extenv", self.get_extenv_name())
 		root.append(self._configuration_element(False))
 		for net in self.nets:
 			root.append(net.as_xml())
@@ -169,10 +162,7 @@ class Project(EventSource):
 
 	def export(self, filename):
 		root = xml.Element("project")
-
-		l = xml.Element("language")
-		l.text = self.get_language()
-		root.append(l)
+		root.set("extenv", self.get_extenv_name())
 
 		root.append(self._configuration_element(True))
 
@@ -233,7 +223,7 @@ class Project(EventSource):
 
 	def write_project_files(self):
 		self.write_makefile()
-		utils.write_file_if_not_exists(self.get_head_filename(), self.write_content_to_head_file())
+		utils.write_file_if_not_exists(self.get_head_filename(), self.get_initial_head_file_content())
 
 	def _build_option_as_xml(self, name):
 		element = xml.Element("build-option")
@@ -440,12 +430,12 @@ class Function():
 		self.with_context = value
 
 	def check_definition(self):
-		if self.project.type_to_lang_type(self.return_type) is None:
+		if self.project.type_to_raw_type(self.return_type) is None:
 			return False
 		for p in self.split_parameters():
 			if len(p) != 2:
 				return False
-			if self.project.type_to_lang_type(p[0]) is None:
+			if self.project.type_to_raw_type(p[0]) is None:
 				return False
 		return True
 

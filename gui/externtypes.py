@@ -62,12 +62,12 @@ def extern_type_dialog(obj, mainwindow):
 		dlg.destroy()
 
 class ExternTypesWidget(ObjectList):
-	
+
 	def __init__(self, project, app):
 		defs = [("_", object), ("Name", str), ("Raw type", str), ("Transport", str), ("Functions", str) ]
 		buttons = [
-			(None, gtk.STOCK_ADD, self._add_type), 
-			(None, gtk.STOCK_REMOVE, self._remove_type), 
+			(None, gtk.STOCK_ADD, self._add_type),
+			(None, gtk.STOCK_REMOVE, self._remove_type),
 			(None, gtk.STOCK_EDIT, self._edit_type) ]
 
 		rpanel = gtk.VButtonBox()
@@ -97,7 +97,7 @@ class ExternTypesWidget(ObjectList):
 		return [obj, obj.get_name(), obj.get_raw_type(), obj.get_transport_mode(), obj.get_function_list_string()]
 
 	def _add_type(self, selected):
-		obj = self.project.get_instance_of("extern_type")()
+		obj = self.project.get_exttype_class()()
 		if extern_type_dialog(obj, self.app.window):
 			self.add_object(obj)
 			self.project.add_extern_type(obj)
@@ -127,7 +127,7 @@ class ExternTypesWidget(ObjectList):
 
 class ExternTypeEditor(CodeEditor):
 
-	def __init__(self, extern_type, fn_name, change_callback, language):
+	def __init__(self, project, extern_type, fn_name, change_callback):
 		self.extern_type = extern_type
 		self.fn_name = fn_name
 		self.change_callback = change_callback
@@ -135,7 +135,7 @@ class ExternTypeEditor(CodeEditor):
 		code = extern_type.get_function_code(fn_name)
 		start = "\n{\n"
 		end = "}\n"
-		CodeEditor.__init__(self, language, declaration + start, code, end, (2, 1))
+		CodeEditor.__init__(self, project.get_syntax_highlight_key(), declaration + start, code, end, (2, 1))
 
 	def buffer_changed(self, buffer):
 		self.extern_type.set_function_code(self.fn_name, self.get_text())

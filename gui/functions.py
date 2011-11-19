@@ -46,7 +46,7 @@ class FunctionsWidget(ObjectList):
 		self._edit_function_code(selected)
 
 	def _add_function(self, selected):
-		obj = self.project.get_instance_of("function")()
+		obj = self.project.get_function_class()()
 		if function_dialog(obj, self.app.window):
 			self.add_object(obj)
 			self.project.add_function(obj)
@@ -71,13 +71,13 @@ class FunctionsWidget(ObjectList):
 
 class FunctionEditor(CodeEditor):
 
-	def __init__(self, function, language):
+	def __init__(self, project, function):
 		self.function = function
 		declaration = function.get_function_declaration()
 		code = function.get_function_code()
 		start = "\n{\n"
 		end = "}\n"
-		CodeEditor.__init__(self, language, declaration + start, code, end, (2, 0))
+		CodeEditor.__init__(self, project.get_syntax_highlight_key(), declaration + start, code, end, (2, 0))
 
 	def buffer_changed(self, buffer):
 		self.function.set_function_code(self.get_text())

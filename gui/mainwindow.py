@@ -114,7 +114,7 @@ class MainWindow(gtk.Window):
 
 		self.project_sensitives = []
 		file_menu = gtk.Menu()
-		
+
 		item = gtk.MenuItem("_New project")
 		item.connect("activate", lambda w: self.app.new_project())
 		file_menu.append(item)
@@ -205,7 +205,7 @@ class MainWindow(gtk.Window):
 		item.connect("activate", lambda w: self.app.project_config())
 		edit_menu.append(item)
 
-		item = gtk.MenuItem("Edit _head.cpp")
+		item = gtk.MenuItem("Edit _head file")
 		item.connect("activate", lambda w: self.app.edit_headfile())
 		edit_menu.append(item)
 

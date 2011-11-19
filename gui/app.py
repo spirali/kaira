@@ -105,9 +105,9 @@ class App:
 				directory[0] = d
 				project_name_changed()
 		builder = gtkutils.load_ui("newproject-dialog")
-		for key in loader.languages.keys():
-			builder.get_object("newproject-language").append_text(key)
-		builder.get_object("newproject-language").set_active(0)
+		for project_class in loader.projects:
+			builder.get_object("newproject-extenv").append_text(project_class.get_extenv_name())
+		builder.get_object("newproject-extenv").set_active(0)
 		dlg = builder.get_object("newproject-dialog")
 		dlg.set_transient_for(self.window)
 		builder.get_object("newproject-name").connect("changed", project_name_changed)
@@ -120,8 +120,8 @@ class App:
 				if os.path.exists(dirname):
 					self.show_error_dialog("Path '%s' already exists" % dirname)
 					return
-				language = builder.get_object("newproject-language").get_active_text()
-				p = self._catch_io_error(lambda: loader.new_empty_project(dirname, language))
+				extenv_name = builder.get_object("newproject-extenv").get_active_text()
+				p = self._catch_io_error(lambda: loader.new_empty_project(dirname, extenv_name))
 				if p is not None:
 					self.set_project(p)
 		finally:
@@ -244,7 +244,8 @@ class App:
 				name = "T:" + transition.get_name()
 			else:
 				name = "T: <unnamed" + str(transition.get_id()) + ">"
-			editor = codeedit.TransitionCodeEditor(transition, [ line for line in stdout if line.strip() != "" ], self.project.get_language_of_manager())
+			editor = codeedit.TransitionCodeEditor(self.project, transition,
+                [ line for line in stdout if line.strip() != "" ])
 			self.window.add_tab(Tab(name, editor, transition))
 			editor.jump_to_line(line_no)
 		self._start_ptp(self.project, open_tab, extra_args = [ "--transition-vars", str(transition.get_id()) ])
@@ -255,7 +256,7 @@ class App:
 
 		def open_tab(stdout):
 			name = "P: " + str(place.get_id())
-			editor = codeedit.PlaceCodeEditor(place, stdout[0].strip(), self.project.get_language_of_manager())
+			editor = codeedit.PlaceCodeEditor(self.project, place, stdout[0].strip())
 			self.window.add_tab(Tab(name, editor, place))
 			editor.jump_to_line(line_no)
 		self._start_ptp(self.project, open_tab, extra_args = [ "--place-type", str(place.get_id())])
@@ -265,14 +266,14 @@ class App:
 		if self.window.switch_to_tab_by_key(tag, lambda tab: tab.widget.jump_to_line(line_no)):
 			return
 		name = extern_type.get_name() + "/" + fn_name
-		editor = externtypes.ExternTypeEditor(extern_type, fn_name, callback, self.project.get_language_of_manager())
+		editor = externtypes.ExternTypeEditor(self.project, extern_type, fn_name, callback)
 		self.window.add_tab(Tab(name, editor, tag))
 		editor.jump_to_line(line_no)
 
 	def function_edit(self, function, line_no = None):
 		if self.window.switch_to_tab_by_key(function, lambda tab: tab.widget.jump_to_line(line_no)):
 			return
-		editor = functions.FunctionEditor(function, self.project.get_language_of_manager())
+		editor = functions.FunctionEditor(self.project, function)
 		self.window.add_tab(Tab(function.get_name(), editor, function))
 		editor.jump_to_line(line_no)
 
@@ -292,7 +293,7 @@ class App:
 		tab_tag = "file:" + filename
 		if self.window.switch_to_tab_by_key(tab_tag):
 			return
-		self.window.add_tab(codeedit.TabCodeFileEditor(filename, tab_tag, self.project.get_language_of_manager()))
+		self.window.add_tab(codeedit.TabCodeFileEditor(filename, tab_tag, self.project.get_syntax_highlight_key()))
 
 	def edit_headfile(self):
 		self.edit_sourcefile(self.project.get_head_filename())
@@ -404,7 +405,7 @@ class App:
 		self.nv.net_changed()
 
 	def _project_filename_changed(self):
-		self.window.set_title("Kaira (" + self.project.get_name() + " - " + self.project.get_language() + " project)")
+		self.window.set_title("Kaira - {0} ({1})".format(self.project.get_name(), self.project.get_extenv_name()))
 
 	def _run_makefile(self, project, build_ok_callback = None, target = None):
 		def on_exit(code):

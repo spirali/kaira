@@ -23,16 +23,20 @@ import xml.etree.ElementTree as xml
 import utils
 import os
 
-import cpp
-import java
+from project import Parameter
+import projectcpp
+import projectjava
 
-languages = {
-    "C++" : cpp.ProjectCpp,
-    "Java" : java.ProjectJava
-}
+projects = [
+    projectcpp.ProjectCpp,
+    projectjava.ProjectJava
+]
 
-def create_project(filename, language):
-    return languages[language](filename, language)
+def create_project(filename, extenv_name):
+    for project_class in  projects:
+        if project_class.get_extenv_name() == extenv_name:
+            return project_class(filename)
+    raise Exception("Extern environment '{0}' not found".format(extenv_name))
 
 class BasicLoader:
     def __init__(self, project):
@@ -51,8 +55,8 @@ def load_project(filename):
     return load_project_from_xml(doc.getroot(), filename)
 
 def load_project_from_xml(root, filename):
-    lang = utils.xml_str(root, "language", "C++")
-    project = create_project(filename, lang)
+    extenv_name = root.get("extenv", "C++")
+    project = create_project(filename, extenv_name)
     loader = BasicLoader(project)
     if root.find("configuration") is not None:
         load_configuration(root.find("configuration"), project, loader)
@@ -63,7 +67,7 @@ def load_project_from_xml(root, filename):
     return project
 
 def load_parameter(element, project):
-    p = project.get_instance_of("parameter")()
+    p = Parameter()
     p.set_name(utils.xml_str(element, "name"))
     p.set_description(utils.xml_str(element, "description", ""))
     p.set_default(utils.xml_str(element, "default", "0"))
@@ -71,7 +75,7 @@ def load_parameter(element, project):
     project.add_parameter(p)
 
 def load_extern_type(element, project):
-    p = project.get_instance_of("extern_type")()
+    p = project.get_exttype_class()()
     p.set_name(utils.xml_str(element, "name"))
     p.set_raw_type(utils.xml_str(element, "raw-type"))
     p.set_transport_mode(utils.xml_str(element, "transport-mode"))
@@ -83,7 +87,7 @@ def load_extern_type(element, project):
 
 def load_function(element, project, loader):
     id = loader.get_id(element)
-    f =  project.get_instance_of("function")(id)
+    f =  project.get_function_class()(id)
     f.set_name(utils.xml_str(element, "name"))
     f.set_return_type(utils.xml_str(element, "return-type"))
     f.set_parameters(utils.xml_str(element, "parameters"))
@@ -108,11 +112,11 @@ def load_configuration(element, project, loader):
     for e in element.findall("function"):
         load_function(e, project, loader)
 
-def new_empty_project(directory, language):
+def new_empty_project(directory, extenv_name):
     os.mkdir(directory)
     name = os.path.basename(directory)
     project_filename = os.path.join(directory,name + ".proj")
-    project = create_project(project_filename, language)
+    project = create_project(project_filename, extenv_name)
     project.add_net(Net(project, "Main"))
     project.write_project_files()
     project.save()

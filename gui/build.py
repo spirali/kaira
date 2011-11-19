@@ -39,10 +39,7 @@ class BuildOptionsWidget(gtk.VBox):
 		self.table.set_row_spacings(5)
 		self.table.set_col_spacings(5)
 
-		options = self.project.build_options.copy()
-		if options.has_key("OTHER_FILES"):
-			del options["OTHER_FILES"]
-
+		options = [ o for o in self.project.build_options.keys() if o != "OTHER_FILES" ]
 		for i, option in enumerate(options):
 			self.add_line(i, option)
 
@@ -91,7 +88,7 @@ class BuildOptionsWidget(gtk.VBox):
 			ffilter = gtk.FileFilter()
 			ffilter.set_name("Source files")
 
-			for ext in self.project.get_source_file():
+			for ext in self.project.get_source_file_patterns():
 				ffilter.add_pattern(ext)
 
 			dialog.add_filter(ffilter)
