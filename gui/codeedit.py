@@ -25,15 +25,17 @@ import pango
 import os
 import mainwindow
 
+
 class CodeEditor(gtk.VBox):
-	
-	def __init__(self, start_string, middle_string, end_string, start_pos, head_paragraph = None):
+
+	def __init__(self, language, start_string, middle_string, end_string, start_pos, head_paragraph = None):
 		gtk.VBox.__init__(self)
+		self.language = language
 
 		toolbar = self._toolbar()
 		if toolbar is not None:
 			self.pack_start(toolbar, False, False)
-		
+
 		sw = gtk.ScrolledWindow()
 		self.pack_start(sw)
 		sw.set_shadow_type(gtk.SHADOW_IN)
@@ -43,10 +45,11 @@ class CodeEditor(gtk.VBox):
 		sw.add(self.view)
 
 		self.show_all()
-	
+
 	def _create_buffer(self, start_string, middle_string, end_string, start_pos, head_paragraph):
 		manager = gtksourceview.LanguageManager()
-		lan = manager.get_language("cpp")
+		lan = manager.get_language(self.language)
+
 		buffer = gtksourceview.Buffer()
 		start_line, start_char = start_pos
 
@@ -107,17 +110,17 @@ class CodeEditor(gtk.VBox):
 		self.buffer.place_cursor(text_iter)
 		self.view.grab_focus()
 
-
 class CodeFileEditor(CodeEditor):
 
-	def __init__(self, filename):
+	def __init__(self, filename, language):
 		self.filename = filename
+
 		if os.path.isfile(filename):
 			with open(filename, "r") as f:
 				content = f.read()
 		else:
 			content = ""
-		CodeEditor.__init__(self, "", content, "", (0,0))
+		CodeEditor.__init__(self, language, "", content, "", (0,0))
 		self.view.set_show_line_numbers(True)
 
 	def _toolbar(self):
@@ -133,33 +136,36 @@ class CodeFileEditor(CodeEditor):
 		with open(self.filename, "w") as f:
 			f.write(self.get_text())
 
-
 class TransitionCodeEditor(CodeEditor):
-	
-	def __init__(self, transition, variables):
+
+	def __init__(self, transition, variables, language):
 		self.transition = transition
 		if transition.get_code() == "":
 			code = "\t\n"
 		else:
 			code = transition.get_code()
+
 		head = "struct Vars {\n" + "".join(["\t" + v.strip() + ";\n" for v in variables ]) + "};\n\n"
 		line = 5 + len(variables)
-		CodeEditor.__init__(self, "void transition_function(CaContext &ctx, Vars &var)\n{\n", code, "}\n", (line,0), head)
+		declaration = "void transition_function(CaContext &ctx, Vars &var)\n{\n"
+		end = "}\n"
+		CodeEditor.__init__(self, language, declaration, code, end, (line,0), head)
 
 
 	def buffer_changed(self, buffer):
 		self.transition.set_code(self.get_text())
 
 class PlaceCodeEditor(CodeEditor):
-	
-	def __init__(self, place, place_type):
+
+	def __init__(self, place, place_type, language):
 		self.place = place
 		if place.get_code() == "":
 			code = "\t\n"
 		else:
 			code = place.get_code()
 		begin = "void init_place(CaContext &ctx, {0} &place)\n{{\n".format(place_type)
-		CodeEditor.__init__(self, begin, code, "}\n", (2,0))
+		end = "}\n"
+		CodeEditor.__init__(self, language, begin, code, end, (2,0))
 
 
 	def buffer_changed(self, buffer):
@@ -167,9 +173,9 @@ class PlaceCodeEditor(CodeEditor):
 
 class TabCodeFileEditor(mainwindow.Tab):
 
-	def __init__(self, filename, key):
+	def __init__(self, filename, key, language):
 		name = os.path.basename(filename)
-		mainwindow.Tab.__init__(self, name, CodeFileEditor(filename), key)
+		mainwindow.Tab.__init__(self, name, CodeFileEditor(filename, language), key)
 
 	def project_save(self):
 		self.widget.save()

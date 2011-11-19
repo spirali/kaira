@@ -21,7 +21,6 @@ import gtk
 import gtkutils
 from objectlist import ObjectList
 from codeedit import CodeEditor
-from project import ExternType
 
 def extern_type_dialog(obj, mainwindow):
 	builder = gtkutils.load_ui("externtype-dialog")
@@ -98,7 +97,7 @@ class ExternTypesWidget(ObjectList):
 		return [obj, obj.get_name(), obj.get_raw_type(), obj.get_transport_mode(), obj.get_function_list_string()]
 
 	def _add_type(self, selected):
-		obj = ExternType()
+		obj = self.project.get_instance_of("extern_type")()
 		if extern_type_dialog(obj, self.app.window):
 			self.add_object(obj)
 			self.project.add_extern_type(obj)
@@ -128,13 +127,15 @@ class ExternTypesWidget(ObjectList):
 
 class ExternTypeEditor(CodeEditor):
 
-	def __init__(self, extern_type, fn_name, change_callback):
+	def __init__(self, extern_type, fn_name, change_callback, language):
 		self.extern_type = extern_type
 		self.fn_name = fn_name
 		self.change_callback = change_callback
 		declaration = extern_type.get_function_declaration(fn_name)
 		code = extern_type.get_function_code(fn_name)
-		CodeEditor.__init__(self, declaration + "\n{\n", code, "}\n", (2, 1))
+		start = "\n{\n"
+		end = "}\n"
+		CodeEditor.__init__(self, language, declaration + start, code, end, (2, 1))
 
 	def buffer_changed(self, buffer):
 		self.extern_type.set_function_code(self.fn_name, self.get_text())

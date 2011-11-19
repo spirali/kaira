@@ -21,7 +21,6 @@ import gtk
 from objectlist import ObjectList
 from codeedit import CodeEditor
 import gtkutils
-from project import Function
 
 class FunctionsWidget(ObjectList):
 
@@ -47,7 +46,7 @@ class FunctionsWidget(ObjectList):
 		self._edit_function_code(selected)
 
 	def _add_function(self, selected):
-		obj = Function()
+		obj = self.project.get_instance_of("function")()
 		if function_dialog(obj, self.app.window):
 			self.add_object(obj)
 			self.project.add_function(obj)
@@ -70,36 +69,15 @@ class FunctionsWidget(ObjectList):
 					% obj.get_name(), "error")
 
 
-class EventsWidget(ObjectList):
-	
-	def __init__(self, project, app):
-		defs = [("_", object), ("Name", str) ]
-		buttons = [
-			("Edit code", None, self._edit_code) ]
-
-		ObjectList.__init__(self, defs, buttons)
-		self.project = project
-		self.app = app
-
-		self.fill(project.get_events())
-
-	def object_as_row(self, obj):
-		return [obj, obj.get_name()]
-
-	def row_activated(self, selected):
-		self._edit_code(selected)
-
-	def _edit_code(self, obj):
-		if obj is not None:
-			self.app.function_edit(obj)
-
 class FunctionEditor(CodeEditor):
 
-	def __init__(self, function):
+	def __init__(self, function, language):
 		self.function = function
 		declaration = function.get_function_declaration()
 		code = function.get_function_code()
-		CodeEditor.__init__(self, declaration + "\n{\n", code, "}\n", (2, 0))
+		start = "\n{\n"
+		end = "}\n"
+		CodeEditor.__init__(self, language, declaration + start, code, end, (2, 0))
 
 	def buffer_changed(self, buffer):
 		self.function.set_function_code(self.get_text())

@@ -20,7 +20,6 @@
 import gtk
 import gtkutils
 from objectlist import ObjectList
-from project import Parameter
 
 def parameters_dialog(parameter, mainwindow):
 	builder = gtkutils.load_ui("parameter-dialog")
@@ -70,7 +69,7 @@ class ParametersWidget(ObjectList):
 		self._edit_parameter(selected)
 
 	def _add_parameter(self, selected):
-		param = Parameter()
+		param = self.project.get_instance_of("parameter")()
 		if parameters_dialog(param, self.mainwindow):
 			self.add_object(param)
 			self.project.add_parameter(param)

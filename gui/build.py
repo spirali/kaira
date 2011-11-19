@@ -33,29 +33,33 @@ class BuildOptionsWidget(gtk.VBox):
 		button.connect("clicked", self._write_makefile)
 		hbox.pack_start(button, False, False)
 		self.pack_start(hbox, False, False)
-		
-		self.table = gtk.Table()		
+
+		self.table = gtk.Table()
 		self.table.set_border_width(5)
 		self.table.set_row_spacings(5)
 		self.table.set_col_spacings(5)
-		self.add_line(0, "CC")
-		self.add_line(1, "CFLAGS")
-		self.add_line(2, "LIBS")
+
+		options = self.project.build_options.copy()
+		if options.has_key("OTHER_FILES"):
+			del options["OTHER_FILES"]
+
+		for i, option in enumerate(options):
+			self.add_line(i, option)
 
 		self.pack_start(self.table, False, False)
 
 		self.filelist, controls = self._filelist()
 		self.pack_start(controls, False, False)
 		self.pack_start(self.filelist, True, True)
-	
+
 	def add_line(self, line, text):
 		label = gtk.Label(text)
 		label.set_alignment(1.0,0.5)
 		entry = gtk.Entry()
 		entry.set_text(self.project.get_build_option(text))
 		entry.connect("changed", lambda w: self.project.set_build_option(text, w.get_text()))
-		self.table.attach(label, 0, 1, line, line + 1, gtk.SHRINK | gtk.FILL)	
-		self.table.attach(entry, 1, 2, line, line + 1)	
+		self.table.attach(label, 0, 1, line, line + 1, gtk.SHRINK | gtk.FILL)
+		self.table.attach(entry, 1, 2, line, line + 1)
 
 	def _filelist(self):
 		filelist = gtkutils.SimpleList((("Filename", str),))
@@ -86,9 +90,10 @@ class BuildOptionsWidget(gtk.VBox):
 
 			ffilter = gtk.FileFilter()
 			ffilter.set_name("Source files")
-			ffilter.add_pattern("*.cpp")
-			ffilter.add_pattern("*.cc")
-			ffilter.add_pattern("*.c")
+
+			for ext in self.project.get_source_file():
+				ffilter.add_pattern(ext)
+
 			dialog.add_filter(ffilter)
 
 			ffilter = gtk.FileFilter()
