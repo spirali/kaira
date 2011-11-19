@@ -21,87 +21,87 @@ import gtk
 from events import EventSource
 
 class NetCanvas(gtk.DrawingArea, EventSource):
-	"""
-		Widget that draws a network, configurated by instance of class VisualConfig
-		Events: button_down, button_up, mouse_move
-	"""
-	def __init__(self, net, draw_cb, vconfig, zoom = 1.0):
-		gtk.DrawingArea.__init__(self);
-		EventSource.__init__(self)
-		self.net = net
-		self.zoom = zoom
-		self.viewport = (0,0)
-		self.vconfig = vconfig
-		self.draw_cb = draw_cb
-		self.set_events(gtk.gdk.BUTTON_PRESS_MASK | gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.POINTER_MOTION_MASK)
-		self.connect("expose_event", self._expose)
-		self.connect("button_press_event", self._button_down)
-		self.connect("button_release_event", self._button_up)
-		self.connect("motion_notify_event", self._mouse_move)
+    """
+        Widget that draws a network, configurated by instance of class VisualConfig
+        Events: button_down, button_up, mouse_move
+    """
+    def __init__(self, net, draw_cb, vconfig, zoom = 1.0):
+        gtk.DrawingArea.__init__(self);
+        EventSource.__init__(self)
+        self.net = net
+        self.zoom = zoom
+        self.viewport = (0,0)
+        self.vconfig = vconfig
+        self.draw_cb = draw_cb
+        self.set_events(gtk.gdk.BUTTON_PRESS_MASK | gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.POINTER_MOTION_MASK)
+        self.connect("expose_event", self._expose)
+        self.connect("button_press_event", self._button_down)
+        self.connect("button_release_event", self._button_up)
+        self.connect("motion_notify_event", self._mouse_move)
 
-	def set_net(self, net):
-		self.net = net
-		self.redraw()
+    def set_net(self, net):
+        self.net = net
+        self.redraw()
 
-	def set_viewport(self, viewport):
-		self.viewport = viewport
-		self.redraw()
+    def set_viewport(self, viewport):
+        self.viewport = viewport
+        self.redraw()
 
-	def get_viewport(self):
-		return self.viewport
+    def get_viewport(self):
+        return self.viewport
 
-	def set_vconfig(self, vconfig):
-		self.vconfig = vconfig
-		self.redraw()
+    def set_vconfig(self, vconfig):
+        self.vconfig = vconfig
+        self.redraw()
 
-	def redraw(self):
-		self.queue_draw()
+    def redraw(self):
+        self.queue_draw()
 
-	def zoom_in(self):
-		self.zoom *= 1.25
-		self.redraw()
+    def zoom_in(self):
+        self.zoom *= 1.25
+        self.redraw()
 
-	def zoom_out(self):
-		self.zoom /= 1.25
-		self.redraw()
+    def zoom_out(self):
+        self.zoom /= 1.25
+        self.redraw()
 
-	def get_zoom(self):
-		return self.zoom
+    def get_zoom(self):
+        return self.zoom
 
-	def set_size_and_viewport_by_net(self):
-		((l, t), (r, b)) = self.net.corners()
-		sizex = r - l + 100
-		sizey = b - t + 100
-		self.set_size_request(int(sizex * self.zoom), int(sizey * self.zoom))
-		self.set_viewport((-l + 25, -t + 25))
+    def set_size_and_viewport_by_net(self):
+        ((l, t), (r, b)) = self.net.corners()
+        sizex = r - l + 100
+        sizey = b - t + 100
+        self.set_size_request(int(sizex * self.zoom), int(sizey * self.zoom))
+        self.set_viewport((-l + 25, -t + 25))
 
-	def _expose(self, w, event):
-		cr = self.window.cairo_create()
-		self.cr = cr
-		cr.rectangle(event.area.x, event.area.y,
-				event.area.width, event.area.height)
-		cr.clip()
-		self._draw(cr, *self.window.get_size())
+    def _expose(self, w, event):
+        cr = self.window.cairo_create()
+        self.cr = cr
+        cr.rectangle(event.area.x, event.area.y,
+                event.area.width, event.area.height)
+        cr.clip()
+        self._draw(cr, *self.window.get_size())
 
-	def _draw(self, cr, width, height):
-		cr.set_source_rgb(0.8, 0.8, 0.8)
-		cr.rectangle(0, 0, width, height)
-		cr.fill()
-		cr.translate(self.viewport[0], self.viewport[1])
-		cr.scale(self.zoom, self.zoom)
-		self.net.draw(cr, self.vconfig)
-		if self.draw_cb:
-			self.draw_cb(cr, width, height)
+    def _draw(self, cr, width, height):
+        cr.set_source_rgb(0.8, 0.8, 0.8)
+        cr.rectangle(0, 0, width, height)
+        cr.fill()
+        cr.translate(self.viewport[0], self.viewport[1])
+        cr.scale(self.zoom, self.zoom)
+        self.net.draw(cr, self.vconfig)
+        if self.draw_cb:
+            self.draw_cb(cr, width, height)
 
-	def _mouse_to_canvas(self, event):
-		return self.cr.device_to_user(event.x, event.y)
+    def _mouse_to_canvas(self, event):
+        return self.cr.device_to_user(event.x, event.y)
 
-	def _button_down(self, w, event):
-		self.emit_event("button_down", event, self._mouse_to_canvas(event))
+    def _button_down(self, w, event):
+        self.emit_event("button_down", event, self._mouse_to_canvas(event))
 
-	def _button_up(self, w, event):
-		self.emit_event("button_up", event, self._mouse_to_canvas(event))
+    def _button_up(self, w, event):
+        self.emit_event("button_up", event, self._mouse_to_canvas(event))
 
-	def _mouse_move(self, w, event):
-		self.emit_event("mouse_move", event, self._mouse_to_canvas(event))
+    def _mouse_move(self, w, event):
+        self.emit_event("mouse_move", event, self._mouse_to_canvas(event))
 

@@ -22,113 +22,113 @@ import os
 import paths
 
 def escape_menu_name(name):
-	return name.replace("_", " ")
+    return name.replace("_", " ")
 
 def build_menu(description):
-	menu = gtk.Menu()
-	for name, action in description:
-		item = gtk.MenuItem(name)
-		if isinstance(action, list):
-			item.set_submenu(build_menu(action))
-		else:
-			item.connect("activate", action)
-		menu.append(item)
-	return menu
+    menu = gtk.Menu()
+    for name, action in description:
+        item = gtk.MenuItem(name)
+        if isinstance(action, list):
+            item.set_submenu(build_menu(action))
+        else:
+            item.connect("activate", action)
+        menu.append(item)
+    return menu
 
 def show_context_menu(menu_actions, event):
-	menu = build_menu(menu_actions)
-	menu.show_all()
-	menu.popup(None, None, None, event.button, event.get_time())
+    menu = build_menu(menu_actions)
+    menu.show_all()
+    menu.popup(None, None, None, event.button, event.get_time())
 
 def load_ui(filename):
-	builder = gtk.Builder()
-	builder.add_from_file(os.path.join(paths.UI_DIR, filename + ".glade"))
-	return builder
+    builder = gtk.Builder()
+    builder.add_from_file(os.path.join(paths.UI_DIR, filename + ".glade"))
+    return builder
 
 class SimpleList(gtk.ScrolledWindow):
-	
-	def __init__(self, columns):
-		""" Columns list of tuples: (name, type) """
-		gtk.ScrolledWindow.__init__(self)
-		self.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 
-		self.liststore = gtk.ListStore(*[ c[1] for c in columns ])
-		self.listview = gtk.TreeView(self.liststore)
-		self.add(self.listview)
+    def __init__(self, columns):
+        """ Columns list of tuples: (name, type) """
+        gtk.ScrolledWindow.__init__(self)
+        self.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 
-		for i, (cname, ctype) in enumerate(columns):
-			if cname != "_":
-				tokens = cname.split("|")
-				if ctype is bool:
-					renderer = gtk.CellRendererToggle()
-					args = { "active" : i }
-				else:
-					renderer = gtk.CellRendererText()
-					args = { "text" : i }
-				parameters = tokens[1:]
-				if "editable" in parameters:
-					renderer.set_property("editable", True)	
-				if "foreground" in parameters:
-					args["foreground"] = i + len(args)
-				column = gtk.TreeViewColumn(tokens[0], renderer, **args)
+        self.liststore = gtk.ListStore(*[ c[1] for c in columns ])
+        self.listview = gtk.TreeView(self.liststore)
+        self.add(self.listview)
 
-				self.listview.append_column(column)
+        for i, (cname, ctype) in enumerate(columns):
+            if cname != "_":
+                tokens = cname.split("|")
+                if ctype is bool:
+                    renderer = gtk.CellRendererToggle()
+                    args = { "active" : i }
+                else:
+                    renderer = gtk.CellRendererText()
+                    args = { "text" : i }
+                parameters = tokens[1:]
+                if "editable" in parameters:
+                    renderer.set_property("editable", True)
+                if "foreground" in parameters:
+                    args["foreground"] = i + len(args)
+                column = gtk.TreeViewColumn(tokens[0], renderer, **args)
 
-		self.listview.show()
+                self.listview.append_column(column)
 
-	def connect_view(self, signal_name, callback):
-		self.listview.connect(signal_name, callback)
+        self.listview.show()
 
-	def append(self, data):
-		return self.liststore.append(data)
+    def connect_view(self, signal_name, callback):
+        self.listview.connect(signal_name, callback)
 
-	def clear(self):
-		self.liststore.clear()
+    def append(self, data):
+        return self.liststore.append(data)
 
-	def get_selection(self, column):
-		selection = self.listview.get_selection()
-		model, i = selection.get_selected()
-		if i is not None:
-			return model.get_value(i, column)
-		else:
-			return None
+    def clear(self):
+        self.liststore.clear()
 
-	def set_selection_all(self, data):
-		model, i = self.listview.get_selection().get_selected()
-		if i is not None:
-			for x, d in enumerate(data):
-				model.set_value(i, x, d)
+    def get_selection(self, column):
+        selection = self.listview.get_selection()
+        model, i = selection.get_selected()
+        if i is not None:
+            return model.get_value(i, column)
+        else:
+            return None
 
-	def set_all(self, data, i):
-		for x, d in enumerate(data):
-			self.liststore.set_value(i, x, d)
+    def set_selection_all(self, data):
+        model, i = self.listview.get_selection().get_selected()
+        if i is not None:
+            for x, d in enumerate(data):
+                model.set_value(i, x, d)
 
-	def remove_selection(self):
-		model, i = self.listview.get_selection().get_selected()
-		if i is not None:
-			model.remove(i)
+    def set_all(self, data, i):
+        for x, d in enumerate(data):
+            self.liststore.set_value(i, x, d)
 
-	def get_and_remove_selection(self, column):
-		model, i = self.listview.get_selection().get_selected()
-		if i is not None:
-			v = model.get_value(i, column)
-			model.remove(i)
-			return v
-		return None
+    def remove_selection(self):
+        model, i = self.listview.get_selection().get_selected()
+        if i is not None:
+            model.remove(i)
 
-	def find(self, obj, column):
-		i = self.liststore.get_iter_first()
-		while i is not None:
-			if self.liststore.get_value(i, column) == obj:
-				return i
-			i = self.liststore.iter_next(i)
-		return None
+    def get_and_remove_selection(self, column):
+        model, i = self.listview.get_selection().get_selected()
+        if i is not None:
+            v = model.get_value(i, column)
+            model.remove(i)
+            return v
+        return None
 
-	def get_column(self, column):
-		return [ self.liststore.get_value(row.iter, column) for row in self.liststore ]
+    def find(self, obj, column):
+        i = self.liststore.get_iter_first()
+        while i is not None:
+            if self.liststore.get_value(i, column) == obj:
+                return i
+            i = self.liststore.iter_next(i)
+        return None
 
-	def select_iter(self, iter):
-		self.listview.get_selection().select_iter(iter)
+    def get_column(self, column):
+        return [ self.liststore.get_value(row.iter, column) for row in self.liststore ]
 
-	def select_first(self):
-		self.select_iter(self.liststore.get_iter_first())
+    def select_iter(self, iter):
+        self.listview.get_selection().select_iter(iter)
+
+    def select_first(self):
+        self.select_iter(self.liststore.get_iter_first())

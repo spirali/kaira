@@ -23,113 +23,113 @@ import gtkutils
 
 class BuildOptionsWidget(gtk.VBox):
 
-	def __init__(self, project, app):
-		gtk.VBox.__init__(self)
-		self.project = project
-		self.app = app
+    def __init__(self, project, app):
+        gtk.VBox.__init__(self)
+        self.project = project
+        self.app = app
 
-		hbox = gtk.HBox()
-		button = gtk.Button("Write makefile")
-		button.connect("clicked", self._write_makefile)
-		hbox.pack_start(button, False, False)
-		self.pack_start(hbox, False, False)
+        hbox = gtk.HBox()
+        button = gtk.Button("Write makefile")
+        button.connect("clicked", self._write_makefile)
+        hbox.pack_start(button, False, False)
+        self.pack_start(hbox, False, False)
 
-		self.table = gtk.Table()
-		self.table.set_border_width(5)
-		self.table.set_row_spacings(5)
-		self.table.set_col_spacings(5)
+        self.table = gtk.Table()
+        self.table.set_border_width(5)
+        self.table.set_row_spacings(5)
+        self.table.set_col_spacings(5)
 
-		options = [ o for o in self.project.build_options.keys() if o != "OTHER_FILES" ]
-		for i, option in enumerate(options):
-			self.add_line(i, option)
+        options = [ o for o in self.project.build_options.keys() if o != "OTHER_FILES" ]
+        for i, option in enumerate(options):
+            self.add_line(i, option)
 
-		self.pack_start(self.table, False, False)
+        self.pack_start(self.table, False, False)
 
-		self.filelist, controls = self._filelist()
-		self.pack_start(controls, False, False)
-		self.pack_start(self.filelist, True, True)
+        self.filelist, controls = self._filelist()
+        self.pack_start(controls, False, False)
+        self.pack_start(self.filelist, True, True)
 
-	def add_line(self, line, text):
-		label = gtk.Label(text)
-		label.set_alignment(1.0,0.5)
-		entry = gtk.Entry()
-		entry.set_text(self.project.get_build_option(text))
-		entry.connect("changed", lambda w: self.project.set_build_option(text, w.get_text()))
-		self.table.attach(label, 0, 1, line, line + 1, gtk.SHRINK | gtk.FILL)
-		self.table.attach(entry, 1, 2, line, line + 1)
+    def add_line(self, line, text):
+        label = gtk.Label(text)
+        label.set_alignment(1.0,0.5)
+        entry = gtk.Entry()
+        entry.set_text(self.project.get_build_option(text))
+        entry.connect("changed", lambda w: self.project.set_build_option(text, w.get_text()))
+        self.table.attach(label, 0, 1, line, line + 1, gtk.SHRINK | gtk.FILL)
+        self.table.attach(entry, 1, 2, line, line + 1)
 
-	def _filelist(self):
-		filelist = gtkutils.SimpleList((("Filename", str),))
-		hbox = gtk.HBox()
+    def _filelist(self):
+        filelist = gtkutils.SimpleList((("Filename", str),))
+        hbox = gtk.HBox()
 
-		button = gtk.Button("Add files")
-		button.connect("clicked", self._add_files)
-		hbox.pack_start(button, False, False)
+        button = gtk.Button("Add files")
+        button.connect("clicked", self._add_files)
+        hbox.pack_start(button, False, False)
 
-		button = gtk.Button("Remove file")
-		button.connect("clicked", self._remove_file)
-		hbox.pack_start(button, False, False)
+        button = gtk.Button("Remove file")
+        button.connect("clicked", self._remove_file)
+        hbox.pack_start(button, False, False)
 
-		if self.project.get_build_option("OTHER_FILES"):
-			for filename in self.project.get_build_option("OTHER_FILES").split("\n"):
-				filelist.append((filename,))
+        if self.project.get_build_option("OTHER_FILES"):
+            for filename in self.project.get_build_option("OTHER_FILES").split("\n"):
+                filelist.append((filename,))
 
-		return filelist, hbox
+        return filelist, hbox
 
-	def _add_files(self, w):
-		dialog = gtk.FileChooserDialog("Add source files", self.get_toplevel(), gtk.FILE_CHOOSER_ACTION_OPEN,
-				(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+    def _add_files(self, w):
+        dialog = gtk.FileChooserDialog("Add source files", self.get_toplevel(), gtk.FILE_CHOOSER_ACTION_OPEN,
+                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                  gtk.STOCK_OPEN, gtk.RESPONSE_OK))
-		try:
-			dialog.set_current_folder(self.project.get_directory())
-			dialog.set_default_response(gtk.RESPONSE_OK)
-			dialog.set_select_multiple(True)
+        try:
+            dialog.set_current_folder(self.project.get_directory())
+            dialog.set_default_response(gtk.RESPONSE_OK)
+            dialog.set_select_multiple(True)
 
-			ffilter = gtk.FileFilter()
-			ffilter.set_name("Source files")
+            ffilter = gtk.FileFilter()
+            ffilter.set_name("Source files")
 
-			for ext in self.project.get_source_file_patterns():
-				ffilter.add_pattern(ext)
+            for ext in self.project.get_source_file_patterns():
+                ffilter.add_pattern(ext)
 
-			dialog.add_filter(ffilter)
+            dialog.add_filter(ffilter)
 
-			ffilter = gtk.FileFilter()
-			ffilter.set_name("All files")
-			ffilter.add_pattern("*")
-			dialog.add_filter(ffilter)
+            ffilter = gtk.FileFilter()
+            ffilter.set_name("All files")
+            ffilter.add_pattern("*")
+            dialog.add_filter(ffilter)
 
-			if dialog.run() == gtk.RESPONSE_OK:
-				filenames = dialog.get_filenames()
-				directory = self.project.get_directory()
+            if dialog.run() == gtk.RESPONSE_OK:
+                filenames = dialog.get_filenames()
+                directory = self.project.get_directory()
 
-				other_files = self.project.get_build_option("OTHER_FILES").split("\n")
-				forbidden = [ self.project.get_emitted_source_filename(), self.project.get_head_filename() ]
+                other_files = self.project.get_build_option("OTHER_FILES").split("\n")
+                forbidden = [ self.project.get_emitted_source_filename(), self.project.get_head_filename() ]
 
-				for filename in filenames:
-					if not filename.startswith(directory):
-						self.app.show_error_dialog("File '{0}' is not in the project directory.".format(filename))
-						return
+                for filename in filenames:
+                    if not filename.startswith(directory):
+                        self.app.show_error_dialog("File '{0}' is not in the project directory.".format(filename))
+                        return
 
-					f = filename[len(directory) + 1:]
-					if filename in forbidden:
-						self.app.show_info_dialog("Files '{0}' is always a part of the project. You don't need to add it explicitly.".format(f))
-						continue
+                    f = filename[len(directory) + 1:]
+                    if filename in forbidden:
+                        self.app.show_info_dialog("Files '{0}' is always a part of the project. You don't need to add it explicitly.".format(f))
+                        continue
 
-					if f in other_files:
-						continue
-					self.filelist.append((f,))
-				self._update_project()
+                    if f in other_files:
+                        continue
+                    self.filelist.append((f,))
+                self._update_project()
 
-		finally:
-			dialog.destroy()
+        finally:
+            dialog.destroy()
 
-	def _remove_file(self, w):
-		self.filelist.remove_selection()
-		self._update_project()
+    def _remove_file(self, w):
+        self.filelist.remove_selection()
+        self._update_project()
 
-	def _update_project(self):
-		filenames = self.filelist.get_column(0)
-		self.project.set_build_option("OTHER_FILES", "\n".join(filenames))
+    def _update_project(self):
+        filenames = self.filelist.get_column(0)
+        self.project.set_build_option("OTHER_FILES", "\n".join(filenames))
 
-	def _write_makefile(self, w):
-		self.project.write_makefile()
+    def _write_makefile(self, w):
+        self.project.write_makefile()

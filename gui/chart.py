@@ -167,219 +167,219 @@ color_names =  [
  '#9ACD32']
 
 def color_values():
-	for name in color_names:
-		c = gtk.gdk.color_parse(name)
-		yield (c.red / 65535.0, c.green / 65535.0, c.blue / 65535.0)
+    for name in color_names:
+        c = gtk.gdk.color_parse(name)
+        yield (c.red / 65535.0, c.green / 65535.0, c.blue / 65535.0)
 
 class TwoAxisChart:
 
-	borders = [30,30,60,60]
-	xlabel_format = str
-	ylabel_format = str
+    borders = [30,30,60,60]
+    xlabel_format = str
+    ylabel_format = str
 
-	def __init__(self, xbounds, ybounds):
-		self.ybounds = ybounds
-		self.xbounds = xbounds
-		
-		self.ylabels = self.labels(ybounds)
-		self.xlabels = self.labels(xbounds)
+    def __init__(self, xbounds, ybounds):
+        self.ybounds = ybounds
+        self.xbounds = xbounds
 
-	def _delta(self, bounds):
-		mn, mx = bounds
-		delta = mx - mn
-		if delta % 10 > 0:
-			delta += 10 - (delta % 10)
-		return delta
+        self.ylabels = self.labels(ybounds)
+        self.xlabels = self.labels(xbounds)
 
-	def xdelta(self):
-		return self._delta(self.xbounds)
+    def _delta(self, bounds):
+        mn, mx = bounds
+        delta = mx - mn
+        if delta % 10 > 0:
+            delta += 10 - (delta % 10)
+        return delta
 
-	def ydelta(self):
-		return self._delta(self.ybounds)
+    def xdelta(self):
+        return self._delta(self.xbounds)
 
-	def labels(self, bounds):
-		delta = self._delta(bounds)
-		return [ int(i * (delta / 10.0) + bounds[0]) for i in xrange(11) ]
+    def ydelta(self):
+        return self._delta(self.ybounds)
+
+    def labels(self, bounds):
+        delta = self._delta(bounds)
+        return [ int(i * (delta / 10.0) + bounds[0]) for i in xrange(11) ]
 
 
-	def render(self, width, height, cr):
-		cr.set_source_rgb(1.0, 1.0, 1.0)
-		cr.rectangle(0, 0, width, height)
-		cr.fill()
-		
-		self._render_axis(width, height, cr)
+    def render(self, width, height, cr):
+        cr.set_source_rgb(1.0, 1.0, 1.0)
+        cr.rectangle(0, 0, width, height)
+        cr.fill()
 
-	def _render_axis(self, width, height, cr):
-		labelw, labelh = get_label_sizes(cr, map(self.ylabel_format, self.ylabels))
-		cr.set_source_rgb(0.0, 0.0, 0.0)
-		cr.move_to(self.borders[LEFT], height - self.borders[BOTTOM])
-		cr.line_to(width - self.borders[RIGHT], height - self.borders[BOTTOM])
-		cr.stroke()
-		cr.move_to(self.borders[LEFT], height - self.borders[BOTTOM])
-		cr.line_to(self.borders[LEFT], self.borders[TOP])
-		cr.stroke()
-		
-		unit = (height - (self.borders[TOP] + self.borders[BOTTOM])) / 10.0
-		y = height - self.borders[BOTTOM]
-		x = self.borders[LEFT]
-		for i in xrange(11):
-			yy = y - i * unit
-			cr.move_to(x - 4, yy)
-			cr.line_to(x + 4, yy)
-			cr.stroke()
-			cr.move_to(x - 10 - labelw, yy + labelh / 2)
-			cr.show_text(self.ylabel_format(self.ylabels[i]))
+        self._render_axis(width, height, cr)
 
-		unit = (width - (self.borders[LEFT] + self.borders[RIGHT])) / 10.0
-		for i in xrange(11):
-			xx = x + i * unit
-			cr.move_to(xx, y - 4)
-			cr.line_to(xx, y + 4)
-			cr.stroke()
-			cr.move_to(xx + 5, y + 10)
-			cr.save()
-			cr.rotate(0.5)
-			cr.show_text(self.xlabel_format(self.xlabels[i]))
-			cr.restore()
+    def _render_axis(self, width, height, cr):
+        labelw, labelh = get_label_sizes(cr, map(self.ylabel_format, self.ylabels))
+        cr.set_source_rgb(0.0, 0.0, 0.0)
+        cr.move_to(self.borders[LEFT], height - self.borders[BOTTOM])
+        cr.line_to(width - self.borders[RIGHT], height - self.borders[BOTTOM])
+        cr.stroke()
+        cr.move_to(self.borders[LEFT], height - self.borders[BOTTOM])
+        cr.line_to(self.borders[LEFT], self.borders[TOP])
+        cr.stroke()
+
+        unit = (height - (self.borders[TOP] + self.borders[BOTTOM])) / 10.0
+        y = height - self.borders[BOTTOM]
+        x = self.borders[LEFT]
+        for i in xrange(11):
+            yy = y - i * unit
+            cr.move_to(x - 4, yy)
+            cr.line_to(x + 4, yy)
+            cr.stroke()
+            cr.move_to(x - 10 - labelw, yy + labelh / 2)
+            cr.show_text(self.ylabel_format(self.ylabels[i]))
+
+        unit = (width - (self.borders[LEFT] + self.borders[RIGHT])) / 10.0
+        for i in xrange(11):
+            xx = x + i * unit
+            cr.move_to(xx, y - 4)
+            cr.line_to(xx, y + 4)
+            cr.stroke()
+            cr.move_to(xx + 5, y + 10)
+            cr.save()
+            cr.rotate(0.5)
+            cr.show_text(self.xlabel_format(self.xlabels[i]))
+            cr.restore()
 
 
 class TimeChart(TwoAxisChart):
-	
-	def __init__(self, values, min_time, max_time, min_value = None, max_value = None):
-		self.min_time = min_time
-		self.max_time = max_time
-		self.values = values
 
-		if min_value is None:
-			min_value = min(min(x[1] for x in timeline) for timeline in values)
-		if max_value is None:
-			max_value = max(max(x[1] for x in timeline) for timeline in values)
-		TwoAxisChart.__init__(self, (min_time, max_time), (min_value, max_value))
+    def __init__(self, values, min_time, max_time, min_value = None, max_value = None):
+        self.min_time = min_time
+        self.max_time = max_time
+        self.values = values
 
-	def render(self, width, height, cr):
-		def coords(time, value):
-			return (((time - self.xbounds[0])/xdelta) * w + x, y - ((value - self.ybounds[0]) / ydelta) * h)
-			
-		TwoAxisChart.render(self, width, height, cr)
-		xdelta = float(self.xdelta())
-		ydelta = float(self.ydelta())
+        if min_value is None:
+            min_value = min(min(x[1] for x in timeline) for timeline in values)
+        if max_value is None:
+            max_value = max(max(x[1] for x in timeline) for timeline in values)
+        TwoAxisChart.__init__(self, (min_time, max_time), (min_value, max_value))
 
-		y = height - self.borders[BOTTOM]
-		x = self.borders[LEFT]
+    def render(self, width, height, cr):
+        def coords(time, value):
+            return (((time - self.xbounds[0])/xdelta) * w + x, y - ((value - self.ybounds[0]) / ydelta) * h)
 
-		w = width - (self.borders[LEFT] + self.borders[RIGHT])
-		h = height - (self.borders[TOP] + self.borders[BOTTOM])
-		cr.set_line_width(0.5)
-		colors = list(color_values())
-		for i, line in enumerate(self.values[:]):
-			cr.set_source_rgb(*colors[i % len(colors)])
-			for j in xrange(len(line) - 1):
-				time1, value1 = line[j]
-				time2, value2 = line[j + 1]
-				s, v = coords(time1, value1)
-				e, z = coords(time2, value2)
-				cr.move_to(s, v)
-				cr.line_to(e, v)
-				cr.stroke()
-				cr.move_to(e, v)
-				cr.line_to(e, z)
-				cr.stroke()
-				cr.arc(s, v, 2, 0, 2 * math.pi)
-				cr.fill()
-			s, v = coords(line[-1][0], line[-1][1])
-			cr.arc(s, v, 2, 0, 2 * math.pi)
-			cr.fill()
+        TwoAxisChart.render(self, width, height, cr)
+        xdelta = float(self.xdelta())
+        ydelta = float(self.ydelta())
+
+        y = height - self.borders[BOTTOM]
+        x = self.borders[LEFT]
+
+        w = width - (self.borders[LEFT] + self.borders[RIGHT])
+        h = height - (self.borders[TOP] + self.borders[BOTTOM])
+        cr.set_line_width(0.5)
+        colors = list(color_values())
+        for i, line in enumerate(self.values[:]):
+            cr.set_source_rgb(*colors[i % len(colors)])
+            for j in xrange(len(line) - 1):
+                time1, value1 = line[j]
+                time2, value2 = line[j + 1]
+                s, v = coords(time1, value1)
+                e, z = coords(time2, value2)
+                cr.move_to(s, v)
+                cr.line_to(e, v)
+                cr.stroke()
+                cr.move_to(e, v)
+                cr.line_to(e, z)
+                cr.stroke()
+                cr.arc(s, v, 2, 0, 2 * math.pi)
+                cr.fill()
+            s, v = coords(line[-1][0], line[-1][1])
+            cr.arc(s, v, 2, 0, 2 * math.pi)
+            cr.fill()
 
 class UtilizationChart:
 
-	xlabel_format = str
+    xlabel_format = str
 
-	def __init__(self, values, labels, legend, colors, timebounds):
-		self.values = values
-		self.labels = labels
-		self.legend = legend
-		self.colors = colors
-		self.timebounds = timebounds
+    def __init__(self, values, labels, legend, colors, timebounds):
+        self.values = values
+        self.labels = labels
+        self.legend = legend
+        self.colors = colors
+        self.timebounds = timebounds
 
-	def get_size_request(self):
-		return 0, 40 * len(self.values) + 40 + 75 # legend_space + reserved space at the end
+    def get_size_request(self):
+        return 0, 40 * len(self.values) + 40 + 75 # legend_space + reserved space at the end
 
-	def render(self, width, height, cr):
-		labelw, labelh = get_label_sizes(cr, self.labels)
-		boxh = 40
-		legend_space = 40
-		timespan = self.timebounds[1] - self.timebounds[0]
-		start = 30 + labelw
-		areaw = width - start - 40
-		for i in xrange(len(self.values)):
-			self._gradient_box(cr, 0, i * boxh + legend_space, width, boxh, (1.0,1.0,1.0), (0.9,0.9,0.9))
+    def render(self, width, height, cr):
+        labelw, labelh = get_label_sizes(cr, self.labels)
+        boxh = 40
+        legend_space = 40
+        timespan = self.timebounds[1] - self.timebounds[0]
+        start = 30 + labelw
+        areaw = width - start - 40
+        for i in xrange(len(self.values)):
+            self._gradient_box(cr, 0, i * boxh + legend_space, width, boxh, (1.0,1.0,1.0), (0.9,0.9,0.9))
 
-		cr.set_source_rgb(0.2,0.2,0.2)
-		for i, label in enumerate(self.labels):
-			cr.move_to(10, i * boxh + (boxh + labelh) / 2 + legend_space)
-			cr.show_text(label)
+        cr.set_source_rgb(0.2,0.2,0.2)
+        for i, label in enumerate(self.labels):
+            cr.move_to(10, i * boxh + (boxh + labelh) / 2 + legend_space)
+            cr.show_text(label)
 
-		cr.set_line_width(1.0)
-		min_time = self.timebounds[0]
-		for i in xrange(11):
-			t = i * timespan / 10 + min_time
-			x = i * areaw / 10 + start
-			bottom = len(self.values) * boxh + legend_space
-			cr.move_to(x, legend_space)
-			cr.line_to(x, bottom)
-			cr.stroke()
-			cr.save()
-			cr.move_to(x, bottom + 10)
-			cr.rotate(1.2)
-			cr.show_text(self.xlabel_format(t))
-			cr.restore()
+        cr.set_line_width(1.0)
+        min_time = self.timebounds[0]
+        for i in xrange(11):
+            t = i * timespan / 10 + min_time
+            x = i * areaw / 10 + start
+            bottom = len(self.values) * boxh + legend_space
+            cr.move_to(x, legend_space)
+            cr.line_to(x, bottom)
+            cr.stroke()
+            cr.save()
+            cr.move_to(x, bottom + 10)
+            cr.rotate(1.2)
+            cr.show_text(self.xlabel_format(t))
+            cr.restore()
 
-		for i, u in enumerate(self.values):
-			posy = i * boxh + legend_space + 10
-			for j, v in enumerate(u):
-				posyy = (float(boxh) - 20) / len(u) * j + posy
-				h = (float(boxh) - 20) / len(u)
-				for (begin, t), (end, x) in utils.pairs_generator(v):
-					if t is None:
-						continue
-					s = areaw * (begin - min_time) / timespan + start
-					e = areaw * (end - min_time) / timespan + start
-					color1, color2 = self.colors[t]
-					self._gradient_box(cr, s, posyy, e - s, h, color1, color2)
+        for i, u in enumerate(self.values):
+            posy = i * boxh + legend_space + 10
+            for j, v in enumerate(u):
+                posyy = (float(boxh) - 20) / len(u) * j + posy
+                h = (float(boxh) - 20) / len(u)
+                for (begin, t), (end, x) in utils.pairs_generator(v):
+                    if t is None:
+                        continue
+                    s = areaw * (begin - min_time) / timespan + start
+                    e = areaw * (end - min_time) / timespan + start
+                    color1, color2 = self.colors[t]
+                    self._gradient_box(cr, s, posyy, e - s, h, color1, color2)
 
-		x = start
-		for color, label in self.legend:
-			self._gradient_box(cr, x, 12, 15, 15, self.colors[color][0], self.colors[color][1])
-			sx, sy = utils.text_size(cr, label)
-			cr.move_to(x + 20, 19 + sy / 2)
-			cr.show_text(label)
-			x += 40 + sx
+        x = start
+        for color, label in self.legend:
+            self._gradient_box(cr, x, 12, 15, 15, self.colors[color][0], self.colors[color][1])
+            sx, sy = utils.text_size(cr, label)
+            cr.move_to(x + 20, 19 + sy / 2)
+            cr.show_text(label)
+            x += 40 + sx
 
-	def _gradient_box(self, cr, x, y, w, h, color1, color2):
-		gradient = cairo.LinearGradient(x, y, x, y + h)
-		gradient.add_color_stop_rgb(0.0, *color1)
-		gradient.add_color_stop_rgb(1.0, *color2)
-		cr.set_source(gradient)
-		cr.rectangle(x, y, w, h)
-		cr.fill()
+    def _gradient_box(self, cr, x, y, w, h, color1, color2):
+        gradient = cairo.LinearGradient(x, y, x, y + h)
+        gradient.add_color_stop_rgb(0.0, *color1)
+        gradient.add_color_stop_rgb(1.0, *color2)
+        cr.set_source(gradient)
+        cr.rectangle(x, y, w, h)
+        cr.fill()
 
 class ChartWidget(gtk.DrawingArea):
 
-	def __init__(self, chart):
-		gtk.DrawingArea.__init__(self)
-		self.chart = chart
-		self.connect("expose_event", self._expose)
+    def __init__(self, chart):
+        gtk.DrawingArea.__init__(self)
+        self.chart = chart
+        self.connect("expose_event", self._expose)
 
-	def _expose(self, w, event):
-		cr = self.window.cairo_create()
-		cr.rectangle(event.area.x, event.area.y,
-				event.area.width, event.area.height)
-		cr.clip()
-		size = self.window.get_size()
-		self.chart.render(size[0], size[1], cr)
+    def _expose(self, w, event):
+        cr = self.window.cairo_create()
+        cr.rectangle(event.area.x, event.area.y,
+                event.area.width, event.area.height)
+        cr.clip()
+        size = self.window.get_size()
+        self.chart.render(size[0], size[1], cr)
 
 
 
 def get_label_sizes(cr, labels):
-	label_sizes = [ utils.text_size(cr, label) for label in labels ]
-	return max(x[0] for x in label_sizes), max(x[1] for x in label_sizes)
+    label_sizes = [ utils.text_size(cr, label) for label in labels ]
+    return max(x[0] for x in label_sizes), max(x[1] for x in label_sizes)

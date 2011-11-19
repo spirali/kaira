@@ -21,20 +21,20 @@ import argparse
 import loader
 
 def export(filename, force_packers):
-	p = loader.load_project(filename)
-	if force_packers:
-		p.set_force_packers(True)
-	p.write_project_files()
-	p.export(p.get_exported_filename())
+    p = loader.load_project(filename)
+    if force_packers:
+        p.set_force_packers(True)
+    p.write_project_files()
+    p.export(p.get_exported_filename())
 
 def main():
-	parser = argparse.ArgumentParser(description='Kaira gui command line controller')
-	parser.add_argument('--export', metavar='filename', type=str)
-	parser.add_argument('--force-packers', action='store_true')
-	args = parser.parse_args()
-	if args.export:
-		export(args.export, args.force_packers)
-		return
+    parser = argparse.ArgumentParser(description='Kaira gui command line controller')
+    parser.add_argument('--export', metavar='filename', type=str)
+    parser.add_argument('--force-packers', action='store_true')
+    args = parser.parse_args()
+    if args.export:
+        export(args.export, args.force_packers)
+        return
 
 if __name__ == "__main__":
-	main()
+    main()

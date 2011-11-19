@@ -26,35 +26,35 @@ import gtk
 
 class GeneralConfig(gtk.VBox):
 
-	def __init__(self, project):
-		gtk.VBox.__init__(self)
-		self.project = project
+    def __init__(self, project):
+        gtk.VBox.__init__(self)
+        self.project = project
 
-		button = gtk.CheckButton("Enforce to use packers (for debug only)")
-		button.set_active(project.force_packers)
-		button.connect("toggled", lambda w: self.project.set_force_packers(w.get_active()))
-		self.pack_start(button, False, False)
-		self.show()
+        button = gtk.CheckButton("Enforce to use packers (for debug only)")
+        button.set_active(project.force_packers)
+        button.connect("toggled", lambda w: self.project.set_force_packers(w.get_active()))
+        self.pack_start(button, False, False)
+        self.show()
 
 class ProjectConfig(gtk.Notebook):
 
-	def __init__(self, app):
-		gtk.Notebook.__init__(self)
-		self.set_tab_pos(gtk.POS_LEFT)
+    def __init__(self, app):
+        gtk.Notebook.__init__(self)
+        self.set_tab_pos(gtk.POS_LEFT)
 
-		w = GeneralConfig(app.project)
-		self.append_page(w, gtk.Label("General"))
+        w = GeneralConfig(app.project)
+        self.append_page(w, gtk.Label("General"))
 
-		w = ParametersWidget(app.project, app.window)
-		self.append_page(w, gtk.Label("Parameters"))
+        w = ParametersWidget(app.project, app.window)
+        self.append_page(w, gtk.Label("Parameters"))
 
-		w = ExternTypesWidget(app.project, app)
-		self.append_page(w, gtk.Label("Extern types"))
+        w = ExternTypesWidget(app.project, app)
+        self.append_page(w, gtk.Label("Extern types"))
 
-		w = FunctionsWidget(app.project, app)
-		self.append_page(w, gtk.Label("Functions"))
+        w = FunctionsWidget(app.project, app)
+        self.append_page(w, gtk.Label("Functions"))
 
-		w = BuildOptionsWidget(app.project, app)
-		self.append_page(w, gtk.Label("Build"))
+        w = BuildOptionsWidget(app.project, app)
+        self.append_page(w, gtk.Label("Build"))
 
-		self.show_all()
+        self.show_all()

@@ -26,425 +26,425 @@ from events import EventSource
 from simconfig import SimConfig
 
 class Project(EventSource):
-	"""
-		Events: changed, netlist_changed filename_changed
-	"""
+    """
+        Events: changed, netlist_changed filename_changed
+    """
 
-	force_packers = False
+    force_packers = False
 
-	def __init__(self, file_name):
-		assert file_name is not None
-		EventSource.__init__(self)
-		self.id_counter = 100
-		self.set_filename(file_name)
-		self.nets = []
-		self.parameters = []
-		self.extern_types = []
-		self.simconfig = SimConfig()
-		self.error_messages = {}
-		self.functions = []
+    def __init__(self, file_name):
+        assert file_name is not None
+        EventSource.__init__(self)
+        self.id_counter = 100
+        self.set_filename(file_name)
+        self.nets = []
+        self.parameters = []
+        self.extern_types = []
+        self.simconfig = SimConfig()
+        self.error_messages = {}
+        self.functions = []
 
-	def get_build_option(self, name):
-		if name in self.build_options:
-			return self.build_options[name]
-		else:
-			return ""
+    def get_build_option(self, name):
+        if name in self.build_options:
+            return self.build_options[name]
+        else:
+            return ""
 
-	def set_build_option(self, name, value):
-		self.build_options[name] = value
-		self.changed()
+    def set_build_option(self, name, value):
+        self.build_options[name] = value
+        self.changed()
 
-	def new_id(self):
-		self.id_counter += 1
-		return self.id_counter
+    def new_id(self):
+        self.id_counter += 1
+        return self.id_counter
 
-	def add_net(self, net):
-		self.nets.append(net)
-		net.set_change_callback(self._net_changed)
-		self.emit_event("netlist_changed")
+    def add_net(self, net):
+        self.nets.append(net)
+        net.set_change_callback(self._net_changed)
+        self.emit_event("netlist_changed")
 
-	def find_net(self, id):
-		for net in self.nets:
-			if net.id == id:
-				return net
+    def find_net(self, id):
+        for net in self.nets:
+            if net.id == id:
+                return net
 
-	def remove_net(self, net):
-		self.nets.remove(net)
-		self.emit_event("netlist_changed")
+    def remove_net(self, net):
+        self.nets.remove(net)
+        self.emit_event("netlist_changed")
 
-	def get_simconfig(self):
-		return self.simconfig
+    def get_simconfig(self):
+        return self.simconfig
 
-	def get_nets(self):
-		return self.nets
+    def get_nets(self):
+        return self.nets
 
-	def get_nets_with_interface(self):
-		return self.nets[1:] # Only first network has no interface
+    def get_nets_with_interface(self):
+        return self.nets[1:] # Only first network has no interface
 
-	def get_name(self):
-		d, fname = os.path.split(self.filename)
-		name, ext = os.path.splitext(fname)
-		return name
+    def get_name(self):
+        d, fname = os.path.split(self.filename)
+        name, ext = os.path.splitext(fname)
+        return name
 
-	def reset_param_values(self):
-		self.simconfig.reset_param_values()
+    def reset_param_values(self):
+        self.simconfig.reset_param_values()
 
-	def get_filename(self):
-		return self.filename
+    def get_filename(self):
+        return self.filename
 
-	def get_filename_without_ext(self):
-		name, ext = os.path.splitext(self.filename)
-		return name
+    def get_filename_without_ext(self):
+        name, ext = os.path.splitext(self.filename)
+        return name
 
-	def get_executable_filename(self):
-		return self.get_filename_without_ext()
+    def get_executable_filename(self):
+        return self.get_filename_without_ext()
 
-	def get_exported_filename(self):
-		return self.get_filename_without_ext() + ".xml"
+    def get_exported_filename(self):
+        return self.get_filename_without_ext() + ".xml"
 
-	def get_directory(self):
-		return os.path.dirname(self.filename)
+    def get_directory(self):
+        return os.path.dirname(self.filename)
 
-	def set_filename(self, filename):
-		self.filename = os.path.abspath(filename)
-		self.emit_event("filename_changed")
+    def set_filename(self, filename):
+        self.filename = os.path.abspath(filename)
+        self.emit_event("filename_changed")
 
-	def set_error_messages(self, messages):
-		self.error_messages = messages
-		self.changed()
+    def set_error_messages(self, messages):
+        self.error_messages = messages
+        self.changed()
 
-	def get_item(self, id):
-		for function in self.functions:
-			if function.id == id:
-				return function
-		for net in self.nets:
-			item = net.get_item(id)
-			if item is not None:
-				return item
+    def get_item(self, id):
+        for function in self.functions:
+            if function.id == id:
+                return function
+        for net in self.nets:
+            item = net.get_item(id)
+            if item is not None:
+                return item
 
-	def has_error_messages(self, item):
-		return item.get_id() in self.error_messages
+    def has_error_messages(self, item):
+        return item.get_id() in self.error_messages
 
-	def get_error_messages(self, item):
-		if item.get_id() in self.error_messages:
-			return self.error_messages[item.get_id()]
-		else:
-			return None
+    def get_error_messages(self, item):
+        if item.get_id() in self.error_messages:
+            return self.error_messages[item.get_id()]
+        else:
+            return None
 
-	def changed(self):
-		self.emit_event("changed")
+    def changed(self):
+        self.emit_event("changed")
 
-	def set_force_packers(self, value):
-		self.force_packers = value
-		self.changed()
+    def set_force_packers(self, value):
+        self.force_packers = value
+        self.changed()
 
-	def _net_changed(self, net):
-		self.changed()
+    def _net_changed(self, net):
+        self.changed()
 
-	def as_xml(self):
-		root = xml.Element("project")
-		root.set("extenv", self.get_extenv_name())
-		root.append(self._configuration_element(False))
-		for net in self.nets:
-			root.append(net.as_xml())
-		return root
+    def as_xml(self):
+        root = xml.Element("project")
+        root.set("extenv", self.get_extenv_name())
+        root.append(self._configuration_element(False))
+        for net in self.nets:
+            root.append(net.as_xml())
+        return root
 
-	def save(self):
-		assert self.filename is not None
-		f = open(self.filename, "w")
-		try:
-			f.write(xml.tostring(self.as_xml()))
-		finally:
-			f.close()
+    def save(self):
+        assert self.filename is not None
+        f = open(self.filename, "w")
+        try:
+            f.write(xml.tostring(self.as_xml()))
+        finally:
+            f.close()
 
-	def export(self, filename):
-		root = xml.Element("project")
-		root.set("extenv", self.get_extenv_name())
+    def export(self, filename):
+        root = xml.Element("project")
+        root.set("extenv", self.get_extenv_name())
 
-		root.append(self._configuration_element(True))
+        root.append(self._configuration_element(True))
 
-		description = xml.Element("description")
-		description.text = xml.tostring(self.as_xml())
-		root.append(description)
+        description = xml.Element("description")
+        description.text = xml.tostring(self.as_xml())
+        root.append(description)
 
-		for net in self.nets:
-			root.append(net.export_xml())
+        for net in self.nets:
+            root.append(net.export_xml())
 
-		f = open(filename, "w")
-		try:
-			f.write(xml.tostring(root))
-		finally:
-			f.close()
+        f = open(filename, "w")
+        try:
+            f.write(xml.tostring(root))
+        finally:
+            f.close()
 
-	def get_extern_types(self):
-		return self.extern_types
+    def get_extern_types(self):
+        return self.extern_types
 
-	def get_functions(self):
-		return self.functions
+    def get_functions(self):
+        return self.functions
 
-	def add_extern_type(self, obj):
-		self.extern_types.append(obj)
-		self.changed()
+    def add_extern_type(self, obj):
+        self.extern_types.append(obj)
+        self.changed()
 
-	def remove_extern_type(self, obj):
-		self.extern_types.remove(obj)
-		self.changed()
+    def remove_extern_type(self, obj):
+        self.extern_types.remove(obj)
+        self.changed()
 
-	def find_extern_type(self, typename):
-		for t in self.extern_types:
-			if t.name == typename:
-				return t
+    def find_extern_type(self, typename):
+        for t in self.extern_types:
+            if t.name == typename:
+                return t
 
-	def add_function(self, obj):
-		obj.set_project(self)
-		self.functions.append(obj)
-		self.changed()
+    def add_function(self, obj):
+        obj.set_project(self)
+        self.functions.append(obj)
+        self.changed()
 
-	def remove_function(self, obj):
-		self.functions.remove(obj)
-		self.changed()
+    def remove_function(self, obj):
+        self.functions.remove(obj)
+        self.changed()
 
-	def add_parameter(self, obj):
-		obj.project = self
-		self.reset_param_values()
-		self.parameters.append(obj)
-		self.changed()
+    def add_parameter(self, obj):
+        obj.project = self
+        self.reset_param_values()
+        self.parameters.append(obj)
+        self.changed()
 
-	def get_parameters(self):
-		return self.parameters
+    def get_parameters(self):
+        return self.parameters
 
-	def remove_parameter(self, parameter):
-		self.reset_param_values()
-		self.parameters.remove(parameter)
-		self.changed()
+    def remove_parameter(self, parameter):
+        self.reset_param_values()
+        self.parameters.remove(parameter)
+        self.changed()
 
-	def write_project_files(self):
-		self.write_makefile()
-		utils.write_file_if_not_exists(self.get_head_filename(), self.get_initial_head_file_content())
+    def write_project_files(self):
+        self.write_makefile()
+        utils.write_file_if_not_exists(self.get_head_filename(), self.get_initial_head_file_content())
 
-	def _build_option_as_xml(self, name):
-		element = xml.Element("build-option")
-		element.set("name", name)
-		element.text = self.get_build_option(name)
-		return element
+    def _build_option_as_xml(self, name):
+        element = xml.Element("build-option")
+        element.set("name", name)
+        element.text = self.get_build_option(name)
+        return element
 
 
-	def _configuration_element(self, export):
-		e = xml.Element("configuration")
-		for p in self.parameters:
-			e.append(p.as_xml())
-		for t in self.extern_types:
-			e.append(t.as_xml())
-		for t in self.functions:
-			e.append(t.as_xml())
-		for t in self.build_options:
-			e.append(self._build_option_as_xml(t))
+    def _configuration_element(self, export):
+        e = xml.Element("configuration")
+        for p in self.parameters:
+            e.append(p.as_xml())
+        for t in self.extern_types:
+            e.append(t.as_xml())
+        for t in self.functions:
+            e.append(t.as_xml())
+        for t in self.build_options:
+            e.append(self._build_option_as_xml(t))
 
-		if export:
-			f = xml.Element("force-packers")
-			f.set("value", str(self.force_packers))
-			e.append(f)
-		return e
+        if export:
+            f = xml.Element("force-packers")
+            f.set("value", str(self.force_packers))
+            e.append(f)
+        return e
 
 class Parameter:
-	project = None
+    project = None
 
-	def __init__(self):
-		self.name = ""
-		self.type = "Int"
-		self.description = ""
-		self.default = "0"
+    def __init__(self):
+        self.name = ""
+        self.type = "Int"
+        self.description = ""
+        self.default = "0"
 
-	def set_name(self, name):
-		self.name = name
-		self.changed()
+    def set_name(self, name):
+        self.name = name
+        self.changed()
 
-	def get_name(self):
-		return self.name
+    def get_name(self):
+        return self.name
 
-	def set_type(self, type):
-		self.type = type
-		self.changed()
+    def set_type(self, type):
+        self.type = type
+        self.changed()
 
-	def get_type(self):
-		return self.type
+    def get_type(self):
+        return self.type
 
-	def get_description(self):
-		return self.description
+    def get_description(self):
+        return self.description
 
-	def get_default(self):
-		return self.default
+    def get_default(self):
+        return self.default
 
-	def set_description(self, description):
-		self.description = description
-		self.changed()
+    def set_description(self, description):
+        self.description = description
+        self.changed()
 
-	def set_default(self, default):
-		self.default = default
-		self.changed()
+    def set_default(self, default):
+        self.default = default
+        self.changed()
 
-	def changed(self):
-		if self.project:
-			self.project.reset_param_values()
+    def changed(self):
+        if self.project:
+            self.project.reset_param_values()
 
-	def as_xml(self):
-		e = xml.Element("parameter")
-		e.set("name", self.name)
-		e.set("type", self.type)
-		e.set("description", self.description)
-		e.set("default", self.default)
-		return e
+    def as_xml(self):
+        e = xml.Element("parameter")
+        e.set("name", self.name)
+        e.set("type", self.type)
+        e.set("description", self.description)
+        e.set("default", self.default)
+        return e
 
 class ExternType:
-	"""
-		Transport modes: "Disabled", "Direct", "Custom"
-	"""
+    """
+        Transport modes: "Disabled", "Direct", "Custom"
+    """
 
-	def __init__(self, name, raw_type, transport_mode):
-		self.name = name
-		self.raw_type = raw_type
-		self.transport_mode = transport_mode
+    def __init__(self, name, raw_type, transport_mode):
+        self.name = name
+        self.raw_type = raw_type
+        self.transport_mode = transport_mode
 
-		self.functions = {
-			"getstring": "",
-			"getsize": "",
-			"pack": "",
-			"unpack": ""
-		}
+        self.functions = {
+            "getstring": "",
+            "getsize": "",
+            "pack": "",
+            "unpack": ""
+        }
 
 
-	def get_name(self):
-		return self.name
+    def get_name(self):
+        return self.name
 
-	def get_raw_type(self):
-		return self.raw_type
+    def get_raw_type(self):
+        return self.raw_type
 
-	def get_transport_mode(self):
-		return self.transport_mode
+    def get_transport_mode(self):
+        return self.transport_mode
 
-	def set_name(self, value):
-		self.name = value
+    def set_name(self, value):
+        self.name = value
 
-	def set_raw_type(self, value):
-		self.raw_type = value
+    def set_raw_type(self, value):
+        self.raw_type = value
 
-	def set_transport_mode(self, value):
-		self.transport_mode = value
+    def set_transport_mode(self, value):
+        self.transport_mode = value
 
-	def set_function_code(self, name, value):
-		self.functions[name] = value
+    def set_function_code(self, name, value):
+        self.functions[name] = value
 
-	def has_function(self, name):
-		return "" != self.functions[name].strip()
+    def has_function(self, name):
+        return "" != self.functions[name].strip()
 
-	def get_function_code(self, name):
-		if self.has_function(name):
-			return self.functions[name]
-		elif name == "getstring":
-			return self.get_default_function_code()
-		else:
-			return "\t\n"
+    def get_function_code(self, name):
+        if self.has_function(name):
+            return self.functions[name]
+        elif name == "getstring":
+            return self.get_default_function_code()
+        else:
+            return "\t\n"
 
-	def is_function_allowed(self, name):
-		if self.transport_mode == "Custom":
-			return True
-		else:
-			return name == "getstring"
+    def is_function_allowed(self, name):
+        if self.transport_mode == "Custom":
+            return True
+        else:
+            return name == "getstring"
 
-	def get_function_list_string(self):
-		names = [ name for name in self.functions if self.has_function(name) and self.is_function_allowed(name) ]
-		return ", ".join(names)
+    def get_function_list_string(self):
+        names = [ name for name in self.functions if self.has_function(name) and self.is_function_allowed(name) ]
+        return ", ".join(names)
 
-	def as_xml(self):
-		e = xml.Element("extern-type")
-		e.set("name", self.name)
-		e.set("raw-type", self.raw_type)
-		e.set("transport-mode", self.transport_mode)
+    def as_xml(self):
+        e = xml.Element("extern-type")
+        e.set("name", self.name)
+        e.set("raw-type", self.raw_type)
+        e.set("transport-mode", self.transport_mode)
 
-		for name in self.functions:
-			if self.has_function(name):
-				fe = xml.Element("code")
-				fe.set("name", name)
-				fe.text = self.functions[name]
-				e.append(fe)
+        for name in self.functions:
+            if self.has_function(name):
+                fe = xml.Element("code")
+                fe.set("name", name)
+                fe.text = self.functions[name]
+                e.append(fe)
 
-		return e
+        return e
 
 class Function():
 
-	project = None
+    project = None
 
-	def __init__(self, id):
-		self.name = ""
-		self.code = ""
+    def __init__(self, id):
+        self.name = ""
+        self.code = ""
 
-		self.return_type = ""
-		self.parameters = ""
-		self.with_context = False
-		self.id = id
+        self.return_type = ""
+        self.parameters = ""
+        self.with_context = False
+        self.id = id
 
-	def get_name(self):
-		return self.name
+    def get_name(self):
+        return self.name
 
-	def set_name(self, name):
-		self.name = name
+    def set_name(self, name):
+        self.name = name
 
-	def set_function_code(self, code):
-		if code is None:
-			code = ""
-		self.code = code
+    def set_function_code(self, code):
+        if code is None:
+            code = ""
+        self.code = code
 
-	def get_function_code(self):
-		if self.has_code():
-			return self.code
-		else:
-			return "\t\n"
+    def get_function_code(self):
+        if self.has_code():
+            return self.code
+        else:
+            return "\t\n"
 
-	def has_code(self):
-		return self.code.strip() != ""
+    def has_code(self):
+        return self.code.strip() != ""
 
-	def set_project(self, project):
-		self.project = project
-		if self.id is None:
-			self.id = project.new_id()
+    def set_project(self, project):
+        self.project = project
+        if self.id is None:
+            self.id = project.new_id()
 
-	def get_parameters(self):
-		return self.parameters
+    def get_parameters(self):
+        return self.parameters
 
-	def set_parameters(self, parameters):
-		self.parameters = parameters
+    def set_parameters(self, parameters):
+        self.parameters = parameters
 
-	def get_return_type(self):
-		return self.return_type
+    def get_return_type(self):
+        return self.return_type
 
-	def set_return_type(self, return_type):
-		self.return_type = return_type
+    def set_return_type(self, return_type):
+        self.return_type = return_type
 
-	def get_with_context(self):
-		return self.with_context
+    def get_with_context(self):
+        return self.with_context
 
-	def set_with_context(self, value):
-		self.with_context = value
+    def set_with_context(self, value):
+        self.with_context = value
 
-	def check_definition(self):
-		if self.project.type_to_raw_type(self.return_type) is None:
-			return False
-		for p in self.split_parameters():
-			if len(p) != 2:
-				return False
-			if self.project.type_to_raw_type(p[0]) is None:
-				return False
-		return True
+    def check_definition(self):
+        if self.project.type_to_raw_type(self.return_type) is None:
+            return False
+        for p in self.split_parameters():
+            if len(p) != 2:
+                return False
+            if self.project.type_to_raw_type(p[0]) is None:
+                return False
+        return True
 
-	def split_parameters(self):
-		return [ x.split() for x in self.parameters.split(",") if x.strip() != ""]
+    def split_parameters(self):
+        return [ x.split() for x in self.parameters.split(",") if x.strip() != ""]
 
-	def as_xml(self):
-		e = xml.Element("function")
-		e.set("id", str(self.id))
-		e.set("name", self.name)
-		e.set("return-type", self.return_type)
-		e.set("parameters", self.parameters)
-		e.set("with-context", str(self.with_context))
-		e.text = self.code
-		return e
+    def as_xml(self):
+        e = xml.Element("function")
+        e.set("id", str(self.id))
+        e.set("name", self.name)
+        e.set("return-type", self.return_type)
+        e.set("parameters", self.parameters)
+        e.set("with-context", str(self.with_context))
+        e.text = self.code
+        return e

@@ -19,45 +19,45 @@
 
 class EventCallback:
 
-	def __init__(self, source, event_name, callback):
-		self.source = source
-		self.event_name = event_name
-		self.callback = callback
+    def __init__(self, source, event_name, callback):
+        self.source = source
+        self.event_name = event_name
+        self.callback = callback
 
-	def remove(self):
-		self.source.remove(self.event_name, self.callback)
+    def remove(self):
+        self.source.remove(self.event_name, self.callback)
 
 class EventCallbacksList:
 
-	def __init__(self):
-		self.list = []
+    def __init__(self):
+        self.list = []
 
-	def set_callback(self, source, event_name, callback):
-		self.list.append(source.set_callback(event_name, callback))
+    def set_callback(self, source, event_name, callback):
+        self.list.append(source.set_callback(event_name, callback))
 
-	def remove_all(self):
-		for callback in self.list:
-			callback.remove()
+    def remove_all(self):
+        for callback in self.list:
+            callback.remove()
 
 class EventSource:
 
-	def __init__(self):
-		self.__callbacks = {}
+    def __init__(self):
+        self.__callbacks = {}
 
-	def set_callback(self, event_name, callback):
-		lst = self.__callbacks.setdefault(event_name, [])
-		lst.append(callback)
-		return EventCallback(self, event_name, callback)
+    def set_callback(self, event_name, callback):
+        lst = self.__callbacks.setdefault(event_name, [])
+        lst.append(callback)
+        return EventCallback(self, event_name, callback)
 
-	def emit_event(self, event_name, *params):
-		if event_name in self.__callbacks:
-			for cb in self.__callbacks[event_name]:
-				cb(*params)
+    def emit_event(self, event_name, *params):
+        if event_name in self.__callbacks:
+            for cb in self.__callbacks[event_name]:
+                cb(*params)
 
-	def event_emitter(self, event_name):
-		return lambda *x: self.emit_event(event_name, *x)
+    def event_emitter(self, event_name):
+        return lambda *x: self.emit_event(event_name, *x)
 
-	def remove(self, event_name, callback):
-		self.__callbacks[event_name].remove(callback)
-		if not self.__callbacks[event_name]:
-			del self.__callbacks[event_name]
+    def remove(self, event_name, callback):
+        self.__callbacks[event_name].remove(callback)
+        if not self.__callbacks[event_name]:
+            del self.__callbacks[event_name]
