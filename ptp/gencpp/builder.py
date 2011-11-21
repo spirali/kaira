@@ -134,8 +134,8 @@ class Builder(CppWriter):
         self.block_end()
 
     def register_net(self, net):
-        self.line("CaNetDef *def_{0.id} = new CaNetDef({0.id}, {1}, spawn_{0.id});", net,
-                     len(net.transitions))
+        self.line("CaNetDef *def_{0.id} = new CaNetDef({2}, {0.id}, {1}, spawn_{0.id});", net,
+                     len(net.transitions), net.get_index())
         for i, tr in enumerate(net.transitions):
             self.line("def_{0.id}->register_transition({2}, {1.id},(CaEnableFn*) enable_{1.id});",
                         net, tr, i)
@@ -358,7 +358,7 @@ class Builder(CppWriter):
             if edge.is_normal(): # Pack normal edge
                 w.line("CaPacker packer({0});", self.get_size_code(t, "value"))
                 w.line("{0};", self.get_pack_code(t, "packer", "value"))
-                w.line("thread->send{0}(target_{1.id}, net->get_id(), {2}, packer);",
+                w.line("thread->send{0}(target_{1.id}, net, {2}, packer);",
                        sendtype, edge, edge.get_place().get_pos_id())
             else: # Pack packing edge
                 if self.is_directly_packable(t):
@@ -375,7 +375,7 @@ class Builder(CppWriter):
                 w.block_begin()
                 w.line("{0};", self.get_pack_code(t, "packer", "(*i)"))
                 w.block_end()
-                w.line("thread->multisend{0}(target_{1.id}, net->get_id(), {2}, value.size(), packer);",
+                w.line("thread->multisend{0}(target_{1.id}, net, {2}, value.size(), packer);",
                        sendtype,edge, edge.get_place().get_pos_id())
             w.block_end()
 
@@ -528,7 +528,7 @@ class Builder(CppWriter):
     def write_spawn(self, net):
         self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id) {{", net)
         self.indent_push()
-        self.line("Net_{0.id} *net = new Net_{0.id}(id, id % thread->get_process_count(), def);", net)
+        self.line("Net_{0.id} *net = new Net_{0.id}(id, id % thread->get_process_count(), def, thread);", net)
         self.line("CaContext ctx(thread);")
         self.line("int pid = thread->get_process_id();")
         for area in net.areas:
@@ -609,8 +609,8 @@ class Builder(CppWriter):
         class_name = "Net_" + str(net.id)
         self.write_class_head(class_name, "CaNet")
 
-        decls = [("id", "int"), ("main_process_id", "int"), ("def", "CaNetDef *")]
-        self.write_constructor(class_name, self.emit_declarations(decls), ["CaNet(id, main_process_id, def)"])
+        decls = [("id", "int"), ("main_process_id", "int"), ("def", "CaNetDef *"), ("thread", "CaThread *")]
+        self.write_constructor(class_name, self.emit_declarations(decls), ["CaNet(id, main_process_id, def, thread)"])
         self.write_method_end()
 
         for place in net.places:

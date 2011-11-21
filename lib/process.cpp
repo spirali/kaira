@@ -157,11 +157,11 @@ void CaThread::init_log(const std::string &logname)
 	logger->flush();
 }
 
-void CaProcess::multisend(int target, int net_id, int place_pos, int tokens_count, const CaPacker &packer)
+void CaProcess::multisend(int target, CaNet *net, int place_pos, int tokens_count, const CaPacker &packer)
 {
 	std::vector<int> a(1);
 	a[0] = target;
-	multisend_multicast(a, net_id, place_pos, tokens_count, packer);
+	multisend_multicast(a, net, place_pos, tokens_count, packer);
 	/*
 	#ifdef CA_MPI
 		CaPacket *packet = (CaPacket*) packer.get_buffer();
@@ -175,19 +175,26 @@ void CaProcess::multisend(int target, int net_id, int place_pos, int tokens_coun
 	#endif */
 }
 
-void CaProcess::multisend_multicast(const std::vector<int> &targets, int net_id, int place_pos, int tokens_count, const CaPacker &packer)
+void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net, int place_pos, int tokens_count, const CaPacker &packer)
 {
 	char *buffer = packer.get_buffer();
 	std::vector<int>::const_iterator i;
 	for (i = targets.begin(); i != targets.end(); i++) {
+		int target = *i % process_count;
 		CaUnpacker unpacker(buffer);
-		CaProcess *p = processes[(*i) % process_count];
-		CaNet *net = p->get_net(net_id);
-		net->lock();
-		for (int t = 0; t < tokens_count; t++) {
-			net->receive(place_pos, unpacker);
+		CaProcess *p = processes[target];
+		if (!net->is_process_informed(target)) {
+			/* We don't need lock of net because because the worse in worse case we only send twice
+			about new net */
+			p->spawn_net(&p->threads[0], net->get_def_index(), net->get_id());
+			net->set_informed_process(target);
 		}
-		net->unlock();
+		CaNet *n = p->get_net(net->get_id());
+		n->lock();
+		for (int t = 0; t < tokens_count; t++) {
+			n->receive(place_pos, unpacker);
+		}
+		n->unlock();
 	}
 	free(buffer);
 }
@@ -197,7 +204,10 @@ void CaThread::run_scheduler()
 	process_messages();
 	std::vector<CaNet*>::iterator net = nets.begin();
 	while(!process->quit_flag) {
-		process_messages();
+		if (process_messages()) {
+			// Vector nets could be changed
+			net = nets.begin();
+		}
 		net++;
 		if (net == nets.end()) {
 			net = nets.begin();
@@ -222,11 +232,28 @@ CaNet * CaThread::spawn_net(int def_index)
 	return process->spawn_net(this, def_index, process->new_net_id());
 }
 
+CaNet * CaProcess::find_net(int id)
+{
+	for (std::vector<CaNet*>::iterator i = nets.begin(); i != nets.end(); i++) {
+		if ((*i)->get_id() == id) {
+			return *i;
+		}
+	}
+	return NULL;
+}
+
 CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id)
 {
-	CaNet *net = defs[def_index]->spawn(thread, id);
-	nets.push_back(net);
-	inform_new_network(net);
+	pthread_mutex_lock(&nets_mutex);
+	CaNet *net = find_net(id);
+	if (net == NULL) {
+		net = defs[def_index]->spawn(thread, id);
+		nets.push_back(net);
+		pthread_mutex_unlock(&nets_mutex);
+		inform_new_network(net);
+	} else {
+		pthread_mutex_unlock(&nets_mutex);
+	}
 	return net;
 }
 
@@ -250,6 +277,7 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	this->defs = defs;
 	this->threads_count = threads_count;
 	pthread_mutex_init(&counter_mutex, NULL);
+	pthread_mutex_init(&nets_mutex, NULL);
 	threads = new CaThread[threads_count];
 	// TODO: ALLOCTEST
 	int t;
@@ -273,6 +301,7 @@ CaProcess::~CaProcess()
 {
 	delete [] threads;
 	pthread_mutex_destroy(&counter_mutex);
+	pthread_mutex_destroy(&nets_mutex);
 }
 
 void CaProcess::start()

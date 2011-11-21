@@ -1,10 +1,12 @@
 
 #include "net.h"
+#include "process.h"
 #include <stdio.h>
 #include <string.h>
 
-CaNetDef::CaNetDef(int id, int transitions_count, CaSpawnFn *spawn_fn)
+CaNetDef::CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn)
 {
+	this->index = index;
 	this->id = id;
 	this->transitions_count = transitions_count;
 	this->spawn_fn = spawn_fn;
@@ -45,17 +47,25 @@ CaNet * CaNetDef::spawn(CaThread *thread, int id)
 	return spawn_fn(thread, this, id);
 }
 
-CaNet::CaNet(int id, int main_process_id, CaNetDef *def) : def(def), id(id),
+CaNet::CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread) : def(def), id(id),
 	main_process_id(main_process_id)
 {
 	pthread_mutex_init(&mutex, NULL);
 	transitions = def->copy_transitions();
 	activate_all_transitions();
+	int count = thread->get_process_count();
+	informed_processes = new bool[thread->get_process_count()];
+	for (int t = 0; t < count; t++) {
+		informed_processes[t] = false;
+	}
+	// Main process spawned module therefore module's instance has to be there
+	informed_processes[get_main_process_id()] = true;
 }
 
 CaNet::~CaNet()
 {
 	delete [] transitions;
+	delete [] informed_processes;
 	pthread_mutex_destroy(&mutex);
 }
 
