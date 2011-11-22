@@ -33,12 +33,13 @@ class CaTransition {
 class CaNetDef {
 
 	public:
-		CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn);
+		CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local);
 		~CaNetDef();
 
 		CaNet *spawn(CaThread *thread, int id);
 		int get_id() const { return id; }
 		int get_index() const { return index; }
+		bool is_local() const { return local; }
 		void register_transition(int i, int id, CaEnableFn *enable_fn);
 		CaTransition * get_transition(int transition_id);
 
@@ -51,6 +52,7 @@ class CaNetDef {
 		int transitions_count;
 		CaTransition *transitions;
 		CaSpawnFn *spawn_fn;
+		bool local;
 };
 
 class CaNet {
@@ -62,13 +64,7 @@ class CaNet {
 		int get_main_process_id() const { return main_process_id; }
 		int get_def_id() const { return def->get_id(); }
 		int get_def_index() const { return def->get_index(); }
-
-		bool is_process_informed(int process_id) {
-			return informed_processes[process_id];
-		}
-		void set_informed_process(int process_id) {
-			informed_processes[process_id] = true;
-		}
+		bool is_local() const { return def->is_local(); }
 
 		/* Lock for working with active_units */
 		void lock() { pthread_mutex_lock(&mutex); }
@@ -99,8 +95,6 @@ class CaNet {
 		int id;
 		int main_process_id;
 		CaTransition *transitions;
-
-		bool *informed_processes;
 };
 
 #endif // CAILIE_NET_H

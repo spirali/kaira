@@ -44,7 +44,7 @@ class CaProcess {
 		void start_logging(const std::string &logname);
 		void stop_logging();
 
-		CaNet * spawn_net(CaThread *thread, int def_index, int id);
+		CaNet * spawn_net(CaThread *thread, int def_index, int id, bool globally);
 		int new_net_id();
 
 		CaNet * get_net(int id);
@@ -55,8 +55,6 @@ class CaProcess {
 
 		void multisend(int target, CaNet * net, int place, int tokens_count, const CaPacker &packer);
 		void multisend_multicast(const std::vector<int> &targets, CaNet *net, int place, int tokens_count, const CaPacker &packer);
-
-		CaNet * find_net(int id);
 
 		#ifndef CA_MPI
 		void set_processes(CaProcess **processes) {

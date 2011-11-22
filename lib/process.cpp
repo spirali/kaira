@@ -183,12 +183,6 @@ void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net,
 		int target = *i % process_count;
 		CaUnpacker unpacker(buffer);
 		CaProcess *p = processes[target];
-		if (!net->is_process_informed(target)) {
-			/* We don't need lock of net because because the worse in worse case we only send twice
-			about new net */
-			p->spawn_net(&p->threads[0], net->get_def_index(), net->get_id());
-			net->set_informed_process(target);
-		}
 		CaNet *n = p->get_net(net->get_id());
 		n->lock();
 		for (int t = 0; t < tokens_count; t++) {
@@ -229,30 +223,22 @@ void CaThread::run_scheduler()
 
 CaNet * CaThread::spawn_net(int def_index)
 {
-	return process->spawn_net(this, def_index, process->new_net_id());
+	return process->spawn_net(this, def_index, process->new_net_id(), true);
 }
 
-CaNet * CaProcess::find_net(int id)
-{
-	for (std::vector<CaNet*>::iterator i = nets.begin(); i != nets.end(); i++) {
-		if ((*i)->get_id() == id) {
-			return *i;
-		}
-	}
-	return NULL;
-}
-
-CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id)
+CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, bool globally)
 {
 	pthread_mutex_lock(&nets_mutex);
-	CaNet *net = find_net(id);
-	if (net == NULL) {
-		net = defs[def_index]->spawn(thread, id);
-		nets.push_back(net);
-		pthread_mutex_unlock(&nets_mutex);
-		inform_new_network(net);
-	} else {
-		pthread_mutex_unlock(&nets_mutex);
+	CaNet *net = defs[def_index]->spawn(thread, id);
+	nets.push_back(net);
+	pthread_mutex_unlock(&nets_mutex);
+	inform_new_network(net);
+	if (globally && !net->is_local()) {
+		for (int i = 0; i < process_count; i++) {
+			if (i == process_id)
+				continue;
+			processes[i]->spawn_net(&processes[i]->threads[0], def_index, id, false);
+		}
 	}
 	return net;
 }
@@ -285,7 +271,7 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 		threads[t].set_process(this, t);
 	}
 
-	spawn_net(&threads[0], 0, 0);
+	spawn_net(&threads[0], 0, 0, false);
 }
 
 int CaProcess::new_net_id()
