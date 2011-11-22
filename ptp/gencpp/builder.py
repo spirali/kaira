@@ -134,8 +134,8 @@ class Builder(CppWriter):
         self.block_end()
 
     def register_net(self, net):
-        self.line("CaNetDef *def_{0.id} = new CaNetDef({2}, {0.id}, {1}, spawn_{0.id}, false);", net,
-                     len(net.transitions), net.get_index())
+        self.line("CaNetDef *def_{0.id} = new CaNetDef({2}, {0.id}, {1}, spawn_{0.id}, {3});", net,
+                     len(net.transitions), net.get_index(), self.emitter.const_boolean(net.is_local()))
         for i, tr in enumerate(net.transitions):
             self.line("def_{0.id}->register_transition({2}, {1.id},(CaEnableFn*) enable_{1.id});",
                         net, tr, i)

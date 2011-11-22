@@ -218,6 +218,8 @@ class Transition(utils.EqByIdMixin):
     def get_pos_id(self):
         return self.net.transitions.index(self)
 
+    def is_local(self):
+        return all((edge.is_local() for edge in self.edges_out))
 
 class Area(object):
 
@@ -295,3 +297,6 @@ class Net(object):
 
     def get_areas_with_place(self, place):
         return [ area for area in self.areas if area.is_place_inside(place) ]
+
+    def is_local(self):
+        return all((tr.is_local() for tr in self.transitions))

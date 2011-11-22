@@ -72,6 +72,12 @@ class Emitter(object):
         args = "".join( [ "(" + e.emit(self) + ")" for e in value ] )
         return '(ca_array<{0} >{1}.end())'.format(self.emit_type(t.args[0]), args)
 
+    def const_boolean(self, value):
+        if value:
+            return "true"
+        else:
+            return "false"
+
     def parameter(self, name):
         return "__param_" + name
 
