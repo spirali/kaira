@@ -7,18 +7,30 @@
 #include <mpi.h>
 #endif
 
-void CaMessageNewNet::process(CaThread *thread) 
+void CaThreadMessageNewNet::process(CaThread *thread)
 {
 		thread->add_network(net);
 }
 
-void CaMessageBarriers::process(CaThread *thread) 
+void CaThreadMessageHaltNet::process(CaThread *thread)
+{
+		CaNet *net = thread->remove_net(net_id);
+		net->lock();
+		int r = net->decr_ref_count();
+		net->unlock();
+		if (r == 0) {
+			thread->get_process()->remove_net(net_id);
+			delete net;
+		}
+}
+
+void CaThreadMessageBarriers::process(CaThread *thread)
 {
 	pthread_barrier_wait(barrier1);
 	pthread_barrier_wait(barrier2);
 }
 
-void CaMessageLogInit::process(CaThread *thread)
+void CaThreadMessageLogInit::process(CaThread *thread)
 {
 	#ifdef CA_MPI
 	if (thread->get_id() == 0) {
@@ -45,7 +57,7 @@ void CaMessageLogInit::process(CaThread *thread)
 	}
 }
 
-void CaMessageLogClose::process(CaThread *thread)
+void CaThreadMessageLogClose::process(CaThread *thread)
 {
 	thread->close_log();
 }

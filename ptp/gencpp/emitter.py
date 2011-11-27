@@ -38,7 +38,7 @@ class Emitter(object):
             if ufunction:
                 name = "ufunction_" + name
                 if ufunction.with_context:
-                    a = [ "CaContext(thread)" ] + a
+                    a = [ "ctx" ] + a
             else:
                 if name == "process_id":
                     name = "thread->get_process_id"

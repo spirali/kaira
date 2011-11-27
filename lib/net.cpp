@@ -51,6 +51,7 @@ CaNet * CaNetDef::spawn(CaThread *thread, int id)
 CaNet::CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread) :
 	def(def), id(id), main_process_id(main_process_id)
 {
+	ref_count = thread->get_process()->get_threads_count();
 	pthread_mutex_init(&mutex, NULL);
 	transitions = def->copy_transitions();
 	activate_all_transitions();

@@ -38,9 +38,10 @@
 
 class CaContext {
 	public:
-		CaContext(CaThread *thread) : thread(thread) {}
+		CaContext(CaThread *thread, CaNet *net) : thread(thread), net(net) {}
 
 		void quit() { thread->quit_all(); }
+		void halt() { thread->halt(net); }
 		int process_id() { return thread->get_process()->get_process_id(); }
 		/*
 		void start_logging(std::string &logname) { thread->start_logging(logname); }
@@ -48,6 +49,7 @@ class CaContext {
 		*/
 	protected:
 		CaThread *thread;
+		CaNet *net;
 };
 
 /* Start */

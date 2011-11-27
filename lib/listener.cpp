@@ -196,8 +196,18 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 				fprintf(comm_out, "There is no such process\n");
 				continue;
 			}
-			processes[process_id]->fire_transition(transition_id, instance_id);
+			CaProcess *p = processes[process_id];
+			p->fire_transition(transition_id, instance_id);
 			fprintf(comm_out, "Ok\n");
+			bool again;
+			do {
+				again = false;
+				for (int s = 0; s < p->get_process_count(); s++) {
+					for (int t = 0; t < p->get_threads_count(); t++) {
+						again = again | processes[s]->get_thread(t)->process_messages();
+					}
+				}
+			} while (again);
 			continue;
 		}
 		fprintf(comm_out, "Unknown command\n");

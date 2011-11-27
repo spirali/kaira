@@ -12,16 +12,21 @@
 #ifdef CA_MPI
 
 #include "campi.h"
-#define CA_RESERVED_PREFIX(path) (sizeof(CaPacket) + (path).get_size())
-
-#else // CA_MPI not defined
-
-#define CA_RESERVED_PREFIX(path) 0
 
 #endif
 
+#define CA_RESERVED_PREFIX sizeof(CaTokens)
+
 class CaProcess;
 class CaThread;
+class CaPacket;
+struct CaServiceMessage;
+
+struct CaTokens {
+	int place_index;
+	int net_id;
+	int tokens_count;
+};
 
 class CaProcess {
 	public:
@@ -30,6 +35,7 @@ class CaProcess {
 		void start();
 		void join();
 		void inform_new_network(CaNet *net);
+		void inform_halt_network(int net_id);
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
 
 		int get_threads_count() const { return threads_count; }
@@ -40,11 +46,15 @@ class CaProcess {
 
 		void quit_all();
 		void quit() { quit_flag = true; }
+		void halt(CaNet *net);
 
 		void start_logging(const std::string &logname);
 		void stop_logging();
 
 		CaNet * spawn_net(CaThread *thread, int def_index, int id, bool globally);
+
+		void remove_net(int id);
+
 		int new_net_id();
 
 		CaNet * get_net(int id);
@@ -56,12 +66,19 @@ class CaProcess {
 		void multisend(int target, CaNet * net, int place, int tokens_count, const CaPacker &packer);
 		void multisend_multicast(const std::vector<int> &targets, CaNet *net, int place, int tokens_count, const CaPacker &packer);
 
+		void process_service_message(CaThread *thread, CaServiceMessage *smsg);
+		void process_packet(CaThread *thread, int tag, void *data);
+		int process_packets(CaThread *thread);
+
 		#ifndef CA_MPI
 		void set_processes(CaProcess **processes) {
 			this->processes = processes;
 		}
+
+		void add_packet(int tag, void *data);
 		#endif
 
+		void broadcast_packet(int tag, void *data, size_t size, int exclude = -1);
 	protected:
 
 
@@ -78,6 +95,8 @@ class CaProcess {
 
 		#ifndef CA_MPI
 		CaProcess **processes;
+		pthread_mutex_t packet_mutex;
+		CaPacket *packets;
 		#endif
 };
 
@@ -93,9 +112,11 @@ class CaThread {
 		int get_process_id() { return process->get_process_id(); }
 		int get_process_count() { return process->get_process_count(); }
 
-		void add_message(CaMessage *message);
+		void add_message(CaThreadMessage *message);
 		int process_messages();
+		void process_message(CaThreadMessage *message);
 		void quit_all();
+		void halt(CaNet *net) { process->halt(net); }
 
 		void send(int target, CaNet *net, int place, const CaPacker &packer) {
 			process->multisend(target, net, place, 1, packer);
@@ -115,6 +136,8 @@ class CaThread {
 		void close_log() { if (logger) { delete logger; logger = NULL; } }
 
 		CaNet * spawn_net(int def_index);
+
+		CaNet * remove_net(int id);
 		/*
 		void log_transition_start(CaUnit *unit, int transition_id) {
 			if (logger) { logger->log_transition_start(unit, transition_id); }
@@ -155,7 +178,7 @@ class CaThread {
 		CaProcess *process;
 		pthread_t thread;
 		pthread_mutex_t messages_mutex;
-		CaMessage *messages;
+		CaThreadMessage *messages;
 		std::vector<CaNet*> nets;
 		int id;
 

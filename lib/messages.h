@@ -8,34 +8,42 @@
 class CaThread;
 class CaNet;
 
-class CaMessage {
+class CaThreadMessage {
 	public:
-		CaMessage() : next(NULL) {}
-		virtual ~CaMessage() {}
-		CaMessage *next;
+		CaThreadMessage() : next(NULL) {}
+		virtual ~CaThreadMessage() {}
+		CaThreadMessage *next;
 		virtual void process(CaThread *thread) = 0;
 };
 
-class CaMessageNewNet  : public CaMessage {
+class CaThreadMessageHaltNet  : public CaThreadMessage {
 	public:
-		CaMessageNewNet(CaNet *net) : net(net) {}
+		CaThreadMessageHaltNet(int net_id) : net_id(net_id) {}
+		void process(CaThread *thread);
+	protected:
+		int net_id;
+};
+
+class CaThreadMessageNewNet  : public CaThreadMessage {
+	public:
+		CaThreadMessageNewNet(CaNet *net) : net(net) {}
 		void process(CaThread *thread);
 	protected:
 		CaNet *net;
 };
 
-class CaMessageBarriers  : public CaMessage {
+class CaThreadMessageBarriers  : public CaThreadMessage {
 	public:
-		CaMessageBarriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2) : barrier1(barrier1), barrier2(barrier2) {}
+		CaThreadMessageBarriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2) : barrier1(barrier1), barrier2(barrier2) {}
 		void process(CaThread *thread);
 	protected:
 		pthread_barrier_t *barrier1;
 		pthread_barrier_t *barrier2;
 };
 
-class CaMessageLogInit  : public CaMessage {
+class CaThreadMessageLogInit  : public CaThreadMessage {
 	public:
-		CaMessageLogInit(std::string logname, pthread_barrier_t *barrier1, pthread_barrier_t *barrier2) 
+		CaThreadMessageLogInit(std::string logname, pthread_barrier_t *barrier1, pthread_barrier_t *barrier2)
 			: barrier1(barrier1), barrier2(barrier2), logname(logname) {}
 		void process(CaThread *thread);
 	protected:
@@ -44,9 +52,9 @@ class CaMessageLogInit  : public CaMessage {
 		std::string logname;
 };
 
-class CaMessageLogClose : public CaMessage {
+class CaThreadMessageLogClose : public CaThreadMessage {
 	public:
-		CaMessageLogClose() : CaMessage() {}
+		CaThreadMessageLogClose() : CaThreadMessage() {}
 		void process(CaThread *thread);
 };
 

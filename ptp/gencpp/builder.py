@@ -240,7 +240,7 @@ class Builder(CppWriter):
     def write_user_function(self, ufunction):
         params =  ufunction.get_parameters()
         if ufunction.with_context:
-            params = [ ("ctx", "CaContext") ] + list(params)
+            params = [ ("ctx", "CaContext &") ] + list(params)
         returntype = self.emit_type(ufunction.get_returntype())
         declaration = "{1} ufunction_{0}({2})".format(ufunction.get_name(),
                                                       returntype, self.emit_declarations(params))
@@ -356,7 +356,7 @@ class Builder(CppWriter):
             traw = self.emit_type(t)
             w.line("{0} value = {1};", self.emit_type(edge.expr.nel_type), edge.expr.emit(em))
             if edge.is_normal(): # Pack normal edge
-                w.line("CaPacker packer({0});", self.get_size_code(t, "value"))
+                w.line("CaPacker packer({0}, CA_RESERVED_PREFIX);", self.get_size_code(t, "value"))
                 w.line("{0};", self.get_pack_code(t, "packer", "value"))
                 w.line("thread->send{0}(target_{1.id}, net, {2}, packer);",
                        sendtype, edge, edge.get_place().get_pos_id())
@@ -370,7 +370,7 @@ class Builder(CppWriter):
                     w.line("size += {0};", self.get_size_code(t, "(*i)"))
                     w.block_end()
                 # TODO: Pack in one step if type is directly packable
-                w.line("CaPacker packer(size);")
+                w.line("CaPacker packer(size, CA_RESERVED_PREFIX);")
                 w.line("for (std::vector<{0} >::iterator i = value.begin(); i != value.end(); i++)", traw)
                 w.block_begin()
                 w.line("{0};", self.get_pack_code(t, "packer", "(*i)"))
@@ -382,7 +382,7 @@ class Builder(CppWriter):
     def write_enable(self, tr):
         self.line("bool enable_{0.id}(CaThread *thread, CaNet *net)", tr)
         self.block_begin()
-
+        self.line("CaContext ctx(thread, net);")
         w = CppWriter()
         em = emitter.Emitter(self.project)
         em.variable_emitter = lambda name: "vars." + name
@@ -396,6 +396,7 @@ class Builder(CppWriter):
             w.line("vars.{1} = n->place_{0.id}.to_vector_and_clear();", edge.get_place(), edge.varname)
 
         if tr.subnet is not None:
+            w.line("n->unlock();")
             w.line("bool lock = true;")
             w.line("Net_{0.id} *n = (Net_{0.id}*) thread->spawn_net({1});", tr.subnet, tr.subnet.get_index())
             for edge in tr.subnet.get_interface_edges_out():
@@ -403,7 +404,6 @@ class Builder(CppWriter):
         else: # Without subnet
             if tr.code is not None:
                 w.line("net->unlock();")
-                w.line("CaContext ctx(thread);")
                 w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
                 w.line("bool lock = false;")
             else:
@@ -416,7 +416,7 @@ class Builder(CppWriter):
                     w.block_end()
                 else:
                     self.write_send_token(w, em, edge)
-        w.line("if (lock) net->unlock();")
+        w.line("if (lock) n->unlock();")
         w.line("return true;")
 
         self.write_enable_pattern_match(tr, w)
@@ -529,7 +529,7 @@ class Builder(CppWriter):
         self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id) {{", net)
         self.indent_push()
         self.line("Net_{0.id} *net = new Net_{0.id}(id, id % thread->get_process_count(), def, thread);", net)
-        self.line("CaContext ctx(thread);")
+        self.line("CaContext ctx(thread, net);")
         self.line("int pid = thread->get_process_id();")
         for area in net.areas:
             self.line("std::vector<int> area_{0.id} = {1};", area, area.expr.emit(self.emitter))

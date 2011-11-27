@@ -88,6 +88,8 @@ class CaNet {
 		void activate_all_transitions();
 		void activate_transition_by_pos_id(int pos_id);
 
+		int decr_ref_count() { return --ref_count; }
+
 	protected:
 		std::queue<CaTransition*> actives;
 		CaNetDef *def;
@@ -95,6 +97,7 @@ class CaNet {
 		int id;
 		int main_process_id;
 		CaTransition *transitions;
+		int ref_count;
 };
 
 #endif // CAILIE_NET_H
