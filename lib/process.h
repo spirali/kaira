@@ -53,11 +53,7 @@ class CaProcess {
 
 		CaNet * spawn_net(CaThread *thread, int def_index, int id, bool globally);
 
-		void remove_net(int id);
-
 		int new_net_id();
-
-		CaNet * get_net(int id);
 
 		CaThread *get_thread(int id);
 
@@ -88,10 +84,8 @@ class CaProcess {
 		int defs_count;
 		CaNetDef **defs;
 		CaThread *threads;
-		std::vector<CaNet*> nets;
 		int id_counter;
 		pthread_mutex_t counter_mutex;
-		pthread_mutex_t nets_mutex;
 
 		#ifndef CA_MPI
 		CaProcess **processes;
@@ -136,7 +130,7 @@ class CaThread {
 		void close_log() { if (logger) { delete logger; logger = NULL; } }
 
 		CaNet * spawn_net(int def_index);
-
+		CaNet * get_net(int id);
 		CaNet * remove_net(int id);
 		/*
 		void log_transition_start(CaUnit *unit, int transition_id) {

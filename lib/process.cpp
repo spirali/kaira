@@ -231,7 +231,7 @@ void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 	}
 	CaTokens *tokens = (CaTokens*) data;
 	CaUnpacker unpacker(tokens + 1);
-	CaNet *n = get_net(tokens->net_id);
+	CaNet *n = thread->get_net(tokens->net_id);
 	if (n == NULL) {
 		// Net is stopped in process
 		return;
@@ -328,11 +328,8 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, bool globa
 		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetCreate), process_id);
 	}
 
-	pthread_mutex_lock(&nets_mutex);
 	CaNet *net = defs[def_index]->spawn(thread, id);
 	net->lock();
-	nets.push_back(net);
-	pthread_mutex_unlock(&nets_mutex);
 	inform_new_network(net);
 	return net;
 }
@@ -350,12 +347,12 @@ CaNet * CaThread::remove_net(int id)
 	return NULL;
 }
 
-CaNet * CaProcess::get_net(int id)
+CaNet * CaThread::get_net(int id)
 {
 	std::vector<CaNet*>::iterator i;
 	for (i = nets.begin(); i != nets.end(); i++) {
 		if ((*i)->get_id() == id) {
-			return (*i);
+			return *i;
 		}
 	}
 	return NULL;
@@ -371,7 +368,6 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	this->threads_count = threads_count;
 	this->packets = NULL;
 	pthread_mutex_init(&counter_mutex, NULL);
-	pthread_mutex_init(&nets_mutex, NULL);
 	pthread_mutex_init(&packet_mutex, NULL);
 	threads = new CaThread[threads_count];
 	// TODO: ALLOCTEST
@@ -397,7 +393,6 @@ CaProcess::~CaProcess()
 {
 	delete [] threads;
 	pthread_mutex_destroy(&counter_mutex);
-	pthread_mutex_destroy(&nets_mutex);
 	pthread_mutex_destroy(&packet_mutex);
 }
 
@@ -484,6 +479,7 @@ void CaProcess::write_reports(FILE *out) const
 	output.set("running", !quit_flag);
 
 	std::vector<CaNet*>::const_iterator i;
+	const std::vector<CaNet*> &nets = threads[0].get_nets();
 	for (i = nets.begin(); i != nets.end(); i++) {
 		(*i)->write_reports(&threads[0], output);
 	}
@@ -495,25 +491,13 @@ void CaProcess::write_reports(FILE *out) const
 void CaProcess::fire_transition(int transition_id, int instance_id)
 {
 	std::vector<CaNet*>::const_iterator i;
+	const std::vector<CaNet*> &nets = threads[0].get_nets();
 	for (i = nets.begin(); i != nets.end(); i++) {
 		if ((*i)->get_id() == instance_id) {
 			(*i)->fire_transition(&threads[0], transition_id);
 			return;
 		}
 	}
-}
-
-void CaProcess::remove_net(int id)
-{
-	pthread_mutex_lock(&nets_mutex);
-	std::vector<CaNet*>::iterator i;
-	for (i = nets.begin(); i != nets.end(); i++) {
-		if ((*i)->get_id() == id) {
-			nets.erase(i);
-			break;
-		}
-	}
-	pthread_mutex_unlock(&nets_mutex);
 }
 
 void CaProcess::halt(CaNet *net)

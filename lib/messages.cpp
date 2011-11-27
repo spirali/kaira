@@ -19,7 +19,6 @@ void CaThreadMessageHaltNet::process(CaThread *thread)
 		int r = net->decr_ref_count();
 		net->unlock();
 		if (r == 0) {
-			thread->get_process()->remove_net(net_id);
 			delete net;
 		}
 }
