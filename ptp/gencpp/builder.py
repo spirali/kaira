@@ -385,7 +385,11 @@ class Builder(CppWriter):
         self.line("CaContext ctx(thread, net);")
         w = CppWriter()
         em = emitter.Emitter(self.project)
-        em.variable_emitter = lambda name: "vars." + name
+
+        if tr.subnet: # If there is subnet then we alloc vars on heap, otherwise use stack
+            em.variable_emitter = lambda name: "vars->" + name
+        else:
+            em.variable_emitter = lambda name: "vars." + name
 
         for i, edge in enumerate(tr.get_normal_edges_in()):
             w.line("n->place_{1.id}.remove(token_{0});", i, edge.get_place())
@@ -393,12 +397,13 @@ class Builder(CppWriter):
         w.line("net->activate_transition_by_pos_id({0});", tr.get_pos_id())
 
         for edge in tr.get_packing_edges_in():
-            w.line("vars.{1} = n->place_{0.id}.to_vector_and_clear();", edge.get_place(), edge.varname)
+            w.line("{1} = n->place_{0.id}.to_vector_and_clear();", edge.get_place(), em.variable_emitter(edge.varname))
 
         if tr.subnet is not None:
             w.line("n->unlock();")
             w.line("bool lock = true;")
             w.line("Net_{0.id} *n = (Net_{0.id}*) thread->spawn_net({1});", tr.subnet, tr.subnet.get_index())
+            w.line("n->set_finish(NULL, vars);")
             for edge in tr.subnet.get_interface_edges_out():
                 self.write_send_token(w, em, edge)
         else: # Without subnet
@@ -419,7 +424,7 @@ class Builder(CppWriter):
         w.line("if (lock) n->unlock();")
         w.line("return true;")
 
-        self.write_enable_pattern_match(tr, w)
+        self.write_enable_pattern_match(tr, w, tr.subnet is not None)
         self.line("return false;")
         self.block_end()
 
@@ -429,26 +434,28 @@ class Builder(CppWriter):
 
         w = CppWriter()
         w.line("return true;")
-
-        self.write_enable_pattern_match(tr, w)
+        self.write_enable_pattern_match(tr, w, False)
         self.line("return false;")
         self.block_end()
 
-    def write_enable_pattern_match(self, tr, fire_code):
+    def write_enable_pattern_match(self, tr, fire_code, vars_on_heap):
         matches, initcode = get_edges_mathing(self.project, tr)
 
-        self.line("Vars_{0.id} vars;", tr)
-        self.line("Net_{0.id} *n = (Net_{0.id}*) net;", tr.net)
-
         em = emitter.Emitter(self.project)
+        if vars_on_heap:
+            self.line("Vars_{0.id} *vars = new Vars_{0.id}();", tr)
+            em.variable_emitter = lambda name: "vars->" + name
+        else:
+            self.line("Vars_{0.id} vars;", tr)
+            em.variable_emitter = lambda name: "vars." + name
+
+        self.line("Net_{0.id} *n = (Net_{0.id}*) net;", tr.net)
 
         need_tokens = utils.multiset([ edge.get_place() for edge, instrs in matches ])
 
         for place, count in need_tokens.items():
             self.line("if (n->place_{0.id}.size() < {1}) return false;", place, count)
 
-
-        em.variable_emitter = lambda name: "vars." + name
         em.set_extern("fail", "return false;")
         for i in initcode:
             i.emit(em, self)

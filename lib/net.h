@@ -13,6 +13,7 @@ class CaUnpacker;
 
 typedef int(CaEnableFn)(CaThread *, CaNet *);
 typedef CaNet * (CaSpawnFn)(CaThread *, CaNetDef *, int id);
+typedef void (CaNetFinishFn)(CaThread *, CaNet *, CaNet *, void *);
 
 class CaTransition {
 	public:
@@ -90,6 +91,10 @@ class CaNet {
 
 		int decr_ref_count() { return --ref_count; }
 
+		void set_finish(CaNetFinishFn *finish_fn, void *data) {
+			this->finish_fn = finish_fn;
+			this->data = data;
+		}
 	protected:
 		std::queue<CaTransition*> actives;
 		CaNetDef *def;
@@ -98,6 +103,9 @@ class CaNet {
 		int main_process_id;
 		CaTransition *transitions;
 		int ref_count;
+
+		CaNetFinishFn *finish_fn;
+		void *data;
 };
 
 #endif // CAILIE_NET_H
