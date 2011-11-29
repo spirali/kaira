@@ -258,7 +258,6 @@ class App:
         def open_tab(stdout):
             name = "P: " + str(place.get_id())
             editor = codeedit.PlaceCodeEditor(self.project, place, "".join(stdout))
-            editor = codeedit.PlaceCodeEditor(self.project, place, stdout[0].strip())
             self.window.add_tab(Tab(name, editor, place))
             editor.jump_to_line(line_no)
         self._start_ptp(self.project, open_tab, extra_args = [ "--place-user-fn", str(place.get_id())])

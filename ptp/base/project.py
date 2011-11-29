@@ -96,7 +96,8 @@ class Parameter(object):
 
 class Project(object):
 
-    def __init__(self, description):
+    def __init__(self, extenv, description):
+        self.extenv = extenv
         self.nets = []
         self.description = description
         self.extern_types = {}
@@ -111,6 +112,9 @@ class Project(object):
         for param in self.get_parameters():
             env.add_parameter(param.get_name(), param.get_type())
         return env
+
+    def get_extenv(self):
+        return self.extenv
 
     def get_all_types(self):
         return set().union( *[ net.get_all_types() for net in self.nets ] )
@@ -256,7 +260,8 @@ def load_configuration(element, project):
 
 def load_project(element):
     description = element.find("description").text
-    p = Project(description)
+    extenv = utils.xml_str(element, "extenv")
+    p = Project(extenv, description)
 
     load_configuration(element.find("configuration"), p)
 

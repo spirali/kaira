@@ -657,19 +657,3 @@ class Builder(CppWriter):
         return "ca_int_to_string({0})".format(expr)
 
 
-def get_place_user_fn_header(project, place):
-        t = emitter.Emitter(project).emit_type(place.type)
-        if t[-1] == ">":
-            t += " "
-        return "void place_fn(CaContext &ctx, std::vector<{1}> &tokens)\n{{\n".format(place, t)
-
-def get_transition_user_fn_header(project, transition):
-        context = transition.get_context()
-        w = CppWriter()
-        w.line("struct Vars {{")
-        for key, value in context.items():
-            w.line("\t{1} {0};", key, emitter.Emitter(project).emit_type(value))
-        w.line("}};")
-        w.emptyline()
-        w.line("void transition_fn(CaContext &ctx, Vars &vars)")
-        return w.get_string()

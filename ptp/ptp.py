@@ -2,28 +2,35 @@
 import sys
 import base.project as project
 import base.utils as utils
-from gencpp.builder import Builder
-from gencpp.builder import get_place_user_fn_header, get_transition_user_fn_header
+from gencpp.generator import CppGenerator
+
+generators = {
+    "C++" : CppGenerator
+}
+
+def get_generator(project):
+    g = generators.get(project.get_extenv())
+    if g is None:
+        raise utils.PtpException("Unknown extenv '{0}'".format(project.get_extenv()))
+    else:
+        return g(project)
 
 
 def main(args):
 
     p = project.load_project_from_file(args[0])
+    generator = get_generator(p)
 
     if len(args) == 3 and args[1] == "--build":
-        builder = Builder(p, args[2])
-        builder.build()
-        builder.write_to_file(args[2])
+        generator.build(args[2])
         return
 
     if len(args) == 3 and args[1] == "--place-user-fn":
-        place = p.get_place(int(args[2]))
-        print get_place_user_fn_header(p, place),
+        print generator.get_place_user_fn_header(int(args[2])),
         return
 
     if len(args) == 3 and args[1] == "--transition-user-fn":
-        transition = p.get_transition(int(args[2]))
-        print get_transition_user_fn_header(p, transition),
+        print generator.get_transition_user_fn_header(int(args[2])),
         return
 
     print "Usage: ptp <project.xml> <action>"
