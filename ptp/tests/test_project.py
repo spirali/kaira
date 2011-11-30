@@ -43,7 +43,7 @@ class TestProject(unittest.TestCase):
         self.assertEqual(e.get_equations(), [ (ExprVar("x"), t_int)] )
 
 
-simple_project = """<project>
+simple_project = """<project extenv='C++'>
   <configuration>
     <parameter default="0" description="My param" name="PARAM" type="Int"/>
     <build-option name="CC">g++</build-option>

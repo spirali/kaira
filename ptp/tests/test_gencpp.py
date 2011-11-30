@@ -27,7 +27,7 @@ class TestGen(unittest.TestCase):
         self.assertEqual(w.get_string(), text)
 
     def test_emit_expressions(self):
-        e = Emitter(Project(None))
+        e = Emitter(Project("C++", None))
         expr = parse_expression('range(10,"Hi!", y)')
         self.assertEqual(expr.emit(e), 'ca_range(10, "Hi!", y)')
         expr = parse_expression('10 + x')
@@ -45,7 +45,7 @@ class TestGen(unittest.TestCase):
         e = Emitter(None)
         self.assertEqual(e.emit_type(t_int), "int")
         self.assertEqual(e.emit_type(t_string), "std::string")
-        self.assertEqual(e.emit_type(t_array(t_int)), "std::vector<int>")
+        self.assertEqual(e.emit_type(t_array(t_int)), "std::vector<int >")
         self.assertEqual(e.emit_type(t_tuple(t_int, t_string)), "Tuple2_Int_String")
 
 
