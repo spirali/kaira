@@ -16,6 +16,8 @@ void CaThreadMessageHaltNet::process(CaThread *thread)
 {
 		CaNet *net = thread->remove_net(net_id);
 		net->lock();
+		net->finalize(thread);
+		net->set_finalizer(NULL, NULL);
 		int r = net->decr_ref_count();
 		net->unlock();
 		if (r == 0) {

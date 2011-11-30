@@ -72,6 +72,19 @@ template<class T> class CaPlace {
 			return v;
 		}
 
+		std::vector<T> to_vector() {
+			std::vector<T> v;
+			if (token) {
+				v.reserve(tokens_count);
+				CaToken<T> *t = token;
+				do {
+					v.push_back(t->element);
+					t = t->next;
+				} while(t != token);
+			}
+			return v;
+		}
+
 		void clear() {
 			if (token) {
 				CaToken<T> *t = token;
@@ -90,6 +103,10 @@ template<class T> class CaPlace {
 		size_t size() { return tokens_count; }
 
 		CaToken<T> *last() { return token->prev; }
+
+		bool is_empty() { return token == NULL; }
+
+		T first_value() { return token->element; }
 
 	protected:
 		/* This is naive implementation, it needs benchmarks

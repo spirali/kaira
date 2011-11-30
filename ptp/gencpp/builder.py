@@ -20,6 +20,7 @@
 import base.utils as utils
 from base.neltypes import t_int, t_string, t_float, t_double
 from base.writer import Writer
+from base.expressions import ExprVar
 import emitter
 import os.path
 
@@ -211,9 +212,48 @@ class Builder(CppWriter):
         self.write_var_struct(tr)
         self.line("bool enable_{0.id}_check(CaThread *thread, CaNet *net);", tr)
 
+    def write_transition_net_finalizer(self, tr):
+
+        def variable_emitter(name):
+            for edge in tr.subnet.get_interface_edges_in():
+                if edge.is_normal() and edge.expr.name == name:
+                    return "subnet->place_{0.id}.first_value()".format(edge.get_place())
+                elif edge.is_packing() and edge.varname == name:
+                    return "subnet->place_{0.id}.to_vector()".format(edge.get_place())
+            return "vars->" + name
+
+        self.line("void transition_finalizer_{0.id}(CaThread *thread, "
+                  "Net_{1.id} *n, Net_{2.id} *subnet, Vars_{0.id} *vars)", tr, tr.net, tr.subnet)
+        self.block_begin()
+        self.line("CaContext ctx(thread, n);")
+        conditions = []
+        for edge in tr.subnet.get_interface_edges_in():
+            if edge.is_normal():
+                if not isinstance(edge.expr, ExprVar):
+                    raise utils.PtpException("Invalid expression", edge.expr.source)
+                conditions.append("subnet->place_{0.id}.is_empty()".format(edge.get_place()))
+        if conditions:
+            self.if_begin("||".join(conditions))
+            self.line('fprintf(stderr, "Token in output places of module not found\\n");')
+            self.line("exit(-1);")
+            self.block_end()
+
+        self.line("bool lock = false;")
+        em = emitter.Emitter(self.project)
+        em.variable_emitter = variable_emitter
+        for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
+            self.write_send_token(self, em, edge)
+            self.write_activation(self, "parent_net", edge.get_place().get_transitions_out())
+
+        self.line("if (lock) n->unlock();")
+        self.line("delete vars;")
+        self.block_end()
+
     def write_transition(self, tr):
         if tr.code is not None:
             self.write_transition_user_function(tr)
+        if tr.subnet is not None:
+            self.write_transition_net_finalizer(tr)
         self.write_enable(tr)
         self.write_enable_check(tr)
 
@@ -332,6 +372,8 @@ class Builder(CppWriter):
 
         method = "add" if edge.is_normal() else "add_all"
 
+        if edge.guard is not None:
+            w.if_begin(edge.guard.emit(em))
         if edge.is_local():
             write_lock()
             w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
@@ -378,6 +420,9 @@ class Builder(CppWriter):
                 w.line("thread->multisend{0}(target_{1.id}, net, {2}, value.size(), packer);",
                        sendtype,edge, edge.get_place().get_pos_id())
             w.block_end()
+        if edge.guard is not None:
+            w.block_end()
+
 
     def write_enable(self, tr):
         self.line("bool enable_{0.id}(CaThread *thread, CaNet *net)", tr)
@@ -402,8 +447,8 @@ class Builder(CppWriter):
         if tr.subnet is not None:
             w.line("n->unlock();")
             w.line("bool lock = true;")
-            w.line("Net_{0.id} *n = (Net_{0.id}*) thread->spawn_net({1});", tr.subnet, tr.subnet.get_index())
-            w.line("n->set_finish(NULL, vars);")
+            w.line("Net_{0.id} *n = (Net_{0.id}*) thread->spawn_net({1}, net);", tr.subnet, tr.subnet.get_index())
+            w.line("n->set_finalizer((CaNetFinalizerFn*) transition_finalizer_{0.id}, vars);", tr)
             for edge in tr.subnet.get_interface_edges_out():
                 self.write_send_token(w, em, edge)
         else: # Without subnet
@@ -415,12 +460,7 @@ class Builder(CppWriter):
                 w.line("bool lock = true;")
 
             for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
-                if edge.guard:
-                    w.if_begin(edge.guard.emit(em))
-                    self.write_send_token(w, em, edge)
-                    w.block_end()
-                else:
-                    self.write_send_token(w, em, edge)
+                self.write_send_token(w, em, edge)
         w.line("if (lock) n->unlock();")
         w.line("return true;")
 
@@ -519,7 +559,6 @@ class Builder(CppWriter):
                 write_fn(etype, "unpack")
 
     def build(self):
-        #self.inject_types(project)
         self.project.inject_types()
         self.write_header()
         self.write_parameters()
@@ -533,9 +572,9 @@ class Builder(CppWriter):
         self.write_main()
 
     def write_spawn(self, net):
-        self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id) {{", net)
+        self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id, CaNet *parent_net) {{", net)
         self.indent_push()
-        self.line("Net_{0.id} *net = new Net_{0.id}(id, id % thread->get_process_count(), def, thread);", net)
+        self.line("Net_{0.id} *net = new Net_{0.id}(id, id % thread->get_process_count(), def, thread, parent_net);", net)
         self.line("CaContext ctx(thread, net);")
         self.line("int pid = thread->get_process_id();")
         for area in net.areas:
@@ -616,8 +655,10 @@ class Builder(CppWriter):
         class_name = "Net_" + str(net.id)
         self.write_class_head(class_name, "CaNet")
 
-        decls = [("id", "int"), ("main_process_id", "int"), ("def", "CaNetDef *"), ("thread", "CaThread *")]
-        self.write_constructor(class_name, self.emit_declarations(decls), ["CaNet(id, main_process_id, def, thread)"])
+        decls = [("id", "int"), ("main_process_id", "int"), ("def", "CaNetDef *"),
+                 ("thread", "CaThread *"), ("parent_net", "CaNet *")]
+        self.write_constructor(class_name, self.emit_declarations(decls),
+                               ["CaNet(id, main_process_id, def, thread, parent_net)"])
         self.write_method_end()
 
         for place in net.places:

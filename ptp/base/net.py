@@ -257,6 +257,9 @@ class Net(object):
     def get_interface_edges_out(self):
         return self.interface_edges_out
 
+    def get_interface_edges_in(self):
+        return self.interface_edges_in
+
     def get_place(self, id):
         for place in self.places:
             if place.id == id:

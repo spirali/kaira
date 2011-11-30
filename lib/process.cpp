@@ -254,7 +254,7 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 		case CA_SM_NET_CREATE:
 		{
 			CaServiceMessageNetCreate *m = (CaServiceMessageNetCreate*) smsg;
-			CaNet *net = spawn_net(thread, m->def_index, m->net_id, false);
+			CaNet *net = spawn_net(thread, m->def_index, m->net_id, NULL, false);
 			net->unlock();
 			break;
 		}
@@ -312,12 +312,12 @@ void CaThread::run_scheduler()
 	}
 }
 
-CaNet * CaThread::spawn_net(int def_index)
+CaNet * CaThread::spawn_net(int def_index, CaNet *parent_net)
 {
-	return process->spawn_net(this, def_index, process->new_net_id(), true);
+	return process->spawn_net(this, def_index, process->new_net_id(), parent_net, true);
 }
 
-CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, bool globally)
+CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, CaNet *parent_net, bool globally)
 {
 	if (globally && !defs[def_index]->is_local()) {
 		CaServiceMessageNetCreate *m =
@@ -328,7 +328,7 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, bool globa
 		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetCreate), process_id);
 	}
 
-	CaNet *net = defs[def_index]->spawn(thread, id);
+	CaNet *net = defs[def_index]->spawn(thread, id, parent_net);
 	net->lock();
 	inform_new_network(net);
 	return net;
@@ -376,7 +376,7 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 		threads[t].set_process(this, t);
 	}
 
-	CaNet *net = spawn_net(&threads[0], 0, 0, false);
+	CaNet *net = spawn_net(&threads[0], 0, 0, NULL, false);
 	net->unlock();
 }
 

@@ -12,8 +12,8 @@ class CaThread;
 class CaUnpacker;
 
 typedef int(CaEnableFn)(CaThread *, CaNet *);
-typedef CaNet * (CaSpawnFn)(CaThread *, CaNetDef *, int id);
-typedef void (CaNetFinishFn)(CaThread *, CaNet *, CaNet *, void *);
+typedef CaNet * (CaSpawnFn)(CaThread *, CaNetDef *, int id, CaNet *);
+typedef void (CaNetFinalizerFn)(CaThread *, CaNet *, CaNet *, void *);
 
 class CaTransition {
 	public:
@@ -37,7 +37,7 @@ class CaNetDef {
 		CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local);
 		~CaNetDef();
 
-		CaNet *spawn(CaThread *thread, int id);
+		CaNet *spawn(CaThread *thread, int id, CaNet *parent_net);
 		int get_id() const { return id; }
 		int get_index() const { return index; }
 		bool is_local() const { return local; }
@@ -58,7 +58,7 @@ class CaNetDef {
 
 class CaNet {
 	public:
-		CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread);
+		CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread, CaNet *parent_net);
 		virtual ~CaNet();
 
 		int get_id() const { return id; }
@@ -91,10 +91,12 @@ class CaNet {
 
 		int decr_ref_count() { return --ref_count; }
 
-		void set_finish(CaNetFinishFn *finish_fn, void *data) {
-			this->finish_fn = finish_fn;
+		void set_finalizer(CaNetFinalizerFn *finalizer_fn, void *data) {
+			this->finalizer_fn = finalizer_fn;
 			this->data = data;
 		}
+
+		void finalize(CaThread *thread);
 	protected:
 		std::queue<CaTransition*> actives;
 		CaNetDef *def;
@@ -104,7 +106,8 @@ class CaNet {
 		CaTransition *transitions;
 		int ref_count;
 
-		CaNetFinishFn *finish_fn;
+		CaNet *parent_net;
+		CaNetFinalizerFn *finalizer_fn;
 		void *data;
 };
 

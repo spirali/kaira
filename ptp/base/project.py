@@ -226,6 +226,7 @@ def load_net_content(element, project, net):
     interface = element.find("interface")
     if interface is not None:
         net.interface_edges_out = [ load_edge_out(e, net, None) for e in interface.findall("edge-out") ]
+        net.interface_edges_in = [ load_edge_in(e, net, None) for e in interface.findall("edge-in") ]
 
 def load_extern_type(element):
     name = utils.xml_str(element, "name")
