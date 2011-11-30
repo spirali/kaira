@@ -272,6 +272,8 @@ class Net(object):
 
     def get_all_types(self):
         result = set()
+        for place in self.places:
+            result.add(place.type)
         for tr in self.transitions:
             for t in tr.get_types():
                 result.update(t.get_subtypes())

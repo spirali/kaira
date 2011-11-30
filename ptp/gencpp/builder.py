@@ -180,7 +180,7 @@ class Builder(CppWriter):
         self.block_begin()
         self.line("std::stringstream osstream;")
         self.line('osstream << "[";')
-        self.line("if (vector.size() > 1)")
+        self.line("if (vector.size() > 0)")
         self.block_begin()
         self.line("std::vector<{0} >::const_iterator i = vector.begin();", self.emit_type(t))
         self.line("osstream << {0};", self.code_as_string("*i", t))
