@@ -1,6 +1,5 @@
 #
 #    Copyright (C) 2010, 2011 Stanislav Bohm
-#                        2011 Ondrej Garncarz
 #
 #    This file is part of Kaira.
 #
@@ -49,15 +48,11 @@ class FunctionsWidget(ObjectList):
 
         self.fill(project.functions)
 
-    ## Returns a list of information about a function.
-    #  @param obj An object encapsulating the function.
-    #  @return The list containg the object itself, the function's name,
-    #    return type, boolean about using context, and parameters.
+    ## Overriden method from ObjectList
     def object_as_row(self, obj):
         return [obj, obj.get_name(), obj.get_return_type(), obj.get_with_context(), obj.get_parameters()]
 
-    ## Triggers editing of a definition of a function.
-    #  @param selected The function.
+    ## Overriden method from ObjectList
     def row_activated(self, selected):
         self._edit_function_code(selected)
 

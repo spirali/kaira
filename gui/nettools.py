@@ -27,49 +27,49 @@ import gtkutils
 #  (e.g. creating new places and transitions).
 class NetTool:
 
-	## The running action over network.
+    ## What to do with dragged item, e.g. we are moving/resizing something, instance of classes ToolAction*
     action = None
     
     ## The original position of scrolling.
     scroll_point = None
     
-    ## The selected item from the network.
+    ## The selected item from the net.
     selected_item = None
     
     ## The last position of the mouse.
     mouse_last_pos = None
     
-    ## @var net The network we're working with.
+    ## @var net The net we're working with.
     
-    ## @var netview The network view we're working with.
+    ## @var netview The net view we're working with.
 
     ## The constructor.
-    #  @param netview What network view are we working with?
+    #  @param netview What net view are we working with?
     def __init__(self, netview):
         self.netview = netview
         self.net = netview.get_net()
 
-    ## Starts working with the network.
+    ## Starts working with the tool.
     def start(self):
         self.set_cursor(None)
         self.netview.set_entry_types([])
 
-    ## Stops working with elements from the network.
+    ## Stops working with the tool.
     def stop(self):
         self.deselect_item()
 
-    ## Sets a right cursor for a running action.
-    #  @param action_name The name of the running action
+    ## Sets a cursor by action name.
+    #  @param action_name string from keys in netview.action_cursors
     def set_cursor(self, action_name):
         self.netview.set_cursor(action_name)
 
-    ## Sets a new working network.
-    #  @param net The new network.
+    ## Sets a net where tool should opeate.
+    #  @param net A net.
     def set_net(self, net):
         self.deselect_item()
         self.net = net
 
-    ## Draws the object. (Actually does nothing.)
+    ## Drawing tool specific graphic, it is called after net is drawn
     def draw(self, cr):
         pass
 
@@ -84,23 +84,22 @@ class NetTool:
             self.netview.set_entry_types([])
             self.netview.highlight_off()
 
-    ## Checks whether an item is selectable.
+    ## Checks whether an item is selectable by the tool.
     #  @param item The item.
     #  @return Is the item selectable?
     def is_selectable(self, item):
         return True
 
-    ## Highlights a (hovered) item.
+    ## Turns on highlight if mouse is over an item
     #  @param item The item.
     def mouseover_highlight(self, item):
         self.netview.mouseover_highlight(item)
 
-    ## Unhighlights a (formerly hovered) item.
+    ## Turns off highlight activated by mouseover_highlight
     #  @param item The item.
     def mouseover_highlight_off(self):
         self.netview.mouseover_highlight_off()
 
-    ## Sets no item to work with.
     def deselect_item(self):
         self.select_item(None)
 
@@ -109,10 +108,7 @@ class NetTool:
     def get_grid_size(self):
         return self.netview.get_grid_size()
 
-    ## Returns a list of couples consisting of selectable subnetworks and their
-    #  set functions related to a given transition.
-    #  @param transition The transition.
-    #  @return The list of couples.
+    ## Returns a list suitable for gtkutils.build_menu, it creates menu for selecting subnets
     def build_netlist_menu(self, transition):
         def call(net):
             return lambda w: transition.set_subnet(net)
@@ -121,11 +117,10 @@ class NetTool:
         return [ ("<None>", call(None)) ] + menu
 
     ## @brief The event handler for the mouse right button pressed down.
+    #  Shows a context menu for an item or move with viewport when nothing is selected
     #
-    #  Shows a context menu for a position or scrolls when there's nothing
-    #  to work with.
-    #  @param event The mouse event.
-    #  @param position The position in the network.
+    #  @param event Gtk event.
+    #  @param position Position in net.
     def right_button_down(self, event, position):
         def delete_event(w):
             self.selected_item.delete()
@@ -163,24 +158,24 @@ class NetTool:
     ## @brief The event handler for the mouse right button released.
     #
     #  Stops scrolling if it was.
-    #  @param event A mouse event.
-    #  @param position A position in the network.
+    #  @param event Gtk event.
+    #  @param position Position in net.
     def right_button_up(self, event, position):
         if self.scroll_point is not None:
             self.scroll_point = None
             self.set_cursor(None)
 
-    ## @brief The event handler for the network being changed.
+    ## @brief The event handler when net is changed
     #
-    #  Stops working with an item which isn't contained in the network.
+    # Deselected selected item if item was removed from the net
     def net_changed(self):
         if self.selected_item and not self.net.contains(self.selected_item):
             self.selected_item = None
             self.set_cursor(None)
 
     ## Returns a item at a given position.
-    #  @param position The position in the network.
-    #  @return The item.
+    #  @param position The position in the net.
+    #  @return The item or None.
     def item_at_position(self, position):
         return self.net.get_item_at_position(position, self.is_selectable)
 
@@ -188,9 +183,10 @@ class NetTool:
     #
     #  Selects an item at a given position and changes the running action
     #  appropriately.
-    #  @param event A mouse event.
+    #  @param event Gtk event.
     #  @param position The position in the network.
-    #  @return Has any item been selected?
+    #  @param position Position in net.
+    #  @return True if the event was handled 
     def left_button_down(self, event, position):
         item = self.item_at_position(position)
         if item:
@@ -206,19 +202,18 @@ class NetTool:
     ## @brief The event handler for the mouse left button released.
     #
     #  Deactivates the running action.
-    #  @param event A mouse event.
-    #  @param position The position in the network.
+    #  @param event Gtk event.
     def left_button_up(self, event, position):
         self.action = None
 
     ## @brief The event handler for the mouse being moved.
     #
-    #  @li Scrolls, if scrolling.
+    #  @li Scrolls, if scrolling is enabled.
     #  @li Highlights a hovered item.
     #  @li Delegates to the running action or offers an appropriate action
     #    for the selected item.
-    #  @param event A mouse event.
-    #  @param position The position in the network.
+    #  @param event Gtk event.
+    #  @param position Position in net.
     def mouse_move(self, event, position):
 
         if self.scroll_point:
@@ -246,12 +241,12 @@ class NetTool:
                     self.set_cursor(None)
         self.mouse_last_pos = position
 
-    ## Returns an action ... # TODO ???
+    ##  Creates new moving action
     #
-    #  @param original_position The original positon in the network.
-    #  @param set_fn # TODO co to je?
-    #  @param position The new position in the network.
-    #  @return The tool.
+    #  @param original_position The original position of item when action was initialized.
+    #  @param set_fn Callback that is called when cursor is moved, it is called with one parameter, new position of item
+    #  @param position The position of cursor when action was initialized
+    #  @return Instance of ToolAction
     def get_move_action(self, original_position, set_fn, position):
         tool = ToolActionGridMove(original_position, set_fn, position, self, "move")
         return tool
