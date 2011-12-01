@@ -323,6 +323,11 @@ class IntefaceDrawing(DrawingBase):
         DrawingBase.__init__(self)
         self.position = item.get_position()
         self.size = item.get_size()
+        if item.net.get_autohalt():
+            self.text = "AH"
+        else:
+            self.text = "MH"
+
 
     def draw(self, cr):
         px, py = self.position
@@ -345,6 +350,11 @@ class IntefaceDrawing(DrawingBase):
         cr.stroke()
         cr.rectangle(px + 3, py + 3, sx - 6, sy - 6)
         cr.stroke()
+
+        cr.set_source_rgb(0.3,0.3,0.3)
+        cr.move_to(px + 15, py + 20)
+        cr.show_text(self.text)
+
 
 class IntefaceNodeDrawing(DrawingBase):
 

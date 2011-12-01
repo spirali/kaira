@@ -35,6 +35,7 @@ class Net:
         self.items = []
         self.change_callback = lambda n: None
         self.interface_box = None
+        self.autohalt = True
 
     def get_name(self):
         return self.name
@@ -58,6 +59,13 @@ class Net:
     def remove_item(self, item):
         self.items.remove(item)
         self.changed()
+
+    def set_autohalt(self, value):
+        self.autohalt = value
+        self.changed()
+
+    def get_autohalt(self):
+        return self.autohalt
 
     def changed(self):
         self.change_callback(self)
@@ -110,9 +118,14 @@ class Net:
         e = xml.Element("net")
         e.set("name", self.name)
         e.set("id", str(self.id))
+        if self.is_module():
+            e.set("autohalt", str(self.autohalt))
         for item in self.items:
             e.append(item.as_xml())
         return e
+
+    def is_module(self):
+        return self.interface_box is not None
 
     def copy(self):
         xml = self.as_xml()
@@ -212,7 +225,6 @@ class Net:
             b = max(b, ib)
         return ((l,t), (r, b))
 
-
 class NetItem(object):
 
     z_level = 0
@@ -255,7 +267,6 @@ class NetItem(object):
 
     def get_text_entries(self):
         return []
-
 
 class NetElement(NetItem):
 
@@ -305,7 +316,6 @@ class NetElement(NetItem):
         for area in self.net.areas():
             if area.is_inside(self):
                 return area
-
 
 class Transition(NetElement):
 
@@ -518,7 +528,6 @@ class Place(NetElement):
         px, py = self.position
         r = self.radius
         return ((px - r, py - r), (px + r, py + r))
-
 
 class Edge(NetItem):
 
@@ -881,9 +890,6 @@ class InterfaceNode(NetElement):
         self.position = min(pos, key=lambda x: x[0])[1]
         self.changed()
 
-    def is_at_position(self, position):
-        return False
-
     def get_action(self, position, factory):
         return factory.get_move_action(self.position, self.set_position, position)
 
@@ -988,6 +994,7 @@ def load_net(element, project, loader):
     interface_box = element.find("interface-box")
     if interface_box is not None:
         load_interface_box(interface_box, net, loader)
+        net.set_autohalt(utils.xml_bool(element, "autohalt", True))
 
     for e in element.findall("interface-node"):
         load_interface_node(e, net, loader)

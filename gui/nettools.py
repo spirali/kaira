@@ -18,7 +18,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from net import Place, Transition, Edge
+from net import Place, Transition, Edge, InterfaceBox
 import utils
 import gtkutils
 
@@ -29,18 +29,18 @@ class NetTool:
 
     ## What to do with dragged item, e.g. we are moving/resizing something, instance of classes ToolAction*
     action = None
-    
+
     ## The original position of scrolling.
     scroll_point = None
-    
+
     ## The selected item from the net.
     selected_item = None
-    
+
     ## The last position of the mouse.
     mouse_last_pos = None
-    
+
     ## @var net The net we're working with.
-    
+
     ## @var netview The net view we're working with.
 
     ## The constructor.
@@ -138,7 +138,11 @@ class NetTool:
                 Edge: [ ("Switch direction",
                             lambda w: self.selected_item.switch_direction()),
                         ("Bidirectional",
-                            lambda w: self.selected_item.toggle_bidirectional()) ]
+                            lambda w: self.selected_item.toggle_bidirectional()) ],
+                InterfaceBox: [
+                    ("Automatic halt", lambda w: self.net.set_autohalt(True)),
+                    ("Manual halt", lambda w: self.net.set_autohalt(False))
+                ]
             }
 
             if self.selected_item.is_interfacebox():
@@ -186,7 +190,7 @@ class NetTool:
     #  @param event Gtk event.
     #  @param position The position in the network.
     #  @param position Position in net.
-    #  @return True if the event was handled 
+    #  @return True if the event was handled
     def left_button_down(self, event, position):
         item = self.item_at_position(position)
         if item:
