@@ -19,7 +19,7 @@
 
 import base.utils as utils
 import base.parser as parser
-from base.expressions import Env, ExprCall
+from base.expressions import Env, ExprCall, ExprVar, ExprInt
 
 import xml.etree.ElementTree as xml
 from base.utils import PtpException
@@ -170,9 +170,14 @@ def load_edge_in(element, net, transition):
     if mode == 'normal':
         return EdgeIn(id, net.get_place(place_id), transition, expr)
     else:
-        if not isinstance(expr, ExprCall) or len(expr.args) != 1:
+        if isinstance(expr, ExprCall) and len(expr.args) == 1:
+            limit = expr.args[0]
+        elif isinstance(expr, ExprVar):
+            limit = ExprInt(0)
+            limit.set_source(source)
+        else:
             raise PtpException("Invalid syntax for input packing expression", source)
-        return EdgeInPacking(id, net.get_place(place_id), transition, expr.name, expr.args[0])
+        return EdgeInPacking(id, net.get_place(place_id), transition, expr.name, limit)
 
 def load_edge_out(element, net, transition):
     id = utils.xml_int(element, "id")
