@@ -246,7 +246,7 @@ class Builder(CppWriter):
             self.write_send_token(self, em, edge)
             #self.write_activation(self, "n", edge.get_place().get_transitions_out())
         if tr.net.has_autohalt():
-            self.write_decrement_running_transitions(self, "parent_net")
+            self.write_decrement_running_transitions(self, "n")
         self.line("if (lock) n->unlock();")
         self.line("delete vars;")
         self.block_end()

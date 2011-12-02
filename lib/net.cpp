@@ -114,6 +114,7 @@ void CaNet::finalize(CaThread *thread)
 {
 	if (finalizer_fn) {
 		finalizer_fn(thread, parent_net, this, data);
+		set_finalizer(NULL, NULL);
 	}
 }
 

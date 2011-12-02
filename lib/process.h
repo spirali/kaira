@@ -77,6 +77,7 @@ class CaProcess {
 		void broadcast_packet(int tag, void *data, size_t size, int exclude = -1);
 	protected:
 
+		void autohalt_process(CaNet *net);
 
 		int process_id;
 		int process_count;

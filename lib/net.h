@@ -93,6 +93,10 @@ class CaNet {
 			actives.push(tr);
 		}
 
+		CaNet * get_parent_net() {
+			return parent_net;
+		}
+
 		void activate_all_transitions();
 		void activate_transition_by_pos_id(int pos_id);
 
