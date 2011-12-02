@@ -12,6 +12,7 @@ class CaThread;
 class CaUnpacker;
 
 typedef int(CaEnableFn)(CaThread *, CaNet *);
+typedef bool(CaEnableCheckFn)(CaThread *, CaNet *);
 typedef CaNet * (CaSpawnFn)(CaThread *, CaNetDef *, int id, CaNet *);
 typedef void (CaNetFinalizerFn)(CaThread *, CaNet *, CaNet *, void *);
 
@@ -20,12 +21,15 @@ class CaTransition {
 		CaTransition() : active(false) {}
 
 		CaEnableFn *enable_fn;
+		CaEnableCheckFn *enable_check_fn;
 		int id;
 
 		bool is_active() { return active; }
 		void set_active(bool value) { active = value; }
 
 		bool fire(CaThread *thread, CaNet *net) { return enable_fn(thread, net); }
+
+		bool is_enable(CaThread *thread, CaNet *net) { return enable_check_fn(thread, net); }
 
 	protected:
 		bool active;
@@ -34,19 +38,20 @@ class CaTransition {
 class CaNetDef {
 
 	public:
-		CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local);
+		CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local, bool autohalt);
 		~CaNetDef();
 
 		CaNet *spawn(CaThread *thread, int id, CaNet *parent_net);
 		int get_id() const { return id; }
 		int get_index() const { return index; }
 		bool is_local() const { return local; }
-		void register_transition(int i, int id, CaEnableFn *enable_fn);
+		void register_transition(int i, int id,
+			CaEnableFn *enable_fn, CaEnableCheckFn *enable_check_fn);
 		CaTransition * get_transition(int transition_id);
 
 		CaTransition * copy_transitions();
 		int get_transitions_count() { return transitions_count; }
-
+		bool is_autohalt() { return autohalt; }
 	protected:
 		int index;
 		int id;
@@ -54,6 +59,7 @@ class CaNetDef {
 		CaTransition *transitions;
 		CaSpawnFn *spawn_fn;
 		bool local;
+		bool autohalt;
 };
 
 class CaNet {
@@ -77,6 +83,7 @@ class CaNet {
 		void fire_transition(CaThread *thread, int transition_id);
 
 		CaTransition * pick_active_transition();
+		bool has_active_transition() { return !actives.empty(); }
 
 		void activate_transition(CaTransition *tr) {
 			if (tr->is_active()) {
@@ -97,8 +104,20 @@ class CaNet {
 		}
 
 		void finalize(CaThread *thread);
+
+		/* Monitoring of running transitions' number
+		   it is used for autohalt, if autohalt is disabled
+           this methods don't have to be called */
+		void inc_running_transitions() { running_transitions++; }
+		void dec_running_transitions() { running_transitions--; }
+		int get_running_transitions() { return running_transitions; }
+
+		bool is_autohalt() { return def->is_autohalt(); }
+
+		bool is_something_enabled(CaThread *thread);
 	protected:
 		std::queue<CaTransition*> actives;
+		int running_transitions;
 		CaNetDef *def;
 		pthread_mutex_t mutex;
 		int id;
@@ -109,6 +128,7 @@ class CaNet {
 		CaNet *parent_net;
 		CaNetFinalizerFn *finalizer_fn;
 		void *data;
+
 };
 
 #endif // CAILIE_NET_H

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-CaNetDef::CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local)
+CaNetDef::CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local, bool autohalt)
 {
 	this->index = index;
 	this->id = id;
@@ -12,6 +12,7 @@ CaNetDef::CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn
 	this->spawn_fn = spawn_fn;
 	this->transitions = new CaTransition[transitions_count];
 	this->local = local;
+	this->autohalt = autohalt;
 }
 
 CaNetDef::~CaNetDef()
@@ -27,10 +28,12 @@ CaTransition * CaNetDef::copy_transitions()
 	return ts;
 }
 
-void CaNetDef::register_transition(int i, int id, CaEnableFn *enable_fn)
+void CaNetDef::register_transition(int i, int id, CaEnableFn *enable_fn,
+	CaEnableCheckFn *enable_check_fn)
 {
 	transitions[i].id = id;
 	transitions[i].enable_fn = enable_fn;
+	transitions[i].enable_check_fn = enable_check_fn;
 }
 
 CaTransition* CaNetDef::get_transition(int transition_id)
@@ -49,7 +52,7 @@ CaNet * CaNetDef::spawn(CaThread *thread, int id, CaNet *parent_net)
 }
 
 CaNet::CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread, CaNet *parent_net) :
-	def(def), id(id), main_process_id(main_process_id), parent_net(parent_net), finalizer_fn(NULL), data(NULL)
+	running_transitions(0), def(def), id(id), main_process_id(main_process_id), parent_net(parent_net), finalizer_fn(NULL), data(NULL)
 {
 	ref_count = thread->get_process()->get_threads_count();
 	pthread_mutex_init(&mutex, NULL);
@@ -112,4 +115,15 @@ void CaNet::finalize(CaThread *thread)
 	if (finalizer_fn) {
 		finalizer_fn(thread, parent_net, this, data);
 	}
+}
+
+bool CaNet::is_something_enabled(CaThread *thread)
+{
+	int t;
+	for (t = 0; t < def->get_transitions_count(); t++) {
+		if (transitions[t].is_enable(thread, this)) {
+			return true;
+		}
+	}
+	return false;
 }

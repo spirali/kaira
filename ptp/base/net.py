@@ -245,6 +245,7 @@ def inject_types_for_empty_context(env, expr, t):
 class Net(object):
 
     id = None
+    autohalt = False
 
     def __init__(self, project):
         self.project = project
@@ -253,6 +254,9 @@ class Net(object):
         self.areas = []
         self.interface_edges_in = []
         self.interface_edges_out = []
+
+    def has_autohalt(self):
+        return self.autohalt
 
     def get_interface_edges_out(self):
         return self.interface_edges_out

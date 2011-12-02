@@ -153,6 +153,10 @@ class Net:
         e = xml.Element("net")
         e.set("name", self.name)
         e.set("id", str(self.id))
+        if self.is_module():
+            e.set("autohalt", str(self.autohalt))
+        else:
+            e.set("autohalt", "False")
 
         for place in self.places():
             e.append(place.export_xml())

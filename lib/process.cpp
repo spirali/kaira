@@ -302,6 +302,9 @@ void CaThread::run_scheduler()
 		CaTransition *tr = n->pick_active_transition();
 
 		if (tr == NULL) {
+			if (n->is_autohalt() && n->get_running_transitions() == 0) {
+				halt(n);
+			}
 			n->unlock();
 			continue;
 		}
@@ -488,18 +491,25 @@ void CaProcess::write_reports(FILE *out) const
 	delete block;
 }
 
+// Designed for calling during simulation
 void CaProcess::fire_transition(int transition_id, int instance_id)
 {
 	std::vector<CaNet*>::const_iterator i;
 	const std::vector<CaNet*> &nets = threads[0].get_nets();
 	for (i = nets.begin(); i != nets.end(); i++) {
-		if ((*i)->get_id() == instance_id) {
-			(*i)->fire_transition(&threads[0], transition_id);
+		CaNet *n = *i;
+		if (n->get_id() == instance_id) {
+			n->fire_transition(&threads[0], transition_id);
+			if (n->is_autohalt() && n->get_running_transitions() == 0
+				&& !n->is_something_enabled(&threads[0])) {
+				halt(n);
+			}
 			return;
 		}
 	}
 }
 
+// Halt net net, sends information about halting if net is nonlocal
 void CaProcess::halt(CaNet *net)
 {
 	if (!net->is_local()) {
