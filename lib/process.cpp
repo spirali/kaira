@@ -260,7 +260,7 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 		}
 		case CA_SM_NET_HALT:
 			CaServiceMessageNetHalt *m = (CaServiceMessageNetHalt*) smsg;
-			inform_halt_network(m->net_id);
+			inform_halt_network(m->net_id, thread);
 			break;
 	}
 }
@@ -309,8 +309,11 @@ void CaThread::run_scheduler()
 			continue;
 		}
 		tr->set_active(false);
-		if (!tr->fire(this, n)) {
+		int res = tr->fire(this, n);
+		if (res == CA_NOT_ENABLED) {
 			n->unlock();
+		} else if (res == CA_TRANSITION_FIRED_WITH_MODULE) {
+			net = nets.begin(); // Vector nets was changed
 		}
 	}
 }
@@ -333,7 +336,7 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, CaNet *par
 
 	CaNet *net = defs[def_index]->spawn(thread, id, parent_net);
 	net->lock();
-	inform_new_network(net);
+	inform_new_network(net, thread);
 	return net;
 }
 
@@ -426,17 +429,27 @@ CaThread * CaProcess::get_thread(int id)
 	return &threads[id];
 }
 
-void CaProcess::inform_new_network(CaNet *net)
+void CaProcess::inform_new_network(CaNet *net, CaThread *thread)
 {
 	for (int t = 0; t < threads_count; t++) {
-		threads[t].add_message(new CaThreadMessageNewNet(net));
+		if (thread && thread->get_id() == t) {
+			CaThreadMessageNewNet msg(net);
+			msg.process(thread);
+		} else {
+			threads[t].add_message(new CaThreadMessageNewNet(net));
+		}
 	}
 }
 
-void CaProcess::inform_halt_network(int net_id)
+void CaProcess::inform_halt_network(int net_id, CaThread *thread)
 {
 	for (int t = 0; t < threads_count; t++) {
-		threads[t].add_message(new CaThreadMessageHaltNet(net_id));
+		if (thread && thread->get_id() == t) {
+			CaThreadMessageHaltNet msg(net_id);
+			msg.process(thread);
+		} else {
+			threads[t].add_message(new CaThreadMessageHaltNet(net_id));
+		}
 	}
 }
 
@@ -492,7 +505,7 @@ void CaProcess::write_reports(FILE *out) const
 }
 
 // Designed for calling during simulation
-void CaProcess::autohalt_process(CaNet *net)
+void CaProcess::autohalt_check(CaNet *net)
 {
 	if (net->is_autohalt() && net->get_running_transitions() == 0
 			&& !net->is_something_enabled(&threads[0])) {
@@ -501,9 +514,9 @@ void CaProcess::autohalt_process(CaNet *net)
 				But we dont want to wait for message processing because we want
 				need right value of get_running_transitions in parent net */
 			net->finalize(&threads[0]);
-			halt(net);
+			halt(&threads[0], net);
 			if (parent) {
-				autohalt_process(parent);
+				autohalt_check(parent);
 			}
 	}
 }
@@ -516,15 +529,20 @@ void CaProcess::fire_transition(int transition_id, int instance_id)
 	for (i = nets.begin(); i != nets.end(); i++) {
 		CaNet *n = *i;
 		if (n->get_id() == instance_id) {
-			n->fire_transition(&threads[0], transition_id);
-			autohalt_process(n);
+			if (n->fire_transition(&threads[0], transition_id)
+				== CA_TRANSITION_FIRED_WITH_MODULE) {
+				// Module was started so we have to checked if it is not dead from start
+				threads[0].process_messages();
+				n = threads[0].last_net();
+			}
+			autohalt_check(n);
 			return;
 		}
 	}
 }
 
 // Halt net net, sends information about halting if net is nonlocal
-void CaProcess::halt(CaNet *net)
+void CaProcess::halt(CaThread *thread, CaNet *net)
 {
 	if (!net->is_local()) {
 		CaServiceMessageNetHalt *m =
@@ -533,7 +551,7 @@ void CaProcess::halt(CaNet *net)
 		m->net_id = net->get_id();
 		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetHalt), process_id);
 	}
-	inform_halt_network(net->get_id());
+	inform_halt_network(net->get_id(), thread);
 }
 
 void CaProcess::broadcast_packet(int tag, void *data, size_t size, int exclude)

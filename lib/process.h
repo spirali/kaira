@@ -34,8 +34,8 @@ class CaProcess {
 		virtual ~CaProcess();
 		void start();
 		void join();
-		void inform_new_network(CaNet *net);
-		void inform_halt_network(int net_id);
+		void inform_new_network(CaNet *net, CaThread *thread);
+		void inform_halt_network(int net_id, CaThread *thread);
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
 
 		int get_threads_count() const { return threads_count; }
@@ -46,7 +46,7 @@ class CaProcess {
 
 		void quit_all();
 		void quit() { quit_flag = true; }
-		void halt(CaNet *net);
+		void halt(CaThread *thread, CaNet *net);
 
 		void start_logging(const std::string &logname);
 		void stop_logging();
@@ -77,7 +77,7 @@ class CaProcess {
 		void broadcast_packet(int tag, void *data, size_t size, int exclude = -1);
 	protected:
 
-		void autohalt_process(CaNet *net);
+		void autohalt_check(CaNet *net);
 
 		int process_id;
 		int process_count;
@@ -111,7 +111,7 @@ class CaThread {
 		int process_messages();
 		void process_message(CaThreadMessage *message);
 		void quit_all();
-		void halt(CaNet *net) { process->halt(net); }
+		void halt(CaNet *net) { process->halt(this, net); }
 
 		void send(int target, CaNet *net, int place, const CaPacker &packer) {
 			process->multisend(target, net, place, 1, packer);
@@ -168,6 +168,8 @@ class CaThread {
 		const std::vector<CaNet*> & get_nets() { return nets; }
 
 		void set_process(CaProcess *process, int id) { this->process = process; this->id = id; }
+
+		CaNet *last_net() { return nets[nets.size() - 1]; }
 
 	protected:
 		CaProcess *process;

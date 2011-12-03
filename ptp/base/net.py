@@ -244,16 +244,24 @@ def inject_types_for_empty_context(env, expr, t):
 
 class Net(object):
 
-    id = None
     autohalt = False
 
-    def __init__(self, project):
+    def __init__(self, project, id, name):
         self.project = project
+        self.id = id
+        self.name = name
         self.places = []
         self.transitions = []
         self.areas = []
         self.interface_edges_in = []
         self.interface_edges_out = []
+        self.module_flag = False
+
+    def get_name(self):
+        return self.name
+
+    def is_module(self):
+        return self.module_flag
 
     def has_autohalt(self):
         return self.autohalt

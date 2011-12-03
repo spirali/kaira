@@ -38,18 +38,24 @@
 
 class CaContext {
 	public:
-		CaContext(CaThread *thread, CaNet *net) : thread(thread), net(net) {}
+		CaContext(CaThread *thread, CaNet *net) : thread(thread), net(net), halt_flag(false) {}
 
 		void quit() { thread->quit_all(); }
-		void halt() { thread->halt(net); }
+		void halt() { halt_flag = true; }
 		int process_id() { return thread->get_process()->get_process_id(); }
 		/*
 		void start_logging(std::string &logname) { thread->start_logging(logname); }
 		void stop_logging() { thread->stop_logging(); }
 		*/
+		bool get_halt_flag() { return halt_flag; }
 	protected:
 		CaThread *thread;
 		CaNet *net;
+
+		/** We need halt_flag because we need pospone thread->quit. We cannot call
+			thread->halt directly because other thread could process finalizer
+			before current transition put its token into output places */
+		bool halt_flag;
 };
 
 /* Start */

@@ -219,8 +219,7 @@ def load_area(element, net):
     return Area(net, id, expr, places)
 
 def load_net(element, project):
-    net = Net(project)
-    net.id = utils.xml_int(element, "id")
+    net = Net(project, utils.xml_int(element, "id"), utils.xml_str(element, "name"))
     net.autohalt = utils.xml_bool(element, "autohalt")
     return net
 
@@ -231,6 +230,7 @@ def load_net_content(element, project, net):
 
     interface = element.find("interface")
     if interface is not None:
+        net.module_flag = True
         net.interface_edges_out = [ load_edge_out(e, net, None) for e in interface.findall("edge-out") ]
         net.interface_edges_in = [ load_edge_in(e, net, None) for e in interface.findall("edge-in") ]
 

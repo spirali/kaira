@@ -54,7 +54,7 @@ O2</build-option>
     <force-packers value="False"/>
   </configuration>
   <description>EMPTY</description>
-  <net id="101" name="Main">
+  <net id="101" name="Main" autohalt="False">
     <place id="102" init-expr="" name="name" type="Int"/>
     <place id="105" init-expr="[1,2]" name="name" type="Int"/>
     <place id="107" init-expr="" name="name" type="Int"/>

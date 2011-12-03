@@ -235,7 +235,7 @@ class Builder(CppWriter):
                 conditions.append("subnet->place_{0.id}.is_empty()".format(edge.get_place()))
         if conditions:
             self.if_begin("||".join(conditions))
-            self.line('fprintf(stderr, "Token in output places of module not found\\n");')
+            self.line('fprintf(stderr, "Token in output places of module {0} not found\\n");', tr.subnet.get_name())
             self.line("exit(-1);")
             self.block_end()
 
@@ -402,7 +402,7 @@ class Builder(CppWriter):
             if edge.is_normal(): # Pack normal edge
                 w.line("CaPacker packer({0}, CA_RESERVED_PREFIX);", self.get_size_code(t, "value"))
                 w.line("{0};", self.get_pack_code(t, "packer", "value"))
-                w.line("thread->send{0}(target_{1.id}, net, {2}, packer);",
+                w.line("thread->send{0}(target_{1.id}, n, {2}, packer);",
                        sendtype, edge, edge.get_place().get_pos_id())
             else: # Pack packing edge
                 if self.is_directly_packable(t):
@@ -419,7 +419,7 @@ class Builder(CppWriter):
                 w.block_begin()
                 w.line("{0};", self.get_pack_code(t, "packer", "(*i)"))
                 w.block_end()
-                w.line("thread->multisend{0}(target_{1.id}, net, {2}, value.size(), packer);",
+                w.line("thread->multisend{0}(target_{1.id}, n, {2}, value.size(), packer);",
                        sendtype,edge, edge.get_place().get_pos_id())
             w.block_end()
         if edge.guard is not None:
@@ -433,7 +433,7 @@ class Builder(CppWriter):
         w.line("{0}->dec_running_transitions();", varname)
 
     def write_enable(self, tr):
-        self.line("bool enable_{0.id}(CaThread *thread, CaNet *net)", tr)
+        self.line("int enable_{0.id}(CaThread *thread, CaNet *net)", tr)
         self.block_begin()
         self.line("CaContext ctx(thread, net);")
         w = CppWriter()
@@ -455,6 +455,7 @@ class Builder(CppWriter):
             w.line("{1} = n->place_{0.id}.to_vector_and_clear();", edge.get_place(), em.variable_emitter(edge.varname))
 
         if tr.subnet is not None:
+            retvalue = "CA_TRANSITION_FIRED_WITH_MODULE"
             w.line("n->unlock();")
             w.line("bool lock = true;")
             w.line("Net_{0.id} *n = (Net_{0.id}*) thread->spawn_net({1}, net);", tr.subnet, tr.subnet.get_index())
@@ -462,6 +463,7 @@ class Builder(CppWriter):
             for edge in tr.subnet.get_interface_edges_out():
                 self.write_send_token(w, em, edge)
         else: # Without subnet
+            retvalue = "CA_TRANSITION_FIRED"
             if tr.code is not None:
                 w.line("net->unlock();")
                 w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
@@ -475,10 +477,12 @@ class Builder(CppWriter):
                 self.write_decrement_running_transitions(w, "net")
 
         w.line("if (lock) n->unlock();")
-        w.line("return true;")
+        if tr.net.is_module():
+            w.line("if (ctx.get_halt_flag()) thread->halt(net);")
+        w.line("return {0};", retvalue)
 
         self.write_enable_pattern_match(tr, w, tr.subnet is not None)
-        self.line("return false;")
+        self.line("return CA_NOT_ENABLED;")
         self.block_end()
 
     def write_enable_check(self, tr):

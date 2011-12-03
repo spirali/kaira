@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include "output.h"
 
+#define CA_NOT_ENABLED 0
+#define CA_TRANSITION_FIRED 1
+#define CA_TRANSITION_FIRED_WITH_MODULE 2
+
 class CaNet;
 class CaNetDef;
 class CaThread;
@@ -27,7 +31,7 @@ class CaTransition {
 		bool is_active() { return active; }
 		void set_active(bool value) { active = value; }
 
-		bool fire(CaThread *thread, CaNet *net) { return enable_fn(thread, net); }
+		int fire(CaThread *thread, CaNet *net) { return enable_fn(thread, net); }
 
 		bool is_enable(CaThread *thread, CaNet *net) { return enable_check_fn(thread, net); }
 
@@ -80,7 +84,7 @@ class CaNet {
 		void write_reports(CaThread *thread, CaOutput &output);
 		virtual void write_reports_content(CaThread *thread, CaOutput &output) = 0;
 		virtual void receive(int place, CaUnpacker &unpacker) = 0;
-		void fire_transition(CaThread *thread, int transition_id);
+		int fire_transition(CaThread *thread, int transition_id);
 
 		CaTransition * pick_active_transition();
 		bool has_active_transition() { return !actives.empty(); }

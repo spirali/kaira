@@ -97,17 +97,18 @@ CaTransition * CaNet::pick_active_transition()
 	return tr;
 }
 
-void CaNet::fire_transition(CaThread *thread, int transition_id)
+int CaNet::fire_transition(CaThread *thread, int transition_id)
 {
 	CaTransition *tr = def->get_transition(transition_id);
 	if (tr) {
 		lock();
-		bool r = tr->fire(thread, this);
-		if (!r) {
+		int r = tr->fire(thread, this);
+		if (r == CA_NOT_ENABLED) {
 			unlock();
 		}
-		return;
+		return r;
 	}
+	return -1;
 }
 
 void CaNet::finalize(CaThread *thread)
