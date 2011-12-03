@@ -108,6 +108,7 @@ class Simulation(EventSource):
                         transition_id = utils.xml_int(tre, "id")
                         i.add_enabled(process_id, transition_id)
             self.instances = instances.values()
+            self.instances.sort(key=lambda i: i.id)
             if not self.is_running() and run_state != self.is_running():
                 self.emit_event("error", "Simulation finished\n")
             if callback:
