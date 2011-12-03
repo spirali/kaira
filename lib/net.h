@@ -79,6 +79,7 @@ class CaNet {
 
 		/* Lock for working with active_units */
 		void lock() { pthread_mutex_lock(&mutex); }
+		bool try_lock() { return pthread_mutex_trylock(&mutex) == 0; }
 		void unlock() { pthread_mutex_unlock(&mutex); }
 
 		void write_reports(CaThread *thread, CaOutput &output);

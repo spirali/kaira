@@ -15,6 +15,9 @@ void CaThreadMessageNewNet::process(CaThread *thread)
 void CaThreadMessageHaltNet::process(CaThread *thread)
 {
 		CaNet *net = thread->remove_net(net_id);
+		if (net == NULL) {
+			return;
+		}
 		net->lock();
 		net->finalize(thread);
 		int r = net->decr_ref_count();

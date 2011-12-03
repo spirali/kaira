@@ -288,7 +288,13 @@ void CaThread::run_scheduler()
 {
 	process_messages();
 	std::vector<CaNet*>::iterator net = nets.begin();
+	unsigned int counter = 0;
 	while(!process->quit_flag) {
+		counter++;
+		if (counter >= nets.size()) {
+			sched_yield();
+			counter = 0;
+		}
 		if (process_messages()) {
 			// Vector nets could be changed
 			net = nets.begin();
@@ -298,7 +304,8 @@ void CaThread::run_scheduler()
 			net = nets.begin();
 		}
 		CaNet *n = *net;
-		n->lock();
+		if (!n->try_lock())
+			continue;
 		CaTransition *tr = n->pick_active_transition();
 
 		if (tr == NULL) {
@@ -312,8 +319,11 @@ void CaThread::run_scheduler()
 		int res = tr->fire(this, n);
 		if (res == CA_NOT_ENABLED) {
 			n->unlock();
-		} else if (res == CA_TRANSITION_FIRED_WITH_MODULE) {
-			net = nets.begin(); // Vector nets was changed
+		} else {
+			counter = 0;
+			if (res == CA_TRANSITION_FIRED_WITH_MODULE) {
+				net = nets.begin(); // Vector nets was changed
+			}
 		}
 	}
 }
