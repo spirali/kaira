@@ -111,7 +111,10 @@ class CaThread {
 		int process_messages();
 		void process_message(CaThreadMessage *message);
 		void quit_all();
-		void halt(CaNet *net) { process->halt(this, net); }
+
+		/* This function always sends thread message, it does not free net instantly
+			this is the reason why first argument is NULL */
+		void halt(CaNet *net) { process->halt(NULL, net); }
 
 		void send(int target, CaNet *net, int place, const CaPacker &packer) {
 			process->multisend(target, net, place, 1, packer);
