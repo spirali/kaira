@@ -36,6 +36,12 @@
 #endif // CA_LOG
 */
 
+#define CA_DLOG(...)
+
+// Uncommed two following two lines for enabling debug output
+//#undef CA_DLOG
+//#define CA_DLOG(...) printf(__VA_ARGS__)
+
 class CaContext {
 	public:
 		CaContext(CaThread *thread, CaNet *net) : thread(thread), net(net), halt_flag(false) {}

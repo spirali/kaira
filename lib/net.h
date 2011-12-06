@@ -90,14 +90,7 @@ class CaNet {
 		CaTransition * pick_active_transition();
 		bool has_active_transition() { return !actives.empty(); }
 
-		void activate_transition(CaTransition *tr) {
-			if (tr->is_active()) {
-				return;
-			}
-			tr->set_active(true);
-			actives.push(tr);
-		}
-
+		void activate_transition(CaTransition *tr);
 		CaNet * get_parent_net() {
 			return parent_net;
 		}

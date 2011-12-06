@@ -2,7 +2,7 @@
 #include <alloca.h>
 #include <stdio.h>
 
-#include "process.h"
+#include "cailie.h"
 #include <sched.h>
 #include <stdlib.h>
 #include <alloca.h>
@@ -140,6 +140,7 @@ static void * thread_run(void *data)
 
 void CaThread::start()
 {
+	CA_DLOG("Starting thread process=%i thread=%i\n", get_process_id(), id);
 	pthread_create(&thread, NULL, thread_run, this);
 }
 
@@ -204,16 +205,17 @@ void CaProcess::multisend(int target, CaNet *net, int place_pos, int tokens_coun
 	#endif */
 }
 
-void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net, int place_pos, int tokens_count, const CaPacker &packer)
+void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net, int place_index, int tokens_count, const CaPacker &packer)
 {
 	char *buffer = packer.get_buffer();
 	std::vector<int>::const_iterator i;
 	CaTokens *data = (CaTokens*) packer.get_buffer();
-	data->place_index = place_pos;
+	data->place_index = place_index;
 	data->net_id = net->get_id();
 	data->tokens_count = tokens_count;
 	for (i = targets.begin(); i != targets.end(); i++) {
 		int target = *i % process_count;
+		CA_DLOG("SEND index=%i target=%i process=%i\n", place_index, target, get_process_id());
 		CaProcess *p = processes[target];
 		void *d = malloc(packer.get_size());
 		memcpy(d, data, packer.get_size());
@@ -226,6 +228,7 @@ void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net,
 void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 {
 	if (tag == CA_TAG_SERVICE) {
+		CA_DLOG("SERVICE process=%i thread=%i\n", get_process_id(), thread->get_id());
 		process_service_message(thread, (CaServiceMessage*) data);
 		return;
 	}
@@ -233,15 +236,20 @@ void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 	CaUnpacker unpacker(tokens + 1);
 	CaNet *n = thread->get_net(tokens->net_id);
 	if (n == NULL) {
-		// Net is stopped in process
+		CA_DLOG("Net not found net=%i process=%i thread=%i\n",
+			tokens->net_id, get_process_id(), thread->get_id());
+		// Net is already stopped therefore we can throw tokens away
 		return;
 	}
 	n->lock();
 	int place_index = tokens->place_index;
 	int tokens_count = tokens->tokens_count;
+	CA_DLOG("RECV net=%i index=%i process=%i thread=%i\n",
+		tokens->net_id, place_index, get_process_id(), thread->get_id());
 	for (int t = 0; t < tokens_count; t++) {
 		n->receive(place_index, unpacker);
 	}
+	CA_DLOG("EOR index=%i process=%i thread=%i\n", place_index, get_process_id(), thread->get_id());
 	n->unlock();
 }
 
@@ -316,8 +324,10 @@ void CaThread::run_scheduler()
 			continue;
 		}
 		tr->set_active(false);
+		CA_DLOG("Transition tried id=%i process=%i thread=%i\n", tr->id, get_process_id(), id);
 		int res = tr->fire(this, n);
 		if (res == CA_NOT_ENABLED) {
+			CA_DLOG("Transition is dead id=%i process=%i thread=%i\n", tr->id, get_process_id(), id);
 			n->unlock();
 		} else {
 			counter = 0;
@@ -335,6 +345,8 @@ CaNet * CaThread::spawn_net(int def_index, CaNet *parent_net)
 
 CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, CaNet *parent_net, bool globally)
 {
+	CA_DLOG("Spawning id=%i def_id=%i parent_net=%i globally=%i\n",
+		id, def_index, parent_net?parent_net->get_id():-1, globally);
 	if (globally && !defs[def_index]->is_local()) {
 		CaServiceMessageNetCreate *m =
 			(CaServiceMessageNetCreate *) alloca(sizeof(CaServiceMessageNetCreate));

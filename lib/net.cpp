@@ -1,6 +1,5 @@
 
-#include "net.h"
-#include "process.h"
+#include "cailie.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -128,4 +127,14 @@ bool CaNet::is_something_enabled(CaThread *thread)
 		}
 	}
 	return false;
+}
+
+void CaNet::activate_transition(CaTransition *tr)
+{
+			if (tr->is_active()) {
+				return;
+			}
+			CA_DLOG("Transition activated id=%i\n", tr->id);
+			tr->set_active(true);
+			actives.push(tr);
 }

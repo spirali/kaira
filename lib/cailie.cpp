@@ -96,14 +96,14 @@ static int ca_set_argument(int params_count, const char **param_names, int **par
 			char *err = NULL;
 			int i = strtol(value, &err, 10);
 			if (*err != '\0') {
-				printf("Invalid parameter value\n");
+				fprintf(stderr, "Invalid parameter value\n");
 				exit(1);
 			}
 			(*param_data[t]) = i;
 			return t;
 		}
 	}
-	printf("Unknown parameter '%s'\n", name);
+	fprintf(stderr, "Unknown parameter '%s'\n", name);
 	exit(1);
 }
 
