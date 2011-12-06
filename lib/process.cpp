@@ -65,10 +65,26 @@ void CaThread::process_message(CaThreadMessage *message)
 	delete message;
 }
 
+bool CaThread::process_thread_messages()
+{
+	if (messages) {
+		CaThreadMessage *m;
+		pthread_mutex_lock(&messages_mutex);
+		m = messages;
+		messages = NULL;
+		pthread_mutex_unlock(&messages_mutex);
+		if (m != NULL) {
+			process_message(m);
+		}
+		return true;
+	}
+	return false;
+}
+
 int CaThread::process_messages()
 {
-	int result = 0;
 	#ifdef CA_MPI
+		int result = 0;
 		requests.check();
 		int flag;
 		MPI_Status status;
@@ -113,17 +129,8 @@ int CaThread::process_messages()
 		}
 	#endif
 
-	if (messages) {
-		CaThreadMessage *m;
-		pthread_mutex_lock(&messages_mutex);
-		m = messages;
-		messages = NULL;
-		pthread_mutex_unlock(&messages_mutex);
-		if (m != NULL) {
-			process_message(m);
-			result = 1;
-		}
-	}
+	int result = process_thread_messages();
+
 	if (id == 0) {
 		return process->process_packets(this) || result;
 	} else {
@@ -280,6 +287,11 @@ int CaProcess::process_packets(CaThread *thread)
 		CaPacket *p = packets;
 		packets = NULL;
 		pthread_mutex_unlock(&packet_mutex);
+
+		/* Now we have to be sure that all thread messages
+           are processed and we know about all nets */
+		thread->process_thread_messages();
+
 		while (p) {
 			process_packet(thread, p->tag, p->data);
 			CaPacket *next = p->next;
