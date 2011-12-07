@@ -10,16 +10,16 @@
 #include "logging.h"
 
 #ifdef CA_MPI
-
-#include "campi.h"
-
+#include "mpi_requests.h"
 #endif
 
 #define CA_RESERVED_PREFIX sizeof(CaTokens)
 
+#define CA_TAG_TOKENS 0
+#define CA_TAG_SERVICE 1
+
 class CaProcess;
 class CaThread;
-class CaPacket;
 struct CaServiceMessage;
 
 struct CaTokens {
@@ -27,6 +27,16 @@ struct CaTokens {
 	int net_id;
 	int tokens_count;
 };
+
+#ifdef CA_SHMEM
+class CaPacket {
+	public:
+	int tag;
+	void *data;
+
+	CaPacket *next;
+};
+#endif
 
 class CaProcess {
 	public:
@@ -66,11 +76,10 @@ class CaProcess {
 		void process_packet(CaThread *thread, int tag, void *data);
 		int process_packets(CaThread *thread);
 
-		#ifndef CA_MPI
+		#ifdef CA_SHMEM
 		void set_processes(CaProcess **processes) {
 			this->processes = processes;
 		}
-
 		void add_packet(int tag, void *data);
 		#endif
 
@@ -88,10 +97,14 @@ class CaProcess {
 		int id_counter;
 		pthread_mutex_t counter_mutex;
 
-		#ifndef CA_MPI
+		#ifdef CA_SHMEM
 		CaProcess **processes;
 		pthread_mutex_t packet_mutex;
 		CaPacket *packets;
+		#endif
+
+		#ifdef CA_MPI
+		CaMpiRequests requests;
 		#endif
 };
 

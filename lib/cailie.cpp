@@ -11,12 +11,15 @@
 #endif
 
 int ca_threads_count = 1;
-int ca_process_count = 1;
 const char *ca_project_description_string = NULL;
 int ca_log_on = 0;
 std::string ca_log_default_name = "";
 int ca_listen_port = -1;
 int ca_block_on_start = 0;
+
+#ifdef CA_SHMEM
+int ca_process_count = 1;
+#endif
 
 void ca_project_description(const char *str) {
 	ca_project_description_string = str;
@@ -53,9 +56,13 @@ int ca_main(int defs_count, CaNetDef **defs)
 	#ifdef CA_MPI
 		int process_count, process_id;
 		MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
-		MPI_Comm_size(MPI_COMM_WORLD, &ca_process_count);
+		MPI_Comm_size(MPI_COMM_WORLD, &process_count);
+		CaProcess process(process_id, process_count, ca_threads_count, defs_count, defs);
+		process.start();
+		process.join();
 	#endif
 
+	#ifdef CA_SHMEM
 	CaListener *listener = NULL;
 
 	CaProcess **processes = (CaProcess**) alloca(sizeof(CaProcess*) * ca_process_count);
@@ -85,6 +92,8 @@ int ca_main(int defs_count, CaNetDef **defs)
 	for (t = 0; t < ca_process_count; t++) {
 		delete processes[t];
 	}
+	#endif
+
 	return 0;
 }
 
@@ -156,8 +165,13 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 			      break;
 			}
 			case 'r': {
-			      ca_process_count = atoi(optarg);
-			      break;
+					#ifdef CA_MPI
+					fprintf(stderr, "Argument -r is not allowed for MPI backend, please use `mpirun -np X`");
+					exit(-1);
+					#else
+					ca_process_count = atoi(optarg);
+					break;
+					#endif
 			}
 			case 'p': {
 				char str[strlen(optarg) + 1];

@@ -1,0 +1,6 @@
+Import("source_files")
+
+mpi_source_files = source_files + [ "mpi_requests.cpp", "process_mpi.cpp" ]
+
+env = Environment(CXX="mpic++", CCFLAGS="-O2 -ggdb -D CA_MPI")
+env.StaticLibrary("cailiempi", mpi_source_files)

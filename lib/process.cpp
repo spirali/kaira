@@ -7,9 +7,6 @@
 #include <stdlib.h>
 #include <alloca.h>
 
-#define CA_TAG_TOKENS 0
-#define CA_TAG_SERVICE 1
-
 enum CaServiceMessageType { CA_SM_QUIT, CA_SM_NET_CREATE, CA_SM_NET_HALT };
 
 struct CaServiceMessage {
@@ -23,13 +20,6 @@ struct CaServiceMessageNetCreate : CaServiceMessage {
 
 struct CaServiceMessageNetHalt : CaServiceMessage {
 	int net_id;
-};
-
-class CaPacket {
-	public:
-	int tag;
-	void *data;
-	CaPacket *next;
 };
 
 extern std::string ca_log_default_name;
@@ -83,52 +73,6 @@ bool CaThread::process_thread_messages()
 
 int CaThread::process_messages()
 {
-	#ifdef CA_MPI
-		int result = 0;
-		requests.check();
-		int flag;
-		MPI_Status status;
-		MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
-
-		if (flag) {
-			if (logger) {
-				logger->log_receive();
-			}
-			for(;;) {
-				int msg_size;
-				MPI_Get_count(&status, MPI_CHAR, &msg_size);
-
-				char *buffer = (char*) alloca(msg_size); // FIXME: For large packets alloc memory on heap
-				MPI_Recv(buffer, msg_size, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-				if (status.MPI_TAG == CA_MPI_TAG_TOKENS) {
-					CaPacket *packet = (CaPacket*) buffer;
-					char *next_data = (char*) (packet + 1);
-					CaPath path((int*) (next_data));
-					next_data += path.get_size();
-					CaUnpacker unpacker(next_data);
-					CaUnit *unit = get_local_unit(path, packet->unit_id);
-					unit->lock();
-					for (int t = 0; t < packet->tokens_count; t++) {
-						unit->receive(this, packet->place_pos, unpacker);
-					}
-					if (logger) {
-						unit->log_status(logger, process->get_def(packet->unit_id));
-					}
-					unit->unlock();
-				} else if (status.MPI_TAG == CA_MPI_TAG_QUIT) {
-					process->quit();
-				} else {
-					fprintf(stderr, "Invalid message tag\n");
-				}
-				MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
-				if (!flag)
-					break;
-			}
-			result = 1;
-		}
-	#endif
-
 	int result = process_thread_messages();
 
 	if (id == 0) {
@@ -212,26 +156,6 @@ void CaProcess::multisend(int target, CaNet *net, int place_pos, int tokens_coun
 	#endif */
 }
 
-void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net, int place_index, int tokens_count, const CaPacker &packer)
-{
-	char *buffer = packer.get_buffer();
-	std::vector<int>::const_iterator i;
-	CaTokens *data = (CaTokens*) packer.get_buffer();
-	data->place_index = place_index;
-	data->net_id = net->get_id();
-	data->tokens_count = tokens_count;
-	for (i = targets.begin(); i != targets.end(); i++) {
-		int target = *i % process_count;
-		CA_DLOG("SEND index=%i target=%i process=%i\n", place_index, target, get_process_id());
-		CaProcess *p = processes[target];
-		void *d = malloc(packer.get_size());
-		memcpy(d, data, packer.get_size());
-		p->add_packet(CA_TAG_TOKENS, d);
-
-	}
-	free(buffer);
-}
-
 void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 {
 	if (tag == CA_TAG_SERVICE) {
@@ -278,30 +202,6 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 			inform_halt_network(m->net_id, thread);
 			break;
 	}
-}
-
-int CaProcess::process_packets(CaThread *thread)
-{
-	if (packets) {
-		pthread_mutex_lock(&packet_mutex);
-		CaPacket *p = packets;
-		packets = NULL;
-		pthread_mutex_unlock(&packet_mutex);
-
-		/* Now we have to be sure that all thread messages
-           are processed and we know about all nets */
-		thread->process_thread_messages();
-
-		while (p) {
-			process_packet(thread, p->tag, p->data);
-			CaPacket *next = p->next;
-			free(p->data);
-			delete p;
-			p = next;
-		}
-		return 1;
-	}
-	return 0;
 }
 
 void CaThread::run_scheduler()
@@ -406,15 +306,18 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	this->defs_count = defs_count;
 	this->defs = defs;
 	this->threads_count = threads_count;
-	this->packets = NULL;
 	pthread_mutex_init(&counter_mutex, NULL);
-	pthread_mutex_init(&packet_mutex, NULL);
 	threads = new CaThread[threads_count];
 	// TODO: ALLOCTEST
 	int t;
 	for (t = 0; t < threads_count; t++) {
 		threads[t].set_process(this, t);
 	}
+
+	#ifdef CA_SHMEM
+	this->packets = NULL;
+	pthread_mutex_init(&packet_mutex, NULL);
+	#endif
 
 	CaNet *net = spawn_net(&threads[0], 0, 0, NULL, false);
 	net->unlock();
@@ -433,7 +336,10 @@ CaProcess::~CaProcess()
 {
 	delete [] threads;
 	pthread_mutex_destroy(&counter_mutex);
+
+	#ifdef CA_SHMEM
 	pthread_mutex_destroy(&packet_mutex);
+	#endif
 }
 
 void CaProcess::start()
@@ -588,32 +494,4 @@ void CaProcess::halt(CaThread *thread, CaNet *net)
 	inform_halt_network(net->get_id(), thread);
 }
 
-void CaProcess::broadcast_packet(int tag, void *data, size_t size, int exclude)
-{
-	for (int t = 0; t < process_count; t++) {
-		if (t == exclude)
-			continue;
-		void *d = malloc(size);
-		memcpy(d, data, size);
-		processes[t]->add_packet(tag, d);
-	}
-}
 
-void CaProcess::add_packet(int tag, void *data)
-{
-	CaPacket *packet = new CaPacket;
-	packet->tag = tag;
-	packet->data = data;
-	packet->next = NULL;
-	pthread_mutex_lock(&packet_mutex);
-	if (packets == NULL) {
-		packets = packet;
-	} else {
-		CaPacket *p = packets;
-		while (p->next) {
-			p = p->next;
-		}
-		p->next = packet;
-	}
-	pthread_mutex_unlock(&packet_mutex);
-}

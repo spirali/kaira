@@ -4,6 +4,6 @@ source_files = Split("cailie.cpp process.cpp messages.cpp listener.cpp net.cpp o
 Export("source_files")
 
 SConscript('SConscript', variant_dir='build', src='.', duplicate=0)
-# SConscript('SConscript-mpi', variant_dir='build-mpi', src='.', duplicate=0)
+SConscript('SConscript-mpi', variant_dir='build-mpi', src='.', duplicate=0)
 
 Default("build")

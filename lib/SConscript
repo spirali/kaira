@@ -1,4 +1,6 @@
 Import("source_files")
 
-env = Environment(CCFLAGS="-O2 -ggdb -Wall")
-env.StaticLibrary("cailie", source_files)
+shmem_source_files = source_files + [ "process_shmem.cpp" ]
+
+env = Environment(CCFLAGS="-O2 -ggdb -Wall -DCA_SHMEM")
+env.StaticLibrary("cailie", shmem_source_files)
