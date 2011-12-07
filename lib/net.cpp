@@ -82,6 +82,8 @@ void CaNet::write_reports(CaThread *thread, CaOutput &output)
 	output.child("net-instance");
 	output.set("id", id);
 	output.set("net-id", def->get_id());
+	if (parent_net)
+		output.set("parent-id", parent_net->get_id());
 	write_reports_content(thread, output);
 	output.back();
 }

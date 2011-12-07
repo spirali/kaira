@@ -85,7 +85,16 @@ class NetRunView(gtk.HPaned):
                 self.instances.select_object(instance)
                 selected = True
         if not selected:
-            self.instances.select_first()
+            obj = None
+            # Find parent instance
+            for instance in instances:
+                if instance.get_id() == selected_instance.parent_id:
+                    obj = instance
+                    break
+            if obj is None: # Parent also not exists so select first item
+                obj = instance[0]
+            self.instances.select_object(obj)
+            self._instance_changed(obj)
         self._refresh_tree(self.get_instance().get_perspectives())
 
 

@@ -97,7 +97,8 @@ class Simulation(EventSource):
                     i = instances.get(id)
                     if i is None:
                         net = self.project.find_net(utils.xml_int(ne, "net-id"))
-                        i = NetInstance(id, net, self)
+                        parent_id = utils.xml_int(ne, "parent-id", -1)
+                        i = NetInstance(id, net, parent_id, self)
                         instances[id] = i
                     for pe in ne.findall("place"):
                         place_id = utils.xml_int(pe, "id")
@@ -184,9 +185,10 @@ class PerspectiveAll(Perspective):
 
 class NetInstance:
 
-    def __init__(self, id, net, simulation):
+    def __init__(self, id, net, parent_id, simulation):
         self.id = id
         self.net = net
+        self.parent_id = parent_id
         self.simulation = simulation
         self.places = {}
         self.enabled = []
