@@ -67,6 +67,10 @@ class Net:
     def get_autohalt(self):
         return self.autohalt
 
+    def set_name(self, name):
+        self.name = name
+        self.changed()
+
     def changed(self):
         self.change_callback(self)
 

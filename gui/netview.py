@@ -26,6 +26,7 @@ from drawing import VisualConfig
 from objectlist import ObjectList
 from net import Net
 import cairo
+import gtkutils
 
 action_cursor = {
     "none" : None,
@@ -46,6 +47,20 @@ def get_cursor(name):
         return gtk.gdk.Cursor(stock)
     else:
         return None
+
+def netname_dialog(net, mainwindow):
+    builder = gtkutils.load_ui("netname-dialog")
+    dlg = builder.get_object("netname-dialog")
+    try:
+        name = builder.get_object("name")
+        name.set_text(net.get_name())
+        name.select_region(0, -1)
+        if dlg.run() == gtk.RESPONSE_OK:
+            net.set_name(name.get_text())
+            return True
+        return False
+    finally:
+        dlg.destroy()
 
 class NetViewVisualConfig(VisualConfig):
 
@@ -330,9 +345,10 @@ class NetList(ObjectList):
     def _add(self, obj):
         net = Net(self.project, "Net_{0}".format(self.project.new_id()))
         net.add_interface_box((20, 20), (400, 300))
-        self.project.add_net(net)
-        self.netview.switch_to_net(net)
-        self.select_object(net)
+        if netname_dialog(net, self.netview.app.window):
+            self.project.add_net(net)
+            self.netview.switch_to_net(net)
+            self.select_object(net)
 
     def _remove(self, obj):
         self.project.remove_net(obj)
@@ -341,7 +357,11 @@ class NetList(ObjectList):
         self.select_object(net)
 
     def _rename(self, obj):
-        pass
+        if obj.is_module():
+            netname_dialog(obj, self.netview.app.window)
+            self.update(obj)
+        else:
+            self.netview.app.show_info_dialog("Net 'Main' cannot be renamed.")
 
     def _copy(self, obj):
         net = obj.copy()

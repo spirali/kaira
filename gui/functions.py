@@ -109,7 +109,7 @@ class FunctionEditor(CodeEditor):
 ## Runs a dialog for editing a declaration of a function.
 #  @param function The function.
 #  @param mainwindow A main window of the application.
-#  @return Was the function changed?
+#  @return True if dialog was accepted otherwise false
 def function_dialog(function, mainwindow):
     builder = gtkutils.load_ui("function-dialog")
     dlg = builder.get_object("function-dialog")
