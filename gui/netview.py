@@ -55,6 +55,7 @@ def netname_dialog(net, mainwindow):
         name = builder.get_object("name")
         name.set_text(net.get_name())
         name.select_region(0, -1)
+        dlg.set_transient_for(mainwindow)
         if dlg.run() == gtk.RESPONSE_OK:
             net.set_name(name.get_text())
             return True
