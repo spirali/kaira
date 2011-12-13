@@ -577,6 +577,7 @@ class Builder(CppWriter):
 
     def build(self):
         self.project.inject_types()
+        self.project.check()
         self.write_header()
         self.write_parameters()
         self.write_extern_types_functions()

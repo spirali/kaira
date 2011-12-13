@@ -158,6 +158,10 @@ class Project(object):
         for net in self.nets:
             net.inject_types()
 
+    def check(self):
+        for net in self.nets:
+            net.check()
+
 def get_source(element, name):
     id = utils.xml_int(element, "id")
     return "*{0}/{1}".format(id, name)

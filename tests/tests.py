@@ -85,6 +85,10 @@ class BuildTest(TestCase):
     def test_broken2(self):
         self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken2.proj"), "*102/type: Type missing\n")
 
+    def test_broken_module(self):
+        self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken_module.proj"),
+            "*103: Conflict of types with the assigned module in variable 'x'\n")
+
     def test_parameters(self):
         self.build(os.path.join(TEST_PROJECTS, "parameters", "parameters.proj"), "9 7\n",
             params=["-pfirst=10", "-psecond=7"], processes = 10)

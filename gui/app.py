@@ -481,7 +481,11 @@ class App:
     def _process_error_line(self, line, error_messages):
         if line.startswith("*"):
             sections = line[1:].split(":",1)
-            id_string, pos = sections[0].split("/")
+            if "/" in sections[0]:
+                id_string, pos = sections[0].split("/")
+            else:
+                id_string = sections[0]
+                pos = None
             try:
                 item_id = int(id_string)
             except ValueError:

@@ -221,6 +221,20 @@ class Transition(utils.EqByIdMixin):
     def is_local(self):
         return all((edge.is_local() for edge in self.edges_out))
 
+    def get_source(self):
+        return "*{0}".format(self.id)
+
+    def check(self):
+        if self.subnet is not None:
+            ctx = self.get_context()
+            for v in self.subnet.get_module_input_vars():
+                if v not in ctx:
+                    raise utils.PtpException("The assigned module requires variable '{0}'".format(v), self.get_source())
+            for name, t in self.subnet.get_interface_context().items():
+                if ctx[name] != t:
+                    raise utils.PtpException(
+                            "Conflict of types with the assigned module in variable '{0}'".format(v), self.get_source())
+
 class Area(object):
 
     def __init__(self, net, id, expr, places):
@@ -303,12 +317,19 @@ class Net(object):
             area.inject_types()
         self.inject_types_interface()
 
-    def inject_types_interface(self):
+    def get_interface_context(self):
         eq = []
         env = self.project.get_env()
         for e in self.interface_edges_in + self.interface_edges_out:
             eq += e.get_equations()
-        context = derive_context(env, eq)
+        return derive_context(env, eq)
+
+    def get_module_input_vars(self):
+        return set().union(*[ e.expr.get_free_vars() for e in self.interface_edges_out ])
+
+    def inject_types_interface(self):
+        context = self.get_interface_context()
+        env = self.project.get_env()
         for e in self.interface_edges_in + self.interface_edges_out:
             e.inject_types(env, context)
 
@@ -317,3 +338,9 @@ class Net(object):
 
     def is_local(self):
         return all((tr.is_local() for tr in self.transitions))
+
+    def check(self):
+        """ Check consistency of net, raise exception if something is wrong,
+            inject_types exptected before calling check"""
+        for tr in self.transitions:
+            tr.check()

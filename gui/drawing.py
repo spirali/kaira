@@ -128,6 +128,8 @@ class TransitionDrawing(DrawingBase):
             tx = px - sx / 2
             ty = py - self.size[1]/2 - sy/2 - 2
             draw_error_box_after_text(cr, self.guard, (tx, ty), self.error_messages["guard"])
+        if self.error_messages and None in self.error_messages:
+            draw_error_box(cr, self.position, self.error_messages[None])
 
 class PlaceDrawing(DrawingBase):
 
