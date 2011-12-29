@@ -49,9 +49,15 @@ def operator_action(tokens):
     prev = tokens[:-2]
     return e.ExprCall(tokens[-2], [ operator_action(prev), tokens[-1] ])
 
+def number_action(tokens):
+    if len(tokens) == 3:
+        return e.ExprDouble(float(tokens[0] + tokens[1] + "." + tokens[2]))
+    else:
+        return e.ExprInt(int(tokens[0] + tokens[1]))
+
 ident = Word(alphanums+"_")
 expression = Forward()
-integer = (Optional("-", "+") + Word(digits)).setParseAction(lambda tokens: e.ExprInt(int(tokens[0] + tokens[1])))
+number = (Optional("-", "+") + Word(digits) + Optional(Suppress(".") + Word(digits))).setParseAction(number_action)
 string = dblQuotedString.setParseAction(lambda tokens: e.ExprString(tokens[0][1:-1]))
 array_normal = Optional(Group(expression + ZeroOrMore( Suppress( delim ) + expression )), [])
 array_normal.setParseAction(lambda tokens: e.ExprArray(tuple(tokens[0])))
@@ -62,7 +68,7 @@ parameter = (Suppress("#") + ident).setParseAction(lambda tokens: e.ExprParam(to
 parens = lpar + Optional(Group(expression + ZeroOrMore( Suppress( delim ) + expression )), []) + rpar
 var_or_call = (ident + Optional(parens, None)).setParseAction(ident_action)
 tupleparser = parens.copy().setParseAction(tuple_action)
-atom = (integer | string | var_or_call | tupleparser | parameter | array)
+atom = (number | string | var_or_call | tupleparser | parameter | array)
 
 op1 = OpKeyword("*") | OpKeyword("/")
 op2 = OpKeyword("+") | OpKeyword("-")

@@ -51,6 +51,9 @@ class Emitter(object):
     def const_int(self, value):
         return str(value)
 
+    def const_double(self, value):
+        return str(value)
+
     def const_string(self, value):
         def escape(char):
             if char == "\n":

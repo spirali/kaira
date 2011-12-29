@@ -129,6 +129,9 @@ class BuildTest(TestCase):
     def test_tuples(self):
         self.build(os.path.join(TEST_PROJECTS, "tuples", "tuples.proj"), "Ok\n")
 
+    def test_doubles(self):
+        self.build(os.path.join(TEST_PROJECTS, "doubles", "doubles.proj"), "Ok\n")
+
     """ TEMPORARILY DISABLED
     def test_log(self):
         self.build(os.path.join(TEST_PROJECTS, "log", "log.proj"), "", make_args = [ "debug" ], program_name="log_debug")

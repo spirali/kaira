@@ -252,6 +252,7 @@ class Area(object):
 def inject_types_for_empty_context(env, expr, t):
     eq = [ (expr, t) ]
     context = derive_context(env, eq)
+    print context
     if context != {}:
         raise Exception("Variables occurs in initial expression")
     expr.inject_types(env, context)

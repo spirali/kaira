@@ -19,7 +19,7 @@
 
 from utils import EqMixin
 from neltypes import TypeVar, rename_vars, fresh_typevar, join_contexts_by_equations, join_contexts
-from neltypes import t_string, t_int, t_array, t_tuple, t_bool
+from neltypes import t_string, t_int, t_array, t_tuple, t_bool, t_double
 import neltypes
 import utils
 from base.utils import PtpException
@@ -32,6 +32,8 @@ nel_standard_functions = {
     "/": [ t_int, t_int, t_int ],
     "<": [ t_bool, t_int, t_int ],
     ">": [ t_bool, t_int, t_int ],
+    "&&": [ t_bool, t_bool, t_bool ],
+    "||": [ t_bool, t_bool, t_bool ],
     "==": [ t_bool, TypeVar(0), TypeVar(0) ],
     "!=": [ t_bool, TypeVar(0), TypeVar(0) ],
     "length": [ t_int, t_array(TypeVar(0)) ],
@@ -181,6 +183,12 @@ class ExprInt(ExprLiteral):
 
     def emit(self, emitter):
         return emitter.const_int(self.value)
+
+class ExprDouble(ExprLiteral):
+    nel_type = t_double
+
+    def emit(self, emitter):
+        return emitter.const_double(self.value)
 
 class ExprString(ExprLiteral):
     nel_type = t_string

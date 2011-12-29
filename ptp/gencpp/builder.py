@@ -713,6 +713,8 @@ class Builder(CppWriter):
             return expr
         if t.name == "Array" and len(t.args) == 1:
             return "array_{0}_as_string({1})".format(t.args[0].get_safe_name(), expr)
+        if t == t_double:
+            return "ca_double_to_string({0})".format(expr)
+        if t == t_float:
+            return "ca_float_to_string({0})".format(expr)
         return "ca_int_to_string({0})".format(expr)
-
-
