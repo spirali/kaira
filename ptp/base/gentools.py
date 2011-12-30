@@ -46,8 +46,14 @@ def match_expression(env, context, expr, covered_vars, token):
                 code.append(IIf(ExprCall("!=", [ e2, e1 ]), IExtern("fail")),)
         return code, c
 
+def get_all_subtypes(types):
+    s = set()
+    for t in types:
+        s.update(t.get_subtypes())
+    return s
+
 def get_ordered_types(project):
-    types_set = project.get_all_types()
+    types_set = get_all_subtypes(project.get_all_types())
     return topological_ordering(list(types_set), lambda a, b: b.depends_on(a))
 
 def get_edges_mathing(project, tr):

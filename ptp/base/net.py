@@ -233,7 +233,9 @@ class Transition(utils.EqByIdMixin):
             for name, t in self.subnet.get_interface_context().items():
                 if ctx[name] != t:
                     raise utils.PtpException(
-                            "Conflict of types with the assigned module in variable '{0}'".format(v), self.get_source())
+                            ("Conflict of types with the assigned module in variable '{0}', "
+                            "type in module is {1}")
+                                .format(name, t), self.get_source())
 
 class Area(object):
 
@@ -252,7 +254,6 @@ class Area(object):
 def inject_types_for_empty_context(env, expr, t):
     eq = [ (expr, t) ]
     context = derive_context(env, eq)
-    print context
     if context != {}:
         raise Exception("Variables occurs in initial expression")
     expr.inject_types(env, context)

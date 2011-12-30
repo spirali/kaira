@@ -195,12 +195,39 @@ class Builder(CppWriter):
         self.line("return osstream.str();")
         self.block_end()
 
+    def write_array_size(self, t):
+        self.line("size_t array_{0}_size(const std::vector <{1} > &vector)",
+                  t.get_safe_name(), self.emit_type(t))
+        self.block_begin()
+        self.line("// FIXME: Need implementation")
+        self.line("abort();")
+        self.block_end()
+
+    def write_array_pack(self, t):
+        self.line("void array_{0}_pack(CaPacker &packer, const std::vector <{1} > &vector)",
+                  t.get_safe_name(), self.emit_type(t))
+        self.block_begin()
+        self.line("// FIXME: Need implementation")
+        self.line("abort();")
+        self.block_end()
+
+    def write_array_unpack(self, t):
+        self.line("std::vector <{1} > array_{0}_unpack(CaUnpacker &unpacker)",
+                  t.get_safe_name(), self.emit_type(t))
+        self.block_begin()
+        self.line("// FIXME: Need implementation")
+        self.line("abort();")
+        self.block_end()
+
     def write_types(self):
         for t in get_ordered_types(self.project):
             if t.name == "":
                 self.add_tuple_class(t)
             if len(t.args) == 1 and t.name == "Array":
                 self.write_array_as_string(t.args[0])
+                self.write_array_size(t.args[0])
+                self.write_array_pack(t.args[0])
+                self.write_array_unpack(t.args[0])
 
     def write_var_struct(self, tr):
         self.write_class_head("Vars_{0.id}".format(tr))
@@ -300,6 +327,8 @@ class Builder(CppWriter):
             return "(sizeof(size_t) + ({0}).size())".format(code)
         if t.name == "":
             return "({0}).get_mem_size()".format(code)
+        if t.name == "Array":
+            return "array_{1}_size({0})".format(code, t.args[0].get_safe_name())
         etype = self.project.get_extern_type(t.name)
         if etype:
             if etype.get_transport_mode() == "Disabled":
@@ -318,6 +347,8 @@ class Builder(CppWriter):
             return "{0}.pack_float({1})".format(packer, code)
         if t == t_double:
             return "{0}.pack_double({1})".format(packer, code)
+        if t.name == "Array":
+            return "array_{2}_pack({0}, {1})".format(packer, code, t.args[0].get_safe_name())
         if t.name == "":
             return "({1}).pack({0})".format(packer, code)
         etype = self.project.get_extern_type(t.name)
@@ -338,6 +369,8 @@ class Builder(CppWriter):
             return "{0}.unpack_float()".format(unpacker)
         if t == t_double:
             return "{0}.unpack_double()".format(unpacker)
+        if t.name == "Array":
+            return "array_{1}_unpack({0})".format(unpacker, t.args[0].get_safe_name())
         if t.name == "":
             return "{0}({1})".format(t.get_safe_name(), unpacker)
         etype = self.project.get_extern_type(t.name)

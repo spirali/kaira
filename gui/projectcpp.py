@@ -62,6 +62,12 @@ class ProjectCpp(Project):
             return "CaContext"
         if t == "Int":
             return "int"
+        if t == "Array(Int)":
+            return "std::vector<int>"
+        if t == "(Int, Array(Int))":
+            return "Tuple2_int_Array_int"
+        if t == "Array((Int, Array(Int)))":
+            return "std::vector<Tuple2_Int_Array1_Int>"
         if t == "Bool":
             return "bool"
         if t == "Float":
@@ -73,7 +79,7 @@ class ProjectCpp(Project):
         for et in self.extern_types:
             if et.get_name() == t:
                 return et.get_raw_type()
-        return None
+        return t
 
     def get_source_file_patterns(self):
         return ["*.cpp", "*.cc", "*.c"]

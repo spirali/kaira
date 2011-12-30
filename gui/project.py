@@ -437,7 +437,7 @@ class Function():
         return True
 
     def split_parameters(self):
-        return [ x.split() for x in self.parameters.split(",") if x.strip() != ""]
+        return [ x.split() for x in self.parameters.split(", ") if x.strip() != ""]
 
     def as_xml(self):
         e = xml.Element("function")

@@ -92,7 +92,7 @@ class NetRunView(gtk.HPaned):
                     obj = instance
                     break
             if obj is None: # Parent also not exists so select first item
-                obj = instance[0]
+                obj = instances[0]
             self.instances.select_object(obj)
             self._instance_changed(obj)
         self._refresh_tree(self.get_instance().get_perspectives())
