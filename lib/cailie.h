@@ -49,6 +49,7 @@ class CaContext {
 		void quit() { thread->quit_all(); }
 		void halt() { halt_flag = true; }
 		int process_id() { return thread->get_process()->get_process_id(); }
+		int process_count() { return thread->get_process()->get_process_count(); }
 		/*
 		void start_logging(std::string &logname) { thread->start_logging(logname); }
 		void stop_logging() { thread->stop_logging(); }
