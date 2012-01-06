@@ -1,4 +1,4 @@
-<project><configuration><parameter default="2" description="" name="WORKERS" type="Int" /><parameter default="10" description="" name="LIMIT" type="Int" /><parameter default="4" description="" name="SIZE_X" type="Int" /><parameter default="4" description="" name="SIZE_Y" type="Int" /><parameter default="200" description="" name="TEMP" type="Int" /><extern-type name="Row" raw-type="Row" transport-mode="Custom"><code name="getsize">	return ROW_DATA_SIZE;
+<project extenv="C++"><configuration><parameter default="10" description="" name="LIMIT" type="Int" /><parameter default="4" description="" name="SIZE_X" type="Int" /><parameter default="4" description="" name="SIZE_Y" type="Int" /><parameter default="200" description="" name="TEMP" type="Int" /><parameter default="5" description="" name="WORKERS" type="Int" /><extern-type name="Row" raw-type="Row" transport-mode="Custom"><code name="getsize">	return ROW_DATA_SIZE;
 </code><code name="unpack">	const double *data = (double *) unpacker.unpack(ROW_DATA_SIZE);
 	return Row(data);
 </code><code name="pack">	packer.pack(obj.get_raw_data(), ROW_DATA_SIZE);
@@ -15,35 +15,26 @@
 	for (t = 0; t &lt; size; t++) {
 		packer.pack(obj-&gt;get_raw_row(t), ROW_DATA_SIZE);
 	}
-</code></extern-type><function name="to_up" parameters="" return-type="Int" with-context="True">	int instances = ctx-&gt;instances();
-	return (ctx-&gt;iid() + instances - 1) % instances;
-</function><function name="to_down" parameters="" return-type="Int" with-context="True">	return (ctx-&gt;iid() + 1) % ctx-&gt;instances();
-</function><build-option name="CC" value="g++" /><build-option name="LIBS" value="" /><build-option name="CFLAGS" value="-O2" /></configuration><net id="101"><area count_expr="#WORKERS" id="102" name="" sx="491" sy="496" x="159" y="105" /><place id="103" init_string="" place_type="Data" radius="20" x="350" y="150"><code>	int iid = ctx-&gt;iid();
-	Data *data = new Data(iid_to_position(iid), iid_to_size(iid));
+</code></extern-type><function id="0" name="to_up" parameters="" return-type="Int" with-context="True">	int count = ctx.process_count();
+	return (ctx.process_id() + count - 1) % count;
+</function><function id="0" name="to_down" parameters="" return-type="Int" with-context="True">	return (ctx.process_id() + 1) % ctx.process_count();
+</function><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net id="101" name="Main"><place id="103" init_string="" place_type="Data" radius="20" x="70" y="285"><code>	int process_id = ctx.process_id();
+	Data *data = new Data(id_to_position(ctx.process_count(), process_id), id_to_size(ctx.process_count(), process_id));
 //	data-&gt;random_fill();
-	place-&gt;add(data);
-</code></place><place id="104" init_string="" place_type="(Int, Row)" radius="20" x="200" y="325" /><place id="105" init_string="" place_type="Data" radius="20" x="350" y="325" /><place id="106" init_string="" place_type="(Int, Row)" radius="20" x="500" y="325" /><place id="107" init_string="0" place_type="Int" radius="20" x="345" y="540" /><place id="108" init_string="" place_type="(Int, Data)" radius="20" x="700" y="540" /><transition guard="" id="109" name="Init" sx="70" sy="35" x="350" y="225"><code>	var.data-&gt;get_rows(var.up, var.down);
-</code></transition><transition guard="c &lt; #LIMIT" id="110" name="Compute" sx="70" sy="35" x="360" y="448"><code>/*	printf("From up: %i: ", ctx-&gt;iid());
-	var.up.dump();
-	printf("From down: %i: ", ctx-&gt;iid());
-	var.down.dump();*/
-	if (ctx-&gt;iid() == 0) {
+	tokens.push_back(data);
+</code></place><place id="104" init_string="" place_type="(Int, Row)" radius="20" x="295" y="360" /><place id="105" init_string="" place_type="Data" radius="20" x="295" y="285" /><place id="106" init_string="" place_type="(Int, Row)" radius="20" x="295" y="210" /><place id="107" init_string="[0]" place_type="Int" radius="20" x="635" y="375" /><place id="108" init_string="" place_type="(Int, Data)" radius="22" x="830" y="285" /><transition guard="" id="109" name="Init" sx="70" sy="35" x="190" y="285"><code>	var.data-&gt;get_rows(var.up, var.down);
+</code></transition><transition guard="c &lt; #LIMIT" id="110" name="Compute" sx="70" sy="35" x="520" y="285"><code>	if (ctx.process_id() == 0) {
 		var.up.set_zero();
 	}
-	if (ctx-&gt;iid() == ctx-&gt;instances() - 1) {
+	if (ctx.process_id() == ctx.process_count() - 1) {
 		var.down.set_zero();
 	}
 	var.data-&gt;compute(var.up, var.down);
-/*	printf("To up: %i: ", ctx-&gt;iid());
-	var.up.dump();
-	printf("To down: %i: ", ctx-&gt;iid());
-	var.down.dump();*/
-	
-</code></transition><transition guard="" id="111" name="Send result" sx="70" sy="35" x="495" y="540" /><transition guard="" id="112" name="Write results" sx="70" sy="35" x="700" y="450"><code>	int t, size = var.results.size();
+</code></transition><transition guard="" id="111" name="Send result" sx="70" sy="35" x="635" y="285" /><transition guard="" id="112" name="Write results" sx="70" sy="35" x="830" y="185"><code>	int t, size = var.results.size();
 	std::string s[size];
 	for (t=0; t &lt; size; t++) {
-		s[var.results[t].t_0] = var.results[t].t_1-&gt;as_html();
-		delete var.results[t].t_1;
+		s[var.results[t].t0] = var.results[t].t1-&gt;as_html();
+		delete var.results[t].t1;
 	}
 	
 	std::ofstream stream("result.html");
@@ -55,5 +46,5 @@
 	stream &lt;&lt; "&lt;/table&gt;&lt;/body&gt;&lt;/html&gt;\n";	
 	stream.close();
 	
-	ctx-&gt;quit();
-</code></transition><edge from_item="103" id="113" inscription="data" inscription_x="359" inscription_y="191" to_item="109" /><edge from_item="109" id="114" inscription="(0, down)@to_down()" inscription_x="192" inscription_y="208" to_item="104"><point x="200" y="225" /></edge><edge from_item="109" id="115" inscription="data" inscription_x="360" inscription_y="271" to_item="105" /><edge from_item="109" id="116" inscription="(0, up)@to_up()" inscription_x="413" inscription_y="208" to_item="106"><point x="500" y="225" /></edge><edge from_item="110" id="117" inscription="(c + 1, down)@to_down()" inscription_x="187" inscription_y="458" to_item="104"><point x="200" y="449" /></edge><edge bidirectional="true" from_item="105" id="118" inscription="data" inscription_x="315" inscription_y="360" to_item="110"><point x="302" y="322" /></edge><edge from_item="110" id="119" inscription="(c + 1, up)@to_up()" inscription_x="417" inscription_y="455" to_item="106"><point x="499" y="447" /></edge><edge from_item="104" id="120" inscription="(c, up)" inscription_x="240" inscription_y="389" to_item="110" /><edge from_item="106" id="121" inscription="(c, down)" inscription_x="443" inscription_y="386" to_item="110" /><edge from_item="107" id="122" inscription="c" inscription_x="339" inscription_y="491" to_item="110" /><edge from_item="108" id="123" inscription="~results(#WORKERS)" inscription_x="706" inscription_y="493" to_item="112" /><edge from_item="107" id="124" inscription="#LIMIT" inscription_x="390" inscription_y="529" to_item="111" /><edge from_item="111" id="125" inscription="(iid(), data)@0" inscription_x="565" inscription_y="525" to_item="108" /><edge from_item="105" id="126" inscription="data" inscription_x="555" inscription_y="425" to_item="111"><point x="605" y="245" /></edge><edge from_item="110" id="127" inscription="c+1" inscription_x="296" inscription_y="491" to_item="107"><point x="318" y="484" /></edge></net></project>
+	ctx.quit();
+</code></transition><edge from_item="103" id="113" inscription="data" inscription_x="120.0" inscription_y="275.0" to_item="109" /><edge from_item="109" id="114" inscription="(0, up)@to_up()" inscription_x="223.0" inscription_y="370.0" to_item="104"><point x="190" y="360" /></edge><edge from_item="109" id="115" inscription="data" inscription_x="247.0" inscription_y="275.0" to_item="105" /><edge from_item="109" id="116" inscription="(0, down)@to_down()" inscription_x="220.0" inscription_y="190.0" to_item="106"><point x="190" y="210" /></edge><edge from_item="110" id="117" inscription="(c + 1, up)@to_up()" inscription_x="475.0" inscription_y="365.0" to_item="104"><point x="520" y="360" /></edge><edge bidirectional="true" from_item="105" id="118" inscription="data" inscription_x="395.0" inscription_y="275.0" to_item="110"><point x="380" y="285" /></edge><edge from_item="110" id="119" inscription="(c + 1, down)@to_down()" inscription_x="455.0" inscription_y="193.0" to_item="106"><point x="520" y="210" /></edge><edge from_item="106" id="121" inscription="(c, up)" inscription_x="365.0" inscription_y="240.0" to_item="110" /><edge from_item="107" id="122" inscription="c" inscription_x="595.0" inscription_y="325.0" to_item="110" /><edge from_item="108" id="123" inscription="~results(process_count())" inscription_x="760.0" inscription_y="227.0" to_item="112" /><edge from_item="107" id="124" inscription="#LIMIT" inscription_x="655.0" inscription_y="324.0" to_item="111" /><edge from_item="111" id="125" inscription="(process_id(), data)@0" inscription_x="740.0" inscription_y="270.0" to_item="108" /><edge from_item="105" id="126" inscription="data" inscription_x="625.0" inscription_y="195.0" to_item="111"><point x="635" y="210" /></edge><edge from_item="110" id="127" inscription="c+1" inscription_x="570.0" inscription_y="355.0" to_item="107"><point x="580" y="350" /></edge><edge from_item="104" id="129" inscription="(c, down)" inscription_x="435.0" inscription_y="330.0" to_item="110"><point x="420" y="325" /></edge><area id="102" init-expr="[0 .. process_count() - 1]" name="" sx="643" sy="273" x="35" y="143" /></net></project>

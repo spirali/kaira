@@ -89,7 +89,7 @@ class Data {
 			set_fixed_temp();
 		}
 
-		double * get_raw_row(int i) { return array1 + (i + 1) * (WIDTH + 2) + 1; };
+		double * get_raw_row(int i) const { return array1 + (i + 1) * (WIDTH + 2) + 1; };
 		void set_raw_row(int i, const double *data) { memcpy(get_raw_row(i), data, ROW_DATA_SIZE); };		
 
 
@@ -153,7 +153,7 @@ class Data {
 			delete [] array2;
 		}
 		
-		int get_size() { return size; }
+		int get_size() const { return size; }
 
 	protected:
 		int size;
@@ -161,15 +161,15 @@ class Data {
 		double *array1, *array2;
 };
 
-int iid_to_position(int iid)
+int id_to_position(int process_count, int iid)
 {
-	int rows_per_instance = ((parameter_SIZE_Y() - 1) / parameter_WORKERS()) + 1;
+	int rows_per_instance = ((parameter_SIZE_Y() - 1) / process_count) + 1;
 	return rows_per_instance * iid;
 }
 
-int iid_to_size(int iid)
+int id_to_size(int process_count, int iid)
 {
-	int rows_per_instance = ((parameter_SIZE_Y() - 1) / parameter_WORKERS()) + 1;
+	int rows_per_instance = ((parameter_SIZE_Y() - 1) / process_count) + 1;
 	int first = rows_per_instance * iid;
 	int end = first + rows_per_instance;
 	if (parameter_SIZE_Y() < end) {
