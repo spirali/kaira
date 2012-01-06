@@ -370,13 +370,13 @@ class NetList(ObjectList):
         self.project.add_net(net)
 
     def _export_svg(self, obj):
-        surface = cairo.SVGSurface("network.svg", 1000, 1000)
+        surface = cairo.SVGSurface("net.svg", 1000, 1000)
         try:
             context = cairo.Context(surface)
             obj.draw(context, VisualConfig())
         finally:
             surface.finish()
-        self.netview.app.console_write("Network exported to 'network.svg'.", "success")
+        self.netview.app.console_write("Net exported to 'net.svg'.\n", "success")
 
 
     def _update(self):
