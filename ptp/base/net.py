@@ -226,10 +226,16 @@ class Transition(utils.EqByIdMixin):
 
     def check(self):
         if self.subnet is not None:
+            if self.code is not None:
+                raise utils.PtpException(
+                    "Transition cannot have internal code and assigned submodule in the same time",
+                    self.get_source())
             ctx = self.get_context()
             for v in self.subnet.get_module_input_vars():
                 if v not in ctx:
-                    raise utils.PtpException("The assigned module requires variable '{0}'".format(v), self.get_source())
+                    raise utils.PtpException(
+                        "The assigned module requires variable '{0}'".format(v),
+                        self.get_source())
             for name, t in self.subnet.get_interface_context().items():
                 if ctx[name] != t:
                     raise utils.PtpException(
