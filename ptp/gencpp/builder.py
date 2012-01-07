@@ -582,7 +582,9 @@ class Builder(CppWriter):
                 self.line("return false;")
             self.block_end()
 
+        self.block_begin()
         self.add_writer(fire_code)
+        self.block_end()
 
         for i, (edge, instrs) in reversed(list(enumerate(matches))):
             self.line("token_{0} = token_{0}->next;", i)
