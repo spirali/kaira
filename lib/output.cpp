@@ -25,6 +25,11 @@ std::string ca_double_to_string(double d)
 	return osstream.str();
 }
 
+std::string ca_bool_to_string(bool b)
+{
+	return b ? "true" : "false";
+}
+
 CaOutput::~CaOutput()
 {
 	while (!_stack.empty()) {

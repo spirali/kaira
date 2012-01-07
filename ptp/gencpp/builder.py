@@ -18,7 +18,7 @@
 #
 
 import base.utils as utils
-from base.neltypes import t_int, t_string, t_float, t_double
+from base.neltypes import t_int, t_string, t_float, t_double, t_bool
 from base.writer import Writer
 from base.expressions import ExprVar
 import emitter
@@ -477,7 +477,8 @@ class Builder(CppWriter):
         else:
             em.variable_emitter = lambda name: "vars." + name
 
-        for i, edge in enumerate(tr.get_normal_edges_in()):
+        matches, initcode = get_edges_mathing(self.project, tr)
+        for i, (edge, instrs) in enumerate(matches):
             w.line("n->place_{1.id}.remove(token_{0});", i, edge.get_place())
 
         w.line("net->activate_transition_by_pos_id({0});", tr.get_pos_id())
@@ -750,4 +751,6 @@ class Builder(CppWriter):
             return "ca_double_to_string({0})".format(expr)
         if t == t_float:
             return "ca_float_to_string({0})".format(expr)
+        if t == t_bool:
+            return "ca_bool_to_string({0})".format(expr)
         return "ca_int_to_string({0})".format(expr)

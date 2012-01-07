@@ -87,7 +87,7 @@ class BuildTest(TestCase):
 
     def test_broken_module(self):
         self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken_module.proj"),
-            "*103: Conflict of types with the assigned module in variable 'x'\n")
+            "*103: Conflict of types with the assigned module in variable 'x', type in module is String\n")
 
     def test_parameters(self):
         self.build(os.path.join(TEST_PROJECTS, "parameters", "parameters.proj"), "9 7\n",
@@ -159,6 +159,9 @@ class BuildTest(TestCase):
 
     def test_array(self):
         self.build(os.path.join(TEST_PROJECTS, "array", "array.proj"), "Ok\n")
+
+    def test_bool(self):
+        self.build(os.path.join(TEST_PROJECTS, "bool", "bool.proj"), "Ok\n")
 
     def test_modules1(self):
         self.build(os.path.join(TEST_PROJECTS, "modules1", "modules1.proj"), "148\n")

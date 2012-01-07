@@ -43,5 +43,6 @@ class CaOutput {
 std::string ca_int_to_string(int i);
 std::string ca_double_to_string(double d);
 std::string ca_float_to_string(float f);
+std::string ca_bool_to_string(bool b);
 
 #endif // CAILIE_OUTPUT_H

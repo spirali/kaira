@@ -36,6 +36,7 @@ nel_standard_functions = {
     "||": [ t_bool, t_bool, t_bool ],
     "==": [ t_bool, TypeVar(0), TypeVar(0) ],
     "!=": [ t_bool, TypeVar(0), TypeVar(0) ],
+    "not": [ t_bool, t_bool ],
     "length": [ t_int, t_array(TypeVar(0)) ],
     "at": [ TypeVar(0), t_array(TypeVar(0)), t_int ],
     "range": [ t_array(t_int), t_int, t_int ],
@@ -196,6 +197,15 @@ class ExprString(ExprLiteral):
     def emit(self, emitter):
         return emitter.const_string(self.value)
 
+class ExprBool(ExprLiteral):
+    nel_type = t_bool
+
+    def emit(self, emitter):
+        return emitter.const_bool(self.value)
+
+nel_true = ExprBool(True)
+nel_false = ExprBool(False)
+
 class ExprArray(Expression):
 
     def __init__(self, value):
@@ -227,14 +237,6 @@ class ExprArray(Expression):
             e.inject_types(env, context)
         if self.value:
             self.nel_type = t_array(self.value[0].nel_type)
-
-
-class ExprBool(ExprLiteral):
-    nel_type = t_bool
-
-
-nel_true = ExprBool(True)
-nel_false = ExprBool(False)
 
 class ExprCall(Expression):
 

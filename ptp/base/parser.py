@@ -33,7 +33,12 @@ def OpKeyword(x):
 
 def ident_action(tokens):
     if tokens[1] is None:
-        return e.ExprVar(tokens[0])
+        if tokens[0] == "true":
+            return e.nel_true
+        elif tokens[0] == "false":
+            return e.nel_false
+        else:
+            return e.ExprVar(tokens[0])
     else:
         return e.ExprCall(tokens[0], list(tokens[1]))
 

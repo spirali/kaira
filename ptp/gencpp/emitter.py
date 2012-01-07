@@ -44,6 +44,8 @@ class Emitter(object):
                     name = "thread->get_process_id"
                 elif name == "process_count":
                     name = "thread->get_process_count"
+                elif name == "not":
+                    name = "!"
                 else:
                     name = "ca_" + name
             return "{0}({1})".format(name, ", ".join(a))
@@ -53,6 +55,12 @@ class Emitter(object):
 
     def const_double(self, value):
         return str(value)
+
+    def const_bool(self, value):
+        if value:
+            return "true"
+        else:
+            return "false"
 
     def const_string(self, value):
         def escape(char):
