@@ -47,5 +47,5 @@ class CppGenerator:
             w.line("\t{1} {0};", key, em.emit_type(value))
         w.line("}};")
         w.emptyline()
-        w.line("void transition_fn(CaContext &ctx, Vars &vars)")
+        w.line("void transition_fn(CaContext &ctx, Vars &var)")
         return w.get_string()
