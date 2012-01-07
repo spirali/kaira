@@ -1,9 +1,13 @@
-<project><configuration><build-option name="CC" value="g++" /><build-option name="LIBS" value="" /><build-option name="CFLAGS" value="-O2" /></configuration><net id="101"><area count_expr="16" id="102" sx="338" sy="304" x="129" y="56" /><place id="103" init_string="" place_type="Int" radius="20" x="347" y="119"><code>	place-&gt;add(ctx-&gt;node());
-</code></place><place id="104" init_string="(0,0)" place_type="(Int,Int)" radius="20" x="196" y="109" /><place id="105" init_string="0" place_type="Int" radius="20" x="291" y="297" /><transition guard="" id="106" name="add" sx="70" sy="35" x="284" y="201"><code>	var.t = ctx-&gt;iid() + (1 &lt;&lt; var.c);
-	var.t %= ctx-&gt;instances();
+<project extenv="C++"><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net id="101" name="Main"><place id="103" init_string="" place_type="Int" radius="20.6155281281" x="430" y="105"><code>	// Initialize data, for sake of simplicity we take process_id as initial data
+	tokens.push_back(ctx.process_id());
+</code></place><place id="104" init_string="[(0,0)]" place_type="(Int,Int)" radius="20" x="170" y="110" /><place id="105" init_string="[0]" place_type="Int" radius="20" x="280" y="295" /><transition guard="" id="106" name="add" sx="70" sy="35" x="285" y="200"><code>	var.t = ctx.process_id() + (1 &lt;&lt; var.c);
+	var.t %= ctx.process_count();
 	var.r = var.x + var.y;		
-	if (var.t == ctx-&gt;iid()) {
-		printf("Result(%i): %i\n", ctx-&gt;iid(), var.r);
-		ctx-&gt;halt();
-	}	
-</code></transition><edge from_item="104" id="107" inscription="(y, c)" inscription_x="239" inscription_y="155" to_item="106" /><edge from_item="103" id="108" inscription="x" inscription_x="329" inscription_y="160" to_item="106" /><edge from_item="106" id="109" inscription="r" inscription_x="363" inscription_y="191" to_item="103"><point x="390" y="201" /></edge><edge from_item="106" id="110" inscription="(r,c+1)@t" inscription_x="207" inscription_y="206" to_item="104"><point x="175" y="200" /></edge><edge from_item="105" id="111" inscription="c" inscription_x="248" inscription_y="252" to_item="106"><point x="255" y="239" /></edge><edge from_item="106" id="112" inscription="c+1" inscription_x="315" inscription_y="255" to_item="105"><point x="314" y="247" /></edge></net></project>
+	if (var.t == ctx.process_id()) {
+		printf("Result(%i): %i\n", ctx.process_id(), var.r);
+		ctx.halt();
+		var.end = true;
+	} else {
+		var.end = false;
+	}
+</code></transition><edge from_item="106" id="109" inscription="r" inscription_x="400.0" inscription_y="175.0" to_item="103"><point x="365" y="200" /></edge><edge from_item="106" id="110" inscription="(r,c+1)@t" inscription_x="160.83720893" inscription_y="180.511626789" to_item="104"><point x="200" y="200" /></edge><edge from_item="105" id="111" inscription="c" inscription_x="251.127797071" inscription_y="252.268180142" to_item="106"><point x="260" y="240" /></edge><edge from_item="106" id="112" inscription="c+1?not(end)" inscription_x="340.0" inscription_y="255.0" to_item="105"><point x="310" y="235" /></edge><edge from_item="104" id="114" inscription="(y, c)" inscription_x="256.124742758" inscription_y="134.569415862" to_item="106"><point x="230" y="110" /></edge><edge from_item="103" id="115" inscription="x" inscription_x="335.449504106" inscription_y="129.550495894" to_item="106"><point x="375" y="105" /></edge><area id="102" init-expr="[0..process_count() - 1]" name="" sx="338" sy="304" x="129" y="56" /></net></project>
