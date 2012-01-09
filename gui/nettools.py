@@ -153,6 +153,10 @@ class NetTool:
             if type(self.selected_item) in actions_dict:
                 menu_actions = actions_dict[type(self.selected_item)] + menu_actions
 
+            if self.selected_item.is_transition() and self.selected_item.subnet is not None:
+                menu_actions.insert(0,
+                    ("Show module", lambda w: self.netview.switch_to_net(self.selected_item.subnet)))
+
             if menu_actions:
                 gtkutils.show_context_menu(menu_actions, event)
         else:

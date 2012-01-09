@@ -135,7 +135,9 @@ class NetView(gtk.VBox):
     def get_net(self):
         return self.netlist.selected_object()
 
-    def switch_to_net(self, net):
+    def switch_to_net(self, net, select_in_netlist = True):
+        if select_in_netlist:
+            self.netlist.select_object(net)
         self.tool.set_net(net)
         self.canvas.set_net(net)
         self.canvas.set_viewport((0,0))
@@ -349,13 +351,11 @@ class NetList(ObjectList):
         if netname_dialog(net, self.netview.app.window):
             self.project.add_net(net)
             self.netview.switch_to_net(net)
-            self.select_object(net)
 
     def _remove(self, obj):
         self.project.remove_net(obj)
         net = self.project.get_nets()[0]
         self.netview.switch_to_net(net)
-        self.select_object(net)
 
     def _rename(self, obj):
         if obj.is_module():
@@ -386,4 +386,4 @@ class NetList(ObjectList):
         return (obj, obj.get_name())
 
     def cursor_changed(self, obj):
-        self.netview.switch_to_net(obj)
+        self.netview.switch_to_net(obj, False)
