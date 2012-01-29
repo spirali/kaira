@@ -17,7 +17,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from builder import Builder, CppWriter
+from builder import Builder, CppWriter, emit_declarations
 import emitter
 
 class CppGenerator:
@@ -49,3 +49,14 @@ class CppGenerator:
         w.emptyline()
         w.line("void transition_fn(CaContext &ctx, Vars &var)")
         return w.get_string()
+
+    def get_user_function_header(self, ufunction_name):
+        ufunction = self.project.get_user_function(ufunction_name)
+        em = emitter.Emitter(self.project)
+        t = em.emit_type(ufunction.get_returntype())
+        if ufunction.with_context:
+            ctx = "CaContext &ctx, "
+        else:
+            ctx = ""
+        decls = emit_declarations(em, ufunction.get_parameters())
+        return "{0} {1}({2}{3})\n{{\n".format(t, ufunction_name, ctx, decls)

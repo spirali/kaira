@@ -17,7 +17,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from base.utils import EqMixin
+from base.utils import EqMixin, PtpException
 
 class Type(object):
 
@@ -63,10 +63,23 @@ class Type(object):
     def depends_on(self, t):
         return t != self and t in self.get_subtypes()
 
+    """ Checks if a type is valid in project """
+    def check(self, project):
+        for t in self.args:
+            t.check(project)
+        if self.name == "" or self in basic_types:
+            return
+        if self.name == "Array" and self.get_arity() == 1:
+            return
+        if self.get_arity() == 0 and project.get_extern_type(self.name) is not None:
+            return
+        raise PtpException("Unknown type {0}".format(self), self.source)
+
     def __hash__(self):
         return hash(self.name)
 
     def __eq__(self, other):
+        # self.source is NOT tested
         return (isinstance(other, self.__class__)) and self.name == other.name and self.args == other.args
 
     def __ne__(self, other):
@@ -95,6 +108,8 @@ t_string = Type("String")
 t_bool = Type("Bool")
 t_float = Type("Float")
 t_double = Type("Double")
+
+basic_types = [ t_int, t_string, t_bool, t_float, t_double ]
 
 def t_array(x):
     return Type("Array", [x])

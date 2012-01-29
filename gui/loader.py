@@ -23,7 +23,7 @@ import xml.etree.ElementTree as xml
 import utils
 import os
 
-from project import Parameter
+from project import Parameter, Function
 import projectcpp
 import projectjava
 
@@ -87,7 +87,7 @@ def load_extern_type(element, project):
 
 def load_function(element, project, loader):
     id = loader.get_id(element)
-    f =  project.get_function_class()(id)
+    f =  Function(id)
     f.set_name(utils.xml_str(element, "name"))
     f.set_return_type(utils.xml_str(element, "return-type"))
     f.set_parameters(utils.xml_str(element, "parameters"))

@@ -18,6 +18,9 @@
 #
 
 import argparse
+import sys
+import paths
+sys.path.append(paths.PTP_DIR)
 import loader
 
 def export(filename, force_packers):
@@ -25,7 +28,7 @@ def export(filename, force_packers):
     if force_packers:
         p.set_force_packers(True)
     p.write_project_files()
-    p.export(p.get_exported_filename())
+    p.export_to_file(p.get_exported_filename())
 
 def main():
     parser = argparse.ArgumentParser(description='Kaira gui command line controller')

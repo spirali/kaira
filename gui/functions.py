@@ -24,6 +24,7 @@
 import gtk
 from objectlist import ObjectList
 from codeedit import CodeEditor
+from project import Function
 import gtkutils
 
 ## The class granting the add/remove/edit functionality under
@@ -59,7 +60,7 @@ class FunctionsWidget(ObjectList):
     ## Adds a function to the project.
     #  @param selected Not used.
     def _add_function(self, selected):
-        obj = self.project.get_function_class()()
+        obj = Function()
         if function_dialog(obj, self.app.window):
             self.add_object(obj)
             self.project.add_function(obj)
@@ -81,13 +82,9 @@ class FunctionsWidget(ObjectList):
     #  @param obj The function.
     def _edit_function_code(self, obj):
         if obj is not None:
-            if obj.check_definition():
-                self.app.function_edit(obj)
-            else:
-                self.app.console_write("Invalid definition of function '%s'\n"
-                    % obj.get_name(), "error")
+            self.app.function_edit(obj)
 
-## The class for editing a definition of a function. 
+## The class for editing a definition of a function.
 class FunctionEditor(CodeEditor):
 
     ## The constructor, starts editing a definition of a function.
@@ -95,11 +92,10 @@ class FunctionEditor(CodeEditor):
     #  @param function The function to edit.
     def __init__(self, project, function):
         self.function = function
-        declaration = function.get_function_declaration()
+        header = function.get_function_header()
         code = function.get_function_code()
-        start = "\n{\n"
         end = "}\n"
-        CodeEditor.__init__(self, project.get_syntax_highlight_key(), declaration + start, code, end, (2, 0))
+        CodeEditor.__init__(self, project.get_syntax_highlight_key(), header, code, end, (2, 0))
 
     ## The event handler updating the function's definition.
     #  @param buffer Not used.

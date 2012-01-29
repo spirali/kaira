@@ -77,6 +77,15 @@ class UserFunction(object):
     def get_parameters(self):
         return self.parameters
 
+    def get_all_types(self):
+        ts = [ t for _, t in self.parameters ]
+        ts.append(self.returntype)
+        return set(ts)
+
+    def check(self, project):
+        for t in self.get_all_types():
+            t.check(project)
+
 class Parameter(object):
 
     def __init__(self, name, type, description):
@@ -117,7 +126,9 @@ class Project(object):
         return self.extenv
 
     def get_all_types(self):
-        return set().union( *[ net.get_all_types() for net in self.nets ] )
+        ts = set().union( *[ net.get_all_types() for net in self.nets ] )
+        ts.update(*[ ufunction.get_all_types() for ufunction in self.get_user_functions() ])
+        return ts
 
     def get_extern_types(self):
         return self.extern_types.values()
@@ -161,6 +172,8 @@ class Project(object):
     def check(self):
         for net in self.nets:
             net.check()
+        for t in self.get_all_types():
+            t.check(self)
 
 def get_source(element, name):
     id = utils.xml_int(element, "id")
@@ -251,7 +264,11 @@ def load_user_function(element):
     with_context = utils.xml_bool(element, "with-context")
     parameters = parser.parse_parameters_declaration(utils.xml_str(element, "parameters"), None)
     returntype = parser.parse_type(utils.xml_str(element, "return-type"), None)
-    return UserFunction(id, name, parameters, returntype, with_context, element.text)
+    if element.text is None:
+        code = "\n"
+    else:
+        code = element.text
+    return UserFunction(id, name, parameters, returntype, with_context, code)
 
 def load_parameter(element):
     name = utils.xml_str(element, "name")
@@ -280,6 +297,9 @@ def load_project(element):
     p.nets = [ net for e, net in nets ]
     for e, net in nets:
         load_net_content(e, p, net)
+
+    p.inject_types()
+    p.check()
     return p
 
 def load_project_from_file(filename):

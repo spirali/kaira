@@ -23,8 +23,9 @@ import gtk
 import os
 import re
 import sys
-import gtkutils
 import paths
+sys.path.append(paths.PTP_DIR)
+import gtkutils
 from mainwindow import MainWindow, Tab
 from netview import NetView
 from simconfig import SimConfigDialog
@@ -39,6 +40,7 @@ import settings
 import externtypes
 import functions
 import loader
+import ptp
 
 
 VERSION_STRING = '0.3'
@@ -274,9 +276,13 @@ class App:
     def function_edit(self, function, line_no = None):
         if self.window.switch_to_tab_by_key(function, lambda tab: tab.widget.jump_to_line(line_no)):
             return
-        editor = functions.FunctionEditor(self.project, function)
-        self.window.add_tab(Tab(function.get_name(), editor, function))
-        editor.jump_to_line(line_no)
+        try:
+            editor = functions.FunctionEditor(self.project, function)
+            self.window.add_tab(Tab(function.get_name(), editor, function))
+            editor.jump_to_line(line_no)
+        except ptp.PtpException, e:
+            self.console_write("Cannot open function '{0}'\n".format(function.get_name()), "error")
+            self.console_write(str(e) + "\n", "error")
 
     def project_config(self):
         if self.window.switch_to_tab_by_key("project-config"):
@@ -369,7 +375,7 @@ class App:
         self.window.foreach_tab(lambda tab: tab.project_export())
         if proj is None:
             proj = self.project
-        proj.export(proj.get_exported_filename())
+        proj.export_to_file(proj.get_exported_filename())
         return True
 
     def hide_error_messages(self):

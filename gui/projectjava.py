@@ -55,24 +55,6 @@ class ProjectJava(Project):
                "   so definitions from this file can be used in functions in\n" \
                "   transitions and places. */\n\n"
 
-    def type_to_raw_type(self, t):
-        if t == "__Context":
-            return "CaContext"
-        if t == "Int":
-            return "int"
-        if t == "Bool":
-            return "boolean"
-        if t == "Float":
-            return "float"
-        if t == "Double":
-            return "double"
-        if t == "String":
-            return "String"
-        for et in self.extern_types:
-            if et.get_name() == t:
-                return et.get_raw_type()
-        return None
-
     def get_source_file_patterns(self):
         return ["*.java"]
 

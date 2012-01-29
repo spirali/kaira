@@ -26,6 +26,9 @@ import os.path
 
 from base.gentools import get_ordered_types, get_edges_mathing
 
+def emit_declarations(emitter, decls):
+    return ",".join(("{0} {1}".format(emitter.emit_type(t), name) for name, t in decls))
+
 class CppWriter(Writer):
 
     def block_begin(self):
@@ -612,8 +615,6 @@ class Builder(CppWriter):
                 write_fn(etype, "unpack")
 
     def build(self):
-        self.project.inject_types()
-        self.project.check()
         self.write_header()
         self.write_parameters()
         self.write_extern_types_functions()
@@ -732,9 +733,6 @@ class Builder(CppWriter):
     def emit_type(self, t):
         return self.emitter.emit_type(t)
 
-    def emit_declarations(self, decls):
-        return ",".join(("{0} {1}".format(self.emit_type(t), name) for name, t in decls))
-
     def code_as_string(self, expr, t):
         if t.name == "":
             return "({0}).as_string()".format(expr)
@@ -756,3 +754,6 @@ class Builder(CppWriter):
         if t == t_bool:
             return "ca_bool_to_string({0})".format(expr)
         return "ca_int_to_string({0})".format(expr)
+
+    def emit_declarations(self, decls):
+        return emit_declarations(self.emitter, decls)

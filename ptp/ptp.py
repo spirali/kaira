@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import sys
 import base.project as project
-import base.utils as utils
+from base.utils import PtpException
 from gencpp.generator import CppGenerator
 
 generators = {
@@ -11,10 +11,12 @@ generators = {
 def get_generator(project):
     g = generators.get(project.get_extenv())
     if g is None:
-        raise utils.PtpException("Unknown extenv '{0}'".format(project.get_extenv()))
+        raise PtpException("Unknown extenv '{0}'".format(project.get_extenv()))
     else:
         return g(project)
 
+def get_generator_from_xml(element):
+    return get_generator(project.load_project(element))
 
 def main(args):
 
@@ -38,6 +40,6 @@ def main(args):
 if __name__ == '__main__':
     try:
         main(sys.argv[1:])
-    except utils.PtpException, e:
+    except PtpException, e:
         print e
         sys.exit(1)

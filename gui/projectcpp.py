@@ -20,7 +20,7 @@
 import utils
 import os
 import paths
-from project import Project, ExternType, Function
+from project import Project, ExternType
 
 class ProjectCpp(Project):
 
@@ -39,9 +39,6 @@ class ProjectCpp(Project):
     def get_exttype_class(self):
         return ExternTypeCpp
 
-    def get_function_class(self):
-        return FunctionCpp
-
     def get_syntax_highlight_key(self):
         """return language for GtkSourceView"""
         return "cpp"
@@ -56,30 +53,6 @@ class ProjectCpp(Project):
         return "/* This file is included at the beginning of the main source file,\n" \
                "   so definitions from this file can be used in functions in\n" \
                "   transitions and places. */\n\n"
-
-    def type_to_raw_type(self, t):
-        if t == "__Context":
-            return "CaContext"
-        if t == "Int":
-            return "int"
-        if t == "Array(Int)":
-            return "std::vector<int>"
-        if t == "(Int, Array(Int))":
-            return "Tuple2_int_Array_int"
-        if t == "Array((Int, Array(Int)))":
-            return "std::vector<Tuple2_Int_Array1_Int>"
-        if t == "Bool":
-            return "bool"
-        if t == "Float":
-            return "float"
-        if t == "Double":
-            return "double"
-        if t == "String":
-            return "std::string"
-        for et in self.extern_types:
-            if et.get_name() == t:
-                return et.get_raw_type()
-        return t
 
     def get_source_file_patterns(self):
         return ["*.cpp", "*.cc", "*.c"]
@@ -155,24 +128,3 @@ class ExternTypeCpp(ExternType):
             return "void pack(CaPacker &packer, const " + self.raw_type + " &obj)"
         elif name == "unpack":
             return self.raw_type + " unpack(CaUnpacker &unpacker)"
-
-class FunctionCpp(Function):
-
-    def __init__(self, id = None):
-        Function.__init__(self, id)
-
-    def get_function_declaration(self):
-        return self.get_raw_return_type() + " " + self.name + "(" + self.get_raw_parameters() + ")"
-
-    def get_raw_parameters(self):
-        p = self.split_parameters()
-        if p is None:
-            return "Invalid format of parameters"
-        else:
-            params_str =    [ self.project.type_to_raw_type(t) + " &" + n for (t, n) in p ]
-            if self.with_context:
-                params_str.insert(0, "CaContext &ctx")
-            return ", ".join(params_str)
-
-    def get_raw_return_type(self):
-        return self.project.type_to_raw_type(self.return_type)

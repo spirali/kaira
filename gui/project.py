@@ -21,6 +21,7 @@
 import xml.etree.ElementTree as xml
 import utils
 import os
+import ptp
 
 from events import EventSource
 from simconfig import SimConfig
@@ -43,12 +44,19 @@ class Project(EventSource):
         self.simconfig = SimConfig()
         self.error_messages = {}
         self.functions = []
+        self.generator = None
 
     def get_build_option(self, name):
         if name in self.build_options:
             return self.build_options[name]
         else:
             return ""
+
+    def get_generator(self):
+        if self.generator:
+             return self.generator
+        self.generator = ptp.get_generator_from_xml(self.export_xml())
+        return self.generator
 
     def set_build_option(self, name, value):
         self.build_options[name] = value
@@ -132,6 +140,7 @@ class Project(EventSource):
             return None
 
     def changed(self):
+        self.generator = None # Invalidate generator cache
         self.emit_event("changed")
 
     def set_force_packers(self, value):
@@ -157,7 +166,7 @@ class Project(EventSource):
         finally:
             f.close()
 
-    def export(self, filename):
+    def export_xml(self):
         root = xml.Element("project")
         root.set("extenv", self.get_extenv_name())
 
@@ -169,10 +178,13 @@ class Project(EventSource):
 
         for net in self.nets:
             root.append(net.export_xml())
+        return root
 
+    def export_to_file(self, filename):
+        content = xml.tostring(self.export_xml())
         f = open(filename, "w")
         try:
-            f.write(xml.tostring(root))
+            f.write(content)
         finally:
             f.close()
 
@@ -227,7 +239,6 @@ class Project(EventSource):
         element.set("name", name)
         element.text = self.get_build_option(name)
         return element
-
 
     def _configuration_element(self, export):
         e = xml.Element("configuration")
@@ -374,7 +385,7 @@ class Function():
 
     project = None
 
-    def __init__(self, id):
+    def __init__(self, id = None):
         self.name = ""
         self.code = ""
 
@@ -383,16 +394,22 @@ class Function():
         self.with_context = False
         self.id = id
 
+    def changed(self):
+        if self.project:
+            self.project.changed()
+
     def get_name(self):
         return self.name
 
     def set_name(self, name):
         self.name = name
+        self.changed()
 
     def set_function_code(self, code):
         if code is None:
             code = ""
         self.code = code
+        self.changed()
 
     def get_function_code(self):
         if self.has_code():
@@ -413,6 +430,7 @@ class Function():
 
     def set_parameters(self, parameters):
         self.parameters = parameters
+        self.changed()
 
     def get_return_type(self):
         return self.return_type
@@ -426,15 +444,11 @@ class Function():
     def set_with_context(self, value):
         self.with_context = value
 
+    def get_function_header(self):
+        return self.project.get_generator().get_user_function_header(self.name)
+
     def check_definition(self):
-        if self.project.type_to_raw_type(self.return_type) is None:
-            return False
-        for p in self.split_parameters():
-            if len(p) != 2:
-                return False
-            if self.project.type_to_raw_type(p[0]) is None:
-                return False
-        return True
+        return self.get_function_header() is not None
 
     def split_parameters(self):
         return [ x.split() for x in self.parameters.split(", ") if x.strip() != ""]
