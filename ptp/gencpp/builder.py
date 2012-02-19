@@ -199,27 +199,42 @@ class Builder(CppWriter):
         self.block_end()
 
     def write_array_size(self, t):
-        self.line("size_t array_{0}_size(const std::vector <{1} > &vector)",
+        self.line("size_t array_{0}_size(std::vector <{1} > &vector)",
                   t.get_safe_name(), self.emit_type(t))
         self.block_begin()
-        self.line("// FIXME: Need implementation")
-        self.line("abort();")
+        self.line("size_t s = sizeof(size_t);")
+        # FIXME: Optimize for constant size objects
+        self.line("for (std::vector<{0} >::iterator i = vector.begin(); i != vector.end(); i++)",
+                  self.emit_type(t))
+        self.block_begin()
+        self.line("s += {0};", self.get_size_code(t, "(*i)"))
+        self.block_end()
+        self.line("return s;")
         self.block_end()
 
     def write_array_pack(self, t):
-        self.line("void array_{0}_pack(CaPacker &packer, const std::vector <{1} > &vector)",
+        self.line("void array_{0}_pack(CaPacker &packer, std::vector <{1} > &vector)",
                   t.get_safe_name(), self.emit_type(t))
         self.block_begin()
-        self.line("// FIXME: Need implementation")
-        self.line("abort();")
+        self.line("packer.pack_size(vector.size());")
+        self.line("for (std::vector<{0} >::iterator i = vector.begin(); i != vector.end(); i++)",
+                  self.emit_type(t))
+        self.block_begin()
+        self.line("{0};", self.get_pack_code(t, "packer", "(*i)"))
+        self.block_end()
         self.block_end()
 
     def write_array_unpack(self, t):
         self.line("std::vector <{1} > array_{0}_unpack(CaUnpacker &unpacker)",
                   t.get_safe_name(), self.emit_type(t))
         self.block_begin()
-        self.line("// FIXME: Need implementation")
-        self.line("abort();")
+        self.line("size_t s = unpacker.unpack_size();")
+        self.line("std::vector <{0} > vector(s);", self.emit_type(t))
+        self.line("for (size_t t = 0; t < s; t++)")
+        self.block_begin()
+        self.line("vector[t] = {0};", self.get_unpack_code(t, "unpacker"))
+        self.block_end()
+        self.line("return vector;")
         self.block_end()
 
     def write_types(self):
