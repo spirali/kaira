@@ -19,7 +19,7 @@
 
 from utils import EqMixin
 from neltypes import TypeVar, rename_vars, fresh_typevar, join_contexts_by_equations, join_contexts
-from neltypes import t_string, t_int, t_array, t_tuple, t_bool, t_double
+from neltypes import t_string, t_int, t_array, t_tuple, t_bool, t_double, t_var0
 import neltypes
 import utils
 from base.utils import PtpException
@@ -34,14 +34,18 @@ nel_standard_functions = {
     ">": [ t_bool, t_int, t_int ],
     "&&": [ t_bool, t_bool, t_bool ],
     "||": [ t_bool, t_bool, t_bool ],
-    "==": [ t_bool, TypeVar(0), TypeVar(0) ],
-    "!=": [ t_bool, TypeVar(0), TypeVar(0) ],
+    "==": [ t_bool, t_var0, t_var0 ],
+    "!=": [ t_bool, t_var0, t_var0 ],
     "not": [ t_bool, t_bool ],
-    "length": [ t_int, t_array(TypeVar(0)) ],
-    "at": [ TypeVar(0), t_array(TypeVar(0)), t_int ],
+    "length": [ t_int, t_array(t_var0) ],
+    "at": [ t_var0, t_array(t_var0), t_int ],
     "range": [ t_array(t_int), t_int, t_int ],
     "process_id" : [ t_int ],
     "process_count" : [ t_int ],
+    "threads_count" : [ t_int ],
+    "repeat" : [ t_array(t_var0), t_int, t_array(t_var0) ],
+    "++" : [ t_array(t_var0), t_array(t_var0), t_array(t_var0) ],
+    "--" : [ t_array(t_var0), t_array(t_var0), t_array(t_var0) ],
 }
 
 class Env(object):

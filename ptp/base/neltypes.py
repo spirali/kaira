@@ -109,6 +109,8 @@ t_bool = Type("Bool")
 t_float = Type("Float")
 t_double = Type("Double")
 
+t_var0 = TypeVar(0)
+
 basic_types = [ t_int, t_string, t_bool, t_float, t_double ]
 
 def t_array(x):

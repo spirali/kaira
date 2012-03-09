@@ -76,7 +76,7 @@ tupleparser = parens.copy().setParseAction(tuple_action)
 atom = (number | string | var_or_call | tupleparser | parameter | array)
 
 op1 = OpKeyword("*") | OpKeyword("/")
-op2 = OpKeyword("+") | OpKeyword("-")
+op2 = OpKeyword("+") | OpKeyword("-") | OpKeyword("++") | OpKeyword("--")
 op3 = OpKeyword("==") | OpKeyword("!=") | OpKeyword("<=") | OpKeyword(">=") | OpKeyword("<") | OpKeyword(">")
 op4 = OpKeyword("&&") | OpKeyword("||")
 
@@ -95,16 +95,19 @@ output = Optional(packing, "normal") + expression \
     + Optional(Group(Suppress("@") + Optional(multicast, "unicast") + expression), ("local", None)) \
         .setParseAction(lambda tokens: tuple(tokens[0])) \
     + Optional(Suppress("?") + expression, None)
-input = Optional(packing, "normal") + expression
+input = Optional(packing, "normal") + expression + StringEnd()
 
 parameter = (typeparser + ident).setParseAction(lambda tokens: (tokens[1], tokens[0]))
-parameters = parameter + ZeroOrMore(delim + parameter)
+parameters = parameter + ZeroOrMore(delim + parameter) + StringEnd()
+
+expression_parser = expression + StringEnd()
+type_parser = typeparser + StringEnd()
 
 def parse_expression(string, source = None):
     if string.strip() == "":
         raise utils.PtpException("Expression missing", source)
     try:
-        expr = expression.parseString(string)[0]
+        expr = expression_parser.parseString(string)[0]
         expr.set_source(source)
         return expr
     except ParseException, e:
@@ -114,7 +117,7 @@ def parse_type(string, source = None):
     if string.strip() == "":
         raise utils.PtpException("Type missing", source)
     try:
-        t = typeparser.parseString(string)[0]
+        t = type_parser.parseString(string)[0]
         t.set_source(source)
         return t
     except ParseException, e:
