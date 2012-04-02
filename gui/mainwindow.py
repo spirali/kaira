@@ -124,6 +124,11 @@ class MainWindow(gtk.Window):
         item.connect("activate", lambda w: self.app.load_project())
         file_menu.append(item)
 
+        item = gtk.MenuItem("L_oad module")
+        item.connect("activate", lambda w: self.app.load_module())
+        self.project_sensitives.append(item)
+        file_menu.append(item)
+
         item = gtk.MenuItem("_Save project")
         item.connect("activate", lambda w: self.app.save_project())
         self.project_sensitives.append(item)

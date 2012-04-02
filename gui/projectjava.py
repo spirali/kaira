@@ -34,6 +34,9 @@ class ProjectJava(Project):
     def get_extenv_name(self):
         return "Java"
 
+    def is_library(self):
+        return False
+
     def get_native_extern_type_class(self):
         return ExternTypeJava
 
@@ -49,6 +52,7 @@ class ProjectJava(Project):
 
     def get_head_filename(self):
         return os.path.join(self.get_directory(), "head.java")
+    
 
     def get_initial_head_file_content(self):
         return "/* This file is included at the beginning of the main source file,\n" \

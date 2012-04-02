@@ -310,6 +310,9 @@ class App:
         self.edit_sourcefile(self.project.get_head_filename())
 
     def simulation_start(self, valgrind = False):
+        if self.project.is_library():
+            self.console_write("Not supported yet\n", "error")
+            return
         def output(line, stream):
             self.console_write("OUTPUT: " + line, "output")
             return True
@@ -435,7 +438,10 @@ class App:
     def _start_build(self, proj, build_ok_callback):
         if self.get_settings("save-before-build"):
             self._save_project(silent = True)
-        extra_args = [ "--build", proj.get_emitted_source_filename() ]
+        if proj.is_library():
+            extra_args = [ "--library", proj.get_emitted_source_filename() ]
+        else:
+            extra_args = [ "--build", proj.get_emitted_source_filename() ]
         self._start_ptp(proj, lambda lines: self._run_makefile(proj, build_ok_callback), extra_args = extra_args)
 
     def _start_ptp(self, proj, build_ok_callback = None, extra_args = []):
@@ -451,6 +457,7 @@ class App:
                 self.project.set_error_messages(error_messages)
                 self.console_write("Building failed\n", "error")
         def on_line(line, stream):
+            self.console_write(line)
             stdout.append(line)
             return True
         if not self.export_project(proj):
@@ -536,6 +543,23 @@ class App:
         label.set_markup(line1 + line2 + line3)
         label.set_justify(gtk.JUSTIFY_CENTER)
         self.window.add_tab(Tab("Welcome", label, has_close_button = False))
+
+    def load_module(self):
+        dialog = gtk.FileChooserDialog("Load module", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
+                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                 gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+        dialog.set_default_response(gtk.RESPONSE_OK)
+        try:
+            self._add_project_file_filters(dialog)
+            response = dialog.run()
+            if response == gtk.RESPONSE_OK:
+                filename = dialog.get_filename()
+                if filename[-5:] != ".proj":
+                    filename = filename + ".proj"
+
+                loader.load_modules(self.project, filename)
+        finally:
+            dialog.destroy()
 
 if __name__ == "__main__":
     args = sys.argv[1:] # Remove "app.py"

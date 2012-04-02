@@ -987,11 +987,11 @@ def load_interface_node(element, net, loader):
     py = xml_int(element, "y")
     net.add_interface_node((px, py), id)
 
-def nets_postload_process(project):
+def nets_postload_process(project, loader):
     for net in project.get_nets():
         for transition in net.transitions():
-            if transition.subnet is not None:
-                transition.subnet = project.find_net(transition.subnet)
+            if transition.subnet is not None and isinstance(transition.subnet, int):
+                transition.subnet = project.find_net(loader.translate_id(transition.subnet))
 
 def load_net(element, project, loader):
     name = element.get("name", "Main") # Setting "Main" for backward compatability
@@ -1021,6 +1021,17 @@ def load_net(element, project, loader):
 
     return net
 
+class BasicLoader:
+    def __init__(self, project):
+        self.project = project
+
+    def get_id(self, element):
+        id = utils.xml_int(element, "id", 0)
+        self.project.id_counter = max(self.project.id_counter, id)
+        return id
+
+    def translate_id(self, id):
+        return id
 
 class NewIdLoader:
 

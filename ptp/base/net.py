@@ -321,6 +321,14 @@ class Net(object):
     def get_index(self):
         return self.project.nets.index(self)
 
+    def get_module_index(self):
+        index = 0
+        for net in self.project.nets:
+            if net.is_module():
+                if net == self:
+                    return index
+                index += 1
+
     def inject_types(self):
         for place in self.places:
             place.inject_types()
@@ -333,12 +341,21 @@ class Net(object):
     def get_interface_context(self):
         eq = []
         env = self.project.get_env()
-        for e in self.interface_edges_in + self.interface_edges_out:
+        for e in self.interface_edges_out + self.interface_edges_in:
             eq += e.get_equations()
         return derive_context(env, eq)
 
     def get_module_input_vars(self):
         return set().union(*[ e.expr.get_free_vars() for e in self.interface_edges_out ])
+
+    def get_module_output_vars(self):
+        vars = set()
+        for e in self.interface_edges_in:
+            if e.is_normal():
+                vars = vars.union(*[ e.expr.get_free_vars() ])
+            else:
+                vars.add(e.varname)
+        return vars
 
     def inject_types_interface(self):
         context = self.get_interface_context()
@@ -355,7 +372,7 @@ class Net(object):
     def check(self):
         """ Check consistency of net, raise exception if something is wrong,
             inject_types exptected before calling check"""
-
+            
         for t in self.get_all_types():
             t.check(self.project)
 

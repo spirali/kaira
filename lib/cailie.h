@@ -82,6 +82,7 @@ template <typename T>
 class ca_array
 {
 	public:
+	ca_array() {}
 	ca_array(const T& val) {
 		vec.push_back(val);
 	}
@@ -95,6 +96,10 @@ class ca_array
 	std::vector<T> end()
 	{
 		return vec;
+	}
+	void clear()
+	{
+		vec.clear();
 	}
 	private:
 	std::vector<T> vec;

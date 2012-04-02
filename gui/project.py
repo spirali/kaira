@@ -54,7 +54,7 @@ class Project(EventSource):
 
     def get_generator(self):
         if self.generator:
-             return self.generator
+            return self.generator
         self.generator = ptp.get_generator_from_xml(self.export_xml())
         return self.generator
 
@@ -87,7 +87,10 @@ class Project(EventSource):
         return self.nets
 
     def get_nets_with_interface(self):
-        return self.nets[1:] # Only first network has no interface
+        if self.nets[0].is_module():
+            return self.nets
+        else:
+            return self.nets[1:] # Only first network has no interface
 
     def get_name(self):
         d, fname = os.path.split(self.filename)

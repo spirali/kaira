@@ -16,6 +16,8 @@ int ca_log_on = 0;
 std::string ca_log_default_name = "";
 int ca_listen_port = -1;
 int ca_block_on_start = 0;
+CaNetDef **defs;
+int defs_count;
 
 #ifdef CA_SHMEM
 CaProcess **processes = NULL;
@@ -83,10 +85,6 @@ int ca_main()
 	if (listener != NULL) {
 		delete listener;
 	}
-
-	for (int t = 0; t < ca_process_count; t++) {
-		delete processes[t];
-	}
 	#endif
 
 	return 0;
@@ -111,12 +109,25 @@ static int ca_set_argument(int params_count, const char **param_names, int **par
 	exit(1);
 }
 
-#ifdef CA_MPI
 void ca_finalize()
 {
+	#ifdef CA_SHMEM
+	for (int t = 0; t < ca_process_count; t++) {
+		delete processes[t];
+	}
+	free(processes);
+
+	for (int i = 0 ; i < defs_count ; i++){
+		delete defs[i];
+	}
+
+	free(defs);
+	#endif
+
+	#ifdef CA_MPI
 	MPI_Finalize();
+	#endif
 }
-#endif
 
 void ca_init(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs)
 {
@@ -135,8 +146,9 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 
 	#ifdef CA_MPI
 	MPI_Init(&argc, &argv);
-	atexit(ca_finalize);
 	#endif
+
+	atexit(ca_finalize);
 
 	while ((c = getopt_long (argc, argv, "hp:t:l:s:br:", longopts, NULL)) != -1)
 		switch (c) {
@@ -216,8 +228,12 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 
 }
 
-void ca_setup(int defs_count, CaNetDef **defs)
+void ca_setup(int _defs_count, CaNetDef **_defs)
 {
+	defs_count = _defs_count;
+	defs = (CaNetDef**) malloc(sizeof(CaNetDef*) * defs_count);
+	memcpy(defs, _defs, sizeof(CaNetDef*) * defs_count);
+
 	#ifdef CA_MPI
 		int process_count, process_id;
 		MPI_Comm_rank(MPI_COMM_WORLD, &process_id);

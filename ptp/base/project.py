@@ -300,7 +300,7 @@ def load_project(element):
     p = Project(extenv, description)
 
     load_configuration(element.find("configuration"), p)
-
+    
     nets = [ (e, load_net(e, p)) for e in element.findall("net") ]
     p.nets = [ net for e, net in nets ]
     for e, net in nets:

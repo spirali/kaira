@@ -107,6 +107,8 @@ template<class T> class CaPlace {
 
 		T first_value() { return token->element; }
 
+		~CaPlace() { clear(); }
+
 	protected:
 		/* This is naive implementation, it needs benchmarks
 			to choose correct implementation */

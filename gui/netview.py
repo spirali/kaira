@@ -378,7 +378,6 @@ class NetList(ObjectList):
             surface.finish()
         self.netview.app.console_write("Net exported to 'net.svg'.\n", "success")
 
-
     def _update(self):
         self.refresh(self.project.get_nets())
 

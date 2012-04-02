@@ -5,7 +5,8 @@ from base.utils import PtpException
 from gencpp.generator import CppGenerator
 
 generators = {
-    "C++" : CppGenerator
+    "C++" : CppGenerator,
+    "C++ library" : CppGenerator
 }
 
 def get_generator(project):
@@ -19,12 +20,15 @@ def get_generator_from_xml(element):
     return get_generator(project.load_project(element))
 
 def main(args):
-
     p = project.load_project_from_file(args[0])
     generator = get_generator(p)
 
     if len(args) == 3 and args[1] == "--build":
         generator.build(args[2])
+        return
+    
+    if len(args) == 3 and args[1] == "--library":
+        generator.build_library(args[2])
         return
 
     if len(args) == 3 and args[1] == "--place-user-fn":

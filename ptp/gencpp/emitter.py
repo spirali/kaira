@@ -131,7 +131,7 @@ class Emitter(object):
     def i_extern(self, writer, name):
         writer.line(self.extern_table[name])
 
-    def emit_type(self, t):
+    def emit_type(self, t, return_array_as_vector = True):
         if isinstance(t, str):
             return t
         if not isinstance(t, Type):
@@ -156,5 +156,9 @@ class Emitter(object):
                 return etype.get_rawtype()
         elif a == 1:
             if t.name == "Array":
-                return "std::vector<" + self.emit_type(t.args[0]) + " >"
+                if return_array_as_vector:
+                    return "std::vector<" + self.emit_type(t.args[0]) + " >"
+                else:
+                    return self.emit_type(t.args[0], False) + "*"
         raise Exception("Type '{0}' cannot be emitted".format(t))
+    

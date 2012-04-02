@@ -219,7 +219,9 @@ void CaThread::run_scheduler()
 			// Vector nets could be changed
 			net = nets.begin();
 		}
-		net++;
+		if(nets.size() > 0) {
+			net++;
+		}
 		if (net == nets.end()) {
 			net = nets.begin();
 		}
