@@ -44,8 +44,14 @@ class Emitter(object):
                     name = "thread->get_process_id"
                 elif name == "process_count":
                     name = "thread->get_process_count"
+                elif name == "threads_count":
+                    name = "thread->get_threads_count"
                 elif name == "not":
                     name = "!"
+                elif name == "++":
+                    name = "ca_array_join<{0}>".format(self.emit_type(args[0].nel_type.args[0]))
+                elif name == "--":
+                    name = "ca_array_diff<{0}>".format(self.emit_type(args[0].nel_type.args[0]))
                 else:
                     name = "ca_" + name
             return "{0}({1})".format(name, ", ".join(a))

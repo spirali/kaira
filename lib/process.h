@@ -115,6 +115,7 @@ class CaThread {
 
 		int get_process_id() { return process->get_process_id(); }
 		int get_process_count() { return process->get_process_count(); }
+		int get_threads_count() { return process->get_threads_count(); }
 
 		void add_message(CaThreadMessage *message);
 		bool process_thread_messages();
