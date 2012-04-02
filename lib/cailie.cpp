@@ -18,8 +18,15 @@ int ca_listen_port = -1;
 int ca_block_on_start = 0;
 
 #ifdef CA_SHMEM
+CaProcess **processes = NULL;
 int ca_process_count = 1;
+CaNet *master_net = NULL;
 #endif
+
+#ifdef CA_MPI
+CaProcess *process = NULL;
+#endif
+
 
 void ca_project_description(const char *str) {
 	ca_project_description_string = str;
@@ -51,37 +58,25 @@ static CaListener * ca_init_listener(int process_count, CaProcess **processes)
 	return listener;
 }
 
-int ca_main(int defs_count, CaNetDef **defs)
+int ca_main()
 {
 	#ifdef CA_MPI
-		int process_count, process_id;
-		MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
-		MPI_Comm_size(MPI_COMM_WORLD, &process_count);
-		CaProcess process(process_id, process_count, ca_threads_count, defs_count, defs);
-		process.start();
-		process.join();
+	process->start();
+	process->join();
 	#endif
 
 	#ifdef CA_SHMEM
 	CaListener *listener = NULL;
 
-	CaProcess **processes = (CaProcess**) alloca(sizeof(CaProcess*) * ca_process_count);
-
-	int t;
-	for (t = 0; t < ca_process_count; t++) {
-		processes[t] = new CaProcess(t, ca_process_count, ca_threads_count, defs_count, defs);
-		processes[t]->set_processes(processes);
-	}
-
 	if (ca_listen_port != -1) {
 		listener = ca_init_listener(ca_process_count, processes);
 	}
 
-	for (t = 0; t < ca_process_count; t++) {
+	for (int t = 0; t < ca_process_count; t++) {
 		processes[t]->start();
 	}
 
-	for (t = 0; t < ca_process_count; t++) {
+	for (int t = 0; t < ca_process_count; t++) {
 		processes[t]->join();
 	}
 
@@ -89,7 +84,7 @@ int ca_main(int defs_count, CaNetDef **defs)
 		delete listener;
 	}
 
-	for (t = 0; t < ca_process_count; t++) {
+	for (int t = 0; t < ca_process_count; t++) {
 		delete processes[t];
 	}
 	#endif
@@ -218,6 +213,51 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 		}
 	}
 	if (exit_f) { exit(1); }
+
+}
+
+void ca_setup(int defs_count, CaNetDef **defs)
+{
+	#ifdef CA_MPI
+		int process_count, process_id;
+		MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
+		MPI_Comm_size(MPI_COMM_WORLD, &process_count);
+		process = new CaProcess(process_id, process_count, ca_threads_count, defs_count, defs);
+	#endif
+
+	#ifdef CA_SHMEM
+	processes = (CaProcess**) malloc(sizeof(CaProcess*) * ca_process_count);
+	for (int t = 0; t < ca_process_count; t++) {
+		processes[t] = new CaProcess(t, ca_process_count, ca_threads_count, defs_count, defs);
+	}
+	#endif
+}
+
+
+void ca_spawn_toplevel_net(int def_id)
+{
+	#ifdef CA_SHMEM
+	for (int t = 0; t < ca_process_count; t++) {
+		CaNet *net = processes[t]->spawn_net(processes[t]->get_thread(0), def_id, 0, NULL, false);
+		net->unlock();
+		if (t == 0) {
+			master_net = net;
+		}
+	}
+	#endif
+
+	#ifdef CA_MPI
+	CaThread *thread = process->get_thread(0);
+	CaNet *net = process->spawn_net(thread, def_id, 0, NULL, false);
+	net->unlock();
+	#endif
+}
+
+CaNet * ca_get_main_net()
+{
+	#ifdef CA_SHMEM
+	return master_net;
+	#endif
 }
 
 std::vector<int> ca_range(int from, int upto)

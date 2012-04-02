@@ -77,9 +77,6 @@ class CaProcess {
 		int process_packets(CaThread *thread);
 
 		#ifdef CA_SHMEM
-		void set_processes(CaProcess **processes) {
-			this->processes = processes;
-		}
 		void add_packet(int tag, void *data);
 		#endif
 
@@ -98,7 +95,6 @@ class CaProcess {
 		pthread_mutex_t counter_mutex;
 
 		#ifdef CA_SHMEM
-		CaProcess **processes;
 		pthread_mutex_t packet_mutex;
 		CaPacket *packets;
 		#endif

@@ -1,6 +1,8 @@
 
 #include "cailie.h"
 
+extern CaProcess **processes;
+
 void CaProcess::broadcast_packet(int tag, void *data, size_t size, int exclude)
 {
 	for (int t = 0; t < process_count; t++) {

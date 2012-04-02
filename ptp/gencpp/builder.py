@@ -133,7 +133,9 @@ class Builder(CppWriter):
             self.register_net(net)
         defs = [ "def_" + str(net.id) for net in self.project.nets ]
         self.line("CaNetDef *defs[] = {{{0}}};", ",".join(defs))
-        self.line("ca_main({0}, defs);", len(defs));
+        self.line("ca_setup({0}, defs);", len(defs));
+        self.line("ca_spawn_toplevel_net(0);");
+        self.line("ca_main();");
         self.line("return 0;")
         self.block_end()
 

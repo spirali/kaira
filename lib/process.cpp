@@ -319,8 +319,6 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	pthread_mutex_init(&packet_mutex, NULL);
 	#endif
 
-	CaNet *net = spawn_net(&threads[0], 0, 0, NULL, false);
-	net->unlock();
 }
 
 int CaProcess::new_net_id()

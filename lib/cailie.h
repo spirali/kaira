@@ -65,12 +65,15 @@ class CaContext {
 		bool halt_flag;
 };
 
-/* Start */
-int ca_main(int defs_count, CaNetDef **defs);
-
-/* Others */
+/* Main functions */
 void ca_init(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs);
+void ca_setup(int defs_count, CaNetDef **defs);
+void ca_spawn_toplevel_net(int def_id);
+int ca_main();
 void ca_project_description(const char *str);
+
+/* In SHMEM returns first net of process[0], can be called only between ca_spawn_toplevel_net and ca_main */
+CaNet *ca_get_main_net();
 
 
 template <typename T>
