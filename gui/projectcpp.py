@@ -20,7 +20,7 @@
 import utils
 import os
 import paths
-from project import Project, ExternType
+from project import Project, NativeExternType
 
 class ProjectCpp(Project):
 
@@ -36,7 +36,7 @@ class ProjectCpp(Project):
     def get_extenv_name(self):
         return "C++"
 
-    def get_exttype_class(self):
+    def get_native_extern_type_class(self):
         return ExternTypeCpp
 
     def get_syntax_highlight_key(self):
@@ -110,14 +110,16 @@ class ProjectCpp(Project):
         makefile.rule(".c.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
         makefile.write_to_file(os.path.join(self.get_directory(), "makefile"))
 
-class ExternTypeCpp(ExternType):
+class ExternTypeCpp(NativeExternType):
 
     def __init__(self, name = "", raw_type = "", transport_mode = "Disabled"):
-        ExternType.__init__(self, name, raw_type, transport_mode)
+        NativeExternType.__init__(self, name, raw_type, transport_mode)
 
-
-    def get_default_function_code(self):
-        return "\treturn \"" + self.name + "\";\n"
+    def get_default_function_code(self, name):
+        if name == "getstring":
+            return "\treturn \"" + self.name + "\";\n"
+        else:
+            return "\t// Need implementation\n"
 
     def get_function_declaration(self, name):
         if name == "getstring":

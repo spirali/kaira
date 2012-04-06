@@ -94,8 +94,8 @@ class FunctionEditor(CodeEditor):
         self.function = function
         header = function.get_function_header()
         code = function.get_function_code()
-        end = "}\n"
-        CodeEditor.__init__(self, project.get_syntax_highlight_key(), header, code, end, (2, 0))
+        section = ("", header, code, "}\n")
+        CodeEditor.__init__(self, project.get_syntax_highlight_key(), [ section ], ("", 1, 1))
 
     ## The event handler updating the function's definition.
     #  @param buffer Not used.

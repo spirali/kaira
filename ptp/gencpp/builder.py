@@ -618,7 +618,7 @@ class Builder(CppWriter):
                  "unpack" : "{0.rawtype} {0.name}_unpack(CaUnpacker &unpacker)"
         }
         def write_fn(etype, name):
-            source = ("*{0}/{1}".format(etype.get_name(), name), 0)
+            source = ("*{0}/{1}".format(etype.get_name(), name), 1)
             self.write_function(decls[name].format(etype), etype.get_code(name), source)
 
         for etype in self.project.get_extern_types():

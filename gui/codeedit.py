@@ -28,8 +28,12 @@ import mainwindow
 
 class CodeEditor(gtk.VBox):
 
-    def __init__(self, language, start_string, middle_string, end_string, start_pos, head_paragraph = None):
+    """
+        sections: list of (name, start_string, middle_string, end_string)
+    """
+    def __init__(self, language, sections, start_pos, head_paragraph = None):
         gtk.VBox.__init__(self)
+        self.sections = sections
 
         toolbar = self._toolbar()
         if toolbar is not None:
@@ -39,18 +43,18 @@ class CodeEditor(gtk.VBox):
         self.pack_start(sw)
         sw.set_shadow_type(gtk.SHADOW_IN)
 
-        buffer = self._create_buffer(language, start_string, middle_string, end_string, start_pos, head_paragraph)
+        buffer = self._create_buffer(language, sections, head_paragraph)
         self.view = self._create_view(buffer)
         sw.add(self.view)
 
         self.show_all()
+        self.jump_to_position(start_pos)
 
-    def _create_buffer(self, key, start_string, middle_string, end_string, start_pos, head_paragraph):
+    def _create_buffer(self, key, sections, head_paragraph):
         manager = gtksourceview.LanguageManager()
         lan = manager.get_language(key)
 
         buffer = gtksourceview.Buffer()
-        start_line, start_char = start_pos
 
         buffer.create_tag("fixed", editable=False, background="lightgray")
         buffer.create_tag("normal")
@@ -61,22 +65,26 @@ class CodeEditor(gtk.VBox):
             buffer.create_tag("fixed-paragraph", editable=False, paragraph_background="lightgray")
             buffer.insert_with_tags_by_name(buffer.get_end_iter(), head_paragraph, "fixed-paragraph")
 
-        buffer.insert_with_tags_by_name(buffer.get_end_iter(), start_string, "fixed")
-        buffer.create_mark("start", buffer.get_end_iter(), True)
-        buffer.insert_with_tags_by_name(buffer.get_end_iter(), middle_string, "normal")
-        buffer.create_mark("tmp_end", buffer.get_end_iter(), True)
-        buffer.insert_with_tags_by_name(buffer.get_end_iter(), end_string, "fixed")
-        mark = buffer.get_mark("tmp_end")
-        buffer.create_mark("end", buffer.get_iter_at_mark(mark), False)
-        buffer.delete_mark(mark)
+        for name, start_string, middle_string, end_string in sections:
+            self._create_section(buffer, name, start_string, middle_string, end_string)
+
         buffer.end_not_undoable_action()
-        buffer.place_cursor(buffer.get_iter_at_line_offset(start_line, start_char))
         buffer.set_language(lan)
         buffer.set_highlight_syntax(True)
         buffer.set_highlight_matching_brackets(True)
         buffer.connect("changed", self.buffer_changed)
         self.buffer = buffer
         return buffer
+
+    def _create_section(self, buffer, name, start_string, middle_string, end_string):
+        buffer.insert_with_tags_by_name(buffer.get_end_iter(), start_string, "fixed")
+        buffer.create_mark(name + "-start", buffer.get_end_iter(), True)
+        buffer.insert_with_tags_by_name(buffer.get_end_iter(), middle_string, "normal")
+        buffer.create_mark("tmp_end", buffer.get_end_iter(), True)
+        buffer.insert_with_tags_by_name(buffer.get_end_iter(), end_string, "fixed")
+        mark = buffer.get_mark("tmp_end")
+        buffer.create_mark(name + "-end", buffer.get_iter_at_mark(mark), False)
+        buffer.delete_mark(mark)
 
     def _create_view(self, buffer):
         view = gtksourceview.View(buffer)
@@ -89,9 +97,9 @@ class CodeEditor(gtk.VBox):
     def buffer_changed(self, w):
         pass
 
-    def get_text(self):
-        start_mark = self.buffer.get_mark("start")
-        end_mark = self.buffer.get_mark("end")
+    def get_text(self, section_name = ""):
+        start_mark = self.buffer.get_mark(section_name + "-start")
+        end_mark = self.buffer.get_mark(section_name + "-end")
         start_iter = self.buffer.get_iter_at_mark(start_mark)
         end_iter = self.buffer.get_iter_at_mark(end_mark)
         return self.buffer.get_text(start_iter, end_iter)
@@ -99,14 +107,23 @@ class CodeEditor(gtk.VBox):
     def _toolbar(self):
         return None
 
-    def jump_to_line(self, line_no):
-        if line_no is None:
+    def jump_to_position(self, position):
+        """ Take pair (section_name, line_number) and move cursor on this position
+            or by triplet (section_name, line_number, column_number) """
+        if position is None:
             return
-        start_mark = self.buffer.get_mark("start")
+        if len(position) == 3:
+            section_name, line_number, column = position
+        else:
+            section_name, line_number = position
+            column = 0
+
+        start_mark = self.buffer.get_mark(section_name + "-start")
         text_iter = self.buffer.get_iter_at_mark(start_mark)
-        text_iter.forward_lines(line_no - 3)
-        self.view.scroll_to_iter(text_iter, 0.1)
+        text_iter.forward_lines(line_number - 1)
+        text_iter.forward_chars(column)
         self.buffer.place_cursor(text_iter)
+        self.view.scroll_to_iter(text_iter, 0.1)
         self.view.grab_focus()
 
 class CodeFileEditor(CodeEditor):
@@ -144,8 +161,8 @@ class TransitionCodeEditor(CodeEditor):
         else:
             code = transition.get_code()
 
-        line = header.count("\n") + 1
-        CodeEditor.__init__(self, project.get_syntax_highlight_key(), "{\n", code, "}\n", (line,0), header)
+        section = [ "", "{\n", code, "}\n" ]
+        CodeEditor.__init__(self, project.get_syntax_highlight_key(), [ section ], ("", 1, 1), header)
 
     def buffer_changed(self, buffer):
         self.transition.set_code(self.get_text())
@@ -158,7 +175,9 @@ class PlaceCodeEditor(CodeEditor):
             code = "\t\n"
         else:
             code = place.get_code()
-        CodeEditor.__init__(self, project.get_syntax_highlight_key(), header, code, "}\n", (2,0))
+
+        section = [ "", "{\n", code, "}\n" ]
+        CodeEditor.__init__(self, project.get_syntax_highlight_key(), [ section ], ("", 1, 1), header)
 
     def buffer_changed(self, buffer):
         self.place.set_code(self.get_text())

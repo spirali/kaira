@@ -75,7 +75,7 @@ def load_parameter(element, project):
     project.add_parameter(p)
 
 def load_extern_type(element, project):
-    p = project.get_exttype_class()()
+    p = project.get_native_extern_type_class()()
     p.set_name(utils.xml_str(element, "name"))
     p.set_raw_type(utils.xml_str(element, "raw-type"))
     p.set_transport_mode(utils.xml_str(element, "transport-mode"))

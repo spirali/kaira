@@ -234,6 +234,13 @@ class Project(EventSource):
         self.write_makefile()
         utils.write_file_if_not_exists(self.get_head_filename(), self.get_initial_head_file_content())
 
+    def get_extern_type_class(self, extern_type_name):
+        if extern_type_name == "native":
+            return self.get_native_extern_type_class()
+        if extern_type_name == "protobuffer":
+            return ProtobufferExternType
+        raise Exception("Unknown externtype's type")
+
     def _build_option_as_xml(self, name):
         element = xml.Element("build-option")
         element.set("name", name)
@@ -306,12 +313,36 @@ class Parameter:
         e.set("default", self.default)
         return e
 
-class ExternType:
+class ExternTypeBase:
+
+    def __init__(self, name):
+        self.name = name
+
+    def get_name(self):
+        return self.name
+
+    def set_name(self, name):
+        self.name = name
+
+class ProtobufferExternType(ExternTypeBase):
+
+    def __init__(self, name):
+        ExternTypeBase.__init__(self, name)
+        self.code = ""
+
+    def get_type(self):
+        return "protobuffer"
+
+    def get_note(self):
+        return ""
+
+class NativeExternType(ExternTypeBase):
     """
         Transport modes: "Disabled", "Direct", "Custom"
     """
 
     def __init__(self, name, raw_type, transport_mode):
+        ExternTypeBase.__init__(self, name)
         self.name = name
         self.raw_type = raw_type
         self.transport_mode = transport_mode
@@ -323,18 +354,17 @@ class ExternType:
             "unpack": ""
         }
 
+    def get_type(self):
+        return "native"
 
-    def get_name(self):
-        return self.name
+    def get_note(self):
+        return "Raw type: {0}, Transport: {1}".format(self.raw_type, self.transport_mode)
 
     def get_raw_type(self):
         return self.raw_type
 
     def get_transport_mode(self):
         return self.transport_mode
-
-    def set_name(self, value):
-        self.name = value
 
     def set_raw_type(self, value):
         self.raw_type = value
@@ -351,20 +381,15 @@ class ExternType:
     def get_function_code(self, name):
         if self.has_function(name):
             return self.functions[name]
-        elif name == "getstring":
-            return self.get_default_function_code()
-        else:
-            return "\t\n"
+        return self.get_default_function_code(name)
 
-    def is_function_allowed(self, name):
+    def get_function_names(self):
+        lst = [ "getstring" ]
         if self.transport_mode == "Custom":
-            return True
-        else:
-            return name == "getstring"
-
-    def get_function_list_string(self):
-        names = [ name for name in self.functions if self.has_function(name) and self.is_function_allowed(name) ]
-        return ", ".join(names)
+            lst.append("getsize")
+            lst.append("pack")
+            lst.append("unpack")
+        return lst
 
     def as_xml(self):
         e = xml.Element("extern-type")
@@ -380,6 +405,19 @@ class ExternType:
                 e.append(fe)
 
         return e
+
+    def get_header(self):
+        return "/*\n * Type '{0}'\n */\n\n".format(self.name)
+
+    def get_sections(self):
+        """ Returns list of sections (name, start, middle, end) for CodeEditor """
+        sections = []
+        for name in self.get_function_names():
+            start = self.get_function_declaration(name) + "\n{\n"
+            middle = self.get_function_code(name)
+            end = "}\n\n\n"
+            sections.append((name, start, middle, end))
+        return sections
 
 class Function():
 

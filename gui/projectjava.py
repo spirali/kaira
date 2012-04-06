@@ -18,7 +18,7 @@
 #
 import utils
 import os
-from project import Project, ExternType, Function
+from project import Project, NativeExternType, Function
 
 class ProjectJava(Project):
 
@@ -34,7 +34,7 @@ class ProjectJava(Project):
     def get_extenv_name(self):
         return "Java"
 
-    def get_exttype_class(self):
+    def get_native_extern_type_class(self):
         return ExternTypeJava
 
     def get_function_class(self):
@@ -87,10 +87,10 @@ class ProjectJava(Project):
         makefile.write_to_file(os.path.join(self.get_directory(), "makefile"))
 
 
-class ExternTypeJava(ExternType):
+class ExternTypeJava(NativeExternType):
 
     def __init__(self, name = "", raw_type = "", transport_mode = "Disabled"):
-        ExternType.__init__(self, name, raw_type, transport_mode)
+        NativeExternType.__init__(self, name, raw_type, transport_mode)
 
 
     def get_default_function_code(self):

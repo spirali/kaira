@@ -35,7 +35,7 @@ class CppGenerator:
         t = emitter.Emitter(self.project).emit_type(place.type)
         if t[-1] == ">":
             t += " "
-        return "void place_fn(CaContext &ctx, std::vector<{1}> &tokens)\n{{\n".format(place, t)
+        return "void place_fn(CaContext &ctx, std::vector<{1}> &tokens)\n".format(place, t)
 
     def get_transition_user_fn_header(self, transition_id):
         transition = self.project.get_transition(transition_id)

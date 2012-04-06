@@ -239,8 +239,10 @@ class App:
     def _add_project_file_filters(self, dialog):
         self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files = True)
 
-    def transition_edit(self, transition, line_no = None):
-        if self.window.switch_to_tab_by_key(transition, lambda tab: tab.widget.jump_to_line(line_no)):
+    def transition_edit(self, transition, lineno = None):
+        position = ("", lineno) if lineno is not None else None
+
+        if self.window.switch_to_tab_by_key(transition, lambda tab: tab.widget.jump_to_position(position)):
             return
 
         def open_tab(stdout):
@@ -250,36 +252,38 @@ class App:
                 name = "T: <unnamed" + str(transition.get_id()) + ">"
             editor = codeedit.TransitionCodeEditor(self.project, transition, "".join(stdout))
             self.window.add_tab(Tab(name, editor, transition))
-            editor.jump_to_line(line_no)
+            editor.jump_to_position(position)
         self._start_ptp(self.project, open_tab, extra_args = [ "--transition-user-fn", str(transition.get_id()) ])
 
-    def place_edit(self, place, line_no = None):
-        if self.window.switch_to_tab_by_key(place, lambda tab: tab.widget.jump_to_line(line_no)):
+    def place_edit(self, place, lineno = None):
+        position = ("", lineno) if lineno is not None else None
+
+        if self.window.switch_to_tab_by_key(place, lambda tab: tab.widget.jump_to_position(position)):
             return
 
         def open_tab(stdout):
             name = "P: " + str(place.get_id())
             editor = codeedit.PlaceCodeEditor(self.project, place, "".join(stdout))
             self.window.add_tab(Tab(name, editor, place))
-            editor.jump_to_line(line_no)
+            editor.jump_to_position(position)
+
         self._start_ptp(self.project, open_tab, extra_args = [ "--place-user-fn", str(place.get_id())])
 
-    def extern_type_function_edit(self, extern_type, fn_name, callback, line_no = None):
-        tag = (extern_type, fn_name)
-        if self.window.switch_to_tab_by_key(tag, lambda tab: tab.widget.jump_to_line(line_no)):
+    def extern_type_functions_edit(self, externtype, position = None):
+        if self.window.switch_to_tab_by_key(externtype, lambda tab: tab.widget.jump_to_position(position)):
             return
-        name = extern_type.get_name() + "/" + fn_name
-        editor = externtypes.ExternTypeEditor(self.project, extern_type, fn_name, callback)
-        self.window.add_tab(Tab(name, editor, tag))
-        editor.jump_to_line(line_no)
+        editor = externtypes.ExternTypeEditor(self.project, externtype)
+        self.window.add_tab(Tab(externtype.get_name(), editor, externtype))
+        editor.jump_to_position(position)
 
-    def function_edit(self, function, line_no = None):
-        if self.window.switch_to_tab_by_key(function, lambda tab: tab.widget.jump_to_line(line_no)):
+    def function_edit(self, function, lineno = None):
+        position = ("", lineno) if lineno is not None else None
+        if self.window.switch_to_tab_by_key(function, lambda tab: tab.widget.jump_to_position(position)):
             return
         try:
             editor = functions.FunctionEditor(self.project, function)
             self.window.add_tab(Tab(function.get_name(), editor, function))
-            editor.jump_to_line(line_no)
+            editor.jump_to_position(position)
         except ptp.PtpException, e:
             self.console_write("Cannot open function '{0}'\n".format(function.get_name()), "error")
             self.console_write(str(e) + "\n", "error")
@@ -457,12 +461,16 @@ class App:
 
     def _try_make_error_with_link(self, id_string, item_id, pos, message):
         search = re.search("^\d+:", message)
-        line_no = int(search.group(0)[:-1]) if search else None
+        line_no = int(search.group(0)[:-1]) - 2 if search else 0
+        # 2 is subtracted because #LINE directive is place before function definition, but
+        # we jump at the line counted from the beginnging of user defined text
+        # 1 for function definition, 1 for line with {
 
         if pos in ["getstring", "getsize", "pack", "unpack"] and item_id is None:
             item = self.project.find_extern_type(id_string)
+            position = (pos, line_no)
             self.console_write_link(id_string + "/" + pos + (":" + str(line_no) if line_no else ""),
-                lambda: self.extern_type_function_edit(item, pos, lambda e, f: self._project_changed(), line_no))
+                lambda: self.extern_type_functions_edit(item, position))
             self.console_write(message[message.find(":"):] if line_no else ":" + message)
             return True
 
