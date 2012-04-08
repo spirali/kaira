@@ -36,8 +36,8 @@ class ProjectCpp(Project):
     def get_extenv_name(self):
         return "C++"
 
-    def get_native_extern_type_class(self):
-        return ExternTypeCpp
+    def create_native_extern_type(self):
+        return ExternTypeCpp()
 
     def get_syntax_highlight_key(self):
         """return language for GtkSourceView"""
@@ -111,9 +111,6 @@ class ProjectCpp(Project):
         makefile.write_to_file(os.path.join(self.get_directory(), "makefile"))
 
 class ExternTypeCpp(NativeExternType):
-
-    def __init__(self, name = "", raw_type = "", transport_mode = "Disabled"):
-        NativeExternType.__init__(self, name, raw_type, transport_mode)
 
     def get_default_function_code(self, name):
         if name == "getstring":

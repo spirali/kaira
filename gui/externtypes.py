@@ -39,8 +39,8 @@ def extern_type_new_dialog(mainwindow):
     finally:
        dlg.destroy()
 
-def extern_type_dialog(obj, mainwindow):
-    builder = gtkutils.load_ui("externtype-dialog")
+def native_extern_type_dialog(obj, mainwindow):
+    builder = gtkutils.load_ui("native-externtype-dialog")
     dlg = builder.get_object("externtype-dialog")
     try:
 
@@ -78,6 +78,23 @@ def extern_type_dialog(obj, mainwindow):
     finally:
         dlg.destroy()
 
+def protobuffer_extern_type_dialog(obj, mainwindow):
+    builder = gtkutils.load_ui("protobuffer-externtype-dialog")
+    dlg = builder.get_object("externtype-dialog")
+    try:
+
+        wname = builder.get_object("name")
+        wname.set_text(obj.get_name())
+
+        dlg.set_title("Protobuffer extern type")
+        dlg.set_transient_for(mainwindow)
+        if dlg.run() == gtk.RESPONSE_OK:
+            obj.set_name(wname.get_text())
+            return True
+        return False
+    finally:
+        dlg.destroy()
+
 class ExternTypesWidget(ObjectList):
 
     def __init__(self, project, app):
@@ -100,17 +117,22 @@ class ExternTypesWidget(ObjectList):
     def object_as_row(self, obj):
         return [ obj, obj.get_name(), obj.get_type(), obj.get_note() ]
 
+    def run_dialog(self, externtype):
+        if externtype.get_type() == "native":
+            return native_extern_type_dialog(externtype, self.app.window)
+        if externtype.get_type() == "protobuffer":
+            return protobuffer_extern_type_dialog(externtype, self.app.window)
+
     def _add_type(self, selected):
-        #t = extern_type_new_dialog(self.app.window)
-        #if t:
-        #    print t
-        obj = self.project.get_extern_type_class("native")()
-        if extern_type_dialog(obj, self.app.window):
-            self.add_object(obj)
-            self.project.add_extern_type(obj)
+        t = extern_type_new_dialog(self.app.window)
+        if t:
+            obj = self.project.create_extern_type(t)
+            if self.run_dialog(obj):
+                self.add_object(obj)
+                self.project.add_extern_type(obj)
 
     def _edit_type(self, selected):
-        if selected and extern_type_dialog(selected, self.app.window):
+        if selected and self.run_dialog(selected):
             self.update_selected(selected)
 
     def _edit_code(self, selected):
@@ -125,14 +147,14 @@ class ExternTypesWidget(ObjectList):
 class ExternTypeEditor(CodeEditor):
 
     def __init__(self, project, externtype):
-        self.extern_type = externtype
+        self.externtype = externtype
         highlight = project.get_syntax_highlight_key()
         sections = externtype.get_sections()
         header = externtype.get_header()
-        CodeEditor.__init__(self, highlight, sections, ("getstring", 1, 1), header)
+        CodeEditor.__init__(self, highlight, sections, (sections[0][0], 1, 1), header)
 
     def buffer_changed(self, buffer):
+        d = {}
         for section in self.sections:
-            section_name = section[0]
-            self.extern_type.set_function_code(section_name, self.get_text(section_name))
-        #self.change_callback(self.extern_type, self.fn_name)
+            d[section[0]] = self.get_text(section[0])
+        self.externtype.set_sections_content(d)

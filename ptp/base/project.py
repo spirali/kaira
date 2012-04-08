@@ -252,11 +252,19 @@ def load_net_content(element, project, net):
         net.interface_edges_in = [ load_edge_in(e, net, None) for e in interface.findall("edge-in") ]
 
 def load_extern_type(element):
+    t = utils.xml_str(element, "type")
     name = utils.xml_str(element, "name")
-    rawtype = utils.xml_str(element, "raw-type")
-    transport_mode = utils.xml_str(element, "transport-mode")
-    codes = dict((utils.xml_str(e, "name"), e.text) for e in element.findall("code"))
-    return ExternType(name, rawtype, transport_mode, codes)
+
+    if t == "native":
+        rawtype = utils.xml_str(element, "raw-type")
+        transport_mode = utils.xml_str(element, "transport-mode")
+        codes = dict((utils.xml_str(e, "name"), e.text) for e in element.findall("code"))
+        return ExternType(name, rawtype, transport_mode, codes)
+
+    if t == "protobuffer":
+        raise Exception("Need implementation")
+
+    raise Exception("Unkown extern type")
 
 def load_user_function(element):
     id = utils.xml_int(element, "id")

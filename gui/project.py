@@ -234,11 +234,11 @@ class Project(EventSource):
         self.write_makefile()
         utils.write_file_if_not_exists(self.get_head_filename(), self.get_initial_head_file_content())
 
-    def get_extern_type_class(self, extern_type_name):
+    def create_extern_type(self, extern_type_name):
         if extern_type_name == "native":
-            return self.get_native_extern_type_class()
+            return self.create_native_extern_type()
         if extern_type_name == "protobuffer":
-            return ProtobufferExternType
+            return ProtobufferExternType()
         raise Exception("Unknown externtype's type")
 
     def _build_option_as_xml(self, name):
@@ -315,8 +315,8 @@ class Parameter:
 
 class ExternTypeBase:
 
-    def __init__(self, name):
-        self.name = name
+    def __init__(self):
+        self.name = ""
 
     def get_name(self):
         return self.name
@@ -324,10 +324,16 @@ class ExternTypeBase:
     def set_name(self, name):
         self.name = name
 
+    def as_xml(self):
+        e = xml.Element("extern-type")
+        e.set("name", self.name)
+        e.set("type", self.get_type())
+        return e
+
 class ProtobufferExternType(ExternTypeBase):
 
-    def __init__(self, name):
-        ExternTypeBase.__init__(self, name)
+    def __init__(self):
+        ExternTypeBase.__init__(self)
         self.code = ""
 
     def get_type(self):
@@ -336,16 +342,38 @@ class ProtobufferExternType(ExternTypeBase):
     def get_note(self):
         return ""
 
+    def as_xml(self):
+        e = ExternTypeBase.as_xml(self)
+        e.text = self.code
+        return e
+
+    def get_header(self):
+        return ""
+
+    def get_code(self):
+        if self.code:
+            return self.code
+        else:
+            return "\t\n"
+
+    def get_sections(self):
+        head = "message {0} {{\n".format(self.name)
+        return [ ("", head, self.get_code(), "}\n") ]
+
+    def set_sections_content(self, values):
+        self.code = values[""]
+
+
 class NativeExternType(ExternTypeBase):
     """
         Transport modes: "Disabled", "Direct", "Custom"
     """
 
-    def __init__(self, name, raw_type, transport_mode):
-        ExternTypeBase.__init__(self, name)
-        self.name = name
-        self.raw_type = raw_type
-        self.transport_mode = transport_mode
+    def __init__(self):
+        ExternTypeBase.__init__(self)
+        self.name = ""
+        self.raw_type = ""
+        self.transport_mode = "Disabled"
 
         self.functions = {
             "getstring": "",
@@ -372,8 +400,11 @@ class NativeExternType(ExternTypeBase):
     def set_transport_mode(self, value):
         self.transport_mode = value
 
-    def set_function_code(self, name, value):
-        self.functions[name] = value
+    def set_function_code(self, function, code):
+        self.functions[function] = code
+
+    def set_sections_content(self, values):
+        self.functions = values
 
     def has_function(self, name):
         return "" != self.functions[name].strip()
@@ -392,8 +423,7 @@ class NativeExternType(ExternTypeBase):
         return lst
 
     def as_xml(self):
-        e = xml.Element("extern-type")
-        e.set("name", self.name)
+        e = ExternTypeBase.as_xml(self)
         e.set("raw-type", self.raw_type)
         e.set("transport-mode", self.transport_mode)
 
