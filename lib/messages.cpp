@@ -22,7 +22,7 @@ void CaThreadMessageHaltNet::process(CaThread *thread)
 		net->finalize(thread);
 		int r = net->decr_ref_count();
 		net->unlock();
-		if (r == 0) {
+		if (r == 0 && !net->get_manual_delete()) {
 			delete net;
 		}
 }

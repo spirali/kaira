@@ -51,7 +51,14 @@ CaNet * CaNetDef::spawn(CaThread *thread, int id, CaNet *parent_net)
 }
 
 CaNet::CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread, CaNet *parent_net) :
-	running_transitions(0), def(def), id(id), main_process_id(main_process_id), parent_net(parent_net), finalizer_fn(NULL), data(NULL)
+	running_transitions(0),
+	def(def),
+	id(id),
+	main_process_id(main_process_id),
+	parent_net(parent_net),
+	finalizer_fn(NULL),
+	data(NULL),
+	flags(0)
 {
 	ref_count = thread->get_process()->get_threads_count();
 	pthread_mutex_init(&mutex, NULL);

@@ -66,6 +66,8 @@ class CaNetDef {
 		bool autohalt;
 };
 
+#define CA_NET_MANUAL_DELETE 1
+
 class CaNet {
 	public:
 		CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread, CaNet *parent_net);
@@ -117,6 +119,12 @@ class CaNet {
 		bool is_autohalt() { return def->is_autohalt(); }
 
 		bool is_something_enabled(CaThread *thread);
+
+		/* "manual delete" behaviour:
+			net is not deleted automaticaly when it is halted and
+			all threads remove its reference */
+		void set_manual_delete() { flags |= CA_NET_MANUAL_DELETE; }
+		bool get_manual_delete() { return flags & CA_NET_MANUAL_DELETE; }
 	protected:
 		std::queue<CaTransition*> actives;
 		int running_transitions;
@@ -130,6 +138,7 @@ class CaNet {
 		CaNet *parent_net;
 		CaNetFinalizerFn *finalizer_fn;
 		void *data;
+		int flags;
 
 };
 

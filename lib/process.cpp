@@ -211,7 +211,7 @@ void CaThread::run_scheduler()
 	unsigned int counter = 0;
 	while(!process->quit_flag) {
 		counter++;
-		if (counter >= nets.size()) {
+		if (counter > nets.size()) {
 			sched_yield();
 			counter = 0;
 		}
