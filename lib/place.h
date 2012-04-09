@@ -51,7 +51,6 @@ template<class T> class CaPlace {
 					token = NULL;
 			}
 			t->remove();
-			delete t;
 			tokens_count--;
 		}
 

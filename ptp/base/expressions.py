@@ -94,6 +94,13 @@ class Expression(object):
         return set()
 
     def get_direct_pairing(self, expr):
+        """ Match expression on edge with tokens, examples:
+            self         | result
+            x            | [ (expr, x) ]
+            (x, y)       | [ (TupleGet(expr, 0), x), (y, TupleGet(expr, 1),  y) ]
+            ((x, y), 10)  | [ (TupleGet(TupleGet(expr, 0), 0), x),
+                              (TupleGet(TupleGet(expr, 0), 1), y), (TupleGet(expr, 1), 10)) ]
+        """
         return [ (expr, self)]
 
 
