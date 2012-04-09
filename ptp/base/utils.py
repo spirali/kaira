@@ -117,3 +117,9 @@ def create_dict(lst, key):
     for item in lst:
         d[key(item)] = item
     return d
+
+id_counter = 1000
+def get_unique_id():
+    global id_counter
+    id_counter += 1
+    return id_counter

@@ -64,7 +64,7 @@ def get_edges_mathing(project, tr):
     """
         Returns code for pattern matching for transition
         Returns list of NeL codes for matching and init code that should be called at the beginning,
-        extern "token" should be value of token
+        extern "token_{EdgeId}" should be value of token
         extern "fail" is called if matching failed and different token combination should be checked.
     """
     env = project.get_env()
@@ -78,8 +78,8 @@ def get_edges_mathing(project, tr):
         initcode.append(IIf(guard, INoop(), IExtern("fail")))
         guard = None
 
-    for i, edge in enumerate(order_input_edges(tr.get_normal_edges_in())):
-        token = ExprExtern("token_{0}".format(i), edge.get_place().type)
+    for edge in order_input_edges(tr.get_normal_edges_in()):
+        token = ExprExtern("token_{0.uid}".format(edge), edge.get_place().type)
         instrs = match_expression(env, context, edge.expr, vars_access, token)
         covered = set(vars_access.keys())
         if guard and guard.get_free_vars().issubset(covered):

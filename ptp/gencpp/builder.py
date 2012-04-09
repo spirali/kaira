@@ -262,11 +262,9 @@ class Builder(CppWriter):
         class_name = "Tokens_{0.id}".format(tr)
         self.write_class_head(class_name)
 
-        matches, _, _ = get_edges_mathing(self.project, tr)
-
-        for i, (edge, _) in enumerate(matches):
+        for edge in tr.get_normal_edges_in():
             place_t = self.emit_type(edge.get_place_type())
-            self.line("CaToken<{0} > *token_{1};", place_t, i)
+            self.line("CaToken<{0} > *token_{1.uid};", place_t, edge)
 
         self.write_class_end()
 
@@ -329,8 +327,8 @@ class Builder(CppWriter):
 
         em = emitter.Emitter(self.project)
 
-        for i, (edge, _) in enumerate(matches):
-            em.set_extern("token_{0}".format(i), "tokens->token_{0}->element".format(i))
+        for edge, _ in matches:
+            em.set_extern("token_{0.uid}".format(edge), "tokens->token_{0.uid}->element".format(edge))
 
         em.variable_emitter = variable_emitter
         for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
@@ -340,8 +338,8 @@ class Builder(CppWriter):
             self.write_decrement_running_transitions(self, "n")
         self.line("if (lock) n->unlock();")
 
-        for i in xrange(len(matches)):
-            self.line("delete tokens->token_{0};", i)
+        for edge, _ in matches:
+            self.line("delete tokens->token_{0.uid};", edge)
 
         self.line("delete tokens;")
         self.block_end()
@@ -542,8 +540,8 @@ class Builder(CppWriter):
         matches, _, vars_access = get_edges_mathing(self.project, tr)
 
         em = emitter.Emitter(self.project)
-        for i, (edge, _) in enumerate(matches):
-            em.set_extern("token_{0}".format(i), "token_{0}->element".format(i))
+        for edge, _ in matches:
+            em.set_extern("token_{0.uid}".format(edge), "token_{0.uid}->element".format(edge))
 
         context = tr.get_context()
         names = context.keys()
@@ -564,8 +562,8 @@ class Builder(CppWriter):
 
         em.variable_emitter = lambda name: vars_code[name]
 
-        for i, (edge, _) in enumerate(matches):
-            w.line("n->place_{1.id}.remove(token_{0});", i, edge.get_place())
+        for edge, _ in matches:
+            w.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
 
         w.line("net->activate_transition_by_pos_id({0});", tr.get_pos_id())
         if tr.net.has_autohalt():
@@ -580,8 +578,8 @@ class Builder(CppWriter):
             w.line("bool lock = true;")
             w.line("Net_{0.id} *n = (Net_{0.id}*) thread->spawn_net({1}, net);", tr.subnet, tr.subnet.get_index())
             w.line("Tokens_{0.id} *tokens = new Tokens_{0.id}();", tr)
-            for i in xrange(len(matches)):
-                w.line("tokens->token_{0} = token_{0};", i)
+            for edge, _ in matches:
+                w.line("tokens->token_{0.uid} = token_{0.uid};", edge)
 
             w.line("n->set_finalizer((CaNetFinalizerFn*) transition_finalizer_{0.id}, tokens);", tr)
             for edge in tr.subnet.get_interface_edges_out():
@@ -607,8 +605,8 @@ class Builder(CppWriter):
         w.line("if (lock) n->unlock();")
 
         if tr.subnet is None:
-            for i, (edge, _) in enumerate(matches):
-                w.line("delete token_{0};", i, edge.get_place())
+            for edge, _ in matches:
+                w.line("delete token_{0.uid};", edge)
 
         if tr.net.is_module():
             w.line("if (ctx.get_halt_flag()) thread->halt(net);")
@@ -634,13 +632,14 @@ class Builder(CppWriter):
         em = emitter.Emitter(self.project)
         em.variable_emitter = lambda name: vars_access[name].emit(em)
 
-        for i, (edge, _) in enumerate(matches):
-            em.set_extern("token_{0}".format(i), "token_{0}->element".format(i))
+        for edge, _ in matches:
+            em.set_extern("token_{0.uid}".format(edge), "token_{0.uid}->element".format(edge))
 
         self.line("Net_{0.id} *n = (Net_{0.id}*) net;", tr.net)
 
         need_tokens = utils.multiset([ edge.get_place() for edge, instrs in matches ])
 
+        # Check if there are enough tokens
         for place, count in need_tokens.items():
             self.line("if (n->place_{0.id}.size() < {1}) return false;", place, count)
 
@@ -649,16 +648,16 @@ class Builder(CppWriter):
             i.emit(em, self)
 
         for i, (edge, instrs) in enumerate(matches):
-            self.line("// Edge id={0.id} expr={0.expr}", edge)
+            self.line("// Edge id={0.id} uid={0.uid} expr={0.expr}", edge)
             place_t = self.emit_type(edge.get_place_type())
             place_id = edge.get_place().id
-            token = "token_{0}".format(i)
+            token = "token_{0.uid}".format(edge)
             self.line("CaToken<{0} > *{1} = n->place_{2}.begin();", place_t, token, place_id)
             em.set_extern("fail", "{0} = {0}->next; continue;".format(token))
             self.do_begin()
 
-            checks = [ "{0} == token_{1}".format(token, j)
-                        for j, (e, _) in enumerate(matches[:i])
+            checks = [ "{0} == token_{1.uid}".format(token, e)
+                        for e, _ in matches[:i]
                         if edge.get_place() == e.get_place() ]
             if checks:
                 self.if_begin(" || ".join(checks))
@@ -668,11 +667,12 @@ class Builder(CppWriter):
 
             for instr in instrs:
                 instr.emit(em, self)
+
         for edge in tr.get_packing_edges_in():
             need = need_tokens.get(edge.get_place(), 0)
             self.if_begin("n->place_{0.id}.size() < {1} + {2}".format(edge.get_place(), need, edge.limit.emit(em)))
             if matches:
-                self.line("token_{0} = token_{0}->next;", len(matches) - 1)
+                self.line("token_{0.uid} = token_{0.uid}->next;", matches[-1][0])
                 self.line("continue;")
             else:
                 self.line("return false;")
@@ -682,9 +682,10 @@ class Builder(CppWriter):
         self.add_writer(fire_code)
         self.block_end()
 
-        for i, (edge, instrs) in reversed(list(enumerate(matches))):
-            self.line("token_{0} = token_{0}->next;", i)
-            self.do_end("token_{0} != n->place_{1.id}.begin()".format(i, edge.get_place()))
+        # End of matching cycles
+        for edge, _ in reversed(list(matches)):
+            self.line("token_{0.uid} = token_{0.uid}->next;", edge)
+            self.do_end("token_{0.uid} != n->place_{1.id}.begin()".format(edge, edge.get_place()))
 
     def write_extern_types_functions(self):
         decls = {

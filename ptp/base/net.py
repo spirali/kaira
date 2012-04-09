@@ -23,8 +23,13 @@ from base.neltypes import t_bool, derive_context, t_array, t_int
 
 class EdgeBase(utils.EqMixin):
 
+    """
+        Edge has attribute uid because id (provided by gui) is not necessary unique. It occurs in net with
+        (graphical) edge with inscription "x;y", then gui creates two edges with same id
+    """
     def __init__(self, id, place, transition):
         self.id = id
+        self.uid = utils.get_unique_id()
         self.place = place
         self.transition = transition
 
