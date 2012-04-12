@@ -122,8 +122,7 @@ def load_build_option(element, project):
     value = element.text
     if value is None: # For backward compatability
         return
-    if project.get_build_option(name) != "":
-        project.set_build_option(name, value)
+    project.set_build_option(name, value)
 
 def load_configuration(element, project, loader):
     for e in element.findall("parameter"):

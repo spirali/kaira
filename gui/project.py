@@ -87,10 +87,7 @@ class Project(EventSource):
         return self.nets
 
     def get_nets_with_interface(self):
-        if self.nets[0].is_module():
-            return self.nets
-        else:
-            return self.nets[1:] # Only first network has no interface
+		return [ net for net in self.nets if net.is_module() ]
 
     def get_name(self):
         d, fname = os.path.split(self.filename)
