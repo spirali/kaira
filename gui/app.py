@@ -544,8 +544,8 @@ class App:
         label.set_justify(gtk.JUSTIFY_CENTER)
         self.window.add_tab(Tab("Welcome", label, has_close_button = False))
 
-    def load_module(self):
-        dialog = gtk.FileChooserDialog("Load module", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
+    def import_project(self):
+        dialog = gtk.FileChooserDialog("Import project", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
                 (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                  gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
@@ -556,8 +556,7 @@ class App:
                 filename = dialog.get_filename()
                 if filename[-5:] != ".proj":
                     filename = filename + ".proj"
-
-                loader.load_modules(self.project, filename)
+                loader.import_project(self.project, filename)
         finally:
             dialog.destroy()
 

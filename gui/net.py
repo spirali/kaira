@@ -1021,29 +1021,4 @@ def load_net(element, project, loader):
 
     return net
 
-class BasicLoader:
-    def __init__(self, project):
-        self.project = project
 
-    def get_id(self, element):
-        id = utils.xml_int(element, "id", 0)
-        self.project.id_counter = max(self.project.id_counter, id)
-        return id
-
-    def translate_id(self, id):
-        return id
-
-class NewIdLoader:
-
-    def __init__(self, project):
-        self.project = project
-        self.idtable = {}
-
-    def get_id(self, element):
-        id = utils.xml_int(element, "id", 0)
-        new_id = self.project.new_id()
-        self.idtable[id] = new_id
-        return new_id
-
-    def translate_id(self, id):
-        return self.idtable[id]

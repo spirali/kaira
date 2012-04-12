@@ -1,6 +1,6 @@
 #
-#    Copyright (C) 2010, 2011 Stanislav Bohm
-#    Copyright (C) 2011 Ondrej Meca
+#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
+#    Copyright (C) 2011, 2012 Ondrej Meca
 #
 #    This file is part of Kaira.
 #
@@ -18,7 +18,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from net import Net, load_net, nets_postload_process, BasicLoader, NewIdLoader
+from net import Net, load_net, nets_postload_process
 import xml.etree.ElementTree as xml
 import utils
 import os
@@ -32,6 +32,33 @@ projects = [
     projectcpp.ProjectCppLibrary,
     projectjava.ProjectJava
 ]
+
+class BasicLoader:
+    def __init__(self, project):
+        self.project = project
+
+    def get_id(self, element):
+        id = utils.xml_int(element, "id", 0)
+        self.project.id_counter = max(self.project.id_counter, id)
+        return id
+
+    def translate_id(self, id):
+        return id
+
+class NewIdLoader:
+
+    def __init__(self, project):
+        self.project = project
+        self.idtable = {}
+
+    def get_id(self, element):
+        id = utils.xml_int(element, "id", 0)
+        new_id = self.project.new_id()
+        self.idtable[id] = new_id
+        return new_id
+
+    def translate_id(self, id):
+        return self.idtable[id]
 
 def create_project(filename, extenv_name):
     for project_class in projects:
@@ -61,12 +88,7 @@ def load_parameter(element, project):
     p.set_description(utils.xml_str(element, "description", ""))
     p.set_default(utils.xml_str(element, "default", "0"))
     p.set_type(utils.xml_str(element, "type"))
-    exist = False
-    for par in project.get_parameters():
-        if par.name == p.name:
-            exist = True
-    if not exist:
-        project.add_parameter(p)
+    project.add_parameter(p)
 
 def load_extern_type(element, project):
     # Default value is "native" for backward compatability
@@ -93,12 +115,7 @@ def load_function(element, project, loader):
     f.set_parameters(utils.xml_str(element, "parameters"))
     f.set_with_context(utils.xml_bool(element, "with-context", False))
     f.set_function_code(element.text)
-    exist = False
-    for fnc in project.get_functions():
-        if fnc.name == f.name:
-            exist = True
-    if not exist:
-        project.add_function(f)
+    project.add_function(f)
 
 def load_build_option(element, project):
     name = utils.xml_str(element, "name")
@@ -118,23 +135,17 @@ def load_configuration(element, project, loader):
     for e in element.findall("function"):
         load_function(e, project, loader)
 
-def load_modules(project, filename):
+def import_project(project, filename):
     doc = xml.parse(filename)
-    return load_module_from_xml(project, doc.getroot(), filename)
+    return import_project_from_xml(project, doc.getroot(), filename)
 
-def load_module_from_xml(project, root, filename):
+def import_project_from_xml(project, root, filename):
     loader = NewIdLoader(project)
     if root.find("configuration") is not None:
         load_configuration(root.find("configuration"), project, loader)
     for e in root.findall("net"):
         net = load_net(e, project, loader)
-        if net.is_module():
-            net_exist = False
-            for n in project.get_nets():
-                if n.name == net.name:
-                    net_exist = True
-            if not net_exist:
-                project.add_net(net)
+        project.add_net(net)
     nets_postload_process(project, loader)
     project.id_counter += 1
     return project
