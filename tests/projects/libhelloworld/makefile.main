@@ -1,0 +1,6 @@
+
+main: main.cpp
+	g++ -o main main.cpp -I../../../lib -L../../../lib/build -L. -llibhelloworld -lcailie -lrt -g
+
+clean:
+	rm -f main

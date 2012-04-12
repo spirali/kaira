@@ -21,7 +21,7 @@ class BuildTest(TestCase):
     def run_ptp(self, name):
         return RunProgram(PTP_BIN, [ name + ".xml", "--build", name + ".cpp" ])
 
-    def build(self, filename, final_output, make_args = [], **kw):
+    def build(self, filename, final_output = None, make_args = [], **kw):
         name, ext = os.path.splitext(filename)
         directory = os.path.dirname(name)
         RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
@@ -29,7 +29,15 @@ class BuildTest(TestCase):
         RunProgram("python", args).run()
         self.run_ptp(name).run()
         RunProgram("make", make_args, cwd = directory).run()
-        self.run_program(filename, final_output, **kw)
+        if final_output is not None:
+            self.run_program(filename, final_output, **kw)
+
+    def build_library(self, filename, final_output, make_args = []):
+        self.build(filename)
+        name, ext = os.path.splitext(filename)
+        directory = os.path.dirname(name)
+        RunProgram("make", [ "-f", "makefile.main" ], cwd = directory).run()
+        RunProgram(os.path.join(directory, "main"), cwd = directory).run(final_output)
 
     def run_program(self, filename, final_output, params = [], make_args = [],
         program_name = None, processes=None, repeat=1, check_fn=None):
@@ -169,6 +177,11 @@ class BuildTest(TestCase):
             params=["--threads=2"], repeat=100)
         self.run_program(os.path.join(TEST_PROJECTS, "modules1", "modules1.proj"), "148\n",
             params=["--threads=5"], processes=3, repeat=100)
+
+    def test_libhelloworld(self):
+        result = "40 10 Hello world\n80 10 Hello world\n"\
+            "160 10 Hello world\n320 10 Hello world\n640 10 Hello world\n"
+        self.build_library(os.path.join(TEST_PROJECTS, "libhelloworld", "libhelloworld.proj"), result)
 
 if __name__ == '__main__':
     unittest.main()
