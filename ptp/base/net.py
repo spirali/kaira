@@ -60,6 +60,9 @@ class EdgeIn(EdgeBase):
     def is_packing(self):
         return False
 
+    def get_free_vars(self):
+        return self.expr.get_free_vars()
+
 class EdgeInPacking(EdgeBase):
 
     def __init__(self, id, place, transition, varname, limit):
@@ -79,6 +82,9 @@ class EdgeInPacking(EdgeBase):
 
     def is_packing(self):
         return True
+
+    def get_free_vars(self):
+        return set([self.varname])
 
 class EdgeOut(EdgeBase):
     def __init__(self, id, place, transition, expr, mode, sendmode, target, guard):
@@ -349,13 +355,7 @@ class Net(object):
         return set().union(*[ e.expr.get_free_vars() for e in self.interface_edges_out ])
 
     def get_module_output_vars(self):
-        vars = set()
-        for e in self.interface_edges_in:
-            if e.is_normal():
-                vars = vars.union(*[ e.expr.get_free_vars() ])
-            else:
-                vars.add(e.varname)
-        return vars
+        return set().union(* [ e.get_free_vars() for e in self.interface_edges_in ])
 
     def inject_types_interface(self):
         context = self.get_interface_context()

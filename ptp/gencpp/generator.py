@@ -26,23 +26,6 @@ class CppGenerator:
     def __init__(self, project):
         self.project = project
 
-    def build(self, output_filename):
-        builder = Builder(self.project, output_filename)
-        builder.build()
-        builder.write_to_file(output_filename)
-        
-    def build_library(self, output_filename):
-        head_file, ext = os.path.splitext(output_filename)
-        head_file = head_file + ".h"
-        
-        builder = Builder(self.project, output_filename)
-        builder.build_library(os.path.basename(head_file))
-        builder.write_to_file(output_filename)
-        
-        module_head = Builder(self.project, head_file)
-        module_head.build_head_file()
-        module_head.write_to_file(head_file)
-
     def get_place_user_fn_header(self, place_id):
         place = self.project.get_place(place_id)
         t = emitter.Emitter(self.project).emit_type(place.type)
@@ -73,3 +56,26 @@ class CppGenerator:
             ctx = ""
         decls = emit_declarations(em, ufunction.get_parameters())
         return "{0} {1}({2}{3})\n{{\n".format(t, ufunction_name, ctx, decls)
+
+class CppProgramGenerator(CppGenerator):
+
+    def build(self, output_filename):
+        builder = Builder(self.project, output_filename)
+        builder.build()
+        builder.write_to_file(output_filename)
+
+class CppLibGenerator(CppGenerator):
+
+    def build(self, output_filename):
+        header, ext = os.path.splitext(output_filename)
+        header = header + ".h"
+
+        # Build .cpp
+        builder = Builder(self.project, output_filename)
+        builder.build_library(os.path.basename(header))
+        builder.write_to_file(output_filename)
+
+        # Build .h
+        builder = Builder(self.project, header)
+        builder.build_head_file()
+        builder.write_to_file(header)

@@ -438,10 +438,8 @@ class App:
     def _start_build(self, proj, build_ok_callback):
         if self.get_settings("save-before-build"):
             self._save_project(silent = True)
-        if proj.is_library():
-            extra_args = [ "--library", proj.get_emitted_source_filename() ]
-        else:
-            extra_args = [ "--build", proj.get_emitted_source_filename() ]
+
+        extra_args = [ "--build", proj.get_emitted_source_filename() ]
         self._start_ptp(proj, lambda lines: self._run_makefile(proj, build_ok_callback), extra_args = extra_args)
 
     def _start_ptp(self, proj, build_ok_callback = None, extra_args = []):

@@ -58,7 +58,7 @@ class CppWriter(Writer):
     def do_end(self, expr):
         self.indent_pop()
         self.line("}} while ({0});", expr)
-        
+
     def for_begin(self, start, condition, it):
         self.line("for ({0}; {1}; {2})", start, condition, it)
         self.line("{{")
@@ -757,8 +757,8 @@ class Builder(CppWriter):
                 self.module_net_functions(net)
         for net in self.project.nets:
             if net.is_module():
-                self.write_io_fnc(net)
-        self.write_init_fnc()
+                self.write_library_function(net)
+        self.write_library_init_function()
 
     def write_spawn(self, net):
         self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id, CaNet *parent_net) {{", net)
@@ -789,12 +789,12 @@ class Builder(CppWriter):
         self.line("return net;")
         self.block_end()
 
-    def write_module_finalizer(self, net):
-        self.line("void module_finalizer_{0.id}(CaThread *thread, "
+    def write_toplevel_finalizer(self, net):
+        self.line("void toplevel_finalizer_{0.id}(CaThread *thread, "
                   "CaNet *n, Net_{0.id} *subnet, void *vars)", net)
         self.block_begin()
         self.line("thread->quit_all();")
-        self.block_end()    
+        self.block_end()
 
     def reports_method(self, net):
         self.write_method_start("void write_reports_content(CaThread *thread, CaOutput &output)")
@@ -869,7 +869,7 @@ class Builder(CppWriter):
             self.write_transition(tr)
 
     def module_net_functions(self, net):
-        self.write_module_finalizer(net)
+        self.write_toplevel_finalizer(net)
         self.write_spawn(net)
 
         for tr in net.transitions:
@@ -902,9 +902,9 @@ class Builder(CppWriter):
 
     def emit_declarations(self, decls, reference = False):
         return emit_declarations(self.emitter, decls, reference)
-   
-    def write_init_fnc(self):
-        self.line("void init_modules(int argc, char **argv)")
+
+    def write_library_init_function(self):
+        self.line("void calib_init(int argc, char **argv)")
         self.block_begin()
         self.line("ca_project_description({0});", self.emitter.const_string(self.project.description))
         params = self.project.get_parameters()
@@ -914,21 +914,21 @@ class Builder(CppWriter):
         self.line("const char *pdesc[] = {{{0}}};", descriptions)
         pvalues = ",".join(("&__param_" + p.name for p in params))
         self.line("int *pvalues[] = {{{0}}};", pvalues)
-        self.line("")
+        self.emptyline()
         self.line("ca_init(argc, argv, 0, pnames, pvalues, pdesc);")
 
-        for n in self.project.nets:
-            if n.is_module():
-                self.register_net(n)
+        for net in self.project.nets:
+            if net.is_module():
+                self.register_net(net)
+
         defs = [ "def_" + str(n.id) for n in self.project.nets if n.is_module() ]
         self.line("CaNetDef *defs[] = {{{0}}};", ",".join(defs))
         self.line("ca_setup({0}, defs);", len(defs));
 
         self.block_end()
 
-    def write_io_fnc(self, net):
-        variable = self.emit_module_declaration(net)
-        self.line("void {0}({1})", net.name, variable)
+    def write_library_function(self, net):
+        self.line("void {0}({1})", net.name, self.emit_library_function_declaration(net))
         self.block_begin()
 
         self.line("ca_spawn_toplevel_net({0});", net.get_index())
@@ -940,7 +940,7 @@ class Builder(CppWriter):
             else:
                 self.line("net->place_{0.id}.add({1});", e.get_place(), e.expr.emit(self.emitter))
 
-        self.line("net->set_finalizer((CaNetFinalizerFn*) module_finalizer_{0.id}, NULL);", net)
+        self.line("net->set_finalizer((CaNetFinalizerFn*) toplevel_finalizer_{0.id}, NULL);", net)
         self.line("net->set_manual_delete();")
         self.line("ca_main();")
 
@@ -968,32 +968,25 @@ class Builder(CppWriter):
         self.line("delete net;")
         self.block_end()
 
-    def emit_module_declaration(self, net):
+    def emit_library_function_declaration(self, net):
         decls = []
         context = net.get_interface_context()
-        for var in net.get_module_input_vars():
-            decls.append(("&" + var, self.emit_type(context[var])))
-        for var in net.get_module_output_vars():
-            if var not in net.get_module_input_vars():
-                decls.append(("&" + var, self.emit_type(context[var])))
-        return self.emit_declarations(decls)
 
-    def malloc_var(self, var, type, asterixs, dim, size = ""):
-        array = "".join(["[i{0}]".format(i) for i in range(dim)])
-        pointer_on = type + "*"*(asterixs - dim - 1)
-        rettype = pointer_on + "*"
-        if size == "":
-            self.line("{0}{1} = ({2}) malloc(sizeof({3}));", var, array, rettype, pointer_on)      
-        else:            
-            self.line("{0}{1} = ({2}) malloc(sizeof({3})*{4});", var, array, rettype, pointer_on, size)
+        input_vars = list(net.get_module_input_vars())
+        input_vars.sort()
+
+        output_vars = list(net.get_module_output_vars() - net.get_module_input_vars())
+        output_vars.sort()
+
+        decls = [ (name, context[name]) for name in input_vars + output_vars ]
+        return self.emit_declarations(decls, reference = True)
 
     def build_head_file(self):
         self.write_header()
         self.write_types_declaration()
         self.emptyline()
-        self.line("void init_modules(int argc, char **argv);")
+        self.line("void calib_init(int argc, char **argv);")
         for net in self.project.nets:
             if net.is_module():
-                variable = self.emit_module_declaration(net)
-                self.line("void {0}({1});", net.name, variable)
+                self.line("void {0}({1});", net.name, self.emit_library_function_declaration(net))
         self.emptyline()

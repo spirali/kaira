@@ -2,11 +2,11 @@
 import sys
 import base.project as project
 from base.utils import PtpException
-from gencpp.generator import CppGenerator
+from gencpp.generator import CppProgramGenerator, CppLibGenerator
 
 generators = {
-    "C++" : CppGenerator,
-    "C++ library" : CppGenerator
+    "C++" : CppProgramGenerator,
+    "C++ library" : CppLibGenerator
 }
 
 def get_generator(project):
@@ -27,10 +27,6 @@ def main(args):
         generator.build(args[2])
         return
     
-    if len(args) == 3 and args[1] == "--library":
-        generator.build_library(args[2])
-        return
-
     if len(args) == 3 and args[1] == "--place-user-fn":
         print generator.get_place_user_fn_header(int(args[2])),
         return
