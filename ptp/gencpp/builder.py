@@ -982,6 +982,9 @@ class Builder(CppWriter):
         return self.emit_declarations(decls, reference = True)
 
     def build_header_file(self):
+        self.line("#ifndef CA_LIBRARY_{0}", self.project.get_name())
+        self.line("#define CA_LIBRARY_{0}", self.project.get_name())
+        self.emptyline()
         self.write_header()
         self.write_types_declaration()
         self.emptyline()
@@ -990,3 +993,4 @@ class Builder(CppWriter):
             if net.is_module():
                 self.line("void {0}({1});", net.name, self.emit_library_function_declaration(net))
         self.emptyline()
+        self.line("#endif // CA_LIBRARY_{0}", self.project.get_name())

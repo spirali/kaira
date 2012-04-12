@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2011 Stanislav Bohm
+#    Copyright (C) 2011, 2012 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -105,13 +105,17 @@ class Parameter(object):
 
 class Project(object):
 
-    def __init__(self, extenv, description):
+    def __init__(self, name, extenv, description):
+        self.name = name
         self.extenv = extenv
         self.nets = []
         self.description = description
         self.extern_types = {}
         self.user_functions = {}
         self.parameters = {}
+
+    def get_name(self):
+        return self.name
 
     def get_env(self):
         env = Env()
@@ -296,11 +300,12 @@ def load_configuration(element, project):
 
 def load_project(element):
     description = element.find("description").text
+    name = utils.xml_str(element, "name")
     extenv = utils.xml_str(element, "extenv")
-    p = Project(extenv, description)
+    p = Project(name, extenv, description)
 
     load_configuration(element.find("configuration"), p)
-    
+
     nets = [ (e, load_net(e, p)) for e in element.findall("net") ]
     p.nets = [ net for e, net in nets ]
     for e, net in nets:

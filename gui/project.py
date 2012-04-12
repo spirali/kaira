@@ -168,6 +168,7 @@ class Project(EventSource):
 
     def export_xml(self):
         root = xml.Element("project")
+        root.set("name", self.get_name())
         root.set("extenv", self.get_extenv_name())
 
         root.append(self._configuration_element(True))
