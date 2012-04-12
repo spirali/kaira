@@ -981,7 +981,7 @@ class Builder(CppWriter):
         decls = [ (name, context[name]) for name in input_vars + output_vars ]
         return self.emit_declarations(decls, reference = True)
 
-    def build_head_file(self):
+    def build_header_file(self):
         self.write_header()
         self.write_types_declaration()
         self.emptyline()

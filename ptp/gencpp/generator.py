@@ -77,5 +77,5 @@ class CppLibGenerator(CppGenerator):
 
         # Build .h
         builder = Builder(self.project, header)
-        builder.build_head_file()
+        builder.build_header_file()
         builder.write_to_file(header)

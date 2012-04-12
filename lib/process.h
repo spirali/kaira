@@ -120,6 +120,7 @@ class CaThread {
 		void add_message(CaThreadMessage *message);
 		bool process_thread_messages();
 		int process_messages();
+		void clean_thread_messages();
 		void process_message(CaThreadMessage *message);
 		void quit_all();
 

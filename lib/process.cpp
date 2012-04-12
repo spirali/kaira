@@ -71,6 +71,15 @@ bool CaThread::process_thread_messages()
 	return false;
 }
 
+void CaThread::clean_thread_messages()
+{
+	while(messages) {
+		CaThreadMessage *next = messages->next;
+		delete messages;
+		messages = next;
+	}
+}
+
 int CaThread::process_messages()
 {
 	int result = process_thread_messages();
@@ -229,11 +238,16 @@ void CaThread::run_scheduler()
 		if (!n->try_lock())
 			continue;
 		CaTransition *tr = n->pick_active_transition();
-
 		if (tr == NULL) {
-			n->unlock();
 			if (n->is_autohalt() && n->get_running_transitions() == 0) {
+				n->unlock();
 				halt(n);
+				if (process_messages()) {
+					// Vector nets could be changed
+					net = nets.begin();
+				}
+			} else {
+				n->unlock();
 			}
 			continue;
 		}
@@ -361,6 +375,11 @@ void CaProcess::join()
 	int t;
 	for (t = 0; t < threads_count; t++) {
 		threads[t].join();
+	}
+
+	// Clean up messages, it is important for reusing process in generated library
+	for (t = 0; t < threads_count; t++) {
+		threads[t].clean_thread_messages();
 	}
 }
 
