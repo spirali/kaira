@@ -136,7 +136,7 @@ class CodeFileEditor(CodeEditor):
                 content = f.read()
         else:
             content = ""
-        CodeEditor.__init__(self, language, "", content, "", (0,0))
+        CodeEditor.__init__(self, language, [("", "", content, "")], ("", 0,0))
         self.view.set_show_line_numbers(True)
 
     def _toolbar(self):
