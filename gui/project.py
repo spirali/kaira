@@ -241,7 +241,6 @@ class Project(EventSource):
         self.changed()
 
     def write_project_files(self):
-        self.write_makefile()
         utils.write_file_if_not_exists(self.get_head_filename(), self.get_initial_head_file_content())
 
     def create_extern_type(self, extern_type_name):

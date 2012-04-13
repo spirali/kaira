@@ -439,7 +439,7 @@ class App:
         if self.get_settings("save-before-build"):
             self._save_project(silent = True)
 
-        extra_args = [ "--build", proj.get_emitted_source_filename() ]
+        extra_args = [ "--build", proj.get_directory() ]
         self._start_ptp(proj, lambda lines: self._run_makefile(proj, build_ok_callback), extra_args = extra_args)
 
     def _start_ptp(self, proj, build_ok_callback = None, extra_args = []):

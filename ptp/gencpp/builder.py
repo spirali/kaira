@@ -742,8 +742,8 @@ class Builder(CppWriter):
             self.build_net_functions(net)
         self.write_main()
 
-    def build_library(self, head_file):
-        self.line("#include \"{0}\"", head_file)
+    def build_library(self, header_filename):
+        self.line("#include \"{0}\"", header_filename)
         self.emptyline()
         self.write_parameters()
         self.write_extern_types_functions()
@@ -994,3 +994,8 @@ class Builder(CppWriter):
                 self.line("void {0}({1});", net.name, self.emit_library_function_declaration(net))
         self.emptyline()
         self.line("#endif // CA_LIBRARY_{0}", self.project.get_name())
+
+    def write_to_file(self, filename = None):
+        if filename is None:
+            filename = self.output_filename
+        CppWriter.write_to_file(self, filename)

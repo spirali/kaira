@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2012 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -19,11 +19,9 @@
 
 import os
 
-KAIRA_GUI = os.path.dirname(os.path.abspath(__file__))
-KAIRA_ROOT = os.path.dirname(KAIRA_GUI)
+KAIRA_PTP = os.path.dirname(os.path.abspath(__file__))
+KAIRA_ROOT = os.path.dirname(KAIRA_PTP)
 
-ICONS_DIR = os.path.join(KAIRA_GUI, "icons")
-UI_DIR = os.path.join(KAIRA_GUI, "ui")
-
-PTP_DIR = os.path.join(KAIRA_ROOT, "ptp")
-PTP_BIN = os.path.join(KAIRA_ROOT, "ptp", "ptp.py")
+CAILIE_DIR = os.path.join(KAIRA_ROOT, "lib")
+CAILIE_LIB_DIR = os.path.join(CAILIE_DIR, "build")
+CAILIE_MPI_LIB_DIR = os.path.join(CAILIE_DIR, "build-mpi")

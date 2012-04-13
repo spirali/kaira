@@ -29,9 +29,7 @@ class BuildOptionsWidget(gtk.VBox):
         self.app = app
 
         hbox = gtk.HBox()
-        button = gtk.Button("Write makefile")
-        button.connect("clicked", self._write_makefile)
-        hbox.pack_start(button, False, False)
+
         self.pack_start(hbox, False, False)
 
         self.table = gtk.Table()
@@ -103,7 +101,9 @@ class BuildOptionsWidget(gtk.VBox):
                 directory = self.project.get_directory()
 
                 other_files = self.project.get_build_option("OTHER_FILES").split("\n")
-                forbidden = [ self.project.get_emitted_source_filename(), self.project.get_head_filename() ]
+
+                # TODO: Add files produced by ptp
+                forbidden = [ self.project.get_head_filename() ]
 
                 for filename in filenames:
                     if not filename.startswith(directory):
@@ -130,6 +130,3 @@ class BuildOptionsWidget(gtk.VBox):
     def _update_project(self):
         filenames = self.filelist.get_column(0)
         self.project.set_build_option("OTHER_FILES", "\n".join(filenames))
-
-    def _write_makefile(self, w):
-        self.project.write_makefile()

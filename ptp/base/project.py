@@ -113,6 +113,7 @@ class Project(object):
         self.extern_types = {}
         self.user_functions = {}
         self.parameters = {}
+        self.build_options = {}
 
     def get_name(self):
         return self.name
@@ -125,6 +126,13 @@ class Project(object):
         for param in self.get_parameters():
             env.add_parameter(param.get_name(), param.get_type())
         return env
+
+    def get_build_option(self, name):
+        value = self.build_options.get(name)
+        if value is None:
+            return ""
+        else:
+            return value
 
     def get_extenv(self):
         return self.extenv
@@ -288,6 +296,11 @@ def load_parameter(element):
     type = parser.parse_type(utils.xml_str(element, "type"), None)
     return Parameter(name, type, description)
 
+def load_build_option(element, project):
+    name = utils.xml_str(element, "name")
+    value = element.text
+    project.build_options[name] = value
+
 def load_configuration(element, project):
     etypes = [ load_extern_type(e) for e in element.findall("extern-type") ]
     project.extern_types = utils.create_dict(etypes, lambda item: item.get_name())
@@ -297,6 +310,9 @@ def load_configuration(element, project):
 
     parameters = [ load_parameter(e) for e in element.findall("parameter") ]
     project.parameters = utils.create_dict(parameters, lambda item: item.get_name())
+
+    for e in element.findall("build-option"):
+        load_build_option(e, project)
 
 def load_project(element):
     description = element.find("description").text

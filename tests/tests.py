@@ -19,7 +19,7 @@ TEST_PROJECTS = os.path.join(KAIRA_TESTS, "projects")
 class BuildTest(TestCase):
 
     def run_ptp(self, name):
-        return RunProgram(PTP_BIN, [ name + ".xml", "--build", name + ".cpp" ])
+        return RunProgram(PTP_BIN, [ name + ".xml", "--build", os.path.dirname(name) ])
 
     def build(self, filename, final_output = None, make_args = [], **kw):
         name, ext = os.path.splitext(filename)
