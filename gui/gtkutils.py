@@ -45,6 +45,31 @@ def load_ui(filename):
     builder.add_from_file(os.path.join(paths.UI_DIR, filename + ".glade"))
     return builder
 
+def radio_buttons(items, select_key, box, callback):
+    """ Items: [(key, label)]
+		callback is called with key if button is pressed"""
+    def toggled(w):
+        if not w.get_active():
+            return
+        for key, label in items:
+            if label == w.get_label():
+                callback(key)
+                break
+
+    buttons = []
+    for key, label in items:
+        button = gtk.RadioButton(label = label)
+        buttons.append(button)
+        box.pack_start(button, False, False)
+        button.connect("toggled", toggled)
+
+    for button in buttons[1:]:
+        button.set_group(buttons[0])
+
+    for (key, label), button in zip(items, buttons):
+        if key == select_key:
+            button.set_active(True)
+
 class SimpleList(gtk.ScrolledWindow):
 
     def __init__(self, columns):

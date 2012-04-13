@@ -139,6 +139,7 @@ class ProjectCppLibrary(ProjectCppBase):
 
     def __init__(self, file_name):
         ProjectCppBase.__init__(self, file_name)
+        self.target_mode = "lib"
 
     @classmethod
     def get_extenv_name(self):

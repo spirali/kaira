@@ -45,12 +45,19 @@ class Project(EventSource):
         self.error_messages = {}
         self.functions = []
         self.generator = None
+        self.target_mode = None
 
     def get_build_option(self, name):
         if name in self.build_options:
             return self.build_options[name]
         else:
             return ""
+
+    def get_target_mode(self):
+        return self.target_mode
+
+    def set_target_mode(self, value):
+        self.target_mode = value
 
     def get_generator(self):
         if self.generator:
@@ -87,7 +94,7 @@ class Project(EventSource):
         return self.nets
 
     def get_nets_with_interface(self):
-		return [ net for net in self.nets if net.is_module() ]
+        return [ net for net in self.nets if net.is_module() ]
 
     def get_name(self):
         d, fname = os.path.split(self.filename)
@@ -153,6 +160,8 @@ class Project(EventSource):
     def as_xml(self):
         root = xml.Element("project")
         root.set("extenv", self.get_extenv_name())
+        if self.target_mode:
+            root.set("target-mode", self.target_mode)
         root.append(self._configuration_element(False))
         for net in self.nets:
             root.append(net.as_xml())

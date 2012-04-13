@@ -23,6 +23,7 @@ from functions import FunctionsWidget
 from build import BuildOptionsWidget
 
 import gtk
+import gtkutils
 
 class GeneralConfig(gtk.VBox):
 
@@ -30,10 +31,19 @@ class GeneralConfig(gtk.VBox):
         gtk.VBox.__init__(self)
         self.project = project
 
-        button = gtk.CheckButton("Enforce to use packers (for debug only)")
-        button.set_active(project.force_packers)
-        button.connect("toggled", lambda w: self.project.set_force_packers(w.get_active()))
-        self.pack_start(button, False, False)
+        if project.is_library():
+            frame = gtk.Frame("Target")
+            self.pack_start(frame, False, False)
+            vbox = gtk.VBox()
+            frame.add(vbox)
+            gtkutils.radio_buttons([
+                ("lib", "C++ library"),
+                ("rpclib", "C++ library with RPC"),
+                ("rpclib-c", "C++ library with RPC + C interface"),
+                ("octave", "Octave plugin")
+            ], project.get_target_mode(), vbox,
+                lambda key: project.set_target_mode(key))
+
         self.show()
 
 class ProjectConfig(gtk.Notebook):
