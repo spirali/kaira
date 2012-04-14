@@ -105,9 +105,10 @@ class Parameter(object):
 
 class Project(object):
 
-    def __init__(self, name, extenv, description):
+    def __init__(self, name, extenv, target_mode, description):
         self.name = name
         self.extenv = extenv
+        self.target_mode = target_mode
         self.nets = []
         self.description = description
         self.extern_types = {}
@@ -117,6 +118,9 @@ class Project(object):
 
     def get_name(self):
         return self.name
+
+    def get_target_mode(self):
+        return self.target_mode
 
     def get_env(self):
         env = Env()
@@ -318,7 +322,8 @@ def load_project(element):
     description = element.find("description").text
     name = utils.xml_str(element, "name")
     extenv = utils.xml_str(element, "extenv")
-    p = Project(name, extenv, description)
+    target_mode = utils.xml_str(element, "target-mode", "default")
+    p = Project(name, extenv, target_mode, description)
 
     load_configuration(element.find("configuration"), p)
 

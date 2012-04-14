@@ -73,7 +73,8 @@ def load_project(filename):
 def load_project_from_xml(root, filename):
     extenv_name = root.get("extenv", "C++")
     project = create_project(filename, extenv_name)
-    project.target_mode = root.get("target-mode")
+    if root.get("target-mode"):
+        project.target_mode = root.get("target-mode")
     loader = BasicLoader(project)
     if root.find("configuration") is not None:
         load_configuration(root.find("configuration"), project, loader)

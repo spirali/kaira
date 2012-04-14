@@ -179,7 +179,8 @@ class Project(EventSource):
         root = xml.Element("project")
         root.set("name", self.get_name())
         root.set("extenv", self.get_extenv_name())
-
+        if self.get_target_mode():
+            root.set("target-mode", self.get_target_mode())
         root.append(self._configuration_element(True))
 
         description = xml.Element("description")

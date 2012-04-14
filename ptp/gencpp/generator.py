@@ -22,6 +22,7 @@ import emitter
 import os
 import base.utils
 import paths
+import shutil
 
 class CppGenerator:
 
@@ -70,6 +71,11 @@ class CppGenerator:
         makefile.set("INCLUDE", "-I" + paths.CAILIE_DIR)
         makefile.set("MPICC", "mpic++")
         makefile.set("MPILIBDIR", "-L" + paths.CAILIE_MPI_LIB_DIR)
+
+        makefile.rule(".cpp.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
+        makefile.rule(".cc.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
+        makefile.rule(".c.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
+
         return makefile
 
     def get_other_dependancies(self):
@@ -128,9 +134,6 @@ class CppProgramGenerator(CppGenerator):
         all = deps + [ name_o, name_mpi_o, name_debug_o, name_mpi_debug_o ]
 
         makefile.rule("clean", [], "rm -f {0} {0}_debug {0}_mpi {0}_mpidebug {1}".format(name," ".join(all)))
-        makefile.rule(".cpp.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
-        makefile.rule(".cc.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
-        makefile.rule(".c.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
         makefile.write_to_file(os.path.join(directory, "makefile"))
 
 
@@ -138,6 +141,35 @@ class CppProgramGenerator(CppGenerator):
 class CppLibGenerator(CppGenerator):
 
     def build(self, directory):
+        print self.project.get_target_mode()
+        if self.project.get_target_mode() == "lib":
+            self.build_library(directory)
+
+        if self.project.get_target_mode() == "rpclib":
+            self.build_server(directory)
+
+    def build_server(self, directory):
+        server_directory = os.path.join(directory, "server")
+
+        # Check for server directory
+        if os.path.exists(server_directory):
+            if not os.path.isdir(server_directory):
+                raise base.utils.PtpException("'server' exists but it is not directory")
+        else:
+            os.makedirs(server_directory)
+
+        # Copy head file
+        shutil.copyfile(os.path.join(directory, "head.cpp"), os.path.join(server_directory, "head.cpp"))
+
+        source_filename = os.path.join(server_directory, self.project.get_name() + "_server.cpp")
+
+        builder = Builder(self.project, source_filename)
+        builder.build_server()
+        builder.write_to_file()
+
+        self.write_server_makefile(server_directory)
+
+    def build_library(self, directory):
         source_filename = os.path.join(directory, self.project.get_name() + ".cpp")
         header_filename = os.path.join(directory, self.project.get_name() + ".h")
 
@@ -151,9 +183,20 @@ class CppLibGenerator(CppGenerator):
         builder.build_header_file()
         builder.write_to_file()
 
-        self.write_makefile(directory)
+        self.write_library_makefile(directory)
 
-    def write_makefile(self, directory):
+    def write_server_makefile(self, directory):
+        makefile = self.prepare_makefile()
+
+        name = self.project.get_name() + "_server"
+        name_o = name + ".o"
+        other_deps = self.get_other_dependancies()
+        deps = [ name_o ] + other_deps
+        makefile.rule(name, deps, "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
+        makefile.rule("clean", [], "rm -f {0}".format(name," ".join(deps)))
+        makefile.write_to_file(os.path.join(directory, "makefile"))
+
+    def write_library_makefile(self, directory):
 
         makefile = self.prepare_makefile()
         other_deps = self.get_other_dependancies()
@@ -170,8 +213,5 @@ class CppLibGenerator(CppGenerator):
         all = deps + [ libname_a ]
 
         makefile.rule("clean", [], "rm -f {0}".format(" ".join(all)))
-        makefile.rule(".cpp.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
-        makefile.rule(".cc.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
-        makefile.rule(".c.o", [], "$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@")
 
         makefile.write_to_file(os.path.join(directory, "makefile"))

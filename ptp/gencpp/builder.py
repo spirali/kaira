@@ -115,7 +115,6 @@ class Builder(CppWriter):
         self.line('#include <stdlib.h>')
         self.line('#include <stdio.h>')
         self.line('#include <sstream>')
-        self.line('#include "head.cpp"')
         self.emptyline()
 
     def write_parameters(self):
@@ -259,11 +258,13 @@ class Builder(CppWriter):
                   t.get_safe_name(), self.emit_type(t))
 
     def write_types_declaration(self):
+        """
         for t in get_ordered_types(self.project):
             if t.name == "":
                 self.add_tuple_class(t)
             if len(t.args) == 1 and t.name == "Array":
                 self.write_array_declaration(t.args[0])
+        """
 
     def write_types(self, with_tuple = True):
         for t in get_ordered_types(self.project):
@@ -730,8 +731,8 @@ class Builder(CppWriter):
                 write_fn(etype, "pack")
                 write_fn(etype, "unpack")
 
-    def build(self):
-        self.write_header()
+    def write_core(self):
+        self.line('#include "head.cpp"')
         self.write_parameters()
         self.write_extern_types_functions()
         self.write_types()
@@ -740,25 +741,35 @@ class Builder(CppWriter):
             self.build_net_class(net)
         for net in self.project.nets:
             self.build_net_functions(net)
+
+    def build(self):
+        self.write_header()
+        self.write_core()
         self.write_main()
 
     def build_library(self, header_filename):
         self.line("#include \"{0}\"", header_filename)
         self.emptyline()
-        self.write_parameters()
-        self.write_extern_types_functions()
-        self.write_types(False)
-        self.write_user_functions()
+        self.write_core()
         for net in self.project.nets:
-            if net.is_module():
-                self.build_net_class(net)
-        for net in self.project.nets:
-            if net.is_module():
-                self.module_net_functions(net)
-        for net in self.project.nets:
-            if net.is_module():
+                self.write_toplevel_finalizer(net)
                 self.write_library_function(net)
         self.write_library_init_function()
+
+    def build_server(self):
+        self.write_header()
+        self.write_core()
+        for net in self.project.nets:
+                self.write_toplevel_finalizer(net)
+                self.write_library_function(net)
+        self.write_library_init_function()
+        self.write_server_main()
+
+    def write_server_main(self):
+        self.line("int main(int argc, char **argv)")
+        self.block_begin()
+        self.line("return 0;")
+        self.block_end()
 
     def write_spawn(self, net):
         self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id, CaNet *parent_net) {{", net)
@@ -863,13 +874,6 @@ class Builder(CppWriter):
         self.write_class_end()
 
     def build_net_functions(self, net):
-        self.write_spawn(net)
-
-        for tr in net.transitions:
-            self.write_transition(tr)
-
-    def module_net_functions(self, net):
-        self.write_toplevel_finalizer(net)
         self.write_spawn(net)
 
         for tr in net.transitions:
