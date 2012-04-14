@@ -141,7 +141,6 @@ class CppProgramGenerator(CppGenerator):
 class CppLibGenerator(CppGenerator):
 
     def build(self, directory):
-        print self.project.get_target_mode()
         if self.project.get_target_mode() == "lib":
             self.build_library(directory)
 

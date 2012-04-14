@@ -115,6 +115,7 @@ class Builder(CppWriter):
         self.line('#include <stdlib.h>')
         self.line('#include <stdio.h>')
         self.line('#include <sstream>')
+        self.line('#include "head.cpp"')
         self.emptyline()
 
     def write_parameters(self):
@@ -258,18 +259,16 @@ class Builder(CppWriter):
                   t.get_safe_name(), self.emit_type(t))
 
     def write_types_declaration(self):
-        """
+        self.write_extern_types_functions(False)
         for t in get_ordered_types(self.project):
             if t.name == "":
                 self.add_tuple_class(t)
             if len(t.args) == 1 and t.name == "Array":
                 self.write_array_declaration(t.args[0])
-        """
 
-    def write_types(self, with_tuple = True):
+    def write_types(self):
+        self.write_extern_types_functions(True)
         for t in get_ordered_types(self.project):
-            if t.name == "" and with_tuple:
-                self.add_tuple_class(t)
             if len(t.args) == 1 and t.name == "Array":
                 self.write_array_as_string(t.args[0])
                 self.write_array_size(t.args[0])
@@ -710,31 +709,38 @@ class Builder(CppWriter):
             self.line("token_{0.uid} = token_{0.uid}->next;", edge)
             self.do_end("token_{0.uid} != n->place_{1.id}.begin()".format(edge, edge.get_place()))
 
-    def write_extern_types_functions(self):
+    def write_extern_types_functions(self, definitions):
         decls = {
                  "getstring" : "std::string {0.name}_getstring({0.rawtype} &obj)",
                  "getsize" : "size_t {0.name}_getsize({0.rawtype} &obj)",
                  "pack" : "void {0.name}_pack(CaPacker &packer, {0.rawtype} &obj)",
                  "unpack" : "{0.rawtype} {0.name}_unpack(CaUnpacker &unpacker)"
         }
+
         def write_fn(etype, name):
             source = ("*{0}/{1}".format(etype.get_name(), name), 1)
             self.write_function(decls[name].format(etype), etype.get_code(name), source)
 
+        def declare_fn(etype, name):
+            self.line(decls[name].format(etype) + ";")
+
+        if definitions:
+            f = write_fn
+        else:
+            f = declare_fn
+
         for etype in self.project.get_extern_types():
             if etype.has_code("getstring"):
-                write_fn(etype, "getstring")
+                f(etype, "getstring")
             if etype.get_transport_mode() == "Custom":
                 if not etype.has_code("getsize") or not etype.has_code("pack") or not etype.has_code("unpack"):
                     raise utils.PtpException("Extern type has custom transport mode but getsize/pack/unpack missing.")
-                write_fn(etype, "getsize")
-                write_fn(etype, "pack")
-                write_fn(etype, "unpack")
+                f(etype, "getsize")
+                f(etype, "pack")
+                f(etype, "unpack")
 
     def write_core(self):
-        self.line('#include "head.cpp"')
         self.write_parameters()
-        self.write_extern_types_functions()
         self.write_types()
         self.write_user_functions()
         for net in self.project.nets:
@@ -742,8 +748,15 @@ class Builder(CppWriter):
         for net in self.project.nets:
             self.build_net_functions(net)
 
+    def write_library_functions(self):
+        for net in self.project.nets:
+                self.write_toplevel_finalizer(net)
+                self.write_library_function(net)
+        self.write_library_init_function()
+
     def build(self):
         self.write_header()
+        self.write_types_declaration()
         self.write_core()
         self.write_main()
 
@@ -751,18 +764,13 @@ class Builder(CppWriter):
         self.line("#include \"{0}\"", header_filename)
         self.emptyline()
         self.write_core()
-        for net in self.project.nets:
-                self.write_toplevel_finalizer(net)
-                self.write_library_function(net)
-        self.write_library_init_function()
+        self.write_library_functions()
 
     def build_server(self):
         self.write_header()
+        self.write_types_declaration()
         self.write_core()
-        for net in self.project.nets:
-                self.write_toplevel_finalizer(net)
-                self.write_library_function(net)
-        self.write_library_init_function()
+        self.write_library_functions()
         self.write_server_main()
 
     def write_server_main(self):
@@ -921,11 +929,10 @@ class Builder(CppWriter):
         self.emptyline()
         self.line("ca_init(argc, argv, 0, pnames, pvalues, pdesc);")
 
-        for net in self.project.nets:
-            if net.is_module():
-                self.register_net(net)
+        for net in self.project.get_modules():
+            self.register_net(net)
 
-        defs = [ "def_" + str(n.id) for n in self.project.nets if n.is_module() ]
+        defs = [ "def_{0.id}".format(net) for net in self.project.get_modules() ]
         self.line("CaNetDef *defs[] = {{{0}}};", ",".join(defs))
         self.line("ca_setup({0}, defs);", len(defs));
 
@@ -993,9 +1000,8 @@ class Builder(CppWriter):
         self.write_types_declaration()
         self.emptyline()
         self.line("void calib_init(int argc, char **argv);")
-        for net in self.project.nets:
-            if net.is_module():
-                self.line("void {0}({1});", net.name, self.emit_library_function_declaration(net))
+        for net in self.project.get_modules():
+            self.line("void {0}({1});", net.name, self.emit_library_function_declaration(net))
         self.emptyline()
         self.line("#endif // CA_LIBRARY_{0}", self.project.get_name())
 

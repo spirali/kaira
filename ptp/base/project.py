@@ -122,6 +122,9 @@ class Project(object):
     def get_target_mode(self):
         return self.target_mode
 
+    def get_modules(self):
+        return [ net for net in self.nets if net.is_module() ]
+
     def get_env(self):
         env = Env()
         for ufunction in self.get_user_functions():
