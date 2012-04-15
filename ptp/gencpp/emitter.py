@@ -161,4 +161,4 @@ class Emitter(object):
                 else:
                     return self.emit_type(t.args[0], False) + "*"
         raise Exception("Type '{0}' cannot be emitted".format(t))
-    
+

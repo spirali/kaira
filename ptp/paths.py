@@ -25,3 +25,7 @@ KAIRA_ROOT = os.path.dirname(KAIRA_PTP)
 CAILIE_DIR = os.path.join(KAIRA_ROOT, "lib")
 CAILIE_LIB_DIR = os.path.join(CAILIE_DIR, "build")
 CAILIE_MPI_LIB_DIR = os.path.join(CAILIE_DIR, "build-mpi")
+
+LIBS_DIR = os.path.join(KAIRA_ROOT, "libs")
+
+CASERVER_DIR = os.path.join(LIBS_DIR, "caserver")

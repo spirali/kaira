@@ -766,16 +766,63 @@ class Builder(CppWriter):
         self.write_core()
         self.write_library_functions()
 
+    def build_library_header_file(self):
+        self.line("#ifndef CA_LIBRARY_{0}", self.project.get_name())
+        self.line("#define CA_LIBRARY_{0}", self.project.get_name())
+        self.emptyline()
+        self.write_header()
+        self.write_types_declaration()
+        self.emptyline()
+        self.line("void calib_init(int argc, char **argv);")
+        for net in self.project.get_modules():
+            self.line("void {0}({1});", net.name, self.emit_library_function_declaration(net))
+        self.emptyline()
+        self.line("#endif // CA_LIBRARY_{0}", self.project.get_name())
+
+    def build_client_library(self, header_filename):
+        self.line("#include \"{0}\"", header_filename)
+        self.emptyline()
+
+        for net in self.project.get_modules():
+            self.write_client_library_function(net)
+
+    def build_client_library_header_file(self):
+        self.line("#ifndef CA_LIBRARY_{0}", self.project.get_name())
+        self.line("#define CA_LIBRARY_{0}", self.project.get_name())
+        self.emptyline()
+        self.line("void calib_connect(const char *hostname, int port);")
+        for net in self.project.get_modules():
+            self.line("void {0}({1});", net.name, self.emit_library_function_declaration(net))
+        self.emptyline()
+        self.line("#endif // CA_LIBRARY_{0}", self.project.get_name())
+
     def build_server(self):
         self.write_header()
+        self.line("#include <caserver.h>")
         self.write_types_declaration()
         self.write_core()
         self.write_library_functions()
+
+        for net in self.project.get_modules():
+            self.write_library_function_wrapper(net)
+
         self.write_server_main()
+
+    def write_client_library_function(self, net):
+        self.line("void {0}({1})", net.name, self.emit_library_function_declaration(net))
+        self.block_begin()
+        self.block_end()
 
     def write_server_main(self):
         self.line("int main(int argc, char **argv)")
         self.block_begin()
+        self.line("CaServer server;")
+
+        for net in self.project.get_modules():
+            declaration = self.emit_library_function_declaration(net)
+            self.line("server.register_function({0},{1},{2}_wrapper);",
+                        self.emitter.const_string(net.name), self.emitter.const_string(declaration), net.name)
+        self.line("server.run();")
         self.line("return 0;")
         self.block_end()
 
@@ -912,6 +959,11 @@ class Builder(CppWriter):
             return "ca_bool_to_string({0})".format(expr)
         return "ca_int_to_string({0})".format(expr)
 
+    def write_library_function_wrapper(self, net):
+        self.line("void {0}_wrapper(CaUnpacker &unpacker, CaPacker &packer)", net.name)
+        self.block_begin()
+        self.block_end()
+
     def emit_declarations(self, decls, reference = False):
         return emit_declarations(self.emitter, decls, reference)
 
@@ -979,31 +1031,16 @@ class Builder(CppWriter):
         self.line("delete net;")
         self.block_end()
 
-    def emit_library_function_declaration(self, net):
-        decls = []
+    def get_library_function_arguments(self, net):
         context = net.get_interface_context()
-
         input_vars = list(net.get_module_input_vars())
         input_vars.sort()
-
         output_vars = list(net.get_module_output_vars() - net.get_module_input_vars())
         output_vars.sort()
+        return [ (name, context[name]) for name in input_vars + output_vars ]
 
-        decls = [ (name, context[name]) for name in input_vars + output_vars ]
-        return self.emit_declarations(decls, reference = True)
-
-    def build_header_file(self):
-        self.line("#ifndef CA_LIBRARY_{0}", self.project.get_name())
-        self.line("#define CA_LIBRARY_{0}", self.project.get_name())
-        self.emptyline()
-        self.write_header()
-        self.write_types_declaration()
-        self.emptyline()
-        self.line("void calib_init(int argc, char **argv);")
-        for net in self.project.get_modules():
-            self.line("void {0}({1});", net.name, self.emit_library_function_declaration(net))
-        self.emptyline()
-        self.line("#endif // CA_LIBRARY_{0}", self.project.get_name())
+    def emit_library_function_declaration(self, net):
+        return self.emit_declarations(self.get_library_function_arguments(net), reference = True)
 
     def write_to_file(self, filename = None):
         if filename is None:

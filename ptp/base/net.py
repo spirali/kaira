@@ -372,7 +372,7 @@ class Net(object):
     def check(self):
         """ Check consistency of net, raise exception if something is wrong,
             inject_types exptected before calling check"""
-            
+
         for t in self.get_all_types():
             t.check(self.project)
 
