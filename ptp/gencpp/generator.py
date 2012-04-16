@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2011 Stanislav Bohm
+#    Copyright (C) 2011, 2012 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -18,6 +18,7 @@
 #
 
 from builder import Builder, CppWriter, emit_declarations
+from octave import OctaveBuilder
 import emitter
 import os
 import base.utils
@@ -160,10 +161,17 @@ class CppLibGenerator(CppGenerator):
 
         if self.project.get_target_mode() == "lib":
             self.build_library(directory)
+            self.write_library_makefile(directory)
 
         if self.project.get_target_mode() == "rpclib":
             self.build_server(directory)
             self.build_client_library(directory)
+            self.write_client_library_makefile(directory)
+
+        if self.project.get_target_mode() == "octave":
+            self.build_library(directory)
+            self.build_oct_files(directory)
+            self.write_library_makefile(directory, octave = True)
 
     def build_client_library(self, directory):
         source_filename = os.path.join(directory, self.project.get_name() + ".cpp")
@@ -178,8 +186,6 @@ class CppLibGenerator(CppGenerator):
         builder = Builder(self.project, header_filename)
         builder.build_client_library_header_file()
         builder.write_to_file()
-
-        self.write_client_library_makefile(directory)
 
 
     def build_server(self, directory):
@@ -216,7 +222,18 @@ class CppLibGenerator(CppGenerator):
         builder = Builder(self.project, header_filename)
         builder.build_library_header_file()
         builder.write_to_file()
-        self.write_library_makefile(directory)
+
+    def build_oct_files(self, directory):
+        source_filename = os.path.join(directory, self.project.get_name() + "_oct.cpp")
+        m_filename = os.path.join(directory, self.project.get_name() + ".m")
+
+        builder = Builder(self.project, source_filename)
+        builder.build_oct(self.project.get_name() + ".h")
+        builder.write_to_file()
+
+        builder = OctaveBuilder(self.project)
+        builder.build_loader(self.project.get_name() + ".oct")
+        builder.write_to_file(m_filename)
 
     def write_server_makefile(self, directory):
         makefile = self.prepare_makefile(libs=["caserver"],
@@ -235,7 +252,7 @@ class CppLibGenerator(CppGenerator):
         makefile.rule("clean", [], "rm -f {0} {1}".format(name," ".join(deps)))
         makefile.write_to_file(os.path.join(directory, "makefile"))
 
-    def write_library_makefile(self, directory):
+    def write_library_makefile(self, directory, octave = False):
 
         makefile = self.prepare_makefile()
         other_deps = self.get_other_dependancies()
@@ -244,15 +261,27 @@ class CppLibGenerator(CppGenerator):
         name_o = name + ".o"
         libname_a = "lib{0}.a".format(name)
 
-        makefile.rule("all", [ libname_a ], phony = True)
+        targets = [ libname_a ]
+        if octave:
+            targets.append("octave")
+
+        makefile.rule("all", targets, phony = True)
+
+        if octave:
+            name_oct = name + ".oct"
+            name_oct_cpp = name + "_oct.cpp"
+            makefile.rule("octave", [ name_oct ], phony = True)
+            makefile.rule(name_oct, [ name_oct_cpp ], "mkoctfile $< $(INCLUDE) -o {0}".format(name_oct))
 
         deps = [ name_o ] + other_deps
         makefile.rule(libname_a, deps, "ar -cr lib{0}.a ".format(name) + " ".join(deps))
 
         all = deps + [ libname_a ]
 
-        makefile.rule("clean", [], "rm -f {0}".format(" ".join(all)), phony = True)
+        if octave:
+            all.append(name_oct)
 
+        makefile.rule("clean", [], "rm -f {0}".format(" ".join(all)), phony = True)
         makefile.write_to_file(os.path.join(directory, "makefile"))
 
 

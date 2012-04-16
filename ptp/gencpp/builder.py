@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2011 Stanislav Bohm
+#    Copyright (C) 2011, 2012 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -807,6 +807,19 @@ class Builder(CppWriter):
             self.write_library_function_wrapper(net)
 
         self.write_server_main()
+
+    def build_oct(self, header_filename):
+        self.line("#include <octave/oct.h>")
+        self.line("#include \"{0}\"", header_filename)
+        self.emptyline()
+        for net in self.project.get_modules():
+            self.write_oct_function(net)
+
+    def write_oct_function(self, net):
+        self.line("DEFUN_DLD({0}, args, nargout, \"\")", net.get_name())
+        self.block_begin()
+        self.line("return octave_value(\"Hello world\");")
+        self.block_end()
 
     def write_client_library_function(self, net):
         self.line("void {0}({1})", net.name, self.emit_library_function_declaration(net))
