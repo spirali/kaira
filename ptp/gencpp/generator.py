@@ -171,7 +171,7 @@ class CppLibGenerator(CppGenerator):
 
         # Build .cpp
         builder = Builder(self.project, source_filename)
-        builder.build_client_library(header_filename)
+        builder.build_client_library(self.project.get_name() + ".h")
         builder.write_to_file()
 
         # Build .h
@@ -209,7 +209,7 @@ class CppLibGenerator(CppGenerator):
 
         # Build .cpp
         builder = Builder(self.project, source_filename)
-        builder.build_library(header_filename)
+        builder.build_library(self.project.get_name() + ".h")
         builder.write_to_file()
 
         # Build .h
