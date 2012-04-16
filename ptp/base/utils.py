@@ -135,11 +135,10 @@ class Makefile:
     def set(self, variable, value):
         self.variables.append((variable, value))
 
-    def rule(self, target, deps, command = None):
+    def rule(self, target, deps, command = None, phony = False):
+        if phony:
+            self.rules.append((".PHONY", [ target ], None))
         self.rules.append((target, deps, command))
-
-    def phony(self, items):
-        self.rule(".PHONY", items)
 
     def set_top_comment(self, value):
         self.top_comment = value

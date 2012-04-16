@@ -116,10 +116,10 @@ class CppProgramGenerator(CppGenerator):
         name_mpi_o = name + "_mpi.o"
         name_mpi_debug_o = name + "_mpi_debug.o"
 
-        makefile.rule("all", [ name ])
-        makefile.rule("debug", [ name_debug ])
-        makefile.rule("mpi", [ name + "_mpi"])
-        makefile.rule("mpidebug", [name + "_mpidebug"])
+        makefile.rule("all", [ name ], phony = True)
+        makefile.rule("debug", [ name_debug ], phony = True)
+        makefile.rule("mpi", [ name + "_mpi"], phony = True)
+        makefile.rule("mpidebug", [name + "_mpidebug"], phony = True)
 
         other_deps = self.get_other_dependancies()
 
@@ -127,9 +127,11 @@ class CppProgramGenerator(CppGenerator):
         deps_debug = [ name_debug_o ] + other_deps
         deps_mpi = [ name_mpi_o ] + other_deps
         deps_mpi_debug = [ name_mpi_debug_o ] + other_deps
-        makefile.rule(name, deps, "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
+        makefile.rule(name, deps,
+            "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
 
-        makefile.rule(name_debug, deps_debug, "$(CC) " + " ".join(deps_debug) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
+        makefile.rule(name_debug, deps_debug,
+            "$(CC) " + " ".join(deps_debug) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
 
         makefile.rule(name + "_mpi", deps_mpi, "$(MPICC) -D CA_MPI " + " ".join(deps_mpi)
             + " -o $@ $(CFLAGS) $(INCLUDE) $(MPILIBDIR) $(MPILIBS)" )
@@ -138,12 +140,16 @@ class CppProgramGenerator(CppGenerator):
 
         makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
 
-        makefile.rule(name_debug_o, [ name_cpp, "head.cpp" ], "$(CC) -DCA_LOG $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))
-        makefile.rule(name_mpi_o, [ name_cpp, "head.cpp" ], "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
-        makefile.rule(name_mpi_debug_o, [ name_cpp, "head.cpp" ], "$(MPICC) -DCA_MPI -DCA_LOG $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_debug_o))
+        makefile.rule(name_debug_o, [ name_cpp, "head.cpp" ],
+            "$(CC) -DCA_LOG $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))
+        makefile.rule(name_mpi_o, [ name_cpp, "head.cpp" ],
+            "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
+        makefile.rule(name_mpi_debug_o, [ name_cpp, "head.cpp" ],
+            "$(MPICC) -DCA_MPI -DCA_LOG $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_debug_o))
         all = deps + [ name_o, name_mpi_o, name_debug_o, name_mpi_debug_o ]
 
-        makefile.rule("clean", [], "rm -f {0} {0}_debug {0}_mpi {0}_mpidebug {1}".format(name," ".join(all)))
+        makefile.rule("clean", [],
+            "rm -f {0} {0}_debug {0}_mpi {0}_mpidebug {1}".format(name," ".join(all)), phony = True)
         makefile.write_to_file(os.path.join(directory, "makefile"))
 
 
@@ -210,7 +216,6 @@ class CppLibGenerator(CppGenerator):
         builder = Builder(self.project, header_filename)
         builder.build_library_header_file()
         builder.write_to_file()
-
         self.write_library_makefile(directory)
 
     def write_server_makefile(self, directory):
@@ -239,15 +244,14 @@ class CppLibGenerator(CppGenerator):
         name_o = name + ".o"
         libname_a = "lib{0}.a".format(name)
 
-        makefile.phony(["clean"])
-        makefile.rule("all", [ libname_a ])
+        makefile.rule("all", [ libname_a ], phony = True)
 
         deps = [ name_o ] + other_deps
         makefile.rule(libname_a, deps, "ar -cr lib{0}.a ".format(name) + " ".join(deps))
 
         all = deps + [ libname_a ]
 
-        makefile.rule("clean", [], "rm -f {0}".format(" ".join(all)))
+        makefile.rule("clean", [], "rm -f {0}".format(" ".join(all)), phony = True)
 
         makefile.write_to_file(os.path.join(directory, "makefile"))
 
@@ -260,9 +264,8 @@ class CppLibGenerator(CppGenerator):
         name_o = name + ".o"
         libname_a = "lib{0}.a".format(name)
 
-        makefile.phony(["clean", "server"])
-        makefile.rule("all", [ libname_a, "server" ])
-        makefile.rule("server", [], "make -C server")
+        makefile.rule("all", [ libname_a, "server" ], phony = True)
+        makefile.rule("server", [], "make -C server", phony = True)
 
         deps = [ name_o ] + other_deps
         makefile.rule(libname_a, deps, "ar -cr lib{0}.a ".format(name) + " ".join(deps))
