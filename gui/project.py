@@ -31,8 +31,6 @@ class Project(EventSource):
         Events: changed, netlist_changed filename_changed
     """
 
-    force_packers = False
-
     def __init__(self, file_name):
         assert file_name is not None
         EventSource.__init__(self)
@@ -150,10 +148,6 @@ class Project(EventSource):
         self.generator = None # Invalidate generator cache
         self.emit_event("changed")
 
-    def set_force_packers(self, value):
-        self.force_packers = value
-        self.changed()
-
     def _net_changed(self, net):
         self.changed()
 
@@ -267,11 +261,6 @@ class Project(EventSource):
             e.append(t.as_xml())
         for t in self.build_options:
             e.append(self._build_option_as_xml(t))
-
-        if export:
-            f = xml.Element("force-packers")
-            f.set("value", str(self.force_packers))
-            e.append(f)
         return e
 
 class Parameter:
