@@ -3,7 +3,7 @@
 KAIRA_ROOT=$(readlink -f `dirname "$0"`)
 
 echo "Building Cailie ... "
-cd $KAIRA_ROOT/lib || exit 1;
+cd $KAIRA_ROOT/libs/cailie || exit 1;
 scons -Q || exit 1
 
 echo "Building CaServer ... "
@@ -17,5 +17,5 @@ echo "If you want to use MPI, please install MPI and run build.sh again."; exit 
 }
 
 echo "Building Cailie-MPI ..."
-cd $KAIRA_ROOT/lib || abort;
+cd $KAIRA_ROOT/libs/cailie || abort;
 scons -Q build-mpi
