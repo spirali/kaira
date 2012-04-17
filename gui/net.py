@@ -917,6 +917,39 @@ class InterfaceNode(NetElement):
         e.set("y", str(self.position[1]))
         return e
 
+class BasicLoader:
+    """
+        Loads an element id from xml and preserves original id
+    """
+    def __init__(self, project):
+        self.project = project
+
+    def get_id(self, element):
+        id = utils.xml_int(element, "id", 0)
+        self.project.id_counter = max(self.project.id_counter, id)
+        return id
+
+    def translate_id(self, id):
+        return id
+
+class NewIdLoader:
+    """
+        Loads an element id from xml and assign new id
+    """
+
+    def __init__(self, project):
+        self.project = project
+        self.idtable = {}
+
+    def get_id(self, element):
+        id = utils.xml_int(element, "id", 0)
+        new_id = self.project.new_id()
+        self.idtable[id] = new_id
+        return new_id
+
+    def translate_id(self, id):
+        return self.idtable[id]
+
 def load_code(element):
     if element.find("code") is not None:
         return element.find("code").text

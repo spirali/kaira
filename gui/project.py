@@ -42,7 +42,7 @@ class Project(EventSource):
         self.simconfig = SimConfig()
         self.error_messages = {}
         self.functions = []
-        self.generator = None
+        self.generator = None # PTP generator
         self.target_mode = None
 
     def get_build_option(self, name):
