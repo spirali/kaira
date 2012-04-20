@@ -138,7 +138,7 @@ def write_library_makefile(project, directory, octave = False):
         name_oct = name + ".oct"
         name_oct_cpp = name + "_oct.cpp"
         makefile.rule("octave", [ name_oct ], phony = True)
-        makefile.rule(name_oct, [ name_oct_cpp ], "mkoctfile $< $(INCLUDE) -o {0}".format(name_oct))
+        makefile.rule(name_oct, [ name_oct_cpp ], "mkoctfile $< $(INCLUDE) -L. $(LIBDIR) -l{0} $(LIBS) -o {1}".format(name,name_oct))
 
     deps = [ name_o ] + other_deps
     makefile.rule(libname_a, deps, "ar -cr lib{0}.a ".format(name) + " ".join(deps))
