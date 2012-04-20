@@ -811,46 +811,52 @@ class Builder(CppWriter):
     def build_oct(self, header_filename):
         self.line("#include <octave/oct.h>")
         self.line("#include \"{0}\"", header_filename)
-        self.emptyline()
-        self.line("DEFUN_DLD({0}_init, args, , \"Library init\")", self.project.get_name())
-        self.block_begin()
-        self.line("calib_init(0, NULL);")
-        self.line("return octave_value(\"Library ready\");")
-        self.block_end()
 
         for net in self.project.get_modules():
             self.write_oct_function(net)
 
+        # init function
+        self.emptyline()
+        self.line("DEFUN_DLD({0}_init, args, , \"Library init\")", self.project.get_name())
+        self.block_begin()
+        self.line("calib_init(0, NULL);")
+        self.line("return octave_value(\"Library is ready\");")
+        self.block_end()
+
+
     def write_oct_function(self, net):
         context = net.get_interface_context()
-        input_vars = list(net.get_module_input_vars())
-        input_vars.sort()
+
+        input_vars = self.get_library_input_arguments(net)
         input_description = ",".join(input_vars)
-        output_vars = list(net.get_module_output_vars())
-        output_vars.sort()
+
+        output_vars = self.get_library_output_arguments(net)
         output_description = ",".join(output_vars)
-        function_description = "void {0}({1})".format(net.name, self.emit_library_function_declaration(net))
-        description = "Library function: {0}, usage ({1})->({2})".format(function_description,input_description,output_description)
+
+        fn_description = "void {0}({1})".format(net.name, self.emit_library_function_declaration(net))
+        description = "Function: {0}, usage ({1})->({2})".format(fn_description,input_description,output_description)
         self.line("DEFUN_DLD({0}, args, , \"{1}\")", net.get_name(), description)
         self.block_begin()
-        self.line("octave_value_list __result;")
+        self.line("octave_value_list result;")
 
-        for counter, input_variable in enumerate(input_vars):
+        for i, input_variable in enumerate(input_vars):
             input_type = context[input_variable]
-            input_reference="args({0})".format(counter)
-            self.line("{0} {1} ={2};",self.emitter.emit_type(input_type), input_variable, 
+            input_reference="args({0})".format(i)
+            self.line("{0} _{1} = {2};",self.emitter.emit_type(input_type), input_variable,
                       self.emit_parameter_form_octave_value(input_reference, input_type))
 
-        for only_output_variable in list(net.get_module_output_vars() - net.get_module_input_vars()) :
-            self.line("{0} {1};", self.emitter.emit_type(context[only_output_variable]), only_output_variable)
+        for only_output_variable in self.get_library_output_only_arguments(net):
+            self.line("{0} _{1};",
+                      self.emitter.emit_type(context[only_output_variable]),
+                      only_output_variable)
 
         function_arguments = self.get_library_function_arguments(net)
-        self.line("{0}({1});",net.name,",".join(x for (x,y) in function_arguments))
+        self.line("{0}(_{1});",net.name,",".join(x for (x,y) in function_arguments))
 
-        for counter, output_variable in enumerate(output_vars):
-            self.line("__result({0})={1};",counter, 
-                      self.emit_result_to_octave_value(output_variable, context[output_variable]))
-        self.line("return __result;")
+        for i, output_variable in enumerate(output_vars):
+            self.line("result({0}) = {1};", i,
+                      self.emit_result_to_octave_value("_" + output_variable, context[output_variable]))
+        self.line("return result;")
         self.block_end()
 
     def emit_parameter_form_octave_value(self,parameter, t):
@@ -1104,12 +1110,25 @@ class Builder(CppWriter):
         self.line("delete net;")
         self.block_end()
 
+    def get_library_input_arguments(self, net):
+        variables = list(net.get_module_input_vars())
+        variables.sort()
+        return variables
+
+    def get_library_output_arguments(self, net):
+        variables = list(net.get_module_output_vars())
+        variables.sort()
+        return variables
+
+    def get_library_output_only_arguments(self, net):
+        variables = list(net.get_module_output_vars() - net.get_module_input_vars())
+        variables.sort()
+        return variables
+
     def get_library_function_arguments(self, net):
         context = net.get_interface_context()
-        input_vars = list(net.get_module_input_vars())
-        input_vars.sort()
-        output_vars = list(net.get_module_output_vars() - net.get_module_input_vars())
-        output_vars.sort()
+        input_vars = self.get_library_input_arguments(net)
+        output_vars = self.get_library_output_only_arguments(net)
         return [ (name, context[name]) for name in input_vars + output_vars ]
 
     def emit_library_function_declaration(self, net):

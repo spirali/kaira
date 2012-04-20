@@ -30,4 +30,4 @@ class OctaveBuilder(Writer):
         self.line("autoload(\"{0}_init\", file_in_loadpath (\"{1}\"))", self.project.get_name(), oct_file)
         for net in self.project.get_modules():
             self.line("autoload(\"{0}\", file_in_loadpath (\"{1}\"))", net.name, oct_file)
-        self.line("{0}_init()",self.project.get_name()
+        self.line("{0}_init()",self.project.get_name())
