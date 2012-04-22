@@ -27,6 +27,9 @@ def escape_menu_name(name):
 def build_menu(description):
     menu = gtk.Menu()
     for name, action in description:
+        if name == "-":
+            menu.append(gtk.SeparatorMenuItem())
+            continue
         item = gtk.MenuItem(name)
         if isinstance(action, list):
             item.set_submenu(build_menu(action))
@@ -47,7 +50,7 @@ def load_ui(filename):
 
 def radio_buttons(items, select_key, box, callback):
     """ Items: [(key, label)]
-		callback is called with key if button is pressed"""
+    	callback is called with key if button is pressed"""
     def toggled(w):
         if not w.get_active():
             return
@@ -70,48 +73,50 @@ def radio_buttons(items, select_key, box, callback):
         if key == select_key:
             button.set_active(True)
 
-class SimpleList(gtk.ScrolledWindow):
+class SimpleListBase(gtk.ScrolledWindow):
 
-    def __init__(self, columns):
+    def __init__(self, columns, store_class):
         """ Columns list of tuples: (name, type) """
         gtk.ScrolledWindow.__init__(self)
         self.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 
-        self.liststore = gtk.ListStore(*[ c[1] for c in columns ])
-        self.listview = gtk.TreeView(self.liststore)
-        self.add(self.listview)
+        self.store = store_class(*[ c[1] for c in columns ])
+        self.view = gtk.TreeView(self.store)
+        self.add(self.view)
 
         for i, (cname, ctype) in enumerate(columns):
             if cname != "_":
                 tokens = cname.split("|")
+                args = {}
+                markup = False
+                for j, parameter in enumerate(tokens[1:]):
+                    if "markup" == parameter:
+                        markup = True
+                    else:
+                        args[parameter] = i + j + 1
+
                 if ctype is bool:
                     renderer = gtk.CellRendererToggle()
-                    args = { "active" : i }
+                    args["active"] = i
                 else:
                     renderer = gtk.CellRendererText()
-                    args = { "text" : i }
-                parameters = tokens[1:]
-                if "editable" in parameters:
-                    renderer.set_property("editable", True)
-                if "foreground" in parameters:
-                    args["foreground"] = i + len(args)
+                    if markup:
+                        args["markup"] = i
+                    else:
+                        args["text"] = i
                 column = gtk.TreeViewColumn(tokens[0], renderer, **args)
+                self.view.append_column(column)
 
-                self.listview.append_column(column)
-
-        self.listview.show()
+        self.view.show()
 
     def connect_view(self, signal_name, callback):
-        self.listview.connect(signal_name, callback)
-
-    def append(self, data):
-        return self.liststore.append(data)
+        self.view.connect(signal_name, callback)
 
     def clear(self):
-        self.liststore.clear()
+        self.store.clear()
 
     def get_selection(self, column):
-        selection = self.listview.get_selection()
+        selection = self.view.get_selection()
         model, i = selection.get_selected()
         if i is not None:
             return model.get_value(i, column)
@@ -119,41 +124,69 @@ class SimpleList(gtk.ScrolledWindow):
             return None
 
     def set_selection_all(self, data):
-        model, i = self.listview.get_selection().get_selected()
+        model, i = self.view.get_selection().get_selected()
         if i is not None:
-            for x, d in enumerate(data):
-                model.set_value(i, x, d)
+            self.set_all(data, i)
 
     def set_all(self, data, i):
         for x, d in enumerate(data):
-            self.liststore.set_value(i, x, d)
+            self.store.set_value(i, x, d)
 
     def remove_selection(self):
-        model, i = self.listview.get_selection().get_selected()
+        model, i = self.view.get_selection().get_selected()
         if i is not None:
             model.remove(i)
 
     def get_and_remove_selection(self, column):
-        model, i = self.listview.get_selection().get_selected()
+        model, i = self.view.get_selection().get_selected()
         if i is not None:
             v = model.get_value(i, column)
             model.remove(i)
             return v
         return None
 
-    def find(self, obj, column):
-        i = self.liststore.get_iter_first()
-        while i is not None:
-            if self.liststore.get_value(i, column) == obj:
-                return i
-            i = self.liststore.iter_next(i)
-        return None
-
     def get_column(self, column):
-        return [ self.liststore.get_value(row.iter, column) for row in self.liststore ]
+        return [ self.store.get_value(row.iter, column) for row in self.store ]
 
     def select_iter(self, iter):
-        self.listview.get_selection().select_iter(iter)
+        self.view.get_selection().select_iter(iter)
 
     def select_first(self):
-        self.select_iter(self.liststore.get_iter_first())
+        self.select_iter(self.store.get_iter_first())
+
+class SimpleList(SimpleListBase):
+
+    def __init__(self, columns):
+        """ Columns list of tuples: (name, type) """
+        SimpleListBase.__init__(self, columns, gtk.ListStore)
+
+    def append(self, data):
+        return self.store.append(data)
+
+    def find(self, obj, column):
+        i = self.store.get_iter_first()
+        while i is not None:
+            if self.store.get_value(i, column) == obj:
+                return i
+            i = self.store.iter_next(i)
+        return None
+
+
+class SimpleTree(SimpleListBase):
+
+    def __init__(self, columns):
+        SimpleListBase.__init__(self, columns, gtk.TreeStore)
+
+    def append(self, parent, data):
+        return self.store.append(parent, data)
+
+    def find(self, obj, column):
+        def scan(i):
+            while i is not None:
+                j = scan(self.store.iter_children(i))
+                if j is not None:
+                    return j
+                if self.store.get_value(i, column) == obj:
+                    return i
+                i = self.store.iter_next(i)
+        return scan(self.store.get_iter_first())

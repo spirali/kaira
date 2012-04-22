@@ -54,6 +54,12 @@ def load_project_from_xml(root, filename):
     for e in root.findall("net"):
         project.add_net(load_net(e, project, loader))
     nets_postload_process(project, loader)
+
+    if project.get_main_net() is not None:
+        project.simulator_net = project.get_main_net()
+    elif project.get_tests():
+        project.simulator_net = project.get_tests()[0]
+
     project.id_counter += 1
     return project
 
@@ -129,12 +135,14 @@ def new_empty_project(directory, extenv_name):
     name = os.path.basename(directory)
     project_filename = os.path.join(directory,name + ".proj")
     project = create_project(project_filename, extenv_name)
+
     if project.is_library():
-        net = Net(project, name)
+        net = Net(project, "module", name)
         net.add_interface_box((20, 20), (400, 300))
         project.add_net(net)
     else:
-        project.add_net(Net(project, "Main"))
+        project.add_net(Net(project, "main", "Main"))
+
     project.write_project_files()
     project.save()
     return project

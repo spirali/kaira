@@ -25,12 +25,15 @@ from copy import copy
 
 class Net:
 
-    def __init__(self, project, name, id = None):
+    def __init__(self, project, net_type, name, id = None, test = False):
+        assert net_type in [ "main", "module", "test" ]
+
         if id is None:
             self.id = project.new_id()
         else:
             self.id = id
         self.project = project
+        self.net_type = net_type
         self.name = name
         self.items = []
         self.change_callback = lambda n: None
@@ -42,6 +45,12 @@ class Net:
 
     def get_id(self):
         return self.id
+
+    def is_main(self):
+        return self.net_type == "main"
+
+    def is_simulator_net(self):
+        return self.project.get_simulator_net() == self
 
     def set_change_callback(self, callback):
         self.change_callback = callback
@@ -70,6 +79,9 @@ class Net:
     def set_name(self, name):
         self.name = name
         self.changed()
+
+    def is_test(self):
+        return self.net_type == "test"
 
     def changed(self):
         self.change_callback(self)
@@ -122,6 +134,7 @@ class Net:
         e = xml.Element("net")
         e.set("name", self.name)
         e.set("id", str(self.id))
+        e.set("net-type", self.net_type)
         if self.is_module():
             e.set("autohalt", str(self.autohalt))
         for item in self.items:
@@ -1029,9 +1042,15 @@ def nets_postload_process(project, loader):
 def load_net(element, project, loader):
     name = element.get("name", "Main") # Setting "Main" for backward compatability
     id = loader.get_id(element)
+    net_type = element.get("net-type")
 
-    net = Net(project, name, id)
+    if net_type is None: # Backward compatability
+        if element.find("interface-box") is None:
+            net_type = "main"
+        else:
+            net_type = "module"
 
+    net = Net(project, net_type, name, id)
     interface_box = element.find("interface-box")
     if interface_box is not None:
         load_interface_box(interface_box, net, loader)

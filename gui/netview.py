@@ -23,10 +23,11 @@ import paths
 import os
 from canvas import NetCanvas
 from drawing import VisualConfig
-from objectlist import ObjectList
+from objectlist import ObjectTree
 from net import Net
 import cairo
 import gtkutils
+import glib
 
 action_cursor = {
     "none" : None,
@@ -129,8 +130,10 @@ class NetView(gtk.VBox):
         if self.tool:
             self.tool.stop()
         self.tool = tool
-        tool.start()
-        self.focus_entry()
+
+        if tool:
+            tool.start()
+            self.focus_entry()
 
     def get_net(self):
         return self.netlist.selected_object()
@@ -279,21 +282,21 @@ class NetView(gtk.VBox):
 
 
     def _button_down(self, event, position):
-        if self.tool:
+        if self.tool and self.tool.net:
             if event.button == 1:
                 self.tool.left_button_down(event, position)
             elif event.button == 3:
                 self.tool.right_button_down(event, position)
 
     def _button_up(self, event, position):
-        if self.tool:
+        if self.tool and self.tool.net:
             if event.button == 1:
                 self.tool.left_button_up(event, position)
             elif event.button == 3:
                 self.tool.right_button_up(event, position)
 
     def _mouse_move(self, event, position):
-        if self.tool:
+        if self.tool and self.tool.net:
             self.tool.mouse_move(event, position)
 
     def set_entry_types(self, etypes):
@@ -326,50 +329,104 @@ class NetView(gtk.VBox):
             name, get, set = self.active_entry_type()
             self.entry.set_text(get())
 
-class NetList(ObjectList):
+class NetList(ObjectTree):
 
     def __init__(self, project, netview):
-        defs = [("_", object), ("Network", str)]
-        context_menu = [
-                ("Add", self._add),
-                ("Copy", self._copy),
-                ("Rename", self._rename),
-                ("Remove", self._remove),
-                ("Export to SVG", self._export_svg)
-            ]
-
-        ObjectList.__init__(self, defs, context_menu = context_menu)
+        defs = [("_", object), ("Network|markup", str)]
+        ObjectTree.__init__(self, defs, has_context_menu = True)
+        self.hide_headers()
         self.project = project
         self.netview = netview
-        self.fill(project.get_nets())
+        self.setup()
         self.select_first()
-        project.set_callback("netlist_changed", self._update)
+        project.set_callback("netlist_changed", self.setup)
 
-    def _add(self, obj):
-        net = Net(self.project, "Net_{0}".format(self.project.new_id()))
+    def get_context_menu(self):
+        obj = self.selected_object()
+        menu = [ ("Add", [ ("Module", self._add_module), ("Test", self._add_test) ]) ]
+
+        if isinstance(obj, str):
+            return menu
+
+        menu += [
+            ("-", None),
+            ("Copy net", self._copy),
+            ("Rename net", self._rename),
+            ("Remove net", self._remove),
+            ("-", None),
+            ("Export to SVG", self._export_svg)
+        ]
+
+        if not obj.is_module():
+            menu.append(("-", None))
+            menu.append(("Select for simulations", self._set_simulator_net))
+
+        return menu
+
+    def setup(self):
+        objs = []
+        if self.project.get_main_net():
+            objs.append(self.project.get_main_net())
+        objs += self.project.get_modules()
+
+        tests = self.project.get_tests()
+        if tests:
+            objs.append(("Tests", tests))
+        self.refresh(objs)
+
+    def _add_module(self, w):
+        net = Net(self.project, "module", "Net_{0}".format(self.project.new_id()))
         net.add_interface_box((20, 20), (400, 300))
+        self._add_net(net)
+
+    def _add_test(self, w):
+        net = Net(self.project, "test", "Net_{0}".format(self.project.new_id()))
+        if self.project.get_simulator_net() is None:
+            self.project.set_simulator_net(net)
+        self._add_net(net)
+
+    def _add_net(self, net):
         if netname_dialog(net, self.netview.app.window):
             self.project.add_net(net)
             self.netview.switch_to_net(net)
 
-    def _remove(self, obj):
-        self.project.remove_net(obj)
-        net = self.project.get_nets()[0]
-        self.netview.switch_to_net(net)
+    def _set_simulator_net(self, w):
+         obj = self.selected_object()
+         self.project.set_simulator_net(obj)
 
-    def _rename(self, obj):
-        if obj.is_module():
+    def _remove(self, w):
+        obj = self.selected_object()
+        if isinstance(obj, str):
+            return
+        if obj.is_main():
+            self.netview.app.show_info_dialog("Net 'Main' cannot be removed.")
+        else:
+            self.project.remove_net(obj)
+            net = self.project.get_nets()[0]
+            self.netview.switch_to_net(net)
+
+    def _rename(self, w):
+        obj = self.selected_object()
+        if isinstance(obj, str):
+            return
+        if obj.is_main():
+            self.netview.app.show_info_dialog("Net 'Main' cannot be renamed.")
+        else:
             netname_dialog(obj, self.netview.app.window)
             self.update(obj)
-        else:
-            self.netview.app.show_info_dialog("Net 'Main' cannot be renamed.")
 
-    def _copy(self, obj):
+    def _copy(self, w):
+        obj = self.selected_object()
+        if isinstance(obj, str):
+            return
         net = obj.copy()
         net.name = obj.name + "_copy"
         self.project.add_net(net)
 
-    def _export_svg(self, obj):
+    def _export_svg(self, w):
+        obj = self.selected_object()
+        if isinstance(obj, str):
+            return
         surface = cairo.SVGSurface("net.svg", 1000, 1000)
         try:
             context = cairo.Context(surface)
@@ -378,11 +435,18 @@ class NetList(ObjectList):
             surface.finish()
         self.netview.app.console_write("Net exported to 'net.svg'.\n", "success")
 
-    def _update(self):
-        self.refresh(self.project.get_nets())
-
     def object_as_row(self, obj):
-        return (obj, obj.get_name())
+        if isinstance(obj, str):
+            return (obj, obj)
+        else:
+            name = glib.markup_escape_text(obj.get_name())
+            if obj.is_simulator_net():
+                return (obj, "<b>{0}</b>".format(name))
+            else:
+                return (obj, name)
 
     def cursor_changed(self, obj):
-        self.netview.switch_to_net(obj, False)
+        if not isinstance(obj, str):
+            self.netview.switch_to_net(obj, False)
+        else:
+            self.netview.switch_to_net(None, False)

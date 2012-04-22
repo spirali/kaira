@@ -89,7 +89,8 @@ class NetCanvas(gtk.DrawingArea, EventSource):
         cr.fill()
         cr.translate(self.viewport[0], self.viewport[1])
         cr.scale(self.zoom, self.zoom)
-        self.net.draw(cr, self.vconfig)
+        if self.net:
+            self.net.draw(cr, self.vconfig)
         if self.draw_cb:
             self.draw_cb(cr, width, height)
 

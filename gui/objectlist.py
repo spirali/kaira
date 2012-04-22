@@ -20,9 +20,9 @@
 import gtkutils
 import gtk
 
-class ObjectList(gtk.VBox):
+class ObjectContainer(gtk.VBox):
 
-    def __init__(self, list_definition, buttons = None, rpanel = None, context_menu = None):
+    def __init__(self, container, buttons = None, has_context_menu = False):
         gtk.VBox.__init__(self)
 
         if buttons:
@@ -40,64 +40,58 @@ class ObjectList(gtk.VBox):
             self.pack_start(box, False, False)
 
 
-        self.list = gtkutils.SimpleList(list_definition)
-        self.list.connect_view("cursor-changed", lambda w: self.cursor_changed(self.list.get_selection(0)))
-        self.list.connect_view("row-activated", lambda w, i, p: self.row_activated(self.list.get_selection(0)))
+        self.container = container
+        self.container.connect_view("cursor-changed", lambda w: self.cursor_changed(self.container.get_selection(0)))
+        self.container.connect_view("row-activated", lambda w, i, p: self.row_activated(self.container.get_selection(0)))
 
-        self.context_menu = context_menu
-        if context_menu:
-            self.list.listview.set_events(gtk.gdk.BUTTON_PRESS_MASK)
-            self.list.listview.connect("button_press_event", self._button_down)
+        self.has_context_menu = has_context_menu
+        if has_context_menu:
+            self.container.view.set_events(gtk.gdk.BUTTON_PRESS_MASK)
+            self.container.view.connect("button_press_event", self._button_down)
 
-        if rpanel is None:
-            self.pack_start(self.list)
-        else:
-            hbox = gtk.HBox()
-            hbox.pack_start(self.list)
-            hbox.pack_start(rpanel, False, False)
-            self.pack_start(hbox)
+        self.pack_start(self.container)
         self.show_all()
 
+    def hide_headers(self):
+        self.container.view.set_headers_visible(False)
+
     def _callback(self, callback):
-        return lambda w: callback(self.list.get_selection(0))
+        return lambda w: callback(self.container.get_selection(0))
 
     def selected_object(self):
-        return self.list.get_selection(0)
+        return self.container.get_selection(0)
 
     def select_object(self, obj):
-        i = self.list.find(obj, 0)
+        i = self.container.find(obj, 0)
         if i is not None:
-            self.list.select_iter(i)
+            self.container.select_iter(i)
 
     def select_first(self):
-        self.list.select_first()
-
-    def add_object(self, obj):
-        return self.list.append(self.object_as_row(obj))
+        self.container.select_first()
 
     def get_and_remove_selected(self):
-        return self.list.get_and_remove_selection(0)
+        return self.container.get_and_remove_selection(0)
 
     def update_selected(self, obj):
-        self.list.set_selection_all(self.object_as_row(obj))
+        self.container.set_selection_all(self.object_as_row(obj))
 
     def update(self, obj):
-        i = self.list.find(obj, 0)
+        i = self.container.find(obj, 0)
         if i is not None:
-            self.list.set_all(self.object_as_row(obj), i)
+            self.container.set_all(self.object_as_row(obj), i)
 
-    def fill(self, obj_list):
-        for obj in obj_list:
-            self.add_object(obj)
-
-    def refresh(self, obj_list):
+    def refresh(self, data):
         obj = self.selected_object()
         self.clear()
-        self.fill(obj_list)
-        self.select_object(obj)
+        self.fill(data)
+        self.container.view.expand_all()
+        if obj:
+            self.select_object(obj)
+        else:
+            self.select_first()
 
     def clear(self):
-        self.list.clear()
+        self.container.clear()
 
     def cursor_changed(self, obj):
         pass
@@ -108,6 +102,46 @@ class ObjectList(gtk.VBox):
     def _button_down(self, w, event):
         def call(f):
             return lambda w: f(self.selected_object())
-        if event.button == 3 and self.context_menu:
-            menu = [ (n, call(f)) for n,f in self.context_menu ]
-            gtkutils.show_context_menu(menu, event)
+        if event.button == 3 and self.has_context_menu:
+            x = int(event.x)
+            y = int(event.y)
+            pathinfo = self.container.view.get_path_at_pos(x, y)
+            if pathinfo is not None:
+                path, col, cellx, celly = pathinfo
+                self.container.view.grab_focus()
+                self.container.view.set_cursor(path, col, 0)
+            menu = self.get_context_menu()
+            if menu is not None:
+                gtkutils.show_context_menu(menu, event)
+                return True
+
+class ObjectList(ObjectContainer):
+
+    def __init__(self, list_definition, *args, **kw):
+        container = gtkutils.SimpleList(list_definition)
+        ObjectContainer.__init__(self, container, *args, **kw)
+
+    def fill(self, data):
+        for obj in data:
+            self.add_object(obj)
+
+    def add_object(self, obj):
+        return self.container.append(self.object_as_row(obj))
+
+class ObjectTree(ObjectContainer):
+
+    def __init__(self, list_definition, *args, **kw):
+        container = gtkutils.SimpleTree(list_definition)
+        ObjectContainer.__init__(self, container, *args, **kw)
+
+    def fill(self, data, parent = None):
+        for item in data:
+            if isinstance(item, tuple):
+                obj, content = item
+                parent = self.add_object(parent, obj)
+                self.fill(content, parent)
+            else:
+                self.add_object(parent, item)
+
+    def add_object(self, parent, obj):
+        return self.container.append(parent, self.object_as_row(obj))

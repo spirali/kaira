@@ -44,6 +44,12 @@ class Project(EventSource):
         self.functions = []
         self.generator = None # PTP generator
         self.target_mode = None
+        self.simulator_net = None
+
+    def get_main_net(self):
+        for net in self.nets:
+            if net.is_main():
+                return net
 
     def get_build_option(self, name):
         if name in self.build_options:
@@ -62,6 +68,13 @@ class Project(EventSource):
             return self.generator
         self.generator = ptp.get_generator_from_xml(self.export_xml())
         return self.generator
+
+    def set_simulator_net(self, net):
+        self.simulator_net = net
+        self.emit_event("netlist_changed")
+
+    def get_simulator_net(self):
+        return self.simulator_net
 
     def set_build_option(self, name, value):
         self.build_options[name] = value
@@ -83,7 +96,15 @@ class Project(EventSource):
 
     def remove_net(self, net):
         self.nets.remove(net)
+        if self.simulator_net == net:
+            self.simulator_net = self.get_main_net()
         self.emit_event("netlist_changed")
+
+    def get_modules(self):
+        return [ net for net in self.nets if net.is_module() ]
+
+    def get_tests(self):
+        return [ net for net in self.nets if net.is_test() ]
 
     def get_simconfig(self):
         return self.simconfig
@@ -169,10 +190,15 @@ class Project(EventSource):
         finally:
             f.close()
 
-    def export_xml(self):
+    def export_xml(self, simulator_mode = False):
         root = xml.Element("project")
         root.set("name", self.get_name())
-        root.set("extenv", self.get_extenv_name())
+
+        if simulator_mode:
+            root.set("extenv", self.get_extenv_for_simulator_name())
+        else:
+            root.set("extenv", self.get_extenv_name())
+
         if self.get_target_mode():
             root.set("target-mode", self.get_target_mode())
         root.append(self._configuration_element(True))
@@ -181,12 +207,30 @@ class Project(EventSource):
         description.text = xml.tostring(self.as_xml())
         root.append(description)
 
-        for net in self.nets:
+        if simulator_mode:
+            # simulator_net has to be exported as first net
+            first = self.simulator_net
+        else:
+            if self.is_library:
+                # In library it does not matter who is first
+                first = None
+            else:
+                # In program, main is first
+                first = self.project.get_main_net()
+
+        if first is None:
+            nets = self.nets
+        else:
+            nets = [ first ]
+            nets += [ net for net in self.nets if net != first ]
+
+        for net in nets:
             root.append(net.export_xml())
+
         return root
 
-    def export_to_file(self, filename):
-        content = xml.tostring(self.export_xml())
+    def export_to_file(self, filename, simulator_mode = False):
+        content = xml.tostring(self.export_xml(simulator_mode))
         f = open(filename, "w")
         try:
             f.write(content)

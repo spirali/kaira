@@ -205,7 +205,7 @@ class App:
             self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
 
     def build_project(self):
-        self._start_build(self.project, lambda p: self.console_write("Build OK\n", "success"))
+        self._start_build(self.project, False, lambda p: self.console_write("Build OK\n", "success"))
 
     def get_grid_size(self):
         return self.grid_size
@@ -253,7 +253,8 @@ class App:
             editor = codeedit.TransitionCodeEditor(self.project, transition, "".join(stdout))
             self.window.add_tab(Tab(name, editor, transition))
             editor.jump_to_position(position)
-        self._start_ptp(self.project, open_tab, extra_args = [ "--transition-user-fn", str(transition.get_id()) ])
+        self._start_ptp(self.project, False, open_tab,
+            extra_args = [ "--transition-user-fn", str(transition.get_id()) ])
 
     def place_edit(self, place, lineno = None):
         position = ("", lineno) if lineno is not None else None
@@ -267,7 +268,8 @@ class App:
             self.window.add_tab(Tab(name, editor, place))
             editor.jump_to_position(position)
 
-        self._start_ptp(self.project, open_tab, extra_args = [ "--place-user-fn", str(place.get_id())])
+        self._start_ptp(self.project, False, open_tab,
+            extra_args = [ "--place-user-fn", str(place.get_id())])
 
     def extern_type_functions_edit(self, externtype, position = None):
         if self.window.switch_to_tab_by_key(externtype, lambda tab: tab.widget.jump_to_position(position)):
@@ -310,9 +312,6 @@ class App:
         self.edit_sourcefile(self.project.get_head_filename())
 
     def simulation_start(self, valgrind = False):
-        if self.project.is_library():
-            self.console_write("Not supported yet\n", "error")
-            return
         def output(line, stream):
             self.console_write("OUTPUT: " + line, "output")
             return True
@@ -342,11 +341,15 @@ class App:
             simulation.set_callback("shutdown", lambda: sprocess.shutdown())
             simulation.connect("localhost", port)
 
+        if self.project.get_simulator_net() is None:
+            self.console_write("No network is selected for simulations\n", "error")
+            return
+
         simconfig = self.project.get_simconfig()
         if simconfig.parameters_values is None:
             if not self.open_simconfig_dialog():
                 return
-        self._start_build(self.project, project_builded)
+        self._start_build(self.project, True, project_builded)
 
     def open_simconfig_dialog(self):
         dialog = SimConfigDialog(self.window, self.project)
@@ -378,11 +381,11 @@ class App:
     def console_write_link(self, text, callback):
         self.window.console.write_link(text, callback)
 
-    def export_project(self, proj = None):
+    def export_project(self, proj = None, simulator_mode = False):
         self.window.foreach_tab(lambda tab: tab.project_export())
         if proj is None:
             proj = self.project
-        proj.export_to_file(proj.get_exported_filename())
+        proj.export_to_file(proj.get_exported_filename(), simulator_mode)
         return True
 
     def hide_error_messages(self):
@@ -435,14 +438,14 @@ class App:
         else:
             p.start([target])
 
-    def _start_build(self, proj, build_ok_callback):
+    def _start_build(self, proj, simulator_mode, build_ok_callback):
         if self.get_settings("save-before-build"):
             self._save_project(silent = True)
 
         extra_args = [ "--build", proj.get_directory() ]
-        self._start_ptp(proj, lambda lines: self._run_makefile(proj, build_ok_callback), extra_args = extra_args)
+        self._start_ptp(proj, simulator_mode, lambda lines: self._run_makefile(proj, build_ok_callback), extra_args = extra_args)
 
-    def _start_ptp(self, proj, build_ok_callback = None, extra_args = []):
+    def _start_ptp(self, proj, simulator_mode, build_ok_callback = None, extra_args = []):
         stdout = []
         def on_exit(code):
             error_messages = {}
@@ -458,7 +461,7 @@ class App:
             self.console_write(line)
             stdout.append(line)
             return True
-        if not self.export_project(proj):
+        if not self.export_project(proj, simulator_mode):
             return
         p = process.Process(paths.PTP_BIN, on_line, on_exit)
         p.cwd = proj.get_directory()

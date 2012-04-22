@@ -47,6 +47,13 @@ class ProjectCppBase(Project):
     def get_source_file_patterns(self):
         return ["*.cpp", "*.cc", "*.c"]
 
+    @classmethod
+    def get_extenv_for_simulator_name(self):
+        """ When we run simulator we have to build regular application even
+            we are building library """
+        return "C++"
+
+
 class ProjectCpp(ProjectCppBase):
 
     def __init__(self, file_name):
