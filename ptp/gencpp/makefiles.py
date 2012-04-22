@@ -36,7 +36,7 @@ def prepare_makefile(project, libs = [], libdir = [], include = []):
     makefile.set("CFLAGS", project.get_build_option("CFLAGS"))
 
     makefile.set("LIBDIR", " ".join(("-L" + s for s in libdir)))
-    makefile.set("LIBS", " ".join(("-l" + s for s in libs)) + project.get_build_option("LIBS"))
+    makefile.set("LIBS", " ".join(("-l" + s for s in libs)) + " " + project.get_build_option("LIBS"))
     makefile.set("INCLUDE", " ".join(("-I" + s for s in include)))
 
     makefile.set("MPICC", "mpic++")
