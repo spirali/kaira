@@ -7,20 +7,6 @@
 #include <stdlib.h>
 #include <alloca.h>
 
-enum CaServiceMessageType { CA_SM_QUIT, CA_SM_NET_CREATE, CA_SM_NET_HALT };
-
-struct CaServiceMessage {
-	CaServiceMessageType type;
-};
-
-struct CaServiceMessageNetCreate : CaServiceMessage {
-	int net_id;
-	int def_index;
-};
-
-struct CaServiceMessageNetHalt : CaServiceMessage {
-	int net_id;
-};
 
 extern std::string ca_log_default_name;
 extern const char *ca_project_description_string;
@@ -107,6 +93,11 @@ void CaThread::start()
 void CaThread::join()
 {
 	pthread_join(thread, NULL);
+}
+
+void CaThread::clear()
+{
+	nets.clear();
 }
 
 void CaThread::quit_all()
@@ -207,9 +198,23 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 			break;
 		}
 		case CA_SM_NET_HALT:
+		{
 			CaServiceMessageNetHalt *m = (CaServiceMessageNetHalt*) smsg;
 			inform_halt_network(m->net_id, thread);
 			break;
+		}
+		case CA_SM_WAKE:
+		{
+			start();
+			join();
+			clear();
+			#ifdef CA_MPI
+			MPI_Barrier(MPI_COMM_WORLD);
+			#endif
+			break;
+		}
+		case CA_SM_EXIT:
+			exit(0);
 	}
 }
 
@@ -228,9 +233,11 @@ void CaThread::run_scheduler()
 			// Vector nets could be changed
 			net = nets.begin();
 		}
-		if(nets.size() > 0) {
-			net++;
+		if(nets.size() == 0) {
+			continue;
 		}
+		net++;
+
 		if (net == nets.end()) {
 			net = nets.begin();
 		}
@@ -265,6 +272,7 @@ void CaThread::run_scheduler()
 		}
 	}
 }
+
 
 CaNet * CaThread::spawn_net(int def_index, CaNet *parent_net)
 {
@@ -380,6 +388,14 @@ void CaProcess::join()
 	// Clean up messages, it is important for reusing process in generated library
 	for (t = 0; t < threads_count; t++) {
 		threads[t].clean_thread_messages();
+	}
+}
+
+void CaProcess::clear()
+{
+	for(int i = 0 ; i < threads_count ; i++)
+	{
+		get_thread(i)->clear();
 	}
 }
 

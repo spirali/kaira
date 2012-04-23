@@ -18,9 +18,21 @@
 #define CA_TAG_TOKENS 0
 #define CA_TAG_SERVICE 1
 
+enum CaServiceMessageType { CA_SM_QUIT, CA_SM_NET_CREATE, CA_SM_NET_HALT, CA_SM_WAKE , CA_SM_EXIT};
 class CaProcess;
 class CaThread;
-struct CaServiceMessage;
+struct CaServiceMessage {
+	CaServiceMessageType type;
+};
+
+struct CaServiceMessageNetCreate : CaServiceMessage {
+	int net_id;
+	int def_index;
+};
+
+struct CaServiceMessageNetHalt : CaServiceMessage {
+	int net_id;
+};
 
 struct CaTokens {
 	int place_index;
@@ -44,6 +56,7 @@ class CaProcess {
 		virtual ~CaProcess();
 		void start();
 		void join();
+		void clear();
 		void inform_new_network(CaNet *net, CaThread *thread);
 		void inform_halt_network(int net_id, CaThread *thread);
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
@@ -57,6 +70,7 @@ class CaProcess {
 		void quit_all();
 		void quit() { quit_flag = true; }
 		void halt(CaThread *thread, CaNet *net);
+
 
 		void start_logging(const std::string &logname);
 		void stop_logging();
@@ -78,6 +92,10 @@ class CaProcess {
 
 		#ifdef CA_SHMEM
 		void add_packet(int tag, void *data);
+		#endif
+
+		#ifdef CA_MPI
+		void wait();
 		#endif
 
 		void broadcast_packet(int tag, void *data, size_t size, int exclude = -1);
@@ -111,6 +129,7 @@ class CaThread {
 		int get_id() { return id; }
 		void start();
 		void join();
+		void clear();
 		void run_scheduler();
 
 		int get_process_id() { return process->get_process_id(); }
