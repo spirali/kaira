@@ -972,7 +972,8 @@ class Builder(CppWriter):
         self.write_method_start("void receive(int place_pos, CaUnpacker &unpacker)")
         self.line("switch(place_pos) {{")
         for place in net.places:
-            if any((edge.target is not None for edge in place.get_edges_in())):
+            edges = place.get_edges_in(with_interface = True)
+            if any((edge.target is not None for edge in edges)):
                 self.line("case {0}:", place.get_pos_id())
                 self.indent_push()
                 self.line("place_{0.id}.add({1});", place, self.get_unpack_code(place.type, "unpacker"))

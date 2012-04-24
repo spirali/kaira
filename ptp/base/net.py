@@ -147,10 +147,14 @@ class Place(utils.EqByIdMixin):
     def get_pos_id(self):
         return self.net.places.index(self)
 
-    def get_edges_in(self):
+    def get_edges_in(self, with_interface = False):
         result = []
         for tr in self.net.transitions:
             for edge in tr.edges_out:
+                if edge.get_place() == self:
+                    result.append(edge)
+        if with_interface:
+            for edge in self.net.get_interface_edges_out():
                 if edge.get_place() == self:
                     result.append(edge)
         return result
