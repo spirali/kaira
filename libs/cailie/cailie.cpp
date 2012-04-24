@@ -18,11 +18,11 @@ int ca_listen_port = -1;
 int ca_block_on_start = 0;
 CaNetDef **defs;
 int defs_count;
+CaNet *master_net = NULL;
 
 #ifdef CA_SHMEM
 CaProcess **processes = NULL;
 int ca_process_count = 1;
-CaNet *master_net = NULL;
 #endif
 
 #ifdef CA_MPI
@@ -63,8 +63,13 @@ static CaListener * ca_init_listener(int process_count, CaProcess **processes)
 int ca_main()
 {
 	#ifdef CA_MPI
+	CaServiceMessage *m = (CaServiceMessage*) alloca(sizeof(CaServiceMessage));
+	m->type = CA_SM_WAKE;
+	process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), 0);
 	process->start();
 	process->join();
+	process->clear();
+	MPI_Barrier(MPI_COMM_WORLD);
 	#endif
 
 	#ifdef CA_SHMEM
@@ -125,6 +130,14 @@ void ca_finalize()
 	#endif
 
 	#ifdef CA_MPI
+	int process_id;
+	MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
+	if(process_id == 0) {
+		CaServiceMessage *m =
+		(CaServiceMessage *) alloca(sizeof(CaServiceMessage));
+		m->type = CA_SM_EXIT;
+		process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), 0);
+	}
 	MPI_Finalize();
 	#endif
 }
@@ -239,6 +252,11 @@ void ca_setup(int _defs_count, CaNetDef **_defs)
 		MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
 		MPI_Comm_size(MPI_COMM_WORLD, &process_count);
 		process = new CaProcess(process_id, process_count, ca_threads_count, defs_count, defs);
+		if(process_id > 0){
+			while(true){
+				process->wait();
+			}
+		}
 	#endif
 
 	#ifdef CA_SHMEM
@@ -264,16 +282,15 @@ void ca_spawn_toplevel_net(int def_id)
 
 	#ifdef CA_MPI
 	CaThread *thread = process->get_thread(0);
-	CaNet *net = process->spawn_net(thread, def_id, 0, NULL, false);
+	CaNet *net = process->spawn_net(thread, def_id, 0, NULL, true);
 	net->unlock();
+	master_net = net;
 	#endif
 }
 
 CaNet * ca_get_main_net()
 {
-	#ifdef CA_SHMEM
 	return master_net;
-	#endif
 }
 
 std::vector<int> ca_range(int from, int upto)
