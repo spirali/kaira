@@ -80,7 +80,7 @@ def load_extern_type(element, project):
     if t == "native":
         p.set_raw_type(utils.xml_str(element, "raw-type"))
         p.set_transport_mode(utils.xml_str(element, "transport-mode"))
-
+        p.set_transferable_to_octave(utils.xml_bool(element, "transferable-to-octave", False))
         for e in element.findall("code"):
             name = utils.xml_str(e, "name")
             p.set_function_code(name, e.text)

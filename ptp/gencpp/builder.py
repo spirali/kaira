@@ -25,6 +25,7 @@ import emitter
 import os.path
 
 from base.gentools import get_ordered_types, get_edges_mathing
+from base.parser import parameter
 
 def emit_declarations(emitter, decls, reference = False):
     if reference:
@@ -811,6 +812,17 @@ class Builder(CppWriter):
     def build_oct(self, header_filename):
         self.line("#include <octave/oct.h>")
         self.line("#include \"{0}\"", header_filename)
+        self.emptyline()
+        for etype in self.project.get_extern_types():
+            if etype.is_transferable_to_octave() :
+                source = ("*{0}/{1}".format(etype.get_name(), "from_octave_value"), 1)
+                self.write_function("{0.rawtype} {0.name}_from_octave_value(const octave_value &obj)".format(etype),
+                                     etype.get_code("from_octave_value"), source)
+                self.emptyline()
+                source = ("*{0}/{1}".format(etype.get_name(), "to_octave_value"), 1)
+                self.write_function("octave_value {0.name}_to_octave_value(const {0.rawtype} &obj)".format(etype),
+                                     etype.get_code("to_octave_value"), source)
+                self.emptyline()
 
         for net in self.project.get_modules():
             self.write_oct_function(net)
@@ -851,17 +863,18 @@ class Builder(CppWriter):
                       only_output_variable)
 
         function_arguments = self.get_library_function_arguments(net)
-        self.line("{0}(_{1});",net.name,",".join(x for (x,y) in function_arguments))
+        self.line("{0}({1});",net.name,",".join("_"+x for (x,y) in function_arguments))
 
         for i, output_variable in enumerate(output_vars):
             self.line("result({0}) = {1};", i,
                       self.emit_result_to_octave_value("_" + output_variable, context[output_variable]))
         self.line("return result;")
         self.block_end()
+        self.emptyline()
 
     def emit_parameter_form_octave_value(self,parameter, t):
         if isinstance(t, str):
-            raise Exception("'{0}' cannot be converted to octave value".format(t))
+            raise Exception("'{0}' cannot be converted from octave value".format(t))
         if t.name == "":
             return t.get_safe_name()
         a = t.get_arity()
@@ -876,7 +889,10 @@ class Builder(CppWriter):
                 return parameter+".double_value()"
             elif t.name == "Float":
                 return parameter+".float_value()"
-        raise Exception("Type '{0}' cannot be converted to octave value".format(t))
+            etype = self.project.get_extern_type(t.name)
+            if etype and etype.is_transferable_to_octave():
+                return "{0}_from_octave_value({1})".format(etype.name,parameter)
+        raise Exception("Type '{0}' cannot be converted from octave value".format(t))
 
     def emit_result_to_octave_value(self,result, t):
         if isinstance(t, str):
@@ -885,6 +901,9 @@ class Builder(CppWriter):
             return t.get_safe_name()
         if t in [ t_int, t_string, t_bool, t_float, t_double ]:
                 return "octave_value({0})".format(result)
+        etype = self.project.get_extern_type(t.name)
+        if etype and etype.is_transferable_to_octave():
+                return "{0}_to_octave_value({1})".format(etype.name,result)
         raise Exception("Type '{0}' cannot be converted to octave value".format(t))
 
     def write_client_library_function(self, net):

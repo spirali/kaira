@@ -101,3 +101,7 @@ class ExternTypeCpp(NativeExternType):
             return "void pack(CaPacker &packer, const " + self.raw_type + " &obj)"
         elif name == "unpack":
             return self.raw_type + " unpack(CaUnpacker &unpacker)"
+        elif name == "to_octave_value":
+            return "octave_value to_octave_value(const " + self.raw_type + " &obj)"
+        elif name == "from_octave_value":
+            return ""+self.raw_type+" from_octave_value(const octave_value &obj)"
