@@ -75,7 +75,7 @@ def native_extern_type_dialog(obj, mainwindow):
                 obj.set_transport_mode("Direct")
             else:
                 obj.set_transport_mode("Disabled")
-            
+
             return True
         return False
     finally:

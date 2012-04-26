@@ -451,7 +451,7 @@ class NativeExternType(ExternTypeBase):
 
     def is_transferable_to_octave(self):
         return self.transferable_to_octave
-    
+
     def set_transferable_to_octave(self, value):
         self.transferable_to_octave=value;
 
@@ -492,7 +492,6 @@ class NativeExternType(ExternTypeBase):
                 fe.set("name", name)
                 fe.text = self.functions[name]
                 e.append(fe)
-
         return e
 
     def get_header(self):
