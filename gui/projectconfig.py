@@ -33,6 +33,7 @@ class GeneralConfig(gtk.VBox):
 
         if project.is_library():
             frame = gtk.Frame("Target")
+            frame.set_border_width(10)
             self.pack_start(frame, False, False)
             vbox = gtk.VBox()
             frame.add(vbox)
