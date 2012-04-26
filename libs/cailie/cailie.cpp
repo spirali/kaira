@@ -293,6 +293,18 @@ CaNet * ca_get_main_net()
 	return master_net;
 }
 
+CaProcess * ca_get_first_process()
+{
+	#ifdef CA_MPI
+	return process;
+	#endif
+
+	#ifdef CA_SHMEM
+	return processes[0];
+	#endif
+
+}
+
 std::vector<int> ca_range(int from, int upto)
 {
 	std::vector<int> v;
