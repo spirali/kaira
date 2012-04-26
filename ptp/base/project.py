@@ -27,12 +27,12 @@ from net import Net, Area, Place, Transition, EdgeIn, EdgeInPacking, EdgeOut
 
 class ExternType(object):
 
-    def __init__(self, name, rawtype, transport_mode, codes, transferable_to_octave):
+    def __init__(self, name, rawtype, transport_mode, codes, octave_value):
         self.name = name
         self.rawtype = rawtype
         self.transport_mode = transport_mode
         self.codes = codes
-        self.transferable_to_octave =  transferable_to_octave
+        self.octave_value =  octave_value
 
     def get_name(self):
         return self.name
@@ -49,8 +49,8 @@ class ExternType(object):
     def has_code(self, name):
         return name in self.codes
 
-    def is_transferable_to_octave(self):
-        return self.transferable_to_octave
+    def is_octave_value(self):
+        return self.octave_value
 
 class UserFunction(object):
 
@@ -281,9 +281,9 @@ def load_extern_type(element):
     if t == "native":
         rawtype = utils.xml_str(element, "raw-type")
         transport_mode = utils.xml_str(element, "transport-mode")
-        transferable_to_octave = utils.xml_bool(element, "transferable-to-octave", False)
+        octave_value = utils.xml_bool(element, "octave-value")
         codes = dict((utils.xml_str(e, "name"), e.text) for e in element.findall("code"))
-        return ExternType(name, rawtype, transport_mode, codes,transferable_to_octave)
+        return ExternType(name, rawtype, transport_mode, codes, octave_value)
 
     if t == "protobuffer":
         raise Exception("Need implementation")

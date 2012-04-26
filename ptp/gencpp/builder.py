@@ -809,11 +809,9 @@ class Builder(CppWriter):
 
         self.write_server_main()
 
-    def build_oct(self, header_filename):
-        self.line("#include <octave/oct.h>")
-        self.line("#include \"{0}\"", header_filename)
-        self.emptyline()
-        self.write_method_start("std::vector<std::vector<double > > Matrix_to_double_vectors(Matrix matrix)")
+    def write_oct_conversions(self):
+        self.line("std::vector<std::vector<double > > Matrix_to_double_vectors(Matrix matrix)")
+        self.block_begin()
         self.line("std::vector<std::vector<double > > result;")
         self.line("for(int i=0;i<matrix.rows();i++)")
         self.block_begin()
@@ -825,9 +823,12 @@ class Builder(CppWriter):
         self.line("result.push_back(row);")
         self.block_end()
         self.line("return result;")
-        self.write_method_end()
+        self.block_end()
+
         self.emptyline()
-        self.write_method_start("Matrix Double_vectors_to_Matrix(std::vector<std::vector<double > > data)")
+
+        self.line("Matrix Double_vectors_to_Matrix(std::vector<std::vector<double > > data)")
+        self.block_begin()
         self.line("int rows=data.size(), columns=0;")
         self.line("for(int i=0;i<data.size();i++)")
         self.block_begin()
@@ -843,10 +844,16 @@ class Builder(CppWriter):
         self.block_end()
         self.block_end()
         self.line("return result;")
-        self.write_method_end()
+        self.block_end()
+
+    def build_oct(self, header_filename):
+        self.line("#include <octave/oct.h>")
+        self.line("#include \"{0}\"", header_filename)
+        self.emptyline()
+        self.write_oct_conversions()
         self.emptyline()
         for etype in self.project.get_extern_types():
-            if etype.is_transferable_to_octave() :
+            if etype.is_octave_value():
                 source = ("*{0}/{1}".format(etype.get_name(), "from_octave_value"), 1)
                 self.write_function("{0.rawtype} {0.name}_from_octave_value(const octave_value &obj)".format(etype),
                                      etype.get_code("from_octave_value"), source)
@@ -922,13 +929,14 @@ class Builder(CppWriter):
             elif t.name == "Float":
                 return parameter+".float_value()"
             etype = self.project.get_extern_type(t.name)
-            if etype and etype.is_transferable_to_octave():
+            if etype and etype.is_octave_value():
                 return "{0}_from_octave_value({1})".format(etype.name,parameter)
-        if  a == 1 and t.name == "Array" :
-            innerType=t.args[0]
-            if innerType.get_arity()==1 and innerType.name=="Array":
-                innerType=innerType.args[0]
-                if innerType.name =="Double" :
+
+        if a == 1 and t.name == "Array":
+            inner_type = t.args[0]
+            if inner_type.get_arity() == 1 and inner_type.name == "Array":
+                inner_type = inner_type.args[0]
+                if inner_type.name == "Double":
                     return "Matrix_to_double_vectors({0}.matrix_value())".format(parameter)
         raise Exception("Type '{0}' cannot be converted from octave value".format(t))
 
@@ -940,13 +948,13 @@ class Builder(CppWriter):
         if t in [ t_int, t_string, t_bool, t_float, t_double ]:
             return "octave_value({0})".format(result)
         etype = self.project.get_extern_type(t.name)
-        if etype and etype.is_transferable_to_octave():
+        if etype and etype.is_octave_value():
                 return "{0}_to_octave_value({1})".format(etype.name,result)
-        if  t.get_arity() == 1 and t.name == "Array" :
-            innerType=t.args[0]
-            if innerType.get_arity()==1 and innerType.name=="Array":
-                innerType=innerType.args[0]
-                if innerType.name =="Double" :
+        if  t.get_arity() == 1 and t.name == "Array":
+            inner_type = t.args[0]
+            if inner_type.get_arity() == 1 and inner_type.name == "Array":
+                inner_type = inner_type.args[0]
+                if inner_type == t_double:
                     return "Double_vectors_to_Matrix({0})".format(result)
         raise Exception("Type '{0}' cannot be converted to octave value".format(t))
 

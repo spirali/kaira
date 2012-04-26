@@ -417,7 +417,7 @@ class NativeExternType(ExternTypeBase):
         self.name = ""
         self.raw_type = ""
         self.transport_mode = "Disabled"
-        self.transferable_to_octave = False
+        self.octave_value = False
 
         self.functions = {
             "getstring": "",
@@ -433,8 +433,8 @@ class NativeExternType(ExternTypeBase):
 
     def get_note(self):
         text = "Raw type: {0}, Transport: {1}".format(self.raw_type, self.transport_mode)
-        if self.transferable_to_octave :
-            text+=", Transportable to octave"
+        if self.octave_value:
+            text += ", Octave value"
         return text
 
     def get_raw_type(self):
@@ -449,11 +449,11 @@ class NativeExternType(ExternTypeBase):
     def set_transport_mode(self, value):
         self.transport_mode = value
 
-    def is_transferable_to_octave(self):
-        return self.transferable_to_octave
+    def is_octave_value(self):
+        return self.octave_value
 
-    def set_transferable_to_octave(self, value):
-        self.transferable_to_octave=value;
+    def set_octave_value(self, value):
+        self.octave_value = value;
 
     def set_function_code(self, function, code):
         self.functions[function] = code
@@ -475,7 +475,7 @@ class NativeExternType(ExternTypeBase):
             lst.append("getsize")
             lst.append("pack")
             lst.append("unpack")
-        if self.transferable_to_octave == True :
+        if self.octave_value:
             lst.append("to_octave_value")
             lst.append("from_octave_value")
         return lst
@@ -484,7 +484,7 @@ class NativeExternType(ExternTypeBase):
         e = ExternTypeBase.as_xml(self)
         e.set("raw-type", self.raw_type)
         e.set("transport-mode", self.transport_mode)
-        e.set("transferable-to-octave", str(self.transferable_to_octave))
+        e.set("octave-value", str(self.octave_value))
 
         for name in self.functions:
             if self.has_function(name):
