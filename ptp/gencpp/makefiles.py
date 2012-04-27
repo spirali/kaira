@@ -153,7 +153,7 @@ def write_library_makefile(project, directory, octave = False):
     makefile.rule(libname_mpi_a, deps_mpi, "ar -cr lib{0}_mpi.a ".format(name) + " ".join(deps_mpi))
     makefile.rule(name_mpi_o, [ name_cpp, "head.cpp"], "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
 
-    all = deps + [ libname_a ]
+    all = deps + [ name_mpi_o, libname_a, libname_mpi_a ]
 
     if octave:
         all.append(name_oct)
