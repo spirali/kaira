@@ -21,6 +21,7 @@ from parameters import ParametersWidget
 from externtypes import ExternTypesWidget
 from functions import FunctionsWidget
 from build import BuildOptionsWidget
+from packages import PackagesWidget
 
 import gtk
 import gtkutils
@@ -55,6 +56,9 @@ class ProjectConfig(gtk.Notebook):
 
         w = GeneralConfig(app.project)
         self.append_page(w, gtk.Label("General"))
+
+        w = PackagesWidget(app.project)
+        self.append_page(w, gtk.Label("Packages"))
 
         w = ParametersWidget(app.project, app.window)
         self.append_page(w, gtk.Label("Parameters"))

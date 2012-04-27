@@ -27,3 +27,5 @@ UI_DIR = os.path.join(KAIRA_GUI, "ui")
 
 PTP_DIR = os.path.join(KAIRA_ROOT, "ptp")
 PTP_BIN = os.path.join(KAIRA_ROOT, "ptp", "ptp.py")
+
+PACKAGES_DIR = os.path.join(KAIRA_ROOT, "packages")

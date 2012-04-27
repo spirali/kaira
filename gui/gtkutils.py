@@ -50,7 +50,7 @@ def load_ui(filename):
 
 def radio_buttons(items, select_key, box, callback):
     """ Items: [(key, label)]
-    	callback is called with key if button is pressed"""
+        callback is called with key if button is pressed"""
     def toggled(w):
         if not w.get_active():
             return
@@ -153,6 +153,10 @@ class SimpleListBase(gtk.ScrolledWindow):
 
     def select_first(self):
         self.select_iter(self.store.get_iter_first())
+
+    def fill(self, rows):
+        for row in rows:
+            self.append(row)
 
 class SimpleList(SimpleListBase):
 
