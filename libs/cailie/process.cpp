@@ -102,7 +102,7 @@ void CaThread::clear()
 
 void CaThread::quit_all()
 {
-	process->quit_all();
+	process->quit_all(this);
 }
 
 void CaThread::init_log(const std::string &logname)
@@ -138,11 +138,11 @@ void CaThread::init_log(const std::string &logname)
 	logger->flush();
 }
 
-void CaProcess::multisend(int target, CaNet *net, int place_pos, int tokens_count, const CaPacker &packer)
+void CaProcess::multisend(int target, CaNet *net, int place_pos, int tokens_count, const CaPacker &packer, CaThread *thread)
 {
 	std::vector<int> a(1);
 	a[0] = target;
-	multisend_multicast(a, net, place_pos, tokens_count, packer);
+	multisend_multicast(a, net, place_pos, tokens_count, packer, thread);
 	/*
 	#ifdef CA_MPI
 		CaPacket *packet = (CaPacket*) packer.get_buffer();
@@ -289,7 +289,7 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, CaNet *par
 		m->type = CA_SM_NET_CREATE;
 		m->net_id = id;
 		m->def_index = def_index;
-		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetCreate), process_id);
+		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetCreate), thread, process_id);
 	}
 
 	CaNet *net = defs[def_index]->spawn(thread, id, parent_net);
@@ -343,6 +343,9 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	pthread_mutex_init(&packet_mutex, NULL);
 	#endif
 
+	#ifdef CA_MPI
+	requests = new CaMpiRequests[threads_count];
+	#endif
 }
 
 int CaProcess::new_net_id()
@@ -361,6 +364,10 @@ CaProcess::~CaProcess()
 
 	#ifdef CA_SHMEM
 	pthread_mutex_destroy(&packet_mutex);
+	#endif
+
+	#ifdef CA_MPI
+	delete [] requests;
 	#endif
 }
 
@@ -454,11 +461,11 @@ void CaProcess::stop_logging()
 	}
 }
 
-void CaProcess::quit_all()
+void CaProcess::quit_all(CaThread *thread)
 {
 	CaServiceMessage *m = (CaServiceMessage*) alloca(sizeof(CaServiceMessage));
 	m->type = CA_SM_QUIT;
-	broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), process_id);
+	broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), thread, process_id);
 	quit();
 }
 
@@ -516,7 +523,9 @@ void CaProcess::fire_transition(int transition_id, int instance_id)
 	}
 }
 
-// Halt net net, sends information about halting if net is nonlocal
+/* 	Halt net net, sends information about halting if net is nonlocal
+	Function inform_halt_network must send thread message to yourself, instance of net isn't free
+	instantly, this is the reason why second argument is NULL */
 void CaProcess::halt(CaThread *thread, CaNet *net)
 {
 	if (!net->is_local()) {
@@ -524,9 +533,9 @@ void CaProcess::halt(CaThread *thread, CaNet *net)
 			(CaServiceMessageNetHalt*) alloca(sizeof(CaServiceMessageNetHalt));
 		m->type = CA_SM_NET_HALT;
 		m->net_id = net->get_id();
-		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetHalt), process_id);
+		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetHalt), thread, process_id);
 	}
-	inform_halt_network(net->get_id(), thread);
+	inform_halt_network(net->get_id(), NULL);
 }
 
 

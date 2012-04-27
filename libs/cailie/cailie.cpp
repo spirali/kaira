@@ -65,7 +65,7 @@ int ca_main()
 	#ifdef CA_MPI
 	CaServiceMessage *m = (CaServiceMessage*) alloca(sizeof(CaServiceMessage));
 	m->type = CA_SM_WAKE;
-	process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), 0);
+	process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), process->get_thread(0), 0);
 	process->start();
 	process->join();
 	process->clear();
@@ -136,7 +136,7 @@ void ca_finalize()
 		CaServiceMessage *m =
 		(CaServiceMessage *) alloca(sizeof(CaServiceMessage));
 		m->type = CA_SM_EXIT;
-		process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), 0);
+		process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), process->get_thread(0), 0);
 	}
 	MPI_Finalize();
 	#endif

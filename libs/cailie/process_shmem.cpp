@@ -3,7 +3,7 @@
 
 extern CaProcess **processes;
 
-void CaProcess::broadcast_packet(int tag, void *data, size_t size, int exclude)
+void CaProcess::broadcast_packet(int tag, void *data, size_t size, CaThread *thread, int exclude)
 {
 	for (int t = 0; t < process_count; t++) {
 		if (t == exclude)
@@ -33,7 +33,7 @@ void CaProcess::add_packet(int tag, void *data)
 	pthread_mutex_unlock(&packet_mutex);
 }
 
-void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net, int place_index, int tokens_count, const CaPacker &packer)
+void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net, int place_index, int tokens_count, const CaPacker &packer, CaThread *thread)
 {
 	char *buffer = packer.get_buffer();
 	std::vector<int>::const_iterator i;
