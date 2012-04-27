@@ -163,7 +163,7 @@ def write_library_makefile(project, directory, octave = False):
 
 
 def write_client_library_makefile(project, directory):
-    makefile = prepare_makefile(project)
+    makefile = prepare_makefile(project, include=[paths.CACLIENT_DIR])
     other_deps = get_other_dependancies(project)
 
     name = project.get_name()
@@ -174,7 +174,7 @@ def write_client_library_makefile(project, directory):
     makefile.rule("server", [], "make -C server", phony = True)
 
     deps = [ name_o ] + other_deps
-    makefile.rule(libname_a, deps, "ar -cr lib{0}.a ".format(name) + " ".join(deps))
+    makefile.rule(libname_a, deps, "ar -cr {0} ".format(libname_a) + " ".join(deps))
 
     all = deps + [ libname_a ]
 

@@ -11,7 +11,8 @@ class CaClient {
 		CaClient(CaServer &server, int client_socket);
 		void run();
 	protected:
-		void read_message(void *buffer, size_t size);
+		bool read_data(void *buffer, size_t size);
+		void send_initial_message();
 		int client_socket;
 		CaServer &server;
 };

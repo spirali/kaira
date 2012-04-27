@@ -10,8 +10,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
 #include "caserver.h"
 #include "client.h"
+
 
 CaServer::CaServer()
 {
@@ -67,13 +69,28 @@ void CaServer::register_function(const std::string &name, const std::string &def
 
 void CaServer::run()
 {
+	CaDynamicPacker welcome_message(sizeof(int) + 1024, sizeof(int));
+	welcome_message.pack_int(functions.size());
+
+	for (size_t t = 0; t < functions.size(); t++) {
+		welcome_message.pack_string(functions[t].get_name());
+		welcome_message.pack_string(functions[t].get_definition());
+	}
+
+	int sz = welcome_message.get_size() - sizeof(int);
+	memcpy(welcome_message.get_buffer(), &sz, sizeof(int));
+
+	init_listen_socket();
+
 	for(;;) {
 		int client_socket = accept(listen_socket, NULL, NULL);
 
 		if (client_socket < 0) {
 			perror("accept");
-			continue;
+			break;
 		}
+
+		send(client_socket, welcome_message.get_buffer(), welcome_message.get_size(), 0);
 
 		CaClient client(*this, client_socket);
 		client.run();

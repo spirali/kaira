@@ -1,37 +1,72 @@
 
+#include <sys/socket.h>
+#include <netdb.h>
+#include <errno.h>
+#include <arpa/inet.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+
+
 #include <unistd.h>
 #include <stdio.h>
 
+
+#include "caserver.h"
 #include "client.h"
 
-struct Header {
-	int fn;
+
+struct CaCallHeader {
+	unsigned int fn;
 	size_t size;
 };
 
-CaClient::CaClient(CaServer &server, int client_socket) : client_socket(client_socket), server(server)
+
+CaClient::CaClient(CaServer &server, int client_socket)
+	: client_socket(client_socket), server(server)
 {
 
 }
 
 void CaClient::run()
 {
-	Header header;
+	CaCallHeader header;
+	const std::vector<CaPublicFunction> &functions = server.get_functions();
 
 	for (;;) {
-		read_message(&header, sizeof(header));
-		void *buffer = malloc(header.size);
-		read_message(buffer, header.size);
+		if (!read_data(&header, sizeof(header))) {
+			break;
+		}
 
-		free(buffer);
+		if (header.fn < 0 || header.fn >= functions.size()) {
+			fprintf(stderr, "Invalid function id");
+			break;
+		}
+
+		char *buffer = new char[header.size];
+
+		if (!read_data(buffer, header.size)) {
+			delete [] buffer;
+			break;
+		}
+
+		CaPacker packer = functions[header.fn].call(buffer);
+		delete [] buffer;
+
+		size_t *h = (size_t*) packer.get_buffer();
+		*h = packer.get_size() - sizeof(size_t);
+		send(client_socket, packer.get_buffer(), packer.get_size(), 0);
+		packer.free();
 	}
 }
 
-void CaClient::read_message(void *buffer, size_t size)
+bool CaClient::read_data(void *buffer, size_t size)
 {
 	char *p = (char*) buffer;
 	do {
 		int r = read(client_socket, p, size);
+		if (r == 0) {
+			return false;
+		}
 		if (r < 0) {
 			perror("read_message");
 			exit(-1);
@@ -39,4 +74,7 @@ void CaClient::read_message(void *buffer, size_t size)
 		p += r;
 		size -= r;
 	} while(size > 0);
+	return true;
 }
+
+

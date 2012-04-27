@@ -6,17 +6,21 @@
 #include <string>
 #include <cailie.h>
 
-typedef void (CaPublicFn)(CaUnpacker &, CaPacker &);
+typedef CaPacker (CaPublicFn)(void *);
 
 class CaPublicFunction {
 	public:
 		CaPublicFunction(const std::string &name,
 			const std::string &definition,
-			CaPublicFn *fn) : name(name), definition(definition), fn(fn) {}
+			CaPublicFn *fn) : fn(fn), name(name), definition(definition) {}
+
+		std::string get_name() const { return name; }
+		std::string get_definition() const { return definition; }
+		CaPacker call(void *buffer) const { return fn(buffer); }
 	private:
+		CaPublicFn *fn;
 		std::string name;
 		std::string definition;
-		CaPublicFn *fn;
 };
 
 class CaServer {
@@ -30,6 +34,10 @@ class CaServer {
 		CaPublicFn *fn);
 
 	void run();
+
+	const std::vector<CaPublicFunction> & get_functions() {
+		return functions;
+	}
 
 	protected:
 

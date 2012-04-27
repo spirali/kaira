@@ -782,10 +782,29 @@ class Builder(CppWriter):
 
     def build_client_library(self, header_filename):
         self.line("#include \"{0}\"", header_filename)
+        self.line("#include <caclient.h>")
+        self.line("static CaClient client;")
         self.emptyline()
 
         for net in self.project.get_modules():
+            self.line("static int __{0.name}_id;", net)
             self.write_client_library_function(net)
+            self.emptyline()
+
+        self.write_connect_function()
+
+    def write_connect_function(self):
+
+        self.line("void calib_connect(const char *hostname, int port)")
+        self.block_begin()
+        self.line("client.connect(hostname, port);")
+
+        for net in self.project.get_modules():
+            name = self.emitter.const_string(net.name)
+            defs = self.emitter.const_string(self.emit_library_function_declaration(net))
+            self.line("client.register_function({0}, {1}, &__{2}_id);", name, defs, net.name)
+
+        self.block_end()
 
     def build_client_library_header_file(self):
         self.line("#ifndef CA_LIBRARY_{0}", self.project.get_name())
@@ -959,13 +978,29 @@ class Builder(CppWriter):
         raise Exception("Type '{0}' cannot be converted to octave value".format(t))
 
     def write_client_library_function(self, net):
-        self.line("void {0}({1})", net.name, self.emit_library_function_declaration(net))
+        self.line("void {0}({1})", net.name, self.emit_library_function_declaration(net, "___"))
         self.block_begin()
+        self.line("size_t size = 0;")
+
+        context = net.get_interface_context()
+        for name in self.get_library_input_arguments(net):
+            self.line("size += {0};", self.get_size_code(context[name], "___" + name))
+        self.line("CaPacker packer(size, CA_RESERVED_CALL_PREFIX);")
+
+        for name in self.get_library_input_arguments(net):
+            self.line("{0};", self.get_pack_code(context[name], "packer", "___" + name))
+
+        self.line("CaUnpacker unpacker = client.call(__{0}_id, packer);", net.name)
+
+        for name in self.get_library_output_arguments(net):
+            self.line("___{0} = {1};", name, self.get_unpack_code(context[name], "unpacker"))
+
         self.block_end()
 
     def write_server_main(self):
         self.line("int main(int argc, char **argv)")
         self.block_begin()
+        self.line("calib_init(0, NULL);")
         self.line("CaServer server;")
 
         for net in self.project.get_modules():
@@ -1111,8 +1146,31 @@ class Builder(CppWriter):
         return "ca_int_to_string({0})".format(expr)
 
     def write_library_function_wrapper(self, net):
-        self.line("void {0}_wrapper(CaUnpacker &unpacker, CaPacker &packer)", net.name)
+        self.line("CaPacker {0}_wrapper(void *buffer)", net.name)
         self.block_begin()
+
+        self.line("CaUnpacker unpacker(buffer);")
+
+        context = net.get_interface_context()
+
+        for name in self.get_library_input_arguments(net):
+            self.line("{2} ___{0} = {1};", name,
+                      self.get_unpack_code(context[name], "unpacker"), self.emit_type(context[name]))
+
+        args = ",".join("___" + name for name, _ in self.get_library_function_arguments(net))
+        self.line("{0}({1});", net.name, args)
+
+        self.line("size_t size = 0;")
+        for name in self.get_library_output_arguments(net):
+            self.line("size += {0};", self.get_size_code(context[name], "___" + name))
+
+        self.line("CaPacker packer(size, sizeof(size_t));")
+
+        for name in self.get_library_output_arguments(net):
+            self.line("{0};", self.get_pack_code(context[name], "packer", "___" + name))
+
+        self.line("return packer;")
+
         self.block_end()
 
     def emit_declarations(self, decls, reference = False):
@@ -1197,14 +1255,14 @@ class Builder(CppWriter):
         variables.sort()
         return variables
 
-    def get_library_function_arguments(self, net):
+    def get_library_function_arguments(self, net, prefix = ""):
         context = net.get_interface_context()
         input_vars = self.get_library_input_arguments(net)
         output_vars = self.get_library_output_only_arguments(net)
-        return [ (name, context[name]) for name in input_vars + output_vars ]
+        return [ (prefix + name, context[name]) for name in input_vars + output_vars ]
 
-    def emit_library_function_declaration(self, net):
-        return self.emit_declarations(self.get_library_function_arguments(net), reference = True)
+    def emit_library_function_declaration(self, net, prefix = ""):
+        return self.emit_declarations(self.get_library_function_arguments(net, prefix), reference = True)
 
     def write_to_file(self, filename = None):
         if filename is None:
