@@ -67,7 +67,7 @@ class CaProcess {
 		void write_reports(FILE *out) const;
 		void fire_transition(int transition_id, int instance_id);
 
-		void quit_all();
+		void quit_all(CaThread *thread);
 		void quit() { quit_flag = true; }
 		void halt(CaThread *thread, CaNet *net);
 
@@ -83,8 +83,8 @@ class CaProcess {
 
 		bool quit_flag;
 
-		void multisend(int target, CaNet * net, int place, int tokens_count, const CaPacker &packer);
-		void multisend_multicast(const std::vector<int> &targets, CaNet *net, int place, int tokens_count, const CaPacker &packer);
+		void multisend(int target, CaNet * net, int place, int tokens_count, const CaPacker &packer, CaThread *thread);
+		void multisend_multicast(const std::vector<int> &targets, CaNet *net, int place, int tokens_count, const CaPacker &packer, CaThread *thread);
 
 		void process_service_message(CaThread *thread, CaServiceMessage *smsg);
 		void process_packet(CaThread *thread, int tag, void *data);
@@ -96,9 +96,10 @@ class CaProcess {
 
 		#ifdef CA_MPI
 		void wait();
+		void check();
 		#endif
 
-		void broadcast_packet(int tag, void *data, size_t size, int exclude = -1);
+		void broadcast_packet(int tag, void *data, size_t size, CaThread *thread, int exclude = -1);
 	protected:
 
 		void autohalt_check(CaNet *net);
@@ -118,7 +119,7 @@ class CaProcess {
 		#endif
 
 		#ifdef CA_MPI
-		CaMpiRequests requests;
+		CaMpiRequests *requests;
 		#endif
 };
 
@@ -143,21 +144,19 @@ class CaThread {
 		void process_message(CaThreadMessage *message);
 		void quit_all();
 
-		/* This function always sends thread message, it does not free net instantly
-			this is the reason why first argument is NULL */
-		void halt(CaNet *net) { process->halt(NULL, net); }
+		void halt(CaNet *net) { process->halt(this, net); }
 
 		void send(int target, CaNet *net, int place, const CaPacker &packer) {
-			process->multisend(target, net, place, 1, packer);
+			process->multisend(target, net, place, 1, packer, this);
 		}
 		void multisend(int target, CaNet *net, int place, int tokens_count, const CaPacker &packer) {
-			process->multisend(target, net, place, tokens_count, packer);
+			process->multisend(target, net, place, tokens_count, packer, this);
 		}
 		void send_multicast(const std::vector<int> &targets, CaNet *net, int place, const CaPacker &packer) {
-			process->multisend_multicast(targets, net, place, 1, packer);
+			process->multisend_multicast(targets, net, place, 1, packer, this);
 		}
 		void multisend_multicast(const std::vector<int> &targets, CaNet *net, int place, int tokens_count, const CaPacker &packer) {
-			process->multisend_multicast(targets, net, place, tokens_count, packer);
+			process->multisend_multicast(targets, net, place, tokens_count, packer, this);
 		}
 		CaProcess * get_process() const { return process; }
 
