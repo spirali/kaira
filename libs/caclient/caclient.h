@@ -18,16 +18,21 @@ class CaClient {
 	public:
 		CaClient();
 		~CaClient();
-		void connect(const std::string &hostname, int port);
+		void connect();
 		void register_function(const std::string &name,
 			const std::string &definition,
 			int *id);
 		void * call(int function_id, CaPacker arguments);
 	protected:
-		int connection_socket;
-		std::map<std::string, std::pair<std::string, int> > functions; // name -> (definition, id)
 		void read_data(void *buffer, size_t size);
 		void process_inital_data(void *buffer, size_t size);
+		void setup_host();
+
+		int connection_socket;
+		std::string hostname;
+		int port;
+		std::map<std::string, std::pair<std::string, int> > functions; // name -> (definition, id)
+
 };
 
 #endif // CACLIENT_H

@@ -14,6 +14,7 @@
 
 CaClient::CaClient() : connection_socket(-1)
 {
+	setup_host();
 }
 
 CaClient::~CaClient()
@@ -21,12 +22,29 @@ CaClient::~CaClient()
 	close(connection_socket);
 }
 
-void CaClient::connect(const std::string &hostname, int port)
+void CaClient::setup_host()
+{
+	char *v = getenv("CASERVER_HOST");
+	if (v == NULL) {
+		fprintf(stderr, "Environment variable CASERVER_HOST is not set\n");
+		exit(-1);
+	}
+
+	char buffer[1001];
+
+	if (2 != sscanf(v, "%1000[^:]:%i", buffer, &port) || port < 0 || port > 65535) {
+		fprintf(stderr, "Value of environment variable CASERVER_HOST has invalid format (hostname:port) \n");
+		exit(-1);
+	}
+	hostname = buffer;
+}
+
+void CaClient::connect()
 {
 	struct hostent     *he;
 	struct sockaddr_in  addr;
 
-	he = gethostbyname("localhost");
+	he = gethostbyname(hostname.c_str());
 	if (he == NULL) {
 		perror("gethostbyname");
 		exit(1);

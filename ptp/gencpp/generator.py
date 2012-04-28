@@ -104,7 +104,7 @@ class CppLibGenerator(CppGenerator):
 
         # Build .h
         builder = Builder(self.project, header_filename)
-        builder.build_client_library_header_file()
+        builder.build_library_header_file()
         builder.write_to_file()
 
 

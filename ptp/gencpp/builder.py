@@ -25,7 +25,6 @@ import emitter
 import os.path
 
 from base.gentools import get_ordered_types, get_edges_mathing
-from base.parser import parameter
 
 def emit_declarations(emitter, decls, reference = False):
     if reference:
@@ -774,6 +773,7 @@ class Builder(CppWriter):
         self.write_header()
         self.write_types_declaration()
         self.emptyline()
+
         self.line("void calib_init(int argc, char **argv);")
         for net in self.project.get_modules():
             self.line("void {0}({1});", net.name, self.emit_library_function_declaration(net))
@@ -791,13 +791,13 @@ class Builder(CppWriter):
             self.write_client_library_function(net)
             self.emptyline()
 
-        self.write_connect_function()
+        self.write_client_init_function()
 
-    def write_connect_function(self):
+    def write_client_init_function(self):
 
-        self.line("void calib_connect(const char *hostname, int port)")
+        self.line("void calib_init(int argc, char **argv)")
         self.block_begin()
-        self.line("client.connect(hostname, port);")
+        self.line("client.connect();")
 
         for net in self.project.get_modules():
             name = self.emitter.const_string(net.name)
@@ -805,16 +805,6 @@ class Builder(CppWriter):
             self.line("client.register_function({0}, {1}, &__{2}_id);", name, defs, net.name)
 
         self.block_end()
-
-    def build_client_library_header_file(self):
-        self.line("#ifndef CA_LIBRARY_{0}", self.project.get_name())
-        self.line("#define CA_LIBRARY_{0}", self.project.get_name())
-        self.emptyline()
-        self.line("void calib_connect(const char *hostname, int port);")
-        for net in self.project.get_modules():
-            self.line("void {0}({1});", net.name, self.emit_library_function_declaration(net))
-        self.emptyline()
-        self.line("#endif // CA_LIBRARY_{0}", self.project.get_name())
 
     def build_server(self):
         self.write_header()
