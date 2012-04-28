@@ -83,15 +83,22 @@ class CppLibGenerator(CppGenerator):
             self.build_library(directory)
             makefiles.write_library_makefile(self.project, directory)
 
-        if self.project.get_target_mode() == "rpclib":
+        if self.project.get_target_mode() == "rpc-lib":
             self.build_server(directory)
             self.build_client_library(directory)
-            makefiles.write_client_library_makefile(self.project, directory)
+            makefiles.write_library_makefile(self.project, directory, rpc = True)
 
         if self.project.get_target_mode() == "octave":
             self.build_library(directory)
             self.build_oct_files(directory)
             makefiles.write_library_makefile(self.project, directory, octave = True)
+
+        if self.project.get_target_mode() == "rpc-octave":
+            self.build_server(directory)
+            self.build_client_library(directory)
+            self.build_oct_files(directory)
+            makefiles.write_library_makefile(self.project, directory, rpc = True, octave = True)
+
 
     def build_client_library(self, directory):
         source_filename = os.path.join(directory, self.project.get_name() + ".cpp")

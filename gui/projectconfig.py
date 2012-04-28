@@ -40,9 +40,9 @@ class GeneralConfig(gtk.VBox):
             frame.add(vbox)
             gtkutils.radio_buttons([
                 ("lib", "C++ library"),
-                ("rpclib", "C++ library with RPC"),
-                ("rpclib-c", "C++ library with RPC + C interface"),
-                ("octave", "Octave plugin")
+                ("rpc-lib", "C++ library with RPC"),
+                ("octave", "Octave plugin"),
+                ("rpc-octave", "Octave plugin with RPC")
             ], project.get_target_mode(), vbox,
                 lambda key: project.set_target_mode(key))
 
