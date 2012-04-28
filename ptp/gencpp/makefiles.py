@@ -125,16 +125,33 @@ def write_server_makefile(project, directory):
 
     makefile = prepare_makefile(project, config)
 
-    makefile.set("CASERVER_INCLUDE", "-I" + paths.CASERVER_DIR)
-    makefile.set("CASERVER_LIBDIR", "-L" + paths.CASERVER_DIR)
-
     name = project.get_name() + "_server"
+    name_cpp = name + ".cpp"
     name_o = name + ".o"
+
+    name_mpi = project.get_name() + "_server_mpi"
+    name_mpi_o = name_mpi + ".o"
+
+    makefile.rule("all", [ name ], phony = True)
+    makefile.rule("mpi", [ name_mpi ], phony = True)
+
     other_deps = get_other_dependancies(project)
     deps = [ name_o ] + other_deps
+    deps_mpi = [ name_mpi_o ] + other_deps
+
     makefile.rule(name, deps, "$(CC) " + " ".join(deps) +
-            " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS)" )
-    makefile.rule("clean", [], "rm -f {0} {1}".format(name," ".join(deps)))
+        " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS)" )
+
+    makefile.rule(name_mpi, deps_mpi, "$(MPICC) " + " ".join(deps_mpi) +
+        " -o $@ $(CFLAGS) $(INCLUDE) $(MPILIBDIR) $(MPILIBS)" )
+
+    makefile.rule(name_o, [ name_cpp, "head.cpp" ],
+        "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
+
+    makefile.rule(name_mpi_o, [ name_cpp, "head.cpp" ],
+        "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
+
+    makefile.rule("clean", [], "rm -f {0} {0}_mpi {0}_mpi.o {1}".format(name," ".join(deps)))
     makefile.write_to_file(os.path.join(directory, "makefile"))
 
 def write_library_makefile(project, directory, rpc = False, octave = False):
