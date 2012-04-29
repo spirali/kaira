@@ -48,7 +48,7 @@ int CaProcess::process_packets(CaThread *thread)
 		for(;;) {
 			int msg_size;
 			MPI_Get_count(&status, MPI_CHAR, &msg_size);
-			char *buffer = (char*) alloca(msg_size); // FIXME: For large packets alloc memory on heap
+			char *buffer = (char*) malloc(msg_size);
 			MPI_Recv(buffer, msg_size, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 			/* Now we have to be sure that all thread messages
 			   are processed and we know about all nets */
@@ -72,7 +72,7 @@ void CaProcess::wait()
 
 	int msg_size;
 	MPI_Get_count(&status, MPI_CHAR, &msg_size);
-	char *buffer = (char*) alloca(msg_size); // FIXME: For large packets alloc memory on heap
+	char *buffer = (char*) malloc(msg_size);
 	MPI_Recv(buffer, msg_size, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 	this->get_thread(0)->process_thread_messages();
 	process_packet(this->get_thread(0), status.MPI_TAG, buffer);

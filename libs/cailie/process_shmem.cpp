@@ -68,7 +68,6 @@ int CaProcess::process_packets(CaThread *thread)
 		while (p) {
 			process_packet(thread, p->tag, p->data);
 			CaPacket *next = p->next;
-			free(p->data);
 			delete p;
 			p = next;
 		}

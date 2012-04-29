@@ -282,7 +282,7 @@ void ca_spawn_toplevel_net(int def_id)
 
 	#ifdef CA_MPI
 	CaThread *thread = process->get_thread(0);
-	CaNet *net = process->spawn_net(thread, def_id, 0, NULL, true);
+	CaNet *net = process->spawn_net(thread, def_id, process->new_net_id(), NULL, true);
 	net->unlock();
 	master_net = net;
 	#endif
