@@ -40,6 +40,11 @@ struct CaTokens {
 	int tokens_count;
 };
 
+struct CaUndeliverMessage {
+	int net_id;
+	void *data;
+};
+
 #ifdef CA_SHMEM
 class CaPacket {
 	public:
@@ -60,6 +65,8 @@ class CaProcess {
 		void inform_new_network(CaNet *net, CaThread *thread);
 		void inform_halt_network(int net_id, CaThread *thread);
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
+		void actualize_net_id_memory(int net_id);
+		bool is_created(int net_id);
 
 		int get_threads_count() const { return threads_count; }
 		int get_process_count() const { return process_count; }
@@ -112,6 +119,8 @@ class CaProcess {
 		CaThread *threads;
 		int id_counter;
 		pthread_mutex_t counter_mutex;
+		int *net_id_memory;
+		std::vector<CaUndeliverMessage > undeliver_message;
 
 		#ifdef CA_SHMEM
 		pthread_mutex_t packet_mutex;

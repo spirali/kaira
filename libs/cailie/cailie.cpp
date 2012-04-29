@@ -271,8 +271,9 @@ void ca_setup(int _defs_count, CaNetDef **_defs)
 void ca_spawn_toplevel_net(int def_id)
 {
 	#ifdef CA_SHMEM
+	int net_id = processes[0]->new_net_id();
 	for (int t = 0; t < ca_process_count; t++) {
-		CaNet *net = processes[t]->spawn_net(processes[t]->get_thread(0), def_id, 0, NULL, false);
+		CaNet *net = processes[t]->spawn_net(processes[t]->get_thread(0), def_id, net_id, NULL, false);
 		net->unlock();
 		if (t == 0) {
 			master_net = net;
@@ -282,7 +283,7 @@ void ca_spawn_toplevel_net(int def_id)
 
 	#ifdef CA_MPI
 	CaThread *thread = process->get_thread(0);
-	CaNet *net = process->spawn_net(thread, def_id, 0, NULL, true);
+	CaNet *net = process->spawn_net(thread, def_id, process->new_net_id(), NULL, true);
 	net->unlock();
 	master_net = net;
 	#endif
