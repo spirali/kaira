@@ -10,9 +10,8 @@ class RunProgram:
 		self.filename = filename
 		self.parameters = parameters
 		self.cwd = cwd
-	
-	def run(self, expected_output = None):
-		pr = subprocess.Popen([self.filename] + self.parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd = self.cwd)
+		
+	def result(self, pr, expected_output):
 		output,errs = pr.communicate()
 		if errs != "":
 			self.error("Stderr is not empty but: %s" % errs)
@@ -20,6 +19,14 @@ class RunProgram:
 			self.error("Return code is not zero")
 		self.check_output(expected_output, output)
 		return output
+	
+	def run(self, expected_output = None):
+		pr = subprocess.Popen([self.filename] + self.parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd = self.cwd)
+		return self.result(pr, expected_output)
+
+	def mpirun(self, process_count, thread_count, expected_output = None):
+		pr = subprocess.Popen( ["mpirun -np {0} {1} -t {2}".format(process_count, self.filename, thread_count)] + self.parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd = self.cwd, shell=True)
+		return self.result(pr, expected_output)
 
 	def fail(self, expected_stdout = None, expected_stderr = None, expected_stderr_prefix = None):
 		pr = subprocess.Popen([self.filename] + self.parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd = self.cwd)
