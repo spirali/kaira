@@ -1147,6 +1147,9 @@ class Builder(CppWriter):
             self.line("{2} ___{0} = {1};", name,
                       self.get_unpack_code(context[name], "unpacker"), self.emit_type(context[name]))
 
+        for name in self.get_library_output_only_arguments(net):
+            self.line("{1} ___{0};", name, self.emit_type(context[name]))
+
         args = ",".join("___" + name for name, _ in self.get_library_function_arguments(net))
         self.line("{0}({1});", net.name, args)
 
