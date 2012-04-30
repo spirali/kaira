@@ -24,6 +24,7 @@ class BuildTest(TestCase):
     def build(self, filename, final_output = None, make_args = [], **kw):
         name, ext = os.path.splitext(filename)
         directory = os.path.dirname(name)
+        make_args = [ "mpi" ] + make_args
         RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
         args = [ CMDUTILS, "--export", filename ]
         RunProgram("python", args).run()
@@ -32,21 +33,45 @@ class BuildTest(TestCase):
         if final_output is not None:
             self.run_program(filename, final_output, **kw)
 
-    def build_library(self, filename, final_output, make_args = [], process_count = 10, thread_count = 10):
+    def build_library(self, filename, final_output, processes = 10, params = [], make_args = []):
         self.build(filename, make_args = make_args)
         name, ext = os.path.splitext(filename)
         directory = os.path.dirname(name)
         RunProgram("make", [ "-f", "makefile.main", "main_mpi"], cwd = directory).run()
-        RunProgram(os.path.join(directory, "main_mpi"), cwd = directory).mpirun(process_count, thread_count, final_output)
+        RunProgram(os.path.join(directory, "main_mpi"), params,  cwd = directory).mpirun(processes, final_output)
+
+    def run_program(self, filename, final_output, params = [], make_args = [],
+        program_name = None, processes = 4, repeat = 1, check_fn = None):
+
+        name, ext = os.path.splitext(filename)
+        directory = os.path.dirname(name)
+        if program_name is None:
+            program_name = name + "_mpi"
+        else:
+            program_name = os.path.join(directory, program_name)
+        for x in xrange(repeat):
+            result = RunProgram(program_name, params, cwd = directory).mpirun(processes, final_output)
+            if check_fn is not None:
+                check_fn(result)
 
     def test_libhelloworld(self):
         result = "40 10 Hello world\n80 10 Hello world\n"\
             "160 10 Hello world\n320 10 Hello world\n640 10 Hello world\n"
-        self.build_library(os.path.join(TEST_PROJECTS, "libhelloworld", "libhelloworld.proj"), result, [ "mpi" ])
+        self.build_library(os.path.join(TEST_PROJECTS, "libhelloworld", "libhelloworld.proj"), result)
 
     def test_overtake(self):
         result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
-        self.build_library(os.path.join(TEST_PROJECTS, "overtake", "overtake.proj"), result, [ "mpi" ], 4, 4)
+        self.build_library(os.path.join(TEST_PROJECTS, "overtake", "overtake.proj"), result, 4, ["--threads=4"])
+
+    def test_library_processes(self):
+        result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
+        self.build_library(os.path.join(TEST_PROJECTS, "overtake", "overtake.proj"), result, 1)
+        for x in range(2, 5):
+            self.run_program(os.path.join(TEST_PROJECTS, "overtake", "overtake.proj"), result, params=["--threads={0}".format(x*x)], processes=x*x)
+
+    def test_modules2(self):
+        self.build(os.path.join(TEST_PROJECTS, "modules2", "modules2.proj"))
+        self.run_program(os.path.join(TEST_PROJECTS, "modules2", "modules2.proj"), "0\n", params=["--threads=4"])
 
 if __name__ == '__main__':
     unittest.main()
