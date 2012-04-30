@@ -103,7 +103,6 @@ class CaProcess {
 
 		#ifdef CA_MPI
 		void wait();
-		void check();
 		#endif
 
 		void broadcast_packet(int tag, void *data, size_t size, CaThread *thread, int exclude = -1);
@@ -126,10 +125,6 @@ class CaProcess {
 		pthread_mutex_t packet_mutex;
 		CaPacket *packets;
 		#endif
-
-		#ifdef CA_MPI
-		CaMpiRequests *requests;
-		#endif
 };
 
 class CaThread {
@@ -145,6 +140,9 @@ class CaThread {
 		int get_process_id() { return process->get_process_id(); }
 		int get_process_count() { return process->get_process_count(); }
 		int get_threads_count() { return process->get_threads_count(); }
+		#ifdef CA_MPI
+		CaMpiRequests * get_requests() { return &requests; }
+		#endif
 
 		void add_message(CaThreadMessage *message);
 		bool process_thread_messages();

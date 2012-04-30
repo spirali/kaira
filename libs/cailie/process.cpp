@@ -93,6 +93,9 @@ void CaThread::start()
 void CaThread::join()
 {
 	pthread_join(thread, NULL);
+	#ifdef CA_MPI
+	get_requests()->check();
+	#endif
 }
 
 void CaThread::clear()
@@ -390,10 +393,6 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	this->packets = NULL;
 	pthread_mutex_init(&packet_mutex, NULL);
 	#endif
-
-	#ifdef CA_MPI
-	requests = new CaMpiRequests[threads_count];
-	#endif
 }
 
 int CaProcess::new_net_id()
@@ -413,10 +412,6 @@ CaProcess::~CaProcess()
 
 	#ifdef CA_SHMEM
 	pthread_mutex_destroy(&packet_mutex);
-	#endif
-
-	#ifdef CA_MPI
-	delete [] requests;
 	#endif
 }
 
