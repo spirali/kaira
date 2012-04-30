@@ -87,6 +87,10 @@ int ca_main()
 		processes[t]->join();
 	}
 
+	for (int t = 0; t < ca_process_count; t++) {
+		processes[t]->clear();
+	}
+
 	if (listener != NULL) {
 		delete listener;
 	}
