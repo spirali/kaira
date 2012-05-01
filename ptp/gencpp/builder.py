@@ -484,15 +484,19 @@ class Builder(CppWriter):
         for tr in transitions:
             w.line("{0}->activate_transition_by_pos_id({1});",net, tr.get_pos_id())
 
-    def write_send_token(self, w, em, edge):
+    def write_send_token(self, w, em, edge, locking = True, interface_edge = False):
 
         def write_lock():
+            if not locking:
+                return
             w.if_begin("!lock")
             w.line("n->lock();")
             w.line("lock = true;")
             w.block_end()
 
         def write_unlock():
+            if not locking:
+                return
             w.if_begin("lock")
             w.line("n->unlock();")
             w.line("lock = false;")
@@ -500,12 +504,16 @@ class Builder(CppWriter):
 
         method = "add" if edge.is_normal() else "add_all"
 
+        if interface_edge:
+            self.line("CaThread *thread = ca_get_first_process()->get_thread(0);")
+
         if edge.guard is not None:
             w.if_begin(edge.guard.emit(em))
         if edge.is_local():
             write_lock()
             w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
-            self.write_activation(w, "n", edge.get_place().get_transitions_out())
+            if not interface_edge:
+                self.write_activation(w, "n", edge.get_place().get_transitions_out())
         else:
             if edge.is_unicast():
                 sendtype = ""
@@ -513,7 +521,8 @@ class Builder(CppWriter):
                 w.if_begin("target_{0.id} == thread->get_process_id()".format(edge))
                 write_lock()
                 w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
-                self.write_activation(w, "n", edge.get_place().get_transitions_out())
+                if not interface_edge:
+                    self.write_activation(w, "n", edge.get_place().get_transitions_out())
                 w.indent_pop()
                 w.line("}} else {{")
                 w.indent_push()
@@ -521,7 +530,8 @@ class Builder(CppWriter):
                 w.line("std::vector<int> target_{0.id} = {1};", edge, edge.target.emit(em))
                 sendtype = "_multicast"
                 w.block_begin()
-            write_unlock();
+
+            write_unlock()
             t = edge.get_place_type()
             traw = self.emit_type(t)
             w.line("{0} value = {1};", self.emit_type(edge.expr.nel_type), edge.expr.emit(em))
@@ -1198,20 +1208,19 @@ class Builder(CppWriter):
         self.block_end()
 
     def write_library_function(self, net):
-        self.line("void {0}({1})", net.name, self.emit_library_function_declaration(net))
+        self.line("void {0}({1})", net.name, self.emit_library_function_declaration(net, "___"))
         self.block_begin()
 
         self.line("ca_spawn_toplevel_net({0});", net.get_index())
+        self.line("Net_{0} *n = (Net_{0}*)ca_get_main_net();", net.id)
 
-        self.line("Net_{0} *net = (Net_{0}*)ca_get_main_net();", net.id)
+        em = emitter.Emitter(self.project)
+        em.variable_emitter = lambda name: "___" + name
         for e in net.interface_edges_out:
-            if e.is_packing():
-                self.line("net->place_{0.id}.add_all({1});", e.get_place(), e.expr.emit(self.emitter))
-            else:
-                self.line("net->place_{0.id}.add({1});", e.get_place(), e.expr.emit(self.emitter))
+            self.write_send_token(self, em, e, locking = False, interface_edge = True)
 
-        self.line("net->set_finalizer((CaNetFinalizerFn*) toplevel_finalizer_{0.id}, NULL);", net)
-        self.line("net->set_manual_delete();")
+        self.line("n->set_finalizer((CaNetFinalizerFn*) toplevel_finalizer_{0.id}, NULL);", net)
+        self.line("n->set_manual_delete();")
         self.line("ca_main();")
 
         conditions = []
@@ -1219,7 +1228,7 @@ class Builder(CppWriter):
             if edge.is_normal():
                 if not isinstance(edge.expr, ExprVar):
                     raise utils.PtpException("Invalid expression", edge.expr.source)
-                conditions.append("net->place_{0.id}.is_empty()".format(edge.get_place()))
+                conditions.append("n->place_{0.id}.is_empty()".format(edge.get_place()))
         if conditions:
             self.if_begin(" ||".join(conditions))
             self.line('fprintf(stderr, "Token in output places of module {0} not found\\n");', net.get_name())
@@ -1229,13 +1238,13 @@ class Builder(CppWriter):
         for e in net.get_interface_edges_in():
             if e.is_normal():
                 for var in e.expr.get_free_vars():
-                    ret = "net->place_{0.id}.first_value()".format(e.get_place())
-                    self.line("{0} = {1};", var, ret)
+                    ret = "n->place_{0.id}.first_value()".format(e.get_place())
+                    self.line("___{0} = {1};", var, ret)
             else:
-                ret = "net->place_{0.id}.to_vector()".format(e.get_place())
-                self.line("{0} = {1};", e.varname, ret)
+                ret = "n->place_{0.id}.to_vector()".format(e.get_place())
+                self.line("___{0} = {1};", e.varname, ret)
 
-        self.line("delete net;")
+        self.line("delete n;")
         self.block_end()
 
     def get_library_input_arguments(self, net):

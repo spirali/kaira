@@ -178,6 +178,15 @@ class BuildTest(TestCase):
         self.run_program(os.path.join(TEST_PROJECTS, "modules1", "modules1.proj"), "148\n",
             params=["--threads=5"], processes=3, repeat=100)
 
+    def test_modules2(self):
+        self.build(os.path.join(TEST_PROJECTS, "modules2", "modules2.proj"), "0\n")
+
+    def test_library_processes(self):
+        result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
+        self.build_library(os.path.join(TEST_PROJECTS, "overtake", "overtake.proj"), result)
+        for x in range(2, 5):
+            self.run_program(os.path.join(TEST_PROJECTS, "overtake", "overtake.proj"), result, params=["-r {0}".format(x*x) ,"--threads={0}".format(x*x)])
+
     def test_libhelloworld(self):
         result = "40 10 Hello world\n80 10 Hello world\n"\
             "160 10 Hello world\n320 10 Hello world\n640 10 Hello world\n"

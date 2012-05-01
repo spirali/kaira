@@ -65,9 +65,8 @@ int ca_main()
 	#ifdef CA_MPI
 	CaServiceMessage *m = (CaServiceMessage*) alloca(sizeof(CaServiceMessage));
 	m->type = CA_SM_WAKE;
-	process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), 0);
-	process->start();
-	process->join();
+	process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), process->get_thread(0), 0);
+	process->start_and_join();
 	process->clear();
 	MPI_Barrier(MPI_COMM_WORLD);
 	#endif
@@ -85,6 +84,10 @@ int ca_main()
 
 	for (int t = 0; t < ca_process_count; t++) {
 		processes[t]->join();
+	}
+
+	for (int t = 0; t < ca_process_count; t++) {
+		processes[t]->clear();
 	}
 
 	if (listener != NULL) {
@@ -136,7 +139,7 @@ void ca_finalize()
 		CaServiceMessage *m =
 		(CaServiceMessage *) alloca(sizeof(CaServiceMessage));
 		m->type = CA_SM_EXIT;
-		process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), 0);
+		process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), process->get_thread(0), 0);
 	}
 	MPI_Finalize();
 	#endif
@@ -156,10 +159,6 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 	for (t = 0; t < params_count; t++) {
 		setted[t] = false;
 	}
-
-	#ifdef CA_MPI
-	MPI_Init(&argc, &argv);
-	#endif
 
 	atexit(ca_finalize);
 
@@ -239,6 +238,21 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 	}
 	if (exit_f) { exit(1); }
 
+	#ifdef CA_MPI
+	int provided;
+	int target;
+	if (ca_threads_count == 1) {
+		target = MPI_THREAD_FUNNELED;
+	} else {
+		target = MPI_THREAD_SERIALIZED;
+	}
+
+	MPI_Init_thread(&argc, &argv, target, &provided);
+	if (target > provided) {
+		fprintf(stderr, "MPI_Init_thread: Inssuficient support of threads in MPI");
+		exit(1);
+	}
+	#endif
 }
 
 void ca_setup(int _defs_count, CaNetDef **_defs)
@@ -271,8 +285,9 @@ void ca_setup(int _defs_count, CaNetDef **_defs)
 void ca_spawn_toplevel_net(int def_id)
 {
 	#ifdef CA_SHMEM
+	int net_id = processes[0]->new_net_id();
 	for (int t = 0; t < ca_process_count; t++) {
-		CaNet *net = processes[t]->spawn_net(processes[t]->get_thread(0), def_id, 0, NULL, false);
+		CaNet *net = processes[t]->spawn_net(processes[t]->get_thread(0), def_id, net_id, NULL, false);
 		net->unlock();
 		if (t == 0) {
 			master_net = net;
@@ -282,7 +297,7 @@ void ca_spawn_toplevel_net(int def_id)
 
 	#ifdef CA_MPI
 	CaThread *thread = process->get_thread(0);
-	CaNet *net = process->spawn_net(thread, def_id, 0, NULL, true);
+	CaNet *net = process->spawn_net(thread, def_id, process->new_net_id(), NULL, true);
 	net->unlock();
 	master_net = net;
 	#endif
@@ -291,6 +306,18 @@ void ca_spawn_toplevel_net(int def_id)
 CaNet * ca_get_main_net()
 {
 	return master_net;
+}
+
+CaProcess * ca_get_first_process()
+{
+	#ifdef CA_MPI
+	return process;
+	#endif
+
+	#ifdef CA_SHMEM
+	return processes[0];
+	#endif
+
 }
 
 std::vector<int> ca_range(int from, int upto)

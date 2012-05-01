@@ -76,6 +76,8 @@ void ca_project_description(const char *str);
 
 /* In SHMEM returns first net of process[0], can be called only between ca_spawn_toplevel_net and ca_main */
 CaNet *ca_get_main_net();
+/* This method is used by module to send tokens to another process. Can be called after ca_spawn_toplevel_net*/
+CaProcess * ca_get_first_process();
 
 
 template <typename T>

@@ -93,6 +93,9 @@ void CaThread::start()
 void CaThread::join()
 {
 	pthread_join(thread, NULL);
+	#ifdef CA_MPI
+	get_requests()->check();
+	#endif
 }
 
 void CaThread::clear()
@@ -102,7 +105,7 @@ void CaThread::clear()
 
 void CaThread::quit_all()
 {
-	process->quit_all();
+	process->quit_all(this);
 }
 
 void CaThread::init_log(const std::string &logname)
@@ -138,11 +141,11 @@ void CaThread::init_log(const std::string &logname)
 	logger->flush();
 }
 
-void CaProcess::multisend(int target, CaNet *net, int place_pos, int tokens_count, const CaPacker &packer)
+void CaProcess::multisend(int target, CaNet *net, int place_pos, int tokens_count, const CaPacker &packer, CaThread *thread)
 {
 	std::vector<int> a(1);
 	a[0] = target;
-	multisend_multicast(a, net, place_pos, tokens_count, packer);
+	multisend_multicast(a, net, place_pos, tokens_count, packer, thread);
 	/*
 	#ifdef CA_MPI
 		CaPacket *packet = (CaPacket*) packer.get_buffer();
@@ -161,9 +164,27 @@ void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 	if (tag == CA_TAG_SERVICE) {
 		CA_DLOG("SERVICE process=%i thread=%i\n", get_process_id(), thread->get_id());
 		process_service_message(thread, (CaServiceMessage*) data);
+		free(data);
+		for(unsigned int i = 0 ; i < undeliver_message.size() ; i++)
+		{
+			if(is_created(undeliver_message[i].net_id))
+			{
+				CA_DLOG("Receive undeliver message, process=%d, net_id=%d\n", get_process_id(), undeliver_message[i].net_id);
+				process_packet(thread, CA_TAG_TOKENS, undeliver_message[i].data);
+				undeliver_message.erase(undeliver_message.begin() + i);
+			}
+		}
 		return;
 	}
 	CaTokens *tokens = (CaTokens*) data;
+	if(!is_created(tokens->net_id)) {
+		CA_DLOG("Undeliver packets on process=%d net_id=%d\n", get_process_id(), tokens->net_id);
+		CaUndeliverMessage msg;
+		msg.net_id = tokens->net_id;
+		msg.data = data;
+		undeliver_message.push_back(msg);
+		return;
+	}
 	CaUnpacker unpacker(tokens + 1);
 	CaNet *n = thread->get_net(tokens->net_id);
 	if (n == NULL) {
@@ -182,6 +203,7 @@ void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 	}
 	CA_DLOG("EOR index=%i process=%i thread=%i\n", place_index, get_process_id(), thread->get_id());
 	n->unlock();
+	free(data);
 }
 
 void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg)
@@ -214,6 +236,7 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 			break;
 		}
 		case CA_SM_EXIT:
+			free(smsg);
 			exit(0);
 	}
 }
@@ -289,13 +312,36 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, CaNet *par
 		m->type = CA_SM_NET_CREATE;
 		m->net_id = id;
 		m->def_index = def_index;
-		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetCreate), process_id);
+		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetCreate), thread, process_id);
 	}
 
 	CaNet *net = defs[def_index]->spawn(thread, id, parent_net);
 	net->lock();
+	actualize_net_id_memory(net->get_id());
 	inform_new_network(net, thread);
 	return net;
+}
+
+void CaProcess::actualize_net_id_memory(int net_id)
+{
+	int src_proc = net_id % process_count;
+	int net_counter = net_id / process_count;
+	CA_DLOG("Actualize net id memory, process=%d, net_id=%d\n", process_id, net_id);
+	if(net_id_memory[src_proc] < net_counter) {
+		net_id_memory[src_proc] = net_counter;
+	}
+}
+
+bool CaProcess::is_created(int net_id)
+{
+	int last_net, src_proc = net_id % process_count;
+	int net_couter = net_id / process_count;
+	last_net = net_id_memory[src_proc];
+	if (last_net < net_couter) {
+		return false;
+	} else {
+		return true;
+	}
 }
 
 CaNet * CaThread::remove_net(int id)
@@ -331,6 +377,11 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	this->defs = defs;
 	this->threads_count = threads_count;
 	pthread_mutex_init(&counter_mutex, NULL);
+	net_id_memory = new int[process_count];
+	for(int i = 0 ; i < process_count ; i++)
+	{
+		net_id_memory[i] = -1;
+	}
 	threads = new CaThread[threads_count];
 	// TODO: ALLOCTEST
 	int t;
@@ -342,7 +393,6 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	this->packets = NULL;
 	pthread_mutex_init(&packet_mutex, NULL);
 	#endif
-
 }
 
 int CaProcess::new_net_id()
@@ -358,6 +408,7 @@ CaProcess::~CaProcess()
 {
 	delete [] threads;
 	pthread_mutex_destroy(&counter_mutex);
+	delete [] net_id_memory;
 
 	#ifdef CA_SHMEM
 	pthread_mutex_destroy(&packet_mutex);
@@ -388,6 +439,18 @@ void CaProcess::join()
 	// Clean up messages, it is important for reusing process in generated library
 	for (t = 0; t < threads_count; t++) {
 		threads[t].clean_thread_messages();
+	}
+}
+
+void CaProcess::start_and_join()
+{
+	if (threads_count == 1) {
+		// If there is only one process them process thread runs scheduler,
+		// it is important because if threads_count == 1 we run MPI in MPI_THREAD_FUNELLED mode
+		threads[0].run_scheduler();
+	} else {
+		start();
+		join();
 	}
 }
 
@@ -454,11 +517,11 @@ void CaProcess::stop_logging()
 	}
 }
 
-void CaProcess::quit_all()
+void CaProcess::quit_all(CaThread *thread)
 {
 	CaServiceMessage *m = (CaServiceMessage*) alloca(sizeof(CaServiceMessage));
 	m->type = CA_SM_QUIT;
-	broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), process_id);
+	broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), thread, process_id);
 	quit();
 }
 
@@ -516,7 +579,9 @@ void CaProcess::fire_transition(int transition_id, int instance_id)
 	}
 }
 
-// Halt net net, sends information about halting if net is nonlocal
+/* 	Halt net net, sends information about halting if net is nonlocal
+	Function inform_halt_network must send thread message to yourself, instance of net isn't free
+	instantly, this is the reason why second argument is NULL */
 void CaProcess::halt(CaThread *thread, CaNet *net)
 {
 	if (!net->is_local()) {
@@ -524,9 +589,9 @@ void CaProcess::halt(CaThread *thread, CaNet *net)
 			(CaServiceMessageNetHalt*) alloca(sizeof(CaServiceMessageNetHalt));
 		m->type = CA_SM_NET_HALT;
 		m->net_id = net->get_id();
-		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetHalt), process_id);
+		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetHalt), thread, process_id);
 	}
-	inform_halt_network(net->get_id(), thread);
+	inform_halt_network(net->get_id(), NULL);
 }
 
 
