@@ -211,7 +211,7 @@ class MainWindow(gtk.Window):
         item.connect("activate", lambda w: self.app.project_config())
         edit_menu.append(item)
 
-        item = gtk.MenuItem("Edit _head file")
+        item = gtk.MenuItem("Edit _head code")
         item.connect("activate", lambda w: self.app.edit_head())
         edit_menu.append(item)
 
