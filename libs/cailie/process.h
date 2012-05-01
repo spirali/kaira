@@ -61,6 +61,7 @@ class CaProcess {
 		virtual ~CaProcess();
 		void start();
 		void join();
+		void start_and_join();
 		void clear();
 		void inform_new_network(CaNet *net, CaThread *thread);
 		void inform_halt_network(int net_id, CaThread *thread);

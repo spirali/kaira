@@ -66,8 +66,7 @@ int ca_main()
 	CaServiceMessage *m = (CaServiceMessage*) alloca(sizeof(CaServiceMessage));
 	m->type = CA_SM_WAKE;
 	process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), process->get_thread(0), 0);
-	process->start();
-	process->join();
+	process->start_and_join();
 	process->clear();
 	MPI_Barrier(MPI_COMM_WORLD);
 	#endif
@@ -161,10 +160,6 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 		setted[t] = false;
 	}
 
-	#ifdef CA_MPI
-	MPI_Init(&argc, &argv);
-	#endif
-
 	atexit(ca_finalize);
 
 	while ((c = getopt_long (argc, argv, "hp:t:l:s:br:", longopts, NULL)) != -1)
@@ -243,6 +238,21 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 	}
 	if (exit_f) { exit(1); }
 
+	#ifdef CA_MPI
+	int provided;
+	int target;
+	if (ca_threads_count == 1) {
+		target = MPI_THREAD_FUNNELED;
+	} else {
+		target = MPI_THREAD_SERIALIZED;
+	}
+
+	MPI_Init_thread(&argc, &argv, target, &provided);
+	if (target > provided) {
+		fprintf(stderr, "MPI_Init_thread: Inssuficient support of threads in MPI");
+		exit(1);
+	}
+	#endif
 }
 
 void ca_setup(int _defs_count, CaNetDef **_defs)

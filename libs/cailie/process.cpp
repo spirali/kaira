@@ -442,6 +442,18 @@ void CaProcess::join()
 	}
 }
 
+void CaProcess::start_and_join()
+{
+	if (threads_count == 1) {
+		// If there is only one process them process thread runs scheduler,
+		// it is important because if threads_count == 1 we run MPI in MPI_THREAD_FUNELLED mode
+		threads[0].run_scheduler();
+	} else {
+		start();
+		join();
+	}
+}
+
 void CaProcess::clear()
 {
 	for(int i = 0 ; i < threads_count ; i++)
