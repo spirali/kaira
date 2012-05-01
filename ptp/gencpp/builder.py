@@ -479,40 +479,44 @@ class Builder(CppWriter):
         for tr in transitions:
             w.line("{0}->activate_transition_by_pos_id({1});",net, tr.get_pos_id())
 
-    def write_send_token(self, w, em, edge, module_edge = False):
+    def write_send_token(self, w, em, edge, locking = True, interface_edge = False):
 
         def write_lock():
+            if not locking:
+                return
             w.if_begin("!lock")
             w.line("n->lock();")
             w.line("lock = true;")
             w.block_end()
 
         def write_unlock():
+            if not locking:
+                return
             w.if_begin("lock")
             w.line("n->unlock();")
             w.line("lock = false;")
             w.block_end()
 
         method = "add" if edge.is_normal() else "add_all"
-        thread = "ca_get_first_process()->get_thread(0)" if module_edge else "thread"
+
+        if interface_edge:
+            self.line("CaThread *thread = ca_get_first_process()->get_thread(0);")
 
         if edge.guard is not None:
             w.if_begin(edge.guard.emit(em))
         if edge.is_local():
-            if module_edge is False:
-                write_lock()
+            write_lock()
             w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
-            if module_edge is False:
+            if not interface_edge:
                 self.write_activation(w, "n", edge.get_place().get_transitions_out())
         else:
             if edge.is_unicast():
                 sendtype = ""
                 w.line("int target_{0.id} = {1};", edge, edge.target.emit(em))
-                w.if_begin("target_{0.id} == {1}->get_process_id()".format(edge, thread))
-                if module_edge is False:
-                    write_lock()
+                w.if_begin("target_{0.id} == thread->get_process_id()".format(edge))
+                write_lock()
                 w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
-                if module_edge is False:
+                if not interface_edge:
                     self.write_activation(w, "n", edge.get_place().get_transitions_out())
                 w.indent_pop()
                 w.line("}} else {{")
@@ -521,16 +525,16 @@ class Builder(CppWriter):
                 w.line("std::vector<int> target_{0.id} = {1};", edge, edge.target.emit(em))
                 sendtype = "_multicast"
                 w.block_begin()
-            if module_edge is False:
-                write_unlock();
+
+            write_unlock()
             t = edge.get_place_type()
             traw = self.emit_type(t)
             w.line("{0} value = {1};", self.emit_type(edge.expr.nel_type), edge.expr.emit(em))
             if edge.is_normal(): # Pack normal edge
                 w.line("CaPacker packer({0}, CA_RESERVED_PREFIX);", self.get_size_code(t, "value"))
                 w.line("{0};", self.get_pack_code(t, "packer", "value"))
-                w.line("{3}->send{0}(target_{1.id}, n, {2}, packer);",
-                       sendtype, edge, edge.get_place().get_pos_id(), thread)
+                w.line("thread->send{0}(target_{1.id}, n, {2}, packer);",
+                       sendtype, edge, edge.get_place().get_pos_id())
             else: # Pack packing edge
                 if self.is_directly_packable(t):
                     w.line("size_t size = sizeof({0}) * value.size();", self.emit_type(t))
@@ -546,8 +550,8 @@ class Builder(CppWriter):
                 w.block_begin()
                 w.line("{0};", self.get_pack_code(t, "packer", "(*i)"))
                 w.block_end()
-                w.line("{3}->multisend{0}(target_{1.id}, n, {2}, value.size(), packer);",
-                       sendtype,edge, edge.get_place().get_pos_id(), thread)
+                w.line("thread->multisend{0}(target_{1.id}, n, {2}, value.size(), packer);",
+                       sendtype,edge, edge.get_place().get_pos_id())
             w.block_end()
         if edge.guard is not None:
             w.block_end()
@@ -1208,7 +1212,7 @@ class Builder(CppWriter):
         w = CppWriter()
         em = emitter.Emitter(self.project)
         for e in net.interface_edges_out:
-            self.write_send_token(w, em, e, True)
+            self.write_send_token(w, em, e, locking = False, interface_edge = True)
         self.add_writer(w)
 
         self.line("n->set_finalizer((CaNetFinalizerFn*) toplevel_finalizer_{0.id}, NULL);", net)
