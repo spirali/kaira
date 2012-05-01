@@ -119,6 +119,7 @@ class Project(object):
         self.user_functions = {}
         self.parameters = {}
         self.build_options = {}
+        self.head_code = ""
 
     def get_name(self):
         return self.name
@@ -187,6 +188,9 @@ class Project(object):
             tr = net.get_transition(transition_id)
             if tr:
                 return tr
+
+    def get_head_code(self):
+        return self.head_code
 
     def inject_types(self):
         for net in self.nets:
@@ -325,6 +329,10 @@ def load_configuration(element, project):
 
     for e in element.findall("build-option"):
         load_build_option(e, project)
+
+    head_code = element.find("head-code")
+    if head_code is not None:
+        project.head_code = head_code.text
 
 def load_project(element):
     description = element.find("description").text

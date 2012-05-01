@@ -45,6 +45,7 @@ class Project(EventSource):
         self.generator = None # PTP generator
         self.target_mode = None
         self.simulator_net = None
+        self.head_code = ""
 
     def get_main_net(self):
         for net in self.nets:
@@ -279,8 +280,12 @@ class Project(EventSource):
         self.parameters.remove(parameter)
         self.changed()
 
-    def write_project_files(self):
-        utils.write_file_if_not_exists(self.get_head_filename(), self.get_initial_head_file_content())
+    def get_head_code(self):
+        return self.head_code
+
+    def set_head_code(self, code):
+        self.head_code = code
+        self.changed()
 
     def create_extern_type(self, extern_type_name):
         if extern_type_name == "native":
@@ -305,6 +310,12 @@ class Project(EventSource):
             e.append(t.as_xml())
         for t in self.build_options:
             e.append(self._build_option_as_xml(t))
+
+        if self.get_head_code():
+            element = xml.Element("head-code")
+            element.text = self.get_head_code()
+            e.append(element)
+
         return e
 
 class Parameter:

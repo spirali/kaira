@@ -102,13 +102,13 @@ def write_program_makefile(project, directory):
     makefile.rule(name + "_mpidebug", deps_mpi_debug, "$(MPICC) -D CA_MPI " + " ".join(deps_mpi_debug)
         + " -o $@ $(CFLAGS) $(INCLUDE) $(MPILIBDIR) $(MPILIBS)" )
 
-    makefile.rule(name_o, [ name_cpp, "head.cpp" ], "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
+    makefile.rule(name_o, [ name_cpp ], "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
 
-    makefile.rule(name_debug_o, [ name_cpp, "head.cpp" ],
+    makefile.rule(name_debug_o, [ name_cpp ],
         "$(CC) -DCA_LOG $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))
-    makefile.rule(name_mpi_o, [ name_cpp, "head.cpp" ],
+    makefile.rule(name_mpi_o, [ name_cpp ],
         "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
-    makefile.rule(name_mpi_debug_o, [ name_cpp, "head.cpp" ],
+    makefile.rule(name_mpi_debug_o, [ name_cpp ],
         "$(MPICC) -DCA_MPI -DCA_LOG $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_debug_o))
     all = deps + [ name_o, name_mpi_o, name_debug_o, name_mpi_debug_o ]
 
@@ -145,10 +145,10 @@ def write_server_makefile(project, directory):
     makefile.rule(name_mpi, deps_mpi, "$(MPICC) " + " ".join(deps_mpi) +
         " -o $@ $(CFLAGS) $(INCLUDE) $(MPILIBDIR) $(MPILIBS)" )
 
-    makefile.rule(name_o, [ name_cpp, "head.cpp" ],
+    makefile.rule(name_o, [ name_cpp ],
         "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
 
-    makefile.rule(name_mpi_o, [ name_cpp, "head.cpp" ],
+    makefile.rule(name_mpi_o, [ name_cpp ],
         "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
 
     makefile.rule("clean", [], "rm -f {0} {0}_mpi {0}_mpi.o {1}".format(name," ".join(deps)))
@@ -206,7 +206,7 @@ def write_library_makefile(project, directory, rpc = False, octave = False):
     makefile.rule(libname_a, deps, "ar -cr lib{0}.a ".format(name) + " ".join(deps))
 
     makefile.rule(libname_mpi_a, deps_mpi, "ar -cr lib{0}_mpi.a ".format(name) + " ".join(deps_mpi))
-    makefile.rule(name_mpi_o, [ name_cpp, "head.cpp"], "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
+    makefile.rule(name_mpi_o, [ name_cpp ], "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
 
     all = deps + [ libname_a ]
 

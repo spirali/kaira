@@ -16,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
-import os
+
 from project import Project, NativeExternType
 
 class ProjectCppBase(Project):
@@ -36,13 +36,11 @@ class ProjectCppBase(Project):
         """return language for GtkSourceView"""
         return "cpp"
 
-    def get_head_filename(self):
-        return os.path.join(self.get_directory(), "head.cpp")
-
-    def get_initial_head_file_content(self):
-        return "/* This file is included at the beginning of the main source file,\n" \
-               "   so definitions from this file can be used in functions in\n" \
-               "   transitions and places. */\n\n"
+    def get_head_comment(self):
+        return "/* The code from 'head' is included at the beginning of generated project.\n" \
+               " * The main purpose is to put here definitions (#includes, classes, ...)\n" \
+               " * that can be used everywhere. (functions in transitions and places).\n" \
+               " */\n\n"
 
     def get_source_file_patterns(self):
         return ["*.cpp", "*.cc", "*.c"]

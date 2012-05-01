@@ -1,4 +1,4 @@
-<project extenv="C++"><configuration><extern-type name="Matrix" raw-type="Matrix" transport-mode="Direct" type="native"><code name="getstring">	return obj.as_string();
+<project extenv="C++"><configuration><extern-type name="Matrix" octave-value="False" raw-type="Matrix" transport-mode="Direct" type="native"><code name="getstring">	return obj.as_string();
 </code></extern-type><function id="104" name="matrix" parameters="Int x, Int y, Array(Int) data" return-type="Matrix" with-context="False">	Matrix m(x, y);
 	m.set_data(data);
 	return m;
@@ -29,6 +29,119 @@
 		v[i-&gt;t0] = i-&gt;t1;
 	}
 	return v;
-</function><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O0 -g</build-option></configuration><net id="101" name="Main" net-type="main"><place id="103" init_string="[matrix(3,2, [10, 20, 20, 30, 40, 5])]" place_type="Matrix" radius="20" x="110" y="110" /><place id="107" init_string="" place_type="Array(Int)" radius="20" x="325" y="155" /><place id="177" init_string="[[4,5]]" place_type="Array(Int)" radius="20" x="110" y="205" /><transition guard="" id="102" name="" subnet="110" sx="70" sy="35" x="220" y="155" /><transition guard="" id="154" name="Print result" sx="70" sy="35" x="390" y="100"><code>	printf("%s\n", array_Int_as_string(var.x).c_str());
+</function><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O0 -g</build-option><head-code>
+#include &lt;assert.h&gt;
+#include &lt;sstream&gt;
+
+class Matrix {
+
+	public:
+	
+	Matrix() : size_x(0), size_y(0), array(NULL) {}
+	
+	Matrix(const Matrix &amp;matrix) {
+		if (matrix.array) {
+			size_x = matrix.size_x;
+			size_y = matrix.size_y;
+			array = new int[matrix.size_x * matrix.size_y];
+			set_data(matrix.array);
+		} else {
+			size_x = 0;
+			size_y = 0;
+			array = NULL;
+		}
+	}
+	
+	Matrix &amp; operator= (const Matrix &amp; matrix) {
+		if (matrix.array) {
+			if (size_x * size_y != matrix.size_x * matrix.size_y) {
+				if (array) {
+					delete array;
+				}
+				array = new int[matrix.size_x * matrix.size_y];
+			}
+			size_x = matrix.size_x;
+			size_y = matrix.size_y;
+			set_data(matrix.array);
+		} else {
+			if (array)
+				delete [] array;
+			size_x = 0;
+			size_y = 0;
+			array = NULL;
+		}		
+		return *this;
+	}
+	
+	int get_rows_count() const { return size_y; }
+	int get_columns_count() const { return size_x; }
+	
+	std::vector&lt;int&gt; get_row(int r) const {
+		std::vector&lt;int&gt; v(size_x);
+		for (int i = 0; i &lt; size_x; i++) {
+			v[i] = array[i + r * size_x];
+		}
+		return v;
+	}
+	
+	std::vector&lt;int&gt; get_column(int c) const {
+		std::vector&lt;int&gt; v(size_y);
+		for (int i = 0; i &lt; size_y; i++) {
+			v[i] = array[c + i * size_x];
+		}
+		return v;
+	}
+			
+	Matrix(int size_y, int size_x) : size_x(size_x), size_y(size_y) {
+		array = new int[size_x * size_y];
+	}
+	
+	void set_data(std::vector&lt;int&gt; &amp;data) {
+		int s = size_x * size_y;
+		assert(s == data.size());
+		for (int i = 0; i &lt; s; i++) {
+			array[i] = data[i];
+		}
+	}
+	
+	void set_data(int *data) {
+		int s = size_x * size_y;
+		for (int i = 0; i &lt; s; i++) {
+			array[i] = data[i];
+		}
+	}
+	
+	
+	std::string as_string() const {
+		if (array == NULL) {
+			return "matrix(empty)";
+		}
+		std::stringstream s;
+		s &lt;&lt; "matrix(" &lt;&lt; size_x &lt;&lt; "," &lt;&lt; size_y &lt;&lt; ",[";
+		int j;
+		for (j = 0; j &lt; size_y * size_x; j++) {
+			if (j % size_x == 0) {
+				s &lt;&lt; "[" &lt;&lt; array[j];
+			} else {
+				s &lt;&lt; "," &lt;&lt; array[j];
+			}
+			if ((j + 1) % size_x == 0) {
+				s &lt;&lt; "]";
+			}
+		}
+		s &lt;&lt; "]";
+		return s.str();
+	}
+	
+	virtual ~Matrix() {
+		if (array)
+			delete [] array;
+	}
+
+	protected:
+	int size_y;
+	int size_x;
+	int *array;
+};</head-code></configuration><net id="101" name="Main" net-type="main"><place id="103" init_string="[matrix(3,2, [10, 20, 20, 30, 40, 5])]" place_type="Matrix" radius="20" x="110" y="110" /><place id="107" init_string="" place_type="Array(Int)" radius="20" x="325" y="155" /><place id="177" init_string="[[4,5]]" place_type="Array(Int)" radius="20" x="110" y="205" /><transition guard="" id="102" name="" subnet="110" sx="70" sy="35" x="220" y="155" /><transition guard="" id="154" name="Print result" sx="70" sy="35" x="390" y="100"><code>	printf("%s\n", array_Int_as_string(var.x).c_str());
 	ctx.quit();
-</code></transition><edge from_item="103" id="106" inscription="matrix" inscription_x="188.0" inscription_y="113.0" to_item="102"><point x="220" y="110" /></edge><edge from_item="102" id="108" inscription="out" inscription_x="279.0" inscription_y="143.0" to_item="107" /><edge from_item="177" id="178" inscription="vector" inscription_x="185.0" inscription_y="193.0" to_item="102"><point x="220" y="205" /></edge><edge from_item="107" id="183" inscription="x" inscription_x="400.0" inscription_y="140.0" to_item="154"><point x="390" y="155" /></edge></net><net autohalt="True" id="110" name="A * x" net-type="module"><interface-node id="114" x="20" y="60" /><interface-node id="116" x="20" y="110" /><interface-node id="181" x="425" y="151" /><place id="112" init_string="" place_type="(Int, Array(Int))" radius="20" x="140" y="60" /><place id="113" init_string="" place_type="(Int, Int)" radius="21" x="140" y="110" /><place id="171" init_string="" place_type="Array(Int)" radius="20" x="425" y="60" /><transition guard="" id="120" name="" subnet="128" sx="70" sy="35" x="280" y="60" /><transition guard="" id="173" name="" subnet="156" sx="70" sy="35" x="580" y="60" /><edge from_item="114" id="115" inscription="~columns(matrix)" inscription_x="69.0" inscription_y="42.0" to_item="112" /><edge from_item="112" id="121" inscription="(i, vector)" inscription_x="195.0" inscription_y="45.0" to_item="120"><point x="180" y="60" /></edge><edge from_item="116" id="123" inscription="~items(vector)" inscription_x="69.0" inscription_y="94.0" to_item="113" /><edge from_item="113" id="124" inscription="(i, x)" inscription_x="212.0" inscription_y="92.0" to_item="120"><point x="280" y="110" /></edge><edge from_item="120" id="172" inscription="fromItems(out)" inscription_x="357.0" inscription_y="44.0" to_item="171" /><edge from_item="171" id="174" inscription="vector1; vector2" inscription_x="489.0" inscription_y="47.0" to_item="173" /><edge from_item="171" id="182" inscription="out" inscription_x="440.0" inscription_y="110.0" to_item="181" /><edge from_item="173" id="185" inscription="fromItems(out)" inscription_x="536.0" inscription_y="90.0" to_item="171"><point x="440" y="100" /></edge><interface-box id="111" sx="613" sy="135" x="20" y="16" /></net><net autohalt="True" id="128" name="ScalarMul" net-type="module"><interface-node id="131" x="20" y="55" /><interface-node id="134" x="20" y="135" /><interface-node id="150" x="350" y="172" /><place id="130" init_string="" place_type="(Int, Int)" radius="20" x="125" y="55" /><place id="133" init_string="" place_type="Int" radius="20" x="130" y="135" /><place id="137" init_string="" place_type="(Int, Int)" radius="20" x="350" y="95" /><transition guard="" id="136" name="" sx="70" sy="35" x="240" y="95" /><edge from_item="131" id="132" inscription="~items(vector)" inscription_x="64.0" inscription_y="38.0" to_item="130" /><edge from_item="134" id="135" inscription="x" inscription_x="64.0" inscription_y="123.0" to_item="133" /><edge from_item="130" id="138" inscription="(i, y)" inscription_x="191.0" inscription_y="37.0" to_item="136"><point x="240" y="55" /></edge><edge bidirectional="true" from_item="133" id="139" inscription="x" inscription_x="201.0" inscription_y="122.0" to_item="136"><point x="240" y="135" /></edge><edge from_item="136" id="140" inscription="(i, y * x)" inscription_x="301.0" inscription_y="75.0" to_item="137" /><edge from_item="137" id="151" inscription="~out" inscription_x="365.0" inscription_y="132.0" to_item="150" /><interface-box id="129" sx="404" sy="163" x="20" y="9" /></net><net autohalt="True" id="156" name="VectorAdd" net-type="module"><interface-node id="158" x="20" y="65" /><interface-node id="159" x="20" y="150" /><interface-node id="160" x="340" y="184" /><place id="161" init_string="" place_type="(Int, Int)" radius="20" x="140" y="65" /><place id="162" init_string="" place_type="(Int, Int)" radius="20" x="140" y="150" /><place id="163" init_string="" place_type="(Int, Int)" radius="20" x="340" y="105" /><transition guard="" id="164" name="" sx="70" sy="35" x="235" y="105" /><edge from_item="158" id="165" inscription="~items(vector1)" inscription_x="70.0" inscription_y="48.0" to_item="161" /><edge from_item="159" id="166" inscription="~items(vector2)" inscription_x="76.0" inscription_y="130.0" to_item="162" /><edge from_item="161" id="167" inscription="(i, y)" inscription_x="195.0" inscription_y="48.0" to_item="164"><point x="235" y="65" /></edge><edge from_item="162" id="168" inscription="(i, x)" inscription_x="195.0" inscription_y="134.0" to_item="164"><point x="235" y="150" /></edge><edge from_item="164" id="169" inscription="(i, y + x)" inscription_x="294.0" inscription_y="85.0" to_item="163" /><edge from_item="163" id="170" inscription="~out" inscription_x="360.0" inscription_y="143.0" to_item="160" /><interface-box id="157" sx="399" sy="164" x="20" y="20" /></net><net id="188" name="Test_ScalarMul" net-type="test"><place id="193" init_string="[ (2, [2,3]), (0, [100]) ]" place_type="(Int, Array(Int))" radius="20" x="127" y="111" /><transition guard="" id="192" name="" subnet="128" sx="70" sy="35" x="309" y="109" /><edge from_item="193" id="196" inscription="(x, vector)" inscription_x="206.359885381" inscription_y="92.517477729" to_item="192" /><place id="197" init_string="" place_type="Array(Int)" radius="20" x="473" y="112" /><edge from_item="192" id="198" inscription="fromItems(out)" inscription_x="399.0" inscription_y="92.0" to_item="197" /></net></project>
+</code></transition><edge from_item="103" id="106" inscription="matrix" inscription_x="188.0" inscription_y="113.0" to_item="102"><point x="220" y="110" /></edge><edge from_item="102" id="108" inscription="out" inscription_x="279.0" inscription_y="143.0" to_item="107" /><edge from_item="177" id="178" inscription="vector" inscription_x="185.0" inscription_y="193.0" to_item="102"><point x="220" y="205" /></edge><edge from_item="107" id="183" inscription="x" inscription_x="400.0" inscription_y="140.0" to_item="154"><point x="390" y="155" /></edge></net><net autohalt="True" id="110" name="A * x" net-type="module"><interface-node id="114" x="20" y="60" /><interface-node id="116" x="20" y="110" /><interface-node id="181" x="425" y="151" /><place id="112" init_string="" place_type="(Int, Array(Int))" radius="20" x="140" y="60" /><place id="113" init_string="" place_type="(Int, Int)" radius="21" x="140" y="110" /><place id="171" init_string="" place_type="Array(Int)" radius="20" x="425" y="60" /><transition guard="" id="120" name="" subnet="128" sx="70" sy="35" x="280" y="60" /><transition guard="" id="173" name="" subnet="156" sx="70" sy="35" x="580" y="60" /><edge from_item="114" id="115" inscription="~columns(matrix)" inscription_x="69" inscription_y="42" to_item="112" /><edge from_item="112" id="121" inscription="(i, vector)" inscription_x="195" inscription_y="45" to_item="120"><point x="180" y="60" /></edge><edge from_item="116" id="123" inscription="~items(vector)" inscription_x="69" inscription_y="94" to_item="113" /><edge from_item="113" id="124" inscription="(i, x)" inscription_x="212" inscription_y="92" to_item="120"><point x="280" y="110" /></edge><edge from_item="120" id="172" inscription="fromItems(out)" inscription_x="357" inscription_y="44" to_item="171" /><edge from_item="171" id="174" inscription="vector1; vector2" inscription_x="489" inscription_y="47" to_item="173" /><edge from_item="171" id="182" inscription="out" inscription_x="440" inscription_y="110" to_item="181" /><edge from_item="173" id="185" inscription="fromItems(out)" inscription_x="536" inscription_y="90" to_item="171"><point x="440" y="100" /></edge><interface-box id="111" sx="613" sy="135" x="20" y="16" /></net><net autohalt="True" id="128" name="ScalarMul" net-type="module"><interface-node id="131" x="20" y="55" /><interface-node id="134" x="20" y="135" /><interface-node id="150" x="350" y="172" /><place id="130" init_string="" place_type="(Int, Int)" radius="20" x="125" y="55" /><place id="133" init_string="" place_type="Int" radius="20" x="130" y="135" /><place id="137" init_string="" place_type="(Int, Int)" radius="20" x="350" y="95" /><transition guard="" id="136" name="" sx="70" sy="35" x="240" y="95" /><edge from_item="131" id="132" inscription="~items(vector)" inscription_x="64" inscription_y="38" to_item="130" /><edge from_item="134" id="135" inscription="x" inscription_x="64" inscription_y="123" to_item="133" /><edge from_item="130" id="138" inscription="(i, y)" inscription_x="191" inscription_y="37" to_item="136"><point x="240" y="55" /></edge><edge bidirectional="true" from_item="133" id="139" inscription="x" inscription_x="201" inscription_y="122" to_item="136"><point x="240" y="135" /></edge><edge from_item="136" id="140" inscription="(i, y * x)" inscription_x="301" inscription_y="75" to_item="137" /><edge from_item="137" id="151" inscription="~out" inscription_x="365" inscription_y="132" to_item="150" /><interface-box id="129" sx="404" sy="163" x="20" y="9" /></net><net autohalt="True" id="156" name="VectorAdd" net-type="module"><interface-node id="158" x="20" y="65" /><interface-node id="159" x="20" y="150" /><interface-node id="160" x="340" y="184" /><place id="161" init_string="" place_type="(Int, Int)" radius="20" x="140" y="65" /><place id="162" init_string="" place_type="(Int, Int)" radius="20" x="140" y="150" /><place id="163" init_string="" place_type="(Int, Int)" radius="20" x="340" y="105" /><transition guard="" id="164" name="" sx="70" sy="35" x="235" y="105" /><edge from_item="158" id="165" inscription="~items(vector1)" inscription_x="70" inscription_y="48" to_item="161" /><edge from_item="159" id="166" inscription="~items(vector2)" inscription_x="76" inscription_y="130" to_item="162" /><edge from_item="161" id="167" inscription="(i, y)" inscription_x="195" inscription_y="48" to_item="164"><point x="235" y="65" /></edge><edge from_item="162" id="168" inscription="(i, x)" inscription_x="195" inscription_y="134" to_item="164"><point x="235" y="150" /></edge><edge from_item="164" id="169" inscription="(i, y + x)" inscription_x="294" inscription_y="85" to_item="163" /><edge from_item="163" id="170" inscription="~out" inscription_x="360" inscription_y="143" to_item="160" /><interface-box id="157" sx="399" sy="164" x="20" y="20" /></net><net id="188" name="Test_ScalarMul" net-type="test"><place id="193" init_string="[ (2, [2,3]), (0, [100]) ]" place_type="(Int, Array(Int))" radius="20" x="127" y="111" /><place id="197" init_string="" place_type="Array(Int)" radius="20" x="473" y="112" /><transition guard="" id="192" name="" subnet="128" sx="70" sy="35" x="309" y="109" /><edge from_item="193" id="196" inscription="(x, vector)" inscription_x="206" inscription_y="92" to_item="192" /><edge from_item="192" id="198" inscription="fromItems(out)" inscription_x="399" inscription_y="92" to_item="197" /></net></project>

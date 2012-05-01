@@ -212,7 +212,7 @@ class MainWindow(gtk.Window):
         edit_menu.append(item)
 
         item = gtk.MenuItem("Edit _head file")
-        item.connect("activate", lambda w: self.app.edit_headfile())
+        item.connect("activate", lambda w: self.app.edit_head())
         edit_menu.append(item)
 
         edit_menu.append(gtk.SeparatorMenuItem())
@@ -336,3 +336,15 @@ class Tab:
 
     def project_export(self):
         pass
+
+class SaveTab(Tab):
+
+    def project_save(self):
+        self.widget.save()
+
+    def project_export(self):
+        self.widget.save()
+
+    def close(self):
+        self.widget.save()
+        Tab.close(self)

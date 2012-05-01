@@ -1,4 +1,5 @@
-<project extenv="C++"><configuration><parameter default="120" description="" name="LIMIT" type="Int" /><parameter default="10" description="" name="SIZE" type="Int" /><extern-type name="BigInt" raw-type="mpz_class" transport-mode="Custom"><code name="getsize">	return sizeof(size_t) + (mpz_sizeinbase (obj.get_mpz_t(), 2) + 7) / 8;
+<project extenv="C++"><configuration><parameter default="120" description="" name="LIMIT" type="Int" /><parameter default="10" description="" name="SIZE" type="Int" /><extern-type name="BigInt" octave-value="False" raw-type="mpz_class" transport-mode="Custom" type="native"><code name="getstring">	return obj.get_str(10);
+</code><code name="getsize">	return sizeof(size_t) + (mpz_sizeinbase (obj.get_mpz_t(), 2) + 7) / 8;
 </code><code name="unpack">	size_t s;
 	mpz_t z;
 	mpz_init(z);
@@ -8,7 +9,6 @@
 	mpz_class zc = mpz_class(z);
 	mpz_clear(z);
 	return zc;
-</code><code name="getstring">	return obj.get_str(10);
 </code><code name="pack">	size_t s = (mpz_sizeinbase (obj.get_mpz_t(), 2) + 7) / 8;
 	packer.pack_size(s);
 	mpz_export(packer.peek(), &amp;s, 1, 1, 0, 0, obj.get_mpz_t());
@@ -22,7 +22,9 @@
 </code></extern-type><function id="121" name="bigint" parameters="Int i" return-type="BigInt" with-context="False">	return mpz_class(i);
 </function><function id="122" name="bi_add" parameters="BigInt a, BigInt b" return-type="BigInt" with-context="False">	return a + b;	
 </function><function id="123" name="bi_lt" parameters="BigInt a, BigInt b" return-type="Bool" with-context="False">	return a &lt; b;	
-</function><build-option name="CC">g++</build-option><build-option name="LIBS">-lgmp</build-option><build-option name="CFLAGS">-O2</build-option></configuration><net id="0" name="Main"><place id="103" init_string="[bigint(0)]" place_type="BigInt" radius="20" x="109" y="207" /><place id="104" init_string="[1..process_count() - 1]" place_type="Int" radius="20" x="185" y="252" /><place id="105" init_string="" place_type="BigInt" radius="22" x="373" y="169" /><place id="106" init_string="" place_type="BigInt" radius="20" x="272" y="357" /><transition guard="bi_lt(num, bigint(#LIMIT))" id="107" name="divide" sx="90" sy="35" x="184" y="107" /><transition guard="" id="108" name="compute" sx="70" sy="35" x="373" y="252"><code>	mpz_class t;
+</function><build-option name="CC">g++</build-option><build-option name="LIBS">-lgmp</build-option><build-option name="CFLAGS">-O2</build-option><head-code>
+#include &lt;gmpxx.h&gt;
+</head-code></configuration><net id="0" name="Main" net-type="main"><place id="103" init_string="[bigint(0)]" place_type="BigInt" radius="20" x="109" y="207" /><place id="104" init_string="[1..process_count() - 1]" place_type="Int" radius="20" x="185" y="252" /><place id="105" init_string="" place_type="BigInt" radius="22" x="373" y="169" /><place id="106" init_string="" place_type="BigInt" radius="20" x="272" y="357" /><transition guard="bi_lt(num, bigint(#LIMIT))" id="107" name="divide" sx="90" sy="35" x="184" y="107" /><transition guard="" id="108" name="compute" sx="70" sy="35" x="373" y="252"><code>	mpz_class t;
 	mpz_class end = var.num + 10;
 	for (t=var.num; t &lt; end; t++) {
 		if (t &lt; 2) continue;
@@ -43,4 +45,4 @@
 		gmp_printf("%Zd\n", var.results[t].get_mpz_t());
 	}
 	ctx.quit();
-</code></transition><edge from_item="103" id="110" inscription="num" inscription_x="146.0" inscription_y="160.0" to_item="107" /><edge from_item="107" id="111" inscription="bi_add(num, bigint(#SIZE))" inscription_x="64.0" inscription_y="88.0" to_item="103"><point x="94" y="107" /></edge><edge from_item="104" id="112" inscription="worker" inscription_x="204.0" inscription_y="178.0" to_item="107" /><edge from_item="105" id="113" inscription="num" inscription_x="398.0" inscription_y="207.0" to_item="108" /><edge from_item="103" id="114" inscription="bigint(#LIMIT)" inscription_x="95.9883486702" inscription_y="279.416224724" to_item="109" /><edge from_item="104" id="115" inscription="~workers(process_count() - 1)" inscription_x="255.052171384" inscription_y="294.23058433" to_item="109" /><edge from_item="106" id="116" inscription="~results(0)" inscription_x="214.00142586" inscription_y="343.528019862" to_item="109" /><edge from_item="108" id="117" inscription="process_id()@0" inscription_x="279.0" inscription_y="257.0" to_item="104" /><edge from_item="108" id="118" inscription="~results@0" inscription_x="334.0" inscription_y="340.0" to_item="106"><point x="373" y="359" /></edge><edge from_item="107" id="119" inscription="num@worker" inscription_x="311.0" inscription_y="89.0" to_item="105"><point x="373" y="106" /></edge></net></project>
+</code></transition><edge from_item="103" id="110" inscription="num" inscription_x="146.0" inscription_y="160.0" to_item="107" /><edge from_item="107" id="111" inscription="bi_add(num, bigint(#SIZE))" inscription_x="64.0" inscription_y="88.0" to_item="103"><point x="94" y="107" /></edge><edge from_item="104" id="112" inscription="worker" inscription_x="204.0" inscription_y="178.0" to_item="107" /><edge from_item="105" id="113" inscription="num" inscription_x="398.0" inscription_y="207.0" to_item="108" /><edge from_item="103" id="114" inscription="bigint(#LIMIT)" inscription_x="95.0" inscription_y="279.0" to_item="109" /><edge from_item="104" id="115" inscription="~workers(process_count() - 1)" inscription_x="255.0" inscription_y="294.0" to_item="109" /><edge from_item="106" id="116" inscription="~results(0)" inscription_x="214.0" inscription_y="343.0" to_item="109" /><edge from_item="108" id="117" inscription="process_id()@0" inscription_x="279.0" inscription_y="257.0" to_item="104" /><edge from_item="108" id="118" inscription="~results@0" inscription_x="334.0" inscription_y="340.0" to_item="106"><point x="373" y="359" /></edge><edge from_item="107" id="119" inscription="num@worker" inscription_x="311.0" inscription_y="89.0" to_item="105"><point x="373" y="106" /></edge></net></project>

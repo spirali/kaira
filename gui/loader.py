@@ -115,6 +115,9 @@ def load_configuration(element, project, loader):
     for e in element.findall("function"):
         load_function(e, project, loader)
 
+    if element.find("head-code") is not None:
+        project.set_head_code(element.find("head-code").text)
+
 def import_project(project, filename):
     doc = xml.parse(filename)
     return import_project_from_xml(project, doc.getroot(), filename)
@@ -143,6 +146,5 @@ def new_empty_project(directory, extenv_name):
     else:
         project.add_net(Net(project, "main", "Main"))
 
-    project.write_project_files()
     project.save()
     return project

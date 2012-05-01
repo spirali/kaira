@@ -22,7 +22,6 @@ from octave import OctaveBuilder
 import emitter
 import os
 import base.utils
-import shutil
 import makefiles
 
 class CppGenerator:
@@ -124,9 +123,6 @@ class CppLibGenerator(CppGenerator):
                 raise base.utils.PtpException("'server' exists but it is not directory")
         else:
             os.makedirs(server_directory)
-
-        # Copy head file
-        shutil.copyfile(os.path.join(directory, "head.cpp"), os.path.join(server_directory, "head.cpp"))
 
         source_filename = os.path.join(server_directory, self.project.get_name() + "_server.cpp")
 

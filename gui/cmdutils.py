@@ -25,7 +25,6 @@ import loader
 
 def export(filename):
     p = loader.load_project(filename)
-    p.write_project_files()
     p.export_to_file(p.get_exported_filename())
 
 def main():

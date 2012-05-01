@@ -85,7 +85,6 @@ class App:
         self.project = project
         self.project.set_callback("changed", self._project_changed)
         self.project.set_callback("filename_changed", self._project_filename_changed)
-        self.project.write_project_files()
         self.init_tabs()
         self.window.console.reset()
         self._project_changed()
@@ -308,8 +307,15 @@ class App:
             return
         self.window.add_tab(codeedit.TabCodeFileEditor(filename, tab_tag, self.project.get_syntax_highlight_key()))
 
-    def edit_headfile(self):
-        self.edit_sourcefile(self.project.get_head_filename())
+    def edit_head(self, lineno = None):
+        position = ("", lineno) if lineno is not None else None
+
+        if self.window.switch_to_tab_by_key("Head", lambda tab: tab.widget.jump_to_position(position)):
+            return
+
+        editor = codeedit.HeadCodeEditor(self.project)
+        self.window.add_tab(codeedit.TabCodeEditor("Head", editor, "Head"))
+        editor.jump_to_position(position)
 
     def simulation_start(self, valgrind = False):
         def output(line, stream):
@@ -469,10 +475,20 @@ class App:
 
     def _try_make_error_with_link(self, id_string, item_id, pos, message):
         search = re.search("^\d+:", message)
-        line_no = int(search.group(0)[:-1]) - 2 if search else 0
+        line_no = int(search.group(0)[:-1]) if search else 0
+
+        if id_string == "head":
+            self.console_write_link(id_string + (":" + str(line_no) if line_no else ""),
+                lambda: self.edit_head(line_no))
+            self.console_write(message[message.find(":"):] if line_no else ":" + message)
+            return True
+
         # 2 is subtracted because #LINE directive is place before function definition, but
         # we jump at the line counted from the beginnging of user defined text
         # 1 for function definition, 1 for line with {
+
+        if search:
+            line_no -= 2
 
         if pos in ["getstring", "getsize", "pack", "unpack"] and item_id is None:
             item = self.project.find_extern_type(id_string)

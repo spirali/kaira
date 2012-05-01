@@ -182,14 +182,22 @@ class PlaceCodeEditor(CodeEditor):
     def buffer_changed(self, buffer):
         self.place.set_code(self.get_text())
 
-class TabCodeFileEditor(mainwindow.Tab):
+class HeadCodeEditor(CodeEditor):
+
+    def __init__(self, project):
+        self.project = project
+        header = project.get_head_comment()
+        section = [ "", "", project.get_head_code(), "" ]
+        CodeEditor.__init__(self, project.get_syntax_highlight_key(), [ section ], ("", 1, 0), header)
+
+    def save(self):
+        self.project.set_head_code(self.get_text())
+
+class TabCodeEditor(mainwindow.SaveTab):
+    pass
+
+class TabCodeFileEditor(mainwindow.SaveTab):
 
     def __init__(self, filename, key, language):
         name = os.path.basename(filename)
         mainwindow.Tab.__init__(self, name, CodeFileEditor(filename, language), key)
-
-    def project_save(self):
-        self.widget.save()
-
-    def project_export(self):
-        self.widget.save()

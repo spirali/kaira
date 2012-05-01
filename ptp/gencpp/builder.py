@@ -115,8 +115,13 @@ class Builder(CppWriter):
         self.line('#include <stdlib.h>')
         self.line('#include <stdio.h>')
         self.line('#include <sstream>')
-        self.line('#include "head.cpp"')
         self.emptyline()
+
+        if self.project.get_head_code():
+            self.line_directive("*head", 1)
+            self.raw_text(self.project.get_head_code())
+            self.line_directive(os.path.basename(self.output_filename), self.get_next_line_number())
+            self.emptyline()
 
     def write_parameters(self):
         for p in self.project.get_parameters():
