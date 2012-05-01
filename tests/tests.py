@@ -1,111 +1,46 @@
 # -*- coding: utf-8 -*-
 
-from testutils import RunProgram
+from testutils import Project
 from unittest import TestCase
 import unittest
-import os
-
-KAIRA_TESTS = os.path.dirname(os.path.abspath(__file__))
-KAIRA_ROOT = os.path.dirname(KAIRA_TESTS)
-KAIRA_GUI = os.path.join(KAIRA_ROOT,"gui")
-KAIRA_TOOLS = os.path.join(KAIRA_ROOT,"tools")
-
-PTP_BIN = os.path.join(KAIRA_ROOT, "ptp", "ptp.py")
-CAILIE_DIR = os.path.join(KAIRA_ROOT, "lib")
-CMDUTILS = os.path.join(KAIRA_GUI, "cmdutils.py")
-
-TEST_PROJECTS = os.path.join(KAIRA_TESTS, "projects")
 
 class BuildTest(TestCase):
 
-    def run_ptp(self, name):
-        return RunProgram(PTP_BIN, [ name + ".xml", "--build", os.path.dirname(name) ])
-
-    def build(self, filename, final_output = None, make_args = [], **kw):
-        name, ext = os.path.splitext(filename)
-        directory = os.path.dirname(name)
-        RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
-        args = [ CMDUTILS, "--export", filename ]
-        RunProgram("python", args).run()
-        self.run_ptp(name).run()
-        RunProgram("make", make_args, cwd = directory).run()
-        if final_output is not None:
-            self.run_program(filename, final_output, **kw)
-
-    def build_library(self, filename, final_output, make_args = []):
-        self.build(filename)
-        name, ext = os.path.splitext(filename)
-        directory = os.path.dirname(name)
-        RunProgram("make", [ "-f", "makefile.main" ], cwd = directory).run()
-        RunProgram(os.path.join(directory, "main"), cwd = directory).run(final_output)
-
-    def run_program(self, filename, final_output, params = [], make_args = [],
-        program_name = None, processes=None, repeat=1, check_fn=None):
-
-        name, ext = os.path.splitext(filename)
-        directory = os.path.dirname(name)
-        if program_name is None:
-            program_name = name
-        else:
-            program_name = os.path.join(directory, program_name)
-        if processes is not None:
-            params = [ "-r {0}".format(processes) ] + params
-        for x in xrange(repeat):
-            result = RunProgram(program_name, params, cwd = directory).run(final_output)
-            if check_fn is not None:
-                check_fn(result)
-
-    def failed_ptp(self, filename, final_output):
-        name, ext = os.path.splitext(filename)
-        directory = os.path.dirname(name)
-        RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
-        RunProgram("python", [ CMDUTILS, "--export", filename ]).run()
-        self.run_ptp(name).fail(final_output)
-
-    def failed_make(self, filename, stderr, make_args = []):
-        name, ext = os.path.splitext(filename)
-        directory = os.path.dirname(name)
-        RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
-        RunProgram("python", [ CMDUTILS, "--export", filename ]).run()
-        self.run_ptp(name).run()
-        RunProgram("make", make_args, cwd = directory).fail(expected_stderr_prefix = stderr)
-
     def test_helloworld(self):
-        self.build(os.path.join(TEST_PROJECTS, "helloworlds", "helloworld.proj"), "Hello world 12\n")
+        Project("helloworld", "helloworlds").quick_test("Hello world 12\n")
 
     def test_helloworld2(self):
-        self.build(os.path.join(TEST_PROJECTS, "helloworlds", "helloworld2.proj"), "Hello world 5\n")
+        Project("helloworld2", "helloworlds").quick_test("Hello world 5\n")
 
     def test_strings(self):
-        self.build(os.path.join(TEST_PROJECTS, "strings", "strings.proj"), "String\nOk\nOk\nOk\nOk\n", processes=5)
+        Project("strings").quick_test("String\nOk\nOk\nOk\nOk\n", processes=5)
 
     def test_externtypes(self):
         output = "10 20\n107 207\n10 20\n257 77750 A looong string!!!!!\n10 30\n3 20003 String!!!\n"
-        self.build(os.path.join(TEST_PROJECTS, "externtypes", "externtypes.proj"), output, processes=2)
+        Project("externtypes").quick_test(output, processes=2)
 
     def test_packing(self):
         output = "0\n1\n2\n3\n4\n0\n1\n2\n3\n4\n5\n5\n6\n7\n8\n9\n100\n100\n"
-        self.build(os.path.join(TEST_PROJECTS, "packing", "packing.proj"), output, processes=3)
+        Project("packing").quick_test(output, processes=3)
 
     def test_broken1(self):
-        self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken1.proj"), "*104/inscription: Expression missing\n")
+        Project("broken1", "broken").fail_ptp("*104/inscription: Expression missing\n")
 
     def test_broken2(self):
-        self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken2.proj"), "*102/type: Type missing\n")
+        Project("broken2", "broken").fail_ptp("*102/type: Type missing\n")
 
     def test_broken_module(self):
-        self.failed_ptp(os.path.join(TEST_PROJECTS, "broken", "broken_module.proj"),
+        Project("broken_module", "broken").fail_ptp(
             "*103: Conflict of types with the assigned module in variable 'x', type in module is String\n")
 
     def test_parameters(self):
-        self.build(os.path.join(TEST_PROJECTS, "parameters", "parameters.proj"), "9 7\n",
-            params=["-pfirst=10", "-psecond=7"], processes = 10)
+        Project("parameters").quick_test("9 7\n", processes = 10, params = { "first" : 10, "second" : 7 })
 
     def test_eguards(self):
-        self.build(os.path.join(TEST_PROJECTS, "eguards", "eguards.proj"), "3\n")
+        Project("eguards").quick_test("3\n")
 
     def test_bidirection(self):
-        self.build(os.path.join(TEST_PROJECTS, "bidirection", "bidirection.proj"), "11\n12\n13\n")
+        Project("bidirection").quick_test("11\n12\n13\n")
 
     def test_scheduler(self):
         def check(output):
@@ -115,30 +50,29 @@ class BuildTest(TestCase):
                     d[line] += 1
             self.assertTrue(d["First"] > 220)
             self.assertTrue(d["Second"] > 220)
-        self.build(os.path.join(TEST_PROJECTS, "scheduler", "scheduler.proj"),
-            None, processes=10, check_fn = check)
+        Project("scheduler").quick_test(result_fn=check, processes=10)
 
     def test_workers(self):
         def check_output(output):
             self.assertEquals(76127, sum([ int(x) for x in output.split("\n") if x.strip() != "" ]))
-        params = [ "-pLIMIT=1000", "-pSIZE=20" ]
-        self.build(os.path.join(TEST_PROJECTS, "workers", "workers.proj"),
-            None, params=params, processes=2, check_fn = check_output)
-        self.run_program(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None,
-             params=params + [ "--threads=3" ], processes=6, check_fn = check_output, repeat=30)
-        self.run_program(os.path.join(TEST_PROJECTS, "workers", "workers.proj"), None,
-             params=params + [ "--threads=1" ], processes=6, check_fn = check_output, repeat=70)
-        self.build(os.path.join(TEST_PROJECTS, "workers", "workers_fixed.proj"), None,
-             params=params + [ "--threads=5" ], processes=1, check_fn = check_output, repeat=110)
+        params = { "LIMIT" : "1000", "SIZE" : "20" }
+        p = Project("workers")
+        p.build()
+        p.run(result_fn = check_output, processes = 2, params = params)
+
+        p.run(result_fn = check_output, processes = 6, threads = 3, params = params, repeat = 30)
+        p.run(result_fn = check_output, processes = 6, threads = 1, params = params, repeat = 70)
+
+        Project("workers_fixed", "workers").quick_test(threads=5, processes=1, result_fn = check_output, params = params, repeat=110)
 
     def test_functions(self):
-        self.build(os.path.join(TEST_PROJECTS, "functions", "functions.proj"), "9 9\n")
+        Project("functions").quick_test("9 9\n")
 
     def test_tuples(self):
-        self.build(os.path.join(TEST_PROJECTS, "tuples", "tuples.proj"), "Ok\n")
+        Project("tuples").quick_test("Ok\n")
 
     def test_doubles(self):
-        self.build(os.path.join(TEST_PROJECTS, "doubles", "doubles.proj"), "Ok\n")
+        Project("doubles").quick_test("Ok\n")
 
     """ TEMPORARILY DISABLED
     def test_log(self):
@@ -151,46 +85,48 @@ class BuildTest(TestCase):
     """
 
     def test_build(self):
-        self.build(os.path.join(TEST_PROJECTS, "build", "build.proj"), "1: 10\n2: 20\n")
+        Project("build").quick_test("1: 10\n2: 20\n")
 
     def test_getmore(self):
-        self.build(os.path.join(TEST_PROJECTS, "getmore", "getmore.proj"), "Ok 7 13\n")
+        Project("getmore").quick_test("Ok 7 13\n")
 
     def test_broken_userfunction(self):
-        self.failed_make(os.path.join(TEST_PROJECTS, "broken", "broken_userfunction.proj"), "*106/user_function:")
+        Project("broken_userfunction", "broken").failed_make("*106/user_function:")
 
     def test_broken_externtype_function(self):
-        self.failed_make(os.path.join(TEST_PROJECTS, "broken", "broken_externtype_function.proj"), "*MyType/getsize"),
+        Project("broken_externtype_function", "broken").failed_make("*MyType/getsize:")
 
     def test_multicast(self):
-        self.build(os.path.join(TEST_PROJECTS, "multicast", "multicast.proj"), "1800\n", processes=4)
+        Project("multicast").quick_test("1800\n", processes=4)
 
     def test_array(self):
-        self.build(os.path.join(TEST_PROJECTS, "array", "array.proj"), "Ok\n")
+        Project("array").quick_test("Ok\n")
 
     def test_bool(self):
-        self.build(os.path.join(TEST_PROJECTS, "bool", "bool.proj"), "Ok\n")
+        Project("bool").quick_test("Ok\n")
 
     def test_modules1(self):
-        self.build(os.path.join(TEST_PROJECTS, "modules1", "modules1.proj"), "148\n")
-        self.run_program(os.path.join(TEST_PROJECTS, "modules1", "modules1.proj"), "148\n",
-            params=["--threads=2"], repeat=100)
-        self.run_program(os.path.join(TEST_PROJECTS, "modules1", "modules1.proj"), "148\n",
-            params=["--threads=5"], processes=3, repeat=100)
+        p = Project("modules1")
+        p.build()
+        p.run("148\n")
+        p.run("148\n", threads=2, repeat=100)
+        p.run("148\n", threads=5, processes=3, repeat=100)
 
     def test_modules2(self):
-        self.build(os.path.join(TEST_PROJECTS, "modules2", "modules2.proj"), "0\n")
+        Project("modules2").quick_test("0\n")
 
     def test_library_processes(self):
         result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
-        self.build_library(os.path.join(TEST_PROJECTS, "overtake", "overtake.proj"), result)
+        p = Project("overtake")
+        p.build_main()
+        p.run_main(result)
         for x in range(2, 5):
-            self.run_program(os.path.join(TEST_PROJECTS, "overtake", "overtake.proj"), result, params=["-r {0}".format(x*x) ,"--threads={0}".format(x*x)])
+            p.run_main(result, processes = x * x, threads = x * x)
 
     def test_libhelloworld(self):
         result = "40 10 Hello world\n80 10 Hello world\n"\
             "160 10 Hello world\n320 10 Hello world\n640 10 Hello world\n"
-        self.build_library(os.path.join(TEST_PROJECTS, "libhelloworld", "libhelloworld.proj"), result)
+        Project("libhelloworld").quick_test_main(result)
 
 if __name__ == '__main__':
     unittest.main()
