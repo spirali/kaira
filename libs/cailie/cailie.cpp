@@ -244,7 +244,7 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 	if (ca_threads_count == 1) {
 		target = MPI_THREAD_FUNNELED;
 	} else {
-		target = MPI_THREAD_SERIALIZED;
+		target = MPI_THREAD_MULTIPLE;
 	}
 
 	MPI_Init_thread(&argc, &argv, target, &provided);

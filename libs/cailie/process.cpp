@@ -162,27 +162,14 @@ void CaProcess::multisend(int target, CaNet *net, int place_pos, int tokens_coun
 void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 {
 	if (tag == CA_TAG_SERVICE) {
-		CA_DLOG("SERVICE process=%i thread=%i\n", get_process_id(), thread->get_id());
 		process_service_message(thread, (CaServiceMessage*) data);
 		free(data);
-		for(unsigned int i = 0 ; i < undeliver_message.size() ; i++)
-		{
-			if(is_created(undeliver_message[i].net_id))
-			{
-				CA_DLOG("Receive undeliver message, process=%d, net_id=%d\n", get_process_id(), undeliver_message[i].net_id);
-				process_packet(thread, CA_TAG_TOKENS, undeliver_message[i].data);
-				undeliver_message.erase(undeliver_message.begin() + i);
-			}
-		}
 		return;
 	}
 	CaTokens *tokens = (CaTokens*) data;
-	if(!is_created(tokens->net_id)) {
-		CA_DLOG("Undeliver packets on process=%d net_id=%d\n", get_process_id(), tokens->net_id);
-		CaUndeliverMessage msg;
-		msg.net_id = tokens->net_id;
-		msg.data = data;
-		undeliver_message.push_back(msg);
+	if(!is_future_id(tokens->net_id)) {
+		CA_DLOG("Too early message on process=%d net_id=%d\n", get_process_id(), tokens->net_id);
+		too_early_message[tokens->net_id].push_back(data);
 		return;
 	}
 	CaUnpacker unpacker(tokens + 1);
@@ -210,23 +197,46 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 {
 	switch (smsg->type) {
 		case CA_SM_QUIT:
+			CA_DLOG("SERVICE CA_SM_QUIT on process=%i thread=%i\n", get_process_id(), thread->get_id());
+			too_early_message.clear();
 			quit();
 			break;
 		case CA_SM_NET_CREATE:
 		{
+			CA_DLOG("SERVICE CA_SM_NET_CREATE on process=%i thread=%i\n", get_process_id(), thread->get_id());
 			CaServiceMessageNetCreate *m = (CaServiceMessageNetCreate*) smsg;
+			if(halted_net.count(m->net_id)) {
+				CA_DLOG("Stop creating halted net on process=%i thread=%i\n", get_process_id(), thread->get_id());
+				update_net_id_counters(m->net_id);
+				too_early_message.erase(m->net_id);
+				halted_net.erase(m->net_id);
+				break;
+			}
 			CaNet *net = spawn_net(thread, m->def_index, m->net_id, NULL, false);
 			net->unlock();
+			if(too_early_message.count(m->net_id)) {
+				std::vector<void* >::const_iterator i;
+				for (i = too_early_message[m->net_id].begin(); i != too_early_message[m->net_id].end(); i++) {
+					process_packet(thread, CA_TAG_TOKENS, *i);
+				}
+				too_early_message.erase(m->net_id);
+			}
 			break;
 		}
 		case CA_SM_NET_HALT:
 		{
+			CA_DLOG("SERVICE CA_SM_NET_HALT on process=%i thread=%i\n", get_process_id(), thread->get_id());
 			CaServiceMessageNetHalt *m = (CaServiceMessageNetHalt*) smsg;
+			if(!is_future_id(m->net_id)) {
+				CA_DLOG("Halting not created net on process=%d net_id=%d\n", get_process_id(), tokens->net_id);
+				halted_net.insert(m->net_id);
+			}
 			inform_halt_network(m->net_id, thread);
 			break;
 		}
 		case CA_SM_WAKE:
 		{
+			CA_DLOG("SERVICE CA_SM_WAKE on process=%i thread=%i\n", get_process_id(), thread->get_id());
 			start_and_join();
 			clear();
 			#ifdef CA_MPI
@@ -235,6 +245,9 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 			break;
 		}
 		case CA_SM_EXIT:
+			CA_DLOG("SERVICE CA_SM_EXIT on process=%i thread=%i\n", get_process_id(), thread->get_id());
+			too_early_message.clear();
+			halted_net.clear();
 			free(smsg);
 			exit(0);
 	}
@@ -316,26 +329,26 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, CaNet *par
 
 	CaNet *net = defs[def_index]->spawn(thread, id, parent_net);
 	net->lock();
-	actualize_net_id_memory(net->get_id());
+	update_net_id_counters(net->get_id());
 	inform_new_network(net, thread);
 	return net;
 }
 
-void CaProcess::actualize_net_id_memory(int net_id)
+void CaProcess::update_net_id_counters(int net_id)
 {
 	int src_proc = net_id % process_count;
 	int net_counter = net_id / process_count;
-	CA_DLOG("Actualize net id memory, process=%d, net_id=%d\n", process_id, net_id);
-	if(net_id_memory[src_proc] < net_counter) {
-		net_id_memory[src_proc] = net_counter;
+	CA_DLOG("Actualize process id counter, process=%d, net_id=%d\n", process_id, net_id);
+	if(process_id_counter[src_proc] < net_counter) {
+		process_id_counter[src_proc] = net_counter;
 	}
 }
 
-bool CaProcess::is_created(int net_id)
+bool CaProcess::is_future_id(int net_id)
 {
 	int last_net, src_proc = net_id % process_count;
 	int net_couter = net_id / process_count;
-	last_net = net_id_memory[src_proc];
+	last_net = process_id_counter[src_proc];
 	if (last_net < net_couter) {
 		return false;
 	} else {
@@ -376,10 +389,10 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	this->defs = defs;
 	this->threads_count = threads_count;
 	pthread_mutex_init(&counter_mutex, NULL);
-	net_id_memory = new int[process_count];
+	process_id_counter = new int[process_count];
 	for(int i = 0 ; i < process_count ; i++)
 	{
-		net_id_memory[i] = -1;
+		process_id_counter[i] = -1;
 	}
 	threads = new CaThread[threads_count];
 	// TODO: ALLOCTEST
@@ -407,7 +420,7 @@ CaProcess::~CaProcess()
 {
 	delete [] threads;
 	pthread_mutex_destroy(&counter_mutex);
-	delete [] net_id_memory;
+	delete [] process_id_counter;
 
 	#ifdef CA_SHMEM
 	pthread_mutex_destroy(&packet_mutex);

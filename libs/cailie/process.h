@@ -4,6 +4,8 @@
 
 #include <pthread.h>
 #include <vector>
+#include <map>
+#include <set>
 #include "messages.h"
 #include "net.h"
 #include "packing.h"
@@ -66,8 +68,8 @@ class CaProcess {
 		void inform_new_network(CaNet *net, CaThread *thread);
 		void inform_halt_network(int net_id, CaThread *thread);
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
-		void actualize_net_id_memory(int net_id);
-		bool is_created(int net_id);
+		void update_net_id_counters(int net_id);
+		bool is_future_id(int net_id);
 
 		int get_threads_count() const { return threads_count; }
 		int get_process_count() const { return process_count; }
@@ -119,8 +121,10 @@ class CaProcess {
 		CaThread *threads;
 		int id_counter;
 		pthread_mutex_t counter_mutex;
-		int *net_id_memory;
-		std::vector<CaUndeliverMessage > undeliver_message;
+		int *process_id_counter;
+		std::map<int, std::vector<void* > > too_early_message;
+		/*memory of net's id which wasn't created, but was halted*/
+		std::set<int > halted_net;
 
 		#ifdef CA_SHMEM
 		pthread_mutex_t packet_mutex;
