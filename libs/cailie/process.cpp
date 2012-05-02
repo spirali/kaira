@@ -227,8 +227,7 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 		}
 		case CA_SM_WAKE:
 		{
-			start();
-			join();
+			start_and_join();
 			clear();
 			#ifdef CA_MPI
 			MPI_Barrier(MPI_COMM_WORLD);
@@ -447,6 +446,7 @@ void CaProcess::start_and_join()
 	if (threads_count == 1) {
 		// If there is only one process them process thread runs scheduler,
 		// it is important because if threads_count == 1 we run MPI in MPI_THREAD_FUNELLED mode
+		quit_flag = false;
 		threads[0].run_scheduler();
 	} else {
 		start();
