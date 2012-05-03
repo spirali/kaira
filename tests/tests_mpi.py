@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from testutils import RunProgram
+from testutils import Project
 from unittest import TestCase
 import unittest
 import os
@@ -18,68 +18,26 @@ TEST_PROJECTS = os.path.join(KAIRA_TESTS, "projects")
 
 class BuildTest(TestCase):
 
-    def run_ptp(self, name):
-        return RunProgram(PTP_BIN, [ name + ".xml", "--build", os.path.dirname(name) ])
-
-    def build(self, filename, final_output = None, make_args = [], **kw):
-        name, ext = os.path.splitext(filename)
-        directory = os.path.dirname(name)
-        make_args = [ "mpi" ] + make_args
-        RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = directory).run()
-        args = [ CMDUTILS, "--export", filename ]
-        RunProgram("python", args).run()
-        self.run_ptp(name).run()
-        RunProgram("make", make_args, cwd = directory).run()
-        if final_output is not None:
-            self.run_program(filename, final_output, **kw)
-
-    def _build_library(self, filename, make_args = []):
-        self.build(filename, make_args = make_args)
-        name, ext = os.path.splitext(filename)
-        directory = os.path.dirname(name)
-        RunProgram("make", [ "-f", "makefile.main", "main_mpi"], cwd = directory).run()
-        return directory
-
-    def build_library(self, filename, final_output, processes = 10, params = [], make_args = []):
-        directory = self._build_library(filename, make_args)
-        RunProgram(os.path.join(directory, "main_mpi"), params,  cwd = directory).mpirun(processes, final_output)
-
-    def fail_library(self, filename, output, processes = 10, params = [], make_args = []):
-        directory = self._build_library(filename, make_args)
-        RunProgram(os.path.join(directory, "main_mpi"), params,  cwd = directory).mpifail(processes, expected_stderr_prefix = output)
-
-    def run_program(self, filename, final_output, params = [], make_args = [],
-        program_name = None, processes = 4, repeat = 1, check_fn = None):
-
-        name, ext = os.path.splitext(filename)
-        directory = os.path.dirname(name)
-        if program_name is None:
-            program_name = name + "_mpi"
-        else:
-            program_name = os.path.join(directory, program_name)
-        for x in xrange(repeat):
-            result = RunProgram(program_name, params, cwd = directory).mpirun(processes, final_output)
-            if check_fn is not None:
-                check_fn(result)
-
     def test_libhelloworld(self):
         result = "40 10 Hello world\n80 10 Hello world\n"\
             "160 10 Hello world\n320 10 Hello world\n640 10 Hello world\n"
-        self.build_library(os.path.join(TEST_PROJECTS, "libhelloworld", "libhelloworld.proj"), result)
+        Project("libhelloworld", mpi=True).quick_test_main(result)
+
 
     def test_overtake(self):
         result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
-        self.build_library(os.path.join(TEST_PROJECTS, "overtake", "overtake.proj"), result, 4, ["--threads=4"])
+        Project("overtake", mpi=True).quick_test_main(result, processes=4, threads=4)
 
     def test_library_processes(self):
         result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
-        self.fail_library(os.path.join(TEST_PROJECTS, "overtake", "overtake.proj"), "Net 2 sends 1 token(s) to invalid process id 1 (valid ids: [0 .. 0])", 1)
+        p = Project("overtake", mpi=True)
+        p.build_main()
+        p.failed_run_main("Net 2 sends 1 token(s) to invalid process id 1 (valid ids: [0 .. 0])\n")
         for x in range(2, 5):
-            self.run_program(os.path.join(TEST_PROJECTS, "overtake", "main"), result, params=["--threads={0}".format(x*x)], processes=x*x)
+            p.run_main(result, threads=x*x, processes=x*x)
 
     def test_modules2(self):
-        self.build(os.path.join(TEST_PROJECTS, "modules2", "modules2.proj"))
-        self.run_program(os.path.join(TEST_PROJECTS, "modules2", "modules2.proj"), "0\n", params=["--threads=4"])
+        Project("modules2", mpi=True).quick_test("0\n", processes=5, threads=4)
 
 if __name__ == '__main__':
     unittest.main()
