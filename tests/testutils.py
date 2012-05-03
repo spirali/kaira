@@ -42,6 +42,15 @@ class RunProgram:
 		pr = subprocess.Popen( ["mpirun -np {0} {1} {2}".format(process_count, self.filename, " ".join(self.parameters))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd = self.cwd, shell=True)
 		return self.result(pr, expected_output)
 
+	def mpifail(self, process_count, expected_stdout = None, expected_stderr = None, expected_stderr_prefix = None):
+		pr = subprocess.Popen( ["mpirun -np {0} {1} {2}".format(process_count, self.filename, " ".join(self.parameters))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd = self.cwd, shell=True)
+		output,errs = pr.communicate()
+		if pr.returncode == 0:
+			self.error("Expected fail, but return code is zero")
+		self.check_output(expected_stdout, output)
+		self.check_output(expected_stderr, errs)
+		self.check_output(expected_stderr_prefix, errs, lambda e, o: o.startswith(e))
+
 	def fail(self, expected_stdout = None, expected_stderr = None, expected_stderr_prefix = None):
 		pr = subprocess.Popen([self.filename] + self.parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd = self.cwd)
 		output,errs = pr.communicate()
@@ -101,6 +110,18 @@ class Project:
         self.export()
         self.run_ptp()
         RunProgram("make", args, cwd = self.get_directory()).fail(expected_stderr_prefix = output)
+
+    def failed_run(self, *args, **kw):
+        self._failed_run(self.get_main(), *args, **kw)
+
+    def _failed_run(self, executable, output = None, result_fn = None, repeat = 1, processes = 1, threads = 1, params = {}):
+        args = [ "-r{0}".format(processes), "--threads={0}".format(threads) ]
+
+        for name in params:
+            args.append("-p{0}={1}".format(name, params[name]))
+
+        for x in xrange(repeat):
+            r = RunProgram(executable, args, cwd = self.get_directory()).fail(expected_stderr_prefix = output)
 
     def make(self, args = []):
         RunProgram("make", args, cwd = self.get_directory()).run()

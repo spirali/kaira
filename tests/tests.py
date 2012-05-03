@@ -63,7 +63,7 @@ class BuildTest(TestCase):
         p.run(result_fn = check_output, processes = 6, threads = 3, params = params, repeat = 30)
         p.run(result_fn = check_output, processes = 6, threads = 1, params = params, repeat = 70)
 
-        Project("workers_fixed", "workers").quick_test(threads=5, processes=1, result_fn = check_output, params = params, repeat=110)
+        Project("workers_fixed", "workers").quick_test(threads=5, processes=6, result_fn = check_output, params = params, repeat=110)
 
     def test_functions(self):
         Project("functions").quick_test("9 9\n")
@@ -97,7 +97,7 @@ class BuildTest(TestCase):
         Project("broken_externtype_function", "broken").failed_make("*MyType/getsize:")
 
     def test_multicast(self):
-        Project("multicast").quick_test("1800\n", processes=4)
+        Project("multicast").quick_test("1800\n", processes=6)
 
     def test_array(self):
         Project("array").quick_test("Ok\n")
@@ -108,18 +108,18 @@ class BuildTest(TestCase):
     def test_modules1(self):
         p = Project("modules1")
         p.build()
-        p.run("148\n")
-        p.run("148\n", threads=2, repeat=100)
+        p.run("148\n", processes=2)
+        p.run("148\n", threads=2, processes=2, repeat=100)
         p.run("148\n", threads=5, processes=3, repeat=100)
 
     def test_modules2(self):
-        Project("modules2").quick_test("0\n")
+        Project("modules2").quick_test("0\n", processes=4)
 
     def test_library_processes(self):
         result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
         p = Project("overtake")
         p.build_main()
-        p.run_main(result)
+        p.failed_run("Sending error: Sending data to unexist process\n")
         for x in range(2, 5):
             p.run_main(result, processes = x * x, threads = x * x)
 
