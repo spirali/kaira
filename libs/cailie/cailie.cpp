@@ -249,7 +249,9 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 
 	MPI_Init_thread(&argc, &argv, target, &provided);
 	if (target > provided) {
-		fprintf(stderr, "MPI_Init_thread: Insufficient support of threads in MPI. Please use another implementation of MPI or set only 1 thread\n");
+		fprintf(stderr, "MPI_Init_thread: Insufficient support of threads in MPI implementaion.\n"
+			"This program can be run with one thread per MPI process or\n"
+			"MPI implementation has to support MPI_THREAD_MULTIPLE.\n");
 		exit(1);
 	}
 	#endif

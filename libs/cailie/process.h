@@ -20,7 +20,7 @@
 #define CA_TAG_TOKENS 0
 #define CA_TAG_SERVICE 1
 
-enum CaServiceMessageType { CA_SM_QUIT, CA_SM_NET_CREATE, CA_SM_NET_HALT, CA_SM_WAKE , CA_SM_EXIT, CA_SM_ERROR};
+enum CaServiceMessageType { CA_SM_QUIT, CA_SM_NET_CREATE, CA_SM_NET_HALT, CA_SM_WAKE , CA_SM_EXIT };
 class CaProcess;
 class CaThread;
 struct CaServiceMessage {
@@ -33,10 +33,6 @@ struct CaServiceMessageNetCreate : CaServiceMessage {
 };
 
 struct CaServiceMessageNetHalt : CaServiceMessage {
-	int net_id;
-};
-
-struct CaServiceMessageError : CaServiceMessage {
 	int net_id;
 };
 

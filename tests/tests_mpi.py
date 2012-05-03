@@ -73,7 +73,7 @@ class BuildTest(TestCase):
 
     def test_library_processes(self):
         result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
-        self.fail_library(os.path.join(TEST_PROJECTS, "overtake", "overtake.proj"), "Sending error: Sending data to unexist process\n", 1)
+        self.fail_library(os.path.join(TEST_PROJECTS, "overtake", "overtake.proj"), "Net 2 sends 1 token(s) to invalid process id 1 (valid ids: [0 .. 0])", 1)
         for x in range(2, 5):
             self.run_program(os.path.join(TEST_PROJECTS, "overtake", "main"), result, params=["--threads={0}".format(x*x)], processes=x*x)
 

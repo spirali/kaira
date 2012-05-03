@@ -119,7 +119,7 @@ class BuildTest(TestCase):
         result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
         p = Project("overtake")
         p.build_main()
-        p.failed_run("Sending error: Sending data to unexist process\n")
+        p.failed_run("Net 2 sends 1 token(s) to invalid process id 1 (valid ids: [0 .. 0])")
         for x in range(2, 5):
             p.run_main(result, processes = x * x, threads = x * x)
 

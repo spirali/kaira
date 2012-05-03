@@ -244,14 +244,6 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 			#endif
 			break;
 		}
-		case CA_SM_ERROR:
-		{
-			CA_DLOG("SERVICE CA_SM_ERROR on process=%i thread=%i\n", get_process_id(), thread->get_id());
-			too_early_message.clear();
-			halted_net.clear();
-			free(smsg);
-			exit(1);
-		}
 		case CA_SM_EXIT:
 			CA_DLOG("SERVICE CA_SM_EXIT on process=%i thread=%i\n", get_process_id(), thread->get_id());
 			too_early_message.clear();
@@ -345,19 +337,17 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, CaNet *par
 void CaProcess::update_net_id_counters(int net_id)
 {
 	int src_proc = net_id % process_count;
-	int net_counter = net_id / process_count;
-	CA_DLOG("Actualize process id counter, process=%d, net_id=%d\n", process_id, net_id);
-	if(process_id_counter[src_proc] < net_counter) {
-		process_id_counter[src_proc] = net_counter;
+	CA_DLOG("Update process id counter, process=%d, net_id=%d\n", process_id, net_id);
+	if(process_id_counter[src_proc] < net_id) {
+		process_id_counter[src_proc] = net_id;
 	}
 }
 
 bool CaProcess::is_future_id(int net_id)
 {
 	int last_net, src_proc = net_id % process_count;
-	int net_couter = net_id / process_count;
 	last_net = process_id_counter[src_proc];
-	if (last_net < net_couter) {
+	if (last_net < net_id) {
 		return false;
 	} else {
 		return true;
