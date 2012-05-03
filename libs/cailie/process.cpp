@@ -244,6 +244,14 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 			#endif
 			break;
 		}
+		case CA_SM_ERROR:
+		{
+			CA_DLOG("SERVICE CA_SM_ERROR on process=%i thread=%i\n", get_process_id(), thread->get_id());
+			too_early_message.clear();
+			halted_net.clear();
+			free(smsg);
+			exit(1);
+		}
 		case CA_SM_EXIT:
 			CA_DLOG("SERVICE CA_SM_EXIT on process=%i thread=%i\n", get_process_id(), thread->get_id());
 			too_early_message.clear();

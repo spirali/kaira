@@ -28,7 +28,15 @@ void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net,
 	data->net_id = net->get_id();
 	data->tokens_count = tokens_count;
 	for (i = targets.begin(); i != targets.end(); i++) {
-		int target = *i % process_count;
+		int target = *i;// % process_count;
+		if(target >= process_count) {
+			CaServiceMessage *m =
+			(CaServiceMessage *) alloca(sizeof(CaServiceMessage));
+			m->type = CA_SM_ERROR;
+			broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), thread, process_id);
+			fprintf(stderr, "Sending error: Sending data to unexist process\n");
+			exit(1);
+		}
 		CA_DLOG("SEND index=%i target=%i process=%i\n", place_index, target, get_process_id());
 		char *d = (char*) malloc(packer.get_size());
 		memcpy(d, data, packer.get_size());
