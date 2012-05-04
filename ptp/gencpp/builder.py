@@ -504,9 +504,6 @@ class Builder(CppWriter):
 
         method = "add" if edge.is_normal() else "add_all"
 
-        if interface_edge:
-            self.line("CaThread *thread = ca_get_first_process()->get_thread(0);")
-
         if edge.guard is not None:
             w.if_begin(edge.guard.emit(em))
         if edge.is_local():
@@ -1213,6 +1210,7 @@ class Builder(CppWriter):
 
         self.line("ca_spawn_toplevel_net({0});", net.get_index())
         self.line("Net_{0} *n = (Net_{0}*)ca_get_main_net();", net.id)
+        self.line("CaThread *thread = ca_get_first_process()->get_thread(0);")
 
         em = emitter.Emitter(self.project)
         em.variable_emitter = lambda name: "___" + name

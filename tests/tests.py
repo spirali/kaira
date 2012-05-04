@@ -74,16 +74,6 @@ class BuildTest(TestCase):
     def test_doubles(self):
         Project("doubles").quick_test("Ok\n")
 
-    """ TEMPORARILY DISABLED
-    def test_log(self):
-        self.build(os.path.join(TEST_PROJECTS, "log", "log.proj"), "", make_args = [ "debug" ], program_name="log_debug")
-        directory = os.path.join(TEST_PROJECTS, "log")
-        RunProgram(os.path.join(KAIRA_TOOLS, "logmerge.py"), [ "log1" ], cwd = directory).run()
-        RunProgram(os.path.join(KAIRA_TOOLS, "logmerge.py"), [ "log2" ], cwd = directory).run()
-        self.assertTrue(os.path.isfile(os.path.join(TEST_PROJECTS, "log", "log1.klog")))
-        self.assertTrue(os.path.isfile(os.path.join(TEST_PROJECTS, "log", "log2.klog")))
-    """
-
     def test_build(self):
         Project("build").quick_test("1: 10\n2: 20\n")
 
@@ -127,6 +117,15 @@ class BuildTest(TestCase):
         result = "40 10 Hello world\n80 10 Hello world\n"\
             "160 10 Hello world\n320 10 Hello world\n640 10 Hello world\n"
         Project("libhelloworld").quick_test_main(result)
+
+    def test_rpc(self):
+        p = Project("rpc")
+        p.build_main()
+        p.start_server()
+        try:
+            p.run_main("2000 31 31 9000 29700\n", repeat = 3)
+        finally:
+            p.stop_server()
 
 if __name__ == '__main__':
     unittest.main()

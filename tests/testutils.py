@@ -15,10 +15,11 @@ TEST_PROJECTS = os.path.join(KAIRA_TESTS, "projects")
 
 class RunProgram:
 
-    def __init__(self, filename, parameters = [], cwd = None):
+    def __init__(self, filename, parameters = [], cwd = None, env = None):
         self.filename = filename
         self.parameters = parameters
         self.cwd = cwd
+        self.env = env
 
     def result(self, pr, expected_output):
         output,errs = pr.communicate()
@@ -30,7 +31,8 @@ class RunProgram:
         return output
 
     def run(self, expected_output = None):
-        pr = subprocess.Popen([self.filename] + self.parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd = self.cwd)
+        pr = subprocess.Popen([self.filename] + self.parameters, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, cwd = self.cwd, env = self.env)
         return self.result(pr, expected_output)
 
     def mpirun(self, process_count, expected_output = None):
@@ -75,6 +77,8 @@ class RunProgram:
 
 
 class Project:
+
+    server = None
 
     def __init__(self, name, directory_name = None, mpi = False):
         self.name = name
@@ -158,9 +162,9 @@ class Project:
         else:
             self._run(executable, run_args, result, **kw)
 
-    def _run(self, executable, run_args, result = None, result_fn = None, repeat = 1, fail = False):
+    def _run(self, executable, run_args, result = None, result_fn = None, repeat = 1, env = None, fail = False):
+        rp = RunProgram(executable, run_args, env = env, cwd = self.get_directory())
         for x in xrange(repeat):
-            rp = RunProgram(executable, run_args, cwd = self.get_directory())
             if fail:
                 rp.fail(expected_stderr = result)
             else:
@@ -180,8 +184,22 @@ class Project:
             self._make(["-f", "makefile.main"])
 
     def run_main(self, result, **kw):
-        self.run(result, executable = self.get_main(), **kw)
+        env = { "CACLIENT_HOST" : "localhost:14980" }
+        self.run(result, executable = self.get_main(), env = env, **kw)
 
     def quick_test_main(self, *args, **kw):
         self.build_main()
         self.run_main(*args, **kw)
+
+    def get_server_directory(self):
+        return os.path.join(self.get_directory(), "server")
+
+    def get_server_executable(self):
+        return os.path.join(self.get_server_directory(), self.name + "_server")
+
+    def start_server(self):
+        env = { "CASERVER_PORT" : "14980" }
+        self.server = subprocess.Popen([self.get_server_executable()], cwd = self.get_server_directory(), env = env)
+
+    def stop_server(self):
+        self.server.kill()

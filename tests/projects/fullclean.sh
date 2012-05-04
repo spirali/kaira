@@ -6,4 +6,4 @@ if [ -f makefile.main ]; then
 	make -f makefile.main clean
 fi
 
-rm -f makefile *.xml *.log *.klog
+rm -fr makefile *.xml *.log *.klog server
