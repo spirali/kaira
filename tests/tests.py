@@ -128,5 +128,8 @@ class BuildTest(TestCase):
             "160 10 Hello world\n320 10 Hello world\n640 10 Hello world\n"
         Project("libhelloworld").quick_test_main(result)
 
+    def test_factorial(self):
+        Project("factorial").quick_test_main("3628800\n", processes=5, threads=5)
+
 if __name__ == '__main__':
     unittest.main()
