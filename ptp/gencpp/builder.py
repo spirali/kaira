@@ -788,9 +788,8 @@ class Builder(CppWriter):
         self.emptyline()
 
         self.line("void calib_init(int argc, char **argv);")
-        em = emitter.Emitter(self.project)
         for p in self.project.get_parameters():
-            self.line("void set_pararameter_{0}({1} {0});", p.get_name(), em.emit_type(p.get_type()))
+            self.line("void set_pararameter_{0}({1} {0});", p.get_name(), self.emit_type(p.get_type()))
         for net in self.project.get_modules():
             self.line("void {0}({1});", net.name, self.emit_library_function_declaration(net))
         self.emptyline()
@@ -1250,9 +1249,8 @@ class Builder(CppWriter):
         self.block_end()
 
     def write_parameters_setters(self):
-        em = emitter.Emitter(self.project)
         for p in self.project.get_parameters():
-            self.line("void set_pararameter_{0}({1} {0})", p.get_name(), em.emit_type(p.get_type()))
+            self.line("void set_pararameter_{0}({1} {0})", p.get_name(), self.emit_type(p.get_type()))
             self.block_begin()
             self.line("__param_{0} = {0};", p.get_name())
             self.block_end()
