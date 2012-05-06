@@ -26,7 +26,7 @@ class BuildTest(TestCase):
 
     def test_overtake(self):
         result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
-        Project("overtake", mpi=True).quick_test_main(result, processes=4, threads=1)
+        Project("overtake", mpi=True).quick_test_main(result, processes=4, threads=4)
 
     def test_library_processes(self):
         result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
@@ -34,22 +34,13 @@ class BuildTest(TestCase):
         p.build_main()
         p.failed_run_main("Net 2 sends 1 token(s) to invalid process id 1 (valid ids: [0 .. 0])\n")
         for x in range(2, 5):
-            p.run_main(result, threads=1, processes=x*x)
+            p.run_main(result, threads=x*x, processes=x*x)
 
     def test_modules2(self):
-        Project("modules2", mpi=True).quick_test("0\n", processes=5, threads=1)
-        
-    def test_factorial(self):
-        Project("factorial", mpi=True).quick_test_main("3628800\n", processes=5, threads=1)
+        Project("modules2", mpi=True).quick_test("0\n", processes=5, threads=4)
 
-    def test_rpc(self):
-        p = Project("rpc", mpi=True,rpc=True)
-        p.build_main()
-        p.start_server()
-        try:
-            p.run_main("2000 31 31 9000 29700\n", repeat=3)
-        finally:
-            p.stop_server()
+    def test_factorial(self):
+        Project("factorial", mpi=True).quick_test_main("3628800\n", processes=5, threads=5)
 
 if __name__ == '__main__':
     unittest.main()

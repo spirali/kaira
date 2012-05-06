@@ -127,5 +127,12 @@ class BuildTest(TestCase):
         finally:
             p.stop_server()
 
+    def test_factorial(self):
+        Project("factorial").quick_test_main("3628800\n", processes=5, threads=5)
+
+    def test_lib_parameters(self):
+        result = "1 1 1 1 \n2 1 1 1 \n4 4 1 1 \n8 8 8 1 \n16 16 16 16 \n"
+        Project("parameters", "lib_parameters").quick_test_main(result, processes=5, threads=5, params={"Size" : 4, "EXP" : 4})
+
 if __name__ == '__main__':
     unittest.main()

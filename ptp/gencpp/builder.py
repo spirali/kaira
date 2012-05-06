@@ -764,6 +764,7 @@ class Builder(CppWriter):
         for net in self.project.nets:
                 self.write_toplevel_finalizer(net)
                 self.write_library_function(net)
+        self.write_parameters_setters()
         self.write_library_init_function()
 
     def build(self):
@@ -787,6 +788,9 @@ class Builder(CppWriter):
         self.emptyline()
 
         self.line("void calib_init(int argc, char **argv);")
+        em = emitter.Emitter(self.project)
+        for p in self.project.get_parameters():
+            self.line("void set_pararameter_{0}({1} {0});", p.get_name(), em.emit_type(p.get_type()))
         for net in self.project.get_modules():
             self.line("void {0}({1});", net.name, self.emit_library_function_declaration(net))
         self.emptyline()
@@ -1193,7 +1197,7 @@ class Builder(CppWriter):
         pvalues = ",".join(("&__param_" + p.name for p in params))
         self.line("int *pvalues[] = {{{0}}};", pvalues)
         self.emptyline()
-        self.line("ca_init(argc, argv, 0, pnames, pvalues, pdesc);")
+        self.line("ca_init(argc, argv, {0}, pnames, pvalues, pdesc);", len(self.project.get_parameters()))
 
         for net in self.project.get_modules():
             self.register_net(net)
@@ -1244,6 +1248,14 @@ class Builder(CppWriter):
 
         self.line("delete n;")
         self.block_end()
+
+    def write_parameters_setters(self):
+        em = emitter.Emitter(self.project)
+        for p in self.project.get_parameters():
+            self.line("void set_pararameter_{0}({1} {0})", p.get_name(), em.emit_type(p.get_type()))
+            self.block_begin()
+            self.line("__param_{0} = {0};", p.get_name())
+            self.block_end()
 
     def get_library_input_arguments(self, net):
         variables = list(net.get_module_input_vars())
