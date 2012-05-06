@@ -1,6 +1,7 @@
 
 import subprocess
 import os
+import time
 
 KAIRA_TESTS = os.path.dirname(os.path.abspath(__file__))
 KAIRA_ROOT = os.path.dirname(KAIRA_TESTS)
@@ -80,13 +81,16 @@ class Project:
 
     server = None
 
-    def __init__(self, name, directory_name = None, mpi = False):
+    def __init__(self, name, directory_name=None, mpi=False, rpc=False):
         self.name = name
         if directory_name is None:
             self.directory_name = name
         else:
             self.directory_name = directory_name
+
         self.mpi = mpi
+        self.rpc = rpc
+
         self.clean()
 
     def get_filename(self):
@@ -99,13 +103,13 @@ class Project:
         return os.path.join(TEST_PROJECTS, self.directory_name)
 
     def get_executable(self):
-        if self.mpi:
+        if self.mpi and not self.rpc:
             return os.path.join(self.get_directory(), self.name + "_mpi")
         else:
             return os.path.join(self.get_directory(), self.name)
 
     def get_main(self):
-        if self.mpi:
+        if self.mpi and not self.rpc:
             return os.path.join(self.get_directory(), "main_mpi")
         else:
             return os.path.join(self.get_directory(), "main")
@@ -149,7 +153,7 @@ class Project:
         if executable is None:
             executable = self.get_executable()
 
-        if self.mpi:
+        if self.mpi and not self.rpc:
             run_args = [ "-np", str(processes), executable, "--threads={0}".format(threads) ]
         else:
             run_args = [ "-r{0}".format(processes), "--threads={0}".format(threads) ]
@@ -157,7 +161,7 @@ class Project:
         for name in params:
             run_args.append("-p{0}={1}".format(name, params[name]))
 
-        if self.mpi:
+        if self.mpi and not self.rpc:
             self._run("mpirun", run_args, result, **kw)
         else:
             self._run(executable, run_args, result, **kw)
@@ -178,14 +182,14 @@ class Project:
 
     def build_main(self):
         self.build()
-        if self.mpi:
+        if self.mpi and not self.rpc:
             self._make(["-f", "makefile.main", "main_mpi"])
         else:
             self._make(["-f", "makefile.main"])
 
     def run_main(self, result, **kw):
         env = { "CACLIENT_HOST" : "localhost:14980" }
-        self.run(result, executable = self.get_main(), env = env, **kw)
+        self.run(result, executable=self.get_main(), env=env, **kw)
 
     def quick_test_main(self, *args, **kw):
         self.build_main()
@@ -195,11 +199,31 @@ class Project:
         return os.path.join(self.get_directory(), "server")
 
     def get_server_executable(self):
-        return os.path.join(self.get_server_directory(), self.name + "_server")
+        filename = os.path.join(self.get_server_directory(), self.name + "_server")
+        if self.mpi:
+            filename += "_mpi"
+        return filename
 
-    def start_server(self):
+    def start_server(self, processes=1, threads=1, params={}):
         env = { "CASERVER_PORT" : "14980" }
-        self.server = subprocess.Popen([self.get_server_executable()], cwd = self.get_server_directory(), env = env)
+
+        executable = self.get_server_executable()
+
+        if self.mpi:
+            run_args = [ "-np", str(processes), executable, "--threads={0}".format(threads) ]
+        else:
+            run_args = [ "-r{0}".format(processes), "--threads={0}".format(threads) ]
+
+        for name in params:
+            run_args.append("-p{0}={1}".format(name, params[name]))
+
+        if self.mpi:
+            real_program = "mpirun"
+        else:
+            real_program = executable
+
+        self.server = subprocess.Popen([real_program] + run_args, cwd=self.get_server_directory(), env=env)
+        time.sleep(0.2) # Let's give some time to server to open socket
 
     def stop_server(self):
         self.server.kill()

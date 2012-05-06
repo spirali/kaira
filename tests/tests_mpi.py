@@ -39,5 +39,14 @@ class BuildTest(TestCase):
     def test_modules2(self):
         Project("modules2", mpi=True).quick_test("0\n", processes=5, threads=4)
 
+    def test_rpc(self):
+        p = Project("rpc", mpi=True,rpc=True)
+        p.build_main()
+        p.start_server()
+        try:
+            p.run_main("2000 31 31 9000 29700\n", repeat=3)
+        finally:
+            p.stop_server()
+
 if __name__ == '__main__':
     unittest.main()

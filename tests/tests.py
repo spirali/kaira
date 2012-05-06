@@ -119,11 +119,11 @@ class BuildTest(TestCase):
         Project("libhelloworld").quick_test_main(result)
 
     def test_rpc(self):
-        p = Project("rpc")
+        p = Project("rpc",rpc=True)
         p.build_main()
         p.start_server()
         try:
-            p.run_main("2000 31 31 9000 29700\n", repeat = 3)
+            p.run_main("2000 31 31 9000 29700\n", repeat=3)
         finally:
             p.stop_server()
 
