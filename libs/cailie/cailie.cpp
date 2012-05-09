@@ -124,12 +124,6 @@ void ca_finalize()
 		delete processes[t];
 	}
 	free(processes);
-
-	for (int i = 0 ; i < defs_count ; i++){
-		delete defs[i];
-	}
-
-	free(defs);
 	#endif
 
 	#ifdef CA_MPI
@@ -142,7 +136,13 @@ void ca_finalize()
 		process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), process->get_thread(0), 0);
 	}
 	MPI_Finalize();
+	delete process;
 	#endif
+
+	for (int i = 0 ; i < defs_count ; i++) {
+		delete defs[i];
+	}
+	free(defs);
 }
 
 void ca_init(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs)
