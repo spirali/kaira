@@ -100,6 +100,14 @@ void CaThread::join()
 
 void CaThread::clear()
 {
+	if(get_id() == 0) {
+		std::vector<CaNet* >::const_iterator it;
+		for(it = nets.begin(); it < nets.end() ; it++) {
+			if(!(*it)->get_manual_delete()) {
+				delete (*it);
+			}
+		}
+	}
 	nets.clear();
 }
 
