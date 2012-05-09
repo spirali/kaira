@@ -100,6 +100,15 @@ void CaThread::join()
 
 void CaThread::clear()
 {
+	process_messages();
+	if (id == 0) {
+		std::vector<CaNet*>::const_iterator it;
+		for (it = nets.begin(); it < nets.end(); it++) {
+			if (!(*it)->get_manual_delete()) {
+				delete (*it);
+			}
+		}
+	}
 	nets.clear();
 }
 
@@ -445,11 +454,6 @@ void CaProcess::join()
 	for (t = 0; t < threads_count; t++) {
 		threads[t].join();
 	}
-
-	// Clean up messages, it is important for reusing process in generated library
-	for (t = 0; t < threads_count; t++) {
-		threads[t].clean_thread_messages();
-	}
 }
 
 void CaProcess::start_and_join()
@@ -467,7 +471,7 @@ void CaProcess::start_and_join()
 
 void CaProcess::clear()
 {
-	for(int i = 0 ; i < threads_count ; i++)
+	for(int i = threads_count - 1 ; i >= 0 ; i--)
 	{
 		get_thread(i)->clear();
 	}
