@@ -43,7 +43,7 @@ import loader
 import ptp
 
 
-VERSION_STRING = '0.3'
+VERSION_STRING = '0.4'
 
 class App:
     """
@@ -96,7 +96,7 @@ class App:
         self.nv = NetView(self, self.project)
         self.nv.transition_edit_callback = self.transition_edit
         self.nv.place_edit_callback = self.place_edit
-        self.window.add_tab(Tab("Network", self.nv, has_close_button = False))
+        self.window.add_tab(Tab("Nets", self.nv, has_close_button = False))
 
     def new_project(self):
         def project_name_changed(w = None):
