@@ -68,6 +68,9 @@ CaNet::CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread, CaNet
 
 CaNet::~CaNet()
 {
+	if (finalizer_fn) {
+		finalizer_fn(NULL, NULL, NULL, data, true);
+	}
 	delete [] transitions;
 	pthread_mutex_destroy(&mutex);
 }
@@ -122,7 +125,7 @@ int CaNet::fire_transition(CaThread *thread, int transition_id)
 void CaNet::finalize(CaThread *thread)
 {
 	if (finalizer_fn) {
-		finalizer_fn(thread, parent_net, this, data);
+		finalizer_fn(thread, parent_net, this, data, false);
 		set_finalizer(NULL, NULL);
 	}
 }
