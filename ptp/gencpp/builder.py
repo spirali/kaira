@@ -331,20 +331,22 @@ class Builder(CppWriter):
                     return "subnet->place_{0.id}.to_vector()".format(edge.get_place())
             return vars_access[name].emit(em)
 
-        def delete_block(matches):
-            for edge, _ in matches:
+        def delete_block():
+            for edge in tr.get_normal_edges_in():
                 self.line("delete tokens->token_{0.uid};", edge)
             self.line("delete tokens;")
 
         matches, _, vars_access = get_edges_mathing(self.project, tr)
 
         self.line("void transition_finalizer_{0.id}(CaThread *thread, "
-                  "Net_{1.id} *n, Net_{2.id} *subnet, Tokens_{0.id} *tokens, bool only_delete)", tr, tr.net, tr.subnet)
+                  "Net_{1.id} *n, Net_{2.id} *subnet, Tokens_{0.id} *tokens, bool cleanup_only)", tr, tr.net, tr.subnet)
         self.block_begin()
-        self.if_begin("only_delete")
-        delete_block(matches)
+
+        self.if_begin("cleanup_only")
+        delete_block()
         self.line("return;")
         self.block_end()
+
         self.line("CaContext ctx(thread, n);")
         conditions = []
         for edge in tr.subnet.get_interface_edges_in():
@@ -373,7 +375,7 @@ class Builder(CppWriter):
             self.write_decrement_running_transitions(self, "n")
         self.line("if (lock) n->unlock();")
 
-        delete_block(matches)
+        delete_block()
         self.block_end()
 
     def write_transition(self, tr):
@@ -1052,7 +1054,7 @@ class Builder(CppWriter):
 
     def write_toplevel_finalizer(self, net):
         self.line("void toplevel_finalizer_{0.id}(CaThread *thread, "
-                  "CaNet *n, Net_{0.id} *subnet, void *vars, bool only_delete)", net)
+                  "CaNet *n, Net_{0.id} *subnet, void *vars, bool cleanup_only)", net)
         self.block_begin()
         self.line("thread->quit_all();")
         self.block_end()
