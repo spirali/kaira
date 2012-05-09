@@ -18,7 +18,7 @@ class CaUnpacker;
 typedef int(CaEnableFn)(CaThread *, CaNet *);
 typedef bool(CaEnableCheckFn)(CaThread *, CaNet *);
 typedef CaNet * (CaSpawnFn)(CaThread *, CaNetDef *, int id, CaNet *);
-typedef void (CaNetFinalizerFn)(CaThread *, CaNet *, CaNet *, void *);
+typedef void (CaNetFinalizerFn)(CaThread *, CaNet *, CaNet *, void *, bool);
 
 class CaTransition {
 	public:
