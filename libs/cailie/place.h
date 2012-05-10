@@ -5,6 +5,7 @@
 #include <vector>
 
 template<class T> class CaToken {
+
 	public:
 		CaToken(const T &element) { this->element = element; }
 
@@ -19,8 +20,10 @@ template<class T> class CaToken {
 };
 
 template<class T> class CaPlace {
+
 	public:
 		CaPlace() : token(NULL), tokens_count(0) {}
+		~CaPlace() { clear(); }
 
 		void add(const T &element) {
 			CaToken<T> *t = new CaToken<T>(element);
@@ -37,6 +40,7 @@ template<class T> class CaPlace {
 			}
 			tokens_count++;
 		}
+
 		void add_all(const std::vector<T> &elements) {
 			typename std::vector<T>::const_iterator i;
 			for (i = elements.begin(); i != elements.end(); i++) {
@@ -98,19 +102,13 @@ template<class T> class CaPlace {
 		}
 
 		CaToken<T> * begin() { return token; }
-
 		size_t size() { return tokens_count; }
-
-		CaToken<T> *last() { return token->prev; }
-
+		CaToken<T> * last() { return token->prev; }
 		bool is_empty() { return token == NULL; }
-
 		T first_value() { return token->element; }
 
-		~CaPlace() { clear(); }
-
 	protected:
-		/* This is naive implementation, it needs benchmarks
+		/* This is a naive implementation, it needs benchmarks
 			to choose correct implementation */
 		CaToken<T> *token;
 		int tokens_count;
