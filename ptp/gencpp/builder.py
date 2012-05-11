@@ -1205,10 +1205,10 @@ class Builder(CppWriter):
         self.emptyline()
         self.line("ca_init(argc, argv, {0}, pnames, pvalues, pdesc);", len(self.project.get_parameters()))
 
-        for net in self.project.get_modules():
+        for net in self.project.nets:
             self.register_net(net)
 
-        defs = [ "def_{0.id}".format(net) for net in self.project.get_modules() ]
+        defs = [ "def_{0.id}".format(net) for net in self.project.nets ]
         self.line("CaNetDef *defs[] = {{{0}}};", ",".join(defs))
         self.line("ca_setup({0}, defs);", len(defs));
 
