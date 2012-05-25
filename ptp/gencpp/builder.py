@@ -807,7 +807,7 @@ class Builder(CppWriter):
         self.line("#include <caclient.h>")
         self.line("static CaClient client;")
         self.emptyline()
-
+        self.write_types()
         for net in self.project.get_modules():
             self.line("static int __{0.name}_id;", net)
             self.write_client_library_function(net)
