@@ -11,10 +11,14 @@ class SettingsWidget(gtk.Notebook):
         self.show_all()
 
     def _generic_settings(self):
-        vbox = gtk.VBox()
+        def settings_button(value, descritpion):
+            button = gtk.CheckButton(descritpion)
+            button.set_active(self.app.get_settings(value))
+            button.connect("toggled",
+                lambda w: self.app.set_settings(value, w.get_active()))
+            vbox.pack_start(button, False, False)
 
-        button = gtk.CheckButton("Save project before building")
-        button.set_active(self.app.get_settings("save-before-build"))
-        button.connect("toggled", lambda w: self.app.set_settings("save-before-build", w.get_active()))
-        vbox.pack_start(button, False, False)
+        vbox = gtk.VBox()
+        settings_button("save-before-build", "Save project before build")
+        settings_button("ptp-debug", "PTP debugging")
         return vbox

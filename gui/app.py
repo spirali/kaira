@@ -58,7 +58,8 @@ class App:
         self._open_welcome_tab()
         self.grid_size = 1
         self.settings = {
-            "save-before-build" : True
+            "save-before-build" : True,
+            "ptp-debug" : False
         }
 
         if args:
@@ -464,14 +465,17 @@ class App:
                 self.project.set_error_messages(error_messages)
                 self.console_write("Building failed\n", "error")
         def on_line(line, stream):
-            self.console_write(line)
+            #self.console_write(line)
             stdout.append(line)
             return True
         if not self.export_project(proj, simulator_mode):
             return
         p = process.Process(paths.PTP_BIN, on_line, on_exit)
         p.cwd = proj.get_directory()
-        p.start([proj.get_exported_filename()] + extra_args)
+        args = [proj.get_exported_filename()]
+        if self.get_settings("ptp-debug"):
+            args.insert(0, "--debug")
+        p.start(args + extra_args)
 
     def _try_make_error_with_link(self, id_string, item_id, pos, message):
         search = re.search("^\d+:", message)
