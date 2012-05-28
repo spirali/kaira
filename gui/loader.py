@@ -146,5 +146,8 @@ def new_empty_project(directory, extenv_name):
     else:
         project.add_net(Net(project, "main", "Main"))
 
+    if project.get_main_net() is not None:
+        project.simulator_net = project.get_main_net()
+
     project.save()
     return project
