@@ -1,5 +1,5 @@
 
 source_files = [ "caclient.cpp" ]
 
-env = Environment(CCFLAGS="-O2 -ggdb -Wall -I../cailie")
+env = Environment(CCFLAGS="-O2 -fPIC -ggdb -Wall -I../cailie")
 env.StaticLibrary("caclient", source_files)
