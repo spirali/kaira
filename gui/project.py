@@ -432,7 +432,6 @@ class NativeExternType(ExternTypeBase):
 
         self.functions = {
             "getstring": "",
-            "getsize": "",
             "pack": "",
             "unpack": "",
             "to_octave_value":"",
@@ -483,7 +482,6 @@ class NativeExternType(ExternTypeBase):
     def get_function_names(self):
         lst = [ "getstring" ]
         if self.transport_mode == "Custom":
-            lst.append("getsize")
             lst.append("pack")
             lst.append("unpack")
         if self.octave_value:

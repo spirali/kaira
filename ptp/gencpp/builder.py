@@ -183,10 +183,6 @@ class Builder(CppWriter):
                   ' + "," +'.join((self.code_as_string(e, t) for e, t in decls)))
         self.write_method_end()
 
-        self.write_method_start("size_t get_mem_size()")
-        self.line('return {0};', ' + '.join((self.get_size_code(t, e) for e, t in decls)))
-        self.write_method_end()
-
         self.write_method_start("void pack(CaPacker &packer)")
         for e, t in decls:
             self.line(self.get_pack_code(t, "packer", e) + ";")
@@ -212,20 +208,6 @@ class Builder(CppWriter):
         self.block_end()
         self.line('osstream << "]";')
         self.line("return osstream.str();")
-        self.block_end()
-
-    def write_array_size(self, t):
-        self.line("size_t array_{0}_size(std::vector <{1} > &vector)",
-                  t.get_safe_name(), self.emit_type(t))
-        self.block_begin()
-        self.line("size_t s = sizeof(size_t);")
-        # FIXME: Optimize for constant size objects
-        self.line("for (std::vector<{0} >::iterator i = vector.begin(); i != vector.end(); i++)",
-                  self.emit_type(t))
-        self.block_begin()
-        self.line("s += {0};", self.get_size_code(t, "(*i)"))
-        self.block_end()
-        self.line("return s;")
         self.block_end()
 
     def write_array_pack(self, t):
@@ -276,7 +258,6 @@ class Builder(CppWriter):
         for t in get_ordered_types(self.project):
             if len(t.args) == 1 and t.name == "Array":
                 self.write_array_as_string(t.args[0])
-                self.write_array_size(t.args[0])
                 self.write_array_pack(t.args[0])
                 self.write_array_unpack(t.args[0])
 
@@ -420,24 +401,6 @@ class Builder(CppWriter):
         for ufunction in self.project.get_user_functions():
             self.write_user_function(ufunction)
 
-    def get_size_code(self, t, code):
-        if t == t_int or t == t_float or t == t_double:
-            return "sizeof({0})".format(code)
-        if t == t_string:
-            return "(sizeof(size_t) + ({0}).size())".format(code)
-        if t.name == "":
-            return "({0}).get_mem_size()".format(code)
-        if t.name == "Array":
-            return "array_{1}_size({0})".format(code, t.args[0].get_safe_name())
-        etype = self.project.get_extern_type(t.name)
-        if etype:
-            if etype.get_transport_mode() == "Disabled":
-                raise utils.PtpException("Transport of type '{0.name}' is disabled".format(etype))
-            if etype.get_transport_mode() == "Direct":
-                return "sizeof({0})".format(code)
-            return "{0.name}_getsize({1})".format(etype, code)
-        raise Exception("Unknown type: " + str(t))
-
     def get_pack_code(self, t, packer, code):
         if t == t_int:
             return "{0}.pack_int({1})".format(packer, code)
@@ -540,21 +503,13 @@ class Builder(CppWriter):
             traw = self.emit_type(t)
             w.line("{0} value = {1};", self.emit_type(edge.expr.nel_type), edge.expr.emit(em))
             if edge.is_normal(): # Pack normal edge
-                w.line("CaPacker packer({0}, CA_RESERVED_PREFIX);", self.get_size_code(t, "value"))
+                w.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, CA_RESERVED_PREFIX);")
                 w.line("{0};", self.get_pack_code(t, "packer", "value"))
                 w.line("thread->send{0}(target_{1.id}, n, {2}, packer);",
                        sendtype, edge, edge.get_place().get_pos_id())
             else: # Pack packing edge
-                if self.is_directly_packable(t):
-                    w.line("size_t size = sizeof({0}) * value.size();", self.emit_type(t))
-                else:
-                    w.line("size_t size = 0;")
-                    w.line("for (std::vector<{0} >::iterator i = value.begin(); i != value.end(); i++)", traw)
-                    w.block_begin()
-                    w.line("size += {0};", self.get_size_code(t, "(*i)"))
-                    w.block_end()
                 # TODO: Pack in one step if type is directly packable
-                w.line("CaPacker packer(size, CA_RESERVED_PREFIX);")
+                w.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, CA_RESERVED_PREFIX);")
                 w.line("for (std::vector<{0} >::iterator i = value.begin(); i != value.end(); i++)", traw)
                 w.block_begin()
                 w.line("{0};", self.get_pack_code(t, "packer", "(*i)"))
@@ -731,7 +686,6 @@ class Builder(CppWriter):
     def write_extern_types_functions(self, definitions):
         decls = {
                  "getstring" : "std::string {0.name}_getstring({0.rawtype} &obj)",
-                 "getsize" : "size_t {0.name}_getsize({0.rawtype} &obj)",
                  "pack" : "void {0.name}_pack(CaPacker &packer, {0.rawtype} &obj)",
                  "unpack" : "{0.rawtype} {0.name}_unpack(CaUnpacker &unpacker)"
         }
@@ -752,9 +706,8 @@ class Builder(CppWriter):
             if etype.has_code("getstring"):
                 f(etype, "getstring")
             if etype.get_transport_mode() == "Custom":
-                if not etype.has_code("getsize") or not etype.has_code("pack") or not etype.has_code("unpack"):
-                    raise utils.PtpException("Extern type has custom transport mode but getsize/pack/unpack missing.")
-                f(etype, "getsize")
+                if not etype.has_code("pack") or not etype.has_code("unpack"):
+                    raise utils.PtpException("Extern type has custom transport mode but pack/unpack missing.")
                 f(etype, "pack")
                 f(etype, "unpack")
 
@@ -992,12 +945,10 @@ class Builder(CppWriter):
     def write_client_library_function(self, net):
         self.line("void {0}({1})", net.name, self.emit_library_function_declaration(net, "___"))
         self.block_begin()
-        self.line("size_t size = 0;")
 
         context = net.get_interface_context()
-        for name in self.get_library_input_arguments(net):
-            self.line("size += {0};", self.get_size_code(context[name], "___" + name))
-        self.line("CaPacker packer(size, CA_RESERVED_CALL_PREFIX);")
+
+        self.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, CA_RESERVED_CALL_PREFIX);")
 
         for name in self.get_library_input_arguments(net):
             self.line("{0};", self.get_pack_code(context[name], "packer", "___" + name))
@@ -1175,11 +1126,7 @@ class Builder(CppWriter):
         args = ",".join("___" + name for name, _ in self.get_library_function_arguments(net))
         self.line("{0}({1});", net.name, args)
 
-        self.line("size_t size = 0;")
-        for name in self.get_library_output_arguments(net):
-            self.line("size += {0};", self.get_size_code(context[name], "___" + name))
-
-        self.line("CaPacker packer(size, sizeof(size_t));")
+        self.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, sizeof(size_t));")
 
         for name in self.get_library_output_arguments(net):
             self.line("{0};", self.get_pack_code(context[name], "packer", "___" + name))

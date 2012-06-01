@@ -84,7 +84,7 @@ class BuildTest(TestCase):
         Project("broken_userfunction", "broken").failed_make("*106/user_function:")
 
     def test_broken_externtype_function(self):
-        Project("broken_externtype_function", "broken").failed_make("*MyType/getsize:")
+        Project("broken_externtype_function", "broken").failed_make("*MyType/pack:")
 
     def test_multicast(self):
         Project("multicast").quick_test("1800\n", processes=6)

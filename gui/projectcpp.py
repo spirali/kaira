@@ -93,8 +93,6 @@ class ExternTypeCpp(NativeExternType):
     def get_function_declaration(self, name):
         if name == "getstring":
             return "std::string getstring(const " + self.raw_type + " &obj)"
-        elif name == "getsize":
-            return "size_t getsize(const " + self.raw_type + " &obj)"
         elif name == "pack":
             return "void pack(CaPacker &packer, const " + self.raw_type + " &obj)"
         elif name == "unpack":

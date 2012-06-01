@@ -67,8 +67,6 @@ class ExternTypeJava(NativeExternType):
     def get_function_declaration(self, name):
         if name == "getstring":
             return "String getstring(" + self.raw_type + " obj)"
-        elif name == "getsize":
-            return "int getsize(" + self.raw_type + " obj)"
         elif name == "pack":
             return "void pack(CaPacker packer, " + self.raw_type + " obj)"
         elif name == "unpack":
