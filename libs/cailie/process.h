@@ -9,8 +9,6 @@
 #include "messages.h"
 #include "net.h"
 #include "packing.h"
-#include "logging.h"
-
 #ifdef CA_MPI
 #include "mpi_requests.h"
 #endif
@@ -173,7 +171,6 @@ class CaThread {
 		CaProcess * get_process() const { return process; }
 
 		void init_log(const std::string &logname);
-		void close_log() { if (logger) { delete logger; logger = NULL; } }
 
 		CaNet * spawn_net(int def_index, CaNet *parent_net);
 		CaNet * get_net(int id);
@@ -227,8 +224,6 @@ class CaThread {
 		#ifdef CA_MPI
 		CaMpiRequests requests;
 		#endif
-
-		CaLogger *logger;
 };
 
 #endif

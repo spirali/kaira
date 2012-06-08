@@ -12,7 +12,7 @@ extern std::string ca_log_default_name;
 extern const char *ca_project_description_string;
 extern int ca_log_on;
 
-CaThread::CaThread() : messages(NULL), logger(NULL)
+CaThread::CaThread() : messages(NULL)
 {
 	pthread_mutex_init(&messages_mutex, NULL);
 }
@@ -20,8 +20,6 @@ CaThread::CaThread() : messages(NULL), logger(NULL)
 CaThread::~CaThread()
 {
 	pthread_mutex_destroy(&messages_mutex);
-	if (logger)
-		close_log();
 }
 
 void CaThread::add_message(CaThreadMessage *message)
@@ -115,39 +113,6 @@ void CaThread::clear()
 void CaThread::quit_all()
 {
 	process->quit_all(this);
-}
-
-void CaThread::init_log(const std::string &logname)
-{
-	if (logger) {
-		return;
-	}
-	logger = new CaLogger(logname, process->get_process_id() * process->get_threads_count() + id);
-
-	if (id == 0) {
-		int lines = 1;
-		for (const char *c = ca_project_description_string; (*c) != 0; c++) {
-			if ((*c) == '\n') {
-				lines++;
-			}
-		}
-
-		FILE *out = logger->get_file();
-		CaOutput output;
-		output.child("header");
-		output.set("process-count", process->get_process_count());
-		output.set("threads-count", process->get_threads_count());
-		output.set("description-lines", lines);
-		CaOutputBlock *block = output.back();
-		block->write(out);
-		delete block;
-		fputs("\n", out);
-		fputs(ca_project_description_string, out);
-		fputs("\n", out);
-		process->write_reports(out);
-	}
-	logger->log_time();
-	logger->flush();
 }
 
 void CaProcess::multisend(int target, CaNet *net, int place_pos, int tokens_count, const CaPacker &packer, CaThread *thread)

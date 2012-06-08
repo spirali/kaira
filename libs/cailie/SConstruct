@@ -1,5 +1,5 @@
 
-source_files = Split("cailie.cpp process.cpp messages.cpp listener.cpp net.cpp output.cpp packing.cpp logging.cpp listener.cpp")
+source_files = Split("cailie.cpp process.cpp messages.cpp listener.cpp net.cpp output.cpp packing.cpp listener.cpp")
 
 Export("source_files")
 

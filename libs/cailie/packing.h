@@ -4,6 +4,13 @@
 
 #include <string>
 #include <string.h>
+#include <ostream>
+
+class CaBufferOut : public std::streambuf {
+	public:
+		CaBufferOut(size_t size);
+		void overflow();
+};
 
 class CaUnpacker {
 
@@ -25,7 +32,7 @@ class CaUnpacker {
 
 const size_t CA_PACKER_DEFAULT_SIZE = 4000;
 
-class CaPacker {
+class CaPacker : public std::ostream {
 
 	public:
 		CaPacker(size_t size);
@@ -43,6 +50,7 @@ class CaPacker {
 		void check_size(size_t size);
 		void free();
 	protected:
+		CaBufferOut buf;
 		char *buffer_pos;
 		size_t size;
 		char *buffer;
