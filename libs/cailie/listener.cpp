@@ -14,7 +14,7 @@
 
 #include "listener.h"
 #include "output.h"
-#include "process.h"
+#include "thread.h"
 
 extern char * ca_project_description_string;
 

@@ -1,6 +1,6 @@
 
 main: main.cpp
-	g++ -o main main.cpp -I../../../libs/cailie -L../../../libs/cailie/build -L. -lovertake -lcailie -lrt -g
+	g++ -o main main.cpp -I../../../libs/cailie -L../../../libs/cailie/build -L. -lovertake -lcailie -lpthread -lrt -g
 
 main_mpi: main.cpp
 	mpic++ main.cpp -o main_mpi -I../../../libs/cailie -L../../../libs/cailie/build-mpi -L. -lovertake_mpi -lcailiempi -lpthread -lrt

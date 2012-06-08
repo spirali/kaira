@@ -12,8 +12,6 @@
 
 int ca_threads_count = 1;
 const char *ca_project_description_string = NULL;
-int ca_log_on = 0;
-std::string ca_log_default_name = "";
 int ca_listen_port = -1;
 int ca_block_on_start = 0;
 CaNetDef **defs;
@@ -205,10 +203,6 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 				s++;
 				int r = ca_set_argument(params_count, param_names, param_data, str, s);
 				setted[r] = true;
-			} break;
-			case 'l': {
-				ca_log_on = 1;
-				ca_log_default_name = optarg;
 			} break;
 			case 's': {
 				if (!strcmp(optarg, "auto")) {

@@ -41,22 +41,4 @@ class CaThreadMessageBarriers  : public CaThreadMessage {
 		pthread_barrier_t *barrier2;
 };
 
-class CaThreadMessageLogInit  : public CaThreadMessage {
-	public:
-		CaThreadMessageLogInit(std::string logname, pthread_barrier_t *barrier1, pthread_barrier_t *barrier2)
-			: barrier1(barrier1), barrier2(barrier2), logname(logname) {}
-		void process(CaThread *thread);
-	protected:
-		pthread_barrier_t *barrier1;
-		pthread_barrier_t *barrier2;
-		std::string logname;
-};
-
-class CaThreadMessageLogClose : public CaThreadMessage {
-	public:
-		CaThreadMessageLogClose() : CaThreadMessage() {}
-		void process(CaThread *thread);
-};
-
-
 #endif

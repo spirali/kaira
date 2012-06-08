@@ -2,12 +2,12 @@
 #include "packing.h"
 #include <stdlib.h>
 
-CaPacker::CaPacker(size_t size) : std::ostream(&buf), buf(size), size(size) {
+CaPacker::CaPacker(size_t size) : size(size) {
 	buffer = (char*) malloc (size);
 	buffer_pos = buffer;
 }
 
-CaPacker::CaPacker(size_t size, size_t reserved) : std::ostream(&buf), buf(size + reserved), size(size + reserved) {
+CaPacker::CaPacker(size_t size, size_t reserved) : size(size + reserved) {
 	buffer = (char*) malloc (size + reserved);
 	buffer_pos = buffer + reserved;
 }

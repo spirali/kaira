@@ -10,7 +10,7 @@
 #include <algorithm>
 
 #include "place.h"
-#include "process.h"
+#include "thread.h"
 #include "net.h"
 
 #define CA_DLOG(...)
@@ -28,10 +28,6 @@ class CaContext {
 		int process_id() { return thread->get_process_id(); }
 		int process_count() { return thread->get_process_count(); }
 		int threads_count() { return thread->get_threads_count(); }
-		/*
-		void start_logging(std::string &logname) { thread->start_logging(logname); }
-		void stop_logging() { thread->stop_logging(); }
-		*/
 		bool get_halt_flag() { return halt_flag; }
 	protected:
 		CaThread *thread;
