@@ -41,6 +41,7 @@ import externtypes
 import functions
 import loader
 import ptp
+import utils
 
 
 VERSION_STRING = '0.4'
@@ -205,7 +206,8 @@ class App:
             self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
 
     def build_project(self):
-        self._start_build(self.project, False, lambda p: self.console_write("Build OK\n", "success"))
+        self._start_build(self.project, False,
+                          lambda p: self.console_write("Build finished\n", "success"))
 
     def get_grid_size(self):
         return self.grid_size
@@ -429,9 +431,10 @@ class App:
         self.nv.net_changed()
 
     def _project_filename_changed(self):
-        self.window.set_title("Kaira - {0} ({1})".format(self.project.get_name(), self.project.get_extenv_name()))
+        self.window.set_title("Kaira - {0} ({1})" \
+            .format(self.project.get_name(), self.project.get_extenv_name()))
 
-    def _run_makefile(self, project, build_ok_callback = None, target = None):
+    def _run_makefile(self, project, build_directory, build_ok_callback = None, target = None):
         def on_exit(code):
             if build_ok_callback and code == 0:
                 build_ok_callback(project)
@@ -439,7 +442,7 @@ class App:
             self._process_error_line(line, None)
             return True
         p = process.Process("make",on_line, on_exit)
-        p.cwd = project.get_directory()
+        p.cwd = build_directory
         if target is None:
             p.start()
         else:
@@ -449,8 +452,14 @@ class App:
         if self.get_settings("save-before-build"):
             self._save_project(silent = True)
 
-        extra_args = [ "--build", proj.get_directory() ]
-        self._start_ptp(proj, simulator_mode, lambda lines: self._run_makefile(proj, build_ok_callback), extra_args = extra_args)
+        build_directory = proj.get_directory_release()
+        utils.makedir_if_not_exists(build_directory)
+
+        extra_args = [ "--build", build_directory ]
+        self._start_ptp(proj,
+                        simulator_mode,
+                        lambda lines: self._run_makefile(proj, build_directory, build_ok_callback),
+                        extra_args = extra_args)
 
     def _start_ptp(self, proj, simulator_mode, build_ok_callback = None, extra_args = []):
         stdout = []

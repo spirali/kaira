@@ -132,13 +132,16 @@ class Project(EventSource):
         return name
 
     def get_executable_filename(self):
-        return self.get_filename_without_ext()
+        return os.path.join(self.get_directory_release(), self.get_name())
 
     def get_exported_filename(self):
         return self.get_filename_without_ext() + ".xml"
 
     def get_directory(self):
         return os.path.dirname(self.filename)
+
+    def get_directory_release(self):
+        return os.path.join(self.get_directory(), "release")
 
     def set_filename(self, filename):
         self.filename = os.path.abspath(filename)

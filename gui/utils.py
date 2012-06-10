@@ -266,6 +266,10 @@ def write_file_if_not_exists(filename, content):
         with open(filename, "w") as f:
             f.write(content)
 
+def makedir_if_not_exists(dirname):
+    if not os.path.isdir(dirname):
+        os.makedirs(dirname)
+
 class EqMixin(object):
 
     def __eq__(self, other):
