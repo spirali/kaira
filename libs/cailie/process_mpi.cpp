@@ -7,12 +7,13 @@
 void CaProcess::broadcast_packet(int tag, void *data, size_t size, CaThread *thread, int exclude)
 {
 	thread->get_requests()->check();
+	char *d = (char*) malloc(size);
+	memcpy(d, data, size);
+	int count = 0;
 	for (int t = 0; t < process_count; t++) {
 		if (t == exclude)
 			continue;
-		char *d = (char*) malloc(size);
-		memcpy(d, data, size);
-		MPI_Request *request = thread->get_requests()->new_request(d);
+		MPI_Request *request = thread->get_requests()->new_request(d, count++);
 		MPI_Isend(d, size, MPI_CHAR, t, tag, MPI_COMM_WORLD, request);
 	}
 }
@@ -27,6 +28,9 @@ void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net,
 	data->place_index = place_index;
 	data->net_id = net->get_id();
 	data->tokens_count = tokens_count;
+	char *d = (char*) malloc(packer.get_size());
+	memcpy(d, data, packer.get_size());
+	int count = 0;
 	for (i = targets.begin(); i != targets.end(); i++) {
 		int target = *i;
 		if(target < 0 || target >= process_count) {
@@ -35,9 +39,8 @@ void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net,
 			exit(1);
 		}
 		CA_DLOG("SEND index=%i target=%i process=%i\n", place_index, target, get_process_id());
-		char *d = (char*) malloc(packer.get_size());
-		memcpy(d, data, packer.get_size());
-		MPI_Request *request = thread->get_requests()->new_request(d);
+
+		MPI_Request *request = thread->get_requests()->new_request(d, count++);
 		MPI_Isend(d, size, MPI_CHAR, target, CA_TAG_TOKENS, MPI_COMM_WORLD, request);
 	}
 	free(buffer);
