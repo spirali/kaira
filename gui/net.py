@@ -166,7 +166,7 @@ class Net:
     def inodes(self):
         return [ item for item in self.items if item.is_inode() ]
 
-    def export_xml(self):
+    def export_xml(self, export_config):
         e = xml.Element("net")
         e.set("name", self.name)
         e.set("id", str(self.id))
@@ -176,10 +176,10 @@ class Net:
             e.set("autohalt", "False")
 
         for place in self.places():
-            e.append(place.export_xml())
+            e.append(place.export_xml(export_config))
 
         for transition in self.transitions():
-            e.append(transition.export_xml())
+            e.append(transition.export_xml(export_config))
 
         for area in self.areas():
             e.append(area.export_xml())
@@ -298,13 +298,13 @@ class NetElement(NetItem):
         self.position = position
 
     def has_code(self):
-        return self.code.strip() != ""
+        return self.code != ""
 
     def get_code(self):
         return self.code
 
     def set_code(self, code):
-        self.code = code
+        self.code = code.strip()
         self.changed()
 
     def get_position(self):
@@ -369,6 +369,9 @@ class Transition(NetElement):
     def is_transition(self):
         return True
 
+    def is_immediate(self):
+        return not self.has_code() and self.subnet is None
+
     def as_xml(self):
         e = self.create_xml_element("transition")
         e.set("name", self.name)
@@ -387,7 +390,7 @@ class Transition(NetElement):
         self.subnet = net
         self.changed()
 
-    def export_xml(self):
+    def export_xml(self, export_config):
         e = self.create_xml_element("transition")
         e.set("name", self.name)
         e.set("guard", self.guard)
@@ -402,6 +405,9 @@ class Transition(NetElement):
 
         for edge in self.edges_from(postprocess = True):
             e.append(edge.create_xml_export_element("edge-out"))
+
+        if export_config.tracing:
+            e.set("tracing", "full")
         return e
 
     def get_drawing(self, vconfig):
@@ -459,6 +465,17 @@ class Transition(NetElement):
         sx, sy = self.size
         return ((px - sx, py - sy), (px + sx, py + sy))
 
+    def get_packing_input_places(self):
+        """ Fast function for tracelog replay """
+        result = []
+        for i in self.net.items:
+            if i.is_edge() and i.inscription.startswith("~"):
+				if i.to_item == self:
+					result.append(i.from_item)
+				elif i.is_bidirectional() and i.from_item == self:
+					result.append(i.to_item)
+        return result
+
 class Place(NetElement):
 
     radius = 20
@@ -499,13 +516,15 @@ class Place(NetElement):
             e.append(self.xml_code_element())
         return e
 
-    def export_xml(self):
+    def export_xml(self, export_config):
         e = self.create_xml_element("place")
         e.set("name", "name")
         e.set("type", self.place_type)
         e.set("init-expr", self.init_string)
         if self.has_code():
             e.append(self.xml_code_element())
+        if export_config.tracing:
+            e.set("tracing", "full")
         return e
 
     def get_drawing(self, vconfig):

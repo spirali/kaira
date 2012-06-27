@@ -103,6 +103,7 @@ class CaProcess {
 		#endif
 
 		void broadcast_packet(int tag, void *data, size_t size, CaThread *thread, int exclude = -1);
+		void write_header(FILE *file);
 	protected:
 
 		void autohalt_check(CaNet *net);

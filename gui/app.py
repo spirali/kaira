@@ -30,7 +30,9 @@ from mainwindow import MainWindow, Tab
 from netview import NetView
 from simconfig import SimConfigDialog
 from projectconfig import ProjectConfig
+from project import ExportConfig
 from simulation import Simulation
+from tracelog import TraceLog
 import simview
 import codeedit
 import process
@@ -42,13 +44,13 @@ import functions
 import loader
 import ptp
 import utils
-
+import runview
 
 VERSION_STRING = '0.4'
 
 class App:
     """
-        The class represents application, the callbacks from mainwindow
+        The class represents Kaira's gui, the callbacks from mainwindow
         (mainly from menu) calls methods of this class
     """
     def __init__(self, args):
@@ -65,8 +67,8 @@ class App:
 
         if args:
             if os.path.isfile(args[0]):
-                if args[0][-5:] == ".klog":
-                    self.open_log_tab(args[0])
+                if args[0].endswith(".kth"):
+                    self.open_tracelog_tab(args[0])
                 else:
                     self.set_project(loader.load_project(args[0]))
             else:
@@ -153,23 +155,26 @@ class App:
         finally:
             dialog.destroy()
 
-    def load_log(self):
+    def load_tracelog(self):
         dialog = gtk.FileChooserDialog("Open Log", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
                 (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                  gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         try:
             dialog.set_default_response(gtk.RESPONSE_OK)
-            self._add_file_filters(dialog, (("Kaira Log", "*.klog"),), all_files = True)
+            self._add_file_filters(dialog, (("Kaira Log", "*.kth"),), all_files = True)
 
             response = dialog.run()
             if response == gtk.RESPONSE_OK:
-                self.open_log_tab(dialog.get_filename())
+                self.open_tracelog_tab(dialog.get_filename())
         finally:
             dialog.destroy()
 
-    def open_log_tab(self, filename):
-        log = self._catch_io_error(lambda: runlog.Log(filename))
-        self.window.add_tab(Tab("Log: " + log.get_name(), logview.LogView(self, log)))
+    def open_tracelog_tab(self, filename):
+        t = self._catch_io_error(lambda: TraceLog(filename))
+        rv = runview.RunView(t)
+        self.window.add_tab(Tab("Tracelog", rv))
+        #log = self._catch_io_error(lambda: runlog.Log(filename))
+        #self.window.add_tab(Tab("Log: " + log.get_name(), logview.LogView(self, log)))
 
     def save_project(self):
         if self.project.get_filename() is None:
@@ -205,8 +210,12 @@ class App:
         if self._catch_io_error(self.project.save, True, False) and not silent:
             self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
 
-    def build_project(self):
-        self._start_build(self.project, False,
+    def build_project(self, target):
+        export_config = ExportConfig()
+        if target == "traced":
+            export_config.tracing = True
+
+        self._start_build(self.project, target, ExportConfig(),
                           lambda p: self.console_write("Build finished\n", "success"))
 
     def get_grid_size(self):
@@ -255,7 +264,7 @@ class App:
             editor = codeedit.TransitionCodeEditor(self.project, transition, "".join(stdout))
             self.window.add_tab(Tab(name, editor, transition))
             editor.jump_to_position(position)
-        self._start_ptp(self.project, False, open_tab,
+        self._start_ptp(self.project, ExportConfig(), open_tab,
             extra_args = [ "--transition-user-fn", str(transition.get_id()) ])
 
     def place_edit(self, place, lineno = None):
@@ -270,7 +279,7 @@ class App:
             self.window.add_tab(Tab(name, editor, place))
             editor.jump_to_position(position)
 
-        self._start_ptp(self.project, False, open_tab,
+        self._start_ptp(self.project, ExportConfig(), open_tab,
             extra_args = [ "--place-user-fn", str(place.get_id())])
 
     def extern_type_functions_edit(self, externtype, position = None):
@@ -328,9 +337,9 @@ class App:
         def project_builded(project):
             if valgrind:
                 program_name = "valgrind"
-                parameters = [ "-q", project.get_executable_filename() ]
+                parameters = [ "-q", project.get_traced_executable_filename() ]
             else:
-                program_name = project.get_executable_filename()
+                program_name = project.get_traced_executable_filename()
                 parameters = []
             parameters += [ "-s", "auto", "-b", "-r", str(simconfig.process_count) ]
             sprocess = process.Process(program_name, output)
@@ -358,7 +367,12 @@ class App:
         if simconfig.parameters_values is None:
             if not self.open_simconfig_dialog():
                 return
-        self._start_build(self.project, True, project_builded)
+
+        export_config = ExportConfig()
+        export_config.simulator_mode = True
+        export_config.tracing = True
+
+        self._start_build(self.project, "traced", export_config, project_builded)
 
     def open_simconfig_dialog(self):
         dialog = SimConfigDialog(self.window, self.project)
@@ -390,11 +404,9 @@ class App:
     def console_write_link(self, text, callback):
         self.window.console.write_link(text, callback)
 
-    def export_project(self, proj = None, simulator_mode = False):
+    def export_project(self, proj, export_config):
         self.window.foreach_tab(lambda tab: tab.project_export())
-        if proj is None:
-            proj = self.project
-        proj.export_to_file(proj.get_exported_filename(), simulator_mode)
+        proj.export_to_file(proj.get_exported_filename(), export_config)
         return True
 
     def hide_error_messages(self):
@@ -448,20 +460,27 @@ class App:
         else:
             p.start([target])
 
-    def _start_build(self, proj, simulator_mode, build_ok_callback):
+    def _start_build(self, proj, target, export_config, build_ok_callback):
         if self.get_settings("save-before-build"):
             self._save_project(silent = True)
 
-        build_directory = proj.get_directory_release()
+        if target == "release":
+            build_directory = proj.get_directory_release()
+        elif target == "traced":
+            build_directory = proj.get_directory_traced()
+        else:
+            raise Exception("Unknown target")
+
         utils.makedir_if_not_exists(build_directory)
 
         extra_args = [ "--build", build_directory ]
         self._start_ptp(proj,
-                        simulator_mode,
+                        export_config,
                         lambda lines: self._run_makefile(proj, build_directory, build_ok_callback),
-                        extra_args = extra_args)
+                        extra_args = extra_args,
+                        target = target)
 
-    def _start_ptp(self, proj, simulator_mode, build_ok_callback = None, extra_args = []):
+    def _start_ptp(self, proj, export_config, build_ok_callback = None, extra_args = [], target = "release"):
         stdout = []
         def on_exit(code):
             error_messages = {}
@@ -477,13 +496,15 @@ class App:
             #self.console_write(line)
             stdout.append(line)
             return True
-        if not self.export_project(proj, simulator_mode):
+        if not self.export_project(proj, export_config):
             return
         p = process.Process(paths.PTP_BIN, on_line, on_exit)
         p.cwd = proj.get_directory()
         args = [proj.get_exported_filename()]
+
         if self.get_settings("ptp-debug"):
             args.insert(0, "--debug")
+
         p.start(args + extra_args)
 
     def _try_make_error_with_link(self, id_string, item_id, pos, message):

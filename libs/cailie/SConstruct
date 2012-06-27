@@ -8,7 +8,9 @@ source_files =  [
 	"net.cpp",
 	"output.cpp",
 	"packing.cpp",
-	"listener.cpp"
+	"listener.cpp",
+	"tracelog.cpp",
+	"utils.cpp"
 ]
 
 Export("source_files")

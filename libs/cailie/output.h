@@ -30,6 +30,7 @@ class CaOutput {
 		void child(const std::string &name);
 		CaOutputBlock * back();
 		void set(const std::string &name, const int i);
+		void set(const std::string &name, const unsigned int i);
 		void set(const std::string &name, const std::string &s);
 		void set(const std::string &name, const char *s) {
 			set(name, std::string(s));
@@ -40,9 +41,9 @@ class CaOutput {
 		std::stack<CaOutputBlock*> _stack;
 };
 
-std::string ca_int_to_string(int i);
-std::string ca_double_to_string(double d);
-std::string ca_float_to_string(float f);
-std::string ca_bool_to_string(bool b);
+std::string ca_int_to_string(const int &i);
+std::string ca_double_to_string(const double &d);
+std::string ca_float_to_string(const float &f);
+std::string ca_bool_to_string(const bool &b);
 
 #endif // CAILIE_OUTPUT_H

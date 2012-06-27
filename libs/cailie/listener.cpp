@@ -13,32 +13,7 @@
 
 
 #include "listener.h"
-#include "output.h"
-#include "thread.h"
-
-extern char * ca_project_description_string;
-
-void ca_write_header(FILE *out, int process_count)
-{
-	int lines = 1;
-	for (const char *c = ca_project_description_string; (*c) != 0; c++) {
-		if ((*c) == '\n') {
-			lines++;
-		}
-	}
-
-	CaOutput output;
-	output.child("header");
-	output.set("process-count", process_count);
-	output.set("description-lines", lines);
-	CaOutputBlock *block = output.back();
-	block->write(out);
-	delete block;
-	fputs("\n", out);
-	fputs(ca_project_description_string, out);
-	fputs("\n", out);
-}
-
+#include "cailie.h"
 
 static int ca_init_listen_socket(int port)
 {
@@ -136,7 +111,7 @@ void CaListener::main()
 		/* Wait for all process */
 		pthread_barrier_wait(&barrier1);
 		/* Because there is always at least one thread we can use thread 0 as source of list of networks */
-		ca_write_header(comm_out, process_count);
+		ca_write_header(comm_out, process_count, threads_count);
 		process_commands(comm_in, comm_out);
 		pthread_barrier_wait(&barrier2);
 

@@ -145,8 +145,8 @@ class MainWindow(gtk.Window):
         item.connect("activate", lambda w: self.app.connect_to_application())
         file_menu.append(item)
 
-        item = gtk.MenuItem("Open lo_g")
-        item.connect("activate", lambda w: self.app.load_log())
+        item = gtk.MenuItem("Open tracelo_g")
+        item.connect("activate", lambda w: self.app.load_tracelog())
         file_menu.append(item)
 
         file_menu.append(gtk.SeparatorMenuItem())
@@ -157,9 +157,15 @@ class MainWindow(gtk.Window):
 
         build_menu = gtk.Menu()
 
-        item = gtk.MenuItem("B_uild project")
-        item.connect("activate", lambda w: self.app.build_project())
+        item = gtk.MenuItem("B_uild project (release)")
+        item.connect("activate", lambda w: self.app.build_project("release"))
         build_menu.append(item)
+
+        item = gtk.MenuItem("Build project (t_raced)")
+        item.connect("activate", lambda w: self.app.build_project("traced"))
+        build_menu.append(item)
+
+        build_menu.append(gtk.SeparatorMenuItem())
 
         item = gtk.MenuItem("Run _simulation")
         item.connect("activate", lambda w: self.app.simulation_start())

@@ -19,18 +19,21 @@
 
 import gtk
 from events import EventSource
+from drawing import VisualConfig
 
 class NetCanvas(gtk.DrawingArea, EventSource):
     """
         Widget that draws a network, configurated by instance of class VisualConfig
         Events: button_down, button_up, mouse_move
     """
-    def __init__(self, net, draw_cb, vconfig, zoom = 1.0):
+    def __init__(self, net, draw_cb, vconfig = None, zoom = 1.0):
         gtk.DrawingArea.__init__(self);
         EventSource.__init__(self)
         self.net = net
         self.zoom = zoom
         self.viewport = (0,0)
+        if vconfig is None:
+            vconfig = VisualConfig()
         self.vconfig = vconfig
         self.draw_cb = draw_cb
         self.set_events(gtk.gdk.BUTTON_PRESS_MASK | gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.POINTER_MOTION_MASK)
@@ -51,6 +54,8 @@ class NetCanvas(gtk.DrawingArea, EventSource):
         return self.viewport
 
     def set_vconfig(self, vconfig):
+        if vconfig is None:
+            vconfig = VisualConfig()
         self.vconfig = vconfig
         self.redraw()
 

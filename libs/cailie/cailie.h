@@ -51,6 +51,7 @@ CaNet *ca_get_main_net();
 /* This method is used by module to send tokens to another process. Can be called after ca_spawn_toplevel_net*/
 CaProcess * ca_get_first_process();
 
+void ca_write_header(FILE *out, int process_count, int threads_count);
 
 template <typename T>
 class ca_array

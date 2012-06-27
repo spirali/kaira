@@ -1,6 +1,7 @@
 
 #include "cailie.h"
 #include "listener.h"
+#include "utils.h"
 
 #include <getopt.h>
 #include <assert.h>
@@ -15,8 +16,10 @@ const char *ca_project_description_string = NULL;
 int ca_listen_port = -1;
 int ca_block_on_start = 0;
 CaNetDef **defs;
-int defs_count;
+int defs_count = 0;
 CaNet *master_net = NULL;
+
+size_t ca_trace_log_size = 0;
 
 #ifdef CA_SHMEM
 CaProcess **processes = NULL;
@@ -118,10 +121,12 @@ static int ca_set_argument(int params_count, const char **param_names, int **par
 void ca_finalize()
 {
 	#ifdef CA_SHMEM
-	for (int t = 0; t < ca_process_count; t++) {
-		delete processes[t];
+	if (processes) {
+		for (int t = 0; t < ca_process_count; t++) {
+			delete processes[t];
+		}
+		free(processes);
 	}
-	free(processes);
 	#endif
 
 	#ifdef CA_MPI
@@ -137,14 +142,17 @@ void ca_finalize()
 	delete process;
 	#endif
 
-	for (int i = 0 ; i < defs_count ; i++) {
-		delete defs[i];
+	if (defs_count > 0) {
+		for (int i = 0 ; i < defs_count ; i++) {
+			delete defs[i];
+		}
+		free(defs);
 	}
-	free(defs);
 }
 
 void ca_init(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs)
 {
+	CaTraceLog::init();
 	size_t t;
 	int c;
 	struct option longopts[] = {
@@ -160,7 +168,7 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 
 	atexit(ca_finalize);
 
-	while ((c = getopt_long (argc, argv, "hp:t:l:s:br:", longopts, NULL)) != -1)
+	while ((c = getopt_long (argc, argv, "hp:t:l:s:br:T:", longopts, NULL)) != -1)
 		switch (c) {
 			case 'h': {
 				size_t max_len = 0;
@@ -218,6 +226,14 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 			}
 			case 'b': {
 				ca_block_on_start = 1;
+			} break;
+
+			case 'T': {
+				ca_trace_log_size = ca_parse_size_string(optarg);
+				if (ca_trace_log_size == 0) {
+					fprintf(stderr, "Invalid trace log size\n");
+					exit(1);
+				}
 			} break;
 			case '?':
 			default:
@@ -324,4 +340,27 @@ std::vector<int> ca_range(int from, int upto)
 		v.push_back(t);
 	}
 	return v;
+}
+
+void ca_write_header(FILE *out, int process_count, int threads_count)
+{
+	int lines = 1;
+	for (const char *c = ca_project_description_string; (*c) != 0; c++) {
+		if ((*c) == '\n') {
+			lines++;
+		}
+	}
+
+	CaOutput output;
+	output.child("header");
+	output.set("pointer-size", sizeof(void*));
+	output.set("process-count", process_count);
+	output.set("threads-count", threads_count);
+	output.set("description-lines", lines);
+	CaOutputBlock *block = output.back();
+	block->write(out);
+	delete block;
+	fputs("\n", out);
+	fputs(ca_project_description_string, out);
+	fputs("\n", out);
 }

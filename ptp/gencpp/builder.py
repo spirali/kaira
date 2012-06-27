@@ -33,6 +33,29 @@ def emit_declarations(emitter, decls, reference = False):
         r = ""
     return ",".join(("{0} {2}{1}".format(emitter.emit_type(t), name, r) for name, t in decls))
 
+def get_to_string_function_name(project, t):
+    if t.name == "":
+        return "{0}_as_string".format(t.get_safe_name())
+    if len(t.args) == 0:
+        etype = project.get_extern_type(t.name)
+        if etype:
+            if etype.has_code("getstring"):
+                return "{0}_getstring".format(etype.name)
+            else:
+                return self.emitter.const_string(etype.name);
+    if t == t_string:
+        return "ca_string_to_string"
+    if t.name == "Array" and len(t.args) == 1:
+        return "array_{0}_as_string".format(t.args[0].get_safe_name())
+    if t == t_double:
+        return "ca_double_to_string"
+    if t == t_float:
+        return "ca_float_to_string"
+    if t == t_bool:
+        return "ca_bool_to_string"
+    return "ca_int_to_string"
+
+
 class CppWriter(Writer):
 
     def block_begin(self):
@@ -100,7 +123,7 @@ class CppWriter(Writer):
 
 class Builder(CppWriter):
 
-    def __init__(self, project, output_filename):
+    def __init__(self, project, output_filename = None):
         CppWriter.__init__(self)
         self.emitter = emitter.Emitter(project)
         self.project = project
@@ -161,10 +184,10 @@ class Builder(CppWriter):
             self.line("def_{0.id}->register_transition({2}, {1.id},(CaEnableFn*) enable_{1.id},"
                       " enable_check_{1.id});", net, tr, i)
 
-    def add_tuple_class(self, t):
-        class_name = t.get_safe_name()
+    def add_tuple_class(self, tp):
+        class_name = tp.get_safe_name()
         self.write_class_head(class_name)
-        decls = [ ("t{0}".format(i), ta) for i, ta in enumerate(t.args) ]
+        decls = [ ("t{0}".format(i), ta) for i, ta in enumerate(tp.args) ]
         for name, ta in decls:
             self.write_var_decl(name, self.emit_type(ta))
 
@@ -178,14 +201,14 @@ class Builder(CppWriter):
         self.write_constructor(class_name, "", [])
         self.write_method_end()
 
-        self.write_method_start("std::string as_string()")
+        self.write_method_start("std::string as_string() const")
         self.line('return std::string("(") + {0} + ")";',
                   ' + "," +'.join((self.code_as_string(e, t) for e, t in decls)))
         self.write_method_end()
 
         self.write_method_start("void pack(CaPacker &packer)")
-        for e, t in decls:
-            self.line(self.get_pack_code(t, "packer", e) + ";")
+        for e, ta in decls:
+            self.line(self.get_pack_code(ta, "packer", e) + ";")
         self.write_method_end()
 
         self.write_class_end()
@@ -250,8 +273,15 @@ class Builder(CppWriter):
         for t in get_ordered_types(self.project):
             if t.name == "":
                 self.add_tuple_class(t)
+                self.line("std::string {0}_as_string(const {1} &s);", t.get_safe_name(), self.emit_type(t))
             if len(t.args) == 1 and t.name == "Array":
                 self.write_array_declaration(t.args[0])
+
+    def write_tuple_as_string(self, t):
+        self.line("std::string {0}_as_string(const {1} &s)", t.get_safe_name(), self.emit_type(t))
+        self.block_begin()
+        self.line("return s.as_string();")
+        self.block_end()
 
     def write_types(self):
         self.write_extern_types_functions(True)
@@ -260,6 +290,8 @@ class Builder(CppWriter):
                 self.write_array_as_string(t.args[0])
                 self.write_array_pack(t.args[0])
                 self.write_array_unpack(t.args[0])
+            if t.name == "":
+                self.write_tuple_as_string(t)
 
     def write_tokens_struct(self, tr):
         """
@@ -350,7 +382,7 @@ class Builder(CppWriter):
 
         em.variable_emitter = variable_emitter
         for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
-            self.write_send_token(self, em, edge)
+            self.write_send_token(em, edge)
 
         if tr.net.has_autohalt():
             self.write_decrement_running_transitions(self, "n")
@@ -450,75 +482,77 @@ class Builder(CppWriter):
             return all((self.is_directly_packable(x) for x in t.args))
         return t == t_int
 
-    def write_activation(self, w, net, transitions):
+    def write_activation(self, net, transitions):
         for tr in transitions:
-            w.line("{0}->activate_transition_by_pos_id({1});",net, tr.get_pos_id())
+            self.line("{0}->activate_transition_by_pos_id({1});", net, tr.get_pos_id())
 
-    def write_send_token(self, w, em, edge, locking = True, interface_edge = False):
+    def write_send_token(self, em, edge, locking = True, interface_edge = False):
 
         def write_lock():
             if not locking:
                 return
-            w.if_begin("!lock")
-            w.line("n->lock();")
-            w.line("lock = true;")
-            w.block_end()
+            self.if_begin("!lock")
+            self.line("n->lock();")
+            self.line("lock = true;")
+            self.block_end()
 
         def write_unlock():
             if not locking:
                 return
-            w.if_begin("lock")
-            w.line("n->unlock();")
-            w.line("lock = false;")
-            w.block_end()
+            self.if_begin("lock")
+            self.line("n->unlock();")
+            self.line("lock = false;")
+            self.block_end()
 
         method = "add" if edge.is_normal() else "add_all"
 
         if edge.guard is not None:
-            w.if_begin(edge.guard.emit(em))
+            self.if_begin(edge.guard.emit(em))
         if edge.is_local():
             write_lock()
-            w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
+            #self.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
+            place = edge.get_place()
+            self.write_place_add(method, place, "n->place_{0.id}.".format(place), edge.expr.emit(em))
             if not interface_edge:
-                self.write_activation(w, "n", edge.get_place().get_transitions_out())
+                self.write_activation("n", edge.get_place().get_transitions_out())
         else:
             if edge.is_unicast():
                 sendtype = ""
-                w.line("int target_{0.id} = {1};", edge, edge.target.emit(em))
-                w.if_begin("target_{0.id} == thread->get_process_id()".format(edge))
+                self.line("int target_{0.id} = {1};", edge, edge.target.emit(em))
+                self.if_begin("target_{0.id} == thread->get_process_id()".format(edge))
                 write_lock()
-                w.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
+                self.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
                 if not interface_edge:
-                    self.write_activation(w, "n", edge.get_place().get_transitions_out())
-                w.indent_pop()
-                w.line("}} else {{")
-                w.indent_push()
+                    self.write_activation("n", edge.get_place().get_transitions_out())
+                self.indent_pop()
+                self.line("}} else {{")
+                self.indent_push()
             else:
-                w.line("std::vector<int> target_{0.id} = {1};", edge, edge.target.emit(em))
+                self.line("std::vector<int> target_{0.id} = {1};", edge, edge.target.emit(em))
                 sendtype = "_multicast"
-                w.block_begin()
+                self.block_begin()
 
             write_unlock()
             t = edge.get_place_type()
             traw = self.emit_type(t)
-            w.line("{0} value = {1};", self.emit_type(edge.expr.nel_type), edge.expr.emit(em))
+            self.line("{0} value = {1};", self.emit_type(edge.expr.nel_type), edge.expr.emit(em))
             if edge.is_normal(): # Pack normal edge
-                w.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, CA_RESERVED_PREFIX);")
-                w.line("{0};", self.get_pack_code(t, "packer", "value"))
-                w.line("thread->send{0}(target_{1.id}, n, {2}, packer);",
+                self.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, CA_RESERVED_PREFIX);")
+                self.line("{0};", self.get_pack_code(t, "packer", "value"))
+                self.line("thread->send{0}(target_{1.id}, n, {2}, packer);",
                        sendtype, edge, edge.get_place().get_pos_id())
             else: # Pack packing edge
                 # TODO: Pack in one step if type is directly packable
-                w.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, CA_RESERVED_PREFIX);")
-                w.line("for (std::vector<{0} >::iterator i = value.begin(); i != value.end(); i++)", traw)
-                w.block_begin()
-                w.line("{0};", self.get_pack_code(t, "packer", "(*i)"))
-                w.block_end()
-                w.line("thread->multisend{0}(target_{1.id}, n, {2}, value.size(), packer);",
+                self.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, CA_RESERVED_PREFIX);")
+                self.line("for (std::vector<{0} >::iterator i = value.begin(); i != value.end(); i++)", traw)
+                self.block_begin()
+                self.line("{0};", self.get_pack_code(t, "packer", "(*i)"))
+                self.block_end()
+                self.line("thread->multisend{0}(target_{1.id}, n, {2}, value.size(), packer);",
                        sendtype,edge, edge.get_place().get_pos_id())
-            w.block_end()
+            self.block_end()
         if edge.guard is not None:
-            w.block_end()
+            self.block_end()
 
     def write_decrement_running_transitions(self, w, varname):
         w.if_begin("!lock")
@@ -532,8 +566,13 @@ class Builder(CppWriter):
         self.block_begin()
         self.line("CaContext ctx(thread, net);")
 
-        w = CppWriter()
+        w = Builder(self.project)
         matches, _, vars_access = get_edges_mathing(self.project, tr)
+        if tr.tracing != "off":
+            w.line("CaTraceLog *tracelog = thread->get_tracelog();")
+            w.if_begin("tracelog")
+            w.line("tracelog->event_transition_fired(net->get_id(), {0.id});", tr)
+            w.block_end()
 
         em = emitter.Emitter(self.project)
         for edge, _ in matches:
@@ -559,7 +598,15 @@ class Builder(CppWriter):
         em.variable_emitter = lambda name: vars_code[name]
 
         for edge, _ in matches:
-            w.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
+            if edge.get_place().tracing != "off":
+                w.if_begin("tracelog")
+                w.line("n->place_{1.id}.remove(token_{0.uid}, tracelog, {1.id});",
+                    edge, edge.get_place())
+                w.line("}} else {{")
+                w.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
+                w.block_end()
+            else:
+                w.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
 
         w.line("net->activate_transition_by_pos_id({0});", tr.get_pos_id())
         if tr.net.has_autohalt():
@@ -579,7 +626,7 @@ class Builder(CppWriter):
 
             w.line("n->set_finalizer((CaNetFinalizerFn*) transition_finalizer_{0.id}, tokens);", tr)
             for edge in tr.subnet.get_interface_edges_out():
-                self.write_send_token(w, em, edge)
+                w.write_send_token(em, edge)
         else: # Without subnet
             retvalue = "CA_TRANSITION_FIRED"
             if tr.code is not None:
@@ -589,12 +636,17 @@ class Builder(CppWriter):
                 else:
                     w.line("Vars_{0.id} vars({1});", tr, ",".join([ vars_code[n] for n in names ]))
                 w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
+
                 w.line("bool lock = false;")
+                if tr.tracing != "off":
+                    w.if_begin("tracelog")
+                    w.line("tracelog->event_transition_finished();")
+                    w.block_end()
             else:
                 w.line("bool lock = true;")
 
             for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
-                self.write_send_token(w, em, edge)
+                w.write_send_token(em, edge)
             if tr.net.has_autohalt():
                 self.write_decrement_running_transitions(w, "net")
 
@@ -974,6 +1026,18 @@ class Builder(CppWriter):
         self.line("return 0;")
         self.block_end()
 
+    def write_place_add(self, method, place, place_code, value_code):
+        if place.tracing != "off":
+            self.if_begin("thread->get_tracelog()")
+            self.line("{0}{1}({2}, thread->get_tracelog(), {3.id}, {4});",
+                      place_code, method, value_code, place,
+                      get_to_string_function_name(self.project, place.type))
+            self.line("}} else {{")
+            self.line("{0}{1}({2});", place_code, method, value_code)
+            self.block_end()
+        else:
+            self.line("{0}{1}({1});", place_code, method, value_code)
+
     def write_spawn(self, net):
         self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id, CaNet *parent_net) {{", net)
         self.indent_push()
@@ -992,13 +1056,15 @@ class Builder(CppWriter):
                 conditions = [ "std::find(area_{0.id}.begin(), area_{0.id}.end(), pid)!=area_{0.id}.end()"
                               .format(area) for area in areas ]
                 self.if_begin(" && ".join(conditions))
+
             if place.init_expression is not None:
-                self.line("net->place_{0.id}.add_all({1});", place, place.init_expression.emit(self.emitter))
+                self.write_place_add("add_all", place, "net->place_{0.id}.".format(place),
+                                   place.init_expression.emit(self.emitter))
             if place.code is not None:
                 t = self.emit_type(place.type)
                 self.line("std::vector<{0} > tokens;", t)
                 self.line("place_user_fn_{0.id}(ctx, tokens);", place)
-                self.line("net->place_{0.id}.add_all(tokens);", place)
+                self.write_place_add("add_all", place, "net->place_{0.id}.".format(place), tokens)
             self.block_end()
         self.line("return net;")
         self.block_end()
@@ -1038,15 +1104,16 @@ class Builder(CppWriter):
         self.write_method_end()
 
     def receive_method(self, net):
-        self.write_method_start("void receive(int place_pos, CaUnpacker &unpacker)")
+        self.write_method_start("void receive(CaThread *thread, int place_pos, CaUnpacker &unpacker)")
         self.line("switch(place_pos) {{")
         for place in net.places:
             edges = place.get_edges_in(with_interface = True)
             if any((edge.target is not None for edge in edges)):
                 self.line("case {0}:", place.get_pos_id())
                 self.indent_push()
-                self.line("place_{0.id}.add({1});", place, self.get_unpack_code(place.type, "unpacker"))
-                self.write_activation(self, "this", place.get_transitions_out())
+                self.write_place_add("add", place, "place_{0.id}.".format(place),
+                                     self.get_unpack_code(place.type, "unpacker"))
+                self.write_activation("this", place.get_transitions_out())
                 self.line("break;")
                 self.indent_pop()
         self.line("}}")
@@ -1087,26 +1154,9 @@ class Builder(CppWriter):
         return self.emitter.emit_type(t)
 
     def code_as_string(self, expr, t):
-        if t.name == "":
-            return "({0}).as_string()".format(expr)
-        if len(t.args) == 0:
-            etype = self.project.get_extern_type(t.name)
-            if etype:
-                if etype.has_code("getstring"):
-                    return "{1}_getstring({0})".format(expr, etype.name)
-                else:
-                    return self.emitter.const_string(etype.name);
         if t == t_string:
             return expr
-        if t.name == "Array" and len(t.args) == 1:
-            return "array_{0}_as_string({1})".format(t.args[0].get_safe_name(), expr)
-        if t == t_double:
-            return "ca_double_to_string({0})".format(expr)
-        if t == t_float:
-            return "ca_float_to_string({0})".format(expr)
-        if t == t_bool:
-            return "ca_bool_to_string({0})".format(expr)
-        return "ca_int_to_string({0})".format(expr)
+        return "{0}({1})".format(get_to_string_function_name(self.project, t), expr)
 
     def write_library_function_wrapper(self, net):
         self.line("CaPacker {0}_wrapper(void *buffer)", net.name)
@@ -1172,7 +1222,7 @@ class Builder(CppWriter):
         em = emitter.Emitter(self.project)
         em.variable_emitter = lambda name: "___" + name
         for e in net.interface_edges_out:
-            self.write_send_token(self, em, e, locking = False, interface_edge = True)
+            self.write_send_token(em, e, locking = False, interface_edge = True)
 
         self.line("n->set_finalizer((CaNetFinalizerFn*) toplevel_finalizer_{0.id}, NULL);", net)
         self.line("n->set_manual_delete();")

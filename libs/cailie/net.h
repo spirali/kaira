@@ -86,7 +86,7 @@ class CaNet {
 
 		void write_reports(CaThread *thread, CaOutput &output);
 		virtual void write_reports_content(CaThread *thread, CaOutput &output) = 0;
-		virtual void receive(int place, CaUnpacker &unpacker) = 0;
+		virtual void receive(CaThread *thread, int place, CaUnpacker &unpacker) = 0;
 		int fire_transition(CaThread *thread, int transition_id);
 
 		CaTransition * pick_active_transition();

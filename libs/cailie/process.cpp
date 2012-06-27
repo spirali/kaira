@@ -2,7 +2,14 @@
 #include <alloca.h>
 #include <stdio.h>
 
+#include <sstream>
+
 #include "cailie.h"
+
+extern size_t ca_trace_log_size;
+extern char * ca_project_description_string;
+
+
 
 void CaProcess::multisend(int target, CaNet *net, int place_pos, int tokens_count, const CaPacker &packer, CaThread *thread)
 {
@@ -37,6 +44,10 @@ void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 	}
 	CaUnpacker unpacker(tokens + 1);
 	CaNet *n = thread->get_net(tokens->net_id);
+	CaTraceLog *tracelog = thread->get_tracelog();
+	if (tracelog) {
+		tracelog->event_receive(tokens->net_id);
+	}
 	if (n == NULL) {
 		CA_DLOG("Net not found net=%i process=%i thread=%i\n",
 			tokens->net_id, get_process_id(), thread->get_id());
@@ -49,7 +60,7 @@ void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 	CA_DLOG("RECV net=%i index=%i process=%i thread=%i\n",
 		tokens->net_id, place_index, get_process_id(), thread->get_id());
 	for (int t = 0; t < tokens_count; t++) {
-		n->receive(place_index, unpacker);
+		n->receive(thread, place_index, unpacker);
 	}
 	CA_DLOG("EOR index=%i process=%i thread=%i\n", place_index, get_process_id(), thread->get_id());
 	n->unlock();
@@ -118,6 +129,14 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 
 CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, CaNet *parent_net, bool globally)
 {
+	CaTraceLog *tracelog = thread->get_tracelog();
+	if (tracelog) {
+		tracelog->event_net_spawn(
+			defs[def_index]->get_id(),
+			id,
+			parent_net ? parent_net->get_id() : 0);
+	}
+
 	CA_DLOG("Spawning id=%i def_id=%i parent_net=%i globally=%i\n",
 		id, def_index, parent_net?parent_net->get_id():-1, globally);
 	if (globally && !defs[def_index]->is_local()) {
@@ -172,9 +191,27 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	}
 	threads = new CaThread[threads_count];
 	// TODO: ALLOCTEST
-	int t;
-	for (t = 0; t < threads_count; t++) {
+	for (int t = 0; t < threads_count; t++) {
 		threads[t].set_process(this, t);
+	}
+
+	if (ca_trace_log_size > 0) {
+
+		if (process_id == 0) {
+			FILE *f = fopen("trace.kth", "w");
+			if (f == NULL) {
+				perror("trace.kth");
+				exit(-1);
+			}
+			ca_write_header(f, process_count, threads_count);
+			fclose(f);
+		}
+
+		for (int t = 0; t < threads_count; t++) {
+			std::stringstream s;
+			s << "trace-" << process_id << "-" << t << ".ktt";
+			threads[t].set_tracelog(new CaTraceLog(ca_trace_log_size, s.str()));
+		}
 	}
 
 	#ifdef CA_SHMEM

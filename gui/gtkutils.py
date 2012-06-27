@@ -152,7 +152,9 @@ class SimpleListBase(gtk.ScrolledWindow):
         self.view.get_selection().select_iter(iter)
 
     def select_first(self):
-        self.select_iter(self.store.get_iter_first())
+        i = self.store.get_iter_first()
+        if i is not None:
+            self.select_iter(i)
 
     def fill(self, rows):
         for row in rows:

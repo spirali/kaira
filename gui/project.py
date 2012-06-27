@@ -19,7 +19,6 @@
 #
 
 import xml.etree.ElementTree as xml
-import utils
 import os
 import ptp
 
@@ -67,7 +66,8 @@ class Project(EventSource):
     def get_generator(self):
         if self.generator:
             return self.generator
-        self.generator = ptp.get_generator_from_xml(self.export_xml())
+        export_config = ExportConfig()
+        self.generator = ptp.get_generator_from_xml(self.export_xml(export_config))
         return self.generator
 
     def set_simulator_net(self, net):
@@ -131,8 +131,8 @@ class Project(EventSource):
         name, ext = os.path.splitext(self.filename)
         return name
 
-    def get_executable_filename(self):
-        return os.path.join(self.get_directory_release(), self.get_name())
+    def get_traced_executable_filename(self):
+        return os.path.join(self.get_directory_traced(), self.get_name())
 
     def get_exported_filename(self):
         return self.get_filename_without_ext() + ".xml"
@@ -142,6 +142,9 @@ class Project(EventSource):
 
     def get_directory_release(self):
         return os.path.join(self.get_directory(), "release")
+
+    def get_directory_traced(self):
+        return os.path.join(self.get_directory(), "traced")
 
     def set_filename(self, filename):
         self.filename = os.path.abspath(filename)
@@ -194,11 +197,14 @@ class Project(EventSource):
         finally:
             f.close()
 
-    def export_xml(self, simulator_mode = False):
+    # export_config should be an instance of ExportConfig
+    # Returns xml.Element
+    def export_xml(self, export_config):
+
         root = xml.Element("project")
         root.set("name", self.get_name())
 
-        if simulator_mode:
+        if export_config.simulator_mode:
             root.set("extenv", self.get_extenv_for_simulator_name())
         else:
             root.set("extenv", self.get_extenv_name())
@@ -211,7 +217,7 @@ class Project(EventSource):
         description.text = xml.tostring(self.as_xml())
         root.append(description)
 
-        if simulator_mode:
+        if export_config.simulator_mode:
             # simulator_net has to be exported as first net
             first = self.simulator_net
         else:
@@ -229,12 +235,13 @@ class Project(EventSource):
             nets += [ net for net in self.nets if net != first ]
 
         for net in nets:
-            root.append(net.export_xml())
+            root.append(net.export_xml(export_config))
 
         return root
 
-    def export_to_file(self, filename, simulator_mode = False):
-        content = xml.tostring(self.export_xml(simulator_mode))
+    # export_config should be None or instance of ExportConfig
+    def export_to_file(self, filename, export_config):
+        content = xml.tostring(self.export_xml(export_config))
         f = open(filename, "w")
         try:
             f.write(content)
@@ -320,6 +327,11 @@ class Project(EventSource):
             e.append(element)
 
         return e
+
+class ExportConfig:
+
+    simulator_mode = None
+    tracing = False
 
 class Parameter:
     project = None

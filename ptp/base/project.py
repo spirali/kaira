@@ -244,6 +244,8 @@ def load_transition(element, project, net):
 
     if element.find("code") is not None:
         transition.code = element.find("code").text
+
+    transition.tracing = utils.xml_str(element, "tracing", "off")
     return transition
 
 def load_place(element, net):
@@ -254,6 +256,7 @@ def load_place(element, net):
     place = Place(net, id, type, init_expr)
     if element.find("code") is not None:
         place.code = element.find("code").text
+    place.tracing = utils.xml_str(element, "tracing", "off")
     return place
 
 def load_area(element, net):

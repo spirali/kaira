@@ -133,6 +133,7 @@ class EdgeOut(EdgeBase):
 class Place(utils.EqByIdMixin):
 
     code = None
+    tracing = "off" # values: "off", "basic", "full"
 
     def __init__(self, net, id, type, init_expression):
         self.net = net
@@ -180,6 +181,7 @@ class Transition(utils.EqByIdMixin):
 
     code = None
     subnet = None
+    tracing = "off" # values: "off", "basic", "full"
 
     def __init__(self, net, id, guard):
         self.net = net

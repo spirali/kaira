@@ -19,7 +19,7 @@
 
 import math
 import os
-
+from copy import copy
 
 def make_vector(point1, point2):
     return (point2[0] - point1[0], point2[1] - point1[1])
@@ -29,7 +29,6 @@ def make_vector_with_size(point1, point2, size):
 
 def middle_point(point1, point2):
     return ((point2[0] + point1[0]) / 2.0, (point2[1] + point1[1]) / 2.0)
-
 
 def vector_add(vector1, vector2):
     return (vector1[0] + vector2[0], vector1[1] + vector2[1])
@@ -63,7 +62,6 @@ def position_and_size_from_points(point1, point2):
     by = max(p1y, p2y)
 
     return ((ax, ay), (bx - ax, by - ay))
-
 
 def position_inside_rect(position, rect_position, size, tolerance = 0):
     px, py = position
@@ -172,7 +170,6 @@ def snap_to_grid(point, grid_size):
 def point_distance(point1, point2):
     return vector_len(make_vector(point1, point2))
 
-
 def distance_to_line(line_point1, line_point2, point):
     px, py = point
     x1, y1 = line_point1
@@ -237,6 +234,24 @@ def find_by_first(lst, key):
             return item
     return None
 
+def index_of_minimal_value(items):
+    """ Return index of minimal value in list, ignore None value """
+    value = None
+    for i in xrange(0, len(items)):
+        if items[i] is not None:
+           value = items[i]
+           break
+
+    if value is None:
+          return None
+
+    index = i
+    for j in xrange(i + 1, len(items)):
+         if items[j] is not None and value > items[j]:
+             value = items[j]
+             index = j
+    return index
+
 def xml_int(element, attr, default = None):
     if element.get(attr) is None:
         if default is not None:
@@ -269,6 +284,7 @@ def write_file_if_not_exists(filename, content):
 def makedir_if_not_exists(dirname):
     if not os.path.isdir(dirname):
         os.makedirs(dirname)
+
 
 class EqMixin(object):
 

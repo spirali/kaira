@@ -72,6 +72,7 @@ class TransitionDrawing(DrawingBase):
         else:
             self.subnet_name = item.subnet.get_name()
         self.doubleborder = item.get_code().strip() != ""
+        self.executions = None
 
     def draw(self, cr):
         px, py = self.position
@@ -120,6 +121,25 @@ class TransitionDrawing(DrawingBase):
             cr.set_source_rgb(0.3,0.3,0.3)
             cr.move_to(px - tx / 2, py - self.size[1]/2 - ty/2 - 2)
             cr.show_text(self.guard)
+
+        if self.executions:
+            x = self.position[0] - self.size[0] / 2
+            y = self.position[1] + self.size[1]
+            for text, color in self.executions:
+                tx, ty = utils.text_size(cr, text)
+                cr.move_to(x - 2, y + ty/2)
+                cr.rel_line_to(tx + 10, 0)
+                cr.rel_line_to(-4, -ty)
+                cr.rel_line_to(4, -ty)
+                cr.rel_line_to(-tx - 10, 0)
+                cr.rel_line_to(-4, ty)
+                cr.rel_line_to(4, ty)
+                cr.set_source_rgba(*color)
+                cr.fill()
+                cr.move_to(x, y)
+                x += tx + 12
+                cr.set_source_rgb(0, 0, 0)
+                cr.show_text(text)
 
     def draw_top(self, cr):
         if self.error_messages and "guard" in self.error_messages:

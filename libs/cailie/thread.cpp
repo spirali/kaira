@@ -6,7 +6,7 @@
 
 #include "thread.h"
 
-CaThread::CaThread() : messages(NULL)
+CaThread::CaThread() : messages(NULL), tracelog(NULL)
 {
 	pthread_mutex_init(&messages_mutex, NULL);
 }
@@ -14,6 +14,9 @@ CaThread::CaThread() : messages(NULL)
 CaThread::~CaThread()
 {
 	pthread_mutex_destroy(&messages_mutex);
+	if (tracelog) {
+		delete tracelog;
+	}
 }
 
 void CaThread::add_message(CaThreadMessage *message)

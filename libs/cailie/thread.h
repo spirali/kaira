@@ -3,6 +3,7 @@
 #define CAILIE_THREAD_H
 
 #include "process.h"
+#include "tracelog.h"
 
 class CaThread {
 	public:
@@ -62,6 +63,9 @@ class CaThread {
 
 		CaNet *last_net() { return nets[nets.size() - 1]; }
 
+		CaTraceLog* get_tracelog() { return tracelog; }
+		void set_tracelog(CaTraceLog *tracelog) { this->tracelog = tracelog; }
+
 	protected:
 		CaProcess *process;
 		pthread_t thread;
@@ -73,6 +77,8 @@ class CaThread {
 		#ifdef CA_MPI
 		CaMpiRequests requests;
 		#endif
+
+		CaTraceLog *tracelog;
 };
 
 #endif

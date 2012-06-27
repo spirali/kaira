@@ -13,6 +13,7 @@
 *.hi
 *.o
 *.a
+.scons*
 lib/test
 ptp/ptp
 tests/projects/*

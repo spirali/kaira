@@ -50,6 +50,10 @@ int CaProcess::process_packets(CaThread *thread)
 	MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
 
 	if (flag) {
+		CaTraceLog *tracelog = thread->get_tracelog();
+		if (tracelog) {
+			tracelog->event_receive();
+		}
 		for(;;) {
 			int msg_size;
 			MPI_Get_count(&status, MPI_CHAR, &msg_size);
