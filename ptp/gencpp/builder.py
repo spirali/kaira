@@ -215,14 +215,15 @@ class Builder(CppWriter):
         self.write_class_end()
 
     def write_array_as_string(self, t):
-        self.line("std::string array_{0}_as_string(std::vector <{1} > &vector)",
+        self.line("std::string array_{0}_as_string(const std::vector <{1} > &vector)",
                   t.get_safe_name(), self.emit_type(t))
         self.block_begin()
         self.line("std::stringstream osstream;")
         self.line('osstream << "[";')
         self.line("if (vector.size() > 0)")
         self.block_begin()
-        self.line("std::vector<{0} >::iterator i = vector.begin();", self.emit_type(t))
+        self.line("std::vector<{0} >::const_iterator i = vector.begin();",
+                  self.emit_type(t))
         self.line("osstream << {0};", self.code_as_string("*i", t))
         self.line("i++;")
         self.line("for (; i != vector.end(); i++)")
@@ -260,7 +261,7 @@ class Builder(CppWriter):
         self.block_end()
 
     def write_array_declaration(self, t):
-        self.line("std::string array_{0}_as_string(std::vector <{1} > &vector);",
+        self.line("std::string array_{0}_as_string(const std::vector <{1} > &vector);",
                   t.get_safe_name(), self.emit_type(t))
         self.line("size_t array_{0}_size(std::vector <{1} > &vector);",
                   t.get_safe_name(), self.emit_type(t))
@@ -738,7 +739,7 @@ class Builder(CppWriter):
 
     def write_extern_types_functions(self, definitions):
         decls = {
-                 "getstring" : "std::string {0.name}_getstring({0.rawtype} &obj)",
+                 "getstring" : "std::string {0.name}_getstring(const {0.rawtype} &obj)",
                  "pack" : "void {0.name}_pack(CaPacker &packer, {0.rawtype} &obj)",
                  "unpack" : "{0.rawtype} {0.name}_unpack(CaUnpacker &unpacker)"
         }
