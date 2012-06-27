@@ -30,29 +30,25 @@ class CaTraceLog {
 	protected:
 
 		void check_size(size_t size) { if (pos + size >= end) { overflow(); } }
-		void write_char(char c) { check_size(1); *(pos++) = c; }
+		void write_char(char c) { *(pos++) = c; }
 
 		void write_uint64(uint64_t value) {
-			check_size(sizeof(uint64_t));
 			memcpy(pos, &value, sizeof(uint64_t));
 			pos += sizeof(uint64_t);
 		}
 
 		void write_int32(int32_t value) {
-			check_size(sizeof(int32_t));
 			memcpy(pos, &value, sizeof(int32_t));
 			pos += sizeof(int32_t);
 		}
 
 		void write_pointer(void *p) {
-			check_size(sizeof(void*));
 			memcpy(pos, &p, sizeof(void*));
 			pos += sizeof(void*);
 		}
 
 		void write_string(const std::string &str) {
 			size_t s = str.size();
-			check_size(s + 1);
 			memcpy(pos, str.data(), s);
 			pos += s;
 			*(pos) = 0;

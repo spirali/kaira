@@ -59,6 +59,7 @@ void CaTraceLog::write_time()
 
 void CaTraceLog::event_net_spawn(int net_id, int instance_id, int parent_net)
 {
+	check_size(1 + sizeof(uint64_t) + sizeof(int32_t) * 3);
 	write_char('S');
 	write_time();
 	write_int32(net_id);
@@ -68,6 +69,7 @@ void CaTraceLog::event_net_spawn(int net_id, int instance_id, int parent_net)
 
 void CaTraceLog::event_transition_fired(int instance_id, int transition_id)
 {
+	check_size(1 + sizeof(uint64_t) + sizeof(int32_t) * 2 + 1);
 	write_char('T');
 	write_time();
 	write_int32(instance_id);
@@ -77,12 +79,14 @@ void CaTraceLog::event_transition_fired(int instance_id, int transition_id)
 
 void CaTraceLog::event_transition_finished()
 {
+	check_size(1 + sizeof(uint64_t));
 	write_char('F');
 	write_time();
 }
 
 void CaTraceLog::event_receive(int instance_id)
 {
+	check_size(1 + sizeof(uint64_t) + sizeof(int32_t));
 	write_char('R');
 	write_time();
 	write_int32(instance_id);
@@ -90,6 +94,7 @@ void CaTraceLog::event_receive(int instance_id)
 
 void CaTraceLog::trace_token(int place_id, void *pointer, const std::string &value)
 {
+	check_size(1 + sizeof(uint32_t) + sizeof(void*) + 1 + value.size());
 	write_char('t');
 	write_int32(place_id);
 	write_pointer(pointer);
@@ -98,6 +103,7 @@ void CaTraceLog::trace_token(int place_id, void *pointer, const std::string &val
 
 void CaTraceLog::trace_token(int place_id, void *pointer)
 {
+	check_size(1 + sizeof(uint32_t) + sizeof(void*));
 	write_char('s');
 	write_int32(place_id);
 	write_pointer(pointer);
@@ -105,7 +111,12 @@ void CaTraceLog::trace_token(int place_id, void *pointer)
 
 void CaTraceLog::overflow()
 {
-
+	if (pos == buffer) {
+		fprintf(stderr, "Tracelog: Attempt to write too large event, set bigger size of tracelog\n");
+		abort();
+	}
+	write_buffer();
+	pos = buffer;
 }
 
 void CaTraceLog::write_buffer()
