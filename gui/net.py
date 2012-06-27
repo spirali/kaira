@@ -166,7 +166,7 @@ class Net:
     def inodes(self):
         return [ item for item in self.items if item.is_inode() ]
 
-    def export_xml(self, export_config):
+    def export_xml(self, build_config):
         e = xml.Element("net")
         e.set("name", self.name)
         e.set("id", str(self.id))
@@ -176,10 +176,10 @@ class Net:
             e.set("autohalt", "False")
 
         for place in self.places():
-            e.append(place.export_xml(export_config))
+            e.append(place.export_xml(build_config))
 
         for transition in self.transitions():
-            e.append(transition.export_xml(export_config))
+            e.append(transition.export_xml(build_config))
 
         for area in self.areas():
             e.append(area.export_xml())
@@ -390,7 +390,7 @@ class Transition(NetElement):
         self.subnet = net
         self.changed()
 
-    def export_xml(self, export_config):
+    def export_xml(self, build_config):
         e = self.create_xml_element("transition")
         e.set("name", self.name)
         e.set("guard", self.guard)
@@ -406,7 +406,7 @@ class Transition(NetElement):
         for edge in self.edges_from(postprocess = True):
             e.append(edge.create_xml_export_element("edge-out"))
 
-        if export_config.tracing:
+        if build_config.tracing:
             e.set("tracing", "full")
         return e
 
@@ -516,14 +516,14 @@ class Place(NetElement):
             e.append(self.xml_code_element())
         return e
 
-    def export_xml(self, export_config):
+    def export_xml(self, build_config):
         e = self.create_xml_element("place")
         e.set("name", "name")
         e.set("type", self.place_type)
         e.set("init-expr", self.init_string)
         if self.has_code():
             e.append(self.xml_code_element())
-        if export_config.tracing:
+        if build_config.tracing:
             e.set("tracing", "full")
         return e
 

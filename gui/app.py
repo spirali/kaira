@@ -30,7 +30,6 @@ from mainwindow import MainWindow, Tab
 from netview import NetView
 from simconfig import SimConfigDialog
 from projectconfig import ProjectConfig
-from project import ExportConfig
 from simulation import Simulation
 from tracelog import TraceLog
 import simview
@@ -211,11 +210,9 @@ class App:
             self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
 
     def build_project(self, target):
-        export_config = ExportConfig()
-        if target == "traced":
-            export_config.tracing = True
-
-        self._start_build(self.project, target, ExportConfig(),
+        self.console_write("Building '{0}' ...\n".format(target))
+        build_config = self.project.get_build_config(target)
+        self._start_build(self.project, build_config,
                           lambda p: self.console_write("Build finished\n", "success"))
 
     def get_grid_size(self):
@@ -337,10 +334,11 @@ class App:
         def project_builded(project):
             if valgrind:
                 program_name = "valgrind"
-                parameters = [ "-q", project.get_traced_executable_filename() ]
+                parameters = [ "-q", build_config.get_executable_filename() ]
             else:
-                program_name = project.get_traced_executable_filename()
+                program_name = build_config.get_executable_filename()
                 parameters = []
+
             parameters += [ "-s", "auto", "-b", "-r", str(simconfig.process_count) ]
             sprocess = process.Process(program_name, output)
             sprocess.cwd = project.get_directory()
@@ -368,11 +366,9 @@ class App:
             if not self.open_simconfig_dialog():
                 return
 
-        export_config = ExportConfig()
-        export_config.simulator_mode = True
-        export_config.tracing = True
-
-        self._start_build(self.project, "traced", export_config, project_builded)
+        build_config = self.project.get_build_config("simulation")
+        self.console_write("Preparing simulation ...\n")
+        self._start_build(self.project, build_config, project_builded)
 
     def open_simconfig_dialog(self):
         dialog = SimConfigDialog(self.window, self.project)
@@ -404,9 +400,9 @@ class App:
     def console_write_link(self, text, callback):
         self.window.console.write_link(text, callback)
 
-    def export_project(self, proj, export_config):
+    def export_project(self, proj, build_config):
         self.window.foreach_tab(lambda tab: tab.project_export())
-        proj.export_to_file(proj.get_exported_filename(), export_config)
+        proj.export(build_config)
         return True
 
     def hide_error_messages(self):
@@ -460,27 +456,18 @@ class App:
         else:
             p.start([target])
 
-    def _start_build(self, proj, target, export_config, build_ok_callback):
+    def _start_build(self, proj, build_config, build_ok_callback):
         if self.get_settings("save-before-build"):
             self._save_project(silent = True)
 
-        if target == "release":
-            build_directory = proj.get_directory_release()
-        elif target == "traced":
-            build_directory = proj.get_directory_traced()
-        else:
-            raise Exception("Unknown target")
-
-        utils.makedir_if_not_exists(build_directory)
-
-        extra_args = [ "--build", build_directory ]
+        utils.makedir_if_not_exists(build_config.directory)
+        extra_args = [ "--build", build_config.directory ]
         self._start_ptp(proj,
-                        export_config,
-                        lambda lines: self._run_makefile(proj, build_directory, build_ok_callback),
-                        extra_args = extra_args,
-                        target = target)
+                        build_config,
+                        lambda lines: self._run_makefile(proj, build_config.directory, build_ok_callback),
+                        extra_args = extra_args)
 
-    def _start_ptp(self, proj, export_config, build_ok_callback = None, extra_args = [], target = "release"):
+    def _start_ptp(self, proj, build_config, build_ok_callback = None, extra_args = []):
         stdout = []
         def on_exit(code):
             error_messages = {}
@@ -496,11 +483,11 @@ class App:
             #self.console_write(line)
             stdout.append(line)
             return True
-        if not self.export_project(proj, export_config):
+        if not self.export_project(proj, build_config):
             return
         p = process.Process(paths.PTP_BIN, on_line, on_exit)
         p.cwd = proj.get_directory()
-        args = [proj.get_exported_filename()]
+        args = [ build_config.get_export_filename() ]
 
         if self.get_settings("ptp-debug"):
             args.insert(0, "--debug")

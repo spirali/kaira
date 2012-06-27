@@ -143,7 +143,8 @@ class Builder(CppWriter):
         if self.project.get_head_code():
             self.line_directive("*head", 1)
             self.raw_text(self.project.get_head_code())
-            self.line_directive(os.path.basename(self.output_filename), self.get_next_line_number())
+            self.line_directive(os.path.basename(self.output_filename),
+                                                 self.get_next_line_number())
             self.emptyline()
 
     def write_parameters(self):
@@ -1036,7 +1037,7 @@ class Builder(CppWriter):
             self.line("{0}{1}({2});", place_code, method, value_code)
             self.block_end()
         else:
-            self.line("{0}{1}({1});", place_code, method, value_code)
+            self.line("{0}{1}({2});", place_code, method, value_code)
 
     def write_spawn(self, net):
         self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id, CaNet *parent_net) {{", net)

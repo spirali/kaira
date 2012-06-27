@@ -66,9 +66,39 @@ class Project(EventSource):
     def get_generator(self):
         if self.generator:
             return self.generator
-        export_config = ExportConfig()
-        self.generator = ptp.get_generator_from_xml(self.export_xml(export_config))
+        build_config = self.get_build_config("release")
+        self.generator = ptp.get_generator_from_xml(self.export_xml(build_config))
         return self.generator
+
+    def get_build_config(self, name):
+        build_config = BuildConfig()
+        build_config.directory = os.path.join(self.get_directory(), name)
+        build_config.project_name = self.get_name()
+
+        if name == "traced":
+            build_config.tracing = True
+
+        if name == "simulator":
+            # simulator_net has to be exported as first net
+            first = self.simulator_net
+            build_config.extenv = self.get_extenv_for_simulator_name()
+        else:
+            build_config.extenv = self.get_extenv_name()
+            if self.is_library:
+                # In library it does not matter who is first
+                first = None
+            else:
+                # In program, main is first
+                first = self.project.get_main_net()
+
+        if first is None:
+            nets = self.nets
+        else:
+            nets = [ first ]
+            nets += [ net for net in self.nets if net != first ]
+
+        build_config.nets = nets
+        return build_config
 
     def set_simulator_net(self, net):
         self.simulator_net = net
@@ -131,20 +161,8 @@ class Project(EventSource):
         name, ext = os.path.splitext(self.filename)
         return name
 
-    def get_traced_executable_filename(self):
-        return os.path.join(self.get_directory_traced(), self.get_name())
-
-    def get_exported_filename(self):
-        return self.get_filename_without_ext() + ".xml"
-
     def get_directory(self):
         return os.path.dirname(self.filename)
-
-    def get_directory_release(self):
-        return os.path.join(self.get_directory(), "release")
-
-    def get_directory_traced(self):
-        return os.path.join(self.get_directory(), "traced")
 
     def set_filename(self, filename):
         self.filename = os.path.abspath(filename)
@@ -197,17 +215,14 @@ class Project(EventSource):
         finally:
             f.close()
 
-    # export_config should be an instance of ExportConfig
+    # takes instace of BuildConfig
     # Returns xml.Element
-    def export_xml(self, export_config):
+    def export_xml(self, build_config):
 
         root = xml.Element("project")
         root.set("name", self.get_name())
 
-        if export_config.simulator_mode:
-            root.set("extenv", self.get_extenv_for_simulator_name())
-        else:
-            root.set("extenv", self.get_extenv_name())
+        root.set("extenv", build_config.extenv)
 
         if self.get_target_mode():
             root.set("target-mode", self.get_target_mode())
@@ -217,32 +232,14 @@ class Project(EventSource):
         description.text = xml.tostring(self.as_xml())
         root.append(description)
 
-        if export_config.simulator_mode:
-            # simulator_net has to be exported as first net
-            first = self.simulator_net
-        else:
-            if self.is_library:
-                # In library it does not matter who is first
-                first = None
-            else:
-                # In program, main is first
-                first = self.project.get_main_net()
-
-        if first is None:
-            nets = self.nets
-        else:
-            nets = [ first ]
-            nets += [ net for net in self.nets if net != first ]
-
-        for net in nets:
-            root.append(net.export_xml(export_config))
+        for net in build_config.nets:
+            root.append(net.export_xml(build_config))
 
         return root
 
-    # export_config should be None or instance of ExportConfig
-    def export_to_file(self, filename, export_config):
-        content = xml.tostring(self.export_xml(export_config))
-        f = open(filename, "w")
+    def export(self, build_config):
+        content = xml.tostring(self.export_xml(build_config))
+        f = open(build_config.get_export_filename(), "w")
         try:
             f.write(content)
         finally:
@@ -328,10 +325,22 @@ class Project(EventSource):
 
         return e
 
-class ExportConfig:
+class BuildConfig:
 
-    simulator_mode = None
     tracing = False
+    directory = None
+    project_name = None
+    nets = None
+    extenv = None
+
+    def get_filename(self, filename):
+        return os.path.join(self.directory, filename)
+
+    def get_export_filename(self):
+        return self.get_filename(self.project_name + ".xml")
+
+    def get_executable_filename(self):
+        return self.get_filename(self.project_name)
 
 class Parameter:
     project = None
