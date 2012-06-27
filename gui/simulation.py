@@ -22,6 +22,7 @@ import process
 import random
 from loader import load_project_from_xml
 from events import EventSource
+from runinstance import RunInstance
 
 import utils
 
@@ -41,6 +42,7 @@ class Simulation(EventSource):
     def __init__(self):
         EventSource.__init__(self)
         self.random = random.Random()
+        self.runinstance = None
 
     def connect(self, host, port):
         def connected(stream):
@@ -72,6 +74,7 @@ class Simulation(EventSource):
     def read_header(self, stream):
         header = xml.fromstring(stream.readline())
         self.process_count = utils.xml_int(header, "process-count")
+        self.threads_count = utils.xml_int(header, "threads-count")
         self.process_running = [True] * self.process_count
         lines_count = utils.xml_int(header, "description-lines")
         project_string = "\n".join((stream.readline() for i in xrange(lines_count)))
@@ -87,29 +90,23 @@ class Simulation(EventSource):
         def reports_callback(line):
             run_state = self.is_running()
             root = xml.fromstring(line)
-            instances = {}
+            runinstance = RunInstance(self.project, self.process_count, self.threads_count)
             for e in root.findall("process"):
                 process_id = utils.xml_int(e, "id")
-                process_id_str = str(process_id)
                 self.process_running[process_id] = utils.xml_bool(e, "running")
                 for ne in e.findall("net-instance"):
-                    id = utils.xml_int(ne, "id")
-                    i = instances.get(id)
-                    if i is None:
-                        net = self.project.find_net(utils.xml_int(ne, "net-id"))
-                        parent_id = utils.xml_int(ne, "parent-id", -1)
-                        i = NetInstance(id, net, parent_id, self)
-                        instances[id] = i
+                    group_id = utils.xml_int(ne, "id")
+                    net_id = utils.xml_int(ne, "net-id")
+                    parent_id = utils.xml_int(ne, "parent-id", -1)
+                    runinstance.event_spawn(process_id, None, 0, net_id, group_id, parent_id)
+
                     for pe in ne.findall("place"):
                         place_id = utils.xml_int(pe, "id")
-                        p = i.get_place(place_id)
                         for te in pe.findall("token"):
-                            p.append(Token(te.get("value"), process_id_str))
+                            runinstance.add_token(place_id, 0, te.get("value"))
                     for tre in ne.findall("enabled"):
-                        transition_id = utils.xml_int(tre, "id")
-                        i.add_enabled(process_id, transition_id)
-            self.instances = instances.values()
-            self.instances.sort(key=lambda i: i.id)
+                        runinstance.add_enabled_transition(utils.xml_int(tre, "id"))
+            self.runinstance = runinstance
             if not self.is_running() and run_state != self.is_running():
                 self.emit_event("error", "Simulation finished\n")
             if callback:
@@ -117,101 +114,10 @@ class Simulation(EventSource):
             self.emit_event("changed")
         self.controller.run_command("REPORTS", reports_callback)
 
-    def fire_transition(self, transition, instance, process_id):
+    def fire_transition(self, transition_id, group_id, process_id):
         if not self.process_running[process_id]:
             return
         if self.controller:
-            command = "FIRE {0} {1} {2}".format(transition.get_id(), instance.get_id(), process_id)
+            command = "FIRE {0} {1} {2}".format(transition_id, group_id, process_id)
             self.controller.run_command_expect_ok(command)
             self.query_reports()
-
-class Token:
-
-    def __init__(self, value, addr):
-        self.value = value
-        self.addr = addr
-
-    def __str__(self):
-        return self.value + "@" + self.addr
-
-class Perspective(utils.EqMixin):
-
-    def __init__(self, name, instance):
-        self.name = name
-        self.instance = instance
-
-    def get_name(self):
-        return self.name
-
-class PerspectiveProcess(Perspective):
-
-    def __init__(self, name, instance, process_id):
-        Perspective.__init__(self, name, instance)
-        self.process_id = process_id
-
-    def get_tokens(self, place):
-        return [ t for t in self.instance.get_place(place.get_id()) if t.addr == str(self.process_id) ]
-
-    def is_enabled(self, transition):
-        return self.instance.is_enabled(self.process_id, transition.get_id())
-
-    def fire_transition(self, transition):
-        self.instance.simulation.fire_transition(transition, self.instance, self.process_id)
-
-    def __eq__(self, other):
-        return (isinstance(other, self.__class__)
-            and self.process_id == other.process_id)
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-class PerspectiveAll(Perspective):
-
-    def get_tokens(self, place):
-        return self.instance.get_place(place.get_id())
-
-    def get_enabled(self, transition):
-        return [ i for i in xrange(self.instance.simulation.process_count)
-            if self.instance.is_enabled(i, transition.get_id()) ]
-
-    def is_enabled(self, transition):
-        return len(self.get_enabled(transition)) > 0
-
-    def fire_transition(self, transition):
-        enabled = self.get_enabled(transition)
-        if len(enabled) > 0:
-            process_id = self.instance.simulation.random.choice(enabled)
-            self.instance.simulation.fire_transition(transition, self.instance, process_id)
-
-class NetInstance:
-
-    def __init__(self, id, net, parent_id, simulation):
-        self.id = id
-        self.net = net
-        self.parent_id = parent_id
-        self.simulation = simulation
-        self.places = {}
-        self.enabled = []
-
-    def get_id(self):
-        return self.id
-
-    def get_place(self, place_id):
-        p = self.places.get(place_id)
-        if p is None:
-            p = []
-            self.places[place_id] = p
-        return p
-
-    def get_perspectives(self):
-        perspectives = [ PerspectiveProcess(str(i), self, i) for i in xrange(self.simulation.process_count) ]
-        return [ PerspectiveAll("All", self) ] + perspectives
-
-    def add_enabled(self, process_id, transition_id):
-        self.enabled.append((process_id, transition_id))
-
-    def get_name(self):
-        return "{0},{1},{2}".format(self.net.get_name(), self.id, self.id % self.simulation.process_count)
-
-    def is_enabled(self, process_id, transition_id):
-        return (process_id, transition_id) in self.enabled

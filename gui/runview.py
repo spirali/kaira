@@ -20,16 +20,17 @@
 import gtk
 import gtkutils
 import objectlist
+import mainwindow
 from canvas import NetCanvas
 from drawing import VisualConfig
 
 class RunView(gtk.VBox):
 
-    def __init__(self, tracelog):
+    def __init__(self, app, tracelog):
         gtk.VBox.__init__(self)
         self.tracelog = tracelog
 
-        self.netinstance_view = NetInstanceView()
+        self.netinstance_view = NetInstanceView(app)
         self.netinstance_view.set_runinstance(self.tracelog.first_runinstance)
 
         self.views = [
@@ -116,8 +117,9 @@ class RunView(gtk.VBox):
 
 class NetInstanceView(gtk.HPaned):
 
-    def __init__(self):
+    def __init__(self, app):
         gtk.HPaned.__init__(self)
+        self.app = app
         vbox = gtk.VBox()
         vbox.pack_start(self._perspectives())
         vbox.pack_start(self._groups())
@@ -205,7 +207,32 @@ class NetInstanceView(gtk.HPaned):
         self.redraw()
 
     def _button_down(self, event, pos):
-        pass
+        item = self.get_group().net.get_item_at_position(pos)
+        if item is None:
+            return
+        self.on_item_click(item)
+
+    def on_item_click(self, item):
+        if item.is_place():
+            self.open_tokens_tab(item)
+
+    def open_tokens_tab(self, place):
+        text_buffer = gtk.TextBuffer()
+        tokens = "\n".join(map(str, self.get_perspective().get_tokens(place)))
+        text_buffer.insert(text_buffer.get_end_iter(), tokens)
+        text_area = gtk.TextView()
+        text_area.set_buffer(text_buffer)
+        text_area.set_editable(False)
+
+        sw = gtk.ScrolledWindow()
+        sw.add(text_area)
+        vbox = gtk.VBox()
+        vbox.pack_start(sw)
+        vbox.show_all()
+
+        label = "Tokens of " + place.get_name()
+        self.app.window.add_tab(mainwindow.Tab(label, vbox))
+
 
 def time_to_string(nanosec):
     s = nanosec / 1000000000

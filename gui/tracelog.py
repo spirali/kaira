@@ -21,6 +21,7 @@ import xml.etree.ElementTree as xml
 import utils
 import loader
 import struct
+import os
 
 import runinstance
 

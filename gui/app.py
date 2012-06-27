@@ -35,8 +35,6 @@ from tracelog import TraceLog
 import simview
 import codeedit
 import process
-import runlog
-import logview
 import settings
 import externtypes
 import functions
@@ -170,10 +168,8 @@ class App:
 
     def open_tracelog_tab(self, filename):
         t = self._catch_io_error(lambda: TraceLog(filename))
-        rv = runview.RunView(t)
+        rv = runview.RunView(self, t)
         self.window.add_tab(Tab("Tracelog", rv))
-        #log = self._catch_io_error(lambda: runlog.Log(filename))
-        #self.window.add_tab(Tab("Log: " + log.get_name(), logview.LogView(self, log)))
 
     def save_project(self):
         if self.project.get_filename() is None:
@@ -314,7 +310,8 @@ class App:
         tab_tag = "file:" + filename
         if self.window.switch_to_tab_by_key(tab_tag):
             return
-        self.window.add_tab(codeedit.TabCodeFileEditor(filename, tab_tag, self.project.get_syntax_highlight_key()))
+        self.window.add_tab(codeedit.TabCodeFileEditor(filename, tab_tag,
+			self.project.get_syntax_highlight_key()))
 
     def edit_head(self, lineno = None):
         position = ("", lineno) if lineno is not None else None

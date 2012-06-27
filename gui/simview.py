@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011 Stanislav Bohm
+#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
@@ -24,6 +24,7 @@ from drawing import VisualConfig
 import gtkutils
 import mainwindow
 import objectlist
+from runview import NetInstanceView
 
 class SimViewTab(mainwindow.Tab):
     def __init__(self, app, simulation, tabname = "Simulation"):
@@ -35,151 +36,32 @@ class SimViewTab(mainwindow.Tab):
         mainwindow.Tab.close(self)
         self.simulation.shutdown()
 
-class NetRunView(gtk.HPaned):
-    def __init__(self, instances, vconfig):
-        gtk.HPaned.__init__(self)
-        vbox = gtk.VBox()
-        vbox.pack_start(self._tree(instances[0].get_perspectives()))
-        vbox.pack_start(self._instances_list(instances))
-        self.pack1(vbox, False)
-        self.canvas_sc = gtk.ScrolledWindow()
-        self.canvas = self._create_canvas(vconfig)
-        self.canvas.set_size_and_viewport_by_net()
-        self.canvas_sc.add_with_viewport(self.canvas)
 
-        self.pack2(self.canvas_sc, True)
-        self.show_all()
-
-    def redraw(self):
-        self.canvas.redraw()
-
-    def get_perspective(self):
-        return self.tree.get_selection(0)
-
-    def get_instance(self):
-        return self.instances.selected_object()
-
-    def _create_canvas(self, vconfig):
-        c = NetCanvas(self.get_instance().net, None, vconfig, zoom = 1)
-        c.set_callback("button_down", self._button_down)
-        c.show()
-        return c
-
-    def _refresh_tree(self, perspectives):
-        p = self.get_perspective()
-        self.tree.clear()
-        for pe in perspectives:
-            i = self.tree.append((pe, str(pe.get_name())))
-            if p == pe:
-                self.tree.select_iter(i)
-        if p not in perspectives:
-            self.tree.select_first()
-
-    def _refresh_instances(self, instances):
-        selected_instance = self.get_instance()
-        self.instances.clear()
-        selected = False
-        for instance in instances:
-            self.instances.add_object(instance)
-            if selected_instance and instance.id == selected_instance.id:
-                self.instances.select_object(instance)
-                selected = True
-        if not selected:
-            obj = None
-            # Find parent instance
-            for instance in instances:
-                if instance.get_id() == selected_instance.parent_id:
-                    obj = instance
-                    break
-            if obj is None: # Parent also not exists so select first item
-                obj = instances[0]
-            self.instances.select_object(obj)
-            self._instance_changed(obj)
-        self._refresh_tree(self.get_instance().get_perspectives())
-
-
-    def _tree(self, perspectives):
-        self.tree = gtkutils.SimpleList((("_", object), ("Views",str)))
-        self.tree.set_size_request(80,10)
-        self._refresh_tree(perspectives)
-        self.tree.select_first()
-        self.tree.connect_view("cursor-changed", self._tree_changed);
-        return self.tree
-
-    def _instances_list(self, instances):
-        self.instances = objectlist.ObjectList((("_", object), ("Instances",str)))
-        self.instances.cursor_changed = self._instance_changed
-        self.instances.object_as_row = lambda obj: (obj, obj.get_name())
-        self.instances.fill(instances)
-        self.instances.select_first()
-        return self.instances
-
-    def _tree_changed(self, w):
-        self.redraw()
-
-    def _instance_changed(self, obj):
-        self.canvas.set_net(obj.net)
-        self._refresh_tree(obj.get_perspectives())
-        self.redraw()
-
-    def _button_down(self, event, pos):
-        pass
-
-class SimView(NetRunView):
+class SimView(NetInstanceView):
 
     def __init__(self, app, simulation):
-        NetRunView.__init__(self, simulation.get_instances(), SimVisualConfig(self))
+        NetInstanceView.__init__(self, app)
         self.simulation = simulation
-        self.app = app
+        self.set_runinstance(self.simulation.runinstance)
         simulation.set_callback("changed", self._simulation_changed)
 
     def _simulation_changed(self):
-        self._refresh_instances(self.simulation.instances)
-        self.redraw()
+        self.set_runinstance(self.simulation.runinstance)
 
-    def _button_down(self, event, pos):
-        item = self.get_instance().net.get_item_at_position(pos)
-        if item is None:
-            return
+    def on_item_click(self, item):
+        NetInstanceView.on_item_click(self, item)
         if item.is_transition():
-            self.get_perspective().fire_transition(item)
-        elif item.is_place():
-            self.open_tokens_tab(item)
+            self.fire_transition(item)
 
-    def open_tokens_tab(self, place):
-        text_buffer = gtk.TextBuffer()
-        tokens = '\n'.join(map(str, self.get_perspective().get_tokens(place)))
-        text_buffer.insert(text_buffer.get_end_iter(), tokens)
-        text_area = gtk.TextView()
-        text_area.set_buffer(text_buffer)
-        text_area.set_editable(False)
+    def fire_transition(self, transition):
+        perspective = self.get_perspective()
+        ids = [ i.process_id for i in perspective.net_instances.values()
+                if i.enabled_transitions is not None and transition.id in i.enabled_transitions ]
+        if not ids:
+            return
+        process_id = self.simulation.random.choice(ids)
+        self.simulation.fire_transition(transition.id, self.get_group().id, process_id)
 
-        sw = gtk.ScrolledWindow()
-        sw.add(text_area)
-        vbox = gtk.VBox()
-        vbox.pack_start(sw)
-        vbox.show_all()
-
-        label = "Tokens of " + place.get_name()
-        self.app.window.add_tab(mainwindow.Tab(label, vbox))
-
-
-class SimVisualConfig(VisualConfig):
-
-    def __init__(self, simview):
-        self.simview = simview
-
-    def transition_drawing(self, item):
-        d = VisualConfig.transition_drawing(self, item)
-        if self.simview.simulation.is_running() and self.simview.get_perspective().is_enabled(item):
-            d.set_highlight((0.1,0.90,0.1,0.5))
-        return d
-
-    def place_drawing(self, item):
-        d = VisualConfig.place_drawing(self, item)
-        tokens = map(str, self.simview.get_perspective().get_tokens(item))
-        d.set_tokens(tokens)
-        return d
 
 def connect_dialog(mainwindow):
     builder = gtkutils.load_ui("connect-dialog")
@@ -197,4 +79,3 @@ def connect_dialog(mainwindow):
         return None
     finally:
         dlg.destroy()
-

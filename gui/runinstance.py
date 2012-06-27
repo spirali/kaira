@@ -44,6 +44,9 @@ class RunInstance:
     def remove_token(self, place_id, token_pointer):
         self.last_event_instance.remove_token(place_id, token_pointer)
 
+    def add_enabled_transition(self, transition_id):
+        self.last_event_instance.add_enabled_transition(transition_id)
+
     def set_activity(self, process_id, thread_id, activity):
         index = process_id * self.threads_count + thread_id
         self.activites[index] = activity
@@ -51,7 +54,8 @@ class RunInstance:
 
     def event_spawn(self, process_id, thread_id, time, net_id, group_id, parent_id):
         self.last_event = "spawn"
-        self.set_activity(process_id, thread_id, None)
+        if thread_id is not None:
+            self.set_activity(process_id, thread_id, None)
 
         group = self.instance_groups.get(group_id)
 
@@ -154,6 +158,7 @@ class NetInstance:
 
     def __init__(self, process_id, tokens=None):
         self.process_id = process_id
+        self.enabled_transitions = None
         if tokens is None:
             self.tokens = {}
         else:
@@ -178,21 +183,31 @@ class NetInstance:
     def remove_all_tokens(self, place_id):
         self.tokens[place_id] = None
 
+    def add_enabled_transition(self, transition_id):
+        if self.enabled_transitions is None:
+            self.enabled_transitions = []
+        self.enabled_transitions.append(transition_id)
+
     def copy(self):
-        return NetInstance(self.process_id, copy(self.tokens))
+        netinstance = NetInstance(self.process_id, copy(self.tokens))
+        netinstance.enabled_transitions = copy(self.enabled_transitions)
+        return netinstance
 
 
 class NetInstanceVisualConfig(VisualConfig):
 
-    def __init__(self, transition_executions, tokens):
+    def __init__(self, transition_executions, enabled_transitions, tokens):
         # transition_id -> [ text_labels ]
         self.transition_executions = transition_executions
         self.tokens = tokens
+        self.enabled_transitions = enabled_transitions
 
     def transition_drawing(self, item):
         drawing = VisualConfig.transition_drawing(self, item)
         executions = self.transition_executions.get(item.id)
         drawing.executions = executions
+        if item.id in self.enabled_transitions:
+            drawing.highlight = (0, 1, 0)
         return drawing
 
     def place_drawing(self, item):
@@ -208,6 +223,15 @@ class Perspective(utils.EqMixin):
         self.run_instance = run_instance
         self.group = group
         self.net_instances = net_instances
+
+    def get_tokens(self, place):
+        tokens = []
+        for net_instance in self.net_instances.values():
+            t = net_instance.tokens.get(place.id)
+            if t is not None:
+                for token_pointer, token_value in t:
+                    tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
+        return tokens
 
     def get_visual_config(self):
         activies_by_transitions = {}
@@ -239,14 +263,12 @@ class Perspective(utils.EqMixin):
                 for activity, color in lst ]
 
         tokens = {}
-
         for place in self.group.net.places():
-            place_id = place.id
-            ts = []
-            for net_instance in self.net_instances.values():
-                t = net_instance.tokens.get(place_id)
-                if t is not None:
-                    for token_pointer, token_value in t:
-                        ts.append("{0}@{1}".format(token_value, net_instance.process_id))
-            tokens[place_id] = ts
-        return NetInstanceVisualConfig(transition_executions, tokens)
+            tokens[place.id] = self.get_tokens(place)
+
+        enabled = set()
+        enabled.update(*[ net_instance.enabled_transitions
+                          for net_instance in self.net_instances.values()
+                          if net_instance.enabled_transitions is not None ])
+
+        return NetInstanceVisualConfig(transition_executions, enabled, tokens)
