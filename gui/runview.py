@@ -38,6 +38,7 @@ class RunView(gtk.VBox):
             ("Replay", self.netinstance_view),
             ("Processes", self._processes_utilization()),
             ("Transitions", self._transitions_utilization()),
+            ("Places", self._place_chart()),
         ]
 
         self.pack_start(self._controlls(), False, False)
@@ -143,6 +144,24 @@ class RunView(gtk.VBox):
         values = self.tracelog.statistics["transition_values"]
         legend = [ (0, "Running") ]
         return self._utilization_chart(values, names, colors, legend)
+
+    def _place_chart(self):
+        values = self.tracelog.statistics["tokens_values"]
+        names = self.tracelog.statistics["tokens_names"]
+
+        vbox = gtk.HBox()
+        placelist = gtkutils.SimpleList((("Place|foreground", str),("_", str)))
+        colors = chart.color_names
+        for i, name in enumerate(names):
+            placelist.append((name,colors[i % len(colors)]))
+        vbox.pack_start(placelist, False, False)
+        maxtime = self.tracelog.get_max_time()
+        c = chart.TimeChart(values, min_time=0, max_time=maxtime, min_value=0)
+        c.xlabel_format = lambda x: time_to_string(x)[:-7]
+        w = chart.ChartWidget(c)
+        vbox.pack_start(w, True, True)
+        return vbox
+
 
 class NetInstanceView(gtk.HPaned):
 

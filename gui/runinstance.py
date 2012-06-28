@@ -64,11 +64,11 @@ class RunInstance:
             parent = self.project.find_net(parent_id)
             group = NetInstanceGroup(self, group_id, net, parent)
             self.instance_groups[group_id] = group
-        instance = NetInstance(process_id)
+        instance = NetInstance(group_id, process_id)
         group.add_net_instance(instance)
         self.last_event_instance = instance
 
-    def event_receive(self, process_id, thread_id, group_id):
+    def event_receive(self, time, process_id, thread_id, group_id):
         self.last_event = "receive"
         self.last_event_instance = self.instance_groups[group_id].net_instances[process_id]
         self.set_activity(process_id, thread_id, None)
@@ -154,7 +154,8 @@ class TransitionExecution(ThreadActivity):
 
 class NetInstance:
 
-    def __init__(self, process_id, tokens=None):
+    def __init__(self, group_id, process_id, tokens=None):
+        self.group_id = group_id
         self.process_id = process_id
         self.enabled_transitions = None
         if tokens is None:
@@ -187,7 +188,7 @@ class NetInstance:
         self.enabled_transitions.append(transition_id)
 
     def copy(self):
-        netinstance = NetInstance(self.process_id, copy(self.tokens))
+        netinstance = NetInstance(self.group_id, self.process_id, copy(self.tokens))
         netinstance.enabled_transitions = copy(self.enabled_transitions)
         return netinstance
 
