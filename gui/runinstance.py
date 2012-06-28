@@ -23,11 +23,10 @@ from drawing import VisualConfig
 
 class RunInstance:
 
-    def __init__(self, project, process_count, threads_count, time = None):
+    def __init__(self, project, process_count, threads_count):
         self.project = project
         self.process_count = process_count
         self.threads_count = threads_count
-        self.time = time
 
         self.instance_groups = {}
         self.activites = [None] * (self.process_count * self.threads_count)
@@ -78,12 +77,12 @@ class RunInstance:
         self.last_event = "fired"
         group = self.instance_groups[group_id]
         self.last_event_instance = group.net_instances[process_id]
-        self.last_event_activity = \
-            TransitionExecution(time, process_id, thread_id, group_id, transition_id)
         transition = group.net.item_by_id(transition_id)
+        self.last_event_activity = \
+            TransitionExecution(time, process_id, thread_id, group_id, transition)
         for place in transition.get_packing_input_places():
             self.last_event_instance.remove_all_tokens(place.id)
-        if not transition.is_immediate():
+        if transition.has_code():
             self.activites[process_id * self.threads_count + thread_id] = self.last_event_activity
 
     def transition_finished(self, time, process_id, thread_id):
@@ -99,8 +98,7 @@ class RunInstance:
     def copy(self):
         runinstance = RunInstance(self.project,
                                   self.process_count,
-                                  self.threads_count,
-                                  self.time)
+                                  self.threads_count)
         for i in self.instance_groups:
             group = self.instance_groups[i].copy()
             group.run_instance = runinstance
@@ -149,10 +147,10 @@ class ThreadActivity:
 
 class TransitionExecution(ThreadActivity):
 
-    def __init__(self, time, process_id, thread_id, group_id, transition_id):
+    def __init__(self, time, process_id, thread_id, group_id, transition):
         ThreadActivity.__init__(self, time, process_id, thread_id)
         self.group_id = group_id
-        self.transition_id = transition_id
+        self.transition = transition
 
 class NetInstance:
 
@@ -243,16 +241,16 @@ class Perspective(utils.EqMixin):
         for i in range(run_instance.threads_count * run_instance.process_count):
             activity = run_instance.activites[i]
             if isinstance(activity, TransitionExecution) \
-                and activity.transition_id in activies_by_transitions:
+                and activity.transition.id in activies_by_transitions:
                 
                 if activity != run_instance.last_event_activity:
-                    activies_by_transitions[activity.transition_id].append((activity, color))
+                    activies_by_transitions[activity.transition.id].append((activity, color))
 
         if (run_instance.last_event == "fired" or run_instance.last_event == "finish") \
-            and run_instance.last_event_activity.transition_id \
+            and run_instance.last_event_activity.transition.id \
                 in activies_by_transitions:
             color = (0, 1, 0, 0.8) if run_instance.last_event == "fired" else (1, 0, 0, 0.8)
-            activies_by_transitions[run_instance.last_event_activity.transition_id].append(
+            activies_by_transitions[run_instance.last_event_activity.transition.id].append(
                 (run_instance.last_event_activity, color))
 
         transition_executions = {}

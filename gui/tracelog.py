@@ -23,7 +23,7 @@ import loader
 import struct
 import os
 
-import runinstance
+from runinstance import RunInstance
 
 zero_char = chr(0)
 
@@ -91,6 +91,9 @@ class TraceLog:
     def get_runinstances_count(self):
         return len(self.timeline) + 1
 
+    def get_max_time(self):
+        return self.get_event_time(len(self.timeline))
+
     def _read_header(self):
         with open(self.filename, "r") as f:
             header = xml.fromstring(f.readline())
@@ -113,9 +116,9 @@ class TraceLog:
         timeline = []
         trace_times = [ trace.get_next_event_time() for trace in self.traces ]
 
-        ri = runinstance.RunInstance(self.project, self.process_count, self.threads_count, 0)
+        ri = DataCollectingRunInstance(self.project, self.process_count, self.threads_count)
 
-        self.first_runinstance = runinstance.RunInstance(self.project, self.process_count, self.threads_count)
+        self.first_runinstance = RunInstance(self.project, self.process_count, self.threads_count)
         timeline = []
 
         while True:
@@ -136,6 +139,12 @@ class TraceLog:
             trace_times[minimal_time_index] = trace.get_next_event_time()
 
         self.timeline = timeline
+        names, values = ri.get_transitions_utilization()
+        self.statistics = {
+            "threads" : ri.threads_data,
+            "transition_names" : names,
+            "transition_values" : values
+        }
 
 
 class Trace:
@@ -210,10 +219,10 @@ class Trace:
                 break
 
     def get_next_event_time(self):
-        if self.pointer + self.struct_basic.size < len(self.data):
-            return self.struct_basic.unpack_from(self.data, self.pointer)[0]
-        else:
+        if self.is_pointer_at_end():
             return None
+        else:
+            return self.struct_basic.unpack_from(self.data, self.pointer + 1)[0]
 
     def _read_struct_transition_fired(self):
         values = self.struct_transition_fired.unpack_from(self.data, self.pointer)
@@ -278,3 +287,59 @@ class EventPointer:
 
     def execute(self, runinstance):
         self.tr
+
+
+class DataCollectingRunInstance(RunInstance):
+
+    def __init__(self, project, process_count, threads_count):
+        RunInstance.__init__(self, project, process_count, threads_count)
+        begin = (0, None)
+        self.threads_data = [ [ [ begin ] for t in xrange(self.threads_count) ]
+                              for p in xrange(self.process_count) ]
+        self.transitions_data = {} # group_id -> process_id -> transition_id -> [(time, color)]
+        self.group_nets = {}
+
+    def add_transition_data(self, group_id, process_id, transition_id, value):
+        group = self.transitions_data.get(group_id)
+        if group is None:
+            group = {}
+            self.transitions_data[group_id] = group
+            self.group_nets[group_id] = self.instance_groups[group_id].net
+        process = group.get(process_id)
+        if process is None:
+            process = {}
+            group[process_id] = process
+        lst = process.get(transition_id)
+        if lst is None:
+            lst = []
+            process[transition_id] = lst
+        lst.append(value)
+
+    def transition_fired(self, time, process_id, thread_id, group_id, transition_id):
+        RunInstance.transition_fired(self, time, process_id, thread_id, group_id, transition_id)
+        if self.last_event_activity.transition.has_code():
+            value = (time, 0)
+            self.threads_data[process_id][thread_id].append(value)
+            self.add_transition_data(group_id, process_id, transition_id, value)
+
+    def transition_finished(self, time, process_id, thread_id):
+        RunInstance.transition_finished(self, time, process_id, thread_id)
+        activity = self.last_event_activity
+        if activity.transition.has_code():
+            value = (time, None)
+            self.threads_data[activity.process_id][activity.thread_id].append(value)
+            self.transitions_data[activity.group_id][process_id][activity.transition.id].append(value)
+
+    def get_transitions_utilization(self):
+        names = []
+        values = []
+        for group_id, g in self.transitions_data.items():
+            net = self.group_nets[group_id]
+            for process_id, p in g.items():
+                for transition_id, lst in p.items():
+                    names.append("{0.name}({0.id}) {1.name}@{2}".format(
+                        net,
+                        net.item_by_id(transition_id),
+                        process_id))
+                    values.append([lst])
+        return names, values

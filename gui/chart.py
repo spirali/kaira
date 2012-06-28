@@ -305,6 +305,8 @@ class UtilizationChart:
         return 0, 40 * len(self.values) + 40 + 75 # legend_space + reserved space at the end
 
     def render(self, width, height, cr):
+        if not self.labels:
+            return
         labelw, labelh = get_label_sizes(cr, self.labels)
         boxh = 40
         legend_space = 40

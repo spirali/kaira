@@ -23,6 +23,7 @@ import objectlist
 import mainwindow
 from canvas import NetCanvas
 from drawing import VisualConfig
+import chart
 
 class RunView(gtk.VBox):
 
@@ -35,6 +36,8 @@ class RunView(gtk.VBox):
 
         self.views = [
             ("Replay", self.netinstance_view),
+            ("Processes", self._processes_utilization()),
+            ("Transitions", self._transitions_utilization()),
         ]
 
         self.pack_start(self._controlls(), False, False)
@@ -114,6 +117,32 @@ class RunView(gtk.VBox):
             self.tracelog.get_event_name(index),
             time)
         self.info_label.set_markup(text)
+
+    def _utilization_chart(self, values, names, colors, legend):
+        sc = gtk.ScrolledWindow()
+        sc.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
+        maxtime = self.tracelog.get_max_time()
+        c = chart.UtilizationChart(values, names, legend, colors, (0, maxtime))
+        c.xlabel_format = lambda x: time_to_string(x)[:-7]
+        w = chart.ChartWidget(c)
+        w.set_size_request(*c.get_size_request())
+        w.show_all()
+        sc.add_with_viewport(w)
+        return sc
+
+    def _processes_utilization(self):
+        colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
+        values = self.tracelog.statistics["threads"]
+        names =  [ "process {0}".format(p) for p in xrange(self.tracelog.process_count) ]
+        legend = [ (0, "Running") ]
+        return self._utilization_chart(values, names, colors, legend)
+
+    def _transitions_utilization(self):
+        colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
+        names = self.tracelog.statistics["transition_names"]
+        values = self.tracelog.statistics["transition_values"]
+        legend = [ (0, "Running") ]
+        return self._utilization_chart(values, names, colors, legend)
 
 class NetInstanceView(gtk.HPaned):
 
@@ -207,7 +236,10 @@ class NetInstanceView(gtk.HPaned):
         self.redraw()
 
     def _button_down(self, event, pos):
-        item = self.get_group().net.get_item_at_position(pos)
+        group = self.get_group()
+        if group is None:
+            return
+        item = group.net.get_item_at_position(pos)
         if item is None:
             return
         self.on_item_click(item)
