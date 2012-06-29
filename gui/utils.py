@@ -159,9 +159,9 @@ def pairs_generator(lst):
     for x in xrange(len(lst) - 1):
         yield (lst[x], lst[x+1])
 
-def text_size(cr, text):
+def text_size(cr, text, min_h = 0, min_w = 0):
     extends = cr.text_extents(text)
-    return (extends[2], extends[3])
+    return max(min_w, extends[2]), max(min_h, extends[3])
 
 def snap_to_grid(point, grid_size):
     px, py = point

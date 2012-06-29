@@ -114,6 +114,8 @@ class MainWindow(gtk.Window):
         self.add_accel_group(ag)
 
         self.project_sensitives = []
+        self.tracing_sensitives = []
+
         file_menu = gtk.Menu()
 
         item = gtk.MenuItem("_New project")

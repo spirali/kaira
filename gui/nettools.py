@@ -126,15 +126,28 @@ class NetTool:
             self.selected_item.delete()
             self.deselect_item()
 
+        def set_tracing(obj, value):
+            obj.tracing = value
+            self.netview.redraw()
+
         if self.selected_item in self.net.pick_items(position):
 
             actions_dict = {
                 Transition: [("Edit code",
                     lambda w: self.netview.transition_edit_callback(self.selected_item)),
-                    ("Set subnet", self.build_netlist_menu(self.selected_item))
+                    ("Set subnet", self.build_netlist_menu(self.selected_item)),
+                    ("Tracing", [
+                        ("off", lambda w: set_tracing(self.selected_item, False)),
+                        ("on", lambda w: set_tracing(self.selected_item, True)),
+                    ])
                 ],
                 Place: [("Edit init code",
-                    lambda w: self.netview.place_edit_callback(self.selected_item))],
+                    lambda w: self.netview.place_edit_callback(self.selected_item)),
+                    ("Tracing", [
+                        ("off", lambda w: set_tracing(self.selected_item, False)),
+                        ("on", lambda w: set_tracing(self.selected_item, True)),
+                    ])
+                ],
                 Edge: [ ("Switch direction",
                             lambda w: self.selected_item.switch_direction()),
                         ("Bidirectional",

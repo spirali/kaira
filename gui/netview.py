@@ -70,6 +70,7 @@ class NetViewVisualConfig(VisualConfig):
         self.selected = None
         self.project = project
         self.mouseover_highlighted = None
+        self.show_tracing = False
 
     def highlight(self, item):
         self.selected = item
@@ -85,6 +86,8 @@ class NetViewVisualConfig(VisualConfig):
         return True
 
     def preprocess(self, item, drawing):
+        if self.show_tracing and (item.is_transition() or item.is_place()):
+            drawing.trace_text = item.get_trace_text()
         if item == self.mouseover_highlighted:
             drawing.set_highlight((0.6,0.6,0.8,8.0))
         if self.project.has_error_messages(item):
@@ -137,6 +140,10 @@ class NetView(gtk.VBox):
 
     def get_net(self):
         return self.netlist.selected_object()
+
+    def set_show_tracing(self, value):
+        self.vconfig.show_tracing = value
+        self.redraw()
 
     def switch_to_net(self, net, select_in_netlist = True):
         if select_in_netlist:
@@ -197,13 +204,20 @@ class NetView(gtk.VBox):
         icon_place = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "place.png"))
         icon_arc = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "arc.png"))
         icon_area = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "area.png"))
+        icon_trace = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "trace.png"))
+
+        toolbar = gtk.Toolbar()
 
         button1 = gtk.ToggleToolButton(None)
         button1.connect("toggled", lambda w: self.netlist_show(w.get_active()))
         button1.set_stock_id(gtk.STOCK_INDEX)
-
-        toolbar = gtk.Toolbar()
         toolbar.add(button1)
+
+        button1 = gtk.ToggleToolButton(None)
+        button1.connect("toggled", lambda w: self.set_show_tracing(w.get_active()))
+        button1.set_icon_widget(icon_trace)
+        toolbar.add(button1)
+
         toolbar.add(gtk.SeparatorToolItem())
 
         button1 = gtk.RadioToolButton(None,None)
@@ -352,7 +366,10 @@ class NetList(ObjectTree):
             ("-", None),
             ("Copy net", self._copy),
             ("Rename net", self._rename),
-            ("Remove net", self._remove),
+            ("-", None),
+            ("Tracing", [
+                ("Trace everything", self._trace_everything),
+                ("Trace nothing", self._trace_nothing) ]),
             ("-", None),
             ("Export to SVG", self._export_svg)
         ]
@@ -434,6 +451,20 @@ class NetList(ObjectTree):
         finally:
             surface.finish()
         self.netview.app.console_write("Net exported to 'net.svg'.\n", "success")
+
+    def _trace_nothing(self, w):
+        obj = self.selected_object()
+        if isinstance(obj, str):
+            return
+        obj.trace_nothing()
+        self.netview.redraw()
+
+    def _trace_everything(self, w):
+        obj = self.selected_object()
+        if isinstance(obj, str):
+            return
+        obj.trace_everything()
+        self.netview.redraw()
 
     def object_as_row(self, obj):
         if isinstance(obj, str):

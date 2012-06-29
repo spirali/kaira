@@ -158,7 +158,7 @@ class App:
                  gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         try:
             dialog.set_default_response(gtk.RESPONSE_OK)
-            self._add_file_filters(dialog, (("Kaira Log", "*.kth"),), all_files = True)
+            self._add_file_filters(dialog, (("Kaira Tracelog Header", "*.kth"),), all_files = True)
 
             response = dialog.run()
             if response == gtk.RESPONSE_OK:
@@ -311,7 +311,7 @@ class App:
         if self.window.switch_to_tab_by_key(tab_tag):
             return
         self.window.add_tab(codeedit.TabCodeFileEditor(filename, tab_tag,
-			self.project.get_syntax_highlight_key()))
+            self.project.get_syntax_highlight_key()))
 
     def edit_head(self, lineno = None):
         position = ("", lineno) if lineno is not None else None
@@ -599,3 +599,4 @@ if __name__ == "__main__":
     args = sys.argv[1:] # Remove "app.py"
     app = App(args)
     app.run()
+

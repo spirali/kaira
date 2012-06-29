@@ -246,6 +246,15 @@ class Net:
             b = max(b, ib)
         return ((l,t), (r, b))
 
+    def trace_nothing(self):
+        for i in self.transitions() + self.places():
+            i.tracing = False
+
+    def trace_everything(self):
+        for i in self.transitions() + self.places():
+            i.tracing = True
+
+
 class NetItem(object):
 
     z_level = 0
@@ -292,6 +301,7 @@ class NetItem(object):
 class NetElement(NetItem):
 
     code = ""
+    tracing = False
 
     def __init__(self, net, id, position):
         NetItem.__init__(self, net, id)
@@ -371,6 +381,12 @@ class Transition(NetElement):
 
     def is_immediate(self):
         return not self.has_code() and self.subnet is None
+
+    def get_trace_text(self):
+        if self.tracing:
+            return "fire"
+        else:
+            return None
 
     def as_xml(self):
         e = self.create_xml_element("transition")
@@ -470,10 +486,10 @@ class Transition(NetElement):
         result = []
         for i in self.net.items:
             if i.is_edge() and i.inscription.startswith("~"):
-				if i.to_item == self:
-					result.append(i.from_item)
-				elif i.is_bidirectional() and i.from_item == self:
-					result.append(i.to_item)
+                if i.to_item == self:
+                    result.append(i.from_item)
+                elif i.is_bidirectional() and i.from_item == self:
+                    result.append(i.to_item)
         return result
 
 class Place(NetElement):
@@ -504,6 +520,12 @@ class Place(NetElement):
 
     def is_place(self):
         return True
+
+    def get_trace_text(self):
+        if self.tracing:
+            return "values"
+        else:
+            return None
 
     def as_xml(self):
         e = self.create_xml_element("place")

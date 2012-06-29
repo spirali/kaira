@@ -44,11 +44,15 @@ class VisualConfig:
     def preprocess(self, item, drawing):
         return drawing
 
+
 class DrawingBase:
 
+    highlight = None
+    error_messages = None
+    trace_text = None
+
     def __init__(self):
-        self.highlight = None
-        self.error_messages = None
+        pass
 
     def set_highlight(self, highlight):
         self.highlight = highlight
@@ -58,6 +62,7 @@ class DrawingBase:
 
     def draw_top(self, cr):
         pass
+
 
 class TransitionDrawing(DrawingBase):
 
@@ -140,6 +145,8 @@ class TransitionDrawing(DrawingBase):
                 x += tx + 12
                 cr.set_source_rgb(0, 0, 0)
                 cr.show_text(text)
+        if self.trace_text is not None:
+            draw_trace_box(cr, px - sx / 2 - 5, py - sy / 2 - 5, self.trace_text)
 
     def draw_top(self, cr):
         if self.error_messages and "guard" in self.error_messages:
@@ -150,6 +157,7 @@ class TransitionDrawing(DrawingBase):
             draw_error_box_after_text(cr, self.guard, (tx, ty), self.error_messages["guard"])
         if self.error_messages and None in self.error_messages:
             draw_error_box(cr, self.position, self.error_messages[None])
+
 
 class PlaceDrawing(DrawingBase):
 
@@ -204,6 +212,8 @@ class PlaceDrawing(DrawingBase):
             cr.set_source_rgb(0,0,0)
             cr.move_to(px + x, py + x)
             cr.show_text(self.place_type)
+        if self.trace_text is not None:
+            draw_trace_box(cr, px - 15, py - 15, self.trace_text)
 
     def draw_top(self, cr):
         px, py = self.position
@@ -256,6 +266,7 @@ class PlaceDrawing(DrawingBase):
         if self.error_messages and "init" in self.error_messages:
             draw_error_box_after_text(cr, self.init_string, (px + x, py - x), self.error_messages["init"])
 
+
 class EdgeDrawing(DrawingBase):
 
     def __init__(self, item):
@@ -296,6 +307,7 @@ class EdgeDrawing(DrawingBase):
     def draw_top(self, cr):
         if self.error_messages and "inscription" in self.error_messages:
             draw_error_box_after_text(cr, self.inscription, self.inscription_position, self.error_messages["inscription"])
+
 
 class AreaDrawing(DrawingBase):
 
@@ -338,6 +350,7 @@ class AreaDrawing(DrawingBase):
         if self.error_messages and "instances" in self.error_messages:
             px, py = self.position
             draw_error_box_after_text(cr, self.init_expr,(px, py - 5), self.error_messages["instances"])
+
 
 class IntefaceDrawing(DrawingBase):
 
@@ -397,6 +410,7 @@ class IntefaceNodeDrawing(DrawingBase):
         cr.rectangle(px - 6, py - 6, 12,  12)
         cr.fill()
 
+
 def draw_error_box_after_text(cr, text, position, lines):
     if text is not None:
         sx, sy = utils.text_size(cr, text)
@@ -425,4 +439,32 @@ def draw_error_box(cr, position, lines):
         cr.show_text(line)
         py += letter_y
 
+def rounded_rectangle(cr, x, y, w, h, r):
+    cr.move_to(x + r, y)
+    cr.line_to(x + w-r, y)
+    cr.curve_to(x + w, y, x + w, y, x + w, y + r)
+    cr.line_to(x + w,y + h - r)
+    cr.curve_to(x + w,y + h,x + w, y + h, x + w-r, y + h)
+    cr.line_to(x + r, y + h)
+    cr.curve_to(x, y + h, x, y + h, x, y + h - r)
+    cr.line_to(x, y + r)
+    cr.curve_to(x, y, x, y, x + r, y)
 
+def draw_trace_box(cr, x, y, text):
+    tx, ty = utils.text_size(cr, text, 8)
+    rounded_rectangle(cr, x, y, tx + 40, ty + 10, 10)
+    cr.set_source_rgba(1.0, 0.5, 0.2, 0.9)
+    cr.fill()
+    rounded_rectangle(cr, x, y, tx + 40, ty + 10, 10)
+    cr.set_source_rgba(1.0, 0.5, 0.2)
+    cr.stroke()
+
+    cr.set_source_rgb(1, 1, 1)
+    cr.move_to(x + 30, y + ty + 5)
+    cr.show_text(text)
+    cr.fill()
+
+    cr.arc(x + 12, y + 7, 4, 0, 2 * math.pi)
+    cr.move_to(x + 16, y + 11)
+    cr.rel_line_to(5, 5)
+    cr.stroke()
