@@ -250,6 +250,9 @@ class TimeChart(TwoAxisChart):
         self.max_time = max_time
         self.values = values
 
+        if not self.values:
+            return
+
         if min_value is None:
             min_value = min(min(x[1] for x in timeline) for timeline in values)
         if max_value is None:
@@ -258,7 +261,11 @@ class TimeChart(TwoAxisChart):
 
     def render(self, width, height, cr):
         def coords(time, value):
-            return (((time - self.xbounds[0])/xdelta) * w + x, y - ((value - self.ybounds[0]) / ydelta) * h)
+            return (((time - self.xbounds[0])/xdelta) * w + x,
+                      y - ((value - self.ybounds[0]) / ydelta) * h)
+
+        if not self.values:
+            return
 
         TwoAxisChart.render(self, width, height, cr)
         xdelta = float(self.xdelta())
@@ -289,6 +296,7 @@ class TimeChart(TwoAxisChart):
             s, v = coords(line[-1][0], line[-1][1])
             cr.arc(s, v, 2, 0, 2 * math.pi)
             cr.fill()
+
 
 class UtilizationChart:
 
@@ -365,6 +373,7 @@ class UtilizationChart:
         cr.rectangle(x, y, w, h)
         cr.fill()
 
+
 class ChartWidget(gtk.DrawingArea):
 
     def __init__(self, chart):
@@ -379,7 +388,6 @@ class ChartWidget(gtk.DrawingArea):
         cr.clip()
         size = self.window.get_size()
         self.chart.render(size[0], size[1], cr)
-
 
 
 def get_label_sizes(cr, labels):

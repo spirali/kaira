@@ -211,6 +211,18 @@ class Transition(utils.EqByIdMixin):
     def get_basic_input_edges(self):
         return self.edges_in
 
+    def get_input_places(self):
+        return set([ edge.place for edge in self.edges_in ])
+
+    def get_output_places(self):
+        return set([ edge.place for edge in self.edges_in ])
+
+    def get_places(self):
+        return self.get_input_places() & self.get_output_places()
+
+    def is_any_place_traced(self):
+        return any(place.tracing != "off" for place in self.get_places())
+
     def get_equations(self):
         result = []
         for e in self.get_all_edges():

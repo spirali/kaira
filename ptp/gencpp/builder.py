@@ -570,7 +570,7 @@ class Builder(CppWriter):
 
         w = Builder(self.project)
         matches, _, vars_access = get_edges_mathing(self.project, tr)
-        if tr.tracing != "off":
+        if tr.tracing != "off" or tr.is_any_place_traced():
             w.line("CaTraceLog *tracelog = thread->get_tracelog();")
             w.if_begin("tracelog")
             w.line("tracelog->event_transition_fired(net->get_id(), {0.id});", tr)
@@ -615,18 +615,21 @@ class Builder(CppWriter):
             w.line("net->inc_running_transitions();")
 
         for edge in tr.get_packing_edges_in():
-            w.line("{1} = n->place_{0.id}.to_vector_and_clear();", edge.get_place(), em.variable_emitter(edge.varname))
+            w.line("{1} = n->place_{0.id}.to_vector_and_clear();",
+                   edge.get_place(), em.variable_emitter(edge.varname))
 
         if tr.subnet is not None:
             retvalue = "CA_TRANSITION_FIRED_WITH_MODULE"
             w.line("n->unlock();")
             w.line("bool lock = true;")
-            w.line("Net_{0.id} *n = (Net_{0.id}*) thread->spawn_net({1}, net);", tr.subnet, tr.subnet.get_index())
+            w.line("Net_{0.id} *n = (Net_{0.id}*) thread->spawn_net({1}, net);",
+                   tr.subnet, tr.subnet.get_index())
             w.line("Tokens_{0.id} *tokens = new Tokens_{0.id}();", tr)
             for edge, _ in matches:
                 w.line("tokens->token_{0.uid} = token_{0.uid};", edge)
 
-            w.line("n->set_finalizer((CaNetFinalizerFn*) transition_finalizer_{0.id}, tokens);", tr)
+            w.line("n->set_finalizer((CaNetFinalizerFn*) transition_finalizer_{0.id}, tokens);",
+                   tr)
             for edge in tr.subnet.get_interface_edges_out():
                 w.write_send_token(em, edge)
         else: # Without subnet
@@ -640,7 +643,7 @@ class Builder(CppWriter):
                 w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
 
                 w.line("bool lock = false;")
-                if tr.tracing != "off":
+                if tr.tracing != "off" or tr.is_any_place_traced():
                     w.if_begin("tracelog")
                     w.line("tracelog->event_transition_finished();")
                     w.block_end()

@@ -422,7 +422,7 @@ class Transition(NetElement):
         for edge in self.edges_from(postprocess = True):
             e.append(edge.create_xml_export_element("edge-out"))
 
-        if build_config.tracing:
+        if build_config.tracing and self.tracing:
             e.set("tracing", "full")
         return e
 
@@ -545,7 +545,7 @@ class Place(NetElement):
         e.set("init-expr", self.init_string)
         if self.has_code():
             e.append(self.xml_code_element())
-        if build_config.tracing:
+        if build_config.tracing and self.tracing:
             e.set("tracing", "full")
         return e
 
