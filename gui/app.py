@@ -257,13 +257,17 @@ class App:
             editor = codeedit.TransitionCodeEditor(self.project, transition, "".join(stdout))
             self.window.add_tab(Tab(name, editor, transition))
             editor.jump_to_position(position)
-        self._start_ptp(self.project, ExportConfig(), open_tab,
+
+        build_config = self.project.get_build_config("simulation")
+        self._start_ptp(self.project, build_config, open_tab,
             extra_args = [ "--transition-user-fn", str(transition.get_id()) ])
 
     def place_edit(self, place, lineno = None):
         position = ("", lineno) if lineno is not None else None
 
-        if self.window.switch_to_tab_by_key(place, lambda tab: tab.widget.jump_to_position(position)):
+        if self.window.switch_to_tab_by_key(
+            place,
+            lambda tab: tab.widget.jump_to_position(position)):
             return
 
         def open_tab(stdout):
@@ -272,12 +276,16 @@ class App:
             self.window.add_tab(Tab(name, editor, place))
             editor.jump_to_position(position)
 
-        self._start_ptp(self.project, ExportConfig(), open_tab,
+        build_config = self.project.get_build_config("simulation")
+        self._start_ptp(self.project, build_config, open_tab,
             extra_args = [ "--place-user-fn", str(place.get_id())])
 
     def extern_type_functions_edit(self, externtype, position = None):
-        if self.window.switch_to_tab_by_key(externtype, lambda tab: tab.widget.jump_to_position(position)):
+        if self.window.switch_to_tab_by_key(
+            externtype,
+            lambda tab: tab.widget.jump_to_position(position)):
             return
+
         editor = externtypes.ExternTypeEditor(self.project, externtype)
         self.window.add_tab(Tab(externtype.get_name(), editor, externtype))
         editor.jump_to_position(position)
