@@ -457,7 +457,6 @@ class App:
         if self.get_settings("save-before-build"):
             self._save_project(silent = True)
 
-        utils.makedir_if_not_exists(build_config.directory)
         extra_args = [ "--build", build_config.directory ]
         self._start_ptp(proj,
                         build_config,

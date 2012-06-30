@@ -21,6 +21,7 @@
 import xml.etree.ElementTree as xml
 import os
 import ptp
+import utils
 
 from events import EventSource
 from simconfig import SimConfig
@@ -238,6 +239,7 @@ class Project(EventSource):
         return root
 
     def export(self, build_config):
+        utils.makedir_if_not_exists(build_config.directory)
         content = xml.tostring(self.export_xml(build_config))
         f = open(build_config.get_export_filename(), "w")
         try:

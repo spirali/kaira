@@ -39,10 +39,7 @@ def get_to_string_function_name(project, t):
     if len(t.args) == 0:
         etype = project.get_extern_type(t.name)
         if etype:
-            if etype.has_code("getstring"):
-                return "{0}_getstring".format(etype.name)
-            else:
-                return self.emitter.const_string(etype.name);
+            return "{0}_getstring".format(etype.name)
     if t == t_string:
         return "ca_string_to_string"
     if t.name == "Array" and len(t.args) == 1:
@@ -760,8 +757,12 @@ class Builder(CppWriter):
             f = declare_fn
 
         for etype in self.project.get_extern_types():
-            if etype.has_code("getstring"):
+            if definitions and not etype.has_code("getstring"):
+                self.write_function(decls["getstring"].format(etype),
+                    "return {0};".format(self.emitter.const_string(etype.name)))
+            else:
                 f(etype, "getstring")
+
             if etype.get_transport_mode() == "Custom":
                 if not etype.has_code("pack") or not etype.has_code("unpack"):
                     raise utils.PtpException("Extern type has custom transport mode but pack/unpack missing.")
@@ -1069,7 +1070,7 @@ class Builder(CppWriter):
                 t = self.emit_type(place.type)
                 self.line("std::vector<{0} > tokens;", t)
                 self.line("place_user_fn_{0.id}(ctx, tokens);", place)
-                self.write_place_add("add_all", place, "net->place_{0.id}.".format(place), tokens)
+                self.write_place_add("add_all", place, "net->place_{0.id}.".format(place), "tokens")
             self.block_end()
         self.line("return net;")
         self.block_end()

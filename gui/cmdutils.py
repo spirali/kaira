@@ -22,10 +22,13 @@ import sys
 import paths
 sys.path.append(paths.PTP_DIR)
 import loader
+import os
 
 def export(filename):
     p = loader.load_project(filename)
-    p.export_to_file(p.get_exported_filename())
+    build_config = p.get_build_config("release")
+    build_config.directory = os.path.dirname(filename)
+    p.export(build_config)
 
 def main():
     parser = argparse.ArgumentParser(description='Kaira gui command line controller')
