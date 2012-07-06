@@ -608,6 +608,8 @@ class Edge(NetItem):
         self.inscription_param = 0.5
         self.offset = (0,10)
 
+    ## Add new point on to an edge.
+    #  @param point Point which should be added.
     def add_point(self, point):
         x, y = point
         all_points = [self.from_item.position] + self.points + [self.to_item.position]
