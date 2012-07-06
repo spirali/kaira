@@ -1,6 +1,7 @@
 #
 #    Copyright (C) 2010 Stanislav Bohm
 #                  2011 Ondrej Garncarz
+#                  2012 Martin Surkovsky
 #
 #    This file is part of Kaira.
 #
@@ -148,7 +149,10 @@ class NetTool:
                         ("on", lambda w: set_tracing(self.selected_item, True)),
                     ])
                 ],
-                Edge: [ ("Switch direction",
+
+                Edge: [ ("Add point",
+                            lambda w: self.selected_item.add_point(position)),
+					    ("Switch direction",
                             lambda w: self.selected_item.switch_direction()),
                         ("Bidirectional",
                             lambda w: self.selected_item.toggle_bidirectional()) ],

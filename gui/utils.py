@@ -1,5 +1,6 @@
 #
 #    Copyright (C) 2010 Stanislav Bohm
+#                  2012 Martin Surkovsky
 #
 #    This file is part of Kaira.
 #
@@ -285,6 +286,14 @@ def makedir_if_not_exists(dirname):
     if not os.path.isdir(dirname):
         os.makedirs(dirname)
 
+def is_between(n1, n2, a, tolerance = 5):
+	if (
+			((n1 - tolerance) <= a and a <= (n2 + tolerance)) or
+			((n2 - tolerance) <= a and a <= (n1 + tolerance))
+	   ):
+		return True
+	else:
+		return False
 
 class EqMixin(object):
 

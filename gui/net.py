@@ -1,6 +1,7 @@
 #
 #    Copyright (C) 2010, 2011 Stanislav Bohm
 #                  2011       Ondrej Garncarz
+#                  2012       Martin Surkovsky
 #
 #    This file is part of Kaira.
 #
@@ -606,6 +607,19 @@ class Edge(NetItem):
         self.inscription_point = len(self.get_all_points()) / 2 - 1
         self.inscription_param = 0.5
         self.offset = (0,10)
+
+    def add_point(self, point):
+        x, y = point
+        all_points = [self.from_item.position] + self.points + [self.to_item.position]
+        for idx in range(len(all_points) - 1):
+            p1_x, p1_y = all_points[idx]
+            p2_x, p2_y = all_points[idx + 1]
+            if (utils.is_between(p1_x, p2_x, x) and utils.is_between(p1_y, p2_y, y)):
+                all_points = all_points[:idx+1] + [point] + all_points[idx+1:]
+                break;
+
+        self.points = all_points[1:-1]
+        self.changed()
 
     def get_inscription(self):
         return self.inscription
