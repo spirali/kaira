@@ -287,13 +287,13 @@ def makedir_if_not_exists(dirname):
         os.makedirs(dirname)
 
 ## Function that check whether numb 'a' is between numbers 'n1' and 'n2'
-# with some tolerance (default tolerance is 5) or not.
+# with some tolerance (default tolerance is 7) or not.
 #  @param n1 First number.
 #  @param n2 Second number.
 #  @param a A number which should be between number n1 and n2.
 #  @param tolerance Tolerance.
 #  @return True if numb. 'a' is between 'n1' and 'n2', otherwise False.
-def is_between(n1, n2, a, tolerance = 5):
+def is_between(n1, n2, a, tolerance = 7):
 	if (
 			((n1 - tolerance) <= a and a <= (n2 + tolerance)) or
 			((n2 - tolerance) <= a and a <= (n1 + tolerance))

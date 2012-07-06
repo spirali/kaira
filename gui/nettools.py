@@ -150,8 +150,14 @@ class NetTool:
                     ])
                 ],
 
-                Edge: [ ("Add point",
-                            lambda w: self.selected_item.add_point(position)),
+                Edge: [ (
+							("Remove point",
+								lambda w: self.selected_item.remove_point(position)) 
+							if self.selected_item.search_point(position) != None
+
+							else 
+							("Add point", lambda w: self.selected_item.add_point(position))
+					    ),
 					    ("Switch direction",
                             lambda w: self.selected_item.switch_direction()),
                         ("Bidirectional",

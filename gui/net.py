@@ -622,6 +622,31 @@ class Edge(NetItem):
 
         self.points = all_points[1:-1]
         self.changed()
+ 
+    ## Remove point from an edge.
+    #  @param point Point which should be removed.
+    def remove_point(self, point):
+        point_idx = self.search_point(point)
+        if point_idx != None:
+            self.points = self.points[:point_idx] + self.points[point_idx+1:] 
+            self.changed()
+            
+    ## Found index position of the point.
+    #  @param point Point which position should be found.
+    def search_point(self, point, tolerance = 7):
+        x, y = point
+        index = 0
+        for px, py in self.points:
+            if (
+                    (px - tolerance) <= x and x <= (px + tolerance) and
+                    (py - tolerance) <= y and y <= (py + tolerance)
+               ):
+
+                return index 
+            else:
+                index += 1;
+
+        return None
 
     def get_inscription(self):
         return self.inscription
