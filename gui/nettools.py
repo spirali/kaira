@@ -132,53 +132,59 @@ class NetTool:
             self.netview.redraw()
 
         if self.selected_item in self.net.pick_items(position):
+            menu_actions = None
 
-            actions_dict = {
-                Transition: [("Edit code",
-                    lambda w: self.netview.transition_edit_callback(self.selected_item)),
-                    ("Set subnet", self.build_netlist_menu(self.selected_item)),
+            # Transition
+            if self.selected_item.is_transition():
+                menu_actions = [
+                    ("Delete", delete_event),
+                    ("Edit code",
+                        lambda w: self.netview.transition_edit_callback(self.selected_item)),
+                    ("Set module", self.build_netlist_menu(self.selected_item)),
                     ("Tracing", [
                         ("off", lambda w: set_tracing(self.selected_item, False)),
                         ("on", lambda w: set_tracing(self.selected_item, True)),
                     ])
-                ],
-                Place: [("Edit init code",
+                ]
+                subnet = self.selected_item.subnet
+                if subnet is not None:
+                    menu_actions.append(
+                        ("Show module", lambda w: self.netview.switch_to_net(subnet)))
+
+            # Place
+            if self.selected_item.is_place():
+                menu_actions = [
+                    ("Delete", delete_event),
+                    ("Edit init code",
                     lambda w: self.netview.place_edit_callback(self.selected_item)),
                     ("Tracing", [
                         ("off", lambda w: set_tracing(self.selected_item, False)),
                         ("on", lambda w: set_tracing(self.selected_item, True)),
                     ])
-                ],
+                ]
 
-                Edge: [ (
-							("Remove point",
-								lambda w: self.selected_item.remove_point(position)) 
-							if self.selected_item.search_point(position) != None
-
-							else 
-							("Add point", lambda w: self.selected_item.add_point(position))
-					    ),
-					    ("Switch direction",
+            # Edge
+            if self.selected_item.is_edge():
+                menu_actions = [ ("Delete", delete_event) ]
+                if self.selected_item.nearest_edge_point_index(position, 7) is not None:
+                    menu_actions.append(
+                        ("Remove point",
+                         lambda w: self.selected_item.remove_point_near_position(position)))
+                else:
+                    menu_actions.append(
+                        ("Add point", lambda w: self.selected_item.add_point(position)))
+                menu_actions += [
+                        ("Switch direction",
                             lambda w: self.selected_item.switch_direction()),
                         ("Bidirectional",
-                            lambda w: self.selected_item.toggle_bidirectional()) ],
-                InterfaceBox: [
+                            lambda w: self.selected_item.toggle_bidirectional()) ]
+
+            # InterfaceBox
+            if self.selected_item.is_interfacebox():
+                menu_actions = [
                     ("Automatic halt", lambda w: self.net.set_autohalt(True)),
                     ("Manual halt", lambda w: self.net.set_autohalt(False))
                 ]
-            }
-
-            if self.selected_item.is_interfacebox():
-                menu_actions = [] # interface box cannot be deleted
-            else:
-                menu_actions = [("Delete", delete_event)]
-
-            if type(self.selected_item) in actions_dict:
-                menu_actions = actions_dict[type(self.selected_item)] + menu_actions
-
-            if self.selected_item.is_transition() and self.selected_item.subnet is not None:
-                menu_actions.insert(0,
-                    ("Show module", lambda w: self.netview.switch_to_net(self.selected_item.subnet)))
 
             if menu_actions:
                 gtkutils.show_context_menu(menu_actions, event)

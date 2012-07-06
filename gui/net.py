@@ -611,42 +611,29 @@ class Edge(NetItem):
     ## Add new point on to an edge.
     #  @param point Point which should be added.
     def add_point(self, point):
-        x, y = point
-        all_points = [self.from_item.position] + self.points + [self.to_item.position]
-        for idx in range(len(all_points) - 1):
-            p1_x, p1_y = all_points[idx]
-            p2_x, p2_y = all_points[idx + 1]
-            if (utils.is_between(p1_x, p2_x, x) and utils.is_between(p1_y, p2_y, y)):
-                all_points = all_points[:idx+1] + [point] + all_points[idx+1:]
-                break;
-
-        self.points = all_points[1:-1]
+        for i, (a, b) in enumerate(utils.pairs_generator(self.get_all_points())):
+            if utils.is_near_line_segment(a, b, point, 5):
+                self.points.insert(i, point)
         self.changed()
- 
+
     ## Remove point from an edge.
     #  @param point Point which should be removed.
-    def remove_point(self, point):
-        point_idx = self.search_point(point)
-        if point_idx != None:
-            self.points = self.points[:point_idx] + self.points[point_idx+1:] 
+    def remove_point_near_position(self, position):
+        index = self.nearest_edge_point_index(position, 7)
+        if index is not None:
+            del self.points[index]
             self.changed()
-            
-    ## Found index position of the point.
+
+    ## Find index of nearest point an the edge but at most at max_distance.
+    #  returns None if all points are too distant
     #  @param point Point which position should be found.
-    def search_point(self, point, tolerance = 7):
-        x, y = point
-        index = 0
-        for px, py in self.points:
-            if (
-                    (px - tolerance) <= x and x <= (px + tolerance) and
-                    (py - tolerance) <= y and y <= (py + tolerance)
-               ):
-
-                return index 
-            else:
-                index += 1;
-
-        return None
+    def nearest_edge_point_index(self, point, max_distance = None):
+        distances = [ utils.point_distance(p, point) for p in self.points ]
+        i = utils.index_of_minimal_value(distances)
+        if max_distance is None or distances[i] <= max_distance:
+            return i
+        else:
+            return None
 
     def get_inscription(self):
         return self.inscription
@@ -747,14 +734,11 @@ class Edge(NetItem):
         if self.inscription_position and utils.position_inside_rect(position, utils.vector_diff(self.inscription_position, (self.inscription_size[0]/2, 0)), self.inscription_size, 4):
             return True
 
-        for p in self.points:
-            if utils.point_distance(p, position) < 7:
-                return True
-        for (a, b) in utils.pairs_generator(self.get_all_points()):
-            dist = utils.point_distance(a, b) - 5
-            d1 = utils.point_distance(position, a)
-            d2 = utils.point_distance(position, b)
-            if d1 < dist and d2 < dist and utils.distance_to_line(a, b, position) < 5:
+        if self.nearest_edge_point_index(position, 7) is not None:
+            return True
+
+        for a, b in utils.pairs_generator(self.get_all_points()):
+            if utils.is_near_line_segment(a, b, position, 5):
                 return True
         return False
 
@@ -762,12 +746,13 @@ class Edge(NetItem):
         def set_point(i, p):
             self.points[i] = p
             self.changed()
+
         if self.inscription_position and utils.position_inside_rect(position, utils.vector_diff(self.inscription_position, (self.inscription_size[0]/2, 0)), self.inscription_size, 4):
             return factory.get_move_action(self.get_inscription_position(), self.set_inscription_position, position)
 
-        for i, p in enumerate(self.points):
-            if utils.point_distance(p, position) < 7:
-                return factory.get_move_action(p, lambda x: set_point(i, x), position)
+        i = self.nearest_edge_point_index(position, 7)
+        if i is not None:
+            return factory.get_move_action(self.points[i], lambda x: set_point(i, x), position)
         return factory.get_empty_action()
 
     def get_text_entries(self):

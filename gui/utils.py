@@ -185,6 +185,14 @@ def distance_to_line(line_point1, line_point2, point):
 
     return abs(nx * px + ny * py + c) / math.sqrt(nx * nx + ny * ny)
 
+def is_near_line_segment(point1, point2, position, tolerance):
+    length = point_distance(point1, point2) + tolerance
+    if point_distance(position, point1) > length:
+        return False
+    if point_distance(position, point2) > length:
+        return False
+    return distance_to_line(point1, point2, position) <= tolerance
+
 def nearest_point_on_line(line_start, line_vector, point):
     lx, ly = line_vector
     d = lx * lx + ly * ly
@@ -285,22 +293,6 @@ def write_file_if_not_exists(filename, content):
 def makedir_if_not_exists(dirname):
     if not os.path.isdir(dirname):
         os.makedirs(dirname)
-
-## Function that check whether numb 'a' is between numbers 'n1' and 'n2'
-# with some tolerance (default tolerance is 7) or not.
-#  @param n1 First number.
-#  @param n2 Second number.
-#  @param a A number which should be between number n1 and n2.
-#  @param tolerance Tolerance.
-#  @return True if numb. 'a' is between 'n1' and 'n2', otherwise False.
-def is_between(n1, n2, a, tolerance = 7):
-	if (
-			((n1 - tolerance) <= a and a <= (n2 + tolerance)) or
-			((n2 - tolerance) <= a and a <= (n1 + tolerance))
-	   ):
-		return True
-	else:
-		return False
 
 class EqMixin(object):
 
