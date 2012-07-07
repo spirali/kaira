@@ -628,6 +628,8 @@ class Edge(NetItem):
     #  returns None if all points are too distant
     #  @param point Point which position should be found.
     def nearest_edge_point_index(self, point, max_distance = None):
+        if not self.points:
+            return None
         distances = [ utils.point_distance(p, point) for p in self.points ]
         i = utils.index_of_minimal_value(distances)
         if max_distance is None or distances[i] <= max_distance:
