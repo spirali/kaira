@@ -31,7 +31,8 @@ class NetCanvas(gtk.DrawingArea, EventSource):
         EventSource.__init__(self)
         self.net = net
         self.zoom = zoom
-        self.viewport = (0,0)
+        self.viewport = None
+
         if vconfig is None:
             vconfig = VisualConfig()
         self.vconfig = vconfig
@@ -44,6 +45,8 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 
     def set_net(self, net):
         self.net = net
+        # if net is switch, it's necessary recompute center of net
+        self.viewport = None
         self.redraw()
 
     def set_viewport(self, viewport):
@@ -73,12 +76,13 @@ class NetCanvas(gtk.DrawingArea, EventSource):
     def get_zoom(self):
         return self.zoom
 
-    def set_size_and_viewport_by_net(self):
-        ((l, t), (r, b)) = self.net.corners()
-        sizex = r - l + 100
-        sizey = b - t + 100
-        self.set_size_request(int(sizex * self.zoom), int(sizey * self.zoom))
-        self.set_viewport((-l + 25, -t + 25))
+#    def set_size_and_viewport_by_net(self):
+#        #TODO: this method isn't call
+#        ((l, t), (r, b)) = self.net.corners()
+#        sizex = r - l + 100
+#        sizey = b - t + 100
+#        self.set_size_request(int(sizex * self.zoom), int(sizey * self.zoom))
+#        self.set_viewport((-l + 25, -t + 25))
 
     def _expose(self, w, event):
         cr = self.window.cairo_create()
@@ -92,8 +96,17 @@ class NetCanvas(gtk.DrawingArea, EventSource):
         cr.set_source_rgb(0.8, 0.8, 0.8)
         cr.rectangle(0, 0, width, height)
         cr.fill()
-        cr.translate(self.viewport[0], self.viewport[1])
+
+        # after init is the viewport set on None value, 
+        # in this place is recompute to the center of the net
+        if self.viewport is None:
+            ((l,t), (r,b)) = self.net.corners(cr)
+            self.viewport = (l + (r - l) / 2, t + (b - t) / 2)
+
+        cr.translate(width/2  - self.viewport[0] * self.zoom, \
+                     height/2 - self.viewport[1] * self.zoom)
         cr.scale(self.zoom, self.zoom)
+
         if self.net:
             self.net.draw(cr, self.vconfig)
         if self.draw_cb:
@@ -110,4 +123,3 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 
     def _mouse_move(self, w, event):
         self.emit_event("mouse_move", event, self._mouse_to_canvas(event))
-

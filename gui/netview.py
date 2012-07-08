@@ -107,6 +107,7 @@ class NetView(gtk.VBox):
         self.entry_types = []
         self.set_size_request(500,400)
 
+
         self.pack_start(self._controls(), False)
         self.pack_start(self._editarea(), False)
 
@@ -150,7 +151,6 @@ class NetView(gtk.VBox):
             self.netlist.select_object(net)
         self.tool.set_net(net)
         self.canvas.set_net(net)
-        self.canvas.set_viewport((0,0))
 
     def get_zoom(self):
         return self.canvas.get_zoom()

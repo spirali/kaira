@@ -23,6 +23,7 @@ import utils
 from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
 from copy import copy
+from sys import maxint
 
 class Net:
 
@@ -233,19 +234,19 @@ class Net:
     def edges_of(self, item):
         return [ i for i in self.items if i.is_edge() and (i.to_item == item or i.from_item == item) ]
 
-    def corners(self):
+    def corners(self, cr):
         """ Returns bounding box as left-top and right-bottom points """
-        t = 0
-        l = 0
-        r = 100
-        b = 100
+        t = maxint
+        l = maxint
+        r = 0
+        b = 0
         for i in self.items:
-            (il, it), (ir, ib) = i.corners()
+            (il, it), (ir, ib) = i.corners(cr)
             t = min(t, it)
             l = min(l, il)
             r = max(r, ir)
             b = max(b, ib)
-        return ((l,t), (r, b))
+        return ((l,t), (r,b))
 
     def trace_nothing(self):
         for i in self.transitions() + self.places():
@@ -477,10 +478,21 @@ class Transition(NetElement):
         return [ ("Name", self.get_name, self.set_name),
                 ("Guard", self.get_guard, self.set_guard) ]
 
-    def corners(self):
+    def corners(self, cr):
         px, py = self.position
         sx, sy = self.size
-        return ((px - sx, py - sy), (px + sx, py + sy))
+        # prefix 't' means 'text'
+        (tx_bearing, ty_bearing, \
+         twidth, theight, \
+         tx_advance, ty_advance) = cr.text_extents(self.get_guard())
+        if twidth == 0 and theight == 0: 
+            return ((px - sx/2, py - sy/2), (px + sx/2, py + sy/2))
+        else:
+            tx = px - twidth/2
+            ty = py - sy/2 - theight/2 - 2 + ty_bearing # ty_bearing is negative
+            return ((min(px - sx/2, tx),          min(py - sy/2, ty)), \
+                    (max(px + sx/2, tx + twidth), max(py + sy/2, ty + theight)))
+
 
     def get_packing_input_places(self):
         """ Fast function for tracelog replay """
@@ -587,10 +599,27 @@ class Place(NetElement):
         return [ ("Type", self.get_place_type, self.set_place_type),
                 ("Init", self.get_init_string, self.set_init_string) ]
 
-    def corners(self):
+    def corners(self, cr):
         px, py = self.position
         r = self.radius
-        return ((px - r, py - r), (px + r, py + r))
+        if self.init_string == "" and self.place_type == "":
+            return ((px - r, py - r), (px + r, py + r))
+        else:
+            x = math.sqrt((r * r) / 2) + 5
+            # 'is' = 'init_string'
+            (isx_bearing, isy_bearing, \
+             is_width, is_height, \
+             isx_advance, isy_advance) = cr.text_extents(self.init_string)
+            
+            # 'pt' = 'place_type'
+            (ptx_bearing, pty_bearing, \
+             pt_width, pt_height, \
+             ptx_advance, pty_advance) = cr.text_extents(self.place_type)
+
+            (ascent, descent, height, max_x_advance, max_y_advance) = cr.font_extents()
+
+        return ((px - r, py - r + isy_bearing), \
+                (px + x + max(is_width, pt_width), py + x + descent))
 
 class Edge(NetItem):
 
@@ -760,9 +789,30 @@ class Edge(NetItem):
     def get_text_entries(self):
         return [ ("Inscription", self.get_inscription, self.set_inscription) ]
 
-    def corners(self):
-        # FIXME
-        return ((0,0), (0,0))
+    def corners(self, cr):
+        l = maxint
+        t = maxint
+        r = 0
+        b = 0
+        for x, y in self.points:
+            l = min(l, x)
+            t = min(t, y)
+            r = max(r, x)
+            b = max(b, y)
+        if self.inscription == "":
+            return ((l,t), (r,b))
+        else:
+            point = self.inscription_position
+            # 'i' = 'inscription'
+            (ix_bearing, iy_bearing, \
+             iwidth, iheight, \
+             ix_advance, iy_advance) = cr.text_extents(self.inscription)
+            (ascent, descent, height, max_x_advance, max_y_advance) = cr.font_extents()
+
+            ix = point[0] - iwidth/2
+            iy = point[1] + iheight
+            return ((min(l, ix),          min(t, iy + iy_bearing)), \
+                    (max(r, ix + iwidth), max(b, iy + descent)))
 
     def is_packing_edge(self):
         return self.inscription and self.inscription[0] == "~"
@@ -816,7 +866,7 @@ class RectItem(NetItem):
     def is_inside(self, item):
         return utils.position_inside_rect(item.position, self.position, self.size)
 
-    def corners(self):
+    def corners(self, cr):
         return (self.position, utils.vector_add(self.position, self.size))
 
     def is_at_position(self, position):
@@ -900,6 +950,23 @@ class NetArea(RectItem):
     def transitions(self):
         return [ transition for transition in self.net.transitions() if self.is_inside(transition) ]
 
+    def corners(self, cr):
+        if self.name == "" and self.init_expr == "":
+            return super(NetArea, self).corners(cr)
+        else:
+            ((l,t), (r,b)) = super(NetArea, self).corners(cr)
+            # 'n' = 'name'
+            (nx_bearing, ny_bearing, \
+             nwidth, nheight, \
+             nx_advance, ny_advance) = cr.text_extents(self.name)
+            # 'ie' = 'init_expr'
+            (iex_bearing, iey_bearing, \
+             iewidth, ieheight, \
+             iex_advance, iey_advance) = cr.text_extents(self.init_expr)
+             
+            return ((min(l, r - nwidth),  t + min(ny_bearing, iey_bearing) - 5), \
+                    (max(r, l + iewidth), b))
+
 class InterfaceBox(RectItem):
 
     z_level = -2
@@ -937,6 +1004,12 @@ class InterfaceBox(RectItem):
 
     def is_interfacebox(self):
         return True
+
+    def corners(self, cr):
+        px, py = self.position
+        sx, sy = self.size
+        # line stroke is 6 (= +-3)
+        return ((px - 3, py - 3), (px + sx + 3, py + sy + 3))
 
     def as_xml(self):
         e = self.create_xml_element("interface-box")
@@ -998,6 +1071,10 @@ class InterfaceNode(NetElement):
         e.set("x", str(self.position[0]))
         e.set("y", str(self.position[1]))
         return e
+
+    def corners(self, cr):
+        px, py = self.get_position()
+        return ((px - 6, py - 6), (px + 6, py + 6))
 
 class BasicLoader:
     """
