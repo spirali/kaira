@@ -288,6 +288,9 @@ class NetItem(object):
     def is_interfacebox(self):
         return False
 
+    def is_interfacenode(self):
+        return False
+
     def delete(self):
         self.net.delete_item(self)
 
@@ -298,6 +301,7 @@ class NetItem(object):
 
     def get_text_entries(self):
         return []
+
 
 class NetElement(NetItem):
 
@@ -348,6 +352,7 @@ class NetElement(NetItem):
         for area in self.net.areas():
             if area.is_inside(self):
                 return area
+
 
 class Transition(NetElement):
 
@@ -493,6 +498,7 @@ class Transition(NetElement):
                     result.append(i.to_item)
         return result
 
+
 class Place(NetElement):
 
     radius = 20
@@ -591,6 +597,7 @@ class Place(NetElement):
         px, py = self.position
         r = self.radius
         return ((px - r, py - r), (px + r, py + r))
+
 
 class Edge(NetItem):
 
@@ -777,6 +784,7 @@ class Edge(NetItem):
         e.set("expr", self.inscription)
         return e
 
+
 class RectItem(NetItem):
 
     def __init__(self, net, id, position, size):
@@ -843,6 +851,7 @@ class RectItem(NetItem):
         if px >= mx + sx - 10 and py >= my - 10 and px < mx + sx + 5 and py < my + 5:
             return make_action(self.resize_rtop, "resize_rtop")
 
+
 class NetArea(RectItem):
 
     name = ""
@@ -900,6 +909,7 @@ class NetArea(RectItem):
     def transitions(self):
         return [ transition for transition in self.net.transitions() if self.is_inside(transition) ]
 
+
 class InterfaceBox(RectItem):
 
     z_level = -2
@@ -955,6 +965,7 @@ class InterfaceBox(RectItem):
                 e.append(edge.create_xml_export_element("edge-in"))
         return e
 
+
 class InterfaceNode(NetElement):
 
     def __init__(self, net, id, position):
@@ -999,6 +1010,10 @@ class InterfaceNode(NetElement):
         e.set("y", str(self.position[1]))
         return e
 
+    def is_interfacenode(self):
+        return True
+
+
 class BasicLoader:
     """
         Loads an element id from xml and preserves original id
@@ -1013,6 +1028,7 @@ class BasicLoader:
 
     def translate_id(self, id):
         return id
+
 
 class NewIdLoader:
     """
@@ -1031,6 +1047,7 @@ class NewIdLoader:
 
     def translate_id(self, id):
         return self.idtable[id]
+
 
 def load_code(element):
     if element.find("code") is not None:

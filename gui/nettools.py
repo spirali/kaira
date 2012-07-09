@@ -19,7 +19,6 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from net import Place, Transition, Edge, InterfaceBox
 import utils
 import gtkutils
 
@@ -178,6 +177,10 @@ class NetTool:
                             lambda w: self.selected_item.switch_direction()),
                         ("Bidirectional",
                             lambda w: self.selected_item.toggle_bidirectional()) ]
+
+            # IterfaceNode
+            if self.selected_item.is_interfacenode():
+                menu_actions = [ ("Delete", delete_event) ]
 
             # InterfaceBox
             if self.selected_item.is_interfacebox():
