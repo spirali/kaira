@@ -76,14 +76,14 @@ class Project(EventSource):
         build_config.directory = os.path.join(self.get_directory(), name)
         build_config.project_name = self.get_name()
 
-        if name == "traced":
-            build_config.tracing = True
-
-        if name == "simulator":
+        if name == "simulation":
             # simulator_net has to be exported as first net
             first = self.simulator_net
             build_config.extenv = self.get_extenv_for_simulator_name()
         else:
+            if name == "traced":
+                build_config.tracing = True
+
             build_config.extenv = self.get_extenv_name()
             if self.is_library:
                 # In library it does not matter who is first

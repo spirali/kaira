@@ -1021,7 +1021,7 @@ class Builder(CppWriter):
     def write_server_main(self):
         self.line("int main(int argc, char **argv)")
         self.block_begin()
-        self.line("calib_init(0, NULL);")
+        self.line("calib_init(argc, argv);")
         self.line("CaServer server;")
 
         for net in self.project.get_modules():
