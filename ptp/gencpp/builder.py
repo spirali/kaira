@@ -20,7 +20,7 @@
 import base.utils as utils
 from base.neltypes import t_int, t_string, t_float, t_double, t_bool
 from base.writer import Writer
-from base.expressions import ExprVar
+from base.expressions import ExprVar, ExprExtern
 import emitter
 import os.path
 
@@ -378,6 +378,7 @@ class Builder(CppWriter):
 
         for edge, _ in matches:
             em.set_extern("token_{0.uid}".format(edge), "tokens->token_{0.uid}->element".format(edge))
+            em.set_extern("token_{0.uid}_self".format(edge), "tokens->token_{0.uid}".format(edge))
 
         em.variable_emitter = variable_emitter
         for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
@@ -415,7 +416,8 @@ class Builder(CppWriter):
 
     def write_place_user_function(self, place):
         t = self.emit_type(place.type)
-        declaration = "void place_user_fn_{0.id}(CaContext &ctx, std::vector<{1} > &tokens)".format(place, t)
+        declaration = "void place_user_fn_{0.id}(CaContext &ctx, std::vector<{1} > &tokens)" \
+                            .format(place, t)
         self.write_function(declaration, place.code, ("*{0.id}/init_function".format(place), 1))
 
     def write_user_function(self, ufunction):
@@ -509,9 +511,19 @@ class Builder(CppWriter):
             self.if_begin(edge.guard.emit(em))
         if edge.is_local():
             write_lock()
-            #self.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
             place = edge.get_place()
-            self.write_place_add(method, place, "n->place_{0.id}.".format(place), edge.expr.emit(em))
+            if edge.token_source is not None:
+                self.write_place_add(
+                    method,
+                    place,
+                    "n->place_{0.id}.".format(place),
+                    ExprExtern("token_{0.uid}_self".format(edge.token_source)).emit(em),
+                    token=True)
+            else:
+                self.write_place_add(method,
+                                     place,
+                                     "n->place_{0.id}.".format(place),
+                                     edge.expr.emit(em))
             if not interface_edge:
                 self.write_activation("n", edge.get_place().get_transitions_out())
         else:
@@ -566,7 +578,7 @@ class Builder(CppWriter):
         self.line("CaContext ctx(thread, net);")
 
         w = Builder(self.project)
-        matches, _, vars_access = get_edges_mathing(self.project, tr)
+        matches, _, _ = get_edges_mathing(self.project, tr)
         if tr.tracing != "off" or tr.is_any_place_traced():
             w.line("CaTraceLog *tracelog = thread->get_tracelog();")
             w.if_begin("tracelog")
@@ -576,6 +588,7 @@ class Builder(CppWriter):
         em = emitter.Emitter(self.project)
         for edge, _ in matches:
             em.set_extern("token_{0.uid}".format(edge), "token_{0.uid}->element".format(edge))
+            em.set_extern("token_{0.uid}_self".format(edge), "token_{0.uid}".format(edge))
 
         context = tr.get_context()
         names = context.keys()
@@ -585,14 +598,18 @@ class Builder(CppWriter):
         vars_code = {}
 
         for name in names:
-            if name not in vars_access: # Variable is not obtained from output
+            if name not in tr.var_edge: # Variable is not obtained from output
                 t = self.emit_type(context[name])
                 w.line("{1} out_value_{0};", token_out_counter, t)
                 #w.line("CaToken<{1}> token_out_{0}(value);", token_out_counter, t)
                 vars_code[name] = "out_value_{0}".format(token_out_counter);
                 token_out_counter += 1
             else:
-                vars_code[name] = vars_access[name].emit(em)
+                edge = tr.var_edge[name]
+                token = ExprExtern("token_{0.uid}".format(edge))
+                vars_code[name] = edge.expr.get_variable_access(token, name)[0].emit(em)
+                # Here we have taken first variable access, but more inteligent approacn
+                # should be used
 
         em.variable_emitter = lambda name: vars_code[name]
 
@@ -656,7 +673,8 @@ class Builder(CppWriter):
 
         if tr.subnet is None:
             for edge, _ in matches:
-                w.line("delete token_{0.uid};", edge)
+                if not edge.token_reused:
+                    w.line("delete token_{0.uid};", edge)
 
         if tr.net.is_module():
             w.line("if (ctx.get_halt_flag()) thread->halt(net);")
@@ -677,13 +695,20 @@ class Builder(CppWriter):
         self.block_end()
 
     def write_enable_pattern_match(self, tr, fire_code):
-        matches, initcode, vars_access = get_edges_mathing(self.project, tr)
+        def variable_emitter(name):
+            edge = tr.var_edge[name]
+            token = ExprExtern("token_{0.uid}".format(edge))
+            return edge.expr.get_variable_access(token, name)[0].emit(em)
+
+        matches, initcode, _ = get_edges_mathing(self.project, tr)
 
         em = emitter.Emitter(self.project)
-        em.variable_emitter = lambda name: vars_access[name].emit(em)
 
         for edge, _ in matches:
             em.set_extern("token_{0.uid}".format(edge), "token_{0.uid}->element".format(edge))
+            em.set_extern("token_{0.uid}_self".format(edge), "token_{0.uid}".format(edge))
+
+        em.variable_emitter = variable_emitter
 
         self.line("Net_{0.id} *n = (Net_{0.id}*) net;", tr.net)
 
@@ -1032,11 +1057,15 @@ class Builder(CppWriter):
         self.line("return 0;")
         self.block_end()
 
-    def write_place_add(self, method, place, place_code, value_code):
+    def write_place_add(self, method, place, place_code, value_code, token=False):
         if place.tracing != "off":
+            value = value_code
+            if token:
+                value += "->element"
+
             self.if_begin("thread->get_tracelog()")
             self.line("{0}{1}({2}, thread->get_tracelog(), {3.id}, {4});",
-                      place_code, method, value_code, place,
+                      place_code, method, value, place,
                       get_to_string_function_name(self.project, place.type))
             self.line("}} else {{")
             self.line("{0}{1}({2});", place_code, method, value_code)

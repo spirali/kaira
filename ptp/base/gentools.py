@@ -17,7 +17,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from base.expressions import ISet, IIf, ExprExtern, ExprVar, IExtern, ExprCall, INoop
+from base.expressions import IIf, ExprExtern, ExprVar, IExtern, ExprCall, INoop
 from base.utils import topological_ordering
 from base.project import order_input_edges
 
@@ -28,7 +28,8 @@ def match_expression(env, context, expr, vars_access, token):
         def depends_on(x, y):
             """
                 x, y are pairs (name, type)
-                x depends on y if at least one y's type undirect variable is direct variable in x's type
+                x depends on y if at least one y's type undirect variable is
+				direct variable in x's type
             """
             return len(x[1].get_direct_vars().intersection(y[1].get_undirect_vars())) != 0
 
@@ -43,7 +44,8 @@ def match_expression(env, context, expr, vars_access, token):
 
         code = []
         for e1, e2 in ordered:
-            if isinstance(e2, ExprVar) and e2.name not in vars_access: # Variable is met for the first time
+            if isinstance(e2, ExprVar) and e2.name not in vars_access:
+                # Variable is met for the first time
                 vars_access[e2.name] = e1
             else:
                 code.append(IIf(ExprCall("!=", [ e2, e1 ]), IExtern("fail")),)

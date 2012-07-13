@@ -167,3 +167,13 @@ class Makefile:
     def write_to_file(self, filename):
         with open(filename,"w") as f:
             self.write(f)
+
+def find_first(lst, fn):
+    for i in lst:
+        if fn(i):
+            return i
+
+def unions(lst, fn=None):
+    if fn is None:
+        fn = lambda x: x
+    return set().union(*[ fn(x) for x in lst ])

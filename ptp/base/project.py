@@ -202,6 +202,11 @@ class Project(object):
         for t in self.get_all_types():
             t.check(self)
 
+    def analyze(self):
+        for net in self.nets:
+            net.analyze()
+
+
 def get_source(element, name):
     id = utils.xml_int(element, "id")
     return "*{0}/{1}".format(id, name)
@@ -353,6 +358,7 @@ def load_project(element):
 
     p.inject_types()
     p.check()
+    p.analyze()
     return p
 
 def load_project_from_file(filename):

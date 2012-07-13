@@ -20,12 +20,14 @@
 import utils as utils
 from base.expressions import ExprVar
 from base.neltypes import t_bool, derive_context, t_array, t_int
+import analysis
 
 class EdgeBase(utils.EqMixin):
 
     """
-        Edge has attribute uid because id (provided by gui) is not necessary unique. It occurs in net with
-        (graphical) edge with inscription "x;y", then gui creates two edges with same id
+        Edge has attribute uid because id (provided by gui) is not necessary unique.
+        It occurs in net with (graphical) edge with inscription "x;y", then gui creates
+        two edges with same id
     """
     def __init__(self, id, place, transition):
         self.id = id
@@ -43,6 +45,9 @@ class EdgeBase(utils.EqMixin):
         return self.transition
 
 class EdgeIn(EdgeBase):
+
+    # setup by analysis
+    token_reused = False
 
     def __init__(self, id, place, transition, expr):
         EdgeBase.__init__(self, id, place, transition)
@@ -87,6 +92,10 @@ class EdgeInPacking(EdgeBase):
         return set([self.varname])
 
 class EdgeOut(EdgeBase):
+
+    # setup by analysis
+    token_source = None # EdgeIn or None
+
     def __init__(self, id, place, transition, expr, mode, sendmode, target, guard):
         EdgeBase.__init__(self, id, place, transition)
         self.expr = expr
@@ -143,7 +152,9 @@ class Place(utils.EqByIdMixin):
 
     def inject_types(self):
         if self.init_expression is not None:
-            inject_types_for_empty_context(self.net.project.get_env(), self.init_expression, t_array(self.type))
+            inject_types_for_empty_context(self.net.project.get_env(),
+                                           self.init_expression,
+                                           t_array(self.type))
 
     def get_pos_id(self):
         return self.net.places.index(self)
@@ -182,6 +193,10 @@ class Transition(utils.EqByIdMixin):
     code = None
     subnet = None
     tracing = "off" # values: "off", "basic", "full"
+
+    # After analysis it is dictionary variable_name -> EdgeIn
+    # It returns edge (= token) where variable should be gather
+    var_edge = None
 
     def __init__(self, net, id, guard):
         self.net = net
@@ -396,3 +411,7 @@ class Net(object):
 
         for tr in self.transitions:
             tr.check()
+
+    def analyze(self):
+        for tr in self.transitions:
+            analysis.analyze_transition(tr)

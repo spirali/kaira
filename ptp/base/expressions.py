@@ -18,7 +18,7 @@
 #
 
 from utils import EqMixin
-from neltypes import TypeVar, rename_vars, fresh_typevar, join_contexts_by_equations, join_contexts
+from neltypes import rename_vars, fresh_typevar, join_contexts_by_equations, join_contexts
 from neltypes import t_string, t_int, t_array, t_tuple, t_bool, t_double, t_var0
 import neltypes
 import utils
@@ -101,7 +101,22 @@ class Expression(object):
             ((x, y), 10)  | [ (TupleGet(TupleGet(expr, 0), 0), x),
                               (TupleGet(TupleGet(expr, 0), 1), y), (TupleGet(expr, 1), 10)) ]
         """
-        return [ (expr, self)]
+        return [ (expr, self) ]
+
+    def get_variable_access(self, expr, name):
+        """
+            self         | name     | result
+            x            | x     | (expr,)
+            x            | y     | ()
+            f(x)         | x     | ()
+            (x, (x, y))  | x     | ([ TupleGet(TupleGet(expr, 1), 0),
+                                         TupleGet(expr, 0) ])
+        """
+        return ()
+
+    def is_direct_expression(self):
+        """ Returns if contains no undirect variable """
+        return len(self.get_undirect_vars()) == 0
 
 
     def get_subexpressions(self):
@@ -169,6 +184,11 @@ class ExprVar(Expression):
     def derive_context(self, t):
         return { self.name : t }
 
+    def get_variable_access(self, expr, name):
+        if self.name == name:
+            return (expr,)
+        else:
+            return ()
 
 class ExprParam(Expression):
 
@@ -325,10 +345,16 @@ class ExprTuple(Expression):
             result += e.get_direct_pairing(ExprTupleGet(expr, i, len(self.args)))
         return result
 
+    def get_variable_access(self, expr, name):
+        result = []
+        for i, e in enumerate(self.args):
+            result += e.get_variable_access(ExprTupleGet(expr, i, len(self.args)), name)
+        return tuple(result)
+
     def inject_types(self, env, context):
         for e in self.args:
             e.inject_types(env, context)
-        self.nel_type =  t_tuple( *[ e.nel_type for e in self.args ] )
+        self.nel_type = t_tuple( *[ e.nel_type for e in self.args ] )
 
     def derive_context(self, t):
         if t.name != "" and len(t.args) != len(self.args):
@@ -341,7 +367,7 @@ class ExprTuple(Expression):
 
 class ExprExtern(Expression):
 
-    def __init__(self, name, t):
+    def __init__(self, name, t = None):
         self.name = name
         self.nel_type = t
 
