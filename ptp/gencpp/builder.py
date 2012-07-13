@@ -377,7 +377,7 @@ class Builder(CppWriter):
         em = emitter.Emitter(self.project)
 
         for edge, _ in matches:
-            em.set_extern("token_{0.uid}".format(edge), "tokens->token_{0.uid}->element".format(edge))
+            em.set_extern("token_{0.uid}".format(edge), "tokens->token_{0.uid}->value".format(edge))
             em.set_extern("token_{0.uid}_self".format(edge), "tokens->token_{0.uid}".format(edge))
 
         em.variable_emitter = variable_emitter
@@ -587,7 +587,7 @@ class Builder(CppWriter):
 
         em = emitter.Emitter(self.project)
         for edge, _ in matches:
-            em.set_extern("token_{0.uid}".format(edge), "token_{0.uid}->element".format(edge))
+            em.set_extern("token_{0.uid}".format(edge), "token_{0.uid}->value".format(edge))
             em.set_extern("token_{0.uid}_self".format(edge), "token_{0.uid}".format(edge))
 
         context = tr.get_context()
@@ -705,7 +705,7 @@ class Builder(CppWriter):
         em = emitter.Emitter(self.project)
 
         for edge, _ in matches:
-            em.set_extern("token_{0.uid}".format(edge), "token_{0.uid}->element".format(edge))
+            em.set_extern("token_{0.uid}".format(edge), "token_{0.uid}->value".format(edge))
             em.set_extern("token_{0.uid}_self".format(edge), "token_{0.uid}".format(edge))
 
         em.variable_emitter = variable_emitter
@@ -1061,7 +1061,7 @@ class Builder(CppWriter):
         if place.tracing != "off":
             value = value_code
             if token:
-                value += "->element"
+                value += "->value"
 
             self.if_begin("thread->get_tracelog()")
             self.line("{0}{1}({2}, thread->get_tracelog(), {3.id}, {4});",
@@ -1122,7 +1122,7 @@ class Builder(CppWriter):
 
             self.do_begin()
             self.line('output.child("token");')
-            self.line('output.set("value", {0});', self.code_as_string("t->element", place.type))
+            self.line('output.set("value", {0});', self.code_as_string("t->value", place.type))
             self.line('output.back();')
             self.line("t = t->next;")
             self.do_end("t != place_{0.id}.begin()".format(place))

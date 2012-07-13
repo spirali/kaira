@@ -9,7 +9,7 @@
 template<class T> class CaToken {
 
 	public:
-		CaToken(const T &element) { this->element = element; }
+		CaToken(const T &value) { this->value = value; }
 
 		void remove() {
 			next->prev = prev;
@@ -19,7 +19,7 @@ template<class T> class CaToken {
 		void trace(CaTraceLog *tracelog,
 				int place_id,
 				std::string fn (const T&)) {
-			tracelog->trace_token(place_id, this, fn(element));
+			tracelog->trace_token(place_id, this, fn(value));
 		}
 
 		void trace(CaTraceLog *tracelog, int place_id) {
@@ -27,7 +27,7 @@ template<class T> class CaToken {
 		}
 
 
-		T element;
+		T value;
 		CaToken<T> *prev;
 		CaToken<T> *next;
 };
@@ -53,38 +53,38 @@ template<class T> class CaPlace {
 			tokens_count++;
 		}
 
-		void add(const T &element) {
-			CaToken<T> *t = new CaToken<T>(element);
+		void add(const T &value) {
+			CaToken<T> *t = new CaToken<T>(value);
 			add(t);
 		}
 
-		void add(const T &element, CaTraceLog *tracelog, int place_id)
+		void add(const T &value, CaTraceLog *tracelog, int place_id)
 		{
-			CaToken<T> *t = new CaToken<T>(element);
+			CaToken<T> *t = new CaToken<T>(value);
 			t->trace(tracelog, place_id);
 			add(t);
 		}
 
-		void add(const T &element, CaTraceLog *tracelog, int place_id, std::string fn (const T&))
+		void add(const T &value, CaTraceLog *tracelog, int place_id, std::string fn (const T&))
 		{
-			CaToken<T> *t = new CaToken<T>(element);
+			CaToken<T> *t = new CaToken<T>(value);
 			t->trace(tracelog, place_id, fn);
 			add(t);
 		}
 
-		void add_all(const std::vector<T> &elements) {
+		void add_all(const std::vector<T> &values) {
 			typename std::vector<T>::const_iterator i;
-			for (i = elements.begin(); i != elements.end(); i++) {
+			for (i = values.begin(); i != values.end(); i++) {
 				add(*i);
 			}
 		}
 
-		void add_all(const std::vector<T> &elements,
+		void add_all(const std::vector<T> &values,
 					CaTraceLog *tracelog,
 					int place_id,
 					std::string fn (const T&)) {
 			typename std::vector<T>::const_iterator i;
-			for (i = elements.begin(); i != elements.end(); i++) {
+			for (i = values.begin(); i != values.end(); i++) {
 				add(*i, tracelog, place_id, fn);
 			}
 		}
@@ -112,7 +112,7 @@ template<class T> class CaPlace {
 				v.reserve(tokens_count);
 				CaToken<T> *t = token;
 				do {
-					v.push_back(t->element);
+					v.push_back(t->value);
 					CaToken<T> *next = t->next;
 					delete t;
 					t = next; } while(t != token);
@@ -128,7 +128,7 @@ template<class T> class CaPlace {
 				v.reserve(tokens_count);
 				CaToken<T> *t = token;
 				do {
-					v.push_back(t->element);
+					v.push_back(t->value);
 					t = t->next;
 				} while(t != token);
 			}
@@ -152,7 +152,7 @@ template<class T> class CaPlace {
 		size_t size() { return tokens_count; }
 		CaToken<T> * last() { return token->prev; }
 		bool is_empty() { return token == NULL; }
-		T first_value() { return token->element; }
+		T first_value() { return token->value; }
 
 	protected:
 		/* This is a naive implementation, it needs benchmarks
