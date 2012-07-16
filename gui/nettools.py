@@ -255,9 +255,9 @@ class NetTool:
 
         if self.scroll_point:
             p = (event.x, event.y)
-            diff = utils.vector_diff(self.scroll_point, p)
+            diff = utils.make_vector(p, self.scroll_point)
             viewport = self.netview.get_viewport()
-            self.netview.set_viewport(utils.vector_diff(viewport,diff))
+            self.netview.set_viewport(utils.vector_add(viewport,diff))
             self.scroll_point = p
             return
 

@@ -482,15 +482,15 @@ class Transition(NetElement):
         px, py = self.position
         sx, sy = self.size
         # prefix 't' means 'text'
-        (tx_bearing, ty_bearing, \
-         twidth, theight, \
+        (tx_bearing, ty_bearing,
+         twidth, theight,
          tx_advance, ty_advance) = cr.text_extents(self.get_guard())
         if twidth == 0 and theight == 0: 
             return ((px - sx/2, py - sy/2), (px + sx/2, py + sy/2))
         else:
             tx = px - twidth/2
             ty = py - sy/2 - theight/2 - 2 + ty_bearing # ty_bearing is negative
-            return ((min(px - sx/2, tx),          min(py - sy/2, ty)), \
+            return ((min(px - sx/2, tx),          min(py - sy/2, ty)),
                     (max(px + sx/2, tx + twidth), max(py + sy/2, ty + theight)))
 
 
@@ -607,18 +607,18 @@ class Place(NetElement):
         else:
             x = math.sqrt((r * r) / 2) + 5
             # 'is' = 'init_string'
-            (isx_bearing, isy_bearing, \
-             is_width, is_height, \
+            (isx_bearing, isy_bearing,
+             is_width, is_height,
              isx_advance, isy_advance) = cr.text_extents(self.init_string)
             
             # 'pt' = 'place_type'
-            (ptx_bearing, pty_bearing, \
-             pt_width, pt_height, \
+            (ptx_bearing, pty_bearing,
+             pt_width, pt_height,
              ptx_advance, pty_advance) = cr.text_extents(self.place_type)
 
             (ascent, descent, height, max_x_advance, max_y_advance) = cr.font_extents()
 
-        return ((px - r, py - r + isy_bearing), \
+        return ((px - r, py - r + isy_bearing),
                 (px + x + max(is_width, pt_width), py + x + descent))
 
 class Edge(NetItem):
@@ -804,14 +804,14 @@ class Edge(NetItem):
         else:
             point = self.inscription_position
             # 'i' = 'inscription'
-            (ix_bearing, iy_bearing, \
-             iwidth, iheight, \
+            (ix_bearing, iy_bearing,
+             iwidth, iheight,
              ix_advance, iy_advance) = cr.text_extents(self.inscription)
             (ascent, descent, height, max_x_advance, max_y_advance) = cr.font_extents()
 
             ix = point[0] - iwidth/2
             iy = point[1] + iheight
-            return ((min(l, ix),          min(t, iy + iy_bearing)), \
+            return ((min(l, ix),          min(t, iy + iy_bearing)),
                     (max(r, ix + iwidth), max(b, iy + descent)))
 
     def is_packing_edge(self):
@@ -956,15 +956,15 @@ class NetArea(RectItem):
         else:
             ((l,t), (r,b)) = super(NetArea, self).corners(cr)
             # 'n' = 'name'
-            (nx_bearing, ny_bearing, \
-             nwidth, nheight, \
+            (nx_bearing, ny_bearing,
+             nwidth, nheight,
              nx_advance, ny_advance) = cr.text_extents(self.name)
             # 'ie' = 'init_expr'
-            (iex_bearing, iey_bearing, \
-             iewidth, ieheight, \
+            (iex_bearing, iey_bearing,
+             iewidth, ieheight,
              iex_advance, iey_advance) = cr.text_extents(self.init_expr)
              
-            return ((min(l, r - nwidth),  t + min(ny_bearing, iey_bearing) - 5), \
+            return ((min(l, r - nwidth),  t + min(ny_bearing, iey_bearing) - 5),
                     (max(r, l + iewidth), b))
 
 class InterfaceBox(RectItem):

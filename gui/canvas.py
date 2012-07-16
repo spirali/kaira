@@ -45,9 +45,11 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 
     def set_net(self, net):
         self.net = net
-        # if net is switch, it's necessary recompute center of net
-        self.viewport = None
+        self.set_viewport_to_net_center()
         self.redraw()
+
+    def set_viewport_to_net_center(self):
+        self.viewport = None
 
     def set_viewport(self, viewport):
         self.viewport = viewport
@@ -76,14 +78,6 @@ class NetCanvas(gtk.DrawingArea, EventSource):
     def get_zoom(self):
         return self.zoom
 
-#    def set_size_and_viewport_by_net(self):
-#        #TODO: this method isn't call
-#        ((l, t), (r, b)) = self.net.corners()
-#        sizex = r - l + 100
-#        sizey = b - t + 100
-#        self.set_size_request(int(sizex * self.zoom), int(sizey * self.zoom))
-#        self.set_viewport((-l + 25, -t + 25))
-
     def _expose(self, w, event):
         cr = self.window.cairo_create()
         self.cr = cr
@@ -97,15 +91,14 @@ class NetCanvas(gtk.DrawingArea, EventSource):
         cr.rectangle(0, 0, width, height)
         cr.fill()
 
-        # after init is the viewport set on None value, 
-        # in this place is recompute to the center of the net
+        # If viewport is None then set viewport to the center of net
         if self.viewport is None:
             ((l,t), (r,b)) = self.net.corners(cr)
             self.viewport = (l + (r - l) / 2, t + (b - t) / 2)
 
-        cr.translate(width/2  - self.viewport[0] * self.zoom, \
-                     height/2 - self.viewport[1] * self.zoom)
+        cr.translate(width / 2, height / 2)
         cr.scale(self.zoom, self.zoom)
+        cr.translate(-self.viewport[0], -self.viewport[1])
 
         if self.net:
             self.net.draw(cr, self.vconfig)
