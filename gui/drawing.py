@@ -36,10 +36,10 @@ class VisualConfig:
         return self.preprocess(item, AreaDrawing(item))
 
     def interface_drawing(self, item):
-        return self.preprocess(item, IntefaceDrawing(item))
+        return self.preprocess(item, InterfaceDrawing(item))
 
     def interfacenode_drawing(self, item):
-        return self.preprocess(item, IntefaceNodeDrawing(item))
+        return self.preprocess(item, InterfaceNodeDrawing(item))
 
     def preprocess(self, item, drawing):
         return drawing
@@ -352,7 +352,7 @@ class AreaDrawing(DrawingBase):
             draw_error_box_after_text(cr, self.init_expr,(px, py - 5), self.error_messages["instances"])
 
 
-class IntefaceDrawing(DrawingBase):
+class InterfaceDrawing(DrawingBase):
 
     def __init__(self, item):
         DrawingBase.__init__(self)
@@ -391,7 +391,7 @@ class IntefaceDrawing(DrawingBase):
         cr.show_text(self.text)
 
 
-class IntefaceNodeDrawing(DrawingBase):
+class InterfaceNodeDrawing(DrawingBase):
 
     def __init__(self, item):
         DrawingBase.__init__(self)
