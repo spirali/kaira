@@ -93,8 +93,12 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 
         # If viewport is None then set viewport to the center of net
         if self.viewport is None:
-            ((l,t), (r,b)) = self.net.corners(cr)
-            self.viewport = (l + (r - l) / 2, t + (b - t) / 2)
+            if self.net is not None:
+                ((l,t), (r,b)) = self.net.corners(cr)
+                self.viewport = (l + (r - l) / 2, t + (b - t) / 2)
+            else:
+                self.viewport = (0, 0)
+
 
         cr.translate(width / 2, height / 2)
         cr.scale(self.zoom, self.zoom)
