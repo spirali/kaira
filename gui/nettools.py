@@ -178,6 +178,10 @@ class NetTool:
                         ("Bidirectional",
                             lambda w: self.selected_item.toggle_bidirectional()) ]
 
+            #Area
+            if self.selected_item.is_area():
+                menu_actions = [ ("Delete", delete_event) ]
+
             # IterfaceNode
             if self.selected_item.is_interfacenode():
                 menu_actions = [ ("Delete", delete_event) ]
