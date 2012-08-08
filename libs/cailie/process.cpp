@@ -43,7 +43,7 @@ void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 		return;
 	}
 	CaUnpacker unpacker(tokens + 1);
-	CaNet *n = thread->get_net(tokens->net_id);
+	CaNet *n = thread->get_net();
 	CaTraceLog *tracelog = thread->get_tracelog();
 	if (tracelog) {
 		tracelog->event_receive(tokens->net_id);
@@ -330,11 +330,8 @@ void CaProcess::write_reports(FILE *out) const
 	output.set("id", process_id);
 	output.set("running", !quit_flag);
 
-	std::vector<CaNet*>::const_iterator i;
-	const std::vector<CaNet*> &nets = threads[0].get_nets();
-	for (i = nets.begin(); i != nets.end(); i++) {
-		(*i)->write_reports(&threads[0], output);
-	}
+	CaNet* net = threads[0].get_net();
+	net->write_reports(&threads[0], output);
 	CaOutputBlock *block = output.back();
 	block->write(out);
 	delete block;
@@ -360,20 +357,16 @@ void CaProcess::autohalt_check(CaNet *net)
 // Designed for calling during simulation
 void CaProcess::fire_transition(int transition_id, int instance_id)
 {
-	std::vector<CaNet*>::const_iterator i;
-	const std::vector<CaNet*> &nets = threads[0].get_nets();
-	for (i = nets.begin(); i != nets.end(); i++) {
-		CaNet *n = *i;
-		if (n->get_id() == instance_id) {
-			if (n->fire_transition(&threads[0], transition_id)
+	CaNet* n = threads[0].get_net();
+	if (n->get_id() == instance_id) {
+		if (n->fire_transition(&threads[0], transition_id)
 				== CA_TRANSITION_FIRED_WITH_MODULE) {
-				// Module was started so we have to checked if it is not dead from start
-				threads[0].process_messages();
-				n = threads[0].last_net();
-			}
-			autohalt_check(n);
-			return;
+			// Module was started so we have to checked if it is not dead from start
+			threads[0].process_messages();
+			n = threads[0].get_net();
 		}
+		autohalt_check(n);
+		return;
 	}
 }
 

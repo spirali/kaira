@@ -9,12 +9,12 @@
 
 void CaThreadMessageNewNet::process(CaThread *thread)
 {
-		thread->add_network(net);
+		thread->set_net(net);
 }
 
 void CaThreadMessageHaltNet::process(CaThread *thread)
 {
-		CaNet *net = thread->remove_net(net_id);
+		CaNet *net = thread->remove_net();
 		if (net == NULL) {
 			return;
 		}

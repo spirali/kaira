@@ -97,14 +97,10 @@ void CaThread::clear()
 {
 	process_messages();
 	if (id == 0) {
-		std::vector<CaNet*>::const_iterator it;
-		for (it = nets.begin(); it < nets.end(); it++) {
-			if (!(*it)->get_manual_delete()) {
-				delete (*it);
-			}
+		if (!net->get_manual_delete()) {
+			//delete net;
 		}
 	}
-	nets.clear();
 }
 
 void CaThread::quit_all()
@@ -115,27 +111,21 @@ void CaThread::quit_all()
 void CaThread::run_scheduler()
 {
 	process_messages();
-	std::vector<CaNet*>::iterator net = nets.begin();
+	//std::vector<CaNet*>::iterator net = nets.begin();
 	unsigned int counter = 0;
 	while(!process->quit_flag) {
 		counter++;
-		if (counter > nets.size()) {
+		if (counter > 1) {
 			sched_yield();
 			counter = 0;
 		}
-		if (process_messages()) {
-			// Vector nets could be changed
-			net = nets.begin();
-		}
-		if(nets.size() == 0) {
+		process_messages();
+
+		if(net == NULL) {
 			continue;
 		}
-		net++;
 
-		if (net == nets.end()) {
-			net = nets.begin();
-		}
-		CaNet *n = *net;
+		CaNet *n = net;
 		if (!n->try_lock())
 			continue;
 		CaTransition *tr = n->pick_active_transition();
@@ -143,10 +133,7 @@ void CaThread::run_scheduler()
 			if (n->is_autohalt() && n->get_running_transitions() == 0) {
 				n->unlock();
 				halt(n);
-				if (process_messages()) {
-					// Vector nets could be changed
-					net = nets.begin();
-				}
+				process_messages();
 			} else {
 				n->unlock();
 			}
@@ -160,9 +147,6 @@ void CaThread::run_scheduler()
 			n->unlock();
 		} else {
 			counter = 0;
-			if (res == CA_TRANSITION_FIRED_WITH_MODULE) {
-				net = nets.begin(); // Vector nets was changed
-			}
 		}
 	}
 }
@@ -172,28 +156,11 @@ CaNet * CaThread::spawn_net(int def_index, CaNet *parent_net)
 	return process->spawn_net(this, def_index, process->new_net_id(), parent_net, true);
 }
 
-CaNet * CaThread::remove_net(int id)
+CaNet * CaThread::remove_net()
 {
-	std::vector<CaNet*>::iterator i;
-	for (i = nets.begin(); i != nets.end(); i++) {
-		if ((*i)->get_id() == id) {
-			CaNet *net = *i;
-			nets.erase(i);
-			return net;
-		}
-	}
-	return NULL;
-}
-
-CaNet * CaThread::get_net(int id)
-{
-	std::vector<CaNet*>::iterator i;
-	for (i = nets.begin(); i != nets.end(); i++) {
-		if ((*i)->get_id() == id) {
-			return *i;
-		}
-	}
-	return NULL;
+	CaNet *n = net;
+	net = NULL;
+	return n;
 }
 
 

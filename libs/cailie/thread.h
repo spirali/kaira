@@ -49,19 +49,12 @@ class CaThread {
 		CaProcess * get_process() const { return process; }
 
 		CaNet * spawn_net(int def_index, CaNet *parent_net);
-		CaNet * get_net(int id);
-		CaNet * remove_net(int id);
+		CaNet * get_net() { return net; };
+		CaNet * remove_net();
 
-		void add_network(CaNet *net) {
-			nets.push_back(net);
-		}
-
-		int get_nets_count() { return nets.size(); }
-		const std::vector<CaNet*> & get_nets() { return nets; }
+		void set_net(CaNet *n) { net = n; }
 
 		void set_process(CaProcess *process, int id) { this->process = process; this->id = id; }
-
-		CaNet *last_net() { return nets[nets.size() - 1]; }
 
 		CaTraceLog* get_tracelog() { return tracelog; }
 		void set_tracelog(CaTraceLog *tracelog) { this->tracelog = tracelog; }
@@ -71,7 +64,7 @@ class CaThread {
 		pthread_t thread;
 		pthread_mutex_t messages_mutex;
 		CaThreadMessage *messages;
-		std::vector<CaNet*> nets;
+		CaNet* net;
 		int id;
 
 		#ifdef CA_MPI
