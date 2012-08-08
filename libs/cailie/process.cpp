@@ -352,12 +352,7 @@ void CaProcess::fire_transition(int transition_id, int instance_id)
 {
 	CaNet* n = threads[0].get_net();
 	if (n->get_id() == instance_id) {
-		if (n->fire_transition(&threads[0], transition_id)
-				== CA_TRANSITION_FIRED_WITH_MODULE) {
-			// Module was started so we have to checked if it is not dead from start
-			threads[0].process_messages();
-			n = threads[0].get_net();
-		}
+		n->fire_transition(&threads[0], transition_id);
 		autohalt_check(n);
 		return;
 	}

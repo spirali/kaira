@@ -8,7 +8,6 @@
 
 #define CA_NOT_ENABLED 0
 #define CA_TRANSITION_FIRED 1
-#define CA_TRANSITION_FIRED_WITH_MODULE 2
 
 class CaNet;
 class CaNetDef;
