@@ -4,7 +4,6 @@
 
 #include <pthread.h>
 #include <vector>
-#include <map>
 #include <set>
 #include "messages.h"
 #include "net.h"
@@ -113,7 +112,7 @@ class CaProcess {
 		int id_counter;
 		pthread_mutex_t counter_mutex;
 		int *process_id_counter;
-		std::map<int, std::vector<void* > > too_early_message;
+		std::vector<void* > too_early_message;
 		/*memory of net's id which wasn't created, but was halted*/
 		bool net_is_halted;
 

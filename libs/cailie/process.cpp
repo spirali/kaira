@@ -39,7 +39,7 @@ void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 	CaTokens *tokens = (CaTokens*) data;
 	if(!is_future_id(tokens->net_id)) {
 		CA_DLOG("Too early message on process=%d net_id=%d\n", get_process_id(), tokens->net_id);
-		too_early_message[tokens->net_id].push_back(data);
+		too_early_message.push_back(data);
 		return;
 	}
 	CaUnpacker unpacker(tokens + 1);
@@ -82,18 +82,18 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 			if(net_is_halted) {
 				CA_DLOG("Stop creating halted net on process=%i thread=%i\n", get_process_id(), thread->get_id());
 				update_net_id_counters(m->net_id);
-				too_early_message.erase(m->net_id);
+				too_early_message.clear();
 				net_is_halted = false;
 				break;
 			}
 			CaNet *net = spawn_net(thread, m->def_index, m->net_id, false);
 			net->unlock();
-			if(too_early_message.count(m->net_id)) {
+			if(too_early_message.size() > 0) {
 				std::vector<void* >::const_iterator i;
-				for (i = too_early_message[m->net_id].begin(); i != too_early_message[m->net_id].end(); i++) {
+				for (i = too_early_message.begin(); i != too_early_message.end(); i++) {
 					process_packet(thread, CA_TAG_TOKENS, *i);
 				}
-				too_early_message.erase(m->net_id);
+				too_early_message.clear();
 			}
 			break;
 		}
