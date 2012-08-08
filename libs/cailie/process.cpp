@@ -86,7 +86,7 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 				halted_net.erase(m->net_id);
 				break;
 			}
-			CaNet *net = spawn_net(thread, m->def_index, m->net_id, NULL, false);
+			CaNet *net = spawn_net(thread, m->def_index, m->net_id, false);
 			net->unlock();
 			if(too_early_message.count(m->net_id)) {
 				std::vector<void* >::const_iterator i;
@@ -127,14 +127,11 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 	}
 }
 
-CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, CaNet *parent_net, bool globally)
+CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, bool globally)
 {
 	CaTraceLog *tracelog = thread->get_tracelog();
 	if (tracelog) {
-		tracelog->event_net_spawn(
-			defs[def_index]->get_id(),
-			id,
-			parent_net ? parent_net->get_id() : 0);
+		tracelog->event_net_spawn(defs[def_index]->get_id(), id);
 	}
 
 	CA_DLOG("Spawning id=%i def_id=%i parent_net=%i globally=%i\n",
@@ -148,7 +145,7 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, CaNet *par
 		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetCreate), thread, process_id);
 	}
 
-	CaNet *net = defs[def_index]->spawn(thread, id, parent_net);
+	CaNet *net = defs[def_index]->spawn(thread, id);
 	net->lock();
 	update_net_id_counters(net->get_id());
 	inform_new_network(net, thread);
@@ -342,15 +339,11 @@ void CaProcess::autohalt_check(CaNet *net)
 {
 	if (net->is_autohalt() && net->get_running_transitions() == 0
 			&& !net->is_something_enabled(&threads[0])) {
-			CaNet *parent = net->get_parent_net();
 			/* During normal run net is finalized after halt in processing thread message
 				But we dont want to wait for message processing because we want
 				need right value of get_running_transitions in parent net */
 			net->finalize(&threads[0]);
 			halt(&threads[0], net);
-			if (parent) {
-				autohalt_check(parent);
-			}
 	}
 }
 

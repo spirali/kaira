@@ -57,14 +57,15 @@ void CaTraceLog::write_time()
 	write_uint64(t);
 }
 
-void CaTraceLog::event_net_spawn(int net_id, int instance_id, int parent_net)
+void CaTraceLog::event_net_spawn(int net_id, int instance_id)
 {
 	check_size(1 + sizeof(uint64_t) + sizeof(int32_t) * 3);
 	write_char('S');
 	write_time();
 	write_int32(net_id);
 	write_int32(instance_id);
-	write_int32(parent_net);
+	//TODO: remove parent net in tracelog GUI
+	write_int32(0);
 }
 
 void CaTraceLog::event_transition_fired(int instance_id, int transition_id)

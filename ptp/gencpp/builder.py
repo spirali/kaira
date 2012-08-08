@@ -1074,9 +1074,9 @@ class Builder(CppWriter):
             self.line("{0}{1}({2});", place_code, method, value_code)
 
     def write_spawn(self, net):
-        self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id, CaNet *parent_net) {{", net)
+        self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id) {{", net)
         self.indent_push()
-        self.line("Net_{0.id} *net = new Net_{0.id}(id, id % thread->get_process_count(), def, thread, parent_net);", net)
+        self.line("Net_{0.id} *net = new Net_{0.id}(id, id % thread->get_process_count(), def, thread);", net)
         self.line("CaContext ctx(thread, net);")
         self.line("int pid = thread->get_process_id();")
         for area in net.areas:
@@ -1167,9 +1167,9 @@ class Builder(CppWriter):
         self.write_class_head(class_name, "CaNet")
 
         decls = [("id", "int"), ("main_process_id", "int"), ("def", "CaNetDef *"),
-                 ("thread", "CaThread *"), ("parent_net", "CaNet *")]
+                 ("thread", "CaThread *")]
         self.write_constructor(class_name, self.emit_declarations(decls),
-                               ["CaNet(id, main_process_id, def, thread, parent_net)"])
+                               ["CaNet(id, main_process_id, def, thread)"])
         self.write_method_end()
 
         for place in net.places:

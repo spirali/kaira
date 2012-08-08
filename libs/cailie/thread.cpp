@@ -151,9 +151,9 @@ void CaThread::run_scheduler()
 	}
 }
 
-CaNet * CaThread::spawn_net(int def_index, CaNet *parent_net)
+CaNet * CaThread::spawn_net(int def_index)
 {
-	return process->spawn_net(this, def_index, process->new_net_id(), parent_net, true);
+	return process->spawn_net(this, def_index, process->new_net_id(), true);
 }
 
 CaNet * CaThread::remove_net()

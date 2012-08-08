@@ -17,8 +17,8 @@ class CaUnpacker;
 
 typedef int(CaEnableFn)(CaThread *, CaNet *);
 typedef bool(CaEnableCheckFn)(CaThread *, CaNet *);
-typedef CaNet * (CaSpawnFn)(CaThread *, CaNetDef *, int id, CaNet *);
-typedef void (CaNetFinalizerFn)(CaThread *, CaNet *, CaNet *, void *, bool);
+typedef CaNet * (CaSpawnFn)(CaThread *, CaNetDef *, int id);
+typedef void (CaNetFinalizerFn)(CaThread *, CaNet *, void *, bool);
 
 class CaTransition {
 	public:
@@ -45,7 +45,7 @@ class CaNetDef {
 		CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local, bool autohalt);
 		~CaNetDef();
 
-		CaNet *spawn(CaThread *thread, int id, CaNet *parent_net);
+		CaNet *spawn(CaThread *thread, int id);
 		int get_id() const { return id; }
 		int get_index() const { return index; }
 		bool is_local() const { return local; }
@@ -70,7 +70,7 @@ class CaNetDef {
 
 class CaNet {
 	public:
-		CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread, CaNet *parent_net);
+		CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread);
 		virtual ~CaNet();
 
 		int get_id() const { return id; }
@@ -93,9 +93,6 @@ class CaNet {
 		bool has_active_transition() { return !actives.empty(); }
 
 		void activate_transition(CaTransition *tr);
-		CaNet * get_parent_net() {
-			return parent_net;
-		}
 
 		void activate_all_transitions();
 		void activate_transition_by_pos_id(int pos_id);
@@ -135,7 +132,6 @@ class CaNet {
 		CaTransition *transitions;
 		int ref_count;
 
-		CaNet *parent_net;
 		CaNetFinalizerFn *finalizer_fn;
 		void *data;
 		int flags;

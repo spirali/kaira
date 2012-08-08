@@ -79,7 +79,7 @@ class CaProcess {
 		void quit() { quit_flag = true; }
 		void halt(CaThread *thread, CaNet *net);
 
-		CaNet * spawn_net(CaThread *thread, int def_index, int id, CaNet *parent_net, bool globally);
+		CaNet * spawn_net(CaThread *thread, int def_index, int id, bool globally);
 
 		int new_net_id();
 

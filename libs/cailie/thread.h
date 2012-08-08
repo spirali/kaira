@@ -48,7 +48,7 @@ class CaThread {
 		}
 		CaProcess * get_process() const { return process; }
 
-		CaNet * spawn_net(int def_index, CaNet *parent_net);
+		CaNet * spawn_net(int def_index);
 		CaNet * get_net() { return net; };
 		CaNet * remove_net();
 
