@@ -18,7 +18,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from net import Net, load_net, nets_postload_process, BasicLoader, NewIdLoader
+from net import Net, load_net, BasicLoader, NewIdLoader
 import xml.etree.ElementTree as xml
 import utils
 import os
@@ -53,7 +53,6 @@ def load_project_from_xml(root, filename):
         load_configuration(root.find("configuration"), project, loader)
     for e in root.findall("net"):
         project.add_net(load_net(e, project, loader))
-    nets_postload_process(project, loader)
 
     if project.get_main_net() is not None:
         project.simulator_net = project.get_main_net()
