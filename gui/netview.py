@@ -366,6 +366,7 @@ class NetList(ObjectTree):
             ("-", None),
             ("Copy net", self._copy),
             ("Rename net", self._rename),
+            ("Remove net", self._remove),
             ("-", None),
             ("Tracing", [
                 ("Trace everything", self._trace_everything),
