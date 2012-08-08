@@ -30,7 +30,7 @@ class CaThread {
 		void process_message(CaThreadMessage *message);
 		void quit_all();
 
-		void halt(CaNet *net) { process->halt(this, net); }
+		void halt() { process->halt(this); }
 
 		void send(int target, CaNet *net, int place, const CaPacker &packer) {
 			process->multisend(target, net, place, 1, packer, this);
@@ -50,7 +50,12 @@ class CaThread {
 
 		CaNet * spawn_net(int def_index);
 		CaNet * get_net() { return net; };
-		CaNet * remove_net();
+
+		CaNet * remove_net() {
+			CaNet * n = net;
+			net = NULL;
+			return n;
+		}
 
 		void set_net(CaNet *n) { net = n; }
 

@@ -96,10 +96,12 @@ void CaThread::join()
 void CaThread::clear()
 {
 	process_messages();
-	if (id == 0) {
+	if (id == 0 && net != NULL) {
 		if (!net->get_manual_delete()) {
-			//delete net;
+			delete net;
 		}
+	} else {
+		net = NULL;
 	}
 }
 
@@ -132,7 +134,7 @@ void CaThread::run_scheduler()
 		if (tr == NULL) {
 			if (n->is_autohalt() && n->get_running_transitions() == 0) {
 				n->unlock();
-				halt(n);
+				halt();
 				process_messages();
 			} else {
 				n->unlock();
@@ -154,13 +156,6 @@ void CaThread::run_scheduler()
 CaNet * CaThread::spawn_net(int def_index)
 {
 	return process->spawn_net(this, def_index, process->new_net_id(), true);
-}
-
-CaNet * CaThread::remove_net()
-{
-	CaNet *n = net;
-	net = NULL;
-	return n;
 }
 
 

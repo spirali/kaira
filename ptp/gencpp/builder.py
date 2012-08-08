@@ -677,7 +677,7 @@ class Builder(CppWriter):
                     w.line("delete token_{0.uid};", edge)
 
         if tr.net.is_module():
-            w.line("if (ctx.get_halt_flag()) thread->halt(net);")
+            w.line("if (ctx.get_halt_flag()) thread->halt();")
         w.line("return {0};", retvalue)
 
         self.write_enable_pattern_match(tr, w)
