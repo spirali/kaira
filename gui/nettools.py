@@ -173,13 +173,6 @@ class NetTool:
             if self.selected_item.is_interfacenode():
                 menu_actions = [ ("Delete", delete_event) ]
 
-            # InterfaceBox
-            if self.selected_item.is_interfacebox():
-                menu_actions = [
-                    ("Automatic halt", lambda w: self.net.set_autohalt(True)),
-                    ("Manual halt", lambda w: self.net.set_autohalt(False))
-                ]
-
             if menu_actions:
                 gtkutils.show_context_menu(menu_actions, event)
         else:

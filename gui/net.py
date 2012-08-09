@@ -40,7 +40,6 @@ class Net:
         self.items = []
         self.change_callback = lambda n: None
         self.interface_box = None
-        self.autohalt = True
 
     def get_name(self):
         return self.name
@@ -70,13 +69,6 @@ class Net:
     def remove_item(self, item):
         self.items.remove(item)
         self.changed()
-
-    def set_autohalt(self, value):
-        self.autohalt = value
-        self.changed()
-
-    def get_autohalt(self):
-        return self.autohalt
 
     def set_name(self, name):
         self.name = name
@@ -137,8 +129,6 @@ class Net:
         e.set("name", self.name)
         e.set("id", str(self.id))
         e.set("net-type", self.net_type)
-        if self.is_module():
-            e.set("autohalt", str(self.autohalt))
         for item in self.items:
             e.append(item.as_xml())
         return e
@@ -172,10 +162,6 @@ class Net:
         e = xml.Element("net")
         e.set("name", self.name)
         e.set("id", str(self.id))
-        if self.is_module():
-            e.set("autohalt", str(self.autohalt))
-        else:
-            e.set("autohalt", "False")
 
         for place in self.places():
             e.append(place.export_xml(build_config))
@@ -480,7 +466,7 @@ class Transition(NetElement):
         (tx_bearing, ty_bearing,
          twidth, theight,
          tx_advance, ty_advance) = cr.text_extents(self.get_guard())
-        if twidth == 0 and theight == 0: 
+        if twidth == 0 and theight == 0:
             return ((px - sx/2, py - sy/2), (px + sx/2, py + sy/2))
         else:
             tx = px - twidth/2
@@ -606,7 +592,7 @@ class Place(NetElement):
             (isx_bearing, isy_bearing,
              is_width, is_height,
              isx_advance, isy_advance) = cr.text_extents(self.init_string)
-            
+
             # 'pt' = 'place_type'
             (ptx_bearing, pty_bearing,
              pt_width, pt_height,
@@ -962,7 +948,7 @@ class NetArea(RectItem):
             (iex_bearing, iey_bearing,
              iewidth, ieheight,
              iex_advance, iey_advance) = cr.text_extents(self.init_expr)
-             
+
             return ((min(l, r - nwidth),  t + min(ny_bearing, iey_bearing) - 5),
                     (max(r, l + iewidth), b))
 
@@ -1197,7 +1183,6 @@ def load_net(element, project, loader):
     interface_box = element.find("interface-box")
     if interface_box is not None:
         load_interface_box(interface_box, net, loader)
-        net.set_autohalt(utils.xml_bool(element, "autohalt", True))
 
     for e in element.findall("interface-node"):
         load_interface_node(e, net, loader)
