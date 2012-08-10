@@ -41,7 +41,7 @@ class CaTransition {
 class CaNetDef {
 
 	public:
-		CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local, bool autohalt);
+		CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local);
 		~CaNetDef();
 
 		CaNet *spawn(CaThread *thread, int id);
@@ -54,7 +54,6 @@ class CaNetDef {
 
 		CaTransition * copy_transitions();
 		int get_transitions_count() { return transitions_count; }
-		bool is_autohalt() { return autohalt; }
 	protected:
 		int index;
 		int id;
@@ -62,7 +61,6 @@ class CaNetDef {
 		CaTransition *transitions;
 		CaSpawnFn *spawn_fn;
 		bool local;
-		bool autohalt;
 };
 
 #define CA_NET_MANUAL_DELETE 1
@@ -104,15 +102,6 @@ class CaNet {
 		}
 
 		void finalize(CaThread *thread);
-
-		/* Monitoring of running transitions' number
-		   it is used for autohalt, if autohalt is disabled
-           this methods don't have to be called */
-		void inc_running_transitions() { running_transitions++; }
-		void dec_running_transitions() { running_transitions--; }
-		int get_running_transitions() { return running_transitions; }
-
-		bool is_autohalt() { return def->is_autohalt(); }
 
 		bool is_something_enabled(CaThread *thread);
 

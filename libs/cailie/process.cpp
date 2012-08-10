@@ -334,25 +334,11 @@ void CaProcess::write_reports(FILE *out) const
 }
 
 // Designed for calling during simulation
-void CaProcess::autohalt_check(CaNet *net)
-{
-	if (net->is_autohalt() && net->get_running_transitions() == 0
-			&& !net->is_something_enabled(&threads[0])) {
-			/* During normal run net is finalized after halt in processing thread message
-				But we dont want to wait for message processing because we want
-				need right value of get_running_transitions in parent net */
-			net->finalize(&threads[0]);
-			halt(&threads[0]);
-	}
-}
-
-// Designed for calling during simulation
 void CaProcess::fire_transition(int transition_id, int instance_id)
 {
 	CaNet* n = threads[0].get_net();
 	if (n->get_id() == instance_id) {
 		n->fire_transition(&threads[0], transition_id);
-		autohalt_check(n);
 		return;
 	}
 }

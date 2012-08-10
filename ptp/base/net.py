@@ -310,8 +310,6 @@ def inject_types_for_empty_context(env, expr, t):
 
 class Net(object):
 
-    autohalt = False
-
     def __init__(self, project, id, name):
         self.project = project
         self.id = id
@@ -328,9 +326,6 @@ class Net(object):
 
     def is_module(self):
         return self.module_flag
-
-    def has_autohalt(self):
-        return self.autohalt
 
     def get_interface_edges_out(self):
         return self.interface_edges_out

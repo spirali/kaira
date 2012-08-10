@@ -132,13 +132,7 @@ void CaThread::run_scheduler()
 			continue;
 		CaTransition *tr = n->pick_active_transition();
 		if (tr == NULL) {
-			if (n->is_autohalt() && n->get_running_transitions() == 0) {
-				n->unlock();
-				halt();
-				process_messages();
-			} else {
-				n->unlock();
-			}
+			n->unlock();
 			continue;
 		}
 		tr->set_active(false);

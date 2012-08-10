@@ -175,9 +175,8 @@ class Builder(CppWriter):
         self.block_end()
 
     def register_net(self, net):
-        self.line("CaNetDef *def_{0.id} = new CaNetDef({2}, {0.id}, {1}, spawn_{0.id}, {3}, {4});", net,
-                     len(net.transitions), net.get_index(), self.emitter.const_boolean(net.is_local()),
-                     self.emitter.const_boolean(net.autohalt))
+        self.line("CaNetDef *def_{0.id} = new CaNetDef({2}, {0.id}, {1}, spawn_{0.id}, {3});", net,
+                     len(net.transitions), net.get_index(), self.emitter.const_boolean(net.is_local()))
         for i, tr in enumerate(net.transitions):
             self.line("def_{0.id}->register_transition({2}, {1.id},(CaEnableFn*) enable_{1.id},"
                       " enable_check_{1.id});", net, tr, i)
@@ -384,8 +383,6 @@ class Builder(CppWriter):
         for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
             self.write_send_token(em, edge)
 
-        if tr.net.has_autohalt():
-            self.write_decrement_running_transitions(self, "n")
         self.line("if (lock) n->unlock();")
 
         delete_block()
@@ -565,13 +562,6 @@ class Builder(CppWriter):
         if edge.guard is not None:
             self.block_end()
 
-    def write_decrement_running_transitions(self, w, varname):
-        w.if_begin("!lock")
-        w.line("{0}->lock();", varname)
-        w.line("lock = true;")
-        w.block_end()
-        w.line("{0}->dec_running_transitions();", varname)
-
     def write_enable(self, tr):
         self.line("int enable_{0.id}(CaThread *thread, CaNet *net)", tr)
         self.block_begin()
@@ -625,8 +615,6 @@ class Builder(CppWriter):
                 w.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
 
         w.line("net->activate_transition_by_pos_id({0});", tr.get_pos_id())
-        if tr.net.has_autohalt():
-            w.line("net->inc_running_transitions();")
 
         for edge in tr.get_packing_edges_in():
             w.line("{1} = n->place_{0.id}.to_vector_and_clear();",
@@ -666,8 +654,6 @@ class Builder(CppWriter):
 
             for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
                 w.write_send_token(em, edge)
-            if tr.net.has_autohalt():
-                self.write_decrement_running_transitions(w, "net")
 
         w.line("if (lock) n->unlock();")
 

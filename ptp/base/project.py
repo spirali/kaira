@@ -272,7 +272,6 @@ def load_area(element, net):
 
 def load_net(element, project):
     net = Net(project, utils.xml_int(element, "id"), utils.xml_str(element, "name"))
-    net.autohalt = utils.xml_bool(element, "autohalt")
     return net
 
 def load_net_content(element, project, net):

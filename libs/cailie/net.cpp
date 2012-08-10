@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-CaNetDef::CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local, bool autohalt)
+CaNetDef::CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local)
 {
 	this->index = index;
 	this->id = id;
@@ -11,7 +11,6 @@ CaNetDef::CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn
 	this->spawn_fn = spawn_fn;
 	this->transitions = new CaTransition[transitions_count];
 	this->local = local;
-	this->autohalt = autohalt;
 }
 
 CaNetDef::~CaNetDef()

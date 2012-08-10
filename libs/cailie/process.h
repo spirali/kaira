@@ -101,8 +101,6 @@ class CaProcess {
 		void write_header(FILE *file);
 	protected:
 
-		void autohalt_check(CaNet *net);
-
 		int process_id;
 		int process_count;
 		int threads_count;
