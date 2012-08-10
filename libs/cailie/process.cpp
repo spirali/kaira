@@ -143,7 +143,7 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, bool globa
 		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetCreate), thread, process_id);
 	}
 
-	CaNet *net = defs[def_index]->spawn(thread, id);
+	net = defs[def_index]->spawn(thread, id);
 	net->lock();
 	update_net_id_counters(net->get_id());
 	inform_new_network(net, thread);
@@ -326,7 +326,6 @@ void CaProcess::write_reports(FILE *out) const
 	output.set("id", process_id);
 	output.set("running", !quit_flag);
 
-	CaNet* net = threads[0].get_net();
 	net->write_reports(&threads[0], output);
 	CaOutputBlock *block = output.back();
 	block->write(out);
@@ -334,13 +333,9 @@ void CaProcess::write_reports(FILE *out) const
 }
 
 // Designed for calling during simulation
-void CaProcess::fire_transition(int transition_id, int instance_id)
+void CaProcess::fire_transition(int transition_id)
 {
-	CaNet* n = threads[0].get_net();
-	if (n->get_id() == instance_id) {
-		n->fire_transition(&threads[0], transition_id);
-		return;
-	}
+	net->fire_transition(&threads[0], transition_id);
 }
 
 /* 	Halt net net, sends information about halting if net is nonlocal

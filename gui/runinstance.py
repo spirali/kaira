@@ -23,19 +23,16 @@ from drawing import VisualConfig
 
 class RunInstance:
 
-    def __init__(self, project, process_count, threads_count):
+    def __init__(self, project, process_count, threads_count, net):
         self.project = project
         self.process_count = process_count
         self.threads_count = threads_count
-
-        self.instance_groups = {}
+        self.net = net
+        self.net_instances = {}
         self.activites = [None] * (self.process_count * self.threads_count)
         self.last_event = None # "fired" / "finished" / None
         self.last_event_activity = None
         self.last_event_instance = None
-
-    def get_instance_groups(self):
-        return self.instance_groups.values()
 
     def add_token(self, place_id, token_pointer, token_value):
         self.last_event_instance.add_token(place_id, token_pointer, token_value)
@@ -51,21 +48,13 @@ class RunInstance:
         self.activites[index] = activity
         self.last_event_activity = activity
 
-    def event_spawn(self, process_id, thread_id, time, net_id, group_id, parent_id):
+    def event_spawn(self, process_id, thread_id, time):
         self.last_event = "spawn"
         if thread_id is not None:
             self.set_activity(process_id, thread_id, None)
 
-        group = self.instance_groups.get(group_id)
-
-        if group is None:
-            net = self.project.find_net(net_id)
-            assert net is not None
-            parent = self.project.find_net(parent_id)
-            group = NetInstanceGroup(self, group_id, net, parent)
-            self.instance_groups[group_id] = group
-        instance = NetInstance(group_id, process_id)
-        group.add_net_instance(instance)
+        instance = NetInstance(process_id)
+        self.net_instances[process_id] = instance
         self.last_event_instance = instance
 
     def event_receive(self, time, process_id, thread_id, group_id):
@@ -107,36 +96,16 @@ class RunInstance:
         runinstance.activites = self.activites[:]
         return runinstance
 
-class NetInstanceGroup:
-
-    def __init__(self, run_instance, id, net, parent):
-        self.run_instance = run_instance
-        self.id = id
-        self.net = net
-        self.parent = parent
-        self.net_instances = {} # Instances according processes
-
-    def add_net_instance(self, net_instance):
-        self.net_instances[net_instance.process_id] = net_instance
-
-    def get_name(self):
-        return self.net.name
-
     def get_perspectives(self):
-        perspectives = [ Perspective("All", self.run_instance, self, self.net_instances) ]
+        perspectives = [ Perspective("All", self, self.net_instances) ]
         v = self.net_instances.keys()
         v.sort()
         for i in v:
             perspectives.append(
                 Perspective(str(i),
-                self.run_instance, self, { i : self.net_instances[i] } ))
+                self, { i : self.net_instances[i] } ))
         return perspectives
 
-    def copy(self):
-        group = NetInstanceGroup(self.run_instance, self.id, self.net, self.parent)
-        for i in self.net_processes:
-            group.net_instances[i] = self.net_instances[i].copy()
-        return group
 
 class ThreadActivity:
 
@@ -145,6 +114,7 @@ class ThreadActivity:
         self.process_id = process_id
         self.thread_id = thread_id
 
+
 class TransitionExecution(ThreadActivity):
 
     def __init__(self, time, process_id, thread_id, group_id, transition):
@@ -152,10 +122,10 @@ class TransitionExecution(ThreadActivity):
         self.group_id = group_id
         self.transition = transition
 
+
 class NetInstance:
 
-    def __init__(self, group_id, process_id, tokens=None):
-        self.group_id = group_id
+    def __init__(self, process_id, tokens=None):
         self.process_id = process_id
         self.enabled_transitions = None
         if tokens is None:
@@ -217,10 +187,9 @@ class NetInstanceVisualConfig(VisualConfig):
 
 class Perspective(utils.EqMixin):
 
-    def __init__(self, name, run_instance, group, net_instances):
+    def __init__(self, name, runinstance, net_instances):
         self.name = name
-        self.run_instance = run_instance
-        self.group = group
+        self.runinstance = runinstance
         self.net_instances = net_instances
 
     def get_tokens(self, place):
@@ -234,25 +203,25 @@ class Perspective(utils.EqMixin):
 
     def get_visual_config(self):
         activies_by_transitions = {}
-        for tr in self.group.net.transitions():
+        for tr in self.runinstance.net.transitions():
             activies_by_transitions[tr.id] = []
 
         color = (1.0, 1.0, 0, 0.8)
-        run_instance = self.run_instance
-        for i in range(run_instance.threads_count * run_instance.process_count):
-            activity = run_instance.activites[i]
+        runinstance = self.runinstance
+        for i in range(runinstance.threads_count * runinstance.process_count):
+            activity = runinstance.activites[i]
             if isinstance(activity, TransitionExecution) \
                 and activity.transition.id in activies_by_transitions:
-                
-                if activity != run_instance.last_event_activity:
+
+                if activity != runinstance.last_event_activity:
                     activies_by_transitions[activity.transition.id].append((activity, color))
 
-        if (run_instance.last_event == "fired" or run_instance.last_event == "finish") \
-            and run_instance.last_event_activity.transition.id \
+        if (runinstance.last_event == "fired" or runinstance.last_event == "finish") \
+            and runinstance.last_event_activity.transition.id \
                 in activies_by_transitions:
-            color = (0, 1, 0, 0.8) if run_instance.last_event == "fired" else (1, 0, 0, 0.8)
-            activies_by_transitions[run_instance.last_event_activity.transition.id].append(
-                (run_instance.last_event_activity, color))
+            color = (0, 1, 0, 0.8) if runinstance.last_event == "fired" else (1, 0, 0, 0.8)
+            activies_by_transitions[runinstance.last_event_activity.transition.id].append(
+                (runinstance.last_event_activity, color))
 
         transition_executions = {}
         for transition_id, lst in activies_by_transitions.items():
@@ -262,7 +231,7 @@ class Perspective(utils.EqMixin):
                 for activity, color in lst ]
 
         tokens = {}
-        for place in self.group.net.places():
+        for place in self.runinstance.net.places():
             tokens[place.id] = self.get_tokens(place)
 
         enabled = set()

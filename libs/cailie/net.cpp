@@ -87,11 +87,7 @@ void CaNet::activate_transition_by_pos_id(int pos_id)
 
 void CaNet::write_reports(CaThread *thread, CaOutput &output)
 {
-	output.child("net-instance");
-	output.set("id", id);
-	output.set("net-id", def->get_id());
 	write_reports_content(thread, output);
-	output.back();
 }
 
 CaTransition * CaNet::pick_active_transition()

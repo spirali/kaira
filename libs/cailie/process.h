@@ -68,12 +68,13 @@ class CaProcess {
 		int get_process_count() const { return process_count; }
 		int get_process_id() const { return process_id; }
 		void write_reports(FILE *out) const;
-		void fire_transition(int transition_id, int instance_id);
+		void fire_transition(int transition_id);
 
 		void quit_all(CaThread *thread);
 		void quit() { quit_flag = true; }
 		void halt(CaThread *thread);
 
+		CaNet * get_net() { return net; }
 		CaNet * spawn_net(CaThread *thread, int def_index, int id, bool globally);
 
 		int new_net_id();
@@ -101,6 +102,7 @@ class CaProcess {
 		void write_header(FILE *file);
 	protected:
 
+		CaNet *net;
 		int process_id;
 		int process_count;
 		int threads_count;

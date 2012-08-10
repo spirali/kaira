@@ -146,7 +146,8 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 		}
 
 		if (!strcmp(line, "REPORTS")) {
-			fprintf(comm_out, "<processes>");
+			fprintf(comm_out, "<processes net-id='%i'>",
+				processes[0]->get_net()->get_def_id());
 			for (int t = 0; t < process_count; t++) {
 				processes[t]->write_reports(comm_out);
 			}
@@ -161,9 +162,8 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 				continue;
 			}
 			int transition_id;
-			int instance_id;
 			int process_id;
-			if (3 != sscanf(line, "FIRE %i %i %i", &transition_id, &instance_id, &process_id)) {
+			if (2 != sscanf(line, "FIRE %i %i", &transition_id, &process_id)) {
 				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
@@ -172,7 +172,7 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 				continue;
 			}
 			CaProcess *p = processes[process_id];
-			p->fire_transition(transition_id, instance_id);
+			p->fire_transition(transition_id);
 			fprintf(comm_out, "Ok\n");
 			bool again;
 			do {
