@@ -45,17 +45,16 @@ CaTransition* CaNetDef::get_transition(int transition_id)
 	return NULL;
 }
 
-CaNet * CaNetDef::spawn(CaThread *thread, int id, CaNet *parent_net)
+CaNet * CaNetDef::spawn(CaThread *thread, int id)
 {
-	return spawn_fn(thread, this, id, parent_net);
+	return spawn_fn(thread, this, id);
 }
 
-CaNet::CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread, CaNet *parent_net) :
+CaNet::CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread) :
 	running_transitions(0),
 	def(def),
 	id(id),
 	main_process_id(main_process_id),
-	parent_net(parent_net),
 	finalizer_fn(NULL),
 	data(NULL),
 	flags(0)
@@ -69,7 +68,7 @@ CaNet::CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread, CaNet
 CaNet::~CaNet()
 {
 	if (finalizer_fn) {
-		finalizer_fn(NULL, NULL, NULL, data, true);
+		finalizer_fn(NULL, NULL, data, true);
 	}
 	delete [] transitions;
 	pthread_mutex_destroy(&mutex);
@@ -92,8 +91,6 @@ void CaNet::write_reports(CaThread *thread, CaOutput &output)
 	output.child("net-instance");
 	output.set("id", id);
 	output.set("net-id", def->get_id());
-	if (parent_net)
-		output.set("parent-id", parent_net->get_id());
 	write_reports_content(thread, output);
 	output.back();
 }
@@ -125,7 +122,7 @@ int CaNet::fire_transition(CaThread *thread, int transition_id)
 void CaNet::finalize(CaThread *thread)
 {
 	if (finalizer_fn) {
-		finalizer_fn(thread, parent_net, this, data, false);
+		finalizer_fn(thread, this, data, false);
 		set_finalizer(NULL, NULL);
 	}
 }

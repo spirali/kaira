@@ -18,10 +18,8 @@ class CaThreadMessage {
 
 class CaThreadMessageHaltNet  : public CaThreadMessage {
 	public:
-		CaThreadMessageHaltNet(int net_id) : net_id(net_id) {}
+		CaThreadMessageHaltNet() {};
 		void process(CaThread *thread);
-	protected:
-		int net_id;
 };
 
 class CaThreadMessageNewNet  : public CaThreadMessage {

@@ -4,7 +4,6 @@
 
 #include <pthread.h>
 #include <vector>
-#include <map>
 #include <set>
 #include "messages.h"
 #include "net.h"
@@ -28,10 +27,6 @@ struct CaServiceMessage {
 struct CaServiceMessageNetCreate : CaServiceMessage {
 	int net_id;
 	int def_index;
-};
-
-struct CaServiceMessageNetHalt : CaServiceMessage {
-	int net_id;
 };
 
 struct CaTokens {
@@ -64,7 +59,7 @@ class CaProcess {
 		void start_and_join();
 		void clear();
 		void inform_new_network(CaNet *net, CaThread *thread);
-		void inform_halt_network(int net_id, CaThread *thread);
+		void inform_halt_network(CaThread *thread);
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
 		void update_net_id_counters(int net_id);
 		bool is_future_id(int net_id);
@@ -77,9 +72,9 @@ class CaProcess {
 
 		void quit_all(CaThread *thread);
 		void quit() { quit_flag = true; }
-		void halt(CaThread *thread, CaNet *net);
+		void halt(CaThread *thread);
 
-		CaNet * spawn_net(CaThread *thread, int def_index, int id, CaNet *parent_net, bool globally);
+		CaNet * spawn_net(CaThread *thread, int def_index, int id, bool globally);
 
 		int new_net_id();
 
@@ -117,9 +112,9 @@ class CaProcess {
 		int id_counter;
 		pthread_mutex_t counter_mutex;
 		int *process_id_counter;
-		std::map<int, std::vector<void* > > too_early_message;
+		std::vector<void* > too_early_message;
 		/*memory of net's id which wasn't created, but was halted*/
-		std::set<int > halted_net;
+		bool net_is_halted;
 
 		#ifdef CA_SHMEM
 		pthread_mutex_t packet_mutex;
