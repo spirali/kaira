@@ -23,24 +23,5 @@ class BuildTest(TestCase):
             "160 10 Hello world\n320 10 Hello world\n640 10 Hello world\n"
         Project("libhelloworld", mpi=True).quick_test_main(result)
 
-
-    def test_overtake(self):
-        result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
-        Project("overtake", mpi=True).quick_test_main(result, processes=4, threads=4)
-
-    def test_library_processes(self):
-        result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
-        p = Project("overtake", mpi=True)
-        p.build_main()
-        p.failed_run_main("Net 2 sends 1 token(s) to invalid process id 1 (valid ids: [0 .. 0])\n")
-        for x in range(2, 5):
-            p.run_main(result, threads=x*x, processes=x*x)
-
-    def test_modules2(self):
-        Project("modules2", mpi=True).quick_test("0\n", processes=5, threads=4)
-
-    def test_factorial(self):
-        Project("factorial", mpi=True).quick_test_main("3628800\n", processes=5, threads=5)
-
 if __name__ == '__main__':
     unittest.main()
