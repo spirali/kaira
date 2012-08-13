@@ -1060,9 +1060,9 @@ class Builder(CppWriter):
             self.line("{0}{1}({2});", place_code, method, value_code)
 
     def write_spawn(self, net):
-        self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id) {{", net)
+        self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def) {{", net)
         self.indent_push()
-        self.line("Net_{0.id} *net = new Net_{0.id}(id, id % thread->get_process_count(), def, thread);", net)
+        self.line("Net_{0.id} *net = new Net_{0.id}(def, thread);", net)
         self.line("CaContext ctx(thread, net);")
         self.line("int pid = thread->get_process_id();")
         for area in net.areas:
@@ -1072,7 +1072,7 @@ class Builder(CppWriter):
                 continue
             areas = place.get_areas()
             if areas == []:
-                self.if_begin("pid == net->get_main_process_id()")
+                self.if_begin("pid == 0")
             else:
                 conditions = [ "std::find(area_{0.id}.begin(), area_{0.id}.end(), pid)!=area_{0.id}.end()"
                               .format(area) for area in areas ]
@@ -1092,7 +1092,7 @@ class Builder(CppWriter):
 
     def write_toplevel_finalizer(self, net):
         self.line("void toplevel_finalizer_{0.id}(CaThread *thread, "
-                  "CaNet *n, Net_{0.id} *subnet, void *vars, bool cleanup_only)", net)
+                  "Net_{0.id} *subnet, void *vars, bool cleanup_only)", net)
         self.block_begin()
         self.line("thread->quit_all();")
         self.block_end()
@@ -1152,10 +1152,10 @@ class Builder(CppWriter):
         class_name = "Net_" + str(net.id)
         self.write_class_head(class_name, "CaNet")
 
-        decls = [("id", "int"), ("main_process_id", "int"), ("def", "CaNetDef *"),
+        decls = [("def", "CaNetDef *"),
                  ("thread", "CaThread *")]
         self.write_constructor(class_name, self.emit_declarations(decls),
-                               ["CaNet(id, main_process_id, def, thread)"])
+                               ["CaNet(def, thread)"])
         self.write_method_end()
 
         for place in net.places:

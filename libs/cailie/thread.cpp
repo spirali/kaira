@@ -136,7 +136,7 @@ void CaThread::run_scheduler()
 
 CaNet * CaThread::spawn_net(int def_index)
 {
-	return process->spawn_net(this, def_index, process->new_net_id(), true);
+	return process->spawn_net(this, def_index, true);
 }
 
 

@@ -44,16 +44,14 @@ CaTransition* CaNetDef::get_transition(int transition_id)
 	return NULL;
 }
 
-CaNet * CaNetDef::spawn(CaThread *thread, int id)
+CaNet * CaNetDef::spawn(CaThread *thread)
 {
-	return spawn_fn(thread, this, id);
+	return spawn_fn(thread, this);
 }
 
-CaNet::CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread) :
+CaNet::CaNet(CaNetDef *def, CaThread *thread) :
 	running_transitions(0),
 	def(def),
-	id(id),
-	main_process_id(main_process_id),
 	finalizer_fn(NULL),
 	data(NULL),
 	flags(0)
