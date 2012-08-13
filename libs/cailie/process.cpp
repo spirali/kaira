@@ -46,7 +46,7 @@ void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 	CaNet *n = net;
 	CaTraceLog *tracelog = thread->get_tracelog();
 	if (tracelog) {
-		tracelog->event_receive(0);
+		tracelog->event_receive();
 	}
 	if (n == NULL) {
 		CA_DLOG("Net not found process=%i thread=%i\n",
@@ -128,7 +128,7 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, bool globally)
 {
 	CaTraceLog *tracelog = thread->get_tracelog();
 	if (tracelog) {
-		tracelog->event_net_spawn(defs[def_index]->get_id(), 0);
+		tracelog->event_net_spawn(defs[def_index]->get_id());
 	}
 
 	CA_DLOG("Spawning def_id=%i globally=%i\n",

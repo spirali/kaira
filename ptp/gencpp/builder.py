@@ -572,7 +572,7 @@ class Builder(CppWriter):
         if tr.tracing != "off" or tr.is_any_place_traced():
             w.line("CaTraceLog *tracelog = thread->get_tracelog();")
             w.if_begin("tracelog")
-            w.line("tracelog->event_transition_fired(net->get_id(), {0.id});", tr)
+            w.line("tracelog->event_transition_fired({0.id});", tr)
             w.block_end()
 
         em = emitter.Emitter(self.project)

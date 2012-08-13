@@ -14,32 +14,24 @@ void CaTraceLog::init()
 	}
 }
 
-
 CaTraceLog::CaTraceLog(size_t size, const std::string &filename)
 {
 	buffer = (char*) malloc(size);
 	pos = buffer;
 	end = buffer + size;
 
-	if (filename != "") {
-		file = fopen(filename.c_str(), "w");
-		if (file == NULL) {
-			perror("CaTraceLog::CaTraceLog");
-			exit(-1);
-		}
-		setbuf(file, NULL); // Unbuffered file
-	} else {
-		file = NULL;
+	file = fopen(filename.c_str(), "w");
+	if (file == NULL) {
+		perror("CaTraceLog::CaTraceLog");
+		exit(-1);
 	}
-	// TODO: Alloc check
+	setbuf(file, NULL); // Unbuffered file
 }
 
 CaTraceLog::~CaTraceLog()
 {
-	if (file) {
-		write_buffer();
-		fclose(file);
-	}
+	write_buffer();
+	fclose(file);
 	free(buffer);
 }
 
@@ -57,25 +49,20 @@ void CaTraceLog::write_time()
 	write_uint64(t);
 }
 
-void CaTraceLog::event_net_spawn(int net_id, int instance_id)
+void CaTraceLog::event_net_spawn(int net_id)
 {
-	check_size(1 + sizeof(uint64_t) + sizeof(int32_t) * 3);
+	check_size(1 + sizeof(uint64_t) + sizeof(int32_t));
 	write_char('S');
 	write_time();
 	write_int32(net_id);
-	write_int32(instance_id);
-	//TODO: remove parent net in tracelog GUI
-	write_int32(0);
 }
 
-void CaTraceLog::event_transition_fired(int instance_id, int transition_id)
+void CaTraceLog::event_transition_fired(int transition_id)
 {
-	check_size(1 + sizeof(uint64_t) + sizeof(int32_t) * 2 + 1);
+	check_size(1 + sizeof(uint64_t) + sizeof(int32_t));
 	write_char('T');
 	write_time();
-	write_int32(instance_id);
 	write_int32(transition_id);
-	write_char(0);
 }
 
 void CaTraceLog::event_transition_finished()
@@ -85,12 +72,11 @@ void CaTraceLog::event_transition_finished()
 	write_time();
 }
 
-void CaTraceLog::event_receive(int instance_id)
+void CaTraceLog::event_receive()
 {
-	check_size(1 + sizeof(uint64_t) + sizeof(int32_t));
+	check_size(1 + sizeof(uint64_t));
 	write_char('R');
 	write_time();
-	write_int32(instance_id);
 }
 
 void CaTraceLog::trace_token(int place_id, void *pointer, const std::string &value)
