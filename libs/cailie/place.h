@@ -9,7 +9,7 @@
 template<class T> class CaToken {
 
 	public:
-		CaToken(const T &value) { this->value = value; }
+		CaToken(const T &value) : value(value) {}
 
 		void remove() {
 			next->prev = prev;

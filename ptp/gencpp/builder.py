@@ -189,14 +189,13 @@ class Builder(CppWriter):
         for name, ta in decls:
             self.write_var_decl(name, self.emit_type(ta))
 
-        self.write_constructor(class_name, self.emit_declarations(decls), [ "{0}({0})".format(name) for name, _ in decls ])
+        self.write_constructor(class_name,
+                               self.emit_declarations(decls),
+                               [ "{0}({0})".format(name) for name, _ in decls ])
         self.write_method_end()
 
         args = [ "{0}({1})".format(e, self.get_unpack_code(t, "unpacker")) for e, t in decls ]
         self.write_constructor(class_name, "CaUnpacker &unpacker", args)
-        self.write_method_end()
-
-        self.write_constructor(class_name, "", [])
         self.write_method_end()
 
         self.write_method_start("std::string as_string() const")
@@ -249,10 +248,10 @@ class Builder(CppWriter):
                   t.get_safe_name(), self.emit_type(t))
         self.block_begin()
         self.line("size_t s = unpacker.unpack_size();")
-        self.line("std::vector <{0} > vector(s);", self.emit_type(t))
+        self.line("std::vector <{0} > vector;", self.emit_type(t))
         self.line("for (size_t t = 0; t < s; t++)")
         self.block_begin()
-        self.line("vector[t] = {0};", self.get_unpack_code(t, "unpacker"))
+        self.line("vector.push_back({0});", self.get_unpack_code(t, "unpacker"))
         self.block_end()
         self.line("return vector;")
         self.block_end()
