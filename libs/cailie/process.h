@@ -58,7 +58,6 @@ class CaProcess {
 		void join();
 		void start_and_join();
 		void clear();
-		void inform_new_network(CaNet *net, CaThread *thread);
 		void inform_halt_network(CaThread *thread);
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
 		void update_net_id_counters(int net_id);
@@ -75,6 +74,7 @@ class CaProcess {
 		void halt(CaThread *thread);
 
 		CaNet * get_net() { return net; }
+
 		CaNet * spawn_net(CaThread *thread, int def_index, int id, bool globally);
 
 		int new_net_id();

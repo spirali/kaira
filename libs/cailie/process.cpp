@@ -43,7 +43,7 @@ void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 		return;
 	}
 	CaUnpacker unpacker(tokens + 1);
-	CaNet *n = thread->get_net();
+	CaNet *n = net;
 	CaTraceLog *tracelog = thread->get_tracelog();
 	if (tracelog) {
 		tracelog->event_receive(tokens->net_id);
@@ -100,7 +100,7 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 		case CA_SM_NET_HALT:
 		{
 			CA_DLOG("SERVICE CA_SM_NET_HALT on process=%i thread=%i\n", get_process_id(), thread->get_id());
-			if(thread->get_net() == NULL) {
+			if(net == NULL) {
 				CA_DLOG("Halting not created net on process=%d net_id=%d\n", get_process_id(), tokens->net_id);
 				net_is_halted = true;
 			}
@@ -146,7 +146,6 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, int id, bool globa
 	net = defs[def_index]->spawn(thread, id);
 	net->lock();
 	update_net_id_counters(net->get_id());
-	inform_new_network(net, thread);
 	return net;
 }
 
@@ -269,27 +268,14 @@ void CaProcess::start_and_join()
 
 void CaProcess::clear()
 {
-	for(int i = threads_count - 1 ; i >= 0 ; i--)
-	{
-		get_thread(i)->clear();
+	if(net != NULL && !net->get_manual_delete()) {
+		delete net;
 	}
 }
 
 CaThread * CaProcess::get_thread(int id)
 {
 	return &threads[id];
-}
-
-void CaProcess::inform_new_network(CaNet *net, CaThread *thread)
-{
-	for (int t = 0; t < threads_count; t++) {
-		if (thread && thread->get_id() == t) {
-			CaThreadMessageNewNet msg(net);
-			msg.process(thread);
-		} else {
-			threads[t].add_message(new CaThreadMessageNewNet(net));
-		}
-	}
 }
 
 void CaProcess::inform_halt_network(CaThread *thread)
@@ -343,7 +329,7 @@ void CaProcess::fire_transition(int transition_id)
 	instantly, this is the reason why second argument is NULL */
 void CaProcess::halt(CaThread *thread)
 {
-	if (!thread->get_net()->is_local()) {
+	if (!net->is_local()) {
 		CaServiceMessage *m =
 			(CaServiceMessage*) alloca(sizeof(CaServiceMessage));
 		m->type = CA_SM_NET_HALT;

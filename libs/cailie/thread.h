@@ -12,7 +12,6 @@ class CaThread {
 		int get_id() { return id; }
 		void start();
 		void join();
-		void clear();
 		void run_scheduler();
 
 		int get_process_id() { return process->get_process_id(); }
@@ -49,15 +48,6 @@ class CaThread {
 		CaProcess * get_process() const { return process; }
 
 		CaNet * spawn_net(int def_index);
-		CaNet * get_net() { return net; };
-
-		CaNet * remove_net() {
-			CaNet * n = net;
-			net = NULL;
-			return n;
-		}
-
-		void set_net(CaNet *n) { net = n; }
 
 		void set_process(CaProcess *process, int id) { this->process = process; this->id = id; }
 
@@ -69,7 +59,6 @@ class CaThread {
 		pthread_t thread;
 		pthread_mutex_t messages_mutex;
 		CaThreadMessage *messages;
-		CaNet* net;
 		int id;
 
 		#ifdef CA_MPI

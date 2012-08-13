@@ -94,8 +94,6 @@ class CaNet {
 		void activate_all_transitions();
 		void activate_transition_by_pos_id(int pos_id);
 
-		int decr_ref_count() { return --ref_count; }
-
 		void set_finalizer(CaNetFinalizerFn *finalizer_fn, void *data) {
 			this->finalizer_fn = finalizer_fn;
 			this->data = data;
@@ -118,7 +116,6 @@ class CaNet {
 		int id;
 		int main_process_id;
 		CaTransition *transitions;
-		int ref_count;
 
 		CaNetFinalizerFn *finalizer_fn;
 		void *data;

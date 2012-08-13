@@ -93,18 +93,6 @@ void CaThread::join()
 	#endif
 }
 
-void CaThread::clear()
-{
-	process_messages();
-	if (id == 0 && net != NULL) {
-		if (!net->get_manual_delete()) {
-			delete net;
-		}
-	} else {
-		net = NULL;
-	}
-}
-
 void CaThread::quit_all()
 {
 	process->quit_all(this);
@@ -113,7 +101,6 @@ void CaThread::quit_all()
 void CaThread::run_scheduler()
 {
 	process_messages();
-	//std::vector<CaNet*>::iterator net = nets.begin();
 	unsigned int counter = 0;
 	while(!process->quit_flag) {
 		counter++;
@@ -123,11 +110,11 @@ void CaThread::run_scheduler()
 		}
 		process_messages();
 
-		if(net == NULL) {
+		if(process->get_net() == NULL) {
 			continue;
 		}
 
-		CaNet *n = net;
+		CaNet *n = process->get_net();
 		if (!n->try_lock())
 			continue;
 		CaTransition *tr = n->pick_active_transition();

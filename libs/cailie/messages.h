@@ -22,14 +22,6 @@ class CaThreadMessageHaltNet  : public CaThreadMessage {
 		void process(CaThread *thread);
 };
 
-class CaThreadMessageNewNet  : public CaThreadMessage {
-	public:
-		CaThreadMessageNewNet(CaNet *net) : net(net) {}
-		void process(CaThread *thread);
-	protected:
-		CaNet *net;
-};
-
 class CaThreadMessageBarriers  : public CaThreadMessage {
 	public:
 		CaThreadMessageBarriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2) : barrier1(barrier1), barrier2(barrier2) {}
