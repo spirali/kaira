@@ -294,7 +294,7 @@ void ca_setup(int _defs_count, CaNetDef **_defs)
 }
 
 
-void ca_spawn_toplevel_net(int def_id)
+void ca_spawn_net(int def_id)
 {
 	#ifdef CA_SHMEM
 	for (int t = 0; t < ca_process_count; t++) {

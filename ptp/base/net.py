@@ -191,7 +191,6 @@ class Place(utils.EqByIdMixin):
 class Transition(utils.EqByIdMixin):
 
     code = None
-    subnet = None
     tracing = "off" # values: "off", "basic", "full"
 
     # After analysis it is dictionary variable_name -> EdgeIn
@@ -267,25 +266,6 @@ class Transition(utils.EqByIdMixin):
 
     def get_source(self):
         return "*{0}".format(self.id)
-
-    def check(self):
-        if self.subnet is not None:
-            if self.code is not None:
-                raise utils.PtpException(
-                    "Transition cannot have internal code and assigned submodule in the same time",
-                    self.get_source())
-            ctx = self.get_context()
-            for v in self.subnet.get_module_input_vars():
-                if v not in ctx:
-                    raise utils.PtpException(
-                        "The assigned module requires variable '{0}'".format(v),
-                        self.get_source())
-            for name, t in self.subnet.get_interface_context().items():
-                if ctx[name] != t:
-                    raise utils.PtpException(
-                            ("Conflict of types with the assigned module in variable '{0}', "
-                            "type in module is {1}")
-                                .format(name, t), self.get_source())
 
 class Area(object):
 
@@ -403,9 +383,6 @@ class Net(object):
 
         for t in self.get_all_types():
             t.check(self.project)
-
-        for tr in self.transitions:
-            tr.check()
 
     def analyze(self):
         for tr in self.transitions:

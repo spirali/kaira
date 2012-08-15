@@ -15,17 +15,6 @@ def analyze_transition(tr):
 
     var_edge = {}
 
-    if tr.subnet is not None:
-        # Skip optimizations for transitions with submodule
-        for var in all_free_variables(edges_in):
-            for edge in edges_in:
-                if var in edge.expr.get_direct_vars():
-                    var_edge[var] = edge
-                    break
-        tr.var_edge = var_edge
-        return
-
-
     bounded = set()
     var_edge = {}
 

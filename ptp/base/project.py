@@ -243,10 +243,6 @@ def load_transition(element, project, net):
     transition.edges_in = map(lambda e: load_edge_in(e, net, transition), element.findall("edge-in"))
     transition.edges_out = map(lambda e: load_edge_out(e, net, transition), element.findall("edge-out"))
 
-    subnet_id = utils.xml_int(element, "subnet", -1)
-    if subnet_id > 0:
-        transition.subnet = project.get_net(subnet_id)
-
     if element.find("code") is not None:
         transition.code = element.find("code").text
 
