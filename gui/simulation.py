@@ -90,12 +90,12 @@ class Simulation(EventSource):
         def reports_callback(line):
             run_state = self.is_running()
             root = xml.fromstring(line)
-            net = self.project.find_net(utils.xml_int(root, "net-id"))
-            runinstance = RunInstance(self.project, self.process_count, self.threads_count, net)
+            net_id = utils.xml_int(root, "net-id")
+            runinstance = RunInstance(self.project, self.process_count, self.threads_count)
             for e in root.findall("process"):
                 process_id = utils.xml_int(e, "id")
                 self.process_running[process_id] = utils.xml_bool(e, "running")
-                runinstance.event_spawn(process_id, None, 0)
+                runinstance.event_spawn(process_id, None, 0, net_id)
                 for pe in e.findall("place"):
                     place_id = utils.xml_int(pe, "id")
                     for te in pe.findall("token"):
