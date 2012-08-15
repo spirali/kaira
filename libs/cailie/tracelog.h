@@ -17,6 +17,7 @@ class CaTraceLog {
 		~CaTraceLog();
 
 		void event_net_spawn(int net_id);
+		void event_net_halt();
 		void event_transition_fired(int transition_id);
 		void event_transition_finished();
 		void event_receive();

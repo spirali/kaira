@@ -183,6 +183,8 @@ class Trace:
             return "Recv "
         elif t == "S":
             return "Spawn"
+        elif t == "H":
+            return "Halt "
 
     def process_event(self, runinstance):
         t = self.data[self.pointer]
@@ -195,6 +197,8 @@ class Trace:
             return self._process_event_receive(runinstance)
         elif t == "S":
             return self._process_event_spawn(runinstance)
+        elif t == "H":
+            return self._process_event_halt(runinstance)
         else:
             raise Exception("Invalid event type '{0}/{1}'".format(t, ord(t)))
 
@@ -248,6 +252,11 @@ class Trace:
         self.pointer += self.struct_spawn.size
         return values
 
+    def _read_struct_halt(self):
+        values = self.struct_basic.unpack_from(self.data, self.pointer)
+        self.pointer += self.struct_basic.size
+        return values
+
     def _process_event_transition_fired(self, runinstance):
         values = self._read_struct_transition_fired()
         runinstance.transition_fired(self.process_id, self.thread_id, *values)
@@ -261,6 +270,11 @@ class Trace:
 
     def _process_event_spawn(self, runinstance):
         runinstance.event_spawn(self.process_id, self.thread_id, *self._read_struct_spawn())
+        self.process_tokens_add(runinstance)
+
+    def _process_event_halt(self, runinstance):
+        time = self._read_struct_transition_finished()[0]
+        runinstance.event_halt(self.process_id, self.thread_id, time)
         self.process_tokens_add(runinstance)
 
     def _process_event_receive(self, runinstance):
@@ -347,6 +361,10 @@ class DataCollectingRunInstance(RunInstance):
 
     def event_spawn(self, process_id, thread_id, time, net_id):
         RunInstance.event_spawn(self, process_id, thread_id, time, net_id)
+        self.last_time = time
+
+    def event_halt(self, process_id, thread_id, time):
+        RunInstance.event_halt(self, process_id, thread_id, time)
         self.last_time = time
 
     def event_receive(self, process_id, thread_id, time):

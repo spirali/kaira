@@ -241,6 +241,10 @@ CaThread * CaProcess::get_thread(int id)
 
 void CaProcess::inform_halt_network(CaThread *thread)
 {
+	CaTraceLog *tracelog = this->get_thread(0)->get_tracelog();
+	if (tracelog) {
+		tracelog->event_net_halt();
+	}
 	for (int t = 0; t < threads_count; t++) {
 		if (thread && thread->get_id() == t) {
 			CaThreadMessageHaltNet msg;

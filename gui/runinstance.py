@@ -49,8 +49,7 @@ class RunInstance:
         self.last_event_activity = activity
 
     def event_spawn(self, process_id, thread_id, time, net_id):
-        if self.net is None:
-            self.net = self.project.find_net(net_id)
+        self.net = self.project.find_net(net_id)
         assert self.net.id == net_id
         self.last_event = "spawn"
         if thread_id is not None:
@@ -59,6 +58,15 @@ class RunInstance:
         instance = NetInstance(process_id)
         self.net_instances[process_id] = instance
         self.last_event_instance = instance
+
+    def event_halt(self, process_id, thread_id, time):
+        self.last_event = "halt"
+        self.last_event_process = process_id
+        self.last_event_thread = thread_id
+        index = process_id * self.threads_count + thread_id
+        self.last_event_activity = self.activites[index]
+        self.last_event_instance = self.net_instances[process_id]
+        self.activites[index] = None
 
     def event_receive(self, process_id, thread_id, time):
         self.last_event = "receive"
