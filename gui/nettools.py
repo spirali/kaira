@@ -108,14 +108,6 @@ class NetTool:
     def get_grid_size(self):
         return self.netview.get_grid_size()
 
-    ## Returns a list suitable for gtkutils.build_menu, it creates menu for selecting subnets
-    def build_netlist_menu(self, transition):
-        def call(net):
-            return lambda w: transition.set_subnet(net)
-        menu = [ (gtkutils.escape_menu_name(net.get_name()), call(net))
-            for net in self.netview.project.get_nets_with_interface() ]
-        return [ ("<None>", call(None)) ] + menu
-
     ## @brief The event handler for the mouse right button pressed down.
     #  Shows a context menu for an item or move with viewport when nothing is selected
     #
@@ -139,16 +131,11 @@ class NetTool:
                     ("Delete", delete_event),
                     ("Edit code",
                         lambda w: self.netview.transition_edit_callback(self.selected_item)),
-                    ("Set module", self.build_netlist_menu(self.selected_item)),
                     ("Tracing", [
                         ("off", lambda w: set_tracing(self.selected_item, False)),
                         ("on", lambda w: set_tracing(self.selected_item, True)),
                     ])
                 ]
-                subnet = self.selected_item.subnet
-                if subnet is not None:
-                    menu_actions.append(
-                        ("Show module", lambda w: self.netview.switch_to_net(subnet)))
 
             # Place
             if self.selected_item.is_place():
@@ -185,13 +172,6 @@ class NetTool:
             # IterfaceNode
             if self.selected_item.is_interfacenode():
                 menu_actions = [ ("Delete", delete_event) ]
-
-            # InterfaceBox
-            if self.selected_item.is_interfacebox():
-                menu_actions = [
-                    ("Automatic halt", lambda w: self.net.set_autohalt(True)),
-                    ("Manual halt", lambda w: self.net.set_autohalt(False))
-                ]
 
             if menu_actions:
                 gtkutils.show_context_menu(menu_actions, event)

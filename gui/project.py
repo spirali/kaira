@@ -182,6 +182,16 @@ class Project(EventSource):
             if item is not None:
                 return item
 
+    def get_net_and_item(self, id):
+        for function in self.functions:
+            if function.id == id:
+                return None, function
+        for net in self.nets:
+            item = net.get_item(id)
+            if item is not None:
+                return net, item
+        return None, None
+
     def has_error_messages(self, item):
         return item.get_id() in self.error_messages
 

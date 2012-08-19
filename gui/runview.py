@@ -19,10 +19,8 @@
 
 import gtk
 import gtkutils
-import objectlist
 import mainwindow
 from canvas import NetCanvas
-from drawing import VisualConfig
 import chart
 
 class RunView(gtk.VBox):
@@ -168,10 +166,7 @@ class NetInstanceView(gtk.HPaned):
     def __init__(self, app):
         gtk.HPaned.__init__(self)
         self.app = app
-        vbox = gtk.VBox()
-        vbox.pack_start(self._perspectives())
-        vbox.pack_start(self._groups())
-        self.pack1(vbox, False)
+        self.pack1(self._perspectives(), False)
         self.canvas_sc = gtk.ScrolledWindow()
         self.canvas = self._create_canvas(None)
         self.canvas_sc.add_with_viewport(self.canvas)
@@ -185,11 +180,10 @@ class NetInstanceView(gtk.HPaned):
     def get_perspective(self):
         return self.perspectives.get_selection(0)
 
-    def get_group(self):
-        return self.groups.selected_object()
-
     def set_runinstance(self, runinstance):
-        self._refresh_groups(runinstance.get_instance_groups())
+        self.runinstance = runinstance
+        self.canvas.set_net(runinstance.net)
+        self._refresh_perspectives(runinstance.get_perspectives())
 
     def _create_canvas(self, vconfig):
         c = NetCanvas(None, None, vconfig, zoom = 1)
@@ -208,34 +202,11 @@ class NetInstanceView(gtk.HPaned):
             self.perspectives.select_first()
         self._perspectives_changed(None)
 
-    def _refresh_groups(self, groups):
-        selected_group = self.get_group()
-        self.groups.clear()
-        selected = False
-        for group in groups:
-            self.groups.add_object(group)
-            if selected_group and group.id == selected_group.id:
-                self.groups.select_object(group)
-                selected = True
-
-        if not selected:
-            if selected_group:
-                self.groups.select_object(selected_group.parent)
-            else:
-                self.groups.select_first()
-        self._groups_changed(self.get_group())
-
     def _perspectives(self):
         self.perspectives = gtkutils.SimpleList((("_", object), ("Views",str)))
         self.perspectives.set_size_request(80,10)
         self.perspectives.connect_view("cursor-changed", self._perspectives_changed);
         return self.perspectives
-
-    def _groups(self):
-        self.groups = objectlist.ObjectList((("_", object), ("Instances",str)))
-        self.groups.cursor_changed = self._groups_changed
-        self.groups.object_as_row = lambda obj: (obj, obj.get_name())
-        return self.groups
 
     def _perspectives_changed(self, w):
         perspective = self.get_perspective()
@@ -245,20 +216,10 @@ class NetInstanceView(gtk.HPaned):
             self.canvas.set_vconfig(None)
         self.redraw()
 
-    def _groups_changed(self, obj):
-        if obj is not None:
-            self.canvas.set_net(obj.net)
-            self._refresh_perspectives(obj.get_perspectives())
-        else:
-            self.canvas.set_net(None)
-            self._refresh_perspectives([])
-        self.redraw()
-
     def _button_down(self, event, pos):
-        group = self.get_group()
-        if group is None:
+        if self.runinstance.net is None:
             return
-        item = group.net.get_item_at_position(pos)
+        item = self.runinstance.net.get_item_at_position(pos)
         if item is None:
             return
         self.on_item_click(item)

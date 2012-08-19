@@ -223,6 +223,10 @@ class MainWindow(gtk.Window):
         item.connect("activate", lambda w: self.app.edit_head())
         edit_menu.append(item)
 
+        item = gtk.MenuItem("Edit _tests")
+        item.connect("activate", lambda w: self.app.edit_code_tests())
+        edit_menu.append(item)
+
         edit_menu.append(gtk.SeparatorMenuItem())
 
         item = gtk.MenuItem("Edit _settings")

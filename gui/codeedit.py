@@ -26,26 +26,20 @@ import os
 import mainwindow
 
 
-class CodeEditor(gtk.VBox):
+class CodeEditor(gtk.ScrolledWindow):
 
     """
         sections: list of (name, start_string, middle_string, end_string)
     """
     def __init__(self, language, sections, start_pos, head_paragraph = None):
-        gtk.VBox.__init__(self)
+        gtk.ScrolledWindow.__init__(self)
         self.sections = sections
 
-        toolbar = self._toolbar()
-        if toolbar is not None:
-            self.pack_start(toolbar, False, False)
-
-        sw = gtk.ScrolledWindow()
-        self.pack_start(sw)
-        sw.set_shadow_type(gtk.SHADOW_IN)
+        self.set_shadow_type(gtk.SHADOW_IN)
 
         buffer = self._create_buffer(language, sections, head_paragraph)
         self.view = self._create_view(buffer)
-        sw.add(self.view)
+        self.add(self.view)
 
         self.show_all()
         self.jump_to_position(start_pos)
@@ -97,15 +91,21 @@ class CodeEditor(gtk.VBox):
     def buffer_changed(self, w):
         pass
 
-    def get_text(self, section_name = ""):
+    def get_section_iters(self, section_name):
         start_mark = self.buffer.get_mark(section_name + "-start")
         end_mark = self.buffer.get_mark(section_name + "-end")
         start_iter = self.buffer.get_iter_at_mark(start_mark)
         end_iter = self.buffer.get_iter_at_mark(end_mark)
+        return start_iter, end_iter
+
+    def get_text(self, section_name = ""):
+        start_iter, end_iter = self.get_section_iters(section_name)
         return self.buffer.get_text(start_iter, end_iter)
 
-    def _toolbar(self):
-        return None
+    def set_text(self, text, section_name = ""):
+        start_iter, end_iter = self.get_section_iters(section_name)
+        self.buffer.delete(start_iter, end_iter)
+        self.buffer.insert(start_iter, text)
 
     def jump_to_position(self, position):
         """ Take pair (section_name, line_number) and move cursor on this position
@@ -128,29 +128,23 @@ class CodeEditor(gtk.VBox):
 
 class CodeFileEditor(CodeEditor):
 
-    def __init__(self, filename, language):
-        self.filename = filename
-
-        if os.path.isfile(filename):
-            with open(filename, "r") as f:
-                content = f.read()
-        else:
-            content = ""
-        CodeEditor.__init__(self, language, [("", "", content, "")], ("", 0,0))
+    def __init__(self, language, filename = None):
+        CodeEditor.__init__(self, language, [("", "", "", "")], ("", 0,0))
         self.view.set_show_line_numbers(True)
+        self.load(filename)
 
-    def _toolbar(self):
-        button1 = gtk.Button("Save")
-        button1.connect("clicked", self.save)
-        toolbar = gtk.Toolbar()
-        toolbar.add(button1)
-        toolbar.show_all()
-        return toolbar
+    def load(self, filename):
+        self.filename = filename
+        if filename is None:
+            self.set_text("")
+        else:
+            with open(self.filename, "r") as f:
+                self.set_text(f.read())
 
-    def save(self, w = None):
-        #FIXME: catch io erros
-        with open(self.filename, "w") as f:
-            f.write(self.get_text())
+    def save(self):
+        if self.filename is not None:
+            with open(self.filename, "w") as f:
+                f.write(self.get_text())
 
 class TransitionCodeEditor(CodeEditor):
 

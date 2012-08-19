@@ -72,10 +72,6 @@ class TransitionDrawing(DrawingBase):
         self.size = item.get_size()
         self.name = item.get_name()
         self.guard = item.get_guard()
-        if item.subnet is None:
-            self.subnet_name = ""
-        else:
-            self.subnet_name = item.subnet.get_name()
         self.doubleborder = item.get_code().strip() != ""
         self.executions = None
 
@@ -101,19 +97,6 @@ class TransitionDrawing(DrawingBase):
         if self.doubleborder:
             cr.rectangle(px - sx/2 + 4, py - sy/2 + 4, sx - 8, sy - 8)
             cr.stroke()
-
-        if self.subnet_name:
-            tx, ty = utils.text_size(cr, self.subnet_name)
-            ax = px - tx / 2
-            ay = py + sy / 2 - ty / 2
-            cr.rectangle(ax - 5, ay - 2, tx + 10, ty + 4)
-            cr.set_source_rgb(1.0,1.0,1.0)
-            cr.fill()
-            cr.rectangle(ax - 5, ay - 2, tx + 10, ty + 4)
-            cr.set_source_rgb(0.0,0.0,0.0)
-            cr.stroke()
-            cr.move_to(ax, ay + ty)
-            cr.show_text(self.subnet_name)
 
         if self.name:
             tx, ty = utils.text_size(cr, self.name)
@@ -358,11 +341,6 @@ class InterfaceDrawing(DrawingBase):
         DrawingBase.__init__(self)
         self.position = item.get_position()
         self.size = item.get_size()
-        if item.net.get_autohalt():
-            self.text = "AH"
-        else:
-            self.text = "MH"
-
 
     def draw(self, cr):
         px, py = self.position
@@ -385,10 +363,6 @@ class InterfaceDrawing(DrawingBase):
         cr.stroke()
         cr.rectangle(px + 3, py + 3, sx - 6, sy - 6)
         cr.stroke()
-
-        cr.set_source_rgb(0.3,0.3,0.3)
-        cr.move_to(px + 15, py + 20)
-        cr.show_text(self.text)
 
 
 class InterfaceNodeDrawing(DrawingBase):

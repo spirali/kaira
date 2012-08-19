@@ -8,7 +8,6 @@
 
 #define CA_NOT_ENABLED 0
 #define CA_TRANSITION_FIRED 1
-#define CA_TRANSITION_FIRED_WITH_MODULE 2
 
 class CaNet;
 class CaNetDef;
@@ -17,8 +16,8 @@ class CaUnpacker;
 
 typedef int(CaEnableFn)(CaThread *, CaNet *);
 typedef bool(CaEnableCheckFn)(CaThread *, CaNet *);
-typedef CaNet * (CaSpawnFn)(CaThread *, CaNetDef *, int id, CaNet *);
-typedef void (CaNetFinalizerFn)(CaThread *, CaNet *, CaNet *, void *, bool);
+typedef CaNet * (CaSpawnFn)(CaThread *, CaNetDef *);
+typedef void (CaNetFinalizerFn)(CaThread *, CaNet *, void *, bool);
 
 class CaTransition {
 	public:
@@ -42,10 +41,10 @@ class CaTransition {
 class CaNetDef {
 
 	public:
-		CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local, bool autohalt);
+		CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local);
 		~CaNetDef();
 
-		CaNet *spawn(CaThread *thread, int id, CaNet *parent_net);
+		CaNet *spawn(CaThread *thread);
 		int get_id() const { return id; }
 		int get_index() const { return index; }
 		bool is_local() const { return local; }
@@ -55,7 +54,6 @@ class CaNetDef {
 
 		CaTransition * copy_transitions();
 		int get_transitions_count() { return transitions_count; }
-		bool is_autohalt() { return autohalt; }
 	protected:
 		int index;
 		int id;
@@ -63,18 +61,15 @@ class CaNetDef {
 		CaTransition *transitions;
 		CaSpawnFn *spawn_fn;
 		bool local;
-		bool autohalt;
 };
 
 #define CA_NET_MANUAL_DELETE 1
 
 class CaNet {
 	public:
-		CaNet(int id, int main_process_id, CaNetDef *def, CaThread *thread, CaNet *parent_net);
+		CaNet(CaNetDef *def, CaThread *thread);
 		virtual ~CaNet();
 
-		int get_id() const { return id; }
-		int get_main_process_id() const { return main_process_id; }
 		int get_def_id() const { return def->get_id(); }
 		int get_def_index() const { return def->get_index(); }
 		bool is_local() const { return def->is_local(); }
@@ -93,14 +88,9 @@ class CaNet {
 		bool has_active_transition() { return !actives.empty(); }
 
 		void activate_transition(CaTransition *tr);
-		CaNet * get_parent_net() {
-			return parent_net;
-		}
 
 		void activate_all_transitions();
 		void activate_transition_by_pos_id(int pos_id);
-
-		int decr_ref_count() { return --ref_count; }
 
 		void set_finalizer(CaNetFinalizerFn *finalizer_fn, void *data) {
 			this->finalizer_fn = finalizer_fn;
@@ -108,15 +98,6 @@ class CaNet {
 		}
 
 		void finalize(CaThread *thread);
-
-		/* Monitoring of running transitions' number
-		   it is used for autohalt, if autohalt is disabled
-           this methods don't have to be called */
-		void inc_running_transitions() { running_transitions++; }
-		void dec_running_transitions() { running_transitions--; }
-		int get_running_transitions() { return running_transitions; }
-
-		bool is_autohalt() { return def->is_autohalt(); }
 
 		bool is_something_enabled(CaThread *thread);
 
@@ -130,12 +111,8 @@ class CaNet {
 		int running_transitions;
 		CaNetDef *def;
 		pthread_mutex_t mutex;
-		int id;
-		int main_process_id;
 		CaTransition *transitions;
-		int ref_count;
 
-		CaNet *parent_net;
 		CaNetFinalizerFn *finalizer_fn;
 		void *data;
 		int flags;

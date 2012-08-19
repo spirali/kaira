@@ -90,22 +90,18 @@ class Simulation(EventSource):
         def reports_callback(line):
             run_state = self.is_running()
             root = xml.fromstring(line)
+            net_id = utils.xml_int(root, "net-id")
             runinstance = RunInstance(self.project, self.process_count, self.threads_count)
             for e in root.findall("process"):
                 process_id = utils.xml_int(e, "id")
                 self.process_running[process_id] = utils.xml_bool(e, "running")
-                for ne in e.findall("net-instance"):
-                    group_id = utils.xml_int(ne, "id")
-                    net_id = utils.xml_int(ne, "net-id")
-                    parent_id = utils.xml_int(ne, "parent-id", -1)
-                    runinstance.event_spawn(process_id, None, 0, net_id, group_id, parent_id)
-
-                    for pe in ne.findall("place"):
-                        place_id = utils.xml_int(pe, "id")
-                        for te in pe.findall("token"):
-                            runinstance.add_token(place_id, 0, te.get("value"))
-                    for tre in ne.findall("enabled"):
-                        runinstance.add_enabled_transition(utils.xml_int(tre, "id"))
+                runinstance.event_spawn(process_id, None, 0, net_id)
+                for pe in e.findall("place"):
+                    place_id = utils.xml_int(pe, "id")
+                    for te in pe.findall("token"):
+                        runinstance.add_token(place_id, 0, te.get("value"))
+                for tre in e.findall("enabled"):
+                    runinstance.add_enabled_transition(utils.xml_int(tre, "id"))
             self.runinstance = runinstance
             if not self.is_running() and run_state != self.is_running():
                 self.emit_event("error", "Simulation finished\n")
@@ -114,10 +110,10 @@ class Simulation(EventSource):
             self.emit_event("changed")
         self.controller.run_command("REPORTS", reports_callback)
 
-    def fire_transition(self, transition_id, group_id, process_id):
+    def fire_transition(self, transition_id, process_id):
         if not self.process_running[process_id]:
             return
         if self.controller:
-            command = "FIRE {0} {1} {2}".format(transition_id, group_id, process_id)
+            command = "FIRE {0} {1}".format(transition_id, process_id)
             self.controller.run_command_expect_ok(command)
             self.query_reports()

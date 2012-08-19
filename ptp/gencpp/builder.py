@@ -169,15 +169,14 @@ class Builder(CppWriter):
         defs = [ "def_" + str(net.id) for net in self.project.nets ]
         self.line("CaNetDef *defs[] = {{{0}}};", ",".join(defs))
         self.line("ca_setup({0}, defs);", len(defs));
-        self.line("ca_spawn_toplevel_net(0);");
+        self.line("ca_spawn_net(0);");
         self.line("ca_main();");
         self.line("return 0;")
         self.block_end()
 
     def register_net(self, net):
-        self.line("CaNetDef *def_{0.id} = new CaNetDef({2}, {0.id}, {1}, spawn_{0.id}, {3}, {4});", net,
-                     len(net.transitions), net.get_index(), self.emitter.const_boolean(net.is_local()),
-                     self.emitter.const_boolean(net.autohalt))
+        self.line("CaNetDef *def_{0.id} = new CaNetDef({2}, {0.id}, {1}, spawn_{0.id}, {3});", net,
+                     len(net.transitions), net.get_index(), self.emitter.const_boolean(net.is_local()))
         for i, tr in enumerate(net.transitions):
             self.line("def_{0.id}->register_transition({2}, {1.id},(CaEnableFn*) enable_{1.id},"
                       " enable_check_{1.id});", net, tr, i)
@@ -291,21 +290,6 @@ class Builder(CppWriter):
             if t.name == "":
                 self.write_tuple_as_string(t)
 
-    def write_tokens_struct(self, tr):
-        """
-            Write class that holds tokens when transition spawn a module.
-            This values are used when transition is finished.
-        """
-
-        class_name = "Tokens_{0.id}".format(tr)
-        self.write_class_head(class_name)
-
-        for edge in tr.get_normal_edges_in():
-            place_t = self.emit_type(edge.get_place_type())
-            self.line("CaToken<{0} > *token_{1.uid};", place_t, edge)
-
-        self.write_class_end()
-
     def write_vars_struct(self, tr):
         """
             Write class that servers as interface for transition's inner functions.
@@ -326,75 +310,13 @@ class Builder(CppWriter):
         self.write_class_end()
 
     def write_transition_forward(self, tr):
-        if tr.subnet is not None:
-            self.write_tokens_struct(tr)
-        elif tr.code is not None:
+        if tr.code is not None:
             self.write_vars_struct(tr)
         self.line("bool enable_check_{0.id}(CaThread *thread, CaNet *net);", tr)
-
-    def write_transition_net_finalizer(self, tr):
-
-        def variable_emitter(name):
-            for edge in tr.subnet.get_interface_edges_in():
-                if edge.is_normal() and edge.expr.name == name:
-                    return "subnet->place_{0.id}.first_value()".format(edge.get_place())
-                elif edge.is_packing() and edge.varname == name:
-                    return "subnet->place_{0.id}.to_vector()".format(edge.get_place())
-            return vars_access[name].emit(em)
-
-        def delete_block():
-            for edge in tr.get_normal_edges_in():
-                self.line("delete tokens->token_{0.uid};", edge)
-            self.line("delete tokens;")
-
-        matches, _, vars_access = get_edges_mathing(self.project, tr)
-
-        self.line("void transition_finalizer_{0.id}(CaThread *thread, "
-                  "Net_{1.id} *n, Net_{2.id} *subnet, Tokens_{0.id} *tokens, bool cleanup_only)", tr, tr.net, tr.subnet)
-        self.block_begin()
-
-        self.if_begin("cleanup_only")
-        delete_block()
-        self.line("return;")
-        self.block_end()
-
-        self.line("CaContext ctx(thread, n);")
-        conditions = []
-        for edge in tr.subnet.get_interface_edges_in():
-            if edge.is_normal():
-                if not isinstance(edge.expr, ExprVar):
-                    raise utils.PtpException("Invalid expression", edge.expr.source)
-                conditions.append("subnet->place_{0.id}.is_empty()".format(edge.get_place()))
-        if conditions:
-            self.if_begin("||".join(conditions))
-            self.line('fprintf(stderr, "Token in output places of module {0} not found\\n");', tr.subnet.get_name())
-            self.line("exit(-1);")
-            self.block_end()
-
-        self.line("bool lock = false;")
-
-        em = emitter.Emitter(self.project)
-
-        for edge, _ in matches:
-            em.set_extern("token_{0.uid}".format(edge), "tokens->token_{0.uid}->value".format(edge))
-            em.set_extern("token_{0.uid}_self".format(edge), "tokens->token_{0.uid}".format(edge))
-
-        em.variable_emitter = variable_emitter
-        for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
-            self.write_send_token(em, edge)
-
-        if tr.net.has_autohalt():
-            self.write_decrement_running_transitions(self, "n")
-        self.line("if (lock) n->unlock();")
-
-        delete_block()
-        self.block_end()
 
     def write_transition(self, tr):
         if tr.code is not None:
             self.write_transition_user_function(tr)
-        if tr.subnet is not None:
-            self.write_transition_net_finalizer(tr)
         self.write_enable(tr)
         self.write_enable_check(tr)
 
@@ -564,13 +486,6 @@ class Builder(CppWriter):
         if edge.guard is not None:
             self.block_end()
 
-    def write_decrement_running_transitions(self, w, varname):
-        w.if_begin("!lock")
-        w.line("{0}->lock();", varname)
-        w.line("lock = true;")
-        w.block_end()
-        w.line("{0}->dec_running_transitions();", varname)
-
     def write_enable(self, tr):
         self.line("int enable_{0.id}(CaThread *thread, CaNet *net)", tr)
         self.block_begin()
@@ -581,7 +496,7 @@ class Builder(CppWriter):
         if tr.tracing != "off" or tr.is_any_place_traced():
             w.line("CaTraceLog *tracelog = thread->get_tracelog();")
             w.if_begin("tracelog")
-            w.line("tracelog->event_transition_fired(net->get_id(), {0.id});", tr)
+            w.line("tracelog->event_transition_fired({0.id});", tr)
             w.block_end()
 
         em = emitter.Emitter(self.project)
@@ -624,59 +539,35 @@ class Builder(CppWriter):
                 w.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
 
         w.line("net->activate_transition_by_pos_id({0});", tr.get_pos_id())
-        if tr.net.has_autohalt():
-            w.line("net->inc_running_transitions();")
 
         for edge in tr.get_packing_edges_in():
             w.line("{1} = n->place_{0.id}.to_vector_and_clear();",
                    edge.get_place(), em.variable_emitter(edge.varname))
 
-        if tr.subnet is not None:
-            retvalue = "CA_TRANSITION_FIRED_WITH_MODULE"
-            w.line("n->unlock();")
-            w.line("bool lock = true;")
-            w.line("Net_{0.id} *n = (Net_{0.id}*) thread->spawn_net({1}, net);",
-                   tr.subnet, tr.subnet.get_index())
-            w.line("Tokens_{0.id} *tokens = new Tokens_{0.id}();", tr)
-            for edge, _ in matches:
-                w.line("tokens->token_{0.uid} = token_{0.uid};", edge)
-
-            w.line("n->set_finalizer((CaNetFinalizerFn*) transition_finalizer_{0.id}, tokens);",
-                   tr)
-            for edge in tr.subnet.get_interface_edges_out():
-                w.write_send_token(em, edge)
-        else: # Without subnet
-            retvalue = "CA_TRANSITION_FIRED"
-            if tr.code is not None:
-                w.line("net->unlock();")
-                if len(names) == 0:
-                    w.line("Vars_{0.id} vars;", tr)
-                else:
-                    w.line("Vars_{0.id} vars({1});", tr, ",".join([ vars_code[n] for n in names ]))
-                w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
-
-                w.line("bool lock = false;")
-                if tr.tracing != "off" or tr.is_any_place_traced():
-                    w.if_begin("tracelog")
-                    w.line("tracelog->event_transition_finished();")
-                    w.block_end()
+        retvalue = "CA_TRANSITION_FIRED"
+        if tr.code is not None:
+            w.line("net->unlock();")
+            if len(names) == 0:
+                w.line("Vars_{0.id} vars;", tr)
             else:
-                w.line("bool lock = true;")
+                w.line("Vars_{0.id} vars({1});", tr, ",".join([ vars_code[n] for n in names ]))
+            w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
 
-            for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
-                w.write_send_token(em, edge)
-            if tr.net.has_autohalt():
-                self.write_decrement_running_transitions(w, "net")
+            w.line("bool lock = false;")
+            if tr.tracing != "off" or tr.is_any_place_traced():
+                w.if_begin("tracelog")
+                w.line("tracelog->event_transition_finished();")
+                w.block_end()
+        else:
+            w.line("bool lock = true;")
+
+        for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
+            w.write_send_token(em, edge)
 
         w.line("if (lock) n->unlock();")
 
-        if tr.subnet is None:
-            for edge, _ in matches:
-                if not edge.token_reused:
-                    w.line("delete token_{0.uid};", edge)
-
         if tr.net.is_module():
-            w.line("if (ctx.get_halt_flag()) thread->halt(net);")
+            w.line("if (ctx.get_halt_flag()) thread->halt();")
         w.line("return {0};", retvalue)
 
         self.write_enable_pattern_match(tr, w)
@@ -804,7 +695,7 @@ class Builder(CppWriter):
 
     def write_library_functions(self):
         for net in self.project.nets:
-                self.write_toplevel_finalizer(net)
+                self.write_finalizer(net)
                 self.write_library_function(net)
         self.write_parameters_setters()
         self.write_library_init_function()
@@ -1073,9 +964,9 @@ class Builder(CppWriter):
             self.line("{0}{1}({2});", place_code, method, value_code)
 
     def write_spawn(self, net):
-        self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def, int id, CaNet *parent_net) {{", net)
+        self.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def) {{", net)
         self.indent_push()
-        self.line("Net_{0.id} *net = new Net_{0.id}(id, id % thread->get_process_count(), def, thread, parent_net);", net)
+        self.line("Net_{0.id} *net = new Net_{0.id}(def, thread);", net)
         self.line("CaContext ctx(thread, net);")
         self.line("int pid = thread->get_process_id();")
         for area in net.areas:
@@ -1085,7 +976,7 @@ class Builder(CppWriter):
                 continue
             areas = place.get_areas()
             if areas == []:
-                self.if_begin("pid == net->get_main_process_id()")
+                self.if_begin("pid == 0")
             else:
                 conditions = [ "std::find(area_{0.id}.begin(), area_{0.id}.end(), pid)!=area_{0.id}.end()"
                               .format(area) for area in areas ]
@@ -1103,9 +994,9 @@ class Builder(CppWriter):
         self.line("return net;")
         self.block_end()
 
-    def write_toplevel_finalizer(self, net):
-        self.line("void toplevel_finalizer_{0.id}(CaThread *thread, "
-                  "CaNet *n, Net_{0.id} *subnet, void *vars, bool cleanup_only)", net)
+    def write_finalizer(self, net):
+        self.line("void finalizer_{0.id}(CaThread *thread, "
+                  "Net_{0.id} *net, void *vars, bool cleanup_only)", net)
         self.block_begin()
         self.line("thread->quit_all();")
         self.block_end()
@@ -1165,10 +1056,10 @@ class Builder(CppWriter):
         class_name = "Net_" + str(net.id)
         self.write_class_head(class_name, "CaNet")
 
-        decls = [("id", "int"), ("main_process_id", "int"), ("def", "CaNetDef *"),
-                 ("thread", "CaThread *"), ("parent_net", "CaNet *")]
+        decls = [("def", "CaNetDef *"),
+                 ("thread", "CaThread *")]
         self.write_constructor(class_name, self.emit_declarations(decls),
-                               ["CaNet(id, main_process_id, def, thread, parent_net)"])
+                               ["CaNet(def, thread)"])
         self.write_method_end()
 
         for place in net.places:
@@ -1249,7 +1140,7 @@ class Builder(CppWriter):
         self.line("void {0}({1})", net.name, self.emit_library_function_declaration(net, "___"))
         self.block_begin()
 
-        self.line("ca_spawn_toplevel_net({0});", net.get_index())
+        self.line("ca_spawn_net({0});", net.get_index())
         self.line("Net_{0} *n = (Net_{0}*)ca_get_main_net();", net.id)
         self.line("CaThread *thread = ca_get_first_process()->get_thread(0);")
 
@@ -1258,7 +1149,7 @@ class Builder(CppWriter):
         for e in net.interface_edges_out:
             self.write_send_token(em, e, locking = False, interface_edge = True)
 
-        self.line("n->set_finalizer((CaNetFinalizerFn*) toplevel_finalizer_{0.id}, NULL);", net)
+        self.line("n->set_finalizer((CaNetFinalizerFn*) finalizer_{0.id}, NULL);", net)
         self.line("n->set_manual_delete();")
         self.line("ca_main();")
 

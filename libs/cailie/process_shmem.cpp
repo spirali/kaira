@@ -39,13 +39,12 @@ void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net,
 	std::vector<int>::const_iterator i;
 	CaTokens *data = (CaTokens*) packer.get_buffer();
 	data->place_index = place_index;
-	data->net_id = net->get_id();
 	data->tokens_count = tokens_count;
 	for (i = targets.begin(); i != targets.end(); i++) {
 		int target = *i;
 		if(target < 0 || target >= process_count) {
-			fprintf(stderr, "Net %i sends %i token(s) to invalid process id %i (valid ids: [0 .. %i])\n",
-				net->get_id(), tokens_count, target, process_count - 1);
+			fprintf(stderr, "Net sends %i token(s) to invalid process id %i (valid ids: [0 .. %i])\n",
+				tokens_count, target, process_count - 1);
 			exit(1);
 		}
 		CA_DLOG("SEND index=%i target=%i process=%i\n", place_index, target, get_process_id());

@@ -26,7 +26,7 @@ import sys
 import paths
 sys.path.append(paths.PTP_DIR)
 import gtkutils
-from mainwindow import MainWindow, Tab
+from mainwindow import MainWindow, Tab, SaveTab
 from netview import NetView
 from simconfig import SimConfigDialog
 from projectconfig import ProjectConfig
@@ -40,8 +40,8 @@ import externtypes
 import functions
 import loader
 import ptp
-import utils
 import runview
+import codetests
 
 VERSION_STRING = '0.4'
 
@@ -208,7 +208,7 @@ class App:
     def build_project(self, target):
         self.console_write("Building '{0}' ...\n".format(target))
         build_config = self.project.get_build_config(target)
-        self._start_build(self.project, build_config,
+        self.start_build(self.project, build_config,
                           lambda p: self.console_write("Build finished\n", "success"))
 
     def get_grid_size(self):
@@ -242,6 +242,12 @@ class App:
 
     def _add_project_file_filters(self, dialog):
         self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files = True)
+
+    def edit_code_tests(self):
+        if self.window.switch_to_tab_by_key("codetests"):
+            return
+        widget = codetests.CodeTestList(self)
+        self.window.add_tab(SaveTab("Tests", widget, "codetests"))
 
     def transition_edit(self, transition, lineno = None):
         position = ("", lineno) if lineno is not None else None
@@ -314,13 +320,6 @@ class App:
         w = settings.SettingsWidget(self)
         self.window.add_tab(Tab("Settings", w, "settings"))
 
-    def edit_sourcefile(self, filename):
-        tab_tag = "file:" + filename
-        if self.window.switch_to_tab_by_key(tab_tag):
-            return
-        self.window.add_tab(codeedit.TabCodeFileEditor(filename, tab_tag,
-            self.project.get_syntax_highlight_key()))
-
     def edit_head(self, lineno = None):
         position = ("", lineno) if lineno is not None else None
 
@@ -333,7 +332,7 @@ class App:
 
     def simulation_start(self, valgrind = False):
         def output(line, stream):
-            self.console_write("OUTPUT: " + line, "output")
+            self.console_write_output(line)
             return True
 
         def project_builded(project):
@@ -373,7 +372,7 @@ class App:
 
         build_config = self.project.get_build_config("simulation")
         self.console_write("Preparing simulation ...\n")
-        self._start_build(self.project, build_config, project_builded)
+        self.start_build(self.project, build_config, project_builded)
 
     def open_simconfig_dialog(self):
         dialog = SimConfigDialog(self.window, self.project)
@@ -401,6 +400,9 @@ class App:
 
     def console_write(self, text, tag_name = "normal"):
         self.window.console.write(text, tag_name)
+
+    def console_write_output(self, text):
+        self.console_write("OUTPUT: " + text, "output")
 
     def console_write_link(self, text, callback):
         self.window.console.write_link(text, callback)
@@ -447,31 +449,36 @@ class App:
         self.window.set_title("Kaira - {0} ({1})" \
             .format(self.project.get_name(), self.project.get_extenv_name()))
 
-    def _run_makefile(self, project, build_directory, build_ok_callback = None, target = None):
+    def _run_build_program(self, name, args, directory, build_ok_callback):
         def on_exit(code):
             if build_ok_callback and code == 0:
-                build_ok_callback(project)
+                build_ok_callback()
         def on_line(line, stream):
             self._process_error_line(line, None)
             return True
-        p = process.Process("make",on_line, on_exit)
-        p.cwd = build_directory
-        if target is None:
-            p.start()
-        else:
-            p.start([target])
+        p = process.Process(name, on_line, on_exit)
+        p.cwd = directory
+        p.start(args)
 
-    def _start_build(self, proj, build_config, build_ok_callback):
+    def _run_makefile(self, project, build_directory, build_ok_callback=None, target=None):
+        args = []
+        if target is not None:
+            args.append(target)
+        self._run_build_program("make", args, build_directory, lambda: build_ok_callback(project))
+
+    def start_build(self, proj, build_config, build_ok_callback):
         if self.get_settings("save-before-build"):
             self._save_project(silent = True)
 
         extra_args = [ "--build", build_config.directory ]
         self._start_ptp(proj,
                         build_config,
-                        lambda lines: self._run_makefile(proj, build_config.directory, build_ok_callback),
+                        lambda lines: self._run_makefile(proj,
+                                                         build_config.directory,
+                                                         build_ok_callback),
                         extra_args = extra_args)
 
-    def _start_ptp(self, proj, build_config, build_ok_callback = None, extra_args = []):
+    def _start_ptp(self, proj, build_config, build_ok_callback=None, extra_args=[]):
         stdout = []
         def on_exit(code):
             error_messages = {}

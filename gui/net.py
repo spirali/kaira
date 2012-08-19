@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011 Stanislav Bohm
+#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #                  2012       Martin Surkovsky
 #
@@ -40,7 +40,6 @@ class Net:
         self.items = []
         self.change_callback = lambda n: None
         self.interface_box = None
-        self.autohalt = True
 
     def get_name(self):
         return self.name
@@ -70,13 +69,6 @@ class Net:
     def remove_item(self, item):
         self.items.remove(item)
         self.changed()
-
-    def set_autohalt(self, value):
-        self.autohalt = value
-        self.changed()
-
-    def get_autohalt(self):
-        return self.autohalt
 
     def set_name(self, name):
         self.name = name
@@ -137,8 +129,6 @@ class Net:
         e.set("name", self.name)
         e.set("id", str(self.id))
         e.set("net-type", self.net_type)
-        if self.is_module():
-            e.set("autohalt", str(self.autohalt))
         for item in self.items:
             e.append(item.as_xml())
         return e
@@ -172,10 +162,6 @@ class Net:
         e = xml.Element("net")
         e.set("name", self.name)
         e.set("id", str(self.id))
-        if self.is_module():
-            e.set("autohalt", str(self.autohalt))
-        else:
-            e.set("autohalt", "False")
 
         for place in self.places():
             e.append(place.export_xml(build_config))
@@ -360,7 +346,6 @@ class Transition(NetElement):
     size = (70, 35)
     name = ""
     guard = ""
-    subnet = None
 
     def get_name(self):
         return self.name
@@ -387,7 +372,7 @@ class Transition(NetElement):
         return True
 
     def is_immediate(self):
-        return not self.has_code() and self.subnet is None
+        return not self.has_code()
 
     def get_trace_text(self):
         if self.tracing:
@@ -403,15 +388,9 @@ class Transition(NetElement):
         e.set("y", str(self.position[1]))
         e.set("sx", str(self.size[0]))
         e.set("sy", str(self.size[1]))
-        if self.subnet:
-            e.set("subnet", str(self.subnet.get_id()))
         if self.has_code():
             e.append(self.xml_code_element())
         return e
-
-    def set_subnet(self, net):
-        self.subnet = net
-        self.changed()
 
     def export_xml(self, build_config):
         e = self.create_xml_element("transition")
@@ -419,9 +398,6 @@ class Transition(NetElement):
         e.set("guard", self.guard)
         if self.has_code():
             e.append(self.xml_code_element())
-
-        if self.subnet:
-            e.set("subnet", str(self.subnet.get_id()))
 
         for edge in self.edges_to(postprocess = True):
             e.append(edge.create_xml_export_element("edge-in"))
@@ -490,7 +466,7 @@ class Transition(NetElement):
         (tx_bearing, ty_bearing,
          twidth, theight,
          tx_advance, ty_advance) = cr.text_extents(self.get_guard())
-        if twidth == 0 and theight == 0: 
+        if twidth == 0 and theight == 0:
             return ((px - sx/2, py - sy/2), (px + sx/2, py + sy/2))
         else:
             tx = px - twidth/2
@@ -616,7 +592,7 @@ class Place(NetElement):
             (isx_bearing, isy_bearing,
              is_width, is_height,
              isx_advance, isy_advance) = cr.text_extents(self.init_string)
-            
+
             # 'pt' = 'place_type'
             (ptx_bearing, pty_bearing,
              pt_width, pt_height,
@@ -972,7 +948,7 @@ class NetArea(RectItem):
             (iex_bearing, iey_bearing,
              iewidth, ieheight,
              iex_advance, iey_advance) = cr.text_extents(self.init_expr)
-             
+
             return ((min(l, r - nwidth),  t + min(ny_bearing, iey_bearing) - 5),
                     (max(r, l + iewidth), b))
 
@@ -1148,10 +1124,6 @@ def load_transition(element, net, loader):
     transition.size = (sx, sy)
     transition.name = xml_str(element,"name", "")
     transition.guard = xml_str(element,"guard", "")
-    if element.get("subnet") is not None:
-        """ Subnet should be network, but all networks is not yet loaded so we only remember the id
-            and we replace id by network lately """
-        transition.subnet = xml_int(element,"subnet")
     transition.code = load_code(element)
 
 def load_edge(element, net, loader):
@@ -1196,12 +1168,6 @@ def load_interface_node(element, net, loader):
     py = xml_int(element, "y")
     net.add_interface_node((px, py), id)
 
-def nets_postload_process(project, loader):
-    for net in project.get_nets():
-        for transition in net.transitions():
-            if transition.subnet is not None and isinstance(transition.subnet, int):
-                transition.subnet = project.find_net(loader.translate_id(transition.subnet))
-
 def load_net(element, project, loader):
     name = element.get("name", "Main") # Setting "Main" for backward compatability
     id = loader.get_id(element)
@@ -1217,7 +1183,6 @@ def load_net(element, project, loader):
     interface_box = element.find("interface-box")
     if interface_box is not None:
         load_interface_box(interface_box, net, loader)
-        net.set_autohalt(utils.xml_bool(element, "autohalt", True))
 
     for e in element.findall("interface-node"):
         load_interface_node(e, net, loader)
