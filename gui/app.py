@@ -43,7 +43,7 @@ import ptp
 import runview
 import codetests
 
-VERSION_STRING = '0.4'
+VERSION_STRING = '0.5'
 
 class App:
     """
