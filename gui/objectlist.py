@@ -41,8 +41,10 @@ class ObjectContainer(gtk.VBox):
 
 
         self.container = container
-        self.container.connect_view("cursor-changed", lambda w: self.cursor_changed(self.container.get_selection(0)))
-        self.container.connect_view("row-activated", lambda w, i, p: self.row_activated(self.container.get_selection(0)))
+        self.container.connect_view("cursor-changed",
+            lambda w: self.cursor_changed(self.container.get_selection(0)))
+        self.container.connect_view("row-activated",
+            lambda w, i, p: self.row_activated(self.container.get_selection(0)))
 
         self.has_context_menu = has_context_menu
         if has_context_menu:

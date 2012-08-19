@@ -26,7 +26,7 @@ import sys
 import paths
 sys.path.append(paths.PTP_DIR)
 import gtkutils
-from mainwindow import MainWindow, Tab
+from mainwindow import MainWindow, Tab, SaveTab
 from netview import NetView
 from simconfig import SimConfigDialog
 from projectconfig import ProjectConfig
@@ -40,8 +40,8 @@ import externtypes
 import functions
 import loader
 import ptp
-import utils
 import runview
+import codetests
 
 VERSION_STRING = '0.4'
 
@@ -243,6 +243,12 @@ class App:
     def _add_project_file_filters(self, dialog):
         self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files = True)
 
+    def edit_code_tests(self):
+        if self.window.switch_to_tab_by_key("codetests"):
+            return
+        widget = codetests.CodeTestList(self)
+        self.window.add_tab(SaveTab("Tests", widget, "codetests"))
+
     def transition_edit(self, transition, lineno = None):
         position = ("", lineno) if lineno is not None else None
 
@@ -313,13 +319,6 @@ class App:
             return
         w = settings.SettingsWidget(self)
         self.window.add_tab(Tab("Settings", w, "settings"))
-
-    def edit_sourcefile(self, filename):
-        tab_tag = "file:" + filename
-        if self.window.switch_to_tab_by_key(tab_tag):
-            return
-        self.window.add_tab(codeedit.TabCodeFileEditor(filename, tab_tag,
-            self.project.get_syntax_highlight_key()))
 
     def edit_head(self, lineno = None):
         position = ("", lineno) if lineno is not None else None
