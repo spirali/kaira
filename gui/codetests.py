@@ -23,6 +23,7 @@ import os
 import shutil
 import utils
 import gtkutils
+import process
 from objectlist import ObjectList
 from codeedit import CodeFileEditor
 
@@ -62,6 +63,22 @@ class CodeTest(utils.EqMixin):
 
     def remove(self):
         shutil.rmtree(self.get_directory())
+
+    def build(self, app, callback):
+        app._run_build_program("make", [], self.get_directory(), callback)
+
+    def run(self, app):
+        def on_exit(code):
+            app.console_write("Test '{0}' returned '{1}'.\n".format(self.name, code),
+                              "success" if code == 0 else "error")
+        def on_line(line, stream):
+            app.console_write_output(line)
+            return True
+
+        app.console_write("Test '{0}' started.\n".format(self.name), "success")
+        p = process.Process(os.path.join(self.get_directory(), self.name), on_line, on_exit)
+        p.cwd = self.get_directory()
+        p.start()
 
 
 def add_test(project, codetest):
@@ -195,7 +212,18 @@ class CodeTestList(gtk.VBox):
             self.refresh_tests()
 
     def execute(self, obj):
+        def build(callback):
+            build_config = self.app.project.get_build_config("release")
+            self.app.start_build(self.app.project,
+                                 build_config,
+                                 lambda p: obj.build(self.app, callback))
+
         target = self.switch.get_active_text()
 
-        self.app.console_write(
-            "Target '{0}' is not implemented.".format(target), "error")
+        if target == "Build":
+            build(lambda: self.app.console_write("Build finished\n", "success"))
+        elif target == "Build & Run":
+            build(lambda: obj.run(self.app))
+        else:
+            self.app.console_write(
+                "Target '{0}' is not implemented.\n".format(target), "error")
