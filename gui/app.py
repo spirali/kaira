@@ -244,6 +244,9 @@ class App:
         self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files = True)
 
     def edit_code_tests(self):
+        if not self.project.is_library():
+            self.show_info_dialog("Tests are available only for project type 'Library'.")
+            return
         if self.window.switch_to_tab_by_key("codetests"):
             return
         widget = codetests.CodeTestList(self)
@@ -330,34 +333,48 @@ class App:
         self.window.add_tab(codeedit.TabCodeEditor("Head", editor, "Head"))
         editor.jump_to_position(position)
 
-    def simulation_start(self, valgrind = False):
+    def run_simulated_program(self, name, directory, simconfig, valgrind):
         def output(line, stream):
             self.console_write_output(line)
             return True
 
+        if valgrind:
+            program_name = "valgrind"
+            parameters = [ "-q", name ]
+        else:
+            program_name = name
+            parameters = []
+
+        parameters += [ "-s", "auto", "-b", "-r", str(simconfig.process_count) ]
+        sprocess = process.Process(program_name, output)
+        sprocess.cwd = directory
+        # FIXME: Timeout
+        other_params = [ "-p{0}={1}".format(k, v)
+                         for (k, v) in simconfig.parameters_values.items() ]
+        first_line = sprocess.start_and_get_first_line(parameters + other_params)
+        try:
+            port = int(first_line)
+        except ValueError:
+            self.console_write("Simulated program return invalid first line: "
+                + first_line, "error")
+            return None, None
+        return sprocess, port
+
+
+    def simulation_start(self, valgrind = False):
         def project_builded(project):
-            if valgrind:
-                program_name = "valgrind"
-                parameters = [ "-q", build_config.get_executable_filename() ]
-            else:
-                program_name = build_config.get_executable_filename()
-                parameters = []
-
-            parameters += [ "-s", "auto", "-b", "-r", str(simconfig.process_count) ]
-            sprocess = process.Process(program_name, output)
-            sprocess.cwd = project.get_directory()
-            # FIXME: Timeout
-            other_params = [ "-p{0}={1}".format(k, v) for (k, v) in simconfig.parameters_values.items() ]
-            first_line = sprocess.start_and_get_first_line(parameters + other_params)
-            try:
-                port = int(first_line)
-            except ValueError:
-                self.console_write("Simulated program return invalid first line: " + first_line, "error")
+            sprocess, port = self.run_simulated_program(
+                build_config.get_executable_filename(),
+                project.get_directory(),
+                simconfig,
+                valgrind)
+            if sprocess is None:
                 return
-
             simulation = self.new_simulation()
             simulation.quit_on_shutdown = True
-            simulation.set_callback("inited", lambda: self.window.add_tab(simview.SimViewTab(self, simulation)))
+            simulation.set_callback(
+                "inited",
+                lambda: self.window.add_tab(simview.SimViewTab(self, simulation)))
             simulation.set_callback("shutdown", lambda: sprocess.shutdown())
             simulation.connect("localhost", port)
 

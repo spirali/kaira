@@ -18,6 +18,7 @@ int ca_block_on_start = 0;
 CaNetDef **defs;
 int defs_count = 0;
 CaNet *master_net = NULL;
+CaListener *ca_listener = NULL;
 
 size_t ca_trace_log_size = 0;
 
@@ -35,32 +36,6 @@ void ca_project_description(const char *str) {
 	ca_project_description_string = str;
 }
 
-static CaListener * ca_init_listener(int process_count, CaProcess **processes)
-{
-	CaListener *listener = new CaListener(process_count, processes);
-	pthread_barrier_t start_barrier;
-
-	listener->init(ca_listen_port);
-	if (ca_listen_port == 0) {
-		printf("%i\n", listener->get_port());
-		fflush(stdout);
-	}
-
-	if (ca_block_on_start) {
-		pthread_barrier_init(&start_barrier, NULL, 2);
-		listener->set_start_barrier(&start_barrier);
-	}
-
-	listener->start();
-
-	if (ca_block_on_start) {
-		pthread_barrier_wait(&start_barrier);
-		pthread_barrier_destroy(&start_barrier);
-	}
-
-	return listener;
-}
-
 int ca_main()
 {
 	#ifdef CA_MPI
@@ -73,10 +48,22 @@ int ca_main()
 	#endif
 
 	#ifdef CA_SHMEM
-	CaListener *listener = NULL;
 
-	if (ca_listen_port != -1) {
-		listener = ca_init_listener(ca_process_count, processes);
+	if (ca_listener != NULL) {
+        pthread_barrier_t start_barrier;
+		ca_listener->set_processes(ca_process_count, processes);
+
+		if (ca_block_on_start) {
+			pthread_barrier_init(&start_barrier, NULL, 2);
+			ca_listener->set_start_barrier(&start_barrier);
+		}
+
+		ca_listener->start();
+
+		if (ca_block_on_start) {
+			pthread_barrier_wait(&start_barrier);
+			pthread_barrier_destroy(&start_barrier);
+		}
 	}
 
 	for (int t = 0; t < ca_process_count; t++) {
@@ -91,8 +78,9 @@ int ca_main()
 		processes[t]->clear();
 	}
 
-	if (listener != NULL) {
-		delete listener;
+	if (ca_listener != NULL) {
+		delete ca_listener;
+		ca_listener = NULL;
 	}
 	#endif
 
@@ -263,6 +251,20 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 			"This program can be run with one thread per MPI process or\n"
 			"MPI implementation has to support MPI_THREAD_MULTIPLE.\n");
 		exit(1);
+	}
+	#endif
+
+	#ifdef CA_SHMEM
+	if (ca_listen_port != -1) {
+		ca_listener = new CaListener();
+		ca_listener->init(ca_listen_port);
+		if (ca_listen_port == 0) {
+			printf("%i\n", ca_listener->get_port());
+			fflush(stdout);
+		}
+		if (ca_block_on_start) {
+			ca_listener->wait_for_connection();
+		}
 	}
 	#endif
 }

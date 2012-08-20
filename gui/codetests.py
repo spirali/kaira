@@ -24,6 +24,7 @@ import shutil
 import utils
 import gtkutils
 import process
+import simview
 from objectlist import ObjectList
 from codeedit import CodeFileEditor
 
@@ -47,6 +48,7 @@ class CodeTest(utils.EqMixin):
             f.write("#include \"{0}.h\"\n\n"
                        "int main(int argc, char **argv)\n"
                        "{{\n"
+                       "\t// calib_init HAS TO be always first\n"
                        "\tcalib_init(argc, argv);\n\n"
                        "\t// Put your code here\n\n"
                        "\treturn 0;\n}}\n".format(self.project.get_name()))
@@ -67,6 +69,9 @@ class CodeTest(utils.EqMixin):
     def build(self, app, callback):
         app._run_build_program("make", [], self.get_directory(), callback)
 
+    def get_executable_filename(self):
+        return os.path.join(self.get_directory(), self.name)
+
     def run(self, app):
         def on_exit(code):
             app.console_write("Test '{0}' returned '{1}'.\n".format(self.name, code),
@@ -76,9 +81,29 @@ class CodeTest(utils.EqMixin):
             return True
 
         app.console_write("Test '{0}' started.\n".format(self.name), "success")
-        p = process.Process(os.path.join(self.get_directory(), self.name), on_line, on_exit)
+        p = process.Process(self.get_executable_filename(), on_line, on_exit)
         p.cwd = self.get_directory()
         p.start()
+
+    def simulation(self, app, valgrind):
+        simconfig = app.project.get_simconfig()
+        if simconfig.parameters_values is None:
+            if not app.open_simconfig_dialog():
+                return
+        sprocess, port = app.run_simulated_program(
+            self.get_executable_filename(),
+            self.get_directory(),
+            simconfig,
+            valgrind)
+        if sprocess is None:
+            return
+        simulation = app.new_simulation()
+        simulation.quit_on_shutdown = True
+        simulation.set_callback(
+            "inited",
+            lambda: app.window.add_tab(simview.SimViewTab(self, simulation)))
+        simulation.set_callback("shutdown", lambda: sprocess.shutdown())
+        simulation.connect("localhost", port)
 
 
 def add_test(project, codetest):
@@ -151,9 +176,9 @@ class CodeTestList(gtk.VBox):
         self.switch.append_text("Build & Run")
         self.switch.append_text("Build & Traced Run")
         self.switch.append_text("Build & Run + Valgrind")
-        self.switch.append_text("Simulator")
-        self.switch.append_text("Simulator + Valgrind")
-        self.switch.set_active(4) # Select 'Simulator' as default
+        self.switch.append_text("Simulation")
+        self.switch.append_text("Simulation + Valgrind")
+        self.switch.set_active(4) # Select 'Simulation' as default
         box.pack_start(self.switch, False, False)
         self.pack_start(box, False, False)
 
@@ -224,6 +249,10 @@ class CodeTestList(gtk.VBox):
             build(lambda: self.app.console_write("Build finished\n", "success"))
         elif target == "Build & Run":
             build(lambda: obj.run(self.app))
+        elif target == "Simulation":
+            build(lambda: obj.simulation(self.app, False))
+        elif target == "Simulation + Valgrind":
+            build(lambda: obj.simulation(self.app, True))
         else:
             self.app.console_write(
                 "Target '{0}' is not implemented.\n".format(target), "error")

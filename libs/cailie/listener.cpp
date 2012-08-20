@@ -70,6 +70,19 @@ void CaListener::start()
 	pthread_create(&thread, NULL, listener_thread, this);
 }
 
+
+void CaListener::wait_for_connection()
+{
+	fd_set s;
+	FD_ZERO(&s);
+	FD_SET(listen_socket,&s);
+	int r = select(listen_socket + 1, &s, NULL, NULL, NULL);
+	if (r < 0) {
+		perror("CaListener::wait_for_connection");
+		exit(-1);
+	}
+}
+
 void CaListener::main()
 {
 	for(;;) {
