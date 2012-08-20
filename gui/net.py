@@ -204,7 +204,7 @@ class Net:
     def edges_from(self, item, postprocess = False):
         edges = [ i for i in self.items if i.is_edge() and i.from_item == item ]
         if postprocess:
-            edges = edges + [ i.make_complement() for i in self.edges_to(item) if i.is_bidirectional() ]
+            edges += [ i.make_complement() for i in self.edges_to(item) if i.is_bidirectional() ]
             return sum([ edge.postprocess() for edge in edges ], [])
         else:
             return edges
@@ -212,13 +212,14 @@ class Net:
     def edges_to(self, item, postprocess = False):
         edges = [ i for i in self.items if i.is_edge() and i.to_item == item ]
         if postprocess:
-            edges = edges + [ i.make_complement() for i in self.edges_from(item) if i.is_bidirectional() ]
+            edges += [ i.make_complement() for i in self.edges_from(item) if i.is_bidirectional() ]
             return sum( [ edge.postprocess() for edge in edges ], [])
         else:
             return edges
 
     def edges_of(self, item):
-        return [ i for i in self.items if i.is_edge() and (i.to_item == item or i.from_item == item) ]
+        return [ i for i in self.items
+                 if i.is_edge() and (i.to_item == item or i.from_item == item) ]
 
     def corners(self, cr):
         """ Returns bounding box as left-top and right-bottom points """
@@ -665,7 +666,8 @@ class Edge(NetItem):
 
     def set_inscription_position(self, position):
         points = self.get_all_points()
-        self.inscription_point, self.inscription_param = utils.nearest_point_of_multiline(points, position)
+        self.inscription_point, self.inscription_param = \
+            utils.nearest_point_of_multiline(points, position)
         self.offset = utils.vector_diff(self.compute_insciption_point() , position)
         self.inscription_position = position
         self.changed()
@@ -704,7 +706,8 @@ class Edge(NetItem):
     def compute_insciption_point(self):
         points = self.get_all_points()
         if self.inscription_point < len(points) - 1:
-            vec = utils.make_vector(points[self.inscription_point], points[self.inscription_point + 1])
+            vec = utils.make_vector(points[self.inscription_point],
+                                    points[self.inscription_point + 1])
             vec = utils.vector_mul_scalar(vec, self.inscription_param)
         else:
             vec = (0, 0)
@@ -745,7 +748,11 @@ class Edge(NetItem):
         return [sp] + self.points + [ep]
 
     def is_at_position(self, position):
-        if self.inscription_position and utils.position_inside_rect(position, utils.vector_diff(self.inscription_position, (self.inscription_size[0]/2, 0)), self.inscription_size, 4):
+        if self.inscription_position and \
+           utils.position_inside_rect(position,
+                                      utils.vector_diff(self.inscription_position,
+                                                        (self.inscription_size[0]/2, 0)),
+                                      self.inscription_size, 4):
             return True
 
         if self.nearest_edge_point_index(position, 7) is not None:
@@ -761,8 +768,13 @@ class Edge(NetItem):
             self.points[i] = p
             self.changed()
 
-        if self.inscription_position and utils.position_inside_rect(position, utils.vector_diff(self.inscription_position, (self.inscription_size[0]/2, 0)), self.inscription_size, 4):
-            return factory.get_move_action(self.get_inscription_position(), self.set_inscription_position, position)
+        if self.inscription_position and \
+           utils.position_inside_rect(position,
+                                      utils.vector_diff(self.inscription_position,
+                                                        (self.inscription_size[0]/2, 0)),
+                                      self.inscription_size, 4):
+            return factory.get_move_action(self.get_inscription_position(),
+                                           self.set_inscription_position, position)
 
         i = self.nearest_edge_point_index(position, 7)
         if i is not None:
@@ -858,7 +870,9 @@ class RectItem(NetItem):
 
     def get_action(self, position, factory):
         def make_action(f, cursor):
-            return factory.get_custom_move_action(position, lambda r: f(original_pos, original_size, r), cursor)
+            return factory.get_custom_move_action(
+                position,
+                lambda r: f(original_pos, original_size, r), cursor)
         px, py = position
         mx, my = self.position
         sx, sy = self.size
@@ -933,7 +947,8 @@ class NetArea(RectItem):
         return [ place for place in self.net.places() if self.is_inside(place) ]
 
     def transitions(self):
-        return [ transition for transition in self.net.transitions() if self.is_inside(transition) ]
+        return [ transition for transition in self.net.transitions()
+                 if self.is_inside(transition) ]
 
     def corners(self, cr):
         if self.name == "" and self.init_expr == "":
@@ -1141,8 +1156,10 @@ def load_edge(element, net, loader):
         ix = xml_int(element, "inscription_x")
         iy = xml_int(element, "inscription_y")
         edge.inscription_position = (ix, iy)
-        edge.inscription_point, edge.inscription_param = utils.nearest_point_of_multiline(edge.get_all_points(), edge.inscription_position)
-        edge.offset = utils.vector_diff(edge.compute_insciption_point() , edge.inscription_position)
+        edge.inscription_point, edge.inscription_param = \
+            utils.nearest_point_of_multiline(edge.get_all_points(), edge.inscription_position)
+        edge.offset = utils.vector_diff(edge.compute_insciption_point(),
+                                        edge.inscription_position)
 
 def load_area(element, net, loader):
     id = loader.get_id(element)
@@ -1200,5 +1217,3 @@ def load_net(element, project, loader):
         load_edge(e, net, loader)
 
     return net
-
-

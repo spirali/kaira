@@ -255,7 +255,9 @@ class App:
     def transition_edit(self, transition, lineno = None):
         position = ("", lineno) if lineno is not None else None
 
-        if self.window.switch_to_tab_by_key(transition, lambda tab: tab.widget.jump_to_position(position)):
+        if self.window.switch_to_tab_by_key(
+                transition,
+                lambda tab: tab.widget.jump_to_position(position)):
             return
 
         def open_tab(stdout):
@@ -301,7 +303,9 @@ class App:
 
     def function_edit(self, function, lineno = None):
         position = ("", lineno) if lineno is not None else None
-        if self.window.switch_to_tab_by_key(function, lambda tab: tab.widget.jump_to_position(position)):
+        if self.window.switch_to_tab_by_key(
+                function,
+                lambda tab: tab.widget.jump_to_position(position)):
             return
         try:
             editor = functions.FunctionEditor(self.project, function)
@@ -326,7 +330,9 @@ class App:
     def edit_head(self, lineno = None):
         position = ("", lineno) if lineno is not None else None
 
-        if self.window.switch_to_tab_by_key("Head", lambda tab: tab.widget.jump_to_position(position)):
+        if self.window.switch_to_tab_by_key(
+                "Head",
+                lambda tab: tab.widget.jump_to_position(position)):
             return
 
         editor = codeedit.HeadCodeEditor(self.project)
@@ -379,7 +385,7 @@ class App:
             simulation.connect("localhost", port)
 
         if self.project.get_simulator_net() is None:
-            self.console_write("No network is selected for simulations\n", "error")
+            self.console_write("No net is selected for simulations\n", "error")
             return
 
         simconfig = self.project.get_simconfig()
@@ -403,7 +409,10 @@ class App:
             dialog.destroy()
 
     def show_message_dialog(self, text, type):
-        error_dlg = gtk.MessageDialog(parent=self.window, type=type, message_format=text, buttons=gtk.BUTTONS_OK)
+        error_dlg = gtk.MessageDialog(parent=self.window,
+                                      type=type,
+                                      message_format=text,
+                                      buttons=gtk.BUTTONS_OK)
         try:
             error_dlg.run()
         finally:
@@ -549,13 +558,15 @@ class App:
 
         item = self.project.get_item(item_id)
         if pos == "function" and item.is_transition():
-            self.console_write_link(str(item_id) + "/" + pos + (":" + str(line_no) if line_no else ""),
-                lambda: self.transition_edit(item, line_no))
+            self.console_write_link(str(item_id) + "/" + pos +
+                                        (":" + str(line_no) if line_no else ""),
+                                    lambda: self.transition_edit(item, line_no))
             self.console_write(message[message.find(":"):] if line_no else ":" + message)
             return True
         if pos == "init_function" and item.is_place():
-            self.console_write_link(str(item_id) + "/" + pos + (":" + str(line_no) if line_no else ""),
-                lambda: self.place_edit(item, line_no))
+            self.console_write_link(str(item_id) + "/" + pos +
+                                       (":" + str(line_no) if line_no else ""),
+                                    lambda: self.place_edit(item, line_no))
             self.console_write(message[message.find(":"):] if line_no else ":" + message)
             return True
         if pos == "user_function":
@@ -611,9 +622,11 @@ class App:
         self.window.add_tab(Tab("Welcome", label, has_close_button = False))
 
     def import_project(self):
-        dialog = gtk.FileChooserDialog("Import project", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                 gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+        dialog = gtk.FileChooserDialog("Import project",
+                                       self.window,
+                                       gtk.FILE_CHOOSER_ACTION_OPEN,
+                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                                            gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
         try:
             self._add_project_file_filters(dialog)
