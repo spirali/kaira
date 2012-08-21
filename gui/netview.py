@@ -126,6 +126,7 @@ class NetView(gtk.VBox):
         self.transition_edit_callback = None
         self.place_edit_callback = None
         self.set_tool(nettools.SelectTool(self))
+        self.connect("key_press_event", self._key_press)
 
     def get_grid_size(self):
         return self.app.get_grid_size()
@@ -313,6 +314,16 @@ class NetView(gtk.VBox):
         if self.tool and self.tool.net:
             self.tool.mouse_move(event, position)
 
+    def _key_press(self, w, event):
+        if event.state & gtk.gdk.CONTROL_MASK and \
+               gtk.gdk.keyval_name(event.keyval) == "space" and \
+               self.entry_types:
+            self.set_next_entry_type()
+
+    def set_next_entry_type(self):
+        current = self.entry_switch.get_active()
+        self.entry_switch.set_active((current + 1) % len(self.entry_types))
+
     def set_entry_types(self, etypes):
         self.entry_types = etypes
         names = [ x[0] for x in etypes ]
@@ -342,6 +353,8 @@ class NetView(gtk.VBox):
         if self.entry_types and self.entry_switch.get_active_text():
             name, get, set = self.active_entry_type()
             self.entry.set_text(get())
+            self.entry.select_region(0, -1)
+
 
 class NetList(ObjectTree):
 
