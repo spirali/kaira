@@ -21,7 +21,8 @@ import gtk
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg as FigureCanvas
+from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
+                                               as FigureCanvas
 
 class ChartWidget(gtk.VBox):
 
@@ -42,7 +43,6 @@ class ChartWidget(gtk.VBox):
 #        self.pack_start(sw, True, True, 0)
 
         canvas = FigureCanvas(self.fig)
-#        self.fig.canvas.mpl_connect('button_press_event', self.onpress)
         self.pack_start(canvas, True, True)
 #        sw.add_with_viewport(canvas)
 
@@ -77,17 +77,17 @@ class ChartWidget(gtk.VBox):
 
         toolbar.add(gtk.SeparatorToolItem())
 
-        btn_zoom_in = gtk.ToolButton()
-        btn_zoom_in.set_stock_id(gtk.STOCK_ZOOM_IN)
-        btn_zoom_in.set_tooltip_text("Zoom in")
-        toolbar.add(btn_zoom_in)
-
-        btn_zoom_out = gtk.ToolButton()
-        btn_zoom_out.set_stock_id(gtk.STOCK_ZOOM_OUT)
-        btn_zoom_out.set_tooltip_text("Zoom out")
-        toolbar.add(btn_zoom_out)
-
-        toolbar.add(gtk.SeparatorToolItem())
+#        btn_zoom_in = gtk.ToolButton()
+#        btn_zoom_in.set_stock_id(gtk.STOCK_ZOOM_IN)
+#        btn_zoom_in.set_tooltip_text("Zoom in")
+#        toolbar.add(btn_zoom_in)
+#
+#        btn_zoom_out = gtk.ToolButton()
+#        btn_zoom_out.set_stock_id(gtk.STOCK_ZOOM_OUT)
+#        btn_zoom_out.set_tooltip_text("Zoom out")
+#        toolbar.add(btn_zoom_out)
+#
+#        toolbar.add(gtk.SeparatorToolItem())
 
         btn_hide_legend = gtk.ToggleToolButton(gtk.STOCK_NO)
         btn_hide_legend.set_tooltip_text("Hide legend")
@@ -96,8 +96,10 @@ class ChartWidget(gtk.VBox):
         return toolbar
 
     def save_action(self, widget):
-        dialog = gtk.FileChooserDialog("Save graph", None, gtk.FILE_CHOOSER_ACTION_SAVE,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+        dialog = gtk.FileChooserDialog("Save graph", 
+                                       None, gtk.FILE_CHOOSER_ACTION_SAVE,
+                                       (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                                        gtk.STOCK_SAVE, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
 
         svg_filter = gtk.FileFilter()
@@ -133,12 +135,10 @@ class ChartWidget(gtk.VBox):
 class TwoAxesChart:
 
     def __init__(self, axes, data, min_value=None, max_value=None, 
-            title=None, xlabel=None, ylabel=None):
+            title="", xlabel="", ylabel=""):
 
         self.zoom = 1.0
         self.zoom_stack = []
-        self.zoom_step = 1.25
-        self.zoom_pb = ""
         xlabel_formatter = None
         ylabel_formatter = None
         
@@ -147,75 +147,97 @@ class TwoAxesChart:
 
         self.min_value = min_value
         self.max_value = max_value
-        if title is not None:
-            self.ax.set_title(title)
-        if xlabel is not None:
-            self.ax.set_xlabel(xlabel)
-        if ylabel is not None:
-            self.ax.set_ylabel(ylabel)
+        self.ax.set_title(title)
+        self.ax.set_xlabel(xlabel)
+        self.ax.set_ylabel(ylabel)
     
     def draw(self):
         for ldata in self.data:
             self.ax.plot(ldata.get_xvalues(), ldata.get_yvalues(),
                     'o-', drawstyle='steps-post')
-
         # toto lepe umistit
-        if self.min_value is not None:
+        if self.min_value is not None: #Doresit: musi zde byt pro kazdou
+                                       #souradnici min a max hodnota.
             self.ax.set_xlim(xmin=self.min_value)
             
         for label in self.ax.xaxis.get_ticklabels():
-            label.set_rotation(-35)
-            label.set_horizontalalignment('left')
+            label.set_rotation(-35) #TODO: rotation do prommene
+            label.set_horizontalalignment('left') #TODO: taktez do promene,
+                                                  # nejlepe udelat tridni 
+                                                  # vlastnost.
         
     # --> methods for zooming chart
     def _zoom_in(self, stack, event):
         def new_bounds(min, max, value, zoom):
-            diff_min = value - min
-            diff_max = max - value
-            return (diff_min * zoom, diff_max * zoom)
+            if value is None: return (min, max)
+            diff_min, diff_max = value - min, max - value
+            zdiff_min, zdiff_max = diff_min * zoom, diff_max * zoom
+            return (value - zdiff_min, value + zdiff_max)
 
-        self.zoom /= 1.25
+        self.zoom /= 1.05
         vmin_x, vmax_x = self.ax.xaxis.get_view_interval()
-        x = event.xdata
-        nmin_x, nmax_x = new_bounds(vmin_x, vmax_x, x, self.zoom)
-        nmin_x, nmax_x = x - nmin_x, x + nmax_x
+        vmin_y, vmax_y = self.ax.yaxis.get_view_interval()
+        x, y = event.xdata, event.ydata
 
-        # TODO: vymyslet lepsi podminku
-        if abs(nmax_x - nmin_x) < 0.001:
-            self.zoom *= 1.25
+        xmin, xmax = new_bounds(vmin_x, vmax_x, x, self.zoom)
+        ymin, ymax = new_bounds(vmin_y, vmax_y, y, self.zoom)
+
+        bad_xrange, bad_yrange = False, False
+        if abs(xmax - xmin) < 0.000001:
+            print "Bad X Range"
+            bad_xrange = True
+            xmin, xmax = stack[-1][:2]
+
+        if abs(ymax - ymin) < 0.000001:
+            print "Bad Y Range"
+            bad_yrange = True
+            ymin, ymax = stack[-1][2:]
+
+        if bad_xrange and bad_yrange:
+            # Return the last known window dimension, it means stop zoom in.
+            self.zoom *= 1.05
             return stack[-1]
         else:
-            stack.append((vmin_x, vmax_x))
-            return (nmin_x, nmax_x)
+            stack.append((vmin_x, vmax_x, vmin_y, vmax_y))
+            return (xmin, xmax, ymin, ymax)
         
     def _zoom_out(self, stack):
-        self.zoom *= 1.25
+        self.zoom *= 1.05
         return stack.pop()
 
     def _zoom(self, event, figure):
         xmin, xmax = None, None
+        ymin, ymax = None, None
         if event.button == "up":
-            xmin, xmax = self._zoom_in(self.zoom_stack,event)
+            xmin, xmax, ymin, ymax = self._zoom_in(self.zoom_stack,event)
         elif event.button == "down":
             if len(self.zoom_stack) == 0:
                 xmin, xmax = self.ax.xaxis.get_view_interval()
+                ymin, ymax = self.ax.yaxis.get_view_interval()
             else:
-                xmin, xmax = self._zoom_out(self.zoom_stack)
+                xmin, xmax, ymin, ymax = self._zoom_out(self.zoom_stack)
 
-        if (xmin is not None and xmax is not None):
+        if (xmin is not None and xmax is not None and
+            ymin is not None and ymax is not None):
+
             self.ax.set_xlim(xmin, xmax)
-            figure.canvas.draw()
+            self.ax.set_ylim(ymin, ymax)
+            figure.canvas.draw() #TODO: vymyslet jak nevolat tuto metodu primo!!
     # <-- methods for zooming chart
 
+    # --> methods for formatting x, y labels
     def set_xlabel_formatter(self, xlabel_formatter):
-        self.ax.xaxis.set_major_formatter(self._create_label_formatter(xlabel_formatter))
+        self.ax.xaxis.set_major_formatter(
+                self._create_label_formatter(xlabel_formatter))
 
     def set_ylabel_formatter(self, ylabel_formatter):
-        self.ax.yaxis.set_major_formatter(self._create_label_formatter(ylabel_formatter))
+        self.ax.yaxis.set_major_formatter(
+                self._create_label_formatter(ylabel_formatter))
 
     def _create_label_formatter(self, label_formatter):
         return matplotlib.ticker.FuncFormatter(
                 lambda val, pos: label_formatter(val))
+    # <-- methods for formating x, y labels
 
 class Data2DChart:
     """ Data structure for a 2D charts. """
