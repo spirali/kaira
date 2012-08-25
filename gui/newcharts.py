@@ -167,95 +167,45 @@ class TwoAxesChart:
             label.set_rotation(-35)
             label.set_horizontalalignment('left')
         
-
-    def _put(self, stack, event):
+    # --> methods for zooming chart
+    def _zoom_in(self, stack, event):
         def new_bounds(min, max, value, zoom):
             diff_min = value - min
             diff_max = max - value
             return (diff_min * zoom, diff_max * zoom)
 
-        self.zoom = self.put_zoom(self.zoom, self.zoom_step)
+        self.zoom /= 1.25
         vmin_x, vmax_x = self.ax.xaxis.get_view_interval()
         x = event.xdata
         nmin_x, nmax_x = new_bounds(vmin_x, vmax_x, x, self.zoom)
         nmin_x, nmax_x = x - nmin_x, x + nmax_x
-        #TODO: nejak odstranit podminku, je zde kvuli 
-        #      tomu aby se nezoomoval graf do nekonecna
+
+        # TODO: vymyslet lepsi podminku
         if abs(nmax_x - nmin_x) < 0.001:
-            self.zoom = self.pop_zoom(self.zoom, self.zoom_step)
+            self.zoom *= 1.25
             return stack[-1]
         else:
             stack.append((vmin_x, vmax_x))
             return (nmin_x, nmax_x)
         
-    def _pop(self, stack, event):
-        ''' 
-            *event* is there only, because _put and _pop must have same arite.
-        '''
-        self.zoom = self.pop_zoom(self.zoom, self.zoom_step)
+    def _zoom_out(self, stack):
+        self.zoom *= 1.25
         return stack.pop()
 
     def _zoom(self, event, figure):
-        if len(self.zoom_stack) == 0:
-            #pb is previous_button
-            self.zoom_pb = event.button
-            self.manipulate = self._put
-            if event.button == 'up':
-                self.put_zoom = lambda zoom, step: zoom / step
-                self.pop_zoom = lambda zoom, step: zoom * step
-            elif event.button == 'down':
-                self.put_zoom = lambda zoom, step: zoom * step
-                self.pop_zoom = lambda zoom, step: zoom / step
+        xmin, xmax = None, None
+        if event.button == "up":
+            xmin, xmax = self._zoom_in(self.zoom_stack,event)
+        elif event.button == "down":
+            if len(self.zoom_stack) == 0:
+                xmin, xmax = self.ax.xaxis.get_view_interval()
             else:
-                print 'Unexpected mouse button:', event.button
-        else:
-            if self.zoom_pb != event.button:
-                if self.manipulate == self._put:
-                    self.manipulate = self._pop
-                elif self.manipulate == self._pop:
-                    self.manipulate = self._put
-                else:
-                    print 'error'
+                xmin, xmax = self._zoom_out(self.zoom_stack)
 
-        self.zoom_pb = event.button
-        xmin, xmax = self.manipulate(self.zoom_stack, event)
-        self.ax.set_xlim(xmin, xmax)
-        figure.canvas.draw()
-        print len(self.zoom_stack) 
-
-    def OLD_zoom(self, event, figure):
-        def new_bounds(min, max, value, zoom):
-            diff_min = value - min
-            diff_max = max - value
-            return (diff_min * zoom, diff_max * zoom)
-
-        if event.button == 'up':
-            self.zoom_in /= 1.25
-            self.zoom_out = 1.0
-            vmin_x, vmax_x = self.ax.xaxis.get_view_interval()
-            x = event.xdata
-            nmin_x, nmax_x = new_bounds(vmin_x, vmax_x, x, self.zoom_in)
-            self.ax.set_xlim(x - nmin_x, x + nmax_x)
-
-            vmin_y, vmax_y = self.ax.yaxis.get_view_interval()
-            y = event.ydata
-            nmin_y, nmax_y = new_bounds(vmin_y, vmax_y, y, self.zoom_in)
-            self.ax.set_ylim(y - nmin_y, y + nmax_y)
+        if (xmin is not None and xmax is not None):
+            self.ax.set_xlim(xmin, xmax)
             figure.canvas.draw()
-        elif event.button == 'down':
-            self.zoom_out *= 1.25
-            self.zoom_in = 1.0
-            vmin_x, vmax_x = self.ax.xaxis.get_view_interval()
-            x = event.xdata
-            nmin_x, nmax_x = new_bounds(vmin_x, vmax_x, x, self.zoom_out)
-            self.ax.set_xlim(x - nmin_x, x + nmax_x)
-
-            vmin_y, vmax_y = self.ax.yaxis.get_view_interval()
-            y = event.ydata
-            nmin_y, nmax_y = new_bounds(vmin_y, vmax_y, y, self.zoom_out)
-            self.ax.set_ylim(y - nmin_y, y + nmax_y)
-            figure.canvas.draw()
-
+    # <-- methods for zooming chart
 
     def set_xlabel_formatter(self, xlabel_formatter):
         self.ax.xaxis.set_major_formatter(self._create_label_formatter(xlabel_formatter))
