@@ -142,6 +142,8 @@ class TwoAxesChart:
         xlabel_formatter = None
         ylabel_formatter = None
         
+        self.mouse_press = False
+
         self.ax = axes
         self.data = data
 
@@ -184,12 +186,10 @@ class TwoAxesChart:
 
         bad_xrange, bad_yrange = False, False
         if abs(xmax - xmin) < 0.000001:
-            print "Bad X Range"
             bad_xrange = True
             xmin, xmax = stack[-1][:2]
 
         if abs(ymax - ymin) < 0.000001:
-            print "Bad Y Range"
             bad_yrange = True
             ymin, ymax = stack[-1][2:]
 
@@ -205,7 +205,7 @@ class TwoAxesChart:
         self.zoom *= 1.05
         return stack.pop()
 
-    def _zoom(self, event, figure):
+    def _zoom(self, event):
         xmin, xmax = None, None
         ymin, ymax = None, None
         if event.button == "up":
@@ -217,13 +217,52 @@ class TwoAxesChart:
             else:
                 xmin, xmax, ymin, ymax = self._zoom_out(self.zoom_stack)
 
-        if (xmin is not None and xmax is not None and
-            ymin is not None and ymax is not None):
-
+        if (xmin is not None and xmax is not None and 
+                ymin is not None and ymax is not None):
             self.ax.set_xlim(xmin, xmax)
             self.ax.set_ylim(ymin, ymax)
-            figure.canvas.draw() #TODO: vymyslet jak nevolat tuto metodu primo!!
+            self.ax.figure.canvas.draw_idle()
     # <-- methods for zooming chart
+
+    # --> methods for mooving graph
+    def _move_start(self, event):
+        if event.button == 1:
+            self.x, self.y = event.x, event.y
+            self.mouse_press = True
+
+    def _move_end(self, event):
+        if event.button == 1:
+            self.mouse_press = False
+
+    # TODO: dodat moznost resetu do puvodniho stavu.
+    def _moving(self, event):
+        ''' Moving with chart. Coordinates must be transform
+        bettween two coordinates system, because using pixel
+        coordinates is better for moving with chart. '''
+        if self.mouse_press: # "mouse drag"
+            x, y = event.x, event.y
+            diffx = self.x - x 
+            diffy = self.y - y
+            xmin, xmax = self.ax.xaxis.get_view_interval()
+            ymin, ymax = self.ax.yaxis.get_view_interval()
+            # coordinates to display (pixels) view
+            trans = self.ax.transData
+            dxmin, dymin = trans.transform((xmin, ymin))
+            dxmax, dymax = trans.transform((xmax, ymax))
+            dnxmin, dnxmax = dxmin + diffx, dxmax + diffx
+            dnymin, dnymax = dymin + diffy, dymax + diffy
+            # coordinates to back data view
+            inv = trans.inverted()
+            nxmin, nymin = inv.transform((dnxmin, dnymin))
+            nxmax, nymax = inv.transform((dnxmax, dnymax))
+            # set new view dimension
+            self.ax.set_xlim(nxmin, nxmax)
+            self.ax.set_ylim(nymin, nymax)
+            self.ax.figure.canvas.draw_idle()
+            self.x = x 
+            self.y = y
+
+    # <-- methods for mooving graph
 
     # --> methods for formatting x, y labels
     def set_xlabel_formatter(self, xlabel_formatter):
