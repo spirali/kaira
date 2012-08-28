@@ -93,17 +93,14 @@ class ChartWidget(gtk.VBox):
         return toolbar
 
     def _restore_view_action(self, ax): #TODO zrusit vnitrek
-#        dxmin, dymin = ax.transAxes.transform((0, 0))
-#        dxmax, dymax = ax.transAxes.transform((1, 1))
-#        
-#        inv = ax.transData.inverted()
-#        xmin, ymin = inv.transform((dxmin, dymin))
-#        xmax, ymax = inv.transform((dxmax, dymax))
         xmin, xmax = ax.xaxis.get_data_interval()
         ymin, ymax = ax.yaxis.get_data_interval()
-        ax.set_xlim(0, xmax) #TODO: spatne reseni, chce to jit uvnitr axes pres pouzity zasobnik => TwoAxisChart bude muset rozsirit klasickou funkcionalitu Axes, tzn TwoAxisChart(matplotlib.axes.Axes)
+        ax.set_xlim(0, xmax) # TODO: spatne reseni, chce to jit uvnitr axes pres
+                             # pouzity zasobnik => TwoAxisChart nejspise bude 
+                             # muset rozsirit klasickou funkcionalitu Axes, 
+                             # tzn. TwoAxisChart(matplotlib.axes.Axes)
         ax.set_ylim(ymin, ymax)
-        ax.figure.canvas.draw_idle()
+#        ax.figure.canvas.draw_idle()
 
     def save_action(self, widget):
         dialog = gtk.FileChooserDialog("Save graph", 
@@ -134,14 +131,6 @@ class ChartWidget(gtk.VBox):
 
         dialog.destroy()
 
-    def onpress(self, event):
-        if event.button != 1: return
-        x, y = event.xdata, event.ydata
-        ax = self.get_current_axes()
-        ax.set_xlim(x - 0.1, x + 0.1)
-        ax.set_ylim(y - 0.1, y + 0.1)
-        self.fig.canvas.draw()
-
 class TwoAxesChart:
 
     def __init__(self, axes, data, min_value=None, max_value=None, 
@@ -149,10 +138,9 @@ class TwoAxesChart:
 
         self.zoom = 1.0
         self.zoom_stack = []
-        xlabel_formatter = None
-        ylabel_formatter = None
         
-        self.mouse_press = False
+        self.xypress = None
+        self.original_view_dim = None
 
         self.ax = axes
         self.data = data
@@ -163,8 +151,8 @@ class TwoAxesChart:
         self.ax.set_xlabel(xlabel)
         self.ax.set_ylabel(ylabel)
 
-#        # coonect standard features
-        #?? Proc nefunguje volani self._zoom a musim jit pres lambdu?
+        # coonect standard features
+        #?? Proc nefunguje volani self._zoom a musim jit pres lambdu??
         self.ax.figure.canvas.mpl_connect(
                 "scroll_event", lambda e: self._zoom(e))
         self.ax.figure.canvas.mpl_connect(
@@ -173,12 +161,15 @@ class TwoAxesChart:
                 "button_release_event", lambda e: self._move_end(e))
         self.ax.figure.canvas.mpl_connect(
                 "motion_notify_event", lambda e: self._moving(e))
+
+    def redraw(self):
+        self.ax.figure.canvas.draw_idle()
+
     def draw(self):
         for ldata in self.data:
             self.ax.plot(ldata.get_xvalues(), ldata.get_yvalues(),
                     'o-', drawstyle='steps-post')
 
-#        self.original_dimension = self.ax.
         # toto lepe umistit
         if self.min_value is not None: #Doresit: musi zde byt pro kazdou
                                        #souradnici min a max hodnota.
@@ -234,8 +225,14 @@ class TwoAxesChart:
             xmin, xmax, ymin, ymax = self._zoom_in(self.zoom_stack,event)
         elif event.button == "down":
             if len(self.zoom_stack) == 0:
-                xmin, xmax = self.ax.xaxis.get_view_interval()
-                ymin, ymax = self.ax.yaxis.get_view_interval()
+                if self.original_view_dim is not None:
+                    # TODO: is it correct in the sense of zooming, perhaps 
+                    # this feature belongs to reset button?? (for Standa)
+                    xmin, xmax, ymin, ymax = self.original_view_dim
+                    self.original_view_dim = None
+                else:
+                    xmin, xmax = self.ax.xaxis.get_view_interval()
+                    ymin, ymax = self.ax.yaxis.get_view_interval()
             else:
                 xmin, xmax, ymin, ymax = self._zoom_out(self.zoom_stack)
 
@@ -243,46 +240,53 @@ class TwoAxesChart:
                 ymin is not None and ymax is not None):
             self.ax.set_xlim(xmin, xmax)
             self.ax.set_ylim(ymin, ymax)
-            self.ax.figure.canvas.draw_idle()
+            self.redraw()
     # <-- methods for zooming chart
 
     # --> methods for mooving graph
     def _move_start(self, event):
         if event.button == 1:
-            self.x, self.y = event.x, event.y
-            self.mouse_press = True
+            self.xypress = (event.x, event.y)
+            #save original view for restore view
+            if len(self.zoom_stack) > 0 and self.original_view_dim is None:
+                self.original_view_dim = self.zoom_stack[0]
+            elif self.original_view_dim is None:
+                xmin, xmax = self.ax.xaxis.get_view_interval()
+                ymin, ymax = self.ax.yaxis.get_view_interval()
+                self.original_view_dim = (xmin, xmax, ymin, ymax)
 
     def _move_end(self, event):
         if event.button == 1:
-            self.mouse_press = False
+            self.xypress = None
 
-    # TODO: dodat moznost resetu do puvodniho stavu.
     def _moving(self, event):
         ''' Moving with chart. Coordinates must be transform
         bettween two coordinates system, because using pixel
         coordinates is better for moving with chart. '''
-        if self.mouse_press: # "mouse drag"
+        if self.xypress is not None: # "mouse drag"
+            xpress, ypress = self.xypress
             x, y = event.x, event.y
-            diffx = self.x - x 
-            diffy = self.y - y
-            xmin, xmax = self.ax.xaxis.get_view_interval()
-            ymin, ymax = self.ax.yaxis.get_view_interval()
-            # coordinates to display (pixels) view
-            trans = self.ax.transData
-            dxmin, dymin = trans.transform((xmin, ymin))
-            dxmax, dymax = trans.transform((xmax, ymax))
-            dnxmin, dnxmax = dxmin + diffx, dxmax + diffx
-            dnymin, dnymax = dymin + diffy, dymax + diffy
-            # coordinates to back data view
-            inv = trans.inverted()
-            nxmin, nymin = inv.transform((dnxmin, dnymin))
-            nxmax, nymax = inv.transform((dnxmax, dnymax))
+            diffx = xpress - x 
+            diffy = ypress - y
+            # coordinates in display (pixels) view
+            trans = self.ax.transAxes
+            # TODO: timto ziskanim ohraniceni je mozne, ze vznikne
+            # problem pri zmenseni plochy platna, napr. dva
+            # grafy vedle sebe => OVERIT! K realnym hodnotam by se snad dalo
+            # dostat pres nejakou metodu v Axes.
+            xmin, ymin = trans.transform((0,0))
+            xmax, ymax = trans.transform((1,1))
+            shift_xmin, shift_xmax = xmin + diffx, xmax + diffx
+            shift_ymin, shift_ymax = ymin + diffy, ymax + diffy
+            # coordinates in data view
+            inv = self.ax.transData.inverted()
+            data_xmin, data_ymin = inv.transform((shift_xmin, shift_ymin))
+            data_xmax, data_ymax = inv.transform((shift_xmax, shift_ymax))
             # set new view dimension
-            self.ax.set_xlim(nxmin, nxmax)
-            self.ax.set_ylim(nymin, nymax)
-            self.ax.figure.canvas.draw_idle()
-            self.x = x 
-            self.y = y
+            self.ax.set_xlim(data_xmin, data_xmax)
+            self.ax.set_ylim(data_ymin, data_ymax)
+            self.xypress = (x, y) # shift for next step
+            self.redraw()
 
     # <-- methods for mooving graph
 
@@ -297,7 +301,7 @@ class TwoAxesChart:
 
     def _create_label_formatter(self, label_formatter):
         return matplotlib.ticker.FuncFormatter(
-                lambda val, pos: label_formatter(val))
+                lambda v, pos: label_formatter(v))
     # <-- methods for formating x, y labels
 
 class Data2DChart:
