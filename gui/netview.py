@@ -200,12 +200,18 @@ class NetView(gtk.VBox):
             self.netlist.hide()
 
     def _controls(self):
-        icon_arrow = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "arrow.png"))
-        icon_transition = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "transition.png"))
-        icon_place = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "place.png"))
-        icon_arc = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "arc.png"))
-        icon_area = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "area.png"))
-        icon_trace = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "trace.png"))
+        icon_arrow = gtk.image_new_from_file(
+				os.path.join(paths.ICONS_DIR, "arrow.svg"))
+        icon_transition = gtk.image_new_from_file(
+				os.path.join(paths.ICONS_DIR, "transition.svg"))
+        icon_place = gtk.image_new_from_file(
+				os.path.join(paths.ICONS_DIR, "place.svg"))
+        icon_arc = gtk.image_new_from_file(
+				os.path.join(paths.ICONS_DIR, "arc.svg"))
+        icon_area = gtk.image_new_from_file(
+				os.path.join(paths.ICONS_DIR, "area.svg"))
+        icon_trace = gtk.image_new_from_file(
+				os.path.join(paths.ICONS_DIR, "trace.svg"))
 
         toolbar = gtk.Toolbar()
 
