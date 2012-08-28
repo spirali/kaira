@@ -233,6 +233,8 @@ class Net:
             l = min(l, il)
             r = max(r, ir)
             b = max(b, ib)
+        if l == maxint or t == maxint:
+             return ((100,100), (0,0))
         return ((l,t), (r,b))
 
     def trace_nothing(self):
