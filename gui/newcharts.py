@@ -77,23 +77,33 @@ class ChartWidget(gtk.VBox):
 
         toolbar.add(gtk.SeparatorToolItem())
 
-#        btn_zoom_in = gtk.ToolButton()
-#        btn_zoom_in.set_stock_id(gtk.STOCK_ZOOM_IN)
-#        btn_zoom_in.set_tooltip_text("Zoom in")
-#        toolbar.add(btn_zoom_in)
-#
-#        btn_zoom_out = gtk.ToolButton()
-#        btn_zoom_out.set_stock_id(gtk.STOCK_ZOOM_OUT)
-#        btn_zoom_out.set_tooltip_text("Zoom out")
-#        toolbar.add(btn_zoom_out)
-#
-#        toolbar.add(gtk.SeparatorToolItem())
+        btn_restore = gtk.ToolButton()
+        btn_restore.connect("clicked", lambda w: self._restore_view_action(
+            self.get_current_axes()))
+        btn_restore.set_stock_id(gtk.STOCK_ZOOM_100)
+        btn_restore.set_tooltip_text("Restore view")
+        toolbar.add(btn_restore)
+
+        toolbar.add(gtk.SeparatorToolItem())
 
         btn_hide_legend = gtk.ToggleToolButton(gtk.STOCK_NO)
         btn_hide_legend.set_tooltip_text("Hide legend")
         toolbar.add(btn_hide_legend)
 
         return toolbar
+
+    def _restore_view_action(self, ax): #TODO zrusit vnitrek
+#        dxmin, dymin = ax.transAxes.transform((0, 0))
+#        dxmax, dymax = ax.transAxes.transform((1, 1))
+#        
+#        inv = ax.transData.inverted()
+#        xmin, ymin = inv.transform((dxmin, dymin))
+#        xmax, ymax = inv.transform((dxmax, dymax))
+        xmin, xmax = ax.xaxis.get_data_interval()
+        ymin, ymax = ax.yaxis.get_data_interval()
+        ax.set_xlim(0, xmax) #TODO: spatne reseni, chce to jit uvnitr axes pres pouzity zasobnik => TwoAxisChart bude muset rozsirit klasickou funkcionalitu Axes, tzn TwoAxisChart(matplotlib.axes.Axes)
+        ax.set_ylim(ymin, ymax)
+        ax.figure.canvas.draw_idle()
 
     def save_action(self, widget):
         dialog = gtk.FileChooserDialog("Save graph", 
@@ -152,11 +162,23 @@ class TwoAxesChart:
         self.ax.set_title(title)
         self.ax.set_xlabel(xlabel)
         self.ax.set_ylabel(ylabel)
-    
+
+#        # coonect standard features
+        #?? Proc nefunguje volani self._zoom a musim jit pres lambdu?
+        self.ax.figure.canvas.mpl_connect(
+                "scroll_event", lambda e: self._zoom(e))
+        self.ax.figure.canvas.mpl_connect(
+                "button_press_event", lambda e: self._move_start(e))
+        self.ax.figure.canvas.mpl_connect(
+                "button_release_event", lambda e: self._move_end(e))
+        self.ax.figure.canvas.mpl_connect(
+                "motion_notify_event", lambda e: self._moving(e))
     def draw(self):
         for ldata in self.data:
             self.ax.plot(ldata.get_xvalues(), ldata.get_yvalues(),
                     'o-', drawstyle='steps-post')
+
+#        self.original_dimension = self.ax.
         # toto lepe umistit
         if self.min_value is not None: #Doresit: musi zde byt pro kazdou
                                        #souradnici min a max hodnota.
