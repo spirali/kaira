@@ -75,9 +75,9 @@ class CaNet {
 		bool is_local() const { return def->is_local(); }
 
 		/* Lock for working with active_units */
-		void lock() { pthread_mutex_lock(&mutex); }
-		bool try_lock() { return pthread_mutex_trylock(&mutex) == 0; }
-		void unlock() { pthread_mutex_unlock(&mutex); }
+		void lock() { if (mutex) pthread_mutex_lock(mutex); }
+		bool try_lock() { return mutex?pthread_mutex_trylock(mutex) == 0:true; }
+		void unlock() { if (mutex) pthread_mutex_unlock(mutex); }
 
 		void write_reports(CaThread *thread, CaOutput &output);
 		virtual void write_reports_content(CaThread *thread, CaOutput &output) = 0;
@@ -110,13 +110,12 @@ class CaNet {
 		std::queue<CaTransition*> actives;
 		int running_transitions;
 		CaNetDef *def;
-		pthread_mutex_t mutex;
+		pthread_mutex_t *mutex;
 		CaTransition *transitions;
 
 		CaNetFinalizerFn *finalizer_fn;
 		void *data;
 		int flags;
-
 };
 
 #endif // CAILIE_NET_H
