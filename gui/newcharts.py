@@ -34,7 +34,8 @@ class ChartWidget(gtk.VBox):
         toolbar = self._chart_toolbar()
         self.pack_start(toolbar, False, False)
 
-        self.fig = plt.Figure()
+#        self.fig = plt.Figure()
+        self.fig = matplotlib.figure.Figure()
 #        self.fig.subplots_adjust(bottom=0.14)
 
 #        sw = gtk.ScrolledWindow()
@@ -48,10 +49,18 @@ class ChartWidget(gtk.VBox):
 
     def get_current_axes(self):
         if self.current_axes_id >= len(self.axes):
-            ax = self.fig.add_subplot(self.current_axes_id, 1,
-                    self.current_axes_id)
+
+#            ax = self.fig.add_subplot(self.current_axes_id, 1,
+#                    self.current_axes_id)
+            ax = TwoAxisChart(self.fig, (.1, .1, .8, .8))
+            self.fig._axstack.add(TwoAxisChart, ax) #dulezity radek!
+#            self.fig.sca(ax)
+            self.fig.add_axes(ax)
             self.axes.append(ax)
+#            self.fig.add_axes(ax)
+
             return ax
+
         elif self.current_axes_id >= 0:
             return self.axes[self.current_axes_id]
         else:
@@ -131,51 +140,57 @@ class ChartWidget(gtk.VBox):
 
         dialog.destroy()
 
-class TwoAxesChart:
+class TwoAxisChart(matplotlib.axes.Axes):
 
-    def __init__(self, axes, data, min_value=None, max_value=None, 
-            title="", xlabel="", ylabel=""):
+#    def __init__(self, axes, data, min_value=None, max_value=None, 
+#            title="", xlabel="", ylabel=""):
 
+    def __init__(self, fig, rec,
+                 axisbg  = None, # defaults to rc axes.facecolor
+                 frameon = True,
+                 sharex  = None,
+                 sharey  = None,
+                 label   = "",
+                 xscale  = None,
+                 yscale  = None,
+                 **kwargs
+                 ):
+
+        matplotlib.axes.Axes.__init__(self, fig, rec, axisbg, frameon,
+                sharex, sharey, label, xscale, yscale, **kwargs)
+
+        # Zoom properties
         self.zoom = 1.0
         self.zoom_stack = []
-        
+        # Move properties
         self.xypress = None
         self.original_view_dim = None
 
-        self.ax = axes
-        self.data = data
-
-        self.min_value = min_value
-        self.max_value = max_value
-        self.ax.set_title(title)
-        self.ax.set_xlabel(xlabel)
-        self.ax.set_ylabel(ylabel)
 
         # coonect standard features
         #?? Proc nefunguje volani self._zoom a musim jit pres lambdu??
-        self.ax.figure.canvas.mpl_connect(
+        fig.canvas.mpl_connect(
                 "scroll_event", lambda e: self._zoom(e))
-        self.ax.figure.canvas.mpl_connect(
+        fig.canvas.mpl_connect(
                 "button_press_event", lambda e: self._move_start(e))
-        self.ax.figure.canvas.mpl_connect(
+        fig.canvas.mpl_connect(
                 "button_release_event", lambda e: self._move_end(e))
-        self.ax.figure.canvas.mpl_connect(
+        fig.canvas.mpl_connect(
                 "motion_notify_event", lambda e: self._moving(e))
 
-    def redraw(self):
-        self.ax.figure.canvas.draw_idle()
-
-    def draw(self):
-        for ldata in self.data:
-            self.ax.plot(ldata.get_xvalues(), ldata.get_yvalues(),
+    def vytvor_graf(self, data):
+        for ldata in data:
+            self.plot(ldata.get_xvalues(), ldata.get_yvalues(),
                     'o-', drawstyle='steps-post')
 
-        # toto lepe umistit
-        if self.min_value is not None: #Doresit: musi zde byt pro kazdou
-                                       #souradnici min a max hodnota.
-            self.ax.set_xlim(xmin=self.min_value)
+            # TODO: Toto by uz nemuselo byt treba, protoze se xlim bude
+            # nastavovat pres nadtridu, ktera by se s tim mohla rozumne poprat.
+#        # toto lepe umistit
+#        if self.min_value is not None: #Doresit: musi zde byt pro kazdou
+#                                       #souradnici min a max hodnota.
+#            self.set_xlim(xmin=self.min_value)
             
-        for label in self.ax.xaxis.get_ticklabels():
+        for label in self.xaxis.get_ticklabels():
             label.set_rotation(-35) #TODO: rotation do prommene
             label.set_horizontalalignment('left') #TODO: taktez do promene,
                                                   # nejlepe udelat tridni 
@@ -190,8 +205,8 @@ class TwoAxesChart:
             return (value - zdiff_min, value + zdiff_max)
 
         self.zoom /= 1.05
-        vmin_x, vmax_x = self.ax.xaxis.get_view_interval()
-        vmin_y, vmax_y = self.ax.yaxis.get_view_interval()
+        vmin_x, vmax_x = self.xaxis.get_view_interval()
+        vmin_y, vmax_y = self.yaxis.get_view_interval()
         x, y = event.xdata, event.ydata
 
         xmin, xmax = new_bounds(vmin_x, vmax_x, x, self.zoom)
@@ -231,16 +246,16 @@ class TwoAxesChart:
                     xmin, xmax, ymin, ymax = self.original_view_dim
                     self.original_view_dim = None
                 else:
-                    xmin, xmax = self.ax.xaxis.get_view_interval()
-                    ymin, ymax = self.ax.yaxis.get_view_interval()
+                    xmin, xmax = self.xaxis.get_view_interval()
+                    ymin, ymax = self.yaxis.get_view_interval()
             else:
                 xmin, xmax, ymin, ymax = self._zoom_out(self.zoom_stack)
 
         if (xmin is not None and xmax is not None and 
                 ymin is not None and ymax is not None):
-            self.ax.set_xlim(xmin, xmax)
-            self.ax.set_ylim(ymin, ymax)
-            self.redraw()
+            self.set_xlim(xmin, xmax)
+            self.set_ylim(ymin, ymax)
+            self.figure.canvas.draw_idle()
     # <-- methods for zooming chart
 
     # --> methods for mooving graph
@@ -251,8 +266,8 @@ class TwoAxesChart:
             if len(self.zoom_stack) > 0 and self.original_view_dim is None:
                 self.original_view_dim = self.zoom_stack[0]
             elif self.original_view_dim is None:
-                xmin, xmax = self.ax.xaxis.get_view_interval()
-                ymin, ymax = self.ax.yaxis.get_view_interval()
+                xmin, xmax = self.xaxis.get_view_interval()
+                ymin, ymax = self.yaxis.get_view_interval()
                 self.original_view_dim = (xmin, xmax, ymin, ymax)
 
     def _move_end(self, event):
@@ -269,40 +284,38 @@ class TwoAxesChart:
             diffx = xpress - x 
             diffy = ypress - y
             # coordinates in display (pixels) view
-            trans = self.ax.transAxes
             # TODO: timto ziskanim ohraniceni je mozne, ze vznikne
             # problem pri zmenseni plochy platna, napr. dva
             # grafy vedle sebe => OVERIT! K realnym hodnotam by se snad dalo
             # dostat pres nejakou metodu v Axes.
-            xmin, ymin = trans.transform((0,0))
-            xmax, ymax = trans.transform((1,1))
+            xmin, ymin = self.transAxes.transform((0,0))
+            xmax, ymax = self.transAxes.transform((1,1))
             shift_xmin, shift_xmax = xmin + diffx, xmax + diffx
             shift_ymin, shift_ymax = ymin + diffy, ymax + diffy
             # coordinates in data view
-            inv = self.ax.transData.inverted()
+            inv = self.transData.inverted()
             data_xmin, data_ymin = inv.transform((shift_xmin, shift_ymin))
             data_xmax, data_ymax = inv.transform((shift_xmax, shift_ymax))
             # set new view dimension
-            self.ax.set_xlim(data_xmin, data_xmax)
-            self.ax.set_ylim(data_ymin, data_ymax)
+            self.set_xlim(data_xmin, data_xmax)
+            self.set_ylim(data_ymin, data_ymax)
             self.xypress = (x, y) # shift for next step
-            self.redraw()
+            self.figure.canvas.draw_idle()
 
     # <-- methods for mooving graph
 
-    # --> methods for formatting x, y labels
-    def set_xlabel_formatter(self, xlabel_formatter):
-        self.ax.xaxis.set_major_formatter(
-                self._create_label_formatter(xlabel_formatter))
-
-    def set_ylabel_formatter(self, ylabel_formatter):
-        self.ax.yaxis.set_major_formatter(
-                self._create_label_formatter(ylabel_formatter))
-
-    def _create_label_formatter(self, label_formatter):
-        return matplotlib.ticker.FuncFormatter(
-                lambda v, pos: label_formatter(v))
-    # <-- methods for formating x, y labels
+#    def set_xlabel_formatter(self, xlabel_formatter):
+#        self.ax.xaxis.set_major_formatter(
+#                self._create_label_formatter(xlabel_formatter))
+#
+#    def set_ylabel_formatter(self, ylabel_formatter):
+#        self.ax.yaxis.set_major_formatter(
+#                self._create_label_formatter(ylabel_formatter))
+#
+#    def _create_label_formatter(self, label_formatter):
+#        return matplotlib.ticker.FuncFormatter(
+#                lambda v, pos: label_formatter(v))
+#    # <-- methods for formating x, y labels
 
 class Data2DChart:
     """ Data structure for a 2D charts. """

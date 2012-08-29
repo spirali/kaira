@@ -23,6 +23,7 @@ import mainwindow
 from canvas import NetCanvas
 import chart
 import newcharts
+from matplotlib.ticker import FuncFormatter
 
 class RunView(gtk.VBox):
 
@@ -163,17 +164,19 @@ class RunView(gtk.VBox):
 
         data = newcharts.Data2DChart((names, values))
         chart_widget = newcharts.ChartWidget()
-        chart = newcharts.TwoAxesChart(
-                chart_widget.get_current_axes(), 
-                data, 
-                min_value=0, 
-                xlabel="Time", ylabel="Count", 
-                title="Count of tokens in places")
-        chart.set_xlabel_formatter(lambda time: time_to_string(time)[:-7])
-        chart.draw()
+#        chart = newcharts.TwoAxesChart(
+#                chart_widget.get_current_axes(), 
+#                data, 
+#                min_value=0, 
+#                xlabel="Time", ylabel="Count", 
+#                title="Count of tokens in places")
+        chart = chart_widget.get_current_axes()
+        chart.vytvor_graf(data)
+        # nastavovaci funkce musi byt az po vykresleni
+        chart.xaxis.set_major_formatter(FuncFormatter(
+            lambda time, pos: time_to_string(time)[:-7]))
+        chart.set_xlim(xmin = 0)
 
-#        chart_widget.get_figure().canvas.mpl_connect("scroll_event", lambda e: chart._zoom(e))
-        chart_widget.get_figure().tight_layout()
         return chart_widget
 
 #        return vbox
