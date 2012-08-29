@@ -749,6 +749,10 @@ class Edge(NetItem):
         sp, ep = self.get_end_points()
         return [sp] + self.points + [ep]
 
+    def set_all_points(self, points):
+        self.points = points[1:-1]
+        self.changed()
+
     def is_at_position(self, position):
         if self.inscription_position and \
            utils.position_inside_rect(position,
@@ -834,6 +838,10 @@ class RectItem(NetItem):
 
     def get_size(self):
         return self.size
+
+    def set_size(self, size):
+        self.size = size
+        self.changed()
 
     def resize_rbottom(self, original_pos, original_size, rel_change):
         self.size = utils.vector_add(original_size, rel_change)

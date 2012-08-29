@@ -2,6 +2,8 @@
 #    Copyright (C) 2010 Stanislav Bohm
 #                  2011 Ondrej Garncarz
 #                  2012 Martin Surkovsky
+#                  2012 Martin Kozubek
+#                  2012 Lukas Tomaszek
 #
 #    This file is part of Kaira.
 #
@@ -19,6 +21,8 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+from net import Place, Transition, Edge, InterfaceBox, NetArea
+from undoredo import *
 import utils
 import gtkutils
 
@@ -115,6 +119,7 @@ class NetTool:
     #  @param position Position in net.
     def right_button_down(self, event, position):
         def delete_event(w):
+            self.netview.undoredo.add_to_list(RemoveAction(self.net,self.selected_item))
             self.selected_item.delete()
             self.deselect_item()
 
@@ -214,6 +219,13 @@ class NetTool:
     def left_button_down(self, event, position):
         item = self.item_at_position(position)
         if item:
+            if isinstance(item, Edge):
+                self.points_of_edge = item.get_all_points()
+                self.position_of_text = item.get_inscription_position()
+            elif isinstance(item, NetArea):
+                self.size_of_netArea = item.get_size()
+                self.position_of_netArea = item.get_position()
+                self.item_netArea = item
             self.select_item(item)
             self.action = item.get_action(position, self)
             if self.action:
@@ -221,13 +233,30 @@ class NetTool:
             else:
                 self.set_cursor(None)
             return True
-        return False
+        return False   
 
     ## @brief The event handler for the mouse left button released.
     #
     #  Deactivates the running action.
     #  @param event Gtk event.
-    def left_button_up(self, event, position):
+    def left_button_up(self, event, position):  
+        item = self.item_at_position(position) 
+        if item:
+            if isinstance(self.action, ToolActionCustomMove):
+                if isinstance(item, NetArea):
+                    self.netview.undoredo.add_to_list(ResizeArea(self.item_netArea, self.size_of_netArea, self.position_of_netArea, self.item_netArea.get_size(), self.item_netArea.get_position()))
+            elif isinstance(item, Edge):
+                if item.get_all_points() == self.points_of_edge:
+                    if item.get_inscription_position() != self.position_of_text:
+                        self.netview.undoredo.add_to_list(MoveActionTextEdge(item, self.position_of_text, item.get_inscription_position()))
+                else:
+                    self.netview.undoredo.add_to_list(MoveActionEdge(item, self.points_of_edge, item.get_all_points()))
+            else:
+                if self.action.cursor == "move":
+                    if self.action.original_position != item.get_position():
+                        self.netview.undoredo.add_to_list(MoveAction(item, self.action.original_position, item.get_position()))
+                elif self.action.cursor == "resize_rbottom":
+                    self.netview.undoredo.add_to_list(ResizeAction(item, self.action.original_position, utils.vector_diff(position, item.get_position())))
         self.action = None
 
     ## @brief The event handler for the mouse being moved.
@@ -292,14 +321,16 @@ class NetItemTool(NetTool):
 
     def left_button_down(self, event, position):
         if not NetTool.left_button_down(self, event, position):
-            self.select_item(self.create_new(position))
+            item = self.create_new(position)
+            self.select_item(item)
             self.action = self.selected_item.get_action(position, self)
             self.action.set_cursor()
+            self.netview.undoredo.add_to_list(AddAction(self.net, item))
 
 class PlaceTool(NetItemTool):
 
     def create_new(self, position):
-        return self.net.add_place(position)
+        return self.net.add_place(position) 
 
 class TransitionTool(NetItemTool):
 
@@ -331,6 +362,7 @@ class EdgeTool(NetTool):
                 if item:
                     edge = self.net.add_edge(self.from_item, item, self.points)
                     self.select_item(edge)
+                    self.netview.undoredo.add_to_list(AddAction(self.net, edge))
                     self.from_item = None
                 else:
                     self.points.append(position)
@@ -388,6 +420,7 @@ class AreaTool(NetTool):
             if s[0] > 5 and s[1] > 5:
                 area = self.net.add_area(p,s)
                 self.select_item(area)
+                self.netview.undoredo.add_to_list(AddAction(self.net, area))
             else:
                 self.netview.redraw()
             self.point1 = None

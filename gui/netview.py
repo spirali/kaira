@@ -1,5 +1,7 @@
 #
 #    Copyright (C) 2010 Stanislav Bohm
+#                  2012 Martin Kozubek
+#                  2012 Lukas Tomaszek
 #
 #    This file is part of Kaira.
 #
@@ -25,6 +27,7 @@ from canvas import NetCanvas
 from drawing import VisualConfig
 from objectlist import ObjectTree
 from net import Net
+from undoredo import *
 import cairo
 import gtkutils
 import glib
@@ -104,6 +107,9 @@ class NetView(gtk.VBox):
         self.project = project
         self.app = app
         self.tool = None
+        self.last_active_entry_text = None
+        self.last_active_entry_get = None
+        self.last_active_entry_set = None
         self.entry_types = []
         self.set_size_request(500,400)
 
@@ -122,6 +128,11 @@ class NetView(gtk.VBox):
         paned.show_all()
 
         self.netlist.hide()
+        self.undoredolist = dict()
+        net = self.get_net()
+        if isinstance(net, Net):
+            self.undoredolist[net.id] = UndoRedo(self.button_undo, self.button_redo)
+            self.undoredo = self.undoredolist[net.id]        
 
         self.transition_edit_callback = None
         self.place_edit_callback = None
@@ -150,6 +161,13 @@ class NetView(gtk.VBox):
     def switch_to_net(self, net, select_in_netlist = True):
         if select_in_netlist:
             self.netlist.select_object(net)
+
+        if isinstance(net, Net):
+            if not self.undoredolist.has_key(net.id):
+                self.undoredolist[net.id] = UndoRedo(self.button_undo, self.button_redo)
+            self.undoredo = self.undoredolist[net.id]
+            self.undoredo.set_buttons()
+
         self.tool.set_net(net)
         self.canvas.set_net(net)
 
@@ -218,7 +236,18 @@ class NetView(gtk.VBox):
         button1.connect("toggled", lambda w: self.set_show_tracing(w.get_active()))
         button1.set_icon_widget(icon_trace)
         toolbar.add(button1)
+        toolbar.add(gtk.SeparatorToolItem())
 
+        self.button_undo = gtk.ToolButton()
+        self.button_undo.connect("clicked", lambda w: self.undoredo.undo())
+        self.button_undo.set_stock_id(gtk.STOCK_UNDO)
+
+        self.button_redo = gtk.ToolButton()
+        self.button_redo.connect("clicked", lambda w: self.undoredo.redo())
+        self.button_redo.set_stock_id(gtk.STOCK_REDO)     
+
+        toolbar.add(self.button_undo)
+        toolbar.add(self.button_redo)
         toolbar.add(gtk.SeparatorToolItem())
 
         button1 = gtk.RadioToolButton(None,None)
@@ -351,7 +380,16 @@ class NetView(gtk.VBox):
 
     def _entry_switch_changed(self, w):
         if self.entry_types and self.entry_switch.get_active_text():
+            if self.last_active_entry_get:
+                if self.last_active_entry_get() != self.last_active_entry_text:
+                    undo_action = RenameAction(self.last_active_entry_text,
+                                               self.last_active_entry_get,
+                                               self.last_active_entry_set)
+                    self.undoredo.add_to_list(undo_action)  
             name, get, set = self.active_entry_type()
+            self.last_active_entry_get = get
+            self.last_active_entry_set = set
+            self.last_active_entry_text = get()
             self.entry.set_text(get())
             self.entry.select_region(0, -1)
 
