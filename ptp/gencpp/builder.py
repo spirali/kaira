@@ -355,6 +355,46 @@ class Builder(CppWriter):
         for ufunction in self.project.get_user_functions():
             self.write_user_function(ufunction)
 
+    def write_trace_user_function(self, ufunction, type):
+        declaration = "void trace_{0}(CaTraceLog *tracelog, const {1} &value)".format(
+                                                        ufunction.get_name(), type)
+        returntype = self.emit_type(ufunction.get_returntype())
+        code = "\t" + returntype + " result = ufunction_" + ufunction.get_name()
+        n = len(ufunction.get_parameters())
+        if n == 1:
+            code += "(value);\n"
+        else:
+            code += "(" + ", ".join(["value.t{0}".format(i) for i in xrange(n)]) + ");\n"
+        code += "\ttracelog->trace_{0}(result);\n".format(ufunction.get_returntype().name.lower())
+        self.write_function(declaration, code)
+
+    def write_trace_value(self, type):
+        declaration = "void trace_value(CaTraceLog *tracelog, const {0} &value)".format(
+                                                                            self.emit_type(type))
+        code = "\tstd::string result = {0}(value);\n".format(
+                get_to_string_function_name(self.project, type)) +\
+                "\ttracelog->trace_string(result);\n"
+        self.write_function(declaration, code)
+
+    def write_trace_user_functions(self):
+        traces = []
+        value_traces = []
+        for net in self.project.nets:
+            for place in net.places:
+                for fn_name in place.tracing:
+                    if fn_name == "value":
+                        if not place.type in value_traces:
+                            value_traces.append(place.type)
+                        continue
+                    if not (fn_name, place.type) in traces:
+                        traces.append((fn_name, place.type))
+
+        for type in value_traces:
+            self.write_trace_value(type)
+        for fn_name, type in traces:
+            fn = self.project.get_user_function(fn_name)
+            self.write_trace_user_function(fn, self.emit_type(type))
+
     def get_pack_code(self, t, packer, code):
         if t == t_int:
             return "{0}.pack_int({1})".format(packer, code)
@@ -493,7 +533,7 @@ class Builder(CppWriter):
 
         w = Builder(self.project)
         matches, _, _ = get_edges_mathing(self.project, tr)
-        if tr.tracing != "off" or tr.is_any_place_traced():
+        if tr.tracing or tr.is_any_place_traced():
             w.line("CaTraceLog *tracelog = thread->get_tracelog();")
             w.if_begin("tracelog")
             w.line("tracelog->event_transition_fired({0.id});", tr)
@@ -528,7 +568,7 @@ class Builder(CppWriter):
         em.variable_emitter = lambda name: vars_code[name]
 
         for edge, _ in matches:
-            if edge.get_place().tracing != "off":
+            if edge.get_place().tracing:
                 w.if_begin("tracelog")
                 w.line("n->place_{1.id}.remove(token_{0.uid}, tracelog, {1.id});",
                     edge, edge.get_place())
@@ -554,7 +594,7 @@ class Builder(CppWriter):
             w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
 
             w.line("bool lock = false;")
-            if tr.tracing != "off" or tr.is_any_place_traced():
+            if tr.tracing or tr.is_any_place_traced():
                 w.if_begin("tracelog")
                 w.line("tracelog->event_transition_finished();")
                 w.block_end()
@@ -688,6 +728,7 @@ class Builder(CppWriter):
         self.write_parameters()
         self.write_types()
         self.write_user_functions()
+        self.write_trace_user_functions()
         for net in self.project.nets:
             self.build_net_class(net)
         for net in self.project.nets:
@@ -948,15 +989,18 @@ class Builder(CppWriter):
         self.block_end()
 
     def write_place_add(self, method, place, place_code, value_code, token=False):
-        if place.tracing != "off":
+        if place.tracing:
             value = value_code
             if token:
                 value += "->value"
 
             self.if_begin("thread->get_tracelog()")
-            self.line("{0}{1}({2}, thread->get_tracelog(), {3.id}, {4});",
+            self.line("void (*fncs[{0}])(CaTraceLog *, const {1} &);", len(place.tracing), self.emit_type(place.type))
+            for i, trace in enumerate(place.tracing):
+                self.line("fncs[{0}] = trace_{1};", i, trace)
+            self.line("{0}{1}({2}, thread->get_tracelog(), {3.id}, {4}, fncs);",
                       place_code, method, value, place,
-                      get_to_string_function_name(self.project, place.type))
+                      len(place.tracing))
             self.line("}} else {{")
             self.line("{0}{1}({2});", place_code, method, value_code)
             self.block_end()

@@ -86,21 +86,37 @@ void CaTraceLog::event_receive()
 	write_time();
 }
 
-void CaTraceLog::trace_token(int place_id, void *pointer, const std::string &value)
-{
-	check_size(1 + sizeof(uint32_t) + sizeof(void*) + 1 + value.size());
-	write_char('t');
-	write_int32(place_id);
-	write_pointer(pointer);
-	write_string(value);
-}
-
-void CaTraceLog::trace_token(int place_id, void *pointer)
+void CaTraceLog::trace_token(int place_id, void *pointer, bool new_token)
 {
 	check_size(1 + sizeof(uint32_t) + sizeof(void*));
-	write_char('s');
+	if(new_token) {
+		write_char('t');
+	} else {
+		write_char('r');
+	}
 	write_int32(place_id);
 	write_pointer(pointer);
+}
+
+void CaTraceLog::trace_int(const int value)
+{
+	check_size(1 + sizeof(uint32_t) );
+	write_char('i');
+	write_int32(value);
+}
+
+void CaTraceLog::trace_double(const double value)
+{
+	check_size(1 + sizeof(double) );
+	write_char('d');
+	write_double(value);
+}
+
+void CaTraceLog::trace_string(const std::string &str)
+{
+	check_size(1 + str.size() + 1);
+	write_char('s');
+	write_string(str);
 }
 
 void CaTraceLog::overflow()

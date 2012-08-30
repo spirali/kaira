@@ -142,13 +142,13 @@ class EdgeOut(EdgeBase):
 class Place(utils.EqByIdMixin):
 
     code = None
-    tracing = "off" # values: "off", "basic", "full"
 
     def __init__(self, net, id, type, init_expression):
         self.net = net
         self.id = id
         self.type = type
         self.init_expression = init_expression
+        self.tracing = []
 
     def inject_types(self):
         if self.init_expression is not None:
@@ -191,7 +191,6 @@ class Place(utils.EqByIdMixin):
 class Transition(utils.EqByIdMixin):
 
     code = None
-    tracing = "off" # values: "off", "basic", "full"
 
     # After analysis it is dictionary variable_name -> EdgeIn
     # It returns edge (= token) where variable should be gather
@@ -203,6 +202,7 @@ class Transition(utils.EqByIdMixin):
         self.guard = guard
         self.edges_in = []
         self.edges_out = []
+        self.tracing = []
 
     def get_normal_edges_out(self):
         return [ edge for edge in self.edges_out if edge.is_normal() ]
@@ -235,7 +235,7 @@ class Transition(utils.EqByIdMixin):
         return self.get_input_places() & self.get_output_places()
 
     def is_any_place_traced(self):
-        return any(place.tracing != "off" for place in self.get_places())
+        return any(place.tracing for place in self.get_places())
 
     def get_equations(self):
         result = []

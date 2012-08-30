@@ -161,6 +161,9 @@ class Trace:
     struct_token_4 = struct.Struct("<iL")
     struct_token_8 = struct.Struct("<iQ")
 
+    struct_int = struct.Struct("<i")
+    struct_double = struct.Struct("<d")
+
     def __init__(self, data, process_id, thread_id, pointer_size):
         self.data = data
         self.pointer = 0
@@ -206,20 +209,38 @@ class Trace:
         return self.pointer >= len(self.data)
 
     def process_tokens_add(self, runinstance):
+        place_id = None
+        token_pointer = None
+        values = []
         while not self.is_pointer_at_end():
             t = self.data[self.pointer]
             if t == "t":
+                if place_id is not None:
+                    runinstance.add_token(place_id, token_pointer, values)
+                values = []
                 self.pointer += 1
                 place_id, token_pointer = self._read_struct_token()
-                token_value = self._read_cstring()
-                runinstance.add_token(place_id, token_pointer, token_value)
+            elif t == "i":
+                self.pointer += 1
+                value = self._read_struct_int()
+                values.append(value)
+            elif t == "d":
+                self.pointer += 1
+                value = self._read_struct_double()
+                values.append(value)
+            elif t == "s":
+                self.pointer += 1
+                value = self._read_cstring()
+                values.append(value)
             else:
+                if place_id is not None and token_pointer is not None:
+                    runinstance.add_token(place_id, token_pointer, values)
                 break
 
     def process_tokens_remove(self, runinstance):
         while not self.is_pointer_at_end():
             t = self.data[self.pointer]
-            if t == "s":
+            if t == "r":
                 self.pointer += 1
                 place_id, token_pointer = self._read_struct_token()
                 runinstance.remove_token(place_id, token_pointer)
@@ -286,6 +307,16 @@ class Trace:
         values = self.struct_token.unpack_from(self.data, self.pointer)
         self.pointer += self.struct_token.size
         return values
+
+    def _read_struct_int(self):
+        value = self.struct_int.unpack_from(self.data, self.pointer)
+        self.pointer += self.struct_int.size
+        return value[0]
+
+    def _read_struct_double(self):
+        value = self.struct_double.unpack_from(self.data, self.pointer)
+        self.pointer += self.struct_double.size
+        return value[0]
 
     def _read_cstring(self):
         start = self.pointer

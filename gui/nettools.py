@@ -21,6 +21,7 @@
 
 import utils
 import gtkutils
+import gtk
 
 ## @brief The base class for editing operations over network
 #
@@ -118,35 +119,55 @@ class NetTool:
             self.selected_item.delete()
             self.deselect_item()
 
-        def set_tracing(obj, value):
-            obj.tracing = value
+        def set_tracing(obj, value, check):
+            if check:
+                if value == "value":
+                    obj.tracing.insert(0, value)
+                else:
+                    obj.tracing.append(value)
+            else:
+                obj.tracing.remove(value)
             self.netview.redraw()
+
+        def callback(selected_item, value, check):
+            return lambda w: set_tracing(selected_item, value, check)
 
         if self.selected_item in self.net.pick_items(position):
             menu_actions = None
 
             # Transition
             if self.selected_item.is_transition():
+                trace = []
+                if "fire" not in self.selected_item.tracing:
+                    trace = [("fire", (False, callback(self.selected_item, "fire", True)))]
+                else:
+                    trace = [("fire", (True, callback(self.selected_item, "fire", False)))]
                 menu_actions = [
                     ("Delete", delete_event),
                     ("Edit code",
                         lambda w: self.netview.transition_edit_callback(self.selected_item)),
-                    ("Tracing", [
-                        ("off", lambda w: set_tracing(self.selected_item, False)),
-                        ("on", lambda w: set_tracing(self.selected_item, True)),
-                    ])
+                    ("Tracing", trace)
                 ]
 
             # Place
             if self.selected_item.is_place():
+                trace = []
+                if "value" not in self.selected_item.tracing:
+                    trace = [("value", (False, callback(self.selected_item, "value", True)))]
+                else:
+                    trace = [("value", (True, callback(self.selected_item, "value", False)))]
+                trace_fn = []
+                for fn in self.net.project.functions:
+                    name = fn.get_name()
+                    check = name in self.selected_item.tracing
+                    trace_fn.append((name, (check, callback(self.selected_item, name, not check))))
+                trace.append(("add trace function", trace_fn))
+
                 menu_actions = [
                     ("Delete", delete_event),
                     ("Edit init code",
                     lambda w: self.netview.place_edit_callback(self.selected_item)),
-                    ("Tracing", [
-                        ("off", lambda w: set_tracing(self.selected_item, False)),
-                        ("on", lambda w: set_tracing(self.selected_item, True)),
-                    ])
+                    ("Tracing", trace)
                 ]
 
             # Edge
