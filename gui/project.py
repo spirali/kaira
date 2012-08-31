@@ -71,6 +71,9 @@ class Project(EventSource):
         self.generator = ptp.get_generator_from_xml(self.export_xml(build_config))
         return self.generator
 
+    def get_suitable_functions_for_place_tracing(self, place):
+        return self.get_generator().get_suitable_functions_for_place_tracing(place.id)
+
     def get_build_config(self, name):
         build_config = BuildConfig()
         build_config.directory = os.path.join(self.get_directory(), name)

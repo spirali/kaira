@@ -60,6 +60,10 @@ class CppGenerator:
         decls = emit_declarations(em, ufunction.get_parameters())
         return "{0} {1}({2}{3})\n{{\n".format(t, ufunction_name, ctx, decls)
 
+    def get_suitable_functions_for_place_tracing(self, place_id):
+        place = self.project.get_place(place_id)
+        return [ function.name for function in place.get_functions_for_tracing() ]
+
 
 class CppProgramGenerator(CppGenerator):
 

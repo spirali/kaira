@@ -19,7 +19,8 @@
 
 import utils as utils
 from base.expressions import ExprVar
-from base.neltypes import t_bool, derive_context, t_array, t_int
+from base.neltypes import derive_context
+from base.neltypes import t_bool, t_array, t_int, t_double, t_string
 import analysis
 
 class EdgeBase(utils.EqMixin):
@@ -187,6 +188,13 @@ class Place(utils.EqByIdMixin):
 
     def get_areas(self):
         return self.net.get_areas_with_place(self)
+
+    def get_functions_for_tracing(self, project):
+        p = [ self.type ]
+        return (project.get_user_functions_by_declaration(t_int, p) +
+               project.get_user_functions_by_declaration(t_double, p) +
+               project.get_user_functions_by_declaration(t_string, p))
+
 
 class Transition(utils.EqByIdMixin):
 
