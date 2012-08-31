@@ -164,19 +164,23 @@ class RunView(gtk.VBox):
 
         data = newcharts.Data2DChart((names, values))
         chart_widget = newcharts.ChartWidget()
-#        chart = newcharts.TwoAxesChart(
-#                chart_widget.get_current_axes(), 
-#                data, 
-#                min_value=0, 
-#                xlabel="Time", ylabel="Count", 
-#                title="Count of tokens in places")
         chart = chart_widget.get_current_axes()
-        chart.vytvor_graf(data)
+#        chart.vytvor_graf(data)
+        for ldata in data:
+            chart.plot(ldata.get_xvalues(), ldata.get_yvalues(),
+                    'o-', drawstyle='steps-post')
         # nastavovaci funkce musi byt az po vykresleni
         chart.xaxis.set_major_formatter(FuncFormatter(
             lambda time, pos: time_to_string(time)[:-7]))
         chart.set_xlim(xmin = 0)
+        chart.get_figure().tight_layout()
 
+        def press(event):
+            print "Press: ", event.key
+        chart_widget.get_figure().canvas.mpl_connect('key_press_event', press)
+        def scroll(event):
+            print "Scroll: ", event.button
+        chart_widget.get_figure().canvas.mpl_connect('scroll_event', scroll)
         return chart_widget
 
 #        return vbox

@@ -20,9 +20,10 @@
 import gtk
 import numpy as np
 import matplotlib
-import matplotlib.pyplot as plt
 from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
                                                as FigureCanvas
+from matplotlib.projections import register_projection
+#import matplotlib.pyplot as plt
 
 class ChartWidget(gtk.VBox):
 
@@ -30,37 +31,33 @@ class ChartWidget(gtk.VBox):
         gtk.VBox.__init__(self)
         self.axes = []
         self.current_axes_id = 1
+        # registr new type of axes
+#        register_projection(TwoAxisChart)
 
         toolbar = self._chart_toolbar()
         self.pack_start(toolbar, False, False)
 
-#        self.fig = plt.Figure()
         self.fig = matplotlib.figure.Figure()
-#        self.fig.subplots_adjust(bottom=0.14)
-
-#        sw = gtk.ScrolledWindow()
-#        sw.set_shadow_type(gtk.SHADOW_ETCHED_IN)
-#        sw.set_policy(gtk.POLICY_ALWAYS, gtk.POLICY_ALWAYS)
-#        self.pack_start(sw, True, True, 0)
-
         canvas = FigureCanvas(self.fig)
-        self.pack_start(canvas, True, True)
-#        sw.add_with_viewport(canvas)
+#        # set size of canvas
+        w, h = self.fig.get_figwidth(), self.fig.get_figheight()
+        dpi = self.fig.get_dpi()
+        canvas.set_size_request(int(w * dpi), int(h * dpi))
+
+        sc = gtk.ScrolledWindow()
+#        sc.set_shadow_type(gtk.SHADOW_ETCHED_IN)
+        sc.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        sc.add_with_viewport(canvas)
+#        self.pack_start(canvas, True, True)
+
+        self.pack_start(sc, True, True, 0)
 
     def get_current_axes(self):
         if self.current_axes_id >= len(self.axes):
-
-#            ax = self.fig.add_subplot(self.current_axes_id, 1,
-#                    self.current_axes_id)
-            ax = TwoAxisChart(self.fig, (.1, .1, .8, .8))
-            self.fig._axstack.add(TwoAxisChart, ax) #dulezity radek!
-#            self.fig.sca(ax)
-            self.fig.add_axes(ax)
+#            ax = self.fig.add_subplot(111, projection="twoaxeschart")
+            ax = self.fig.add_subplot(111)
             self.axes.append(ax)
-#            self.fig.add_axes(ax)
-
             return ax
-
         elif self.current_axes_id >= 0:
             return self.axes[self.current_axes_id]
         else:
@@ -101,15 +98,21 @@ class ChartWidget(gtk.VBox):
 
         return toolbar
 
-    def _restore_view_action(self, ax): #TODO zrusit vnitrek
-        xmin, xmax = ax.xaxis.get_data_interval()
-        ymin, ymax = ax.yaxis.get_data_interval()
-        ax.set_xlim(0, xmax) # TODO: spatne reseni, chce to jit uvnitr axes pres
-                             # pouzity zasobnik => TwoAxisChart nejspise bude 
-                             # muset rozsirit klasickou funkcionalitu Axes, 
-                             # tzn. TwoAxisChart(matplotlib.axes.Axes)
-        ax.set_ylim(ymin, ymax)
-#        ax.figure.canvas.draw_idle()
+    def _restore_view_action(self, ax):
+        restore = False
+        if ax.original_view_dim is not None:
+            xmin, xmax, ymin, ymax = ax.original_view_dim
+            restore = True
+        elif len(ax.zoom_stack) > 0:
+            xmin, xmax, ymin, ymax = ax.zoom_stack[0]
+            restore = True
+
+        if restore:
+            ax.original_view_dim = None
+            ax.zoom_stack = []
+            ax.set_xlim(xmin, xmax)
+            ax.set_ylim(ymin, ymax)
+            ax.figure.canvas.draw_idle()
 
     def save_action(self, widget):
         dialog = gtk.FileChooserDialog("Save graph", 
@@ -142,8 +145,7 @@ class ChartWidget(gtk.VBox):
 
 class TwoAxisChart(matplotlib.axes.Axes):
 
-#    def __init__(self, axes, data, min_value=None, max_value=None, 
-#            title="", xlabel="", ylabel=""):
+    name = 'twoaxeschart'
 
     def __init__(self, fig, rec,
                  axisbg  = None, # defaults to rc axes.facecolor
@@ -166,30 +168,26 @@ class TwoAxisChart(matplotlib.axes.Axes):
         self.xypress = None
         self.original_view_dim = None
 
-
         # coonect standard features
-        #?? Proc nefunguje volani self._zoom a musim jit pres lambdu??
-        fig.canvas.mpl_connect(
-                "scroll_event", lambda e: self._zoom(e))
-        fig.canvas.mpl_connect(
-                "button_press_event", lambda e: self._move_start(e))
-        fig.canvas.mpl_connect(
-                "button_release_event", lambda e: self._move_end(e))
-        fig.canvas.mpl_connect(
-                "motion_notify_event", lambda e: self._moving(e))
+        fig.canvas.mpl_connect("scroll_event", self._zoom)
+        fig.canvas.mpl_connect("button_press_event", self._move_start)
+        fig.canvas.mpl_connect("button_release_event", self._move_end)
+        fig.canvas.mpl_connect("motion_notify_event", self._moving)
 
+        # ?? PROC TOTO NEFUNGUJE??
+        def press(event):
+            print "Press", event.key
+        fig.canvas.mpl_connect('key_press_event', press)
+
+#        fig.canvas.mpl_connect('key_release_event', press)
+
+    # TODO: vymyslet lepsi nekolidujici nazev
     def vytvor_graf(self, data):
         for ldata in data:
             self.plot(ldata.get_xvalues(), ldata.get_yvalues(),
                     'o-', drawstyle='steps-post')
 
-            # TODO: Toto by uz nemuselo byt treba, protoze se xlim bude
-            # nastavovat pres nadtridu, ktera by se s tim mohla rozumne poprat.
-#        # toto lepe umistit
-#        if self.min_value is not None: #Doresit: musi zde byt pro kazdou
-#                                       #souradnici min a max hodnota.
-#            self.set_xlim(xmin=self.min_value)
-            
+        # TODO: toto lepe umistit
         for label in self.xaxis.get_ticklabels():
             label.set_rotation(-35) #TODO: rotation do prommene
             label.set_horizontalalignment('left') #TODO: taktez do promene,
@@ -303,19 +301,6 @@ class TwoAxisChart(matplotlib.axes.Axes):
             self.figure.canvas.draw_idle()
 
     # <-- methods for mooving graph
-
-#    def set_xlabel_formatter(self, xlabel_formatter):
-#        self.ax.xaxis.set_major_formatter(
-#                self._create_label_formatter(xlabel_formatter))
-#
-#    def set_ylabel_formatter(self, ylabel_formatter):
-#        self.ax.yaxis.set_major_formatter(
-#                self._create_label_formatter(ylabel_formatter))
-#
-#    def _create_label_formatter(self, label_formatter):
-#        return matplotlib.ticker.FuncFormatter(
-#                lambda v, pos: label_formatter(v))
-#    # <-- methods for formating x, y labels
 
 class Data2DChart:
     """ Data structure for a 2D charts. """
