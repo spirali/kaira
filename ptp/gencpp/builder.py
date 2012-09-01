@@ -392,7 +392,7 @@ class Builder(CppWriter):
         for type in value_traces:
             self.write_trace_value(type)
         for fn_name, type in traces:
-            fn = self.project.get_user_function(fn_name)
+            fn = self.project.get_user_function(fn_name.replace("fn: ", ""))
             self.write_trace_user_function(fn, self.emit_type(type))
 
     def get_pack_code(self, t, packer, code):
@@ -997,7 +997,7 @@ class Builder(CppWriter):
             self.if_begin("thread->get_tracelog()")
             self.line("void (*fncs[{0}])(CaTraceLog *, const {1} &);", len(place.tracing), self.emit_type(place.type))
             for i, trace in enumerate(place.tracing):
-                self.line("fncs[{0}] = trace_{1};", i, trace)
+                self.line("fncs[{0}] = trace_{1};", i, trace.replace("fn: ", ""))
             self.line("{0}{1}({2}, thread->get_tracelog(), {3.id}, {4}, fncs);",
                       place_code, method, value, place,
                       len(place.tracing))

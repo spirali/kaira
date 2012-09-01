@@ -16,12 +16,16 @@ template<class T> class CaToken {
 			prev->next = next;
 		}
 
-		void trace(CaTraceLog *tracelog, int place_id, bool new_token) {
-			tracelog->trace_token(place_id, this, new_token);
+		void trace_add_token(CaTraceLog *tracelog, int place_id) {
+			tracelog->trace_token_add(place_id, this);
+		}
+
+		void trace_remove_token(CaTraceLog *tracelog, int place_id) {
+					tracelog->trace_token_remove(place_id, this);
 		}
 
 		void trace(CaTraceLog *tracelog, int place_id, int n, void (*fncs[])(CaTraceLog *, const T&)) {
-			tracelog->trace_token(place_id, this, true);
+			tracelog->trace_token_add(place_id, this);
 			for (int i = 0; i < n; i++) {
 				fncs[i](tracelog, value);
 			}
@@ -61,7 +65,7 @@ template<class T> class CaPlace {
 		void add(const T &value, CaTraceLog *tracelog, int place_id)
 		{
 			CaToken<T> *t = new CaToken<T>(value);
-			t->trace(tracelog, place_id, true);
+			t->trace_add_token(tracelog, place_id);
 			add(t);
 		}
 
@@ -103,7 +107,7 @@ template<class T> class CaPlace {
 
 		void remove(CaToken<T> *t, CaTraceLog *tracelog, int place_id)
 		{
-			t->trace(tracelog, place_id, false);
+			t->trace_remove_token(tracelog, place_id);
 			remove(t);
 		}
 

@@ -86,14 +86,18 @@ void CaTraceLog::event_receive()
 	write_time();
 }
 
-void CaTraceLog::trace_token(int place_id, void *pointer, bool new_token)
+void CaTraceLog::trace_token_add(int place_id, void *pointer)
 {
 	check_size(1 + sizeof(uint32_t) + sizeof(void*));
-	if(new_token) {
-		write_char('t');
-	} else {
-		write_char('r');
-	}
+	write_char('t');
+	write_int32(place_id);
+	write_pointer(pointer);
+}
+
+void CaTraceLog::trace_token_remove(int place_id, void *pointer)
+{
+	check_size(1 + sizeof(uint32_t) + sizeof(void*));
+	write_char('r');
 	write_int32(place_id);
 	write_pointer(pointer);
 }

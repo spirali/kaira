@@ -157,11 +157,10 @@ class NetTool:
                 else:
                     trace = [("value", (True, callback(self.selected_item, "value", False)))]
                 trace_fn = []
-                for fn in self.net.project.functions:
-                    name = fn.get_name()
-                    check = name in self.selected_item.tracing
-                    trace_fn.append((name, (check, callback(self.selected_item, name, not check))))
-                trace.append(("add trace function", trace_fn))
+                for fn in self.net.project.get_suitable_functions_for_place_tracing(self.selected_item):
+                    check = "fn: " + fn in self.selected_item.tracing
+                    trace_fn.append((fn, (check, callback(self.selected_item, "fn: " + fn, not check))))
+                trace.append(("add function", trace_fn))
 
                 menu_actions = [
                     ("Delete", delete_event),

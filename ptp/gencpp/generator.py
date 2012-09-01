@@ -62,7 +62,7 @@ class CppGenerator:
 
     def get_suitable_functions_for_place_tracing(self, place_id):
         place = self.project.get_place(place_id)
-        return [ function.name for function in place.get_functions_for_tracing() ]
+        return [ function.name for function in place.get_functions_for_tracing(self.project) ]
 
 
 class CppProgramGenerator(CppGenerator):
