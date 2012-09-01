@@ -22,7 +22,7 @@ import gtkutils
 import mainwindow
 from canvas import NetCanvas
 import chart
-import newcharts
+from newcharts import ChartWidget, Data2DChart
 from matplotlib.ticker import FuncFormatter
 
 class RunView(gtk.VBox):
@@ -95,6 +95,9 @@ class RunView(gtk.VBox):
         for name, item in self.views:
             if name == text:
                 item.show_all()
+                if isinstance(item, ChartWidget):
+                    # set focus on graph canvas
+                    item.get_figure().canvas.grab_focus()
             else:
                 item.hide()
 
@@ -149,43 +152,18 @@ class RunView(gtk.VBox):
         values = self.tracelog.statistics["tokens_values"]
         names = self.tracelog.statistics["tokens_names"]
 
-#        vbox = gtk.HBox()
-#        placelist = gtkutils.SimpleList((("Place|foreground", str),("_", str)))
-#        colors = chart.color_names
-#        for i, name in enumerate(names):
-#            placelist.append((name,colors[i % len(colors)]))
-#        vbox.pack_start(placelist, False, False)
-#        maxtime = self.tracelog.get_max_time()
-#        c = chart.TimeChart(values, min_time=0, max_time=maxtime, min_value=0)
-#        c.xlabel_format = lambda x: time_to_string(x)[:-7]
-#        w = chart.ChartWidget(c)
-#        vbox.pack_start(w, True, True)
+        data = Data2DChart((names, values))
+        chart_widget = ChartWidget()
+        chart_id = chart_widget.create_new_chart(ChartWidget.PLACE_CHART)
+        chart = chart_widget.get_chart(chart_id)
+        chart.fill_data(data)
 
-
-        data = newcharts.Data2DChart((names, values))
-        chart_widget = newcharts.ChartWidget()
-        chart = chart_widget.get_current_axes()
-#        chart.vytvor_graf(data)
-        for ldata in data:
-            chart.plot(ldata.get_xvalues(), ldata.get_yvalues(),
-                    'o-', drawstyle='steps-post')
         # nastavovaci funkce musi byt az po vykresleni
         chart.xaxis.set_major_formatter(FuncFormatter(
             lambda time, pos: time_to_string(time)[:-7]))
         chart.set_xlim(xmin = 0)
         chart.get_figure().tight_layout()
-
-        def press(event):
-            print "Press: ", event.key
-        chart_widget.get_figure().canvas.mpl_connect('key_press_event', press)
-        def scroll(event):
-            print "Scroll: ", event.button
-        chart_widget.get_figure().canvas.mpl_connect('scroll_event', scroll)
         return chart_widget
-
-#        return vbox
-        
-
 
 class NetInstanceView(gtk.HPaned):
 

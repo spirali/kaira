@@ -18,6 +18,8 @@
 #
 
 import gtk
+import os
+import paths
 import numpy as np
 import matplotlib
 from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
@@ -25,127 +27,9 @@ from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
 from matplotlib.projections import register_projection
 #import matplotlib.pyplot as plt
 
-class ChartWidget(gtk.VBox):
+class BasicChart(matplotlib.axes.Axes):
 
-    def __init__(self):
-        gtk.VBox.__init__(self)
-        self.axes = []
-        self.current_axes_id = 1
-        # registr new type of axes
-#        register_projection(TwoAxisChart)
-
-        toolbar = self._chart_toolbar()
-        self.pack_start(toolbar, False, False)
-
-        self.fig = matplotlib.figure.Figure()
-        canvas = FigureCanvas(self.fig)
-#        # set size of canvas
-        w, h = self.fig.get_figwidth(), self.fig.get_figheight()
-        dpi = self.fig.get_dpi()
-        canvas.set_size_request(int(w * dpi), int(h * dpi))
-
-        sc = gtk.ScrolledWindow()
-#        sc.set_shadow_type(gtk.SHADOW_ETCHED_IN)
-        sc.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        sc.add_with_viewport(canvas)
-#        self.pack_start(canvas, True, True)
-
-        self.pack_start(sc, True, True, 0)
-
-    def get_current_axes(self):
-        if self.current_axes_id >= len(self.axes):
-#            ax = self.fig.add_subplot(111, projection="twoaxeschart")
-            ax = self.fig.add_subplot(111)
-            self.axes.append(ax)
-            return ax
-        elif self.current_axes_id >= 0:
-            return self.axes[self.current_axes_id]
-        else:
-            print 'Error in \'get_current_axes\' method!'
-            return None
-
-    def add_new_axes(self):
-        self.current_axes_id += 1;
-
-    def get_figure(self):
-        return self.fig;
-
-    def _chart_toolbar(self):
-        toolbar = gtk.Toolbar()
-        toolbar.set_icon_size(gtk.ICON_SIZE_SMALL_TOOLBAR)
-        toolbar.set_tooltips(True)
-
-        btn_save = gtk.ToolButton()
-        btn_save.connect("clicked", self.save_action)
-        btn_save.set_stock_id(gtk.STOCK_SAVE)
-        btn_save.set_tooltip_text("Save graph")
-        toolbar.add(btn_save)
-
-        toolbar.add(gtk.SeparatorToolItem())
-
-        btn_restore = gtk.ToolButton()
-        btn_restore.connect("clicked", lambda w: self._restore_view_action(
-            self.get_current_axes()))
-        btn_restore.set_stock_id(gtk.STOCK_ZOOM_100)
-        btn_restore.set_tooltip_text("Restore view")
-        toolbar.add(btn_restore)
-
-        toolbar.add(gtk.SeparatorToolItem())
-
-        btn_hide_legend = gtk.ToggleToolButton(gtk.STOCK_NO)
-        btn_hide_legend.set_tooltip_text("Hide legend")
-        toolbar.add(btn_hide_legend)
-
-        return toolbar
-
-    def _restore_view_action(self, ax):
-        restore = False
-        if ax.original_view_dim is not None:
-            xmin, xmax, ymin, ymax = ax.original_view_dim
-            restore = True
-        elif len(ax.zoom_stack) > 0:
-            xmin, xmax, ymin, ymax = ax.zoom_stack[0]
-            restore = True
-
-        if restore:
-            ax.original_view_dim = None
-            ax.zoom_stack = []
-            ax.set_xlim(xmin, xmax)
-            ax.set_ylim(ymin, ymax)
-            ax.figure.canvas.draw_idle()
-
-    def save_action(self, widget):
-        dialog = gtk.FileChooserDialog("Save graph", 
-                                       None, gtk.FILE_CHOOSER_ACTION_SAVE,
-                                       (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                                        gtk.STOCK_SAVE, gtk.RESPONSE_OK))
-        dialog.set_default_response(gtk.RESPONSE_OK)
-
-        svg_filter = gtk.FileFilter()
-        svg_filter.set_name("Vector images")
-        svg_filter.add_mime_type("image/svg")
-        svg_filter.add_pattern("*.svg")
-        dialog.add_filter(svg_filter)
-
-        raster_filter = gtk.FileFilter()
-        raster_filter.set_name("Raster images")
-        raster_filter.add_mime_type("image/png")
-        raster_filter.add_mime_type("image/jpeg")
-        raster_filter.add_mime_type("image/gif")
-        raster_filter.add_pattern("*.png")
-        raster_filter.add_pattern("*.jpg")
-        raster_filter.add_pattern("*.gif")
-        dialog.add_filter(raster_filter)
-
-        response = dialog.run()
-        if response == gtk.RESPONSE_OK:
-            self.fig.savefig(dialog.get_filename())
-
-        dialog.destroy()
-
-class TwoAxisChart(matplotlib.axes.Axes):
-
-    name = 'twoaxeschart'
+    name = 'basic_chart'
 
     def __init__(self, fig, rec,
                  axisbg  = None, # defaults to rc axes.facecolor
@@ -161,12 +45,18 @@ class TwoAxisChart(matplotlib.axes.Axes):
         matplotlib.axes.Axes.__init__(self, fig, rec, axisbg, frameon,
                 sharex, sharey, label, xscale, yscale, **kwargs)
 
-        # Zoom properties
+        # chart data
+        self.data = None
+        # zoom properties
         self.zoom = 1.0
         self.zoom_stack = []
-        # Move properties
+        # move properties
         self.xypress = None
         self.original_view_dim = None
+        # mask keys
+        self.keymask = None
+        # legend
+        self.plegend = None
 
         # coonect standard features
         fig.canvas.mpl_connect("scroll_event", self._zoom)
@@ -174,26 +64,19 @@ class TwoAxisChart(matplotlib.axes.Axes):
         fig.canvas.mpl_connect("button_release_event", self._move_end)
         fig.canvas.mpl_connect("motion_notify_event", self._moving)
 
-        # ?? PROC TOTO NEFUNGUJE??
-        def press(event):
-            print "Press", event.key
-        fig.canvas.mpl_connect('key_press_event', press)
+        # block the standard scroll window event if it is use CTRL mask
+        fig.canvas.connect("scroll_event", 
+                lambda w, e: e.state & gtk.gdk.CONTROL_MASK)
 
-#        fig.canvas.mpl_connect('key_release_event', press)
+    def fill_data(self, data):
+        ''' This method must be implement in derivated class. '''
+        pass
 
-    # TODO: vymyslet lepsi nekolidujici nazev
-    def vytvor_graf(self, data):
-        for ldata in data:
-            self.plot(ldata.get_xvalues(), ldata.get_yvalues(),
-                    'o-', drawstyle='steps-post')
+    def _hide_legend(self, hide):
+        if self.plegend is not None:
+            self.plegend.set_visible(not(hide))
+            self.figure.canvas.draw_idle()
 
-        # TODO: toto lepe umistit
-        for label in self.xaxis.get_ticklabels():
-            label.set_rotation(-35) #TODO: rotation do prommene
-            label.set_horizontalalignment('left') #TODO: taktez do promene,
-                                                  # nejlepe udelat tridni 
-                                                  # vlastnost.
-        
     # --> methods for zooming chart
     def _zoom_in(self, stack, event):
         def new_bounds(min, max, value, zoom):
@@ -220,7 +103,7 @@ class TwoAxisChart(matplotlib.axes.Axes):
             ymin, ymax = stack[-1][2:]
 
         if bad_xrange and bad_yrange:
-            # Return the last known window dimension, it means stop zoom in.
+            # Returns the last known window dimension, it means stop zoom in.
             self.zoom *= 1.05
             return stack[-1]
         else:
@@ -232,28 +115,29 @@ class TwoAxisChart(matplotlib.axes.Axes):
         return stack.pop()
 
     def _zoom(self, event):
-        xmin, xmax = None, None
-        ymin, ymax = None, None
-        if event.button == "up":
-            xmin, xmax, ymin, ymax = self._zoom_in(self.zoom_stack,event)
-        elif event.button == "down":
-            if len(self.zoom_stack) == 0:
-                if self.original_view_dim is not None:
-                    # TODO: is it correct in the sense of zooming, perhaps 
-                    # this feature belongs to reset button?? (for Standa)
-                    xmin, xmax, ymin, ymax = self.original_view_dim
-                    self.original_view_dim = None
+        if event.key == "control": # CTRL mask
+            xmin, xmax = None, None
+            ymin, ymax = None, None
+            if event.button == "up":
+                xmin, xmax, ymin, ymax = self._zoom_in(self.zoom_stack,event)
+            elif event.button == "down":
+                if len(self.zoom_stack) == 0:
+                    if self.original_view_dim is not None:
+                        # TODO: is it correct in the sense of zooming, perhaps 
+                        # this feature belongs to reset button?? (for Standa)
+                        xmin, xmax, ymin, ymax = self.original_view_dim
+                        self.original_view_dim = None
+                    else:
+                        xmin, xmax = self.xaxis.get_view_interval()
+                        ymin, ymax = self.yaxis.get_view_interval()
                 else:
-                    xmin, xmax = self.xaxis.get_view_interval()
-                    ymin, ymax = self.yaxis.get_view_interval()
-            else:
-                xmin, xmax, ymin, ymax = self._zoom_out(self.zoom_stack)
+                    xmin, xmax, ymin, ymax = self._zoom_out(self.zoom_stack)
 
-        if (xmin is not None and xmax is not None and 
-                ymin is not None and ymax is not None):
-            self.set_xlim(xmin, xmax)
-            self.set_ylim(ymin, ymax)
-            self.figure.canvas.draw_idle()
+            if (xmin is not None and xmax is not None and 
+                    ymin is not None and ymax is not None):
+                self.set_xlim(xmin, xmax)
+                self.set_ylim(ymin, ymax)
+                self.figure.canvas.draw_idle()
     # <-- methods for zooming chart
 
     # --> methods for mooving graph
@@ -301,6 +185,183 @@ class TwoAxisChart(matplotlib.axes.Axes):
             self.figure.canvas.draw_idle()
 
     # <-- methods for mooving graph
+
+class PlaceChart(BasicChart):
+
+    name = 'place_chart'
+
+    def __init__(self, fig, rec,
+                 axisbg  = None, # defaults to rc axes.facecolor
+                 frameon = True,
+                 sharex  = None,
+                 sharey  = None,
+                 label   = "",
+                 xscale  = None,
+                 yscale  = None,
+                 **kwargs
+                 ):
+        BasicChart.__init__(self, fig, rec, axisbg, frameon, 
+                sharex, sharey, label, xscale, yscale, **kwargs)
+
+    def fill_data(self, data):
+        self.data = data
+        for ldata in data:
+            self.plot(ldata.get_xvalues(), ldata.get_yvalues(),
+                    'o-', drawstyle='steps-post', label=ldata.get_name())
+
+        for label in self.xaxis.get_ticklabels():
+            label.set_rotation(-35) 
+            label.set_horizontalalignment('left') 
+#        bbox = self.get_position()
+#        self.set_position([bbox.x0, bbox.y0, bbox.width * 1.2, bbox.height])
+#         self.plegend = self.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+
+        self.plegend = self.legend(loc="upper left", fancybox=True, shadow=True)
+
+class UtilizationChart(BasicChart):
+    pass
+
+class ChartWidget(gtk.VBox):
+
+    PLACE_CHART = PlaceChart.name
+    UTILIZATION_CHART = UtilizationChart.name
+
+    supported_charts_types = {
+            PlaceChart.name : PlaceChart,
+            UtilizationChart.name : UtilizationChart}
+
+    def __init__(self, with_legend=True):
+        gtk.VBox.__init__(self)
+        self.with_legend = with_legend
+
+        self.charts = []
+        self.current_chart_id = None
+
+        # registr new type of axes
+        for name in ChartWidget.supported_charts_types:
+            register_projection(ChartWidget.supported_charts_types[name])
+        # chart toolbar
+        toolbar = self._chart_toolbar()
+        self.pack_start(toolbar, False, False)
+
+        self.figure = matplotlib.figure.Figure()
+        canvas = FigureCanvas(self.figure)
+        # set size of canvas
+        w, h = self.figure.get_figwidth(), self.figure.get_figheight()
+        dpi = self.figure.get_dpi()
+        canvas.set_size_request(int(w * dpi), int(h * dpi))
+
+        sc = gtk.ScrolledWindow()
+        sc.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        sc.add_with_viewport(canvas)
+
+        self.pack_start(sc, True, True, 0)
+
+    def create_new_chart(self, type):
+        if type in ChartWidget.supported_charts_types:
+            ax = self.figure.add_subplot(111, projection=type)
+            self.charts.append(ax)
+            self.current_chart_id = len(self.charts) - 1
+            return self.current_chart_id
+        else:
+            print "Unsupported type of chart '%s'!" % type
+        
+    def get_current_chart(self):
+        return self.get_chart(self.current_chart_id)
+
+    def get_chart(self, id):
+        if id >= 0 and id < len(self.charts):
+            self.current_chart_id = id
+            return self.charts[id]
+        else:
+            print "Bad id '%d'!" % id
+            return None
+
+    def get_figure(self):
+        return self.figure;
+
+    def _chart_toolbar(self):
+        toolbar = gtk.Toolbar()
+        toolbar.set_icon_size(gtk.ICON_SIZE_SMALL_TOOLBAR)
+        toolbar.set_tooltips(True)
+
+        btn_save = gtk.ToolButton()
+        btn_save.connect("clicked", self._save_action)
+        btn_save.set_stock_id(gtk.STOCK_SAVE)
+        btn_save.set_tooltip_text("Save graph")
+        toolbar.add(btn_save)
+
+        toolbar.add(gtk.SeparatorToolItem())
+
+        btn_restore = gtk.ToolButton()
+        btn_restore.connect("clicked", lambda w: self._restore_view_action(
+            self.get_current_chart()))
+        btn_restore.set_stock_id(gtk.STOCK_ZOOM_100)
+        btn_restore.set_tooltip_text("Restore view")
+        toolbar.add(btn_restore)
+
+        toolbar.add(gtk.SeparatorToolItem())
+
+        icon_hide_legend = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "hide_legend.svg"))
+        btn_hide_legend = gtk.ToggleToolButton()
+        btn_hide_legend.set_icon_widget(icon_hide_legend)
+        btn_hide_legend.set_tooltip_text("Hide legend")
+        btn_hide_legend.connect("toggled", self._hide_legend)
+        btn_hide_legend.set_sensitive(self.with_legend)
+        toolbar.add(btn_hide_legend)
+
+        return toolbar
+
+    def _hide_legend(self, widget):
+        ax = self.get_current_chart()
+        hide = widget.get_active()
+        ax._hide_legend(hide)
+
+    def _restore_view_action(self, ax):
+        restore = False
+        if ax.original_view_dim is not None:
+            xmin, xmax, ymin, ymax = ax.original_view_dim
+            restore = True
+        elif len(ax.zoom_stack) > 0:
+            xmin, xmax, ymin, ymax = ax.zoom_stack[0]
+            restore = True
+
+        if restore:
+            ax.original_view_dim = None
+            ax.zoom_stack = []
+            ax.set_xlim(xmin, xmax)
+            ax.set_ylim(ymin, ymax)
+            ax.figure.canvas.draw_idle()
+
+    def _save_action(self, widget):
+        dialog = gtk.FileChooserDialog("Save graph", 
+                                       None, gtk.FILE_CHOOSER_ACTION_SAVE,
+                                       (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                                        gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+        dialog.set_default_response(gtk.RESPONSE_OK)
+
+        svg_filter = gtk.FileFilter()
+        svg_filter.set_name("Vector images")
+        svg_filter.add_mime_type("image/svg")
+        svg_filter.add_pattern("*.svg")
+        dialog.add_filter(svg_filter)
+
+        raster_filter = gtk.FileFilter()
+        raster_filter.set_name("Raster images")
+        raster_filter.add_mime_type("image/png")
+        raster_filter.add_mime_type("image/jpeg")
+        raster_filter.add_mime_type("image/gif")
+        raster_filter.add_pattern("*.png")
+        raster_filter.add_pattern("*.jpg")
+        raster_filter.add_pattern("*.gif")
+        dialog.add_filter(raster_filter)
+
+        response = dialog.run()
+        if response == gtk.RESPONSE_OK:
+            self.figure.savefig(dialog.get_filename())
+
+        dialog.destroy()
 
 class Data2DChart:
     """ Data structure for a 2D charts. """
