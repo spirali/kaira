@@ -90,6 +90,10 @@ class UserFunction(object):
         for t in self.get_all_types():
             t.check(project)
 
+    def meet_declaration(self, returntype, parameter_types):
+        return self.returntype == returntype and \
+               [ t for _, t in self.parameters ] == parameter_types
+
 class Parameter(object):
 
     def __init__(self, name, type, description):
@@ -165,6 +169,10 @@ class Project(object):
 
     def get_user_function(self, name):
         return self.user_functions.get(name)
+
+    def get_user_functions_by_declaration(self, returntype, parameter_types):
+        return [ function for function in self.user_functions.values()
+                    if function.meet_declaration(returntype, parameter_types) ]
 
     def get_parameter(self, name):
         return self.parameters.get(name)

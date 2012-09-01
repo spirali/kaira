@@ -56,7 +56,12 @@ CaNet::CaNet(CaNetDef *def, CaThread *thread) :
 	data(NULL),
 	flags(0)
 {
-	pthread_mutex_init(&mutex, NULL);
+	if (thread->get_threads_count() > 1) {
+		mutex = new pthread_mutex_t;
+		pthread_mutex_init(mutex, NULL);
+	} else {
+		mutex = NULL;
+	}
 	transitions = def->copy_transitions();
 	activate_all_transitions();
 }
@@ -67,7 +72,10 @@ CaNet::~CaNet()
 		finalizer_fn(NULL, NULL, data, true);
 	}
 	delete [] transitions;
-	pthread_mutex_destroy(&mutex);
+	if (mutex) {
+		pthread_mutex_destroy(mutex);
+		delete mutex;
+	}
 }
 
 void CaNet::activate_all_transitions()

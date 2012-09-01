@@ -354,7 +354,7 @@ void ca_write_header(FILE *out, int process_count, int threads_count)
 
 	CaOutput output;
 	output.child("header");
-	output.set("pointer-size", sizeof(void*));
+	output.set("pointer-size", (int) sizeof(void*));
 	output.set("process-count", process_count);
 	output.set("threads-count", threads_count);
 	output.set("description-lines", lines);
