@@ -249,28 +249,20 @@ class UtilizationChart(BasicChart):
             stack.append((vmin_x, vmax_x, vmin_y, vmax_y))
             return (xmin, xmax, vmin_y, vmax_y)
 
-    def fill_data(self, data, names):
-#        self.figure.set_size_inches(7, 1)
-        colors = ["#00aa00", "red", "lightgreen"]
+    def fill_data(self, data, names, colors):
         self.data = data
         ywidth = 2
         yticks = []
-#        nn = []
-#        nd = []
-#        for i in range(0, 10):
-#            nd.append(self.data[0])
-#            nd.append(self.data[1])
-#            nn.append(names[0])
-#            nn.append(names[1])
 
-        lines = []
         for i, ldata in enumerate(data):
             y = ((i+1) * ywidth) + (i+1)
             yticks.append(y + ywidth/2)
-            lines.append(self.broken_barh(ldata, (y, ywidth), 
-                    edgecolor='face', facecolor=colors[0]))
+            self.broken_barh(ldata, (y, ywidth), edgecolor='face', 
+                    facecolor=colors[0])
 
-        self.grid(True)
+#            rec = matplotlib.patches.Rectangle((0,y), 1, ywidth, 
+#                    facecolor="red", edgecolor="black", zorder=1)
+
         self.set_yticks(yticks)
         self.set_yticklabels(names)
 
@@ -278,14 +270,16 @@ class UtilizationChart(BasicChart):
             label.set_rotation(-35) 
             label.set_horizontalalignment('left') 
         for i, label in enumerate(self.yaxis.get_ticklabels()):
-            names[i] = "   %s" % names[i] # add 3 white space on the begining of name
-#            nn[i] = "   %s" % nn[i]
+            # add 3 white space on the begining of name
+            names[i] = "   %s" % names[i] 
             label.set_horizontalalignment("left")
             label.set_verticalalignment('center')
 
-#        p = matplotlib.patches.Rectangle((0, 0), 1, 1, edgecolor=colors[0], fc=colors[0]) 
-#        self.plegend = self.legend([p], ["Running"], loc="upper left",
-#                fancybox=True, shadow=True)
+        p = matplotlib.patches.Rectangle((0, 0), 1, 1, edgecolor=colors[0], 
+                fc=colors[0]) 
+        self.plegend = self.legend([p], ["Running"], loc="upper left",
+                fancybox=True, shadow=True)
+
 
 class ChartWidget(gtk.VBox):
 
