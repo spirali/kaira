@@ -142,11 +142,54 @@ class RunView(gtk.VBox):
         return self._utilization_chart(values, names, colors, legend)
 
     def _transitions_utilization(self):
-        colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
+#        colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
+        chart_widget = ChartWidget()
+        # TODO: zde zkusit pro kady radek udelat jeden graf
+        figure = chart_widget.get_figure()
+
         names = self.tracelog.statistics["transition_names"]
         values = self.tracelog.statistics["transition_values"]
-        legend = [ (0, "Running") ]
-        return self._utilization_chart(values, names, colors, legend)
+
+        nn = []
+        vv = []
+        for i in range(0, 30):
+            vv.append(values[0])
+            vv.append(values[1])
+            nn.append(names[0])
+            nn.append(names[1])
+
+        ssize = len(vv)
+        w, h = figure.get_size_inches()
+        print w, h
+        figure.set_size_inches(w, 30 *h)
+        dpi = figure.get_dpi()
+        figure.canvas.set_size_request(int(w * dpi), int(30 * h * dpi))
+        for i, line in enumerate(vv):
+            l2 = line[0]
+            chart = figure.add_subplot(ssize, 1, i, projection=ChartWidget.UTILIZATION_CHART)
+            size = len(l2) - 1
+            l1 = []
+            for j in range(0, size, 2):
+                l1.append((l2[j][0], (l2[j+1][0] - l2[j][0])))
+
+#            print [l1], len(names), i
+            chart.fill_data([l1], [nn[i]])
+
+            chart.xaxis.set_major_formatter(FuncFormatter(
+                lambda time, pos: time_to_string(time)[:-7]))
+            chart.set_xlim(xmin=0)
+            legend = [ (0, "Running") ]
+
+        
+#        chart_id = chart_widget.create_new_chart(ChartWidget.UTILIZATION_CHART)
+#        chart = chart_widget.get_chart(chart_id)
+#        chart.fill_data(lines, names)
+#
+#        chart.xaxis.set_major_formatter(FuncFormatter(
+#            lambda time, pos: time_to_string(time)[:-7]))
+#        chart.set_xlim(xmin=0)
+        chart.get_figure().tight_layout()
+        return chart_widget
 
     def _place_chart(self):
         values = self.tracelog.statistics["tokens_values"]

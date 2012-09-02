@@ -219,7 +219,73 @@ class PlaceChart(BasicChart):
         self.plegend = self.legend(loc="upper left", fancybox=True, shadow=True)
 
 class UtilizationChart(BasicChart):
-    pass
+
+    name = 'utilization_chart'
+
+    def _zoom_in(self, stack, event):
+        def new_bounds(min, max, value, zoom):
+            if value is None: return (min, max)
+            diff_min, diff_max = value - min, max - value
+            zdiff_min, zdiff_max = diff_min * zoom, diff_max * zoom
+            return (value - zdiff_min, value + zdiff_max)
+
+        self.zoom /= 1.05
+        vmin_x, vmax_x = self.xaxis.get_view_interval()
+        vmin_y, vmax_y = self.yaxis.get_view_interval()
+        x, y = event.xdata, event.ydata
+
+        xmin, xmax = new_bounds(vmin_x, vmax_x, x, self.zoom)
+
+        bad_xrange = False
+        if abs(xmax - xmin) < 0.000001:
+            bad_xrange = True
+            xmin, xmax = stack[-1][:2]
+
+        if bad_xrange:
+            # Returns the last known window dimension, it means stop zoom in.
+            self.zoom *= 1.05
+            return stack[-1]
+        else:
+            stack.append((vmin_x, vmax_x, vmin_y, vmax_y))
+            return (xmin, xmax, vmin_y, vmax_y)
+
+    def fill_data(self, data, names):
+#        self.figure.set_size_inches(7, 1)
+        colors = ["#00aa00", "red", "lightgreen"]
+        self.data = data
+        ywidth = 2
+        yticks = []
+#        nn = []
+#        nd = []
+#        for i in range(0, 10):
+#            nd.append(self.data[0])
+#            nd.append(self.data[1])
+#            nn.append(names[0])
+#            nn.append(names[1])
+
+        lines = []
+        for i, ldata in enumerate(data):
+            y = ((i+1) * ywidth) + (i+1)
+            yticks.append(y + ywidth/2)
+            lines.append(self.broken_barh(ldata, (y, ywidth), 
+                    edgecolor='face', facecolor=colors[0]))
+
+        self.grid(True)
+        self.set_yticks(yticks)
+        self.set_yticklabels(names)
+
+        for label in self.xaxis.get_ticklabels():
+            label.set_rotation(-35) 
+            label.set_horizontalalignment('left') 
+        for i, label in enumerate(self.yaxis.get_ticklabels()):
+            names[i] = "   %s" % names[i] # add 3 white space on the begining of name
+#            nn[i] = "   %s" % nn[i]
+            label.set_horizontalalignment("left")
+            label.set_verticalalignment('center')
+
+#        p = matplotlib.patches.Rectangle((0, 0), 1, 1, edgecolor=colors[0], fc=colors[0]) 
+#        self.plegend = self.legend([p], ["Running"], loc="upper left",
+#                fancybox=True, shadow=True)
 
 class ChartWidget(gtk.VBox):
 
