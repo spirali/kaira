@@ -24,6 +24,7 @@ from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
 from copy import copy
 from sys import maxint
+import undoredo
 
 class Net:
 
@@ -40,6 +41,7 @@ class Net:
         self.items = []
         self.change_callback = lambda n: None
         self.interface_box = None
+        self.undolist = undoredo.UndoList()
 
     def get_name(self):
         return self.name
@@ -223,6 +225,9 @@ class Net:
 
     def corners(self, cr):
         """ Returns bounding box as left-top and right-bottom points """
+        if not self.items:
+             return ((0,0), (100,100))
+
         t = maxint
         l = maxint
         r = 0
@@ -281,6 +286,7 @@ class NetItem(object):
 
     def delete(self):
         self.net.delete_item(self)
+        return [ self ]
 
     def create_xml_element(self, name):
         element =  xml.Element(name)
@@ -327,9 +333,11 @@ class NetElement(NetItem):
         return self.net.edges_to(self, postprocess)
 
     def delete(self):
+        deleted = []
         for edge in self.edges():
-            edge.delete()
-        NetItem.delete(self)
+            deleted += edge.delete()
+        deleted += NetItem.delete(self)
+        return deleted
 
     def xml_code_element(self):
         e = xml.Element("code")
@@ -833,6 +841,10 @@ class RectItem(NetItem):
     def get_size(self):
         return self.size
 
+    def set_size(self, size):
+        self.size = size
+        self.changed()
+
     def resize_rbottom(self, original_pos, original_size, rel_change):
         self.size = utils.vector_add(original_size, rel_change)
         self.changed()
@@ -869,10 +881,20 @@ class RectItem(NetItem):
         return utils.position_on_rect(position, self.position, self.size, 5)
 
     def get_action(self, position, factory):
+        def get_position_and_size():
+            return self.position, self.size
+        def set_position_and_size(position_and_size):
+            self.position = position_and_size[0]
+            self.size = position_and_size[1]
+            self.changed()
+
         def make_action(f, cursor):
             return factory.get_custom_move_action(
                 position,
-                lambda r: f(original_pos, original_size, r), cursor)
+                lambda r: f(original_pos, original_size, r),
+                set_position_and_size,
+                get_position_and_size,
+                cursor)
         px, py = position
         mx, my = self.position
         sx, sy = self.size

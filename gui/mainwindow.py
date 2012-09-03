@@ -210,10 +210,25 @@ class MainWindow(gtk.Window):
 
         item = gtk.MenuItem("Close tab")
         item.connect("activate", lambda w: self.app.close_current_tab())
-        item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("W"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+        item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("W"),
+                             gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
         view_menu.append(item)
 
         edit_menu = gtk.Menu()
+
+        item = gtk.MenuItem("Undo")
+        item.connect("activate", lambda w: self.app.nv.undoredo.undo())
+        item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("Z"),
+                             gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+        edit_menu.append(item)
+
+        item = gtk.MenuItem("Redo")
+        item.connect("activate", lambda w: self.app.nv.undoredo.redo())
+        item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("Z"),
+                             gtk.gdk.CONTROL_MASK | gtk.gdk.SHIFT_MASK, gtk.ACCEL_VISIBLE)
+        edit_menu.append(item)
+
+        edit_menu.append(gtk.SeparatorMenuItem())
 
         item = gtk.MenuItem("Edit _project details")
         item.connect("activate", lambda w: self.app.project_config())
