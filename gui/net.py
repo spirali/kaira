@@ -286,6 +286,7 @@ class NetItem(object):
 
     def delete(self):
         self.net.delete_item(self)
+        return [ self ]
 
     def create_xml_element(self, name):
         element =  xml.Element(name)
@@ -332,9 +333,11 @@ class NetElement(NetItem):
         return self.net.edges_to(self, postprocess)
 
     def delete(self):
+        deleted = []
         for edge in self.edges():
-            edge.delete()
-        NetItem.delete(self)
+            deleted += edge.delete()
+        deleted += NetItem.delete(self)
+        return deleted
 
     def xml_code_element(self):
         e = xml.Element("code")

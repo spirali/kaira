@@ -118,8 +118,8 @@ class NetTool:
     #  @param position Position in net.
     def right_button_down(self, event, position):
         def delete_event(w):
-            self.netview.undolist.add(undoredo.RemoveAction(self.net, self.selected_item))
-            self.selected_item.delete()
+            for item in self.selected_item.delete():
+                self.netview.undolist.add(undoredo.RemoveAction(self.net, item))
             self.deselect_item()
 
         def set_tracing(obj, value):
