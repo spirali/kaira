@@ -24,6 +24,7 @@ from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
 from copy import copy
 from sys import maxint
+import undoredo
 
 class Net:
 
@@ -40,6 +41,7 @@ class Net:
         self.items = []
         self.change_callback = lambda n: None
         self.interface_box = None
+        self.undolist = undoredo.UndoList()
 
     def get_name(self):
         return self.name
@@ -223,6 +225,9 @@ class Net:
 
     def corners(self, cr):
         """ Returns bounding box as left-top and right-bottom points """
+        if not self.items:
+             return ((0,0), (100,100))
+
         t = maxint
         l = maxint
         r = 0
@@ -233,8 +238,6 @@ class Net:
             l = min(l, il)
             r = max(r, ir)
             b = max(b, ib)
-        if l == maxint or t == maxint:
-             return ((100,100), (0,0))
         return ((l,t), (r,b))
 
     def trace_nothing(self):
@@ -749,10 +752,6 @@ class Edge(NetItem):
         sp, ep = self.get_end_points()
         return [sp] + self.points + [ep]
 
-    def set_all_points(self, points):
-        self.points = points[1:-1]
-        self.changed()
-
     def is_at_position(self, position):
         if self.inscription_position and \
            utils.position_inside_rect(position,
@@ -879,10 +878,20 @@ class RectItem(NetItem):
         return utils.position_on_rect(position, self.position, self.size, 5)
 
     def get_action(self, position, factory):
+        def get_position_and_size():
+            return self.position, self.size
+        def set_position_and_size(position_and_size):
+            self.position = position_and_size[0]
+            self.size = position_and_size[1]
+            self.changed()
+
         def make_action(f, cursor):
             return factory.get_custom_move_action(
                 position,
-                lambda r: f(original_pos, original_size, r), cursor)
+                lambda r: f(original_pos, original_size, r),
+                set_position_and_size,
+                get_position_and_size,
+                cursor)
         px, py = position
         mx, my = self.position
         sx, sy = self.size

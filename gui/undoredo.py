@@ -1,6 +1,7 @@
 #
 #    Copyright (C) 2012 Martin Kozubek
 #                  2012 Lukas Tomaszek
+#                  2012 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -19,67 +20,43 @@
 #
 
 
-class UndoRedo:
+class UndoList:
 
-    def __init__(self, button_undo, button_redo):
-        self.button_undo = button_undo
-        self.button_redo = button_redo
+    def __init__(self):
         self.undolist = []
         self.redolist = []
-        self.action = False
-        self.set_buttons()
+        self.block_add = False
 
     def undo(self):
-        if len(self.undolist) != 0:
-            self.action = True
+        if len(self.undolist) > 0:
+            self.block_add = True
             action_undo = self.undolist.pop()
             action_undo.undo()
             self.redolist.append(action_undo)
-            self.button_redo.set_sensitive(True)
-            self.button_undo.set_sensitive(len(self.undolist) != 0)
-            self.action = False
-            
-        else:
-            self.button_undo.set_sensitive(False)
-
+            self.block_add = False
 
     def redo(self):
-        if len(self.redolist) != 0:
-            self.action = True
+        if len(self.redolist) > 0:
+            self.block_add = True
             action_redo = self.redolist.pop()
             action_redo.redo()
             self.undolist.append(action_redo)
-            self.button_undo.set_sensitive(True)
-            self.button_redo.set_sensitive(len(self.redolist) != 0)
-            self.action = False
-        else:
-            self.button_redo.set_sensitive(False)
+            self.block_add = False
 
-    def add_to_list(self, action):
-        if not self.action:
+    def add(self, action):
+        if not self.block_add:
             self.undolist.append(action)
             self.redolist = []
-            self.button_undo.set_sensitive(True)
-            self.button_redo.set_sensitive(False)
 
-    def set_buttons(self):
-        self.button_undo.set_sensitive(len(self.undolist) != 0)
-        self.button_redo.set_sensitive(len(self.redolist) != 0)
- 
-            
-class IUndoRedoAction:
-
-    def __init__(self):
-        if self.__class__ is IUndoRedoAction: raise NotImplementedError
-
-    def undo(self):
-        raise NotImplementedError
-
-    def redo(self):
-        raise NotImplementedError
+    def set_buttons(self, button_undo, button_redo):
+        button_undo.set_sensitive(len(self.undolist) > 0)
+        button_redo.set_sensitive(len(self.redolist) > 0)
 
 
-class AddAction(IUndoRedoAction):
+class UndoRedoAction:
+    pass
+
+class AddItemAction(UndoRedoAction):
 
     def __init__(self, net, item):
         self.item = item
@@ -92,7 +69,7 @@ class AddAction(IUndoRedoAction):
         self.net.add_item(self.item)
 
 
-class RemoveAction(IUndoRedoAction):
+class RemoveAction(UndoRedoAction):
 
     def __init__(self, net, item):
         self.item = item
@@ -105,104 +82,15 @@ class RemoveAction(IUndoRedoAction):
         self.net.remove_item(self.item)
 
 
-class MoveAction(IUndoRedoAction):
+class SetValueAction(UndoRedoAction):
 
-    def __init__(self, item, original_poz, new_poz):
-        self.item = item
-        self.new_poz = new_poz
-        self.original_poz = original_poz
-
-    def undo(self):
-        self.item.set_position(self.original_poz)
-
-    def redo(self):
-        self.item.set_position(self.new_poz)
-
-
-class MoveActionEdge(IUndoRedoAction):
-
-    def __init__(self, item, original_points, new_points):
-        self.item = item
-        self.new_points = new_points
-        self.original_points = original_points
+    def __init__(self, set_fn, original_value, new_value):
+        self.set_fn = set_fn
+        self.new_value = new_value
+        self.original_value = original_value
 
     def undo(self):
-        self.item.set_all_points(self.original_points)
+        self.set_fn(self.original_value)
 
     def redo(self):
-        self.item.set_all_points(self.new_points)
-
-class MoveActionTextEdge(IUndoRedoAction):
-
-    def __init__(self, item, original_pozition_text, new_pozition_text):
-        self.item = item
-        self.new_pozition_text = new_pozition_text
-        self.original_pozition_text = original_pozition_text
-
-    def undo(self):
-        self.item.set_inscription_position(self.original_pozition_text)
-
-    def redo(self):
-        self.item.set_inscription_position(self.new_pozition_text)
-
-class ResizeAction(IUndoRedoAction):
-
-    def __init__(self, item, original_size, new_size):
-        self.item = item
-        self.new_size = new_size
-        self.original_size = original_size
-
-    def undo(self):
-        self.item.resize(self.original_size)
-
-    def redo(self):
-        self.item.resize(self.new_size)
-
-
-class RenameAction(IUndoRedoAction):
-
-    def __init__(self, last_text, get, set):
-        self.last_text = last_text
-        self.get = get
-        self.set = set
-
-    def undo(self):
-        text = self.last_text
-        self.last_text = self.get()
-        self.set(text)
-
-    def redo(self):
-        text = self.last_text
-        self.last_text = self.get()
-        self.set(text)
-
-class ResizeArea(IUndoRedoAction):
-
-    def __init__(self, item, size, position, new_size, new_position):
-        self.item = item
-        self.size = size
-        self.position = position
-        self.new_size = new_size
-        self.new_position = new_position
-
-    def undo(self):
-        self.item.set_position(self.position)
-        self.item.set_size(self.size)
-
-    def redo(self):
-        self.item.set_position(self.new_position)
-        self.item.set_size(self.new_size)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        self.set_fn(self.new_value)

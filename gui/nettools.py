@@ -21,10 +21,9 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from net import Place, Transition, Edge, InterfaceBox, NetArea
-from undoredo import *
 import utils
 import gtkutils
+import undoredo
 
 ## @brief The base class for editing operations over network
 #
@@ -119,7 +118,7 @@ class NetTool:
     #  @param position Position in net.
     def right_button_down(self, event, position):
         def delete_event(w):
-            self.netview.undoredo.add_to_list(RemoveAction(self.net,self.selected_item))
+            self.netview.undolist.add(undoredo.RemoveAction(self.net, self.selected_item))
             self.selected_item.delete()
             self.deselect_item()
 
@@ -219,13 +218,6 @@ class NetTool:
     def left_button_down(self, event, position):
         item = self.item_at_position(position)
         if item:
-            if isinstance(item, Edge):
-                self.points_of_edge = item.get_all_points()
-                self.position_of_text = item.get_inscription_position()
-            elif isinstance(item, NetArea):
-                self.size_of_netArea = item.get_size()
-                self.position_of_netArea = item.get_position()
-                self.item_netArea = item
             self.select_item(item)
             self.action = item.get_action(position, self)
             if self.action:
@@ -233,31 +225,17 @@ class NetTool:
             else:
                 self.set_cursor(None)
             return True
-        return False   
+        return False
 
     ## @brief The event handler for the mouse left button released.
     #
     #  Deactivates the running action.
     #  @param event Gtk event.
-    def left_button_up(self, event, position):  
-        item = self.item_at_position(position) 
-        if item:
-            if isinstance(self.action, ToolActionCustomMove):
-                if isinstance(item, NetArea):
-                    self.netview.undoredo.add_to_list(ResizeArea(self.item_netArea, self.size_of_netArea, self.position_of_netArea, self.item_netArea.get_size(), self.item_netArea.get_position()))
-            elif isinstance(item, Edge):
-                if item.get_all_points() == self.points_of_edge:
-                    if item.get_inscription_position() != self.position_of_text:
-                        self.netview.undoredo.add_to_list(MoveActionTextEdge(item, self.position_of_text, item.get_inscription_position()))
-                else:
-                    self.netview.undoredo.add_to_list(MoveActionEdge(item, self.points_of_edge, item.get_all_points()))
-            else:
-                if self.action.cursor == "move":
-                    if self.action.original_position != item.get_position():
-                        self.netview.undoredo.add_to_list(MoveAction(item, self.action.original_position, item.get_position()))
-                elif self.action.cursor == "resize_rbottom":
-                    self.netview.undoredo.add_to_list(ResizeAction(item, self.action.original_position, utils.vector_diff(position, item.get_position())))
-        self.action = None
+    def left_button_up(self, event, position):
+        item = self.item_at_position(position)
+        if self.action and item:
+            self.action.store_undo_action(self.netview.undolist)
+            self.action = None
 
     ## @brief The event handler for the mouse being moved.
     #
@@ -308,14 +286,16 @@ class NetTool:
         original = utils.vector_diff(position, item.position)
         return ToolActionGridMove(original, set_fn, position, self, "resize_rbottom")
 
-    def get_custom_move_action(self, position, fn, cursor):
-        return ToolActionCustomMove(fn, position, self, cursor)
+    def get_custom_move_action(self, position, fn, set_fn, get_fn, cursor):
+        return ToolActionCustomMove(fn, set_fn, get_fn, position, self, cursor)
 
     def get_empty_action(self):
         return ToolActionEmpty(self)
 
+
 class SelectTool(NetTool):
     pass
+
 
 class NetItemTool(NetTool):
 
@@ -325,17 +305,20 @@ class NetItemTool(NetTool):
             self.select_item(item)
             self.action = self.selected_item.get_action(position, self)
             self.action.set_cursor()
-            self.netview.undoredo.add_to_list(AddAction(self.net, item))
+            self.netview.undolist.add(undoredo.AddItemAction(self.net, item))
+
 
 class PlaceTool(NetItemTool):
 
     def create_new(self, position):
-        return self.net.add_place(position) 
+        return self.net.add_place(position)
+
 
 class TransitionTool(NetItemTool):
 
     def create_new(self, position):
         return self.net.add_transition(position)
+
 
 class EdgeTool(NetTool):
 
@@ -362,7 +345,7 @@ class EdgeTool(NetTool):
                 if item:
                     edge = self.net.add_edge(self.from_item, item, self.points)
                     self.select_item(edge)
-                    self.netview.undoredo.add_to_list(AddAction(self.net, edge))
+                    self.netview.undolist.add(undoredo.AddItemAction(self.net, edge))
                     self.from_item = None
                 else:
                     self.points.append(position)
@@ -398,6 +381,7 @@ class EdgeTool(NetTool):
             pos = self.from_item.get_border_point(pp)
             utils.draw_polyline_nice_corners(cr, [pos] + self.points + [self.mouse_last_pos], 0.5, 12, False, True)
 
+
 class AreaTool(NetTool):
 
     point1 = None
@@ -420,7 +404,7 @@ class AreaTool(NetTool):
             if s[0] > 5 and s[1] > 5:
                 area = self.net.add_area(p,s)
                 self.select_item(area)
-                self.netview.undoredo.add_to_list(AddAction(self.net, area))
+                self.netview.undolist.add(undoredo.AddItemAction(self.net, area))
             else:
                 self.netview.redraw()
             self.point1 = None
@@ -453,26 +437,47 @@ class ToolAction:
     def set_cursor(self):
         self.tool.set_cursor(self.cursor)
 
+
 class ToolActionGridMove(ToolAction):
 
     def __init__(self, original_position, set_fn, position, tool, cursor):
         ToolAction.__init__(self, position, tool, cursor)
         self.set_fn = set_fn
         self.original_position = original_position
+        self.last_position = original_position
 
     def mouse_move(self, position):
         pos = utils.vector_add(self.original_position, self.get_rel_change(position))
         pos = utils.snap_to_grid(pos, self.tool.get_grid_size())
+        self.last_position = pos
         self.set_fn(pos)
+
+    def store_undo_action(self, undolist):
+        if self.original_position != self.last_position:
+            undolist.add(undoredo.SetValueAction(self.set_fn,
+                                                         self.original_position,
+                                                         self.last_position))
+
 
 class ToolActionCustomMove(ToolAction):
 
-    def __init__(self, fn, position, tool, cursor):
+    def __init__(self, fn, set_fn, get_fn, position, tool, cursor):
         ToolAction.__init__(self, position, tool, cursor)
         self.fn = fn
+        self.set_fn = set_fn
+        self.get_fn = get_fn
+        self.original_value = get_fn()
 
     def mouse_move(self, position):
         self.fn(self.get_rel_change(position))
+
+    def store_undo_action(self, undolist):
+        last_value = self.get_fn()
+        if self.original_value != last_value:
+            undolist.add(undoredo.SetValueAction(self.set_fn,
+                                                 self.original_value,
+                                                 last_value))
+
 
 class ToolActionEmpty:
 
@@ -483,4 +488,7 @@ class ToolActionEmpty:
         self.tool.set_cursor(None)
 
     def mouse_move(self, position):
+        pass
+
+    def store_undo_action(self, undolist):
         pass
