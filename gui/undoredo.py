@@ -19,38 +19,49 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import events
 
-class UndoList:
+class UndoList(events.EventSource):
+
+    """
+        Events: changed()
+    """
 
     def __init__(self):
+        events.EventSource.__init__(self)
         self.undolist = []
         self.redolist = []
         self.block_add = False
 
     def undo(self):
-        if len(self.undolist) > 0:
-            self.block_add = True
-            action_undo = self.undolist.pop()
-            action_undo.undo()
-            self.redolist.append(action_undo)
-            self.block_add = False
+        assert self.has_undo()
+        self.block_add = True
+        action_undo = self.undolist.pop()
+        action_undo.undo()
+        self.redolist.append(action_undo)
+        self.block_add = False
+        self.emit_event("changed")
 
     def redo(self):
-        if len(self.redolist) > 0:
-            self.block_add = True
-            action_redo = self.redolist.pop()
-            action_redo.redo()
-            self.undolist.append(action_redo)
-            self.block_add = False
+        assert self.has_redo()
+        self.block_add = True
+        action_redo = self.redolist.pop()
+        action_redo.redo()
+        self.undolist.append(action_redo)
+        self.block_add = False
+        self.emit_event("changed")
 
     def add(self, action):
         if not self.block_add:
             self.undolist.append(action)
             self.redolist = []
+            self.emit_event("changed")
 
-    def set_buttons(self, button_undo, button_redo):
-        button_undo.set_sensitive(len(self.undolist) > 0)
-        button_redo.set_sensitive(len(self.redolist) > 0)
+    def has_undo(self):
+        return bool(self.undolist)
+
+    def has_redo(self):
+        return bool(self.redolist)
 
 
 class UndoRedoAction:

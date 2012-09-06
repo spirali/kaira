@@ -107,6 +107,8 @@ class NetView(gtk.VBox):
         self.project = project
         self.app = app
         self.tool = None
+        self.undolist = None
+        self.undolist_changed = None
         self.last_active_entry_text = None
         self.last_active_entry_get = None
         self.last_active_entry_set = None
@@ -128,16 +130,12 @@ class NetView(gtk.VBox):
         paned.show_all()
 
         self.netlist.hide()
-        self.undoredolist = dict()
         self.transition_edit_callback = None
         self.place_edit_callback = None
         self.set_tool(nettools.SelectTool(self))
         self.connect("key_press_event", self._key_press)
 
-        net = self.get_net()
-        if net is not None:
-            self.undolist = net.undolist
-            self.undolist.set_buttons(self.button_undo, self.button_redo)
+        self.switch_to_net(self.get_net(), False)
 
     def get_grid_size(self):
         return self.app.get_grid_size()
@@ -162,12 +160,29 @@ class NetView(gtk.VBox):
         if select_in_netlist:
             self.netlist.select_object(net)
 
+        if self.undolist_changed is not None:
+            self.undolist_changed.remove()
+            self.undolist_changed = None
+
         if net is not None:
             self.undolist = net.undolist
-            self.undolist.set_buttons(self.button_undo, self.button_redo)
+            self.undolist_changed = self.undolist.set_callback(
+                                         "changed",
+                                         self.on_undolist_changed)
+            self.on_undolist_changed()
+        else:
+            self.undolist = None
 
         self.tool.set_net(net)
         self.canvas.set_net(net)
+
+    def on_undolist_changed(self):
+        if self.undolist is None:
+            self.button_undo.set_sensitive(False)
+            self.button_redo.set_sensitive(False)
+        else:
+            self.button_undo.set_sensitive(self.undolist.has_undo())
+            self.button_redo.set_sensitive(self.undolist.has_redo())
 
     def get_zoom(self):
         return self.canvas.get_zoom()
@@ -192,7 +207,6 @@ class NetView(gtk.VBox):
         self.redraw()
         if self.tool:
             self.tool.net_changed()
-        self.undolist.set_buttons(self.button_undo, self.button_redo)
 
     def highlight(self, item):
         self.vconfig.highlight(item)
@@ -302,7 +316,7 @@ class NetView(gtk.VBox):
 
     def _net_canvas(self):
         self.vconfig = NetViewVisualConfig(self.project)
-        c = NetCanvas(self.get_net(), self._draw, self.vconfig)
+        c = NetCanvas(None, self._draw, self.vconfig)
         c.set_callback("button_down", self._button_down)
         c.set_callback("button_up", self._button_up)
         c.set_callback("mouse_move", self._mouse_move)
