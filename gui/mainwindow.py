@@ -217,13 +217,13 @@ class MainWindow(gtk.Window):
         edit_menu = gtk.Menu()
 
         item = gtk.MenuItem("Undo")
-        item.connect("activate", lambda w: self.app.nv.undoredo.undo())
+        item.connect("activate", lambda w: self.app.nv.undo())
         item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("Z"),
                              gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
         edit_menu.append(item)
 
         item = gtk.MenuItem("Redo")
-        item.connect("activate", lambda w: self.app.nv.undoredo.redo())
+        item.connect("activate", lambda w: self.app.nv.redo())
         item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("Z"),
                              gtk.gdk.CONTROL_MASK | gtk.gdk.SHIFT_MASK, gtk.ACCEL_VISIBLE)
         edit_menu.append(item)

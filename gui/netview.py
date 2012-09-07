@@ -230,19 +230,27 @@ class NetView(gtk.VBox):
         else:
             self.netlist.hide()
 
+    def undo(self):
+        if self.undolist.has_undo():
+            self.undolist.undo()
+
+    def redo(self):
+        if self.undolist.has_redo():
+            self.undolist.redo()
+
     def _controls(self):
         icon_arrow = gtk.image_new_from_file(
-				os.path.join(paths.ICONS_DIR, "arrow.svg"))
+                os.path.join(paths.ICONS_DIR, "arrow.svg"))
         icon_transition = gtk.image_new_from_file(
-				os.path.join(paths.ICONS_DIR, "transition.svg"))
+                os.path.join(paths.ICONS_DIR, "transition.svg"))
         icon_place = gtk.image_new_from_file(
-				os.path.join(paths.ICONS_DIR, "place.svg"))
+                os.path.join(paths.ICONS_DIR, "place.svg"))
         icon_arc = gtk.image_new_from_file(
-				os.path.join(paths.ICONS_DIR, "arc.svg"))
+                os.path.join(paths.ICONS_DIR, "arc.svg"))
         icon_area = gtk.image_new_from_file(
-				os.path.join(paths.ICONS_DIR, "area.svg"))
+                os.path.join(paths.ICONS_DIR, "area.svg"))
         icon_trace = gtk.image_new_from_file(
-				os.path.join(paths.ICONS_DIR, "trace.svg"))
+                os.path.join(paths.ICONS_DIR, "trace.svg"))
 
         toolbar = gtk.Toolbar()
 
@@ -258,11 +266,11 @@ class NetView(gtk.VBox):
         toolbar.add(gtk.SeparatorToolItem())
 
         self.button_undo = gtk.ToolButton()
-        self.button_undo.connect("clicked", lambda w: self.undolist.undo())
+        self.button_undo.connect("clicked", lambda w: self.undo())
         self.button_undo.set_stock_id(gtk.STOCK_UNDO)
 
         self.button_redo = gtk.ToolButton()
-        self.button_redo.connect("clicked", lambda w: self.undolist.redo())
+        self.button_redo.connect("clicked", lambda w: self.redo())
         self.button_redo.set_stock_id(gtk.STOCK_REDO)
 
         toolbar.add(self.button_undo)
