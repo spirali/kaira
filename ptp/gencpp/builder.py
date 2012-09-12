@@ -566,6 +566,10 @@ class Builder(CppWriter):
 
         w.line("if (lock) n->unlock();")
 
+        for edge, _ in matches:
+            if not edge.token_reused:
+                w.line("delete token_{0.uid};", edge)
+
         if tr.net.is_module():
             w.line("if (ctx.get_halt_flag()) thread->halt();")
         w.line("return {0};", retvalue)
