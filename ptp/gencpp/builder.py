@@ -435,11 +435,10 @@ class Builder(CppWriter):
             place = edge.get_place()
             if edge.token_source is not None:
                 self.write_place_add(
-                    method,
+                    method + "_token",
                     place,
                     "n->place_{0.id}.".format(place),
-                    ExprExtern("token_{0.uid}_self".format(edge.token_source)).emit(em),
-                    token=True)
+                    ExprExtern("token_{0.uid}_self".format(edge.token_source)).emit(em))
             else:
                 self.write_place_add(method,
                                      place,
@@ -951,15 +950,11 @@ class Builder(CppWriter):
         self.line("return 0;")
         self.block_end()
 
-    def write_place_add(self, method, place, place_code, value_code, token=False):
+    def write_place_add(self, method, place, place_code, value_code):
         if place.tracing != "off":
-            value = value_code
-            if token:
-                value += "->value"
-
             self.if_begin("thread->get_tracelog()")
             self.line("{0}{1}({2}, thread->get_tracelog(), {3.id}, {4});",
-                      place_code, method, value, place,
+                      place_code, method, value_code, place,
                       get_to_string_function_name(self.project, place.type))
             self.line("}} else {{")
             self.line("{0}{1}({2});", place_code, method, value_code)
