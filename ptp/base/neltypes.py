@@ -18,20 +18,29 @@
 #
 
 from base.utils import EqMixin, PtpException
+import copy
 
 class Type(object):
 
-    source = None
-
-    def __init__(self, name, args = []):
+    def __init__(self, name, args=None, source=None):
         self.name = name
-        self.args = tuple(args)
+        if args is None:
+            self.args = ()
+        else:
+            self.args = tuple(args)
+        self.source = source
 
     def __repr__(self):
         if self.args:
             return "{0}({1})".format(self.name, ",".join(map(repr, self.args)))
         else:
             return self.name
+
+    def copy(self, source):
+        t = copy.deepcopy(self)
+        if source is not None:
+            t.set_source(source)
+        return t
 
     def set_source(self, source):
         self.source = source
@@ -42,7 +51,7 @@ class Type(object):
         return set().union(*[ t.get_variables() for t in self.args ])
 
     def replace_vars(self, table):
-        return Type(self.name, [ t.replace_vars(table) for t in self.args ])
+        return Type(self.name, [ t.replace_vars(table) for t in self.args ], self.source)
 
     def get_arity(self):
         return len(self.args)
@@ -87,6 +96,8 @@ class Type(object):
 
 class TypeVar(EqMixin):
 
+    source = None
+
     def __init__(self, id):
         self.id = id
 
@@ -99,9 +110,20 @@ class TypeVar(EqMixin):
     def replace_vars(self, table):
         v = table.get(self.id)
         if v:
+            v = v.copy(self.source)
             return v
         else:
             return self
+
+    def set_source(self, source):
+        self.source = source
+
+    def copy(self, source):
+        t = copy.deepcopy(self)
+        if source is not None:
+            t.source = source
+        return t
+
 
 t_int = Type("Int")
 t_string = Type("String")
@@ -113,16 +135,22 @@ t_var0 = TypeVar(0)
 
 basic_types = [ t_int, t_string, t_bool, t_float, t_double ]
 
-def t_array(x):
-    return Type("Array", [x])
+def t_array(x, source=None):
+    t = Type("Array", [x])
+    t.set_source(source)
+    return t
+
 def t_tuple(*args):
     return Type("", args)
 
 typevar_counter = 10
-def fresh_typevar():
+def fresh_typevar(source = None):
     global typevar_counter
     typevar_counter += 1
-    return TypeVar(typevar_counter)
+    t = TypeVar(typevar_counter)
+    if source is not None:
+        t.source = source
+    return t
 
 def join_contexts(ctx1, ctx2):
     context = ctx1.copy()
@@ -131,7 +159,7 @@ def join_contexts(ctx1, ctx2):
         if tp is None:
             context[k] = v
         elif tp != v:
-            raise Exception("Type mismatch {0}/{1}".format(tp, v))
+            raise PtpException("Type mismatch {0}/{1}".format(tp, v), v.source)
     return context
 
 def join_contexts_by_equations(ctx1, ctx2):
@@ -162,6 +190,7 @@ def derive_context(env, defs):
     context = {}
     equations = []
     for e, t in defs:
+        t.source = e.source
         tp, c, eq = e.get_constraints(env)
         equations += eq
         equations.append((t, tp))
@@ -172,6 +201,15 @@ def derive_context(env, defs):
     for key in context:
         result[key] = context[key].replace_vars(table)
     return result
+
+def pick_type_by_source(t1, t2):
+    """ Picks type with more precise type """
+    if t1.source is None:
+        return t2
+    if t2.source is None:
+        return t1
+    # TODO: Prefer source from arcs before place types
+    return t1
 
 def unify(equations):
     if len(equations) == 0:
@@ -191,4 +229,4 @@ def unify(equations):
         return result
     if t1.name == t2.name and len(t1.args) == len(t1.args):
         return unify(equations + zip(t1.args, t2.args))
-    raise Exception("Type mismatch: {0}/{1}".format(t1, t2))
+    raise PtpException("Type mismatch: {0}/{1}".format(t1, t2), pick_type_by_source(t1, t2).source)

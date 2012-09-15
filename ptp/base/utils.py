@@ -177,3 +177,8 @@ def unions(lst, fn=None):
     if fn is None:
         fn = lambda x: x
     return set().union(*[ fn(x) for x in lst ])
+
+def get_source_path(id, name):
+    return "*{0}/{1}".format(id, name)
+
+

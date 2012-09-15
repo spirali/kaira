@@ -153,20 +153,23 @@ class ExprLiteral(Expression):
         return "{0}({1})".format(self.__class__.__name__, repr(self.value))
 
     def get_constraints(self, env):
-        return (self.nel_type, {}, [])
+        t = self.nel_type.copy(self.source)
+        return (t, {}, [])
 
     def inject_types(self, env, context):
         return # Literal has apriori nel_type
 
 class ExprVar(Expression):
-    def __init__(self, name):
+
+    def __init__(self, name, source=None):
         self.name = name
+        self.source = source
 
     def __repr__(self):
         return "ExprVar({0})".format(repr(self.name))
 
     def get_constraints(self, env):
-        tv = fresh_typevar()
+        tv = fresh_typevar(self.source)
         return (tv, {self.name : tv} , [])
 
     def emit(self, emitter):
@@ -202,7 +205,8 @@ class ExprParam(Expression):
         t = env.get_parameter_type(self.name)
         if t is None:
             raise PtpException("Unknown parameter '{0}'".format(self.name), self.source)
-        return (t, {}, [])
+        t2 = t.copy(self.source)
+        return (t2, {}, [])
 
     def inject_types(self, env, context):
         self.nel_type = env.get_parameter_type(self.name)
@@ -252,7 +256,7 @@ class ExprArray(Expression):
         return self.value
 
     def get_constraints(self, env):
-        at = fresh_typevar()
+        at = fresh_typevar(self.source)
         eqs = []
         ctx = {}
         for e in self.value:
@@ -261,7 +265,9 @@ class ExprArray(Expression):
             ctx, q = join_contexts_by_equations(c, ctx)
             eqs += q
             eqs.append((t, at))
-        return (t_array(at), ctx, eqs)
+        t = t_array(at)
+        t.source = self.source
+        return (t, ctx, eqs)
 
     def inject_types(self, env, context):
         for e in self.value:
@@ -328,7 +334,9 @@ class ExprTuple(Expression):
             ctx, q = join_contexts_by_equations(c, ctx)
             eqs += q
             ts.append(t)
-        return (t_tuple(*ts), ctx, eqs)
+        t = t_tuple(*ts)
+        t.source = self.source
+        return (t, ctx, eqs)
 
     def emit(self, emitter):
         return emitter.tuple(self.nel_type, self.args)
@@ -397,8 +405,9 @@ class ExprCast(Expression):
 
     def get_constraints(self, env):
         t, c, eq = self.expr.get_constraints(env)
-        eq.append((t, self.type))
-        return (self.type, c, eq)
+        t2 = self.type.copy(self.source)
+        eq.append((t, t2))
+        return (t2, c, eq)
 
 
 class ExprTupleGet(Expression):
@@ -422,7 +431,9 @@ class ExprTupleGet(Expression):
     def get_constraints(self, env):
         t, c, eq = self.expr.get_constraints(env)
         nt = [ fresh_typevar() for x in range(self.tuplesize) ]
-        eq.append((t, t_tuple(*nt)))
+        t2 = t_tuple(*nt)
+        t2.source = self.source
+        eq.append((t, t2))
         return (nt[self.index], c, eq)
 
     def inject_types(self, env, context):

@@ -22,7 +22,7 @@ import base.parser as parser
 from base.expressions import Env, ExprCall, ExprVar, ExprInt
 
 import xml.etree.ElementTree as xml
-from base.utils import PtpException
+from base.utils import PtpException, get_source_path
 from net import Net, Area, Place, Transition, EdgeIn, EdgeInPacking, EdgeOut
 
 class ExternType(object):
@@ -217,7 +217,7 @@ class Project(object):
 
 def get_source(element, name):
     id = utils.xml_int(element, "id")
-    return "*{0}/{1}".format(id, name)
+    return get_source_path(id, name)
 
 def load_edge_in(element, net, transition):
     id = utils.xml_int(element, "id")

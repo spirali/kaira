@@ -77,8 +77,9 @@ class EdgeInPacking(EdgeBase):
         self.limit = limit
 
     def get_equations(self):
-        return [ (ExprVar(self.varname), t_array(self.get_place_type())),
-                (self.limit, t_int) ]
+        source = utils.get_source_path(self.id, "inscription")
+        return [ (ExprVar(self.varname, source), t_array(self.get_place_type())),
+                (self.limit, t_int.copy(source)) ]
 
     def inject_types(self, env, context):
         self.limit.inject_types(env, context)
