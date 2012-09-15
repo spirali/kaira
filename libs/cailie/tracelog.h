@@ -55,6 +55,7 @@ class CaTraceLog {
 			pos++;
 		}
 
+		void write_key_value(const std::string &key, const std::string &value);
 
 		void write_buffer();
 

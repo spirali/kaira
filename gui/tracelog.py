@@ -172,6 +172,7 @@ class Trace:
             self.struct_token = self.struct_token_8
         else:
             Exception("Invalid pointer size")
+        self.info = self._read_header()
 
     def get_next_event_name(self):
         t = self.data[self.pointer]
@@ -231,6 +232,17 @@ class Trace:
             return None
         else:
             return self.struct_basic.unpack_from(self.data, self.pointer + 1)[0]
+
+    def _read_header(self):
+        info = {}
+        while True:
+            key = self._read_cstring()
+            value = self._read_cstring()
+            if key == "" and value == "":
+                if "KairaThreadTrace" not in info or info["KairaThreadTrace"] != "1":
+                    raise Exception("Invalid format or version of KairaThreadTrace")
+                return info
+            info[key] = value
 
     def _read_struct_transition_fired(self):
         values = self.struct_transition_fired.unpack_from(self.data, self.pointer)

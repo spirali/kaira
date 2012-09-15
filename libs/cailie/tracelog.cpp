@@ -26,6 +26,15 @@ CaTraceLog::CaTraceLog(size_t size, const std::string &filename)
 		exit(-1);
 	}
 	setbuf(file, NULL); // Unbuffered file
+
+	write_key_value("KairaThreadTrace", "1");
+	char hostname[1024];
+	if (gethostname(hostname, 1024)) {
+		perror("CaTraceLog::CaTraceLog");
+		exit(-1);
+	}
+	write_key_value("hostname", hostname);
+	write_key_value("", ""); // Terminate config section
 }
 
 CaTraceLog::~CaTraceLog()
@@ -47,6 +56,13 @@ void CaTraceLog::write_time()
 	uint64_t t = (time.tv_sec - initial_time.tv_sec) * 10e9;
 	t += time.tv_nsec - initial_time.tv_nsec;
 	write_uint64(t);
+}
+
+void CaTraceLog::write_key_value(const std::string &key, const std::string &value)
+{
+	check_size(key.size() + value.size() + 2);
+	write_string(key);
+	write_string(value);
 }
 
 void CaTraceLog::event_net_spawn(int net_id)
