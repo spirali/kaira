@@ -1,4 +1,4 @@
-<project extenv="C++"><configuration><parameter default="10" description="" name="LIMIT" type="Int" /><parameter default="4" description="" name="SIZE_X" type="Int" /><parameter default="4" description="" name="SIZE_Y" type="Int" /><parameter default="200" description="" name="TEMP" type="Int" /><parameter default="5" description="" name="WORKERS" type="Int" /><extern-type name="Row" octave-value="False" raw-type="Row" transport-mode="Custom" type="native"><code name="getsize">	return ROW_DATA_SIZE;
+<project extenv="C++"><configuration><parameter default="10" description="" name="LIMIT" type="Int" /><parameter default="4" description="" name="SIZE_X" type="Int" /><parameter default="4" description="" name="SIZE_Y" type="Int" /><parameter default="200" description="" name="TEMP" type="Int" /><extern-type name="Row" octave-value="False" raw-type="Row" transport-mode="Custom" type="native"><code name="getsize">	return ROW_DATA_SIZE;
 </code><code name="unpack">	const double *data = (double *) unpacker.unpack(ROW_DATA_SIZE);
 	return Row(data);
 </code><code name="pack">	packer.pack(obj.get_raw_data(), ROW_DATA_SIZE);
