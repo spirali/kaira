@@ -1,10 +1,10 @@
 
+#include "cailie.h"
+
 #include <alloca.h>
 #include <stdio.h>
 
 #include <sstream>
-
-#include "cailie.h"
 
 extern size_t ca_trace_log_size;
 extern char * ca_project_description_string;

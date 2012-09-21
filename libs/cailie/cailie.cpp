@@ -1,4 +1,8 @@
 
+#ifdef CA_MPI
+#include <mpi.h>
+#endif
+
 #include "cailie.h"
 #include "listener.h"
 #include "utils.h"
@@ -6,10 +10,6 @@
 #include <getopt.h>
 #include <assert.h>
 #include <stdarg.h>
-
-#ifdef CA_MPI
-#include <mpi.h>
-#endif
 
 int ca_threads_count = 1;
 const char *ca_project_description_string = NULL;

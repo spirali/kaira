@@ -1,4 +1,7 @@
 
+#include "cailie.h"
+#include "listener.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,9 +14,6 @@
 #include <netinet/in.h>
 #include <unistd.h>
 
-
-#include "listener.h"
-#include "cailie.h"
 
 static int ca_init_listen_socket(int port)
 {

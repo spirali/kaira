@@ -1,11 +1,11 @@
 
-#include <stdio.h>
-#include "messages.h"
-#include "thread.h"
-
 #ifdef CA_MPI
 #include <mpi.h>
 #endif
+
+#include <stdio.h>
+#include "messages.h"
+#include "thread.h"
 
 
 void CaThreadMessageHaltNet::process(CaThread *thread)

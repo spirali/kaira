@@ -2,6 +2,10 @@
 #ifndef CAILIE_H
 #define CAILIE_H
 
+#ifdef CA_MPI
+#include <mpi.h>
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
