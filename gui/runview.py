@@ -22,6 +22,8 @@ import gtkutils
 import mainwindow
 from canvas import NetCanvas
 import chart
+from newcharts import ChartWidget, Data2DChart
+from matplotlib.ticker import FuncFormatter
 
 class RunView(gtk.VBox):
 
@@ -93,6 +95,9 @@ class RunView(gtk.VBox):
         for name, item in self.views:
             if name == text:
                 item.show_all()
+                if isinstance(item, ChartWidget):
+                    # set focus on graph canvas
+                    item.get_figure().canvas.grab_focus()
             else:
                 item.hide()
 
@@ -130,36 +135,124 @@ class RunView(gtk.VBox):
         return sc
 
     def _processes_utilization(self):
-        colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
+        colors = ["#00aa00"]
         values = self.tracelog.statistics["threads"]
         names =  [ "process {0}".format(p) for p in xrange(self.tracelog.process_count) ]
-        legend = [ (0, "Running") ]
-        return self._utilization_chart(values, names, colors, legend)
+
+        # Transform data for chart
+        values.reverse()
+        names.reverse()
+        lines = []
+        for i, line in enumerate(values):
+            l2 = line[0]
+            l2.remove(l2[0])
+            size = len(l2) - 1
+            l1 = []
+            for j in range(0, size, 2):
+                l1.append((l2[j][0], (l2[j+1][0] - l2[j][0])))
+            lines.append(l1)
+
+        # Create chart
+        chart_widget = ChartWidget()
+        figure = chart_widget.get_figure()
+        w, h = figure.get_size_inches()
+        dpi = figure.get_dpi()
+        # resize figure, it depends on count of lines (processes)
+        figure.set_size_inches(w, len(lines) * 0.8) 
+        # resize canvas, it depends on count of lines (processes)
+        figure.canvas.set_size_request(int(w * dpi), int(len(lines) * 0.7 * dpi))
+
+        chart_id = chart_widget.create_new_chart(ChartWidget.UTILIZATION_CHART)
+        chart = chart_widget.get_chart(chart_id)
+        chart.fill_data(lines, names, colors)
+
+        # set basic properties
+        chart.xaxis.grid(True, linestyle="-", which='major', color='black', alpha=0.7)
+        chart.xaxis.set_major_formatter(FuncFormatter(
+            lambda time, pos: time_to_string(time)[:-7]))
+        chart.set_xlim(xmin=0)
+        chart.get_figure().tight_layout()
+
+        chart.set_title("The running time of each processes")
+        chart.set_xlabel("Time")
+        chart.set_ylabel("Process")
+        return chart_widget
 
     def _transitions_utilization(self):
-        colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
+        colors = ["#00aa00"]
         names = self.tracelog.statistics["transition_names"]
         values = self.tracelog.statistics["transition_values"]
-        legend = [ (0, "Running") ]
-        return self._utilization_chart(values, names, colors, legend)
+
+#       # znasobeni poctu prvku
+#        nn = names[:]
+#        vv = values[:]
+#        names = []
+#        values = []
+#        idx = 1
+#        for i in range(0, 200):
+#            names.append("%s (%d)" % (nn[0], idx))
+#            names.append("%s (%d)" % (nn[1], idx+1))
+#            values.append(vv[0])
+#            values.append(vv[1])
+#            idx += 2
+        
+        # Transform data for chart
+        values.reverse()
+        names.reverse()
+        lines = []
+        for i, line in enumerate(values):
+            l2 = line[0]
+            size = len(l2) - 1
+            l1 = []
+            for j in range(0, size, 2):
+                l1.append((l2[j][0], (l2[j+1][0] - l2[j][0])))
+            lines.append(l1)
+
+        # Create chart
+        chart_widget = ChartWidget()
+        figure = chart_widget.get_figure()
+        w, h = figure.get_size_inches()
+        dpi = figure.get_dpi()
+        # resize figure, it depends on count of lines (processes)
+        figure.set_size_inches(w, len(lines) * 0.8) 
+        # resize canvas, it depends on count of lines (processes)
+        figure.canvas.set_size_request(int(w * dpi), int(len(lines) * 0.7 * dpi))
+
+        chart_id = chart_widget.create_new_chart(ChartWidget.UTILIZATION_CHART)
+        chart = chart_widget.get_chart(chart_id)
+        chart.fill_data(lines, names, colors)
+
+        # set basic properties
+        chart.xaxis.grid(True, linestyle="-", which='major', color='black', alpha=0.7)
+        chart.xaxis.set_major_formatter(FuncFormatter(
+            lambda time, pos: time_to_string(time)[:-7]))
+        chart.set_xlim(xmin=0)
+        chart.get_figure().tight_layout()
+
+        chart.set_title("The running time of each transitions")
+        chart.set_xlabel("Time")
+        chart.set_ylabel("Transition")
+        return chart_widget
 
     def _place_chart(self):
         values = self.tracelog.statistics["tokens_values"]
         names = self.tracelog.statistics["tokens_names"]
 
-        vbox = gtk.HBox()
-        placelist = gtkutils.SimpleList((("Place|foreground", str),("_", str)))
-        colors = chart.color_names
-        for i, name in enumerate(names):
-            placelist.append((name,colors[i % len(colors)]))
-        vbox.pack_start(placelist, False, False)
-        maxtime = self.tracelog.get_max_time()
-        c = chart.TimeChart(values, min_time=0, max_time=maxtime, min_value=0)
-        c.xlabel_format = lambda x: time_to_string(x)[:-7]
-        w = chart.ChartWidget(c)
-        vbox.pack_start(w, True, True)
-        return vbox
+        data = Data2DChart((names, values))
+        chart_widget = ChartWidget()
+        chart_id = chart_widget.create_new_chart(ChartWidget.PLACE_CHART)
+        chart = chart_widget.get_chart(chart_id)
+        chart.fill_data(data)
 
+        # nastavovaci funkce musi byt az po vykresleni
+        chart.xaxis.set_major_formatter(FuncFormatter(
+            lambda time, pos: time_to_string(time)[:-7]))
+        chart.set_xlim(xmin = 0)
+        chart.get_figure().tight_layout()
+        chart.set_title("Cout of tokens in places in time")
+        chart.set_xlabel("Time")
+        chart.set_ylabel("Count")
+        return chart_widget
 
 class NetInstanceView(gtk.HPaned):
 
@@ -247,7 +340,7 @@ class NetInstanceView(gtk.HPaned):
 
 
 def time_to_string(nanosec):
-    s = nanosec / 1000000000
+    s = int(nanosec) / 1000000000
     nsec = nanosec % 1000000000
     sec = s % 60
     minutes = (s / 60) % 60
