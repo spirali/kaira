@@ -24,6 +24,7 @@ import numpy as np
 import matplotlib
 from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
                                                as FigureCanvas
+
 from matplotlib.projections import register_projection
 #import matplotlib.pyplot as plt
 
@@ -143,6 +144,7 @@ class BasicChart(matplotlib.axes.Axes):
     # --> methods for mooving graph
     def _move_start(self, event):
         if event.button == 1:
+            print event.xdata
             self.xypress = (event.x, event.y)
             #save original view for restore view
             if len(self.zoom_stack) > 0 and self.original_view_dim is None:
@@ -151,6 +153,7 @@ class BasicChart(matplotlib.axes.Axes):
                 xmin, xmax = self.xaxis.get_view_interval()
                 ymin, ymax = self.yaxis.get_view_interval()
                 self.original_view_dim = (xmin, xmax, ymin, ymax)
+
 
     def _move_end(self, event):
         if event.button == 1:
@@ -212,9 +215,6 @@ class PlaceChart(BasicChart):
         for label in self.xaxis.get_ticklabels():
             label.set_rotation(-35) 
             label.set_horizontalalignment('left') 
-#        bbox = self.get_position()
-#        self.set_position([bbox.x0, bbox.y0, bbox.width * 1.2, bbox.height])
-#         self.plegend = self.legend(loc="center left", bbox_to_anchor=(1, 0.5))
 
         self.plegend = self.legend(loc="upper left", fancybox=True, shadow=True)
 
@@ -222,7 +222,80 @@ class UtilizationChart(BasicChart):
 
     name = 'utilization_chart'
 
+    def __init__(self, fig, rec,
+                 axisbg  = None, # defaults to rc axes.facecolor
+                 frameon = True,
+                 sharex  = None,
+                 sharey  = None,
+                 label   = "",
+                 xscale  = None,
+                 yscale  = None,
+                 **kwargs
+                 ):
+        BasicChart.__init__(self, fig, rec, axisbg, frameon, sharex, sharey,
+                label, xscale, yscale, **kwargs)
+
+        self.background = None
+        self.figure.canvas.mpl_connect(
+                "motion_notify_event", self._draw_vertical_line)
+        self.figure.canvas.mpl_connect( # updade background after change window
+                "draw_event", self._update_background)
+
+    def _update_background(self, event):
+        self.background = self.figure.canvas.copy_from_bbox(self.bbox)
+            
+    def _draw_vertical_line(self, event):
+        if self.xypress is None: # if is not drag canvas
+            if self.background is None:
+                self.background = self.figure.canvas.copy_from_bbox(self.bbox)
+
+            if self.in_axes(event):
+                if self.background is not None:
+                    self.figure.canvas.restore_region(self.background)
+
+                inv = self.transAxes.inverted()
+                x, y = inv.transform((event.x, event.y))
+                l = matplotlib.lines.Line2D([x, x], [0, 1], c="#ff0000",
+                        lw=2, transform=self.transAxes, figure=self.figure)
+                self.draw_artist(l)
+
+                xytext_val = -115 if x > 0.5 else 10
+                a = matplotlib.text.Annotation(
+                        time_to_string(event.xdata)[:-6], 
+                        xy=(event.x, event.y), xycoords='figure pixels', 
+                        xytext=(xytext_val, 0), textcoords='offset points', 
+                        bbox=dict(boxstyle="round", fc="#ffff00"))
+                a.set_transform(matplotlib.transforms.IdentityTransform())
+                self._set_artist_props(a)
+                self.draw_artist(a)
+
+                self.figure.canvas.blit(self.bbox)
+            else:
+                if self.background is not None:
+                    self.figure.canvas.restore_region(self.background)
+                    self.figure.canvas.blit(self.bbox)
+                    self.background = None
+
+    def _moving(self, event):
+        """ move only on x axes. """
+        if self.xypress is not None: # drag canvas
+            xpress = self.xypress[0]
+            x = event.x
+            diffx = xpress - x
+            xmin = self.transAxes.transform((0,0))[0]
+            xmax = self.transAxes.transform((1,1))[0]
+            shift_xmin, shift_xmax = xmin + diffx, xmax + diffx
+            # coordinates in data view
+            inv = self.transData.inverted()
+            data_xmin = inv.transform((shift_xmin, 0))[0]
+            data_xmax = inv.transform((shift_xmax, 1))[0]
+            # set new view dimension
+            self.set_xlim(data_xmin, data_xmax)
+            self.xypress = (x, event.y) # shift for next step
+            self.figure.canvas.draw_idle()
+
     def _zoom_in(self, stack, event):
+        """ zoom only on x axes. """
         def new_bounds(min, max, value, zoom):
             if value is None: return (min, max)
             diff_min, diff_max = value - min, max - value
@@ -259,9 +332,6 @@ class UtilizationChart(BasicChart):
             yticks.append(y + ywidth/2)
             self.broken_barh(ldata, (y, ywidth), edgecolor='face', 
                     facecolor=colors[0])
-
-#            rec = matplotlib.patches.Rectangle((0,y), 1, ywidth, 
-#                    facecolor="red", edgecolor="black", zorder=1)
 
         self.set_yticks(yticks)
         self.set_yticklabels(names)
@@ -463,3 +533,11 @@ class Line:
 
     def get_yvalues(self):
         return self.yvalues
+
+def time_to_string(nanosec):
+    s = int(nanosec) / 1000000000
+    nsec = nanosec % 1000000000
+    sec = s % 60
+    minutes = (s / 60) % 60
+    hours = s / 60 / 60
+    return "{0}:{1:0>2}:{2:0>2}:{3:0>9}".format(hours, minutes, sec, nsec)

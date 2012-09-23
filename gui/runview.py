@@ -24,6 +24,7 @@ from canvas import NetCanvas
 import chart
 from newcharts import ChartWidget, Data2DChart
 from matplotlib.ticker import FuncFormatter
+import matplotlib
 
 class RunView(gtk.VBox):
 
@@ -183,19 +184,6 @@ class RunView(gtk.VBox):
         names = self.tracelog.statistics["transition_names"]
         values = self.tracelog.statistics["transition_values"]
 
-#       # znasobeni poctu prvku
-#        nn = names[:]
-#        vv = values[:]
-#        names = []
-#        values = []
-#        idx = 1
-#        for i in range(0, 200):
-#            names.append("%s (%d)" % (nn[0], idx))
-#            names.append("%s (%d)" % (nn[1], idx+1))
-#            values.append(vv[0])
-#            values.append(vv[1])
-#            idx += 2
-        
         # Transform data for chart
         values.reverse()
         names.reverse()
@@ -232,6 +220,7 @@ class RunView(gtk.VBox):
         chart.set_title("The running time of each transitions")
         chart.set_xlabel("Time")
         chart.set_ylabel("Transition")
+
         return chart_widget
 
     def _place_chart(self):
