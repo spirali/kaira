@@ -112,6 +112,19 @@ class TraceLog:
             trace = Trace(f.read(), process_id, thread_id, self.pointer_size)
             self.traces[process_id * self.threads_count + thread_id] = trace
 
+    def  get_index_from_time(self,  time):
+        last  =  len(self.timeline)  -  1
+        first  =  0
+        while  1:
+            if  last  <  first:
+                return last
+            i  =  (last  +  first)  /  2
+            t = self.get_event_time(i)
+            if time  >  t:
+                first  =  i  +  1
+            elif  time  <  t:
+                last  =  i  -  1
+
     def _preprocess(self):
         timeline = []
         trace_times = [ trace.get_next_event_time() for trace in self.traces ]
