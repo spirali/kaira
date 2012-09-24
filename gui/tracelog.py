@@ -156,7 +156,8 @@ class Trace:
     struct_basic = struct.Struct("<Q")
     struct_transition_fired = struct.Struct("<Qi")
     struct_spawn = struct.Struct("<Qi")
-    struct_receive = struct_basic
+    struct_send = struct.Struct("Qi")
+    struct_receive = struct.Struct("<Qi")
 
     struct_token_4 = struct.Struct("<iL")
     struct_token_8 = struct.Struct("<iQ")
@@ -180,6 +181,8 @@ class Trace:
             return "Fired"
         elif t == "F":
             return "Fin  "
+        elif t == "M":
+            return "Send "
         elif t == "R":
             return "Recv "
         elif t == "S":
@@ -194,6 +197,8 @@ class Trace:
             self._process_event_transition_fired(runinstance)
         elif t == "F":
             self._process_event_transition_finished(runinstance)
+        elif t == "M":
+            self._process_event_send_msg(runinstance)
         elif t == "R":
             return self._process_event_receive(runinstance)
         elif t == "S":
@@ -259,6 +264,11 @@ class Trace:
         self.pointer += self.struct_receive.size
         return values
 
+    def _read_struct_send_msg(self):
+        values = self.struct_send.unpack_from(self.data, self.pointer)
+        self.pointer += self.struct_send.size
+        return values
+
     def _read_struct_spawn(self):
         values = self.struct_spawn.unpack_from(self.data, self.pointer)
         self.pointer += self.struct_spawn.size
@@ -280,6 +290,11 @@ class Trace:
         runinstance.transition_finished(self.process_id, self.thread_id, time)
         self.process_tokens_add(runinstance)
 
+    def _process_event_send_msg(self, runinstance):
+        values = self._read_struct_send_msg()
+        runinstance.event_send(self.process_id, self.thread_id, *values)
+        self.process_tokens_add(runinstance)
+
     def _process_event_spawn(self, runinstance):
         runinstance.event_spawn(self.process_id, self.thread_id, *self._read_struct_spawn())
         self.process_tokens_add(runinstance)
@@ -290,8 +305,8 @@ class Trace:
         self.process_tokens_add(runinstance)
 
     def _process_event_receive(self, runinstance):
-        time = self._read_struct_receive()[0]
-        runinstance.event_receive(self.process_id, self.thread_id, time)
+        values = self._read_struct_receive()
+        runinstance.event_receive(self.process_id, self.thread_id, *values)
         self.process_tokens_add(runinstance)
 
     def _read_struct_token(self):
@@ -379,8 +394,12 @@ class DataCollectingRunInstance(RunInstance):
         RunInstance.event_halt(self, process_id, thread_id, time)
         self.last_time = time
 
-    def event_receive(self, process_id, thread_id, time):
-        RunInstance.event_receive(self, process_id, thread_id, time)
+    def event_send(self, process_id, thread_id, time, msg_id):
+        RunInstance.event_send(self, process_id, thread_id, time, msg_id)
+        self.last_time = time
+
+    def event_receive(self, process_id, thread_id, time, msg_id):
+        RunInstance.event_receive(self, process_id, thread_id, time, msg_id)
         self.last_time = time
 
     def add_token(self, place_id, token_pointer, token_value):

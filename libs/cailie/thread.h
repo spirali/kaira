@@ -4,6 +4,7 @@
 
 #include "process.h"
 #include "tracelog.h"
+#include <limits.h>
 
 class CaThread {
 	public:
@@ -52,7 +53,8 @@ class CaThread {
 		void set_process(CaProcess *process, int id) { this->process = process; this->id = id; }
 
 		CaTraceLog* get_tracelog() { return tracelog; }
-		void set_tracelog(CaTraceLog *tracelog) { this->tracelog = tracelog; }
+		void set_tracelog(CaTraceLog *tracelog, int id) { this->tracelog = tracelog; this->msg_id = id; }
+		int get_new_msg_id();
 
 	protected:
 		CaProcess *process;
@@ -66,6 +68,7 @@ class CaThread {
 		#endif
 
 		CaTraceLog *tracelog;
+		int msg_id;
 };
 
 #endif

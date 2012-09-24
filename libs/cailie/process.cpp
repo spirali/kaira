@@ -46,7 +46,7 @@ void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 	CaNet *n = net;
 	CaTraceLog *tracelog = thread->get_tracelog();
 	if (tracelog) {
-		tracelog->event_receive();
+		tracelog->event_receive(tokens->msg_id);
 	}
 	if (n == NULL) {
 		CA_DLOG("Net not found process=%i thread=%i\n",
@@ -176,7 +176,7 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 		for (int t = 0; t < threads_count; t++) {
 			std::stringstream s;
 			s << "trace-" << process_id << "-" << t << ".ktt";
-			threads[t].set_tracelog(new CaTraceLog(ca_trace_log_size, s.str()));
+			threads[t].set_tracelog(new CaTraceLog(ca_trace_log_size, s.str()), process_id * process_count + t);
 		}
 	}
 

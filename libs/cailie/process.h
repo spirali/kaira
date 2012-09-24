@@ -31,6 +31,7 @@ struct CaServiceMessageNetCreate : CaServiceMessage {
 struct CaTokens {
 	int place_index;
 	int tokens_count;
+	int msg_id;
 };
 
 struct CaUndeliverMessage {

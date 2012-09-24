@@ -408,7 +408,7 @@ class Builder(CppWriter):
         for tr in transitions:
             self.line("{0}->activate_transition_by_pos_id({1});", net, tr.get_pos_id())
 
-    def write_send_token(self, em, edge, locking = True, interface_edge = False):
+    def write_send_token(self, em, edge, trace, locking = True, interface_edge = False):
 
         def write_lock():
             if not locking:
@@ -481,6 +481,10 @@ class Builder(CppWriter):
                 self.block_end()
                 self.line("thread->multisend{0}(target_{1.id}, n, {2}, value.size(), packer);",
                        sendtype,edge, edge.get_place().get_pos_id())
+            if trace:
+                self.if_begin("tracelog")
+                self.line("tracelog->event_send_msg(thread->get_new_msg_id());")
+                self.block_end()
             self.block_end()
         if edge.guard is not None:
             self.block_end()
@@ -561,7 +565,10 @@ class Builder(CppWriter):
             w.line("bool lock = true;")
 
         for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
-            w.write_send_token(em, edge)
+            if tr.tracing != "off" or tr.is_any_place_traced():
+                w.write_send_token(em, edge, True)
+            else:
+                w.write_send_token(em, edge, False)
 
         w.line("if (lock) n->unlock();")
 
@@ -1146,7 +1153,7 @@ class Builder(CppWriter):
         em = emitter.Emitter(self.project)
         em.variable_emitter = lambda name: "___" + name
         for e in net.interface_edges_out:
-            self.write_send_token(em, e, locking = False, interface_edge = True)
+            self.write_send_token(em, e, False, locking = False, interface_edge = True)
 
         self.line("n->set_finalizer((CaNetFinalizerFn*) finalizer_{0.id}, NULL);", net)
         self.line("n->set_manual_delete();")

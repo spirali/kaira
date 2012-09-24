@@ -20,7 +20,8 @@ class CaTraceLog {
 		void event_net_halt();
 		void event_transition_fired(int transition_id);
 		void event_transition_finished();
-		void event_receive();
+		void event_send_msg(int msg_id);
+		void event_receive(int msg_id);
 
 		void trace_token(int place_id, void *pointer, const std::string &value);
 		void trace_token(int place_id, void *pointer);
