@@ -20,6 +20,7 @@
 import gtk
 import gtkutils
 import mainwindow
+import events as evt
 from canvas import NetCanvas
 import chart
 from newcharts import ChartWidget, Data2DChart
@@ -69,6 +70,7 @@ class RunView(gtk.VBox):
         button.connect("clicked", lambda w:
             self.scale.set_value(min(self.tracelog.get_runinstances_count() - 1,
                                      self.get_event_index() + 1)))
+
         toolbar.pack_start(button, False, False)
 
         self.scale.set_draw_value(False)
@@ -220,6 +222,11 @@ class RunView(gtk.VBox):
         chart.set_title("The running time of each transitions")
         chart.set_xlabel("Time")
         chart.set_ylabel("Transition")
+
+        if isinstance(chart, evt.EventSource):
+            chart.set_callback("change_slider", 
+                    lambda time: self.scale_set_time(
+                        self.tracelog.get_index_from_time(time)))
 
         return chart_widget
 
