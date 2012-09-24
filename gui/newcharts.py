@@ -20,6 +20,7 @@
 import gtk
 import os
 import paths
+import events as evt
 import numpy as np
 import matplotlib
 from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
@@ -28,7 +29,7 @@ from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
 from matplotlib.projections import register_projection
 #import matplotlib.pyplot as plt
 
-class BasicChart(matplotlib.axes.Axes):
+class BasicChart(matplotlib.axes.Axes, evt.EventSource):
 
     name = 'basic_chart'
 
@@ -45,6 +46,7 @@ class BasicChart(matplotlib.axes.Axes):
 
         matplotlib.axes.Axes.__init__(self, fig, rec, axisbg, frameon,
                 sharex, sharey, label, xscale, yscale, **kwargs)
+        evt.EventSource.__init__(self)
 
         # chart data
         self.data = None
@@ -68,6 +70,27 @@ class BasicChart(matplotlib.axes.Axes):
         # block the standard scroll window event if it is use CTRL mask
         fig.canvas.connect("scroll_event", 
                 lambda w, e: e.state & gtk.gdk.CONTROL_MASK)
+
+    def registr_pick_legend(self, legend, lines):
+        lined = dict()
+        for legline, originale in zip(legend.get_lines(), lines):
+            legline.set_picker(5)
+            lined[legline] = originale
+
+        def on_pick(event):
+            legline = event.artist
+            [originale] = lined[legline]
+            vis = not originale.get_visible()
+            originale.set_visible(vis)
+
+            if vis:
+                legline.set_alpha(1.0)
+            else:
+                legline.set_alpha(0.2)
+
+            self.figure.canvas.draw_idle()
+
+        self.figure.canvas.mpl_connect('pick_event', on_pick)
 
     def fill_data(self, data):
         ''' This method must be implement in derivated class. '''
@@ -144,7 +167,8 @@ class BasicChart(matplotlib.axes.Axes):
     # --> methods for mooving graph
     def _move_start(self, event):
         if event.button == 1:
-            print event.xdata
+#            print event.xdata
+            self.emit_event("change_slider", event.xdata)
             self.xypress = (event.x, event.y)
             #save original view for restore view
             if len(self.zoom_stack) > 0 and self.original_view_dim is None:
@@ -208,15 +232,18 @@ class PlaceChart(BasicChart):
 
     def fill_data(self, data):
         self.data = data
+        lines = []
         for ldata in data:
-            self.plot(ldata.get_xvalues(), ldata.get_yvalues(),
+            line = self.plot(ldata.get_xvalues(), ldata.get_yvalues(),
                     'o-', drawstyle='steps-post', label=ldata.get_name())
+            lines.append(line)
 
         for label in self.xaxis.get_ticklabels():
             label.set_rotation(-35) 
             label.set_horizontalalignment('left') 
 
         self.plegend = self.legend(loc="upper left", fancybox=True, shadow=True)
+        self.registr_pick_legend(self.plegend, lines)
 
 class UtilizationChart(BasicChart):
 
