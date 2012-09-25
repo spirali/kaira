@@ -41,6 +41,8 @@ class RunView(gtk.VBox):
             ("Processes", self._processes_utilization()),
             ("Transitions", self._transitions_utilization()),
             ("Places", self._place_chart()),
+            ("Processes histogram", self._processes_histogram()),
+            ("Transitions histogram", self._transitions_histogram())
         ]
 
         self.pack_start(self._controlls(), False, False)
@@ -225,7 +227,7 @@ class RunView(gtk.VBox):
 
         if isinstance(chart, evt.EventSource):
             chart.set_callback("change_slider", 
-                    lambda time: self.scale_set_time(
+                    lambda time: self.scale.set_value(
                         self.tracelog.get_index_from_time(time)))
 
         return chart_widget
@@ -249,6 +251,41 @@ class RunView(gtk.VBox):
         chart.set_xlabel("Time")
         chart.set_ylabel("Count")
         return chart_widget
+
+    def _transitions_histogram(self):
+        values = self.tracelog.statistics["tr_hist_values"]
+        names = self.tracelog.statistics["tr_hist_names"]
+
+        chart_widget = ChartWidget()
+        chart_id = chart_widget.create_new_chart(ChartWidget.HISTOGRAM_CHART)
+        chart = chart_widget.get_chart(chart_id)
+        chart.fill_data(names, values)
+
+        # set basic properties
+        chart.yaxis.set_major_formatter(FuncFormatter(
+            lambda time, pos: time_to_string(time)[:10]))
+        chart.set_title("Histogram of sum time of each transitions")
+        chart.set_xlabel("Transitions")
+        chart.set_ylabel("Time SUM")
+        return chart_widget
+
+    def _processes_histogram(self):
+        values = self.tracelog.statistics["proc_hist_values"]
+        names = self.tracelog.statistics["proc_hist_names"]
+
+        chart_widget = ChartWidget()
+        chart_id = chart_widget.create_new_chart(ChartWidget.HISTOGRAM_CHART)
+        chart = chart_widget.get_chart(chart_id)
+        chart.fill_data(names, values)
+
+        # set basic properties
+        chart.yaxis.set_major_formatter(FuncFormatter(
+            lambda time, pos: time_to_string(time)[:10]))
+        chart.set_title("Histogram of sum time of each processes")
+        chart.set_xlabel("Processes")
+        chart.set_ylabel("Time SUM")
+        return chart_widget
+
 
 class NetInstanceView(gtk.HPaned):
 

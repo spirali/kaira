@@ -154,15 +154,35 @@ class TraceLog:
         self.timeline = timeline
         transition_names, transition_values = ri.get_transitions_utilization()
         tokens_names, tokens_values = ri.get_tokens_counts()
+        tr_hist_names, tr_hist_values = ri.get_transitions_histogram()
+        proc_hist_names, proc_hist_values = self._make_processes_histogram(ri.threads_data)
+        self._make_processes_histogram(ri.threads_data)
         self.statistics = {
             "threads" : ri.threads_data,
             "transition_names" : transition_names,
             "transition_values" : transition_values,
             "tokens_names" : tokens_names,
             "tokens_values" : tokens_values,
-
+            "proc_hist_names" : proc_hist_names,
+            "proc_hist_values" : proc_hist_values,
+            "tr_hist_names" : tr_hist_names,
+            "tr_hist_values" : tr_hist_values
         }
 
+    def _make_processes_histogram(self, data):
+        names =  ["process {0}".format(p) for p in xrange(self.process_count)]
+        values = []
+        for [process] in data:
+            count = len(process) / 2
+            i = 1 # because first element is non sense
+            sum = 0
+            while i < count:
+                time0, c0 = process[i]
+                time1, c1 = process[i+1]
+                sum += (time1 - time0)
+                i += 2
+            values.append(sum)
+        return names, values
 
 class Trace:
 
@@ -432,4 +452,25 @@ class DataCollectingRunInstance(RunInstance):
                     place_id,
                     process_id))
                 values.append(lst)
+        return names, values
+
+    def get_transitions_histogram(self):
+        names = []
+        values = []
+        for process_id, p in self.transitions_data.items():
+            for transition_id, lst in p.items():
+                net, item = self.project.get_net_and_item(transition_id)
+                names.append("{0.name}({0.id}) {1.name}@{2}".format(
+                    net,
+                    item,
+                    process_id))
+                count = len(lst) / 2
+                i = 0
+                sum = 0
+                while i < count:
+                    time0, c0 = lst[i]
+                    time1, c1 = lst[i+1]
+                    sum += (time1 - time0)
+                    i += 2
+                values.append(sum)
         return names, values

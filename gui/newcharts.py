@@ -161,6 +161,8 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
                     ymin is not None and ymax is not None):
                 self.set_xlim(xmin, xmax)
                 self.set_ylim(ymin, ymax)
+#                self.draw_artist(self)
+#                self.figure.canvas.blit(self.bbox)
                 self.figure.canvas.draw_idle()
     # <-- methods for zooming chart
 
@@ -245,6 +247,30 @@ class PlaceChart(BasicChart):
         self.plegend = self.legend(loc="upper left", fancybox=True, shadow=True)
         self.registr_pick_legend(self.plegend, lines)
 
+class HistogramChart(BasicChart):
+
+    name = 'histogram_chart'
+
+    def fill_data(self, names, values):
+        size = len(values)
+        x = xrange(size)
+        n, bins, patches = self.hist(x, size,
+                range=(0, size), weights=values, facecolor='green', alpha=0.75)
+
+        xticks = map(lambda x: x+0.5, x)
+        self.set_xticks(xticks)
+        self.set_xticklabels(names)
+
+        for label in self.xaxis.get_ticklabels():
+            label.set_fontsize(7)
+            label.set_rotation(-45)
+            label.set_horizontalalignment('left')
+
+#        for i, p in enumerate(patches):
+#            print "{0}: {1}".format(i, p)
+#        for i, n in enumerate(names):
+#            print "{0}: {1}".format(i, n)
+
 class UtilizationChart(BasicChart):
 
     name = 'utilization_chart'
@@ -320,6 +346,8 @@ class UtilizationChart(BasicChart):
             self.set_xlim(data_xmin, data_xmax)
             self.xypress = (x, event.y) # shift for next step
             self.figure.canvas.draw_idle()
+#            self.draw_artist(self)
+#            self.figure.canvas.blit(self.bbox)
 
     def _zoom_in(self, stack, event):
         """ zoom only on x axes. """
@@ -382,10 +410,12 @@ class ChartWidget(gtk.VBox):
 
     PLACE_CHART = PlaceChart.name
     UTILIZATION_CHART = UtilizationChart.name
+    HISTOGRAM_CHART = HistogramChart.name
 
     supported_charts_types = {
             PlaceChart.name : PlaceChart,
-            UtilizationChart.name : UtilizationChart}
+            UtilizationChart.name : UtilizationChart,
+            HistogramChart.name : HistogramChart}
 
     def __init__(self, with_legend=True):
         gtk.VBox.__init__(self)
@@ -403,6 +433,10 @@ class ChartWidget(gtk.VBox):
 
         self.figure = matplotlib.figure.Figure()
         canvas = FigureCanvas(self.figure)
+#
+#        toolbar2 = matplotlib.backends.backend_gtkagg.NavigationToolbar(canvas, None)
+#        self.pack_start(toolbar2, False, False)
+#
         # set size of canvas
         w, h = self.figure.get_figwidth(), self.figure.get_figheight()
         dpi = self.figure.get_dpi()
