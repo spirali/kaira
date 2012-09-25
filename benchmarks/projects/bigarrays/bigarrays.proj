@@ -1,0 +1,13 @@
+<project extenv="C++"><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net id="101" name="Main" net-type="main"><place id="102" init_string="" place_type="Array(Double)" radius="20" x="187" y="148"><code>	int t, s;
+	for (s = 0; s &lt; 10; s++) {
+		std::vector&lt;double&gt; v;	
+		for (t = 0; t &lt; 100000; t++) {
+			v.push_back(s * t);
+		}
+		tokens.push_back(v);
+	}
+</code></place><place id="103" init_string="" place_type="Array(Double)" radius="20" x="394" y="157" /><place id="110" init_string="[0]" place_type="Int" radius="20" x="293" y="293" /><transition guard="" id="104" name="" sx="70" sy="35" x="300" y="87" /><transition guard="" id="107" name="" sx="70" sy="35" x="295" y="217"><code>	
+	if (var.c == 1000) {
+		ctx.quit();
+	}	
+</code></transition><edge from_item="102" id="105" inscription="x" inscription_x="215.267143074" inscription_y="94.0992853885" to_item="104"><point x="186" y="88" /></edge><edge from_item="104" id="106" inscription="x" inscription_x="365.898980948" inscription_y="95.9326539654" to_item="103"><point x="396" y="88" /></edge><edge from_item="103" id="108" inscription="x" inscription_x="412.644305527" inscription_y="203.803637567" to_item="107"><point x="395" y="220" /></edge><edge from_item="107" id="109" inscription="x" inscription_x="222.955223881" inscription_y="200.0" to_item="102"><point x="187" y="217" /></edge><edge from_item="110" id="111" inscription="c" inscription_x="258.394103679" inscription_y="284.475025008" to_item="107"><point x="242" y="295" /></edge><edge from_item="107" id="112" inscription="c+1" inscription_x="357.868194842" inscription_y="271.974212034" to_item="110"><point x="342" y="295" /></edge></net></project>
