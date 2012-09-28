@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from testutils import Project
-from unittest import TestCase
 import unittest
 
-class BuildTest(TestCase):
+class BuildTest(unittest.TestCase):
 
     def test_helloworld(self):
         Project("helloworld", "helloworlds").quick_test("Hello world 12\n")
