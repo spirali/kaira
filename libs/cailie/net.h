@@ -17,7 +17,6 @@ class CaUnpacker;
 typedef int(CaEnableFn)(CaThread *, CaNet *);
 typedef bool(CaEnableCheckFn)(CaThread *, CaNet *);
 typedef CaNet * (CaSpawnFn)(CaThread *, CaNetDef *);
-typedef void (CaNetFinalizerFn)(CaThread *, CaNet *, void *, bool);
 
 class CaTransition {
 	public:
@@ -92,17 +91,10 @@ class CaNet {
 		void activate_all_transitions();
 		void activate_transition_by_pos_id(int pos_id);
 
-		void set_finalizer(CaNetFinalizerFn *finalizer_fn, void *data) {
-			this->finalizer_fn = finalizer_fn;
-			this->data = data;
-		}
-
-		void finalize(CaThread *thread);
-
 		bool is_something_enabled(CaThread *thread);
 
 		/* "manual delete" behaviour:
-			net is not deleted automaticaly when it is halted and
+			net is not deleted automaticaly when it is quit and
 			all threads remove its reference */
 		void set_manual_delete() { flags |= CA_NET_MANUAL_DELETE; }
 		bool get_manual_delete() { return flags & CA_NET_MANUAL_DELETE; }
@@ -113,7 +105,6 @@ class CaNet {
 		pthread_mutex_t *mutex;
 		CaTransition *transitions;
 
-		CaNetFinalizerFn *finalizer_fn;
 		void *data;
 		int flags;
 };

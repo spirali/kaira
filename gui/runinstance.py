@@ -59,8 +59,8 @@ class RunInstance:
         self.net_instances[process_id] = instance
         self.last_event_instance = instance
 
-    def event_halt(self, process_id, thread_id, time):
-        self.last_event = "halt"
+    def event_quit(self, process_id, thread_id, time):
+        self.last_event = "quit"
         self.last_event_process = process_id
         self.last_event_thread = thread_id
         index = process_id * self.threads_count + thread_id

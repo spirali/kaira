@@ -52,7 +52,6 @@ CaNet * CaNetDef::spawn(CaThread *thread)
 CaNet::CaNet(CaNetDef *def, CaThread *thread) :
 	running_transitions(0),
 	def(def),
-	finalizer_fn(NULL),
 	data(NULL),
 	flags(0)
 {
@@ -68,9 +67,6 @@ CaNet::CaNet(CaNetDef *def, CaThread *thread) :
 
 CaNet::~CaNet()
 {
-	if (finalizer_fn) {
-		finalizer_fn(NULL, NULL, data, true);
-	}
 	delete [] transitions;
 	if (mutex) {
 		pthread_mutex_destroy(mutex);
@@ -117,14 +113,6 @@ int CaNet::fire_transition(CaThread *thread, int transition_id)
 		return r;
 	}
 	return -1;
-}
-
-void CaNet::finalize(CaThread *thread)
-{
-	if (finalizer_fn) {
-		finalizer_fn(thread, this, data, false);
-		set_finalizer(NULL, NULL);
-	}
 }
 
 bool CaNet::is_something_enabled(CaThread *thread)

@@ -73,10 +73,10 @@ void CaTraceLog::event_net_spawn(int net_id)
 	write_int32(net_id);
 }
 
-void CaTraceLog::event_net_halt()
+void CaTraceLog::event_net_quit()
 {
 	check_size(1 + sizeof(uint64_t));
-	write_char('H');
+	write_char('Q');
 	write_time();
 }
 

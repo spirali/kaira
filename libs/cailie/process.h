@@ -17,7 +17,7 @@
 #define CA_TAG_TOKENS 0
 #define CA_TAG_SERVICE 1
 
-enum CaServiceMessageType { CA_SM_QUIT, CA_SM_NET_CREATE, CA_SM_NET_HALT, CA_SM_WAKE , CA_SM_EXIT };
+enum CaServiceMessageType { CA_SM_QUIT, CA_SM_NET_CREATE, CA_SM_WAKE , CA_SM_EXIT };
 class CaProcess;
 class CaThread;
 struct CaServiceMessage {
@@ -55,7 +55,6 @@ class CaProcess {
 		void join();
 		void start_and_join();
 		void clear();
-		void inform_halt_network(CaThread *thread);
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
 
 		int get_threads_count() const { return threads_count; }
@@ -66,7 +65,6 @@ class CaProcess {
 
 		void quit_all(CaThread *thread);
 		void quit() { quit_flag = true; }
-		void halt(CaThread *thread);
 
 		CaNet * get_net() { return net; }
 
@@ -103,8 +101,8 @@ class CaProcess {
 		CaNetDef **defs;
 		CaThread *threads;
 		std::vector<void* > too_early_message;
-		/*memory of net's id which wasn't created, but was halted*/
-		bool net_is_halted;
+		/*memory of net's id which wasn't created, but was quit*/
+		bool net_is_quit;
 
 		#ifdef CA_SHMEM
 		pthread_mutex_t packet_mutex;

@@ -72,6 +72,10 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 	switch (smsg->type) {
 		case CA_SM_QUIT:
 			CA_DLOG("SERVICE CA_SM_QUIT on process=%i thread=%i\n", get_process_id(), thread->get_id());
+			if(net == NULL) {
+				CA_DLOG("Quitting not created net on process=%d\n", get_process_id());
+				net_is_quit = true;
+			}
 			too_early_message.clear();
 			quit();
 			break;
@@ -79,10 +83,10 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 		{
 			CA_DLOG("SERVICE CA_SM_NET_CREATE on process=%i thread=%i\n", get_process_id(), thread->get_id());
 			CaServiceMessageNetCreate *m = (CaServiceMessageNetCreate*) smsg;
-			if(net_is_halted) {
-				CA_DLOG("Stop creating halted net on process=%i thread=%i\n", get_process_id(), thread->get_id());
+			if(net_is_quit) {
+				CA_DLOG("Stop creating quit net on process=%i thread=%i\n", get_process_id(), thread->get_id());
 				too_early_message.clear();
-				net_is_halted = false;
+				net_is_quit = false;
 				break;
 			}
 			CaNet *net = spawn_net(thread, m->def_index, false);
@@ -94,16 +98,6 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 				}
 				too_early_message.clear();
 			}
-			break;
-		}
-		case CA_SM_NET_HALT:
-		{
-			CA_DLOG("SERVICE CA_SM_NET_HALT on process=%i thread=%i\n", get_process_id(), thread->get_id());
-			if(net == NULL) {
-				CA_DLOG("Halting not created net on process=%d\n", get_process_id());
-				net_is_halted = true;
-			}
-			inform_halt_network(thread);
 			break;
 		}
 		case CA_SM_WAKE:
@@ -154,7 +148,7 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 	this->defs_count = defs_count;
 	this->defs = defs;
 	this->threads_count = threads_count;
-	this->net_is_halted = false;
+	this->net_is_quit = false;
 	threads = new CaThread[threads_count];
 	// TODO: ALLOCTEST
 	for (int t = 0; t < threads_count; t++) {
@@ -239,22 +233,6 @@ CaThread * CaProcess::get_thread(int id)
 	return &threads[id];
 }
 
-void CaProcess::inform_halt_network(CaThread *thread)
-{
-	CaTraceLog *tracelog = this->get_thread(0)->get_tracelog();
-	if (tracelog) {
-		tracelog->event_net_halt();
-	}
-	for (int t = 0; t < threads_count; t++) {
-		if (thread && thread->get_id() == t) {
-			CaThreadMessageHaltNet msg;
-			msg.process(thread);
-		} else {
-			threads[t].add_message(new CaThreadMessageHaltNet());
-		}
-	}
-}
-
 void CaProcess::send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2)
 {
 	for (int t = 0; t < threads_count; t++) {
@@ -289,18 +267,5 @@ void CaProcess::fire_transition(int transition_id)
 	net->fire_transition(&threads[0], transition_id);
 }
 
-/* 	Halt net net, sends information about halting if net is nonlocal
-	Function inform_halt_network must send thread message to yourself, instance of net isn't free
-	instantly, this is the reason why second argument is NULL */
-void CaProcess::halt(CaThread *thread)
-{
-	if (!net->is_local()) {
-		CaServiceMessage *m =
-			(CaServiceMessage*) alloca(sizeof(CaServiceMessage));
-		m->type = CA_SM_NET_HALT;
-		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), thread, process_id);
-	}
-	inform_halt_network(NULL);
-}
 
 

@@ -25,22 +25,15 @@
 
 class CaContext {
 	public:
-		CaContext(CaThread *thread, CaNet *net) : thread(thread), net(net), halt_flag(false) {}
+		CaContext(CaThread *thread, CaNet *net) : thread(thread), net(net) {}
 
 		void quit() { thread->quit_all(); }
-		void halt() { halt_flag = true; }
 		int process_id() { return thread->get_process_id(); }
 		int process_count() { return thread->get_process_count(); }
 		int threads_count() { return thread->get_threads_count(); }
-		bool get_halt_flag() { return halt_flag; }
 	protected:
 		CaThread *thread;
 		CaNet *net;
-
-		/** We need halt_flag because we need pospone thread->quit. We cannot call
-			thread->halt directly because other thread could process finalizer
-			before current transition put its token into output places */
-		bool halt_flag;
 };
 
 /* Main functions */

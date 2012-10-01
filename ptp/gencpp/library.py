@@ -27,7 +27,6 @@ import writer
 
 def write_library_functions(builder):
     for net in builder.project.nets:
-            buildnet.write_finalizer(builder, net)
             write_library_function(builder, net)
     build.write_parameters_setters(builder, )
     write_library_init_function(builder, )
@@ -100,7 +99,6 @@ def write_library_function(builder, net):
     for e in net.interface_edges_out:
         buildnet.write_send_token(builder, em, e, locking = False, interface_edge = True)
 
-    builder.line("n->set_finalizer((CaNetFinalizerFn*) finalizer_{0.id}, NULL);", net)
     builder.line("n->set_manual_delete();")
     builder.line("ca_main();")
 

@@ -29,8 +29,6 @@ class CaThread {
 		void process_message(CaThreadMessage *message);
 		void quit_all();
 
-		void halt() { process->halt(this); }
-
 		void send(int target, CaNet *net, int place, const CaPacker &packer) {
 			process->multisend(target, net, place, 1, packer, this);
 		}

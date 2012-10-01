@@ -184,8 +184,8 @@ class Trace:
             return "Recv "
         elif t == "S":
             return "Spawn"
-        elif t == "H":
-            return "Halt "
+        elif t == "Q":
+            return "Quit "
 
     def process_event(self, runinstance):
         t = self.data[self.pointer]
@@ -198,8 +198,8 @@ class Trace:
             return self._process_event_receive(runinstance)
         elif t == "S":
             return self._process_event_spawn(runinstance)
-        elif t == "H":
-            return self._process_event_halt(runinstance)
+        elif t == "Q":
+            return self._process_event_quit(runinstance)
         else:
             raise Exception("Invalid event type '{0}/{1}'".format(t, ord(t)))
 
@@ -264,7 +264,7 @@ class Trace:
         self.pointer += self.struct_spawn.size
         return values
 
-    def _read_struct_halt(self):
+    def _read_struct_quit(self):
         values = self.struct_basic.unpack_from(self.data, self.pointer)
         self.pointer += self.struct_basic.size
         return values
@@ -284,9 +284,9 @@ class Trace:
         runinstance.event_spawn(self.process_id, self.thread_id, *self._read_struct_spawn())
         self.process_tokens_add(runinstance)
 
-    def _process_event_halt(self, runinstance):
+    def _process_event_quit(self, runinstance):
         time = self._read_struct_transition_finished()[0]
-        runinstance.event_halt(self.process_id, self.thread_id, time)
+        runinstance.event_quit(self.process_id, self.thread_id, time)
         self.process_tokens_add(runinstance)
 
     def _process_event_receive(self, runinstance):
@@ -375,8 +375,8 @@ class DataCollectingRunInstance(RunInstance):
         RunInstance.event_spawn(self, process_id, thread_id, time, net_id)
         self.last_time = time
 
-    def event_halt(self, process_id, thread_id, time):
-        RunInstance.event_halt(self, process_id, thread_id, time)
+    def event_quit(self, process_id, thread_id, time):
+        RunInstance.event_quit(self, process_id, thread_id, time)
         self.last_time = time
 
     def event_receive(self, process_id, thread_id, time):

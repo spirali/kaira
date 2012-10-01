@@ -16,12 +16,6 @@ class CaThreadMessage {
 		virtual void process(CaThread *thread) = 0;
 };
 
-class CaThreadMessageHaltNet  : public CaThreadMessage {
-	public:
-		CaThreadMessageHaltNet() {};
-		void process(CaThread *thread);
-};
-
 class CaThreadMessageBarriers  : public CaThreadMessage {
 	public:
 		CaThreadMessageBarriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2) : barrier1(barrier1), barrier2(barrier2) {}

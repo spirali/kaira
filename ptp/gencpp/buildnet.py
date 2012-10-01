@@ -246,8 +246,6 @@ def write_enable(builder, tr):
         if not edge.token_reused:
             w.line("delete token_{0.uid};", edge)
 
-    if tr.net.is_module():
-        w.line("if (ctx.get_halt_flag()) thread->halt();")
     w.line("return {0};", retvalue)
 
     write_enable_pattern_match(builder, tr, w)
@@ -386,13 +384,6 @@ def write_spawn(builder, net):
                             "net->place_{0.id}.".format(place), "tokens")
         builder.block_end()
     builder.line("return net;")
-    builder.block_end()
-
-def write_finalizer(builder, net):
-    builder.line("void finalizer_{0.id}(CaThread *thread, "
-              "Net_{0.id} *net, void *vars, bool cleanup_only)", net)
-    builder.block_begin()
-    builder.line("thread->quit_all();")
     builder.block_end()
 
 def write_reports_method(builder, net):
