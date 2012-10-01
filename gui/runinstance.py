@@ -66,7 +66,6 @@ class RunInstance:
         index = process_id * self.threads_count + thread_id
         self.last_event_activity = self.activites[index]
         self.last_event_instance = self.net_instances[process_id]
-        self.activites[index] = None
 
     def event_receive(self, process_id, thread_id, time):
         self.last_event = "receive"

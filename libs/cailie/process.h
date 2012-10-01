@@ -64,7 +64,7 @@ class CaProcess {
 		void fire_transition(int transition_id);
 
 		void quit_all(CaThread *thread);
-		void quit() { quit_flag = true; }
+		void quit();
 
 		CaNet * get_net() { return net; }
 

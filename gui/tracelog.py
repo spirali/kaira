@@ -184,6 +184,8 @@ class Trace:
             return "Recv "
         elif t == "S":
             return "Spawn"
+        elif t == "H":
+            return "Quit "
         elif t == "Q":
             return "Quit "
 
@@ -198,6 +200,8 @@ class Trace:
             return self._process_event_receive(runinstance)
         elif t == "S":
             return self._process_event_spawn(runinstance)
+        elif t == "H":
+            return self._process_event_quit(runinstance)
         elif t == "Q":
             return self._process_event_quit(runinstance)
         else:
@@ -285,7 +289,7 @@ class Trace:
         self.process_tokens_add(runinstance)
 
     def _process_event_quit(self, runinstance):
-        time = self._read_struct_transition_finished()[0]
+        time = self._read_struct_quit()[0]
         runinstance.event_quit(self.process_id, self.thread_id, time)
         self.process_tokens_add(runinstance)
 

@@ -248,6 +248,15 @@ void CaProcess::quit_all(CaThread *thread)
 	quit();
 }
 
+void CaProcess::quit()
+{
+	CaTraceLog *tracelog = this->get_thread(0)->get_tracelog();
+	if (tracelog) {
+		tracelog->event_net_quit();
+	}
+	quit_flag = true;
+}
+
 void CaProcess::write_reports(FILE *out) const
 {
 	CaOutput output;
