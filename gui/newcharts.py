@@ -53,13 +53,21 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
         # zoom properties
         self.zoom = 1.0
         self.zoom_stack = []
+        self.zoom_rec = None
         # move properties
         self.xypress = None
-        self.original_view_dim = None
+        self.original_view_dim = None # TODO: ??
         # mask keys
-        self.keymask = None
+        self.keymask = None           # TODO: ??
         # legend
         self.plegend = None
+
+        # redraw properties
+        self.xlock = False
+        self.ylock = True
+        # backgrounds
+        self.cross_bg = None
+        self.rec_bg = None
 
         # coonect standard features
         fig.canvas.mpl_connect("scroll_event", self._zoom)
@@ -70,6 +78,120 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
         # block the standard scroll window event if it is use CTRL mask
         fig.canvas.connect("scroll_event", 
                 lambda w, e: e.state & gtk.gdk.CONTROL_MASK)
+        self.figure.canvas.mpl_connect( # updade background after change window
+                "draw_event", self._update_background)
+        self.figure.canvas.mpl_connect(
+                "motion_notify_event", self._draw_cross)
+            
+    def _update_background(self, event):
+        self.cross_bg = self.figure.canvas.copy_from_bbox(self.bbox)
+
+    def _draw_cross(self, event, select_bg=None):
+        if self.xypress is None or select_bg is not None:
+            if self.cross_bg is None:
+                self.cross_bg = self.figure.canvas.copy_from_bbox(self.bbox)
+
+            if self.in_axes(event):
+                if select_bg is not None:
+                    self.figure.canvas.restore_region(select_bg)
+                elif self.cross_bg is not None:
+                    self.figure.canvas.restore_region(self.cross_bg)
+
+                inv = self.transAxes.inverted()
+                x, y = inv.transform((event.x, event.y))
+
+                xtext = time_to_string(event.xdata)[:-6]
+                # the coefficient 7 is good result from an experiment :)
+                xtext_pos = -7 * len(xtext) - 10 if x > 0.5 else 10
+                ytext_pos = -20 if y > 0.5 else 30
+
+                if not self.xlock:
+                    l1 = matplotlib.lines.Line2D([x, x], [0, 1], c="#ff0000",
+                            lw=1, transform=self.transAxes, figure=self.figure)
+                    self.draw_artist(l1)
+
+                    a1 = matplotlib.text.Annotation(
+                            xtext, 
+                            xy=(x, y), xycoords='axes fraction', 
+                            xytext=(xtext_pos, ytext_pos), 
+                            textcoords='offset points', 
+                            bbox=dict(boxstyle="round", fc="#ffff00"))
+                    a1.set_transform(matplotlib.transforms.IdentityTransform())
+                    self._set_artist_props(a1)
+                    self.draw_artist(a1)
+
+                if not self.ylock:
+                    l2 = matplotlib.lines.Line2D([0, 1], [y, y], c="#ff0000",
+                            lw=1, transform=self.transAxes, figure=self.figure)
+                    self.draw_artist(l2)
+
+                    if self.xlock:
+                        ytext_pos = -20 if y > 0.5 else 10
+                    else:
+                        ytext_pos -= 20
+                    a2 = matplotlib.text.Annotation(
+                            event.ydata,
+                            xy=(x, y), xycoords='axes fraction',
+                            xytext=(xtext_pos, ytext_pos), 
+                            textcoords='offset points',
+                            bbox=dict(boxstyle="round", fc="#ffff00"))
+                    a2.set_transform(matplotlib.transforms.IdentityTransform())
+                    self._set_artist_props(a2)
+                    self.draw_artist(a2)
+
+                self.figure.canvas.blit(self.bbox)
+            else:
+                if self.cross_bg is not None:
+                    self.figure.canvas.restore_region(self.cross_bg)
+                    self.figure.canvas.blit(self.bbox)
+                    self.cross_bg = None
+    
+
+    def __convertAxesToData(self, x, y):
+        # vypada ze se nemusi optimalizovat
+        xdisplay, ydisplay = self.transAxes.transform((x,y))
+        return self.transData.inverted().transform((xdisplay, ydisplay))
+
+    def _draw_rectangle(self, event):
+        if self.xypress is not None and self.in_axes(event):
+            x_start, y_start = self.xypress
+            x_end, y_end = event.x, event.y
+
+            if self.rec_bg is None:
+                self.rec_bg = self.figure.canvas.copy_from_bbox(self.bbox)
+            else:
+                self.figure.canvas.restore_region(self.rec_bg)
+
+            inv = self.transData.inverted() 
+            ax_x_start, ax_y_start = inv.transform((x_start, y_start))
+            ax_x_end, ax_y_end = inv.transform((x_end, y_end))
+
+            if self.xlock:
+                ax_x_start = self.__convertAxesToData(0, 0)[0]
+                ax_x_end = self.__convertAxesToData(1, 1)[0]
+
+            if self.ylock:
+                ax_y_start = self.__convertAxesToData(0, 0)[1]
+                ax_y_end = self.__convertAxesToData(1, 1)[1]
+
+            self.zoom_rec = (
+                    min(ax_x_start, ax_x_end),
+                    min(ax_y_start, ax_y_end),
+                    max(ax_x_start, ax_x_end),
+                    max(ax_y_start, ax_y_end))
+
+            rec = matplotlib.patches.Rectangle((ax_x_start, ax_y_start),
+                    width=(ax_x_end - ax_x_start),
+                    height=(ax_y_end - ax_y_start),
+                    fc="#0000ff", ec="#000000", alpha=0.2, lw=1,
+                    transform=self.transData, figure=self.figure)
+
+            self.draw_artist(rec)
+            self.figure.canvas.blit(self.bbox)
+
+            # draw ending cross
+            select_bg = self.figure.canvas.copy_from_bbox(self.bbox)
+            self._draw_cross(event, select_bg)
 
     def registr_pick_legend(self, legend, lines):
         lined = dict()
@@ -92,84 +214,37 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
 
         self.figure.canvas.mpl_connect('pick_event', on_pick)
 
-    def fill_data(self, data):
-        ''' This method must be implement in derivated class. '''
-        pass
-
     def _hide_legend(self, hide):
         if self.plegend is not None:
             self.plegend.set_visible(not(hide))
             self.figure.canvas.draw_idle()
 
-    # --> methods for zooming chart
-    def _zoom_in(self, stack, event):
-        def new_bounds(min, max, value, zoom):
-            if value is None: return (min, max)
-            diff_min, diff_max = value - min, max - value
-            zdiff_min, zdiff_max = diff_min * zoom, diff_max * zoom
-            return (value - zdiff_min, value + zdiff_max)
-
-        self.zoom /= 1.05
-        vmin_x, vmax_x = self.xaxis.get_view_interval()
-        vmin_y, vmax_y = self.yaxis.get_view_interval()
-        x, y = event.xdata, event.ydata
-
-        xmin, xmax = new_bounds(vmin_x, vmax_x, x, self.zoom)
-        ymin, ymax = new_bounds(vmin_y, vmax_y, y, self.zoom)
-
-        bad_xrange, bad_yrange = False, False
-        if abs(xmax - xmin) < 0.000001:
-            bad_xrange = True
-            xmin, xmax = stack[-1][:2]
-
-        if abs(ymax - ymin) < 0.000001:
-            bad_yrange = True
-            ymin, ymax = stack[-1][2:]
-
-        if bad_xrange and bad_yrange:
-            # Returns the last known window dimension, it means stop zoom in.
-            self.zoom *= 1.05
-            return stack[-1]
-        else:
-            stack.append((vmin_x, vmax_x, vmin_y, vmax_y))
-            return (xmin, xmax, ymin, ymax)
-        
-    def _zoom_out(self, stack):
-        self.zoom *= 1.05
-        return stack.pop()
-
     def _zoom(self, event):
         if event.key == "control": # CTRL mask
             xmin, xmax = None, None
             ymin, ymax = None, None
-            if event.button == "up":
-                xmin, xmax, ymin, ymax = self._zoom_in(self.zoom_stack,event)
-            elif event.button == "down":
+
+            if event.button == "down":
                 if len(self.zoom_stack) == 0:
                     if self.original_view_dim is not None:
                         # TODO: is it correct in the sense of zooming, perhaps 
                         # this feature belongs to reset button?? (for Standa)
                         xmin, xmax, ymin, ymax = self.original_view_dim
                         self.original_view_dim = None
-                    else:
-                        xmin, xmax = self.xaxis.get_view_interval()
-                        ymin, ymax = self.yaxis.get_view_interval()
                 else:
-                    xmin, xmax, ymin, ymax = self._zoom_out(self.zoom_stack)
+                    xmin, xmax, ymin, ymax = self.zoom_stack.pop()
 
             if (xmin is not None and xmax is not None and 
                     ymin is not None and ymax is not None):
                 self.set_xlim(xmin, xmax)
                 self.set_ylim(ymin, ymax)
-#                self.draw_artist(self)
-#                self.figure.canvas.blit(self.bbox)
                 self.figure.canvas.draw_idle()
+
     # <-- methods for zooming chart
 
     # --> methods for mooving graph
     def _move_start(self, event):
         if event.button == 1:
-#            print event.xdata
             self.emit_event("change_slider", event.xdata)
             self.xypress = (event.x, event.y)
             #save original view for restore view
@@ -185,20 +260,39 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
         if event.button == 1:
             self.xypress = None
 
+        if self.cross_bg is not None and self.zoom_rec is not None:
+            self.figure.canvas.restore_region(self.cross_bg)
+            self.figure.canvas.blit(self.bbox)
+
+            vmin_x, vmax_x = self.xaxis.get_view_interval()
+            vmin_y, vmax_y = self.yaxis.get_view_interval()
+
+            xmin, ymin, xmax, ymax = self.zoom_rec
+            self.set_xlim(xmin, xmax)
+            self.set_ylim(ymin, ymax)
+            self.zoom_stack.append((vmin_x, vmax_x, vmin_y, vmax_y))
+            self.zoom /= 1.05
+
+            self.zoom_rec = None
+            self.cross_bg = None
+            self.rec_bg = None
+
+            self.figure.canvas.draw_idle()
+
     def _moving(self, event):
-        ''' Moving with chart. Coordinates must be transform
-        bettween two coordinates system, because using pixel
-        coordinates is better for moving with chart. '''
-        if self.xypress is not None: # "mouse drag"
+        if self.xypress is not None and event.key == "control":
+            self._draw_rectangle(event)
+
+        elif self.xypress is not None: # "mouse drag"
+
+            ''' Moving with chart. Coordinates must be transform
+            bettween two coordinates system, because using pixel
+            coordinates is better for moving with chart. '''
             xpress, ypress = self.xypress
             x, y = event.x, event.y
             diffx = xpress - x 
             diffy = ypress - y
             # coordinates in display (pixels) view
-            # TODO: timto ziskanim ohraniceni je mozne, ze vznikne
-            # problem pri zmenseni plochy platna, napr. dva
-            # grafy vedle sebe => OVERIT! K realnym hodnotam by se snad dalo
-            # dostat pres nejakou metodu v Axes.
             xmin, ymin = self.transAxes.transform((0,0))
             xmax, ymax = self.transAxes.transform((1,1))
             shift_xmin, shift_xmax = xmin + diffx, xmax + diffx
@@ -251,6 +345,50 @@ class HistogramChart(BasicChart):
 
     name = 'histogram_chart'
 
+    def fill_data(self, names, values, color):
+
+        lines = []
+
+        max = 4200000
+        for i, vals in enumerate(values):
+            if not vals: return #if it's values list empty
+            x = [key for key, val in vals.items()]
+#
+#            max = 0
+#            for time in x:
+#                if time > max:
+#                    max = time
+
+            #if are all values zero, doesn't make a sense to create the histogram
+#            if max == 0: return
+
+            step = max // 250 # Takovehle urcovani kroku dava celkem pekne vysledky
+            newx_size = max // step + 1
+
+            new_x = xrange(newx_size)
+            new_y = [0] * newx_size
+            for time in x:
+                range = time // step
+                new_y[range] += vals[time]
+
+#            self.bar(new_x, new_y, color=color[i % len(color)], alpha=0.6)
+            line = self.plot(new_x, new_y, color=color[i%len(color)],
+                    lw=1, label=names[i])
+            lines.append(line)
+
+        for label in self.xaxis.get_ticklabels():
+            label.set_fontsize(9)
+            label.set_rotation(-35)
+            label.set_horizontalalignment('left')
+
+        self.plegend = self.legend(loc="upper right", fancybox=True, shadow=True)
+        self.registr_pick_legend(self.plegend, lines)
+
+
+class TimeSumChart(BasicChart):
+
+    name = 'time_sum_chart'
+
     def fill_data(self, names, values):
         size = len(values)
         x = xrange(size)
@@ -266,116 +404,57 @@ class HistogramChart(BasicChart):
             label.set_rotation(-45)
             label.set_horizontalalignment('left')
 
-#        for i, p in enumerate(patches):
-#            print "{0}: {1}".format(i, p)
-#        for i, n in enumerate(names):
-#            print "{0}: {1}".format(i, n)
-
 class UtilizationChart(BasicChart):
 
     name = 'utilization_chart'
 
-    def __init__(self, fig, rec,
-                 axisbg  = None, # defaults to rc axes.facecolor
-                 frameon = True,
-                 sharex  = None,
-                 sharey  = None,
-                 label   = "",
-                 xscale  = None,
-                 yscale  = None,
-                 **kwargs
-                 ):
-        BasicChart.__init__(self, fig, rec, axisbg, frameon, sharex, sharey,
-                label, xscale, yscale, **kwargs)
-
-        self.background = None
-        self.figure.canvas.mpl_connect(
-                "motion_notify_event", self._draw_vertical_line)
-        self.figure.canvas.mpl_connect( # updade background after change window
-                "draw_event", self._update_background)
-
-    def _update_background(self, event):
-        self.background = self.figure.canvas.copy_from_bbox(self.bbox)
-            
-    def _draw_vertical_line(self, event):
-        if self.xypress is None: # if is not drag canvas
-            if self.background is None:
-                self.background = self.figure.canvas.copy_from_bbox(self.bbox)
-
-            if self.in_axes(event):
-                if self.background is not None:
-                    self.figure.canvas.restore_region(self.background)
-
-                inv = self.transAxes.inverted()
-                x, y = inv.transform((event.x, event.y))
-                l = matplotlib.lines.Line2D([x, x], [0, 1], c="#ff0000",
-                        lw=2, transform=self.transAxes, figure=self.figure)
-                self.draw_artist(l)
-
-                xytext_val = -115 if x > 0.5 else 10
-                a = matplotlib.text.Annotation(
-                        time_to_string(event.xdata)[:-6], 
-                        xy=(event.x, event.y), xycoords='figure pixels', 
-                        xytext=(xytext_val, 0), textcoords='offset points', 
-                        bbox=dict(boxstyle="round", fc="#ffff00"))
-                a.set_transform(matplotlib.transforms.IdentityTransform())
-                self._set_artist_props(a)
-                self.draw_artist(a)
-
-                self.figure.canvas.blit(self.bbox)
-            else:
-                if self.background is not None:
-                    self.figure.canvas.restore_region(self.background)
-                    self.figure.canvas.blit(self.bbox)
-                    self.background = None
-
-    def _moving(self, event):
-        """ move only on x axes. """
-        if self.xypress is not None: # drag canvas
-            xpress = self.xypress[0]
-            x = event.x
-            diffx = xpress - x
-            xmin = self.transAxes.transform((0,0))[0]
-            xmax = self.transAxes.transform((1,1))[0]
-            shift_xmin, shift_xmax = xmin + diffx, xmax + diffx
-            # coordinates in data view
-            inv = self.transData.inverted()
-            data_xmin = inv.transform((shift_xmin, 0))[0]
-            data_xmax = inv.transform((shift_xmax, 1))[0]
-            # set new view dimension
-            self.set_xlim(data_xmin, data_xmax)
-            self.xypress = (x, event.y) # shift for next step
-            self.figure.canvas.draw_idle()
-#            self.draw_artist(self)
-#            self.figure.canvas.blit(self.bbox)
-
-    def _zoom_in(self, stack, event):
-        """ zoom only on x axes. """
-        def new_bounds(min, max, value, zoom):
-            if value is None: return (min, max)
-            diff_min, diff_max = value - min, max - value
-            zdiff_min, zdiff_max = diff_min * zoom, diff_max * zoom
-            return (value - zdiff_min, value + zdiff_max)
-
-        self.zoom /= 1.05
-        vmin_x, vmax_x = self.xaxis.get_view_interval()
-        vmin_y, vmax_y = self.yaxis.get_view_interval()
-        x, y = event.xdata, event.ydata
-
-        xmin, xmax = new_bounds(vmin_x, vmax_x, x, self.zoom)
-
-        bad_xrange = False
-        if abs(xmax - xmin) < 0.000001:
-            bad_xrange = True
-            xmin, xmax = stack[-1][:2]
-
-        if bad_xrange:
-            # Returns the last known window dimension, it means stop zoom in.
-            self.zoom *= 1.05
-            return stack[-1]
-        else:
-            stack.append((vmin_x, vmax_x, vmin_y, vmax_y))
-            return (xmin, xmax, vmin_y, vmax_y)
+#    def _moving(self, event):
+#        """ move only on x axes. """
+#        if self.xypress is not None: # drag canvas
+#            xpress = self.xypress[0]
+#            x = event.x
+#            diffx = xpress - x
+#            xmin = self.transAxes.transform((0,0))[0]
+#            xmax = self.transAxes.transform((1,1))[0]
+#            shift_xmin, shift_xmax = xmin + diffx, xmax + diffx
+#            # coordinates in data view
+#            inv = self.transData.inverted()
+#            data_xmin = inv.transform((shift_xmin, 0))[0]
+#            data_xmax = inv.transform((shift_xmax, 1))[0]
+#            # set new view dimension
+#            self.set_xlim(data_xmin, data_xmax)
+#            self.xypress = (x, event.y) # shift for next step
+#            self.figure.canvas.draw_idle()
+##            self.draw_artist(self)
+##            self.figure.canvas.blit(self.bbox)
+#
+#    def _zoom_in(self, stack, event):
+#        """ zoom only on x axes. """
+#        def new_bounds(min, max, value, zoom):
+#            if value is None: return (min, max)
+#            diff_min, diff_max = value - min, max - value
+#            zdiff_min, zdiff_max = diff_min * zoom, diff_max * zoom
+#            return (value - zdiff_min, value + zdiff_max)
+#
+#        self.zoom /= 1.05
+#        vmin_x, vmax_x = self.xaxis.get_view_interval()
+#        vmin_y, vmax_y = self.yaxis.get_view_interval()
+#        x, y = event.xdata, event.ydata
+#
+#        xmin, xmax = new_bounds(vmin_x, vmax_x, x, self.zoom)
+#
+#        bad_xrange = False
+#        if abs(xmax - xmin) < 0.000001:
+#            bad_xrange = True
+#            xmin, xmax = stack[-1][:2]
+#
+#        if bad_xrange:
+#            # Returns the last known window dimension, it means stop zoom in.
+#            self.zoom *= 1.05
+#            return stack[-1]
+#        else:
+#            stack.append((vmin_x, vmax_x, vmin_y, vmax_y))
+#            return (xmin, xmax, vmin_y, vmax_y)
 
     def fill_data(self, data, names, colors):
         self.data = data
@@ -410,11 +489,13 @@ class ChartWidget(gtk.VBox):
 
     PLACE_CHART = PlaceChart.name
     UTILIZATION_CHART = UtilizationChart.name
+    TIME_SUM_CHART = TimeSumChart.name
     HISTOGRAM_CHART = HistogramChart.name
 
     supported_charts_types = {
             PlaceChart.name : PlaceChart,
             UtilizationChart.name : UtilizationChart,
+            TimeSumChart.name : TimeSumChart,
             HistogramChart.name : HistogramChart}
 
     def __init__(self, with_legend=True):
@@ -433,10 +514,7 @@ class ChartWidget(gtk.VBox):
 
         self.figure = matplotlib.figure.Figure()
         canvas = FigureCanvas(self.figure)
-#
-#        toolbar2 = matplotlib.backends.backend_gtkagg.NavigationToolbar(canvas, None)
-#        self.pack_start(toolbar2, False, False)
-#
+
         # set size of canvas
         w, h = self.figure.get_figwidth(), self.figure.get_figheight()
         dpi = self.figure.get_dpi()
@@ -501,6 +579,10 @@ class ChartWidget(gtk.VBox):
         btn_hide_legend.connect("toggled", self._hide_legend)
         btn_hide_legend.set_sensitive(self.with_legend)
         toolbar.add(btn_hide_legend)
+
+        btn_zoom = gtk.ToggleToolButton("Zoom")
+        btn_zoom.set_tooltip_text("Resize (Keep CTRL)")
+        toolbar.add(btn_zoom)
 
         return toolbar
 

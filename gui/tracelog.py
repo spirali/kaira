@@ -154,9 +154,9 @@ class TraceLog:
         self.timeline = timeline
         transition_names, transition_values = ri.get_transitions_utilization()
         tokens_names, tokens_values = ri.get_tokens_counts()
-        tr_hist_names, tr_hist_values = ri.get_transitions_histogram()
-        proc_hist_names, proc_hist_values = self._make_processes_histogram(ri.threads_data)
-        self._make_processes_histogram(ri.threads_data)
+        tr_tsum_names, tr_tsum_values = ri.get_transitions_time_sum()
+        proc_tsum_names, proc_tsum_values = self._make_processes_time_sum(ri.threads_data)
+        proc_hist_names, proc_hist_values = self._make_processes_his(ri.threads_data)
         self.statistics = {
             "threads" : ri.threads_data,
             "transition_names" : transition_names,
@@ -165,22 +165,54 @@ class TraceLog:
             "tokens_values" : tokens_values,
             "proc_hist_names" : proc_hist_names,
             "proc_hist_values" : proc_hist_values,
-            "tr_hist_names" : tr_hist_names,
-            "tr_hist_values" : tr_hist_values
+            "proc_tsum_names" : proc_tsum_names,
+            "proc_tsum_values" : proc_tsum_values,
+            "tr_tsum_names" : tr_tsum_names,
+            "tr_tsum_values" : tr_tsum_values
         }
 
-    def _make_processes_histogram(self, data):
+    def _make_processes_his(self, data):
+        proc_names =  ["process {0}".format(p) for p in xrange(self.process_count)]
+        names = []
+        values = []
+
+        for name, [process] in zip(proc_names, data):
+#            count = len(process) / 2
+#            i = 1
+            hist = dict()
+            for i, times in enumerate(process):
+                t = times[1] - times[0]
+                if t in hist:
+                    hist[t] += 1
+                else:
+                    hist[t] = 1
+#            while i < count:
+#                time0, c0 = process[i]
+#                time1, c1 = process[i+1]
+#                t = time1 - time0
+#                if t in hist:
+#                    hist[t] += 1
+#                else:
+#                    hist[t] = 1
+#                i += 2
+            values.append(hist)
+            names.append("Histogram: {0}".format(name))
+        return names, values
+
+    def _make_processes_time_sum(self, data):
         names =  ["process {0}".format(p) for p in xrange(self.process_count)]
         values = []
         for [process] in data:
-            count = len(process) / 2
-            i = 1 # because first element is non sense
+#            count = len(process) / 2
+#            i = 1 # because first element is non sense
             sum = 0
-            while i < count:
-                time0, c0 = process[i]
-                time1, c1 = process[i+1]
-                sum += (time1 - time0)
-                i += 2
+#            while i < count:
+#                time0, c0 = process[i]
+#                time1, c1 = process[i+1]
+#                sum += (time1 - time0)
+#                i += 2
+            for i, times in enumerate(process):
+                sum += (times[1] - times[0])
             values.append(sum)
         return names, values
 
@@ -355,15 +387,15 @@ class DataCollectingRunInstance(RunInstance):
 
     def __init__(self, project, process_count, threads_count):
         RunInstance.__init__(self, project, process_count, threads_count)
-        begin = (0, None)
-        self.threads_data = [ [ [ begin ] for t in xrange(self.threads_count) ]
+#        begin = (0, None)
+        self.threads_data = [ [ [] for t in xrange(self.threads_count) ]
                               for p in xrange(self.process_count) ]
         self.transitions_data = {} # [process_id][transition_id] -> [ (time, color) ]
         self.tokens_data = {} # [process_id][place_id] -> int
         self.group_nets = {}
         self.last_time = 0
 
-    def add_transition_data(self, process_id, transition_id, value):
+    def add_transition_data(self, process_id, transition_id):
         process = self.transitions_data.get(process_id)
         if process is None:
             process = {}
@@ -372,7 +404,7 @@ class DataCollectingRunInstance(RunInstance):
         if lst is None:
             lst = []
             process[transition_id] = lst
-        lst.append(value)
+#        lst.append(value)
 
     def change_tokens_data(self, process_id, place_id, time, change):
         process = self.tokens_data.get(process_id)
@@ -391,16 +423,19 @@ class DataCollectingRunInstance(RunInstance):
         RunInstance.transition_fired(self, process_id, thread_id, time, transition_id)
         self.last_time = time
         if self.last_event_activity.transition.has_code():
-            value = (time, 0)
-            self.threads_data[process_id][thread_id].append(value)
-            self.add_transition_data(process_id, transition_id, value)
+#            value = (time, 0)
+#            self.threads_data[process_id][thread_id].append(value)
+             self.add_transition_data(process_id, transition_id)
 
     def transition_finished(self, process_id, thread_id, time):
+        time_start = self.activites[process_id * self.threads_count + thread_id].time
         RunInstance.transition_finished(self, process_id, thread_id, time)
         self.last_time = time
         activity = self.last_event_activity
         if activity.transition.has_code():
-            value = (time, None)
+#            value = (time, None)
+            value = (time_start, time)
+            # TODO: Jaky je rozdil mezi activity.process_id a process_id??
             self.threads_data[activity.process_id][activity.thread_id].append(value)
             self.transitions_data[process_id][activity.transition.id].append(value)
 
@@ -454,7 +489,7 @@ class DataCollectingRunInstance(RunInstance):
                 values.append(lst)
         return names, values
 
-    def get_transitions_histogram(self):
+    def get_transitions_time_sum(self):
         names = []
         values = []
         for process_id, p in self.transitions_data.items():
@@ -464,13 +499,13 @@ class DataCollectingRunInstance(RunInstance):
                     net,
                     item,
                     process_id))
-                count = len(lst) / 2
-                i = 0
                 sum = 0
-                while i < count:
-                    time0, c0 = lst[i]
-                    time1, c1 = lst[i+1]
-                    sum += (time1 - time0)
-                    i += 2
+#                while i < count:
+#                    time0, c0 = lst[i]
+#                    time1, c1 = lst[i+1]
+#                    sum += (time1 - time0)
+#                    i += 2
+                for times in lst:
+                    sum += (times[1] - times[0])
                 values.append(sum)
         return names, values

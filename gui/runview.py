@@ -22,6 +22,7 @@ import gtkutils
 import mainwindow
 import events as evt
 from canvas import NetCanvas
+from chart import color_names
 import chart
 from newcharts import ChartWidget, Data2DChart
 from matplotlib.ticker import FuncFormatter
@@ -41,8 +42,9 @@ class RunView(gtk.VBox):
             ("Processes", self._processes_utilization()),
             ("Transitions", self._transitions_utilization()),
             ("Places", self._place_chart()),
-            ("Processes histogram", self._processes_histogram()),
-            ("Transitions histogram", self._transitions_histogram())
+            ("Histogram of times processes", self._processes_histogram()),
+            ("Sum times of processes", self._processes_time_sum()),
+            ("Sum times of transitions", self._transitions_time_sum())
         ]
 
         self.pack_start(self._controlls(), False, False)
@@ -148,14 +150,18 @@ class RunView(gtk.VBox):
         values.reverse()
         names.reverse()
         lines = []
-        for i, line in enumerate(values):
-            l2 = line[0]
-            l2.remove(l2[0])
-            size = len(l2) - 1
-            l1 = []
-            for j in range(0, size, 2):
-                l1.append((l2[j][0], (l2[j+1][0] - l2[j][0])))
-            lines.append(l1)
+        for i, [line] in enumerate(values):
+            l = []
+            for times in line:
+                l.append((times[0], times[1] - times[0]))
+            lines.append(l)
+#            l2 = line[0]
+#            l2.remove(l2[0])
+#            size = len(l2) - 1
+#            l1 = []
+#            for j in range(0, size, 2):
+#                l1.append((l2[j][0], (l2[j+1][0] - l2[j][0])))
+#            lines.append(l1)
 
         # Create chart
         chart_widget = ChartWidget()
@@ -192,13 +198,17 @@ class RunView(gtk.VBox):
         values.reverse()
         names.reverse()
         lines = []
-        for i, line in enumerate(values):
-            l2 = line[0]
-            size = len(l2) - 1
-            l1 = []
-            for j in range(0, size, 2):
-                l1.append((l2[j][0], (l2[j+1][0] - l2[j][0])))
-            lines.append(l1)
+        for i, [line] in enumerate(values):
+            l = []
+            for times in line:
+                l.append((times[0], times[1] - times[0]))
+            lines.append(l)
+#            l2 = line[0]
+#            size = len(l2) - 1
+#            l1 = []
+#            for j in range(0, size, 2):
+#                l1.append((l2[j][0], (l2[j+1][0] - l2[j][0])))
+#            lines.append(l1)
 
         # Create chart
         chart_widget = ChartWidget()
@@ -252,36 +262,53 @@ class RunView(gtk.VBox):
         chart.set_ylabel("Count")
         return chart_widget
 
-    def _transitions_histogram(self):
-        values = self.tracelog.statistics["tr_hist_values"]
-        names = self.tracelog.statistics["tr_hist_names"]
+    def _processes_histogram(self):
+        names = self.tracelog.statistics["proc_hist_names"]
+        values = self.tracelog.statistics["proc_hist_values"]
+        
+        chart_widget = ChartWidget()
+        chart_id= chart_widget.create_new_chart(ChartWidget.HISTOGRAM_CHART)
+        chart = chart_widget.get_chart(chart_id)
+        ss = len(color_names)
+#        for i in range(0, len(names)):
+#            chart.fill_data(names[i], values[i], color_names[i % ss])
+        chart.fill_data(names, values, color_names)
+
+        chart.xaxis.set_major_formatter(FuncFormatter(
+            lambda time, pos: time_to_string(time)[:-7]))
+        chart.set_xlim(xmin=0)
+        return chart_widget
+
+    def _transitions_time_sum(self):
+        values = self.tracelog.statistics["tr_tsum_values"]
+        names = self.tracelog.statistics["tr_tsum_names"]
 
         chart_widget = ChartWidget()
-        chart_id = chart_widget.create_new_chart(ChartWidget.HISTOGRAM_CHART)
+        chart_id = chart_widget.create_new_chart(ChartWidget.TIME_SUM_CHART)
         chart = chart_widget.get_chart(chart_id)
         chart.fill_data(names, values)
 
         # set basic properties
         chart.yaxis.set_major_formatter(FuncFormatter(
             lambda time, pos: time_to_string(time)[:10]))
-        chart.set_title("Histogram of sum time of each transitions")
+        chart.set_title("Sum times of each transitions")
         chart.set_xlabel("Transitions")
         chart.set_ylabel("Time SUM")
         return chart_widget
 
-    def _processes_histogram(self):
-        values = self.tracelog.statistics["proc_hist_values"]
-        names = self.tracelog.statistics["proc_hist_names"]
+    def _processes_time_sum(self):
+        values = self.tracelog.statistics["proc_tsum_values"]
+        names = self.tracelog.statistics["proc_tsum_names"]
 
         chart_widget = ChartWidget()
-        chart_id = chart_widget.create_new_chart(ChartWidget.HISTOGRAM_CHART)
+        chart_id = chart_widget.create_new_chart(ChartWidget.TIME_SUM_CHART)
         chart = chart_widget.get_chart(chart_id)
         chart.fill_data(names, values)
 
         # set basic properties
         chart.yaxis.set_major_formatter(FuncFormatter(
             lambda time, pos: time_to_string(time)[:10]))
-        chart.set_title("Histogram of sum time of each processes")
+        chart.set_title("Sum times of each processes")
         chart.set_xlabel("Processes")
         chart.set_ylabel("Time SUM")
         return chart_widget
