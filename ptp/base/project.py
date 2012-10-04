@@ -243,6 +243,12 @@ def load_edge_out(element, net, transition):
     sendmode, target = send
     return EdgeOut(id, net.get_place(place_id), transition, expr, mode, sendmode, target, guard)
 
+def load_tracing(element):
+    trace = []
+    for t in element.findall("trace"):
+        trace.append(t.text)
+    return trace
+
 def load_transition(element, project, net):
     id = utils.xml_int(element, "id")
 
@@ -253,8 +259,7 @@ def load_transition(element, project, net):
 
     if element.find("code") is not None:
         transition.code = element.find("code").text
-
-    transition.tracing = utils.xml_str(element, "tracing", "off")
+    transition.tracing = load_tracing(element)
     return transition
 
 def load_place(element, net):
@@ -265,7 +270,7 @@ def load_place(element, net):
     place = Place(net, id, type, init_expr)
     if element.find("code") is not None:
         place.code = element.find("code").text
-    place.tracing = utils.xml_str(element, "tracing", "off")
+    place.tracing = load_tracing(element)
     return place
 
 def load_area(element, net):

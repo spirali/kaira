@@ -242,11 +242,15 @@ class Net:
 
     def trace_nothing(self):
         for i in self.transitions() + self.places():
-            i.tracing = False
+            i.tracing = []
 
     def trace_everything(self):
-        for i in self.transitions() + self.places():
-            i.tracing = True
+        for i in self.transitions():
+            if not "fire" in i.tracing:
+                i.tracing.insert(0, "fire")
+        for i in self.places():
+            if not "value" in i.tracing:
+                i.tracing.insert(0, "value")
 
 
 class NetItem(object):
@@ -300,11 +304,11 @@ class NetItem(object):
 class NetElement(NetItem):
 
     code = ""
-    tracing = False
 
     def __init__(self, net, id, position):
         NetItem.__init__(self, net, id)
         self.position = position
+        self.tracing = []
 
     def has_code(self):
         return self.code != ""
@@ -383,12 +387,6 @@ class Transition(NetElement):
     def is_immediate(self):
         return not self.has_code()
 
-    def get_trace_text(self):
-        if self.tracing:
-            return "fire"
-        else:
-            return None
-
     def as_xml(self):
         e = self.create_xml_element("transition")
         e.set("name", self.name)
@@ -399,6 +397,11 @@ class Transition(NetElement):
         e.set("sy", str(self.size[1]))
         if self.has_code():
             e.append(self.xml_code_element())
+        if self.tracing:
+            for t in self.tracing:
+                trace = xml.Element("trace")
+                trace.text = t
+                e.append(trace)
         return e
 
     def export_xml(self, build_config):
@@ -415,7 +418,10 @@ class Transition(NetElement):
             e.append(edge.create_xml_export_element("edge-out"))
 
         if build_config.tracing and self.tracing:
-            e.set("tracing", "full")
+            for t in self.tracing:
+                trace = xml.Element("trace")
+                trace.text = t
+                e.append(trace)
         return e
 
     def get_drawing(self, vconfig):
@@ -525,12 +531,6 @@ class Place(NetElement):
     def is_place(self):
         return True
 
-    def get_trace_text(self):
-        if self.tracing:
-            return "values"
-        else:
-            return None
-
     def as_xml(self):
         e = self.create_xml_element("place")
         e.set("x", str(self.position[0]))
@@ -540,6 +540,11 @@ class Place(NetElement):
         e.set("init_string", self.init_string)
         if self.has_code():
             e.append(self.xml_code_element())
+        if self.tracing:
+            for t in self.tracing:
+                trace = xml.Element("trace")
+                trace.text = t
+                e.append(trace)
         return e
 
     def export_xml(self, build_config):
@@ -550,7 +555,10 @@ class Place(NetElement):
         if self.has_code():
             e.append(self.xml_code_element())
         if build_config.tracing and self.tracing:
-            e.set("tracing", "full")
+            for t in self.tracing:
+                trace = xml.Element("trace")
+                trace.text = t
+                e.append(trace)
         return e
 
     def get_drawing(self, vconfig):
@@ -1145,6 +1153,12 @@ def load_code(element):
     else:
         return ""
 
+def load_tracing(element):
+    trace = []
+    for t in element.findall("trace"):
+        trace.append(t.text)
+    return trace
+
 def load_place(element, net, loader):
     id = loader.get_id(element)
     place = net.add_place((xml_int(element,"x"), xml_int(element, "y")), id)
@@ -1152,6 +1166,7 @@ def load_place(element, net, loader):
     place.place_type = xml_str(element,"place_type", "")
     place.init_string = xml_str(element,"init_string", "")
     place.code = load_code(element)
+    place.tracing =  load_tracing(element)
 
 def load_transition(element, net, loader):
     id = loader.get_id(element)
@@ -1162,6 +1177,7 @@ def load_transition(element, net, loader):
     transition.name = xml_str(element,"name", "")
     transition.guard = xml_str(element,"guard", "")
     transition.code = load_code(element)
+    transition.tracing = load_tracing(element)
 
 def load_edge(element, net, loader):
     id = loader.get_id(element)

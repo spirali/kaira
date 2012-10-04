@@ -49,7 +49,7 @@ class DrawingBase:
 
     highlight = None
     error_messages = None
-    trace_text = None
+    trace_text = []
 
     def __init__(self):
         pass
@@ -128,7 +128,7 @@ class TransitionDrawing(DrawingBase):
                 x += tx + 12
                 cr.set_source_rgb(0, 0, 0)
                 cr.show_text(text)
-        if self.trace_text is not None:
+        if self.trace_text:
             draw_trace_box(cr, px - sx / 2 - 5, py - sy / 2 - 5, self.trace_text)
 
     def draw_top(self, cr):
@@ -195,7 +195,7 @@ class PlaceDrawing(DrawingBase):
             cr.set_source_rgb(0,0,0)
             cr.move_to(px + x, py + x)
             cr.show_text(self.place_type)
-        if self.trace_text is not None:
+        if self.trace_text:
             draw_trace_box(cr, px - 15, py - 15, self.trace_text)
 
     def draw_top(self, cr):
@@ -425,17 +425,26 @@ def rounded_rectangle(cr, x, y, w, h, r):
     cr.curve_to(x, y, x, y, x + r, y)
 
 def draw_trace_box(cr, x, y, text):
-    tx, ty = utils.text_size(cr, text, 8)
-    rounded_rectangle(cr, x, y, tx + 40, ty + 10, 10)
+    tw = 0
+    th = 0
+    for txt in text:
+        tx, ty = utils.text_size(cr, txt, 8)
+        th += ty
+        tw = tw if tw > tx else tx
+    rounded_rectangle(cr, x, y, tw + 40, th + len(text)*10, 10)
     cr.set_source_rgba(1.0, 0.5, 0.2, 0.9)
     cr.fill()
-    rounded_rectangle(cr, x, y, tx + 40, ty + 10, 10)
+    rounded_rectangle(cr, x, y, tw + 40, th + 10, 10)
     cr.set_source_rgba(1.0, 0.5, 0.2)
     cr.stroke()
 
     cr.set_source_rgb(1, 1, 1)
-    cr.move_to(x + 30, y + ty + 5)
-    cr.show_text(text)
+    th = -5
+    for txt in text:
+        tx, ty = utils.text_size(cr, txt, 8)
+        th += ty + 10
+        cr.move_to(x + 30, y + th)
+        cr.show_text(txt)
     cr.fill()
 
     cr.arc(x + 12, y + 7, 4, 0, 2 * math.pi)

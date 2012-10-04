@@ -30,6 +30,11 @@ std::string ca_bool_to_string(const bool &b)
 	return b ? "true" : "false";
 }
 
+std::string ca_string_to_string(const std::string &s)
+{
+	return s;
+}
+
 CaOutput::~CaOutput()
 {
 	while (!_stack.empty()) {

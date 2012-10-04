@@ -22,8 +22,12 @@ class CaTraceLog {
 		void event_transition_finished();
 		void event_receive();
 
-		void trace_token(int place_id, void *pointer, const std::string &value);
-		void trace_token(int place_id, void *pointer);
+		void trace_token_add(int place_id, void *pointer);
+		void trace_token_remove(int place_id, void *pointer);
+
+		void trace_int(const int value);
+		void trace_double(const double value);
+		void trace_string(const std::string &str);
 
 		static void init();
 		static void write_head(const std::string &name);
@@ -53,6 +57,11 @@ class CaTraceLog {
 			pos += s;
 			*(pos) = 0;
 			pos++;
+		}
+
+		void write_double(const double value) {
+			memcpy(pos, &value, sizeof(double));
+			pos += sizeof(double);
 		}
 
 		void write_key_value(const std::string &key, const std::string &value);
