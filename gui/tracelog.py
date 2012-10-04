@@ -184,9 +184,7 @@ class Trace:
             return "Recv "
         elif t == "S":
             return "Spawn"
-        elif t == "H":
-            return "Quit "
-        elif t == "Q":
+        elif t == "H" or t == "Q": # "H" for backward compatability
             return "Quit "
 
     def process_event(self, runinstance):
@@ -200,9 +198,7 @@ class Trace:
             return self._process_event_receive(runinstance)
         elif t == "S":
             return self._process_event_spawn(runinstance)
-        elif t == "H":
-            return self._process_event_quit(runinstance)
-        elif t == "Q":
+        elif t == "H" or t == "Q": # "H" for backward compatability
             return self._process_event_quit(runinstance)
         else:
             raise Exception("Invalid event type '{0}/{1}'".format(t, ord(t)))
