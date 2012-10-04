@@ -31,7 +31,7 @@ class CodeEditor(gtk.ScrolledWindow):
     """
         sections: list of (name, start_string, middle_string, end_string)
     """
-    def __init__(self, language, sections, start_pos, head_paragraph = None):
+    def __init__(self, language, sections, start_pos, head_paragraph=None):
         gtk.ScrolledWindow.__init__(self)
         self.sections = sections
 
@@ -56,8 +56,13 @@ class CodeEditor(gtk.ScrolledWindow):
         buffer.begin_not_undoable_action()
 
         if head_paragraph:
-            buffer.create_tag("fixed-paragraph", editable=False, paragraph_background="lightgray")
-            buffer.insert_with_tags_by_name(buffer.get_end_iter(), head_paragraph, "fixed-paragraph")
+            buffer.create_tag("fixed-paragraph",
+                              editable=False,
+                              paragraph_background="lightgray")
+
+            buffer.insert_with_tags_by_name(buffer.get_end_iter(),
+                                            head_paragraph,
+                                            "fixed-paragraph")
 
         for name, start_string, middle_string, end_string in sections:
             self._create_section(buffer, name, start_string, middle_string, end_string)
@@ -128,7 +133,7 @@ class CodeEditor(gtk.ScrolledWindow):
 
 class CodeFileEditor(CodeEditor):
 
-    def __init__(self, language, filename = None):
+    def __init__(self, language, filename=None):
         CodeEditor.__init__(self, language, [("", "", "", "")], ("", 0,0))
         self.view.set_show_line_numbers(True)
         self.load(filename)
@@ -154,9 +159,12 @@ class TransitionCodeEditor(CodeEditor):
             code = "\t\n"
         else:
             code = transition.get_code()
-
         section = [ "", "{\n", code, "}\n" ]
-        CodeEditor.__init__(self, project.get_syntax_highlight_key(), [ section ], ("", 1, 1), header)
+        CodeEditor.__init__(self,
+                            project.get_syntax_highlight_key(),
+                            [ section ],
+                            ("", 1, 1),
+                            header)
 
     def buffer_changed(self, buffer):
         self.transition.set_code(self.get_text())
@@ -171,7 +179,11 @@ class PlaceCodeEditor(CodeEditor):
             code = place.get_code()
 
         section = [ "", "{\n", code, "}\n" ]
-        CodeEditor.__init__(self, project.get_syntax_highlight_key(), [ section ], ("", 1, 1), header)
+        CodeEditor.__init__(self,
+                            project.get_syntax_highlight_key(),
+                            [ section ],
+                            ("", 1, 1),
+                            header)
 
     def buffer_changed(self, buffer):
         self.place.set_code(self.get_text())
@@ -182,7 +194,11 @@ class HeadCodeEditor(CodeEditor):
         self.project = project
         header = project.get_head_comment()
         section = [ "", "", project.get_head_code(), "" ]
-        CodeEditor.__init__(self, project.get_syntax_highlight_key(), [ section ], ("", 1, 0), header)
+        CodeEditor.__init__(self,
+                            project.get_syntax_highlight_key(),
+                            [ section ],
+                            ("", 1, 0),
+                            header)
 
     def save(self):
         self.project.set_head_code(self.get_text())

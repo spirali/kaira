@@ -313,7 +313,7 @@ class NetElement(NetItem):
         return self.code
 
     def set_code(self, code):
-        self.code = code.strip()
+        self.code = code
         self.changed()
 
     def get_position(self):
