@@ -158,8 +158,8 @@ class Trace:
     struct_spawn = struct.Struct("<Qi")
     struct_receive = struct_basic
 
-    struct_token_4 = struct.Struct("<iL")
-    struct_token_8 = struct.Struct("<iQ")
+    struct_token_4 = struct.Struct("<Li")
+    struct_token_8 = struct.Struct("<Qi")
 
     struct_int = struct.Struct("<i")
     struct_double = struct.Struct("<d")
