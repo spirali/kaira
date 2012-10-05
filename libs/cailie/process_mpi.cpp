@@ -26,6 +26,7 @@ void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net,
 	CaTokens *data = (CaTokens*) packer.get_buffer();
 	data->place_index = place_index;
 	data->tokens_count = tokens_count;
+	data->msg_id = thread->get_new_msg_id();
 	for (i = targets.begin(); i != targets.end(); i++) {
 		int target = *i;
 		if(target < 0 || target >= process_count) {

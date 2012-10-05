@@ -20,7 +20,8 @@ class CaTraceLog {
 		void event_net_quit();
 		void event_transition_fired(int transition_id);
 		void event_transition_finished();
-		void event_receive();
+		void event_send_msg(int msg_id);
+		void event_receive(int msg_id);
 
 		void trace_token_add(int place_id, void *pointer);
 		void trace_token_remove(int place_id, void *pointer);

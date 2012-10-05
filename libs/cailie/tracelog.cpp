@@ -95,11 +95,20 @@ void CaTraceLog::event_transition_finished()
 	write_time();
 }
 
-void CaTraceLog::event_receive()
+void CaTraceLog::event_send_msg(int msg_id)
 {
-	check_size(1 + sizeof(uint64_t));
+	check_size(1 + sizeof(int32_t) + sizeof(uint64_t));
+	write_char('M');
+	write_time();
+	write_int32(msg_id);
+}
+
+void CaTraceLog::event_receive(int msg_id)
+{
+	check_size(1 + sizeof(int32_t) + sizeof(uint64_t));
 	write_char('R');
 	write_time();
+	write_int32(msg_id);
 }
 
 void CaTraceLog::trace_token_add(int place_id, void *pointer)

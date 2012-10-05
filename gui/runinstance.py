@@ -67,7 +67,12 @@ class RunInstance:
         self.last_event_activity = self.activites[index]
         self.last_event_instance = self.net_instances[process_id]
 
-    def event_receive(self, process_id, thread_id, time):
+    def event_send(self, process_id, thread_id, time, msg_id):
+        self.last_event = "send"
+        self.last_event_instance = self.net_instances[process_id]
+        self.set_activity(process_id, thread_id, None)
+
+    def event_receive(self, process_id, thread_id, time, msg_id):
         self.last_event = "receive"
         self.last_event_instance = self.net_instances[process_id]
         self.set_activity(process_id, thread_id, None)

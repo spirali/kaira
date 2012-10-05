@@ -139,4 +139,17 @@ CaNet * CaThread::spawn_net(int def_index)
 	return process->spawn_net(this, def_index, true);
 }
 
+int CaThread::get_new_msg_id()
+{
+	if (tracelog) {
+		if (msg_id >= INT_MAX - process->get_process_count() * process->get_threads_count()) {
+			msg_id = msg_id % (process->get_process_count() * process->get_threads_count());
+		}
+		msg_id += process->get_process_count() * process->get_threads_count();
+		return msg_id;
+	} else {
+		return 0;
+	}
+}
+
 
