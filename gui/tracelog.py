@@ -220,7 +220,7 @@ class Trace:
                     runinstance.add_token(place_id, token_pointer, values)
                 values = []
                 self.pointer += 1
-                place_id, token_pointer = self._read_struct_token()
+                token_pointer, place_id = self._read_struct_token()
             elif t == "i":
                 self.pointer += 1
                 value = self._read_struct_int()
@@ -243,7 +243,7 @@ class Trace:
             t = self.data[self.pointer]
             if t == "r":
                 self.pointer += 1
-                place_id, token_pointer = self._read_struct_token()
+                token_pointer, place_id = self._read_struct_token()
                 runinstance.remove_token(place_id, token_pointer)
             else:
                 break

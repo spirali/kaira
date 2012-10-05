@@ -191,10 +191,16 @@ class Place(utils.EqByIdMixin):
         return self.net.get_areas_with_place(self)
 
     def get_functions_for_tracing(self, project):
-        if self.type.get_arity() > 1:
-            p = list(self.type.args)
-        else:
-            p = [ self.type ]
+        p = [ self.type ]
+        if self.type.name == "":
+            q = list(self.type.args)
+            return (project.get_user_functions_by_declaration(t_int, p) +
+               project.get_user_functions_by_declaration(t_double, p) +
+               project.get_user_functions_by_declaration(t_string, p) +
+               project.get_user_functions_by_declaration(t_int, q) +
+               project.get_user_functions_by_declaration(t_double, q) +
+               project.get_user_functions_by_declaration(t_string, q))
+
         return (project.get_user_functions_by_declaration(t_int, p) +
                project.get_user_functions_by_declaration(t_double, p) +
                project.get_user_functions_by_declaration(t_string, p))

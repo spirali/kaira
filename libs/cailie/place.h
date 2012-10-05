@@ -42,7 +42,7 @@ template<class T> class CaPlace {
 		CaPlace() : token(NULL), tokens_count(0) {}
 		~CaPlace() { clear(); }
 
-		void add(CaToken<T> *t) {
+		void add_token(CaToken<T> *t) {
 			if (token) {
 				CaToken<T> *p = token->prev;
 				t->next = token;
@@ -57,23 +57,34 @@ template<class T> class CaPlace {
 			tokens_count++;
 		}
 
+		void add_token(CaToken<T> *t, CaTraceLog *tracelog, int place_id)
+		{
+			t->trace(tracelog, place_id);
+			add_token(t);
+		}
+
+
+		void add_token(CaToken<T> *t, CaTraceLog *tracelog, int place_id, int n, void (*fncs[]) (CaTraceLog *, const T&))
+		{
+			t->trace(tracelog, place_id, n, fncs);
+			add_token(t);
+		}
+
 		void add(const T &value) {
 			CaToken<T> *t = new CaToken<T>(value);
-			add(t);
+			add_token(t);
 		}
 
 		void add(const T &value, CaTraceLog *tracelog, int place_id)
 		{
 			CaToken<T> *t = new CaToken<T>(value);
-			t->trace_add_token(tracelog, place_id);
-			add(t);
+			add_token(t, tracelog, place_id);
 		}
 
 		void add(const T &value, CaTraceLog *tracelog, int place_id, int n, void (*fncs[]) (CaTraceLog *, const T&))
 		{
 			CaToken<T> *t = new CaToken<T>(value);
-			t->trace(tracelog, place_id, n, fncs);
-			add(t);
+			add_token(t, tracelog, place_id, n, fncs);
 		}
 
 		void add_all(const std::vector<T> &values) {

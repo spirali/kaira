@@ -106,21 +106,21 @@ void CaTraceLog::trace_token_add(int place_id, void *pointer)
 {
 	check_size(1 + sizeof(uint32_t) + sizeof(void*));
 	write_char('t');
-	write_int32(place_id);
 	write_pointer(pointer);
+	write_int32(place_id);
 }
 
 void CaTraceLog::trace_token_remove(int place_id, void *pointer)
 {
 	check_size(1 + sizeof(uint32_t) + sizeof(void*));
 	write_char('r');
-	write_int32(place_id);
 	write_pointer(pointer);
+	write_int32(place_id);
 }
 
 void CaTraceLog::trace_int(const int value)
 {
-	check_size(1 + sizeof(uint32_t) );
+	check_size(1 + sizeof(int32_t) );
 	write_char('i');
 	write_int32(value);
 }

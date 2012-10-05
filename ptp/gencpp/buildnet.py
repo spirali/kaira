@@ -169,7 +169,7 @@ def write_enable(builder, tr):
 
     w = build.Builder(builder.project)
     matches, _, _ = get_edges_mathing(builder.project, tr)
-    if tr.tracing != "off" or tr.is_any_place_traced():
+    if tr.tracing or tr.is_any_place_traced():
         w.line("CaTraceLog *tracelog = thread->get_tracelog();")
         w.if_begin("tracelog")
         w.line("tracelog->event_transition_fired({0.id});", tr)
@@ -204,7 +204,7 @@ def write_enable(builder, tr):
     em.variable_emitter = lambda name: vars_code[name]
 
     for edge, _ in matches:
-        if edge.get_place().tracing != "off":
+        if edge.get_place().tracing:
             w.if_begin("tracelog")
             w.line("n->place_{1.id}.remove(token_{0.uid}, tracelog, {1.id});",
                 edge, edge.get_place())
@@ -230,7 +230,7 @@ def write_enable(builder, tr):
         w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
 
         w.line("bool lock = false;")
-        if tr.tracing != "off" or tr.is_any_place_traced():
+        if tr.tracing or tr.is_any_place_traced():
             w.if_begin("tracelog")
             w.line("tracelog->event_transition_finished();")
             w.block_end()
@@ -336,17 +336,20 @@ def write_core(builder):
     build.write_parameters(builder)
     build.write_types(builder)
     build.write_user_functions(builder)
+    build.write_trace_user_functions(builder)
     for net in builder.project.nets:
         write_net_class(builder, net)
     for net in builder.project.nets:
         write_net_functions(builder, net)
 
 def write_place_add(builder, method, place, place_code, value_code):
-    if place.tracing != "off":
+    if place.tracing:
         builder.if_begin("thread->get_tracelog()")
-        builder.line("{0}{1}({2}, thread->get_tracelog(), {3.id}, {4});",
-                  place_code, method, value_code, place,
-                  build.get_to_string_function_name(builder.project, place.type))
+        builder.line("void (*fncs[{0}])(CaTraceLog *, const {1} &);", len(place.tracing), builder.emit_type(place.type))
+        for i, trace in enumerate(place.tracing):
+            builder.line("fncs[{0}] = trace_{1};", i, trace.replace("fn: ", ""))
+        builder.line("{0}{1}({2}, thread->get_tracelog(), {3.id}, {4}, fncs);",
+                    place_code, method, value_code, place, len(place.tracing))
         builder.line("}} else {{")
         builder.line("{0}{1}({2});", place_code, method, value_code)
         builder.block_end()
