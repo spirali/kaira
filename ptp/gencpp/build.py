@@ -297,7 +297,6 @@ def write_trace_user_functions(builder):
     for type in value_traces:
         write_trace_value(builder, type)
     for fn_name, type in traces:
-        print fn_name
         fn = builder.project.get_user_function(fn_name.replace("fn: ", ""))
         write_trace_user_function(builder, fn, builder.emit_type(type))
 

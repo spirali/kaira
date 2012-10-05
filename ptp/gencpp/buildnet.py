@@ -345,7 +345,9 @@ def write_core(builder):
 def write_place_add(builder, method, place, place_code, value_code):
     if place.tracing:
         builder.if_begin("thread->get_tracelog()")
-        builder.line("void (*fncs[{0}])(CaTraceLog *, const {1} &);", len(place.tracing), builder.emit_type(place.type))
+        builder.line("void (*fncs[{0}])(CaTraceLog *, const {1} &);", 
+                     len(place.tracing), 
+                     builder.emit_type(place.type))
         for i, trace in enumerate(place.tracing):
             builder.line("fncs[{0}] = trace_{1};", i, trace.replace("fn: ", ""))
         builder.line("{0}{1}({2}, thread->get_tracelog(), {3.id}, {4}, fncs);",
