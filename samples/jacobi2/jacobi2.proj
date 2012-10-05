@@ -105,9 +105,9 @@ class Data {
 			this-&gt;size = c.size;
 			this-&gt;position = c.position;
 			array1 = new double[(size + 2) * (WIDTH + 2)];
-			memcpy(array1, c.array1, (size + 2) * (WIDTH + 2));
+			memcpy(array1, c.array1, sizeof(double) * (size + 2) * (WIDTH + 2));
 			array2 = new double[(size + 2) * (WIDTH + 2)];
-			memcpy(array2, c.array2, (size + 2) * (WIDTH + 2));
+			memcpy(array2, c.array2, sizeof(double) * (size + 2) * (WIDTH + 2));
 
 		}
 
@@ -119,9 +119,9 @@ class Data {
 				this-&gt;size = c.size;
 				this-&gt;position = c.position;
 				array1 = new double[(size + 2) * (WIDTH + 2)];
-				memcpy(array1, c.array1, (size + 2) * (WIDTH + 2));
+				memcpy(array1, c.array1, sizeof(double) * (size + 2) * (WIDTH + 2));
 				array2 = new double[(size + 2) * (WIDTH + 2)];
-				memcpy(array2, c.array2, (size + 2) * (WIDTH + 2));
+				memcpy(array2, c.array2, sizeof(double) * (size + 2) * (WIDTH + 2));
 		        }
 			return *this;
 		}
