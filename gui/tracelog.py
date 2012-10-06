@@ -136,14 +136,7 @@ class TraceLog:
             timeline.append(EventPointer(minimal_time_index, trace.pointer))
 
             trace.process_event(ri)
-            next_event_time = trace.get_next_event_time()
-
-            # We do not need display SEND events
-            while next_event_time and trace.data[trace.pointer] == "M":
-                trace.process_event(ri)
-                next_event_time = trace.get_next_event_time()
-
-            trace_times[minimal_time_index] = next_event_time
+            trace_times[minimal_time_index] = trace.get_next_event_time()
 
         self.timeline = timeline
         transition_names, transition_values = ri.get_transitions_utilization()
@@ -208,8 +201,6 @@ class Trace:
             self._process_event_transition_fired(runinstance)
         elif t == "F":
             self._process_event_transition_finished(runinstance)
-        elif t == "M":
-            self._process_event_send_msg(runinstance)
         elif t == "R":
             return self._process_event_receive(runinstance)
         elif t == "S":
@@ -246,6 +237,9 @@ class Trace:
                 self.pointer += 1
                 value = self._read_cstring()
                 values.append(value)
+            elif t == "M": # We want to skip SEND event in tracelog
+                self.pointer += 1
+                self._process_event_send_msg(runinstance)
             else:
                 if place_id is not None and token_pointer is not None:
                     runinstance.add_token(place_id, token_pointer, values)
@@ -258,6 +252,9 @@ class Trace:
                 self.pointer += 1
                 token_pointer, place_id = self._read_struct_token()
                 runinstance.remove_token(place_id, token_pointer)
+            elif t == "M": # We want to skip SEND event in tracelog
+                self.pointer += 1
+                self._process_event_send_msg(runinstance)
             else:
                 break
 
