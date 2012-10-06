@@ -156,14 +156,21 @@ class PlaceDrawing(DrawingBase):
         self.init_string = item.get_init_string()
         self.place_type = item.get_place_type()
         self.tokens = None
+        self.new_tokens = None
 
-    def set_tokens(self, tokens):
+    def set_tokens(self, tokens, new_tokens):
         self.tokens = []
         for token in tokens:
             if len(token) > 25:
                 self.tokens.append(token[:18] + " ... (%i chars)" % len(token))
             else:
                 self.tokens.append(token)
+        self.new_tokens = []
+        for token in new_tokens:
+            if len(token) > 25:
+                self.new_tokens.append(token[:18] + " ... (%i chars)" % len(token))
+            else:
+                self.new_tokens.append(token)
 
     def draw(self, cr):
         px, py = self.position
@@ -201,13 +208,18 @@ class PlaceDrawing(DrawingBase):
     def draw_top(self, cr):
         px, py = self.position
 
-        if self.tokens:
+        if self.tokens or self.new_tokens:
             tokens = self.tokens[:self.max_shown_tokens]
-            if len(self.tokens) != len(tokens):
+            if len(tokens) < self.max_shown_tokens:
+                tokens += self.new_tokens[:self.max_shown_tokens-len(tokens)]
+            if len(self.tokens) + len(self.new_tokens) != len(tokens):
                 tokens.append("...")
             # Draw green circle
             x = math.sqrt((self.radius * self.radius) / 2) + 15
-            cr.set_source_rgb(0.2,0.45,0)
+            if self.new_tokens:
+                cr.set_source_rgb(0.8,0,0)
+            else:
+                cr.set_source_rgb(0.2,0.45,0)
             cr.arc(px + self.radius,py,8, 0, 2 * math.pi)
             cr.fill()
 
@@ -216,7 +228,7 @@ class PlaceDrawing(DrawingBase):
             cr.set_source_rgb(0,0,0)
             cr.stroke()
 
-            init_text = str(len(self.tokens))
+            init_text = str(len(self.tokens + self.new_tokens))
             w, h = utils.text_size(cr, init_text)
             cr.set_source_rgb(0.8,0.8,0.8)
             cr.move_to(px + self.radius - w/2, py + h/2)
@@ -225,15 +237,35 @@ class PlaceDrawing(DrawingBase):
             # Print token names
             w_size = utils.text_size(cr, "W")[1] + 3
             texts = [ (t, utils.text_size(cr, t)[0]) for t in tokens ]
+            if len(self.tokens) > self.max_shown_tokens:
+                if self.new_tokens:
+                    token_height = (len(tokens) - 1) * w_size
+                    new_token_height = w_size
+                else:
+                    token_height = len(tokens) * w_size
+            else:
+                if self.new_tokens:
+                    token_height = len(self.tokens) * w_size
+                    new_token_height = (len(tokens) - len(self.tokens)) * w_size
+                else:
+                    token_height = len(self.tokens) * w_size
             text_height = len(tokens) * w_size
             text_width = max([ x[1] for x in texts ])
 
             text_x = px + self.radius + 12
             text_y = py - text_height / 2
 
-            cr.set_source_rgba(0.2,0.45,0,0.5)
-            cr.rectangle(text_x - 3, text_y - 3, text_width + 6, text_height + 6)
-            cr.fill()
+            # Print green rectangle for tokens
+            if self.tokens:
+                cr.set_source_rgba(0.2,0.45,0,0.5)
+                cr.rectangle(text_x - 3, text_y, text_width + 6, token_height + 3)
+                cr.fill()
+
+            # Print red rectangle for new tokens
+            if self.new_tokens:
+                cr.set_source_rgba(1,0.45,0, 0.8)
+                cr.rectangle(text_x - 3, text_y + token_height + 2, text_width + 6, new_token_height)
+                cr.fill()
 
             cr.set_source_rgb(0.0,0.0,0.0)
             cr.set_source_rgb(1.0,1.0,1.0)
