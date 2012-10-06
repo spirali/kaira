@@ -203,6 +203,7 @@ class Trace:
     def process_event(self, runinstance):
         t = self.data[self.pointer]
         self.pointer += 1
+        runinstance.clear_removed_and_new_tokens()
         if t == "T":
             self._process_event_transition_fired(runinstance)
         elif t == "F":
@@ -225,7 +226,6 @@ class Trace:
         place_id = None
         token_pointer = None
         values = []
-        runinstance.clear_new_tokens()
         while not self.is_pointer_at_end():
             t = self.data[self.pointer]
             if t == "t":
@@ -252,7 +252,6 @@ class Trace:
                 break
 
     def process_tokens_remove(self, runinstance):
-        runinstance.clear_new_tokens()
         while not self.is_pointer_at_end():
             t = self.data[self.pointer]
             if t == "r":
@@ -454,8 +453,8 @@ class DataCollectingRunInstance(RunInstance):
         self.change_tokens_data(net_instance.process_id,
                                 place_id, self.last_time, -1)
 
-    def clear_new_tokens(self):
-        RunInstance.clear_new_tokens(self)
+    def clear_removed_and_new_tokens(self):
+        RunInstance.clear_removed_and_new_tokens(self)
 
     def get_transitions_utilization(self):
         names = []

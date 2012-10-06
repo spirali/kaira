@@ -100,7 +100,7 @@ class Simulation(EventSource):
                     place_id = utils.xml_int(pe, "id")
                     for te in pe.findall("token"):
                         runinstance.add_token(place_id, 0, te.get("value"))
-                    runinstance.clear_new_tokens()
+                    runinstance.clear_removed_and_new_tokens()
                 for tre in e.findall("enabled"):
                     runinstance.add_enabled_transition(utils.xml_int(tre, "id"))
             self.runinstance = runinstance

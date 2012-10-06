@@ -230,14 +230,21 @@ class NetInstanceView(gtk.HPaned):
 
     def open_tokens_tab(self, place):
         text_buffer = gtk.TextBuffer()
+        t = self.get_perspective().get_removed_tokens(place)
+        removed_tokens = "\n".join("consumed - " + token for token in map(str, t))
         tokens = "\n".join(map(str, self.get_perspective().get_tokens(place)))
         new_tokens = "\n".join(map(str, self.get_perspective().get_new_tokens(place)))
-        if tokens != "" and new_tokens != "":
-            new_tokens = "\n" + new_tokens
 
+        if removed_tokens != "" and tokens != "":
+            removed_tokens = removed_tokens + "\n"
+        if tokens != "" and new_tokens != "":
+            tokens = tokens + "\n"
+
+        tag_italic = text_buffer.create_tag('italic', font="Italic")
+        tag_bold = text_buffer.create_tag('bold', font="Bold")
+        text_buffer.insert_with_tags(text_buffer.get_end_iter(), removed_tokens, tag_italic)
         text_buffer.insert(text_buffer.get_end_iter(), tokens)
-        tag = text_buffer.create_tag('bold', font="Bold")
-        text_buffer.insert_with_tags(text_buffer.get_end_iter(), new_tokens, tag)
+        text_buffer.insert_with_tags(text_buffer.get_end_iter(), new_tokens, tag_bold)
         text_area = gtk.TextView()
         text_area.set_buffer(text_buffer)
         text_area.set_editable(False)

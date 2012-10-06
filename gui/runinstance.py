@@ -40,9 +40,9 @@ class RunInstance:
     def remove_token(self, place_id, token_pointer):
         self.last_event_instance.remove_token(place_id, token_pointer)
 
-    def clear_new_tokens(self):
+    def clear_removed_and_new_tokens(self):
         for i in self.net_instances:
-            self.net_instances[i].clear_new_tokens()
+            self.net_instances[i].clear_removed_and_new_tokens()
 
     def add_enabled_transition(self, transition_id):
         self.last_event_instance.add_enabled_transition(transition_id)
@@ -144,6 +144,7 @@ class NetInstance:
         self.process_id = process_id
         self.enabled_transitions = None
         self.new_tokens = {}
+        self.removed_tokens = {}
         if tokens is None:
             self.tokens = {}
         else:
@@ -156,7 +157,7 @@ class NetInstance:
             self.new_tokens[place_id] = lst
         lst.append((token_pointer, token_value))
 
-    def clear_new_tokens(self):
+    def clear_removed_and_new_tokens(self):
         for place_id in self.new_tokens:
             lst = self.tokens.get(place_id)
             if lst is None:
@@ -164,17 +165,26 @@ class NetInstance:
                 self.tokens[place_id] = lst
             lst += self.new_tokens.get(place_id)
         self.new_tokens = {}
+        self.removed_tokens = {}
 
     def remove_token(self, place_id, token_pointer):
         lst = self.tokens.get(place_id)
         if lst is None:
             return
+
+        removed_lst = self.removed_tokens.get(place_id)
+        if removed_lst is None:
+            removed_lst = []
+            self.removed_tokens[place_id] = removed_lst
+
         for i in xrange(len(lst)):
             if lst[i][0] == token_pointer:
+                removed_lst.append(lst[i])
                 del lst[i]
                 return
 
     def remove_all_tokens(self, place_id):
+        self.removed_tokens[place_id] = self.tokens[place_id]
         self.tokens[place_id] = None
 
     def add_enabled_transition(self, transition_id):
@@ -190,11 +200,12 @@ class NetInstance:
 
 class NetInstanceVisualConfig(VisualConfig):
 
-    def __init__(self, transition_executions, enabled_transitions, tokens, new_tokens):
+    def __init__(self, transition_executions, enabled_transitions, tokens, new_tokens, remove_tokens):
         # transition_id -> [ text_labels ]
         self.transition_executions = transition_executions
         self.tokens = tokens
         self.new_tokens = new_tokens
+        self.removed_tokens = remove_tokens
         self.enabled_transitions = enabled_transitions
 
     def transition_drawing(self, item):
@@ -207,7 +218,7 @@ class NetInstanceVisualConfig(VisualConfig):
 
     def place_drawing(self, item):
         drawing = VisualConfig.place_drawing(self, item)
-        drawing.set_tokens(self.tokens[item.id], self.new_tokens[item.id])
+        drawing.set_tokens(self.tokens[item.id], self.new_tokens[item.id], self.removed_tokens[item.id])
         return drawing
 
 
@@ -231,6 +242,15 @@ class Perspective(utils.EqMixin):
         tokens = []
         for net_instance in self.net_instances.values():
             t = net_instance.new_tokens.get(place.id)
+            if t is not None:
+                for token_pointer, token_value in t:
+                    tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
+        return tokens
+
+    def get_removed_tokens(self, place):
+        tokens = []
+        for net_instance in self.net_instances.values():
+            t = net_instance.removed_tokens.get(place.id)
             if t is not None:
                 for token_pointer, token_value in t:
                     tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
@@ -275,9 +295,13 @@ class Perspective(utils.EqMixin):
         for place in self.runinstance.net.places():
             new_tokens[place.id] = self.get_new_tokens(place)
 
+        removed_tokens = {}
+        for place in self.runinstance.net.places():
+            removed_tokens[place.id] = self.get_removed_tokens(place)
+
         enabled = set()
         enabled.update(*[ net_instance.enabled_transitions
                           for net_instance in self.net_instances.values()
                           if net_instance.enabled_transitions is not None ])
 
-        return NetInstanceVisualConfig(transition_executions, enabled, tokens, new_tokens)
+        return NetInstanceVisualConfig(transition_executions, enabled, tokens, new_tokens, removed_tokens)

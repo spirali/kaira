@@ -144,7 +144,7 @@ class TransitionDrawing(DrawingBase):
 
 class PlaceDrawing(DrawingBase):
 
-    max_shown_tokens = 12
+    max_shown_tokens = 10
 
     def __init__(self, item):
         DrawingBase.__init__(self)
@@ -157,8 +157,9 @@ class PlaceDrawing(DrawingBase):
         self.place_type = item.get_place_type()
         self.tokens = None
         self.new_tokens = None
+        self.removed_tokens = None
 
-    def set_tokens(self, tokens, new_tokens):
+    def set_tokens(self, tokens, new_tokens, removed_tokens):
         self.tokens = []
         for token in tokens:
             if len(token) > 25:
@@ -171,6 +172,12 @@ class PlaceDrawing(DrawingBase):
                 self.new_tokens.append(token[:18] + " ... (%i chars)" % len(token))
             else:
                 self.new_tokens.append(token)
+        self.removed_tokens = []
+        for token in removed_tokens:
+            if len(token) > 25:
+                self.removed_tokens.append(token[:18] + " ... (%i chars)" % len(token))
+            else:
+                self.removed_tokens.append(token)
 
     def draw(self, cr):
         px, py = self.position
@@ -208,12 +215,24 @@ class PlaceDrawing(DrawingBase):
     def draw_top(self, cr):
         px, py = self.position
 
-        if self.tokens or self.new_tokens:
-            tokens = self.tokens[:self.max_shown_tokens]
+        if self.tokens or self.new_tokens or self.removed_tokens:
+            tokens = self.removed_tokens[:self.max_shown_tokens]
+            rem_t_in = len(tokens)
+            if len(tokens) < self.max_shown_tokens:
+                tokens += self.tokens[:self.max_shown_tokens-len(tokens)]
+            t_in = len(tokens) - rem_t_in
             if len(tokens) < self.max_shown_tokens:
                 tokens += self.new_tokens[:self.max_shown_tokens-len(tokens)]
-            if len(self.tokens) + len(self.new_tokens) != len(tokens):
+            new_t_in = len(tokens) - rem_t_in - t_in
+            if len(self.tokens) + len(self.new_tokens) + len(self.removed_tokens) != len(tokens):
                 tokens.append("...")
+                if new_t_in < len(self.new_tokens):
+                    new_t_in += 1
+                elif t_in < len(self.tokens):
+                    t_in += 1
+                elif rem_t_in < len(self.removed_tokens):
+                    rem_t_in += 1
+
             # Draw green circle
             x = math.sqrt((self.radius * self.radius) / 2) + 15
             if self.new_tokens:
@@ -235,36 +254,33 @@ class PlaceDrawing(DrawingBase):
             cr.show_text(init_text)
 
             # Print token names
-            w_size = utils.text_size(cr, "W")[1] + 3
+            w_size = utils.text_size(cr, "W")[1] + 6
             texts = [ (t, utils.text_size(cr, t)[0]) for t in tokens ]
-            if len(self.tokens) > self.max_shown_tokens:
-                if self.new_tokens:
-                    token_height = (len(tokens) - 1) * w_size
-                    new_token_height = w_size
-                else:
-                    token_height = len(tokens) * w_size
-            else:
-                if self.new_tokens:
-                    token_height = len(self.tokens) * w_size
-                    new_token_height = (len(tokens) - len(self.tokens)) * w_size
-                else:
-                    token_height = len(self.tokens) * w_size
             text_height = len(tokens) * w_size
             text_width = max([ x[1] for x in texts ])
-
             text_x = px + self.radius + 12
             text_y = py - text_height / 2
+
+            rem_height = rem_t_in * w_size
+            tok_height = t_in * w_size
+            new_height = new_t_in * w_size
+
+            # Print gray rectangle for removed tokens
+            if self.removed_tokens:
+                cr.set_source_rgba(0.2,0.2,0.2,0.6)
+                cr.rectangle(text_x - 3, text_y + 4, text_width + 6, rem_height)
+                cr.fill()
 
             # Print green rectangle for tokens
             if self.tokens:
                 cr.set_source_rgba(0.2,0.45,0,0.5)
-                cr.rectangle(text_x - 3, text_y, text_width + 6, token_height + 3)
+                cr.rectangle(text_x - 3, text_y + rem_height + 4, text_width + 6, tok_height)
                 cr.fill()
 
             # Print red rectangle for new tokens
             if self.new_tokens:
                 cr.set_source_rgba(1,0.45,0, 0.8)
-                cr.rectangle(text_x - 3, text_y + token_height + 2, text_width + 6, new_token_height)
+                cr.rectangle(text_x - 3, text_y + rem_height + tok_height + 4, text_width + 6, new_height)
                 cr.fill()
 
             cr.set_source_rgb(0.0,0.0,0.0)
