@@ -9,14 +9,16 @@
 #define CA_NOT_ENABLED 0
 #define CA_TRANSITION_FIRED 1
 
+class CaNetBase;
 class CaNet;
 class CaNetDef;
+class CaThreadBase;
 class CaThread;
 class CaUnpacker;
 
-typedef int(CaEnableFn)(CaThread *, CaNet *);
-typedef bool(CaEnableCheckFn)(CaThread *, CaNet *);
-typedef CaNet * (CaSpawnFn)(CaThread *, CaNetDef *);
+typedef int(CaEnableFn)(CaThreadBase *, CaNetBase *);
+typedef bool(CaEnableCheckFn)(CaThreadBase *, CaNetBase *);
+typedef CaNetBase * (CaSpawnFn)(CaThreadBase *, CaNetDef *);
 
 class CaTransition {
 	public:
@@ -29,9 +31,9 @@ class CaTransition {
 		bool is_active() { return active; }
 		void set_active(bool value) { active = value; }
 
-		int fire(CaThread *thread, CaNet *net) { return enable_fn(thread, net); }
+		int fire(CaThreadBase *thread, CaNetBase *net) { return enable_fn(thread, net); }
 
-		bool is_enable(CaThread *thread, CaNet *net) { return enable_check_fn(thread, net); }
+		bool is_enable(CaThreadBase *thread, CaNetBase *net) { return enable_check_fn(thread, net); }
 
 	protected:
 		bool active;
@@ -43,7 +45,7 @@ class CaNetDef {
 		CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local);
 		~CaNetDef();
 
-		CaNet *spawn(CaThread *thread);
+		CaNetBase *spawn(CaThreadBase *thread);
 		int get_id() const { return id; }
 		int get_index() const { return index; }
 		bool is_local() const { return local; }
@@ -53,6 +55,7 @@ class CaNetDef {
 
 		CaTransition * copy_transitions();
 		int get_transitions_count() { return transitions_count; }
+		CaTransition * get_transitions() { return transitions; }
 	protected:
 		int index;
 		int id;
@@ -64,13 +67,17 @@ class CaNetDef {
 
 #define CA_NET_MANUAL_DELETE 1
 
-class CaNet {
+class CaNetBase {
+};
+
+class CaNet : public CaNetBase {
 	public:
 		CaNet(CaNetDef *def, CaThread *thread);
 		virtual ~CaNet();
 
 		int get_def_id() const { return def->get_id(); }
 		int get_def_index() const { return def->get_index(); }
+		CaNetDef *get_def() const { return def; }
 		bool is_local() const { return def->is_local(); }
 
 		/* Lock for working with active_units */

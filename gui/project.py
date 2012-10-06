@@ -79,7 +79,12 @@ class Project(EventSource):
         build_config.directory = os.path.join(self.get_directory(), name)
         build_config.project_name = self.get_name()
 
-        if name == "simulation":
+        if name == "statespace":
+            build_config.operation = "statespace"
+        else:
+            build_config.operation = "build"
+
+        if name == "simulation" or name == "statespace":
             # simulator_net has to be exported as first net
             first = self.simulator_net
             build_config.extenv = self.get_extenv_for_simulator_name()
@@ -347,6 +352,7 @@ class BuildConfig:
     project_name = None
     nets = None
     extenv = None
+    operation = None
 
     def get_filename(self, filename):
         return os.path.join(self.directory, filename)

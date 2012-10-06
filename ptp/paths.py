@@ -30,3 +30,4 @@ CAILIE_MPI_LIB_DIR = os.path.join(CAILIE_DIR, "build-mpi")
 
 CASERVER_DIR = os.path.join(LIBS_DIR, "caserver")
 CACLIENT_DIR = os.path.join(LIBS_DIR, "caclient")
+CAVERIF_DIR = os.path.join(LIBS_DIR, "caverif")

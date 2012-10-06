@@ -65,9 +65,37 @@ def prepare_makefile(project, config = None):
 
 def get_other_dependancies(project):
     if project.get_build_option("OTHER_FILES"):
-        return [ os.path.splitext(f)[0] + ".o" for f in project.get_build_option("OTHER_FILES").split("\n") ]
+        return [ os.path.splitext(f)[0] + ".o"
+                 for f in project.get_build_option("OTHER_FILES").split("\n") ]
     else:
         return []
+
+def write_statespace_makefile(project, directory):
+    config = create_makefile_config()
+    config["include"].append(paths.CAVERIF_DIR)
+    config["libdir"].append(paths.CAVERIF_DIR)
+    config["libs"].append("caverif")
+
+    makefile = prepare_makefile(project, config)
+
+    name = project.get_name()
+    name_o = name + ".o"
+    name_cpp = name + ".cpp"
+
+    deps = [ name_o ] + get_other_dependancies(project)
+
+    makefile.rule("all", [ name ], phony=True)
+    makefile.rule(name,
+                  deps,
+                  "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) ")
+    makefile.rule(name_o,
+                  [ name_cpp ],
+                  "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
+    makefile.rule("clean",
+                  [],
+                  "rm -f {0} {1}".format(name, " ".join(deps)), phony=True)
+    makefile.write_to_file(os.path.join(directory, "makefile"))
+
 
 def write_program_makefile(project, directory):
     makefile = prepare_makefile(project)
@@ -195,7 +223,10 @@ def write_library_makefile(project, directory, rpc = False, octave = False):
         name_oct = name + ".oct"
         name_oct_cpp = name + "_oct.cpp"
         makefile.rule("octave", [ name_oct ], phony = True)
-        makefile.rule(name_oct, [ name_oct_cpp ], "mkoctfile $< $(INCLUDE) -L. $(LIBDIR) -l{0} $(LIBS) -o {1}".format(name,name_oct))
+        makefile.rule(name_oct,
+                      [ name_oct_cpp ],
+                      "mkoctfile $< $(INCLUDE) -L. $(LIBDIR) -l{0} $(LIBS) -o {1}"
+                        .format(name,name_oct))
 
     if rpc:
         makefile.rule("server", [], "make -C server", phony = True)
@@ -206,7 +237,10 @@ def write_library_makefile(project, directory, rpc = False, octave = False):
     makefile.rule(libname_a, deps, "ar -cr lib{0}.a ".format(name) + " ".join(deps))
 
     makefile.rule(libname_mpi_a, deps_mpi, "ar -cr lib{0}_mpi.a ".format(name) + " ".join(deps_mpi))
-    makefile.rule(name_mpi_o, [ name_cpp ], "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
+    makefile.rule(name_mpi_o,
+                  [ name_cpp ],
+                  "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}"
+                    .format(name_cpp, name_mpi_o))
 
     all = deps + [ name_mpi_o, libname_a, libname_mpi_a ]
 

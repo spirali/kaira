@@ -34,7 +34,7 @@ def write_register_net(builder, net):
 
     for i, tr in enumerate(net.transitions):
         builder.line("def_{0.id}->register_transition({2}, {1.id},(CaEnableFn*) enable_{1.id},"
-                  " enable_check_{1.id});", net, tr, i)
+                     " enable_check_{1.id});", net, tr, i)
 
 def write_vars_struct(builder, tr):
     """
@@ -58,7 +58,7 @@ def write_vars_struct(builder, tr):
 def write_transition_forward(builder, tr):
     if tr.code is not None:
         write_vars_struct(builder, tr)
-    builder.line("bool enable_check_{0.id}(CaThread *thread, CaNet *net);", tr)
+    builder.line("bool enable_check_{0.id}(CaThreadBase *thread, CaNetBase *net);", tr)
 
 def write_transition(builder, tr):
     if tr.code is not None:
@@ -80,7 +80,7 @@ def write_activation(builder, net, transitions):
     for tr in transitions:
         builder.line("{0}->activate_transition_by_pos_id({1});", net, tr.get_pos_id())
 
-def write_send_token(builder, em, edge, locking = True, interface_edge = False):
+def write_send_token(builder, em, edge, locking=True, interface_edge=False):
 
     def write_lock():
         if not locking:
@@ -162,7 +162,7 @@ def write_send_token(builder, em, edge, locking = True, interface_edge = False):
     if edge.guard is not None:
         builder.block_end()
 
-def write_enable(builder, tr):
+def write_enable(builder, tr, locking=True):
     builder.line("int enable_{0.id}(CaThread *thread, CaNet *net)", tr)
     builder.block_begin()
     builder.line("CaContext ctx(thread, net);")
@@ -214,7 +214,7 @@ def write_enable(builder, tr):
         else:
             w.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
 
-    w.line("net->activate_transition_by_pos_id({0});", tr.get_pos_id())
+    w.line("n->activate_transition_by_pos_id({0});", tr.get_pos_id())
 
     for edge in tr.get_packing_edges_in():
         w.line("{1} = n->place_{0.id}.to_vector_and_clear();",
@@ -222,25 +222,28 @@ def write_enable(builder, tr):
 
     retvalue = "CA_TRANSITION_FIRED"
     if tr.code is not None:
-        w.line("net->unlock();")
+        if locking:
+            w.line("net->unlock();")
         if len(names) == 0:
             w.line("Vars_{0.id} vars;", tr)
         else:
             w.line("Vars_{0.id} vars({1});", tr, ",".join([ vars_code[n] for n in names ]))
         w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
 
-        w.line("bool lock = false;")
+        if locking:
+            w.line("bool lock = false;")
         if tr.tracing or tr.is_any_place_traced():
             w.if_begin("tracelog")
             w.line("tracelog->event_transition_finished();")
             w.block_end()
-    else:
+    elif locking:
         w.line("bool lock = true;")
 
     for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
-        write_send_token(w, em, edge)
+        write_send_token(w, em, edge, locking=locking)
 
-    w.line("if (lock) n->unlock();")
+    if locking:
+        w.line("if (lock) n->unlock();")
 
     for edge, _ in matches:
         if not edge.token_reused:
@@ -253,7 +256,7 @@ def write_enable(builder, tr):
     builder.block_end()
 
 def write_enable_check(builder, tr):
-    builder.line("bool enable_check_{0.id}(CaThread *thread, CaNet *net) {{", tr)
+    builder.line("bool enable_check_{0.id}(CaThreadBase *thread, CaNetBase *net) {{", tr)
     builder.indent_push()
 
     w = CppWriter()
@@ -278,7 +281,7 @@ def write_enable_pattern_match(builder, tr, fire_code):
 
     em.variable_emitter = variable_emitter
 
-    builder.line("Net_{0.id} *n = (Net_{0.id}*) net;", tr.net)
+    builder.line("{0} *n = ({0}*) net;", get_net_class_name(tr.net))
 
     need_tokens = utils.multiset([ edge.get_place() for edge, instrs in matches ])
 
@@ -333,10 +336,9 @@ def write_enable_pattern_match(builder, tr, fire_code):
         builder.do_end("token_{0.uid} != n->place_{1.id}.begin()".format(edge, edge.get_place()))
 
 def write_core(builder):
-    build.write_parameters(builder)
-    build.write_types(builder)
-    build.write_user_functions(builder)
-    build.write_trace_user_functions(builder)
+    build.write_basic_definitions(builder)
+    for net in builder.project.nets:
+        write_net_functions_forward(builder, net)
     for net in builder.project.nets:
         write_net_class(builder, net)
     for net in builder.project.nets:
@@ -345,8 +347,8 @@ def write_core(builder):
 def write_place_add(builder, method, place, place_code, value_code):
     if place.tracing:
         builder.if_begin("thread->get_tracelog()")
-        builder.line("void (*fncs[{0}])(CaTraceLog *, const {1} &);", 
-                     len(place.tracing), 
+        builder.line("void (*fncs[{0}])(CaTraceLog *, const {1} &);",
+                     len(place.tracing),
                      builder.emit_type(place.type))
         for i, trace in enumerate(place.tracing):
             builder.line("fncs[{0}] = trace_{1};", i, trace.replace("fn: ", ""))
@@ -358,14 +360,13 @@ def write_place_add(builder, method, place, place_code, value_code):
     else:
         builder.line("{0}{1}({2});", place_code, method, value_code)
 
-def write_spawn(builder, net):
-    builder.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def) {{", net)
-    builder.indent_push()
-    builder.line("Net_{0.id} *net = new Net_{0.id}(def, thread);", net)
+def write_init_net(builder, net):
     builder.line("CaContext ctx(thread, net);")
     builder.line("int pid = thread->get_process_id();")
     for area in net.areas:
-        builder.line("std::vector<int> area_{0.id} = {1};", area, area.expr.emit(builder.emitter))
+        builder.line("std::vector<int> area_{0.id} = {1};",
+                     area,
+                     area.expr.emit(builder.emitter))
     for place in net.places:
         if not (place.init_expression or place.code):
             continue
@@ -388,6 +389,13 @@ def write_spawn(builder, net):
             write_place_add(builder, "add_all", place,
                             "net->place_{0.id}.".format(place), "tokens")
         builder.block_end()
+
+
+def write_spawn(builder, net):
+    builder.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def) {{", net)
+    builder.indent_push()
+    builder.line("{0} *net = new {0}(def, thread);", get_net_class_name(net))
+    write_init_net(builder, net)
     builder.line("return net;")
     builder.block_end()
 
@@ -440,8 +448,7 @@ def write_receive_method(builder, net):
     builder.line("}}")
     builder.write_method_end()
 
-def write_net_class(builder, net):
-
+def write_net_functions_forward(builder, net):
     for place in net.places:
         if place.code is not None:
             write_place_user_function(builder, place)
@@ -449,13 +456,18 @@ def write_net_class(builder, net):
     for tr in net.transitions:
         write_transition_forward(builder, tr)
 
-    class_name = "Net_" + str(net.id)
-    builder.write_class_head(class_name, "CaNet")
+def get_net_class_name(net):
+    return "Net_" + str(net.id)
+
+def write_net_class(builder, net, base_class_name="CaNet", write_class_end=True):
+    builder.write_class_head(get_net_class_name(net), base_class_name)
 
     decls = [("def", "CaNetDef *"),
              ("thread", "CaThread *")]
-    builder.write_constructor(class_name, builder.emit_declarations(decls),
-                           ["CaNet(def, thread)"])
+
+    builder.write_constructor(get_net_class_name(net),
+                              builder.emit_declarations(decls),
+                              ["{0}(def, thread)".format(base_class_name)])
     builder.write_method_end()
 
     for place in net.places:
@@ -464,10 +476,33 @@ def write_net_class(builder, net):
 
     write_reports_method(builder, net)
     write_receive_method(builder, net)
-    builder.write_class_end()
+
+    if write_class_end:
+        builder.write_class_end()
 
 def write_net_functions(builder, net):
     write_spawn(builder, net)
 
     for tr in net.transitions:
         write_transition(builder, tr)
+
+def write_main_setup(builder):
+    builder.line("ca_project_description({0});",
+        builder.emitter.const_string(builder.project.description))
+    params = builder.project.get_parameters()
+    names = ",".join((builder.emitter.const_string(p.name) for p in params))
+    builder.line("const char *pnames[] = {{{0}}};", names)
+    descriptions = ",".join((builder.emitter.const_string(p.description) for p in params))
+    builder.line("const char *pdesc[] = {{{0}}};", descriptions)
+    pvalues = ",".join(("&__param_" + p.name for p in params))
+    builder.line("int *pvalues[] = {{{0}}};", pvalues)
+    builder.emptyline()
+    builder.line("ca_init(argc, argv, {0}, pnames, pvalues, pdesc);",
+        len(builder.project.get_parameters()))
+
+    for net in builder.project.nets:
+        write_register_net(builder, net)
+
+    defs = [ "def_{0.id}".format(net) for net in builder.project.nets ]
+    builder.line("CaNetDef *defs[] = {{{0}}};", ",".join(defs))
+    builder.line("ca_setup({0}, defs);", len(defs));

@@ -24,23 +24,7 @@ import build
 def write_main(builder):
     builder.line("int main(int argc, char **argv)")
     builder.block_begin()
-    builder.line("ca_project_description({0});",
-        builder.emitter.const_string(builder.project.description))
-
-    params = builder.project.get_parameters()
-    names = ",".join((builder.emitter.const_string(p.name) for p in params))
-    builder.line("const char *pnames[] = {{{0}}};", names)
-    descriptions = ",".join((builder.emitter.const_string(p.description)
-                             for p in params))
-    builder.line("const char *pdesc[] = {{{0}}};", descriptions)
-    pvalues = ",".join(("&__param_" + p.name for p in params))
-    builder.line("int *pvalues[] = {{{0}}};", pvalues)
-    builder.line("ca_init(argc, argv, {0}, pnames, pvalues, pdesc);", len(params))
-    for net in builder.project.nets:
-        buildnet.write_register_net(builder, net)
-    defs = [ "def_" + str(net.id) for net in builder.project.nets ]
-    builder.line("CaNetDef *defs[] = {{{0}}};", ",".join(defs))
-    builder.line("ca_setup({0}, defs);", len(defs));
+    buildnet.write_main_setup(builder)
     builder.line("ca_spawn_net(0);");
     builder.line("ca_main();");
     builder.line("return 0;")

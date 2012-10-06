@@ -89,7 +89,7 @@ void CaProcess::process_service_message(CaThread *thread, CaServiceMessage *smsg
 				net_is_quit = false;
 				break;
 			}
-			CaNet *net = spawn_net(thread, m->def_index, false);
+			CaNet *net = (CaNet *) spawn_net(thread, m->def_index, false);
 			net->unlock();
 			if(too_early_message.size() > 0) {
 				std::vector<void* >::const_iterator i;
@@ -135,13 +135,18 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, bool globally)
 		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetCreate), thread, process_id);
 	}
 
-	net = defs[def_index]->spawn(thread);
+	net = (CaNet *) defs[def_index]->spawn(thread);
 	net->lock();
 	return net;
 }
 
 
-CaProcess::CaProcess(int process_id, int process_count, int threads_count, int defs_count, CaNetDef **defs)
+CaProcess::CaProcess(
+	int process_id,
+	int process_count,
+	int threads_count,
+	int defs_count,
+	CaNetDef **defs)
 {
 	this->process_id = process_id;
 	this->process_count = process_count;

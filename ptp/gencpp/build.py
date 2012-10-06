@@ -182,7 +182,6 @@ def write_array_as_string(builder, t):
     builder.line("return osstream.str();")
     builder.block_end()
 
-
 def write_array_pack(builder, t):
     builder.line("void array_{0}_pack(CaPacker &packer, std::vector <{1} > &vector)",
               t.get_safe_name(), builder.emit_type(t))
@@ -341,3 +340,9 @@ def write_parameters_setters(builder):
         builder.block_begin()
         builder.line("__param_{0} = {0};", p.get_name())
         builder.block_end()
+
+def write_basic_definitions(builder):
+    write_parameters(builder)
+    write_types(builder)
+    write_user_functions(builder)
+    write_trace_user_functions(builder)

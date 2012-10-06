@@ -25,15 +25,15 @@
 
 class CaContext {
 	public:
-		CaContext(CaThread *thread, CaNet *net) : thread(thread), net(net) {}
+		CaContext(CaThreadBase *thread, CaNetBase *net) : thread(thread), net(net) {}
 
 		void quit() { thread->quit_all(); }
-		int process_id() { return thread->get_process_id(); }
-		int process_count() { return thread->get_process_count(); }
-		int threads_count() { return thread->get_threads_count(); }
+		int process_id() const { return thread->get_process_id(); }
+		int process_count() const { return thread->get_process_count(); }
+		int threads_count() const { return thread->get_threads_count(); }
 	protected:
-		CaThread *thread;
-		CaNet *net;
+		CaThreadBase *thread;
+		CaNetBase *net;
 };
 
 /* Main functions */

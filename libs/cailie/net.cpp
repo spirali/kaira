@@ -44,7 +44,7 @@ CaTransition* CaNetDef::get_transition(int transition_id)
 	return NULL;
 }
 
-CaNet * CaNetDef::spawn(CaThread *thread)
+CaNetBase * CaNetDef::spawn(CaThreadBase *thread)
 {
 	return spawn_fn(thread, this);
 }

@@ -185,6 +185,10 @@ class MainWindow(gtk.Window):
         item.connect("activate", lambda w: self.app.simulation_start(valgrind = True))
         build_menu.append(item)
 
+        item = gtk.MenuItem("Run state space _analysis")
+        item.connect("activate", lambda w: self.app.run_statespace_analysis())
+        build_menu.append(item)
+
         view_menu = gtk.Menu()
 
         item = gtk.RadioMenuItem(None, "No grid")

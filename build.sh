@@ -14,6 +14,10 @@ echo "Building CaClient ... "
 cd $KAIRA_ROOT/libs/caclient || exit 1;
 scons -Q || exit 1
 
+echo "Building CaVerif ... "
+cd $KAIRA_ROOT/libs/caverif || exit 1;
+scons -Q || exit 1
+
 type -P mpicc &>/dev/null || {
 echo "MPI not found. Kaira is compiled without MPI support."
 echo "MPI is not necessary to running Kaira."

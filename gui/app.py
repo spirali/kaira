@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011 Stanislav Bohm
+#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
@@ -210,6 +210,9 @@ class App:
         build_config = self.project.get_build_config(target)
         self.start_build(self.project, build_config,
                           lambda p: self.console_write("Build finished\n", "success"))
+
+    def run_statespace_analysis(self):
+        self.build_project("statespace")
 
     def get_grid_size(self):
         return self.grid_size
@@ -494,17 +497,16 @@ class App:
 
     def start_build(self, proj, build_config, build_ok_callback):
         if self.get_settings("save-before-build"):
-            self._save_project(silent = True)
+            self._save_project(silent=True)
 
-        extra_args = [ "--build", build_config.directory ]
         self._start_ptp(proj,
                         build_config,
                         lambda lines: self._run_makefile(proj,
                                                          build_config.directory,
-                                                         build_ok_callback),
-                        extra_args = extra_args)
+                                                         build_ok_callback))
 
-    def _start_ptp(self, proj, build_config, build_ok_callback=None, extra_args=[]):
+
+    def _start_ptp(self, proj, build_config, build_ok_callback=None):
         stdout = []
         def on_exit(code):
             error_messages = {}
@@ -524,12 +526,17 @@ class App:
             return
         p = process.Process(paths.PTP_BIN, on_line, on_exit)
         p.cwd = proj.get_directory()
-        args = [ build_config.get_export_filename() ]
 
+        args = []
         if self.get_settings("ptp-debug"):
-            args.insert(0, "--debug")
+            args.append("--debug")
 
-        p.start(args + extra_args)
+        if build_config.directory is not None:
+            args += [ "--output", build_config.directory ]
+
+        args.append(build_config.operation)
+        args.append(build_config.get_export_filename())
+        p.start(args)
 
     def _try_make_error_with_link(self, id_string, item_id, pos, message):
         search = re.search("^\d+:", message)
