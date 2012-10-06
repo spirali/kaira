@@ -22,12 +22,10 @@ import os
 import paths
 import events as evt
 import numpy as np
-import matplotlib
+import matplotlib #TODO: Imports only things what it's needed! Prefix: mpl
 from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
                                                as FigureCanvas
-
 from matplotlib.projections import register_projection
-#import matplotlib.pyplot as plt
 
 class BasicChart(matplotlib.axes.Axes, evt.EventSource):
 
@@ -51,40 +49,53 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
         # chart data
         self.data = None
         # zoom properties
-        self.zoom = 1.0
         self.zoom_stack = []
-        self.zoom_rec = None
+        self.zoom_rect = None
         # move properties
-        self.xypress = None
-        self.original_view_dim = None # TODO: ??
-        # mask keys
-        self.keymask = None           # TODO: ??
+        self.xypress = None # TODO: this isn't only move property
+        self.original_view_dim = None
         # legend
         self.plegend = None
 
-        # redraw properties
+        # locking axes
         self.xlock = False
-        self.ylock = True
-        # backgrounds
-        self.cross_bg = None
-        self.rec_bg = None
+        self.ylock = False
 
-        # coonect standard features
-        fig.canvas.mpl_connect("scroll_event", self._zoom)
+        # redraw properties (backgrounds)
+        self.cross_bg = None
+        self.rect_bg = None
+
+        # coonect standard features, for Kaira graphs
+
+        # updade background after change window
+        fig.canvas.mpl_connect("draw_event", self._update_background)
+        # register left button click
+        fig.canvas.mpl_connect("button_press_event", self._drag_point)
+        fig.canvas.mpl_connect("button_release_event", self._drop_point)
+        # register drawing of position cross
+        fig.canvas.mpl_connect("motion_notify_event", self._draw_cross)
+        # register zooming methods
+        fig.canvas.mpl_connect("motion_notify_event", self._draw_rectangle)
+        fig.canvas.mpl_connect("button_release_event", self._zoom_in)
+        fig.canvas.mpl_connect("button_press_event", self._zoom_out)
+        # register moving events
         fig.canvas.mpl_connect("button_press_event", self._move_start)
-        fig.canvas.mpl_connect("button_release_event", self._move_end)
         fig.canvas.mpl_connect("motion_notify_event", self._moving)
 
-        # block the standard scroll window event if it is use CTRL mask
-        fig.canvas.connect("scroll_event", 
-                lambda w, e: e.state & gtk.gdk.CONTROL_MASK)
-        self.figure.canvas.mpl_connect( # updade background after change window
-                "draw_event", self._update_background)
-        self.figure.canvas.mpl_connect(
-                "motion_notify_event", self._draw_cross)
-            
+    def __convertAxesToData(self, x, y):
+        xdisplay, ydisplay = self.transAxes.transform((x,y))
+        return self.transData.inverted().transform((xdisplay, ydisplay))
+
     def _update_background(self, event):
         self.cross_bg = self.figure.canvas.copy_from_bbox(self.bbox)
+ 
+    def _drag_point(self, event):
+        if event.button == 1:
+            self.xypress = (event.x, event.y)
+
+    def _drop_point(self, event):
+        if event.button == 1:
+            self.xypress = None
 
     def _draw_cross(self, event, select_bg=None):
         if self.xypress is None or select_bg is not None:
@@ -146,21 +157,17 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
                     self.figure.canvas.blit(self.bbox)
                     self.cross_bg = None
     
-
-    def __convertAxesToData(self, x, y):
-        # vypada ze se nemusi optimalizovat
-        xdisplay, ydisplay = self.transAxes.transform((x,y))
-        return self.transData.inverted().transform((xdisplay, ydisplay))
-
     def _draw_rectangle(self, event):
-        if self.xypress is not None and self.in_axes(event):
+        if event.key != "ctrl+alt" and \
+            self.xypress is not None and self.in_axes(event):
+
             x_start, y_start = self.xypress
             x_end, y_end = event.x, event.y
 
-            if self.rec_bg is None:
-                self.rec_bg = self.figure.canvas.copy_from_bbox(self.bbox)
+            if self.rect_bg is None:
+                self.rect_bg = self.figure.canvas.copy_from_bbox(self.bbox)
             else:
-                self.figure.canvas.restore_region(self.rec_bg)
+                self.figure.canvas.restore_region(self.rect_bg)
 
             inv = self.transData.inverted() 
             ax_x_start, ax_y_start = inv.transform((x_start, y_start))
@@ -174,7 +181,7 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
                 ax_y_start = self.__convertAxesToData(0, 0)[1]
                 ax_y_end = self.__convertAxesToData(1, 1)[1]
 
-            self.zoom_rec = (
+            self.zoom_rect = (
                     min(ax_x_start, ax_x_end),
                     min(ax_y_start, ax_y_end),
                     max(ax_x_start, ax_x_end),
@@ -183,7 +190,7 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
             rec = matplotlib.patches.Rectangle((ax_x_start, ax_y_start),
                     width=(ax_x_end - ax_x_start),
                     height=(ax_y_end - ax_y_start),
-                    fc="#0000ff", ec="#000000", alpha=0.2, lw=1,
+                    fc="#0000ff", ec="#000000", alpha=0.1, lw=1,
                     transform=self.transData, figure=self.figure)
 
             self.draw_artist(rec)
@@ -192,6 +199,81 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
             # draw ending cross
             select_bg = self.figure.canvas.copy_from_bbox(self.bbox)
             self._draw_cross(event, select_bg)
+
+    def _zoom_in(self, event):
+        if self.zoom_rect is not None:
+            vmin_x, vmax_x = self.xaxis.get_view_interval()
+            vmin_y, vmax_y = self.yaxis.get_view_interval()
+            self.zoom_stack.append((vmin_x, vmax_x, vmin_y, vmax_y))
+
+            xmin, ymin, xmax, ymax = self.zoom_rect
+            self.set_xlim(xmin, xmax)
+            self.set_ylim(ymin, ymax)
+
+            self.zoom_rect = None
+            self.cross_bg = None
+            self.rect_bg = None
+
+            self.figure.canvas.draw_idle()
+
+    def _zoom_out(self, event):
+        if event.button == 3:
+            xmin, xmax = None, None
+            ymin, ymax = None, None
+
+            if len(self.zoom_stack) == 0:
+                if self.original_view_dim is not None:
+                    xmin, xmax, ymin, ymax = self.original_view_dim
+                    self.original_view_dim = None
+            else:
+                xmin, xmax, ymin, ymax = self.zoom_stack.pop()
+
+            if (xmin is not None and xmax is not None and 
+                ymin is not None and ymax is not None):
+                self.set_xlim(xmin, xmax)
+                self.set_ylim(ymin, ymax)
+                self.figure.canvas.draw_idle()
+
+    def _move_start(self, event):
+        ''' Save original view dimension, if it's still possible, if it's 
+        still unused zoom.'''
+        if len(self.zoom_stack) == 0 and self.original_view_dim is None:
+            # Save original view for restoring a chart.
+            vmin_x, vmax_x = self.xaxis.get_view_interval()
+            vmin_y, vmax_y = self.yaxis.get_view_interval()
+            self.original_view_dim = (vmin_x, vmax_x, vmin_y, vmax_y)
+
+    def _moving(self, event):
+        ''' Moving with chart. Coordinates must be transform
+        bettween two coordinates system, because using pixel
+        coordinates is better for moving with chart. '''
+
+        if event.key == "ctrl+alt" and self.xypress is not None: # "mouse drag"
+        
+            xpress, ypress = self.xypress
+            x, y = event.x, event.y
+            diffx = xpress - x 
+            diffy = ypress - y
+            # coordinates in display (pixels) view
+            xmin, ymin = self.transAxes.transform((0,0))
+            xmax, ymax = self.transAxes.transform((1,1))
+            shift_xmin, shift_xmax = xmin + diffx, xmax + diffx
+            shift_ymin, shift_ymax = ymin + diffy, ymax + diffy
+            # coordinates in data view
+            inv = self.transData.inverted()
+            data_xmin, data_ymin = inv.transform((shift_xmin, shift_ymin))
+            data_xmax, data_ymax = inv.transform((shift_xmax, shift_ymax))
+            # set new view dimension
+            self.set_xlim(data_xmin, data_xmax)
+            self.set_ylim(data_ymin, data_ymax)
+            # shift for next step
+            self.xypress = (x, y) 
+            self.figure.canvas.draw_idle()
+
+    def hide_legend(self, hide):
+        if self.plegend is not None:
+            self.plegend.set_visible(not(hide))
+            self.figure.canvas.draw_idle()
 
     def registr_pick_legend(self, legend, lines):
         lined = dict()
@@ -214,100 +296,40 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
 
         self.figure.canvas.mpl_connect('pick_event', on_pick)
 
-    def _hide_legend(self, hide):
-        if self.plegend is not None:
-            self.plegend.set_visible(not(hide))
-            self.figure.canvas.draw_idle()
+class TimeChart(BasicChart):
 
-    def _zoom(self, event):
-        if event.key == "control": # CTRL mask
-            xmin, xmax = None, None
-            ymin, ymax = None, None
+    '''This chart is connect to replay. It's realize through  the 
+    'x or y (time) axis'. It's important so that the axis of time coresponds
+    with the replay slider!'''
 
-            if event.button == "down":
-                if len(self.zoom_stack) == 0:
-                    if self.original_view_dim is not None:
-                        # TODO: is it correct in the sense of zooming, perhaps 
-                        # this feature belongs to reset button?? (for Standa)
-                        xmin, xmax, ymin, ymax = self.original_view_dim
-                        self.original_view_dim = None
-                else:
-                    xmin, xmax, ymin, ymax = self.zoom_stack.pop()
+    name = 'time_chart'
 
-            if (xmin is not None and xmax is not None and 
-                    ymin is not None and ymax is not None):
-                self.set_xlim(xmin, xmax)
-                self.set_ylim(ymin, ymax)
-                self.figure.canvas.draw_idle()
+    def __init__(self, fig, rec,
+                 axisbg  = None, # defaults to rc axes.facecolor
+                 frameon = True,
+                 sharex  = None,
+                 sharey  = None,
+                 label   = "",
+                 xscale  = None,
+                 yscale  = None,
+                 **kwargs
+                 ):
+        self.__init__(self, fig, rec, axisbg, frameon, sharex, sharey,
+                label, xscale, yscale, kwargs)
 
-    # <-- methods for zooming chart
+        # Connect the connection to replay slider. Event is connected through
+        # gtk connect not mpl_connect, because canvas extends gtk.DrawingArea.
+        fig.canvas.mpl_connect("button_press_event", self._double_click)
 
-    # --> methods for mooving graph
-    def _move_start(self, event):
-        if event.button == 1:
-            self.emit_event("change_slider", event.xdata)
-            self.xypress = (event.x, event.y)
-            #save original view for restore view
-            if len(self.zoom_stack) > 0 and self.original_view_dim is None:
-                self.original_view_dim = self.zoom_stack[0]
-            elif self.original_view_dim is None:
-                xmin, xmax = self.xaxis.get_view_interval()
-                ymin, ymax = self.yaxis.get_view_interval()
-                self.original_view_dim = (xmin, xmax, ymin, ymax)
+    def set_time_axis(self, axis):
+        pass
 
+    def _double_click(self, event):
+        # corrected double click :)
+        if event.button == 1 and event.guiEvent.type == gtk.gdk._2BUTTON_PRESS:
+            print 'double click'
+#            self.emit_event("change_slider", event.xdata) 
 
-    def _move_end(self, event):
-        if event.button == 1:
-            self.xypress = None
-
-        if self.cross_bg is not None and self.zoom_rec is not None:
-            self.figure.canvas.restore_region(self.cross_bg)
-            self.figure.canvas.blit(self.bbox)
-
-            vmin_x, vmax_x = self.xaxis.get_view_interval()
-            vmin_y, vmax_y = self.yaxis.get_view_interval()
-
-            xmin, ymin, xmax, ymax = self.zoom_rec
-            self.set_xlim(xmin, xmax)
-            self.set_ylim(ymin, ymax)
-            self.zoom_stack.append((vmin_x, vmax_x, vmin_y, vmax_y))
-            self.zoom /= 1.05
-
-            self.zoom_rec = None
-            self.cross_bg = None
-            self.rec_bg = None
-
-            self.figure.canvas.draw_idle()
-
-    def _moving(self, event):
-        if self.xypress is not None and event.key == "control":
-            self._draw_rectangle(event)
-
-        elif self.xypress is not None: # "mouse drag"
-
-            ''' Moving with chart. Coordinates must be transform
-            bettween two coordinates system, because using pixel
-            coordinates is better for moving with chart. '''
-            xpress, ypress = self.xypress
-            x, y = event.x, event.y
-            diffx = xpress - x 
-            diffy = ypress - y
-            # coordinates in display (pixels) view
-            xmin, ymin = self.transAxes.transform((0,0))
-            xmax, ymax = self.transAxes.transform((1,1))
-            shift_xmin, shift_xmax = xmin + diffx, xmax + diffx
-            shift_ymin, shift_ymax = ymin + diffy, ymax + diffy
-            # coordinates in data view
-            inv = self.transData.inverted()
-            data_xmin, data_ymin = inv.transform((shift_xmin, shift_ymin))
-            data_xmax, data_ymax = inv.transform((shift_xmax, shift_ymax))
-            # set new view dimension
-            self.set_xlim(data_xmin, data_xmax)
-            self.set_ylim(data_ymin, data_ymax)
-            self.xypress = (x, y) # shift for next step
-            self.figure.canvas.draw_idle()
-
-    # <-- methods for mooving graph
 
 class PlaceChart(BasicChart):
 
@@ -384,7 +406,6 @@ class HistogramChart(BasicChart):
         self.plegend = self.legend(loc="upper right", fancybox=True, shadow=True)
         self.registr_pick_legend(self.plegend, lines)
 
-
 class TimeSumChart(BasicChart):
 
     name = 'time_sum_chart'
@@ -407,54 +428,6 @@ class TimeSumChart(BasicChart):
 class UtilizationChart(BasicChart):
 
     name = 'utilization_chart'
-
-#    def _moving(self, event):
-#        """ move only on x axes. """
-#        if self.xypress is not None: # drag canvas
-#            xpress = self.xypress[0]
-#            x = event.x
-#            diffx = xpress - x
-#            xmin = self.transAxes.transform((0,0))[0]
-#            xmax = self.transAxes.transform((1,1))[0]
-#            shift_xmin, shift_xmax = xmin + diffx, xmax + diffx
-#            # coordinates in data view
-#            inv = self.transData.inverted()
-#            data_xmin = inv.transform((shift_xmin, 0))[0]
-#            data_xmax = inv.transform((shift_xmax, 1))[0]
-#            # set new view dimension
-#            self.set_xlim(data_xmin, data_xmax)
-#            self.xypress = (x, event.y) # shift for next step
-#            self.figure.canvas.draw_idle()
-##            self.draw_artist(self)
-##            self.figure.canvas.blit(self.bbox)
-#
-#    def _zoom_in(self, stack, event):
-#        """ zoom only on x axes. """
-#        def new_bounds(min, max, value, zoom):
-#            if value is None: return (min, max)
-#            diff_min, diff_max = value - min, max - value
-#            zdiff_min, zdiff_max = diff_min * zoom, diff_max * zoom
-#            return (value - zdiff_min, value + zdiff_max)
-#
-#        self.zoom /= 1.05
-#        vmin_x, vmax_x = self.xaxis.get_view_interval()
-#        vmin_y, vmax_y = self.yaxis.get_view_interval()
-#        x, y = event.xdata, event.ydata
-#
-#        xmin, xmax = new_bounds(vmin_x, vmax_x, x, self.zoom)
-#
-#        bad_xrange = False
-#        if abs(xmax - xmin) < 0.000001:
-#            bad_xrange = True
-#            xmin, xmax = stack[-1][:2]
-#
-#        if bad_xrange:
-#            # Returns the last known window dimension, it means stop zoom in.
-#            self.zoom *= 1.05
-#            return stack[-1]
-#        else:
-#            stack.append((vmin_x, vmax_x, vmin_y, vmax_y))
-#            return (xmin, xmax, vmin_y, vmax_y)
 
     def fill_data(self, data, names, colors):
         self.data = data
@@ -486,6 +459,7 @@ class UtilizationChart(BasicChart):
 
 
 class ChartWidget(gtk.VBox):
+# TODO: redesing chart widget
 
     PLACE_CHART = PlaceChart.name
     UTILIZATION_CHART = UtilizationChart.name
@@ -589,7 +563,7 @@ class ChartWidget(gtk.VBox):
     def _hide_legend(self, widget):
         ax = self.get_current_chart()
         hide = widget.get_active()
-        ax._hide_legend(hide)
+        ax.hide_legend(hide)
 
     def _restore_view_action(self, ax):
         restore = False
@@ -676,6 +650,12 @@ class Line:
 
     def get_yvalues(self):
         return self.yvalues
+
+# TODO: instead of classes of each chart makes only methods, which creats it!!
+#       Will be defined something like defaults graphs and method which returns
+#       empty axes of concrete type of chart (e.g. BasicChart, TimeChart).
+def place_chart(data):
+    pass
 
 def time_to_string(nanosec):
     s = int(nanosec) / 1000000000
