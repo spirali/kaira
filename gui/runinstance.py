@@ -89,7 +89,7 @@ class RunInstance:
         self.set_activity(process_id, thread_id, None)
         return send_time
 
-    def transition_fired(self, process_id, thread_id, time, transition_id):
+    def transition_fired(self, process_id, thread_id, time, transition_id, values):
         self.last_event = "fired"
         self.last_event_instance = self.net_instances[process_id]
         transition = self.net.item_by_id(transition_id)

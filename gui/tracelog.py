@@ -261,6 +261,26 @@ class Trace:
             else:
                 break
 
+    def get_transition_trace_function_data(self):
+        values = []
+        while not self.is_pointer_at_end():
+            t = self.data[self.pointer]
+            if t == "i":
+                self.pointer += 1
+                value = self._read_struct_int()
+                values.append(value)
+            elif t == "d":
+                self.pointer += 1
+                value = self._read_struct_double()
+                values.append(value)
+            elif t == "s":
+                self.pointer += 1
+                value = self._read_cstring()
+                values.append(value)
+            else:
+                break
+        return values
+
     def get_next_event_time(self):
         if self.is_pointer_at_end():
             return None
@@ -309,9 +329,10 @@ class Trace:
         return values
 
     def _process_event_transition_fired(self, runinstance):
-        values = self._read_struct_transition_fired()
-        runinstance.transition_fired(self.process_id, self.thread_id, *values)
+        time, transition_id = self._read_struct_transition_fired()
         self.process_tokens_remove(runinstance)
+        values = self.get_transition_trace_function_data()
+        runinstance.transition_fired(self.process_id, self.thread_id, time, transition_id, values)
         self.process_tokens_add(runinstance)
 
     def _process_event_transition_finished(self, runinstance):
@@ -408,8 +429,8 @@ class DataCollectingRunInstance(RunInstance):
         else:
             lst.append((time, lst[-1][1] + change))
 
-    def transition_fired(self, process_id, thread_id, time, transition_id):
-        RunInstance.transition_fired(self, process_id, thread_id, time, transition_id)
+    def transition_fired(self, process_id, thread_id, time, transition_id, values):
+        RunInstance.transition_fired(self, process_id, thread_id, time, transition_id, values)
         self.last_time = time
         if self.last_event_activity.transition.has_code():
             value = (time, 0)

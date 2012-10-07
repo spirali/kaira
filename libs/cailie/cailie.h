@@ -31,6 +31,25 @@ class CaContext {
 		int process_id() { return thread->get_process_id(); }
 		int process_count() { return thread->get_process_count(); }
 		int threads_count() { return thread->get_threads_count(); }
+
+		void trace_string(const std::string &str) {
+			CaTraceLog *tracelog = thread->get_tracelog();
+			if (tracelog) {
+				tracelog->trace_string(str);
+			}
+		}
+		void trace_int(const int value) {
+			CaTraceLog *tracelog = thread->get_tracelog();
+			if (tracelog) {
+				tracelog->trace_int(value);
+			}
+		}
+		void trace_double(const double value) {
+			CaTraceLog *tracelog = thread->get_tracelog();
+			if (tracelog) {
+				tracelog->trace_double(value);
+			}
+		}
 	protected:
 		CaThread *thread;
 		CaNet *net;

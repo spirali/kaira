@@ -222,6 +222,13 @@ class Transition(utils.EqByIdMixin):
         self.edges_out = []
         self.tracing = []
 
+    def trace(self):
+        if self.is_any_place_traced():
+            return True
+        if self.code and self.code.find("ctx.trace_") != -1:
+            return True
+        return self.tracing
+
     def get_normal_edges_out(self):
         return [ edge for edge in self.edges_out if edge.is_normal() ]
 
