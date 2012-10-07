@@ -213,7 +213,7 @@ class Trace:
     def is_pointer_at_end(self):
         return self.pointer >= len(self.data)
 
-    def process_tokens_add(self, runinstance):
+    def process_tokens_add(self, runinstance, send_time=None):
         place_id = None
         token_pointer = None
         values = []
@@ -221,7 +221,7 @@ class Trace:
             t = self.data[self.pointer]
             if t == "t":
                 if place_id is not None:
-                    runinstance.add_token(place_id, token_pointer, values)
+                    runinstance.add_token(place_id, token_pointer, values, send_time)
                 values = []
                 self.pointer += 1
                 token_pointer, place_id = self._read_struct_token()
@@ -242,8 +242,11 @@ class Trace:
                 self._process_event_send_msg(runinstance)
             else:
                 if place_id is not None and token_pointer is not None:
-                    runinstance.add_token(place_id, token_pointer, values)
+                    runinstance.add_token(place_id, token_pointer, values, send_time)
                 break
+
+        if self.is_pointer_at_end() and place_id is not None:
+            runinstance.add_token(place_id, token_pointer, values, send_time)
 
     def process_tokens_remove(self, runinstance):
         while not self.is_pointer_at_end():
@@ -332,8 +335,8 @@ class Trace:
 
     def _process_event_receive(self, runinstance):
         values = self._read_struct_receive()
-        runinstance.event_receive(self.process_id, self.thread_id, *values)
-        self.process_tokens_add(runinstance)
+        send_time = runinstance.event_receive(self.process_id, self.thread_id, *values)
+        self.process_tokens_add(runinstance, send_time)
 
     def _read_struct_token(self):
         values = self.struct_token.unpack_from(self.data, self.pointer)
@@ -435,11 +438,12 @@ class DataCollectingRunInstance(RunInstance):
         self.last_time = time
 
     def event_receive(self, process_id, thread_id, time, msg_id):
-        RunInstance.event_receive(self, process_id, thread_id, time, msg_id)
+        send_time = RunInstance.event_receive(self, process_id, thread_id, time, msg_id)
         self.last_time = time
+        return send_time
 
-    def add_token(self, place_id, token_pointer, token_value):
-        RunInstance.add_token(self, place_id, token_pointer, token_value)
+    def add_token(self, place_id, token_pointer, token_value, send_time):
+        RunInstance.add_token(self, place_id, token_pointer, token_value, send_time)
         net_instance = self.last_event_instance
         self.change_tokens_data(net_instance.process_id,
                                 place_id, self.last_time, 1)

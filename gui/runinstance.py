@@ -33,9 +33,10 @@ class RunInstance:
         self.last_event = None # "fired" / "finished" / None
         self.last_event_activity = None
         self.last_event_instance = None
+        self.send_msg = [ [] for i in xrange(self.process_count * self.threads_count)]
 
-    def add_token(self, place_id, token_pointer, token_value):
-        self.last_event_instance.add_token(place_id, token_pointer, token_value)
+    def add_token(self, place_id, token_pointer, token_value, send_time=None):
+        self.last_event_instance.add_token(place_id, token_pointer, token_value, send_time)
 
     def remove_token(self, place_id, token_pointer):
         self.last_event_instance.remove_token(place_id, token_pointer)
@@ -72,14 +73,21 @@ class RunInstance:
         self.last_event_instance = self.net_instances[process_id]
 
     def event_send(self, process_id, thread_id, time, msg_id):
-        self.last_event = "send"
-        self.last_event_instance = self.net_instances[process_id]
-        self.set_activity(process_id, thread_id, None)
+        self.send_msg[process_id * self.threads_count + thread_id].append((msg_id, time))
 
     def event_receive(self, process_id, thread_id, time, msg_id):
         self.last_event = "receive"
+        source = msg_id % (self.process_count * self.threads_count)
+        send_time = None
+        for i, (id, t) in enumerate(self.send_msg[source]):
+            if id == msg_id:
+                send_time = time - t
+                self.send_msg[source].pop(i)
+                break
+
         self.last_event_instance = self.net_instances[process_id]
         self.set_activity(process_id, thread_id, None)
+        return send_time
 
     def transition_fired(self, process_id, thread_id, time, transition_id):
         self.last_event = "fired"
@@ -150,12 +158,12 @@ class NetInstance:
         else:
             self.tokens = tokens
 
-    def add_token(self, place_id, token_pointer, token_value):
+    def add_token(self, place_id, token_pointer, token_value, send_time):
         lst = self.new_tokens.get(place_id)
         if lst is None:
             lst = []
             self.new_tokens[place_id] = lst
-        lst.append((token_pointer, token_value))
+        lst.append((token_pointer, token_value, send_time))
 
     def clear_removed_and_new_tokens(self):
         for place_id in self.new_tokens:
@@ -184,7 +192,7 @@ class NetInstance:
                 return
 
     def remove_all_tokens(self, place_id):
-        self.removed_tokens[place_id] = self.tokens[place_id]
+        self.removed_tokens[place_id] = self.tokens.get(place_id)
         self.tokens[place_id] = None
 
     def add_enabled_transition(self, transition_id):
@@ -234,7 +242,7 @@ class Perspective(utils.EqMixin):
         for net_instance in self.net_instances.values():
             t = net_instance.tokens.get(place.id)
             if t is not None:
-                for token_pointer, token_value in t:
+                for token_pointer, token_value, token_time in t:
                     tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
         return tokens
 
@@ -243,16 +251,27 @@ class Perspective(utils.EqMixin):
         for net_instance in self.net_instances.values():
             t = net_instance.new_tokens.get(place.id)
             if t is not None:
-                for token_pointer, token_value in t:
-                    tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
+                for token_pointer, token_value, token_time in t:
+                    if token_time:
+                        tokens.append("{0}@{1}-->{2}".format(token_value,
+                                                             net_instance.process_id,
+                                                             self.parse_time(token_time)))
+                    else:
+                        tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
         return tokens
+
+    def parse_time(self, time):
+        s = time / 1000000000
+        nsec = time % 1000000000
+        sec = s % 60
+        return "{0:0>2}:{1:0>9}".format(sec, nsec)
 
     def get_removed_tokens(self, place):
         tokens = []
         for net_instance in self.net_instances.values():
             t = net_instance.removed_tokens.get(place.id)
             if t is not None:
-                for token_pointer, token_value in t:
+                for token_pointer, token_value, token_time in t:
                     tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
         return tokens
 

@@ -52,7 +52,9 @@ class CaThread {
 
 		CaTraceLog* get_tracelog() { return tracelog; }
 		void set_tracelog(CaTraceLog *tracelog, int id) { this->tracelog = tracelog; this->msg_id = id; }
+		int get_msg_id() { return msg_id; };
 		int get_new_msg_id();
+
 
 	protected:
 		CaProcess *process;

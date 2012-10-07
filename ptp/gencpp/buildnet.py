@@ -98,12 +98,7 @@ def write_send_token(builder, em, edge, trace, locking = True, interface_edge = 
         builder.line("lock = false;")
         builder.block_end()
 
-    method = "add" if edge.is_normal() else "add_all"
-
-    if edge.guard is not None:
-        builder.if_begin(edge.guard.emit(em))
-    if edge.is_local():
-        write_lock()
+    def write_add(method):
         place = edge.get_place()
         if edge.token_source is not None:
             write_place_add(builder,
@@ -120,15 +115,21 @@ def write_send_token(builder, em, edge, trace, locking = True, interface_edge = 
                             edge.expr.emit(em))
         if not interface_edge:
             write_activation(builder, "n", edge.get_place().get_transitions_out())
+
+    method = "add" if edge.is_normal() else "add_all"
+
+    if edge.guard is not None:
+        builder.if_begin(edge.guard.emit(em))
+    if edge.is_local():
+        write_lock()
+        write_add(method)
     else:
         if edge.is_unicast():
             sendtype = ""
             builder.line("int target_{0.id} = {1};", edge, edge.target.emit(em))
             builder.if_begin("target_{0.id} == thread->get_process_id()".format(edge))
             write_lock()
-            builder.line("n->place_{0.id}.{2}({1});", edge.get_place(), edge.expr.emit(em), method)
-            if not interface_edge:
-                write_activation(builder, "n", edge.get_place().get_transitions_out())
+            write_add(method)
             builder.indent_pop()
             builder.line("}} else {{")
             builder.indent_push()
