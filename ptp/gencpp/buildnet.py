@@ -26,15 +26,13 @@ from writer import CppWriter
 import build
 
 def write_register_net(builder, net):
-    builder.line("CaNetDef *def_{0.id} = new CaNetDef({2}, {0.id}, {1}, spawn_{0.id}, {3});",
+    builder.line("CaNetDef *def_{0.id} = new CaNetDef({1}, {0.id}, spawn_{0.id}, {2});",
                  net,
-                 len(net.transitions),
                  net.get_index(),
                  builder.emitter.const_boolean(net.is_local()))
 
     for i, tr in enumerate(net.transitions):
-        builder.line("def_{0.id}->register_transition({2}, {1.id},(CaEnableFn*) enable_{1.id},"
-                     " enable_check_{1.id});", net, tr, i)
+        builder.line("def_{0.id}->register_transition(&transition_{1.id});", net, tr)
 
 def write_vars_struct(builder, tr):
     """
@@ -58,12 +56,20 @@ def write_vars_struct(builder, tr):
 def write_transition_forward(builder, tr):
     if tr.code is not None:
         write_vars_struct(builder, tr)
-    builder.line("bool enable_check_{0.id}(CaThreadBase *thread, CaNetBase *net);", tr)
 
-def write_transition(builder, tr):
+    class_name = "Transition_{0.id}".format(tr)
+    builder.write_class_head(class_name, "CaTransitionDef")
+    builder.line("int get_id() {{ return {0.id}; }}", tr)
+    builder.line("int find_and_fire(CaThreadBase *thread, CaNetBase *net);")
+    builder.line("bool is_enable(CaThreadBase *thread, CaNetBase *net);")
+    builder.write_class_end()
+    builder.line("static Transition_{0.id} transition_{0.id};", tr)
+    builder.emptyline();
+
+def write_transition_functions(builder, tr, locking=True):
     if tr.code is not None:
         write_transition_user_function(builder, tr)
-    write_enable(builder, tr)
+    write_find_and_fire(builder, tr, locking=locking)
     write_enable_check(builder, tr)
 
 def write_transition_user_function(builder, tr):
@@ -162,8 +168,9 @@ def write_send_token(builder, em, edge, locking=True, interface_edge=False):
     if edge.guard is not None:
         builder.block_end()
 
-def write_enable(builder, tr, locking=True):
-    builder.line("int enable_{0.id}(CaThread *thread, CaNet *net)", tr)
+def write_find_and_fire(builder, tr, locking=True):
+    builder.line("int Transition_{0.id}::find_and_fire(CaThreadBase *thread, CaNetBase *net)",
+                 tr)
     builder.block_begin()
     builder.line("CaContext ctx(thread, net);")
 
@@ -256,7 +263,8 @@ def write_enable(builder, tr, locking=True):
     builder.block_end()
 
 def write_enable_check(builder, tr):
-    builder.line("bool enable_check_{0.id}(CaThreadBase *thread, CaNetBase *net) {{", tr)
+    builder.line("bool Transition_{0.id}::is_enable(CaThreadBase *thread, CaNetBase *net) {{",
+                 tr)
     builder.indent_push()
 
     w = CppWriter()
@@ -484,7 +492,7 @@ def write_net_functions(builder, net):
     write_spawn(builder, net)
 
     for tr in net.transitions:
-        write_transition(builder, tr)
+        write_transition_functions(builder, tr)
 
 def write_main_setup(builder):
     builder.line("ca_project_description({0});",

@@ -101,5 +101,4 @@ def write_net_functions(builder, net):
     write_spawn(builder, net)
 
     for tr in net.transitions:
-        buildnet.write_enable(builder, tr, locking=False)
-        buildnet.write_enable_check(builder, tr)
+        buildnet.write_transition_functions(builder, tr, locking=False)

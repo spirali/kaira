@@ -29,7 +29,8 @@ Node::~Node()
 void Node::generate(Core *core)
 {
 	CaNetDef *def = core->get_net_def();
-	CaTransition *transitions = def->get_transitions();
+	const std::vector<CaTransitionDef*> &transitions =
+		def->get_transition_defs();
 	int transitions_count = def->get_transitions_count();
 
 	for (int p = 0; p < ca_process_count; p++) {
@@ -41,7 +42,7 @@ void Node::generate(Core *core)
 			Net *net = node->nets[p];
 			//printf("CHECK %p %p\n", node, net);
 			if (CA_TRANSITION_FIRED == \
-				transitions[i].fire(core->get_thread(), net)) {
+				transitions[i]->find_and_fire(core->get_thread(), net)) {
 				//printf("FIRED %p %p %i\n", this, node, i);
 				Node *n = core->add_node(node);
 				nexts.push_back(n);

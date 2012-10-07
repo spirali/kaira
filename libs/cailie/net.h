@@ -20,47 +20,55 @@ typedef int(CaEnableFn)(CaThreadBase *, CaNetBase *);
 typedef bool(CaEnableCheckFn)(CaThreadBase *, CaNetBase *);
 typedef CaNetBase * (CaSpawnFn)(CaThreadBase *, CaNetDef *);
 
+class CaTransitionDef {
+	public:
+		virtual ~CaTransitionDef() {}
+		virtual int get_id() = 0;
+		virtual int find_and_fire(CaThreadBase *thread, CaNetBase *net) = 0;
+		virtual bool is_enable(CaThreadBase *thread, CaNetBase *net) = 0;
+};
+
 class CaTransition {
 	public:
-		CaTransition() : active(false) {}
+		CaTransition() : active(false), def(NULL) {}
 
-		CaEnableFn *enable_fn;
-		CaEnableCheckFn *enable_check_fn;
-		int id;
-
+		void set_def(CaTransitionDef *def) { this->def = def; }
 		bool is_active() { return active; }
 		void set_active(bool value) { active = value; }
+		int get_id() { return def->get_id(); }
 
-		int fire(CaThreadBase *thread, CaNetBase *net) { return enable_fn(thread, net); }
+		int find_and_fire(CaThreadBase *thread, CaNetBase *net) {
+			return def->find_and_fire(thread, net);
+		}
 
-		bool is_enable(CaThreadBase *thread, CaNetBase *net) { return enable_check_fn(thread, net); }
+		bool is_enable(CaThreadBase *thread, CaNetBase *net) {
+			return def->is_enable(thread, net);
+		}
 
 	protected:
 		bool active;
+		CaTransitionDef *def;
 };
 
 class CaNetDef {
 
 	public:
-		CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local);
+		CaNetDef(int index, int id, CaSpawnFn *spawn_fn, bool local);
 		~CaNetDef();
 
 		CaNetBase *spawn(CaThreadBase *thread);
 		int get_id() const { return id; }
 		int get_index() const { return index; }
 		bool is_local() const { return local; }
-		void register_transition(int i, int id,
-			CaEnableFn *enable_fn, CaEnableCheckFn *enable_check_fn);
-		CaTransition * get_transition(int transition_id);
-
-		CaTransition * copy_transitions();
-		int get_transitions_count() { return transitions_count; }
-		CaTransition * get_transitions() { return transitions; }
+		void register_transition(CaTransitionDef *transition_def);
+		CaTransitionDef* get_transition_def(int transition_id);
+		int get_transitions_count() { return transition_defs.size(); }
+		CaTransition * make_transitions();
+		const std::vector<CaTransitionDef*> & get_transition_defs() { return transition_defs; }
 	protected:
 		int index;
 		int id;
-		int transitions_count;
-		CaTransition *transitions;
+		std::vector<CaTransitionDef*> transition_defs;
 		CaSpawnFn *spawn_fn;
 		bool local;
 };
