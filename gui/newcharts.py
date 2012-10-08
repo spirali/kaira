@@ -22,13 +22,19 @@ import os
 import paths
 import events as evt
 import numpy as np
-import matplotlib #TODO: Imports only things what it's needed! Prefix: mpl
-from matplotlib.ticker import FuncFormatter
+from matplotlib.axes        import Axes as mpl_Axes
+from matplotlib.lines       import Line2D as mpl_Line
+from matplotlib.patches     import Rectangle as mpl_Rectangle
+from matplotlib.text        import Annotation as mpl_Annotation
+from matplotlib.transforms  import IdentityTransform as mpl_IdentityTransform
+from matplotlib.ticker      import FuncFormatter as mpl_FuncFormatter
+from matplotlib.projections import register_projection \
+                                   as mpl_register_projection
+from matplotlib.figure      import Figure as mpl_Figure
 from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
-                                               as FigureCanvas
-from matplotlib.projections import register_projection
+                                               as mpl_FigureCanvas
 
-class BasicChart(matplotlib.axes.Axes, evt.EventSource):
+class BasicChart(mpl_Axes, evt.EventSource):
 
     name = 'basic_chart'
 
@@ -43,7 +49,7 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
                  **kwargs
                  ):
 
-        matplotlib.axes.Axes.__init__(self, fig, rec, axisbg, frameon,
+        mpl_Axes.__init__(self, fig, rec, axisbg, frameon,
                 sharex, sharey, label, xscale, yscale, **kwargs)
         evt.EventSource.__init__(self)
 
@@ -53,7 +59,7 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
         self.zoom_stack = []
         self.zoom_rect = None
         # move properties
-        self.xypress = None # TODO: this isn't only move property
+        self.xypress = None 
         self.original_view_dim = None
         # legend
         self.plegend = None
@@ -61,6 +67,8 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
         # locking axes
         self.xlock = False
         self.ylock = False
+        # move with canvas
+        self.moving_flag = False
 
         # redraw properties (backgrounds)
         self.cross_bg = None
@@ -82,6 +90,13 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
         # register moving events
         fig.canvas.mpl_connect("button_press_event", self._move_start)
         fig.canvas.mpl_connect("motion_notify_event", self._moving)
+        fig.canvas.mpl_connect(
+                "key_press_event", self._switch_moving_flag_action)
+        # register axes locking events
+        fig.canvas.mpl_connect("key_press_event", self._switch_xlock_action)
+        fig.canvas.mpl_connect("key_release_event", self._switch_xlock_action)
+        fig.canvas.mpl_connect("key_press_event", self._switch_ylock_action)
+        fig.canvas.mpl_connect("key_release_event", self._switch_ylock_action)
 
     def __convertAxesToData(self, x, y):
         xdisplay, ydisplay = self.transAxes.transform((x,y))
@@ -118,22 +133,22 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
                 ytext_pos = -20 if y > 0.5 else 30
 
                 if not self.xlock:
-                    l1 = matplotlib.lines.Line2D([x, x], [0, 1], c="#ff0000",
+                    l1 = mpl_Line([x, x], [0, 1], c="#ff0000",
                             lw=1, transform=self.transAxes, figure=self.figure)
                     self.draw_artist(l1)
 
-                    a1 = matplotlib.text.Annotation(
+                    a1 = mpl_Annotation(
                             xtext, 
                             xy=(x, y), xycoords='axes fraction', 
                             xytext=(xtext_pos, ytext_pos), 
                             textcoords='offset points', 
                             bbox=dict(boxstyle="round", fc="#ffff00"))
-                    a1.set_transform(matplotlib.transforms.IdentityTransform())
+                    a1.set_transform(mpl_IdentityTransform())
                     self._set_artist_props(a1)
                     self.draw_artist(a1)
 
                 if not self.ylock:
-                    l2 = matplotlib.lines.Line2D([0, 1], [y, y], c="#ff0000",
+                    l2 = mpl_Line([0, 1], [y, y], c="#ff0000",
                             lw=1, transform=self.transAxes, figure=self.figure)
                     self.draw_artist(l2)
 
@@ -141,13 +156,13 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
                         ytext_pos = -20 if y > 0.5 else 10
                     else:
                         ytext_pos -= 20
-                    a2 = matplotlib.text.Annotation(
+                    a2 = mpl_Annotation(
                             event.ydata,
                             xy=(x, y), xycoords='axes fraction',
                             xytext=(xtext_pos, ytext_pos), 
                             textcoords='offset points',
                             bbox=dict(boxstyle="round", fc="#ffff00"))
-                    a2.set_transform(matplotlib.transforms.IdentityTransform())
+                    a2.set_transform(mpl_IdentityTransform())
                     self._set_artist_props(a2)
                     self.draw_artist(a2)
 
@@ -159,7 +174,7 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
                     self.cross_bg = None
     
     def _draw_rectangle(self, event):
-        if event.key != "ctrl+alt" and \
+        if not self.moving_flag and \
             self.xypress is not None and self.in_axes(event):
 
             x_start, y_start = self.xypress
@@ -188,7 +203,7 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
                     max(ax_x_start, ax_x_end),
                     max(ax_y_start, ax_y_end))
 
-            rec = matplotlib.patches.Rectangle((ax_x_start, ax_y_start),
+            rec = mpl_Rectangle((ax_x_start, ax_y_start),
                     width=(ax_x_end - ax_x_start),
                     height=(ax_y_end - ax_y_start),
                     fc="#0000ff", ec="#000000", alpha=0.1, lw=1,
@@ -249,7 +264,7 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
         bettween two coordinates system, because using pixel
         coordinates is better for moving with chart. '''
 
-        if event.key == "ctrl+alt" and self.xypress is not None: # "mouse drag"
+        if self.moving_flag and self.xypress is not None: # "mouse drag"
         
             xpress, ypress = self.xypress
             x, y = event.x, event.y
@@ -270,6 +285,38 @@ class BasicChart(matplotlib.axes.Axes, evt.EventSource):
             # shift for next step
             self.xypress = (x, y) 
             self.figure.canvas.draw_idle()
+
+    def _switch_xlock_action(self, event):
+        # hint: ctrl+control is returned after release ctrl key. 
+        # It coul'd be a bug of the matplotlib.
+        if not self.moving_flag and \
+            (event.key == 'control' or event.key == 'ctrl+control'):
+
+            self.set_xlock(not self.xlock)
+            if event.x is not None and event.y is not None:
+                self._draw_cross(event)
+
+    def _switch_ylock_action(self, event):
+        if not self.moving_flag and event.key == 'shift':
+            self.set_ylock(not self.ylock)
+            if event.x is not None and event.y is not None:
+                self._draw_cross(event)
+
+    def _switch_moving_flag_action(self, event):
+        if event.key == 'm':
+            self.set_moving_flag(not self.moving_flag)
+
+    def set_xlock(self, lock):
+        self.xlock = lock
+        self.emit_event("xlock_changed", lock)
+
+    def set_ylock(self, lock):
+        self.ylock = lock
+        self.emit_event("ylock_changed", lock)
+
+    def set_moving_flag(self, move):
+        self.moving_flag = move
+        self.emit_event("moving_flag_changed", move)
 
     def hide_legend(self, hide):
         if self.plegend is not None:
@@ -333,24 +380,20 @@ class TimeChart(BasicChart):
 
 
 class ChartWidget(gtk.VBox):
-# TODO: redesing chart widget
 
     def __init__(self, figure, with_legend=True, xlock=False, ylock=False):
         gtk.VBox.__init__(self)
-        self.with_legend = with_legend
-        self.xlock = xlock
-        self.ylock = ylock
-
-        # chart toolbar
-        toolbar = self._chart_toolbar()
-        self.pack_start(toolbar, False, False)
 
         self.figure = figure
-        ax = figure.gca()
-        ax.xlock = xlock
-        ax.ylock = ylock
-#        self.figure = matplotlib.figure.Figure()
-#        canvas = FigureCanvas(self.figure)
+        ax = figure.gca() # TODO: Is it corrent??
+
+        # chart toolbar
+        toolbar = self._chart_toolbar(ax, with_legend)
+        self.pack_start(toolbar, False, False)
+
+        # It's necessary to set thouse lock arguments after creating a toolbar.
+        ax.set_xlock(xlock)
+        ax.set_ylock(ylock)
 
         # set size of canvas
         w, h = self.figure.get_figwidth(), self.figure.get_figheight()
@@ -366,13 +409,13 @@ class ChartWidget(gtk.VBox):
     def get_figure(self):
         return self.figure;
 
-    def _chart_toolbar(self):
+    def _chart_toolbar(self, ax, with_legend):
         toolbar = gtk.Toolbar()
         toolbar.set_icon_size(gtk.ICON_SIZE_SMALL_TOOLBAR)
         toolbar.set_tooltips(True)
 
         btn_save = gtk.ToolButton()
-        btn_save.connect("clicked", self._save_action)
+        btn_save.connect("clicked", self._btn_save_action)
         btn_save.set_stock_id(gtk.STOCK_SAVE)
         btn_save.set_tooltip_text("Save graph")
         toolbar.add(btn_save)
@@ -380,8 +423,8 @@ class ChartWidget(gtk.VBox):
         toolbar.add(gtk.SeparatorToolItem())
 
         btn_restore = gtk.ToolButton()
-        btn_restore.connect("clicked", lambda w: self._restore_view_action( 
-            self.figure.gca()))
+        btn_restore.connect("clicked", 
+                lambda w: self._btn_restore_view_action(self.figure.gca()))
         btn_restore.set_stock_id(gtk.STOCK_ZOOM_100)
         btn_restore.set_tooltip_text("Restore view")
         toolbar.add(btn_restore)
@@ -393,8 +436,8 @@ class ChartWidget(gtk.VBox):
         btn_hide_legend = gtk.ToggleToolButton()
         btn_hide_legend.set_icon_widget(icon_hide_legend)
         btn_hide_legend.set_tooltip_text("Hide legend")
-        btn_hide_legend.connect("toggled", self._hide_legend_action)
-        btn_hide_legend.set_sensitive(self.with_legend)
+        btn_hide_legend.connect("toggled", self._btn_hide_legend_action)
+        btn_hide_legend.set_sensitive(with_legend)
         toolbar.add(btn_hide_legend)
 
         toolbar.add(gtk.SeparatorToolItem())
@@ -403,25 +446,61 @@ class ChartWidget(gtk.VBox):
                 os.path.join(paths.ICONS_DIR, "xlock.svg"))
         btn_xlock = gtk.ToggleToolButton()
         btn_xlock.set_icon_widget(icon_xlock)
-        btn_xlock.set_active(self.xlock)
-        btn_xlock.set_tooltip_text("Lock X-axis (Keep CTRL)")
+        btn_xlock.set_tooltip_text("Lock X-axis (keep CTRL)")
+        btn_xlock.connect("toggled", self._btn_xlock_action)
+        ax.set_callback("xlock_changed", 
+                lambda xlock: btn_xlock.set_active(xlock))
         toolbar.add(btn_xlock)
 
         icon_ylock = gtk.image_new_from_file(
                 os.path.join(paths.ICONS_DIR, "yunlock.svg"))
         btn_ylock = gtk.ToggleToolButton()
         btn_ylock.set_icon_widget(icon_ylock)
-        btn_ylock.set_active(self.ylock)
-        btn_ylock.set_tooltip_text("Lock Y-axis (Keep CTRL)")
+        btn_ylock.set_tooltip_text("Lock Y-axis (keep CTRL)")
+        btn_ylock.connect("toggled", self._btn_ylock_action)
+        ax.set_callback("ylock_changed",
+                lambda ylock: btn_ylock.set_active(ylock))
         toolbar.add(btn_ylock)
+
+        icon_moving = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "moving.svg"))
+        btn_moving = gtk.ToggleToolButton()
+        btn_moving.set_icon_widget(icon_moving)
+        btn_moving.set_tooltip_text("Catch canvas (press key 'm')")
+        btn_moving.connect("toggled", self._btn_moving_action)
+        ax.set_callback("moving_flag_changed",
+                lambda moving_flag: self._moving_flag_changed(
+                    moving_flag, btn_moving, btn_xlock, btn_ylock))
+        toolbar.add(btn_moving)
+
         return toolbar
 
-    def _hide_legend_action(self, widget):
+    def _moving_flag_changed(self, moving_flag, btn_moving, btn_xlock, btn_ylock):
+        btn_moving.set_active(moving_flag)
+        btn_xlock.set_sensitive(not moving_flag)
+        btn_ylock.set_sensitive(not moving_flag)
+
+    def _btn_moving_action(self, widget):
+        ax = self.figure.gca()
+        moving_flag = widget.get_active()
+        ax.set_moving_flag(moving_flag)
+
+    def _btn_xlock_action(self, widget):
+        ax = self.figure.gca()
+        lock = widget.get_active()
+        ax.set_xlock(lock)
+
+    def _btn_ylock_action(self, widget):
+        ax = self.figure.gca()
+        lock = widget.get_active()
+        ax.set_ylock(lock)
+
+    def _btn_hide_legend_action(self, widget):
         ax = self.figure.gca()
         hide = widget.get_active()
         ax.hide_legend(hide)
 
-    def _restore_view_action(self, ax):
+    def _btn_restore_view_action(self, ax):
         restore = False
         if ax.original_view_dim is not None:
             xmin, xmax, ymin, ymax = ax.original_view_dim
@@ -437,7 +516,8 @@ class ChartWidget(gtk.VBox):
             ax.set_ylim(ymin, ymax)
             ax.figure.canvas.draw_idle()
 
-    def _save_action(self, widget):
+    def _btn_save_action(self, widget):
+        # TODO: poradne navrhnout ukladaci okno!!
         dialog = gtk.FileChooserDialog("Save graph", 
                                        None, gtk.FILE_CHOOSER_ACTION_SAVE,
                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
@@ -470,8 +550,8 @@ class ChartWidget(gtk.VBox):
 # Defined method for "standard" graphs:
 
 def time_sum_chart(names, values, title, xlabel, ylabel):
-    figure = matplotlib.figure.Figure()
-    canvas = FigureCanvas(figure)
+    figure = mpl_Figure()
+    canvas = mpl_FigureCanvas(figure)
     figure.set_canvas(canvas)
 
     ax = figure.add_subplot(111, projection=BasicChart.name)
@@ -490,7 +570,7 @@ def time_sum_chart(names, values, title, xlabel, ylabel):
         label.set_rotation(-45)
         label.set_horizontalalignment('left')
 
-    ax.yaxis.set_major_formatter(FuncFormatter(
+    ax.yaxis.set_major_formatter(mpl_FuncFormatter(
         lambda time, pos: time_to_string(time)[:10]))
     ax.set_title(title)
     ax.set_xlabel(xlabel)
@@ -499,8 +579,8 @@ def time_sum_chart(names, values, title, xlabel, ylabel):
     return ChartWidget(figure, with_legend=False, xlock=True)
 
 def utilization_chart(names, data, colors, title, xlabel, ylabel):
-    figure = matplotlib.figure.Figure()
-    canvas = FigureCanvas(figure)
+    figure = mpl_Figure()
+    canvas = mpl_FigureCanvas(figure)
     figure.set_canvas(canvas)
 
     # TODO: Change it to TimeChart
@@ -512,7 +592,8 @@ def utilization_chart(names, data, colors, title, xlabel, ylabel):
     for i, ldata in enumerate(data):
         y = ((i+1) * ywidth) + (i+1)
         yticks.append(y + ywidth/2)
-        ax.broken_barh(ldata, (y, ywidth), edgecolor='face', facecolor=colors[0])
+        ax.broken_barh(
+                ldata, (y, ywidth), edgecolor='face', facecolor=colors[0])
 
     ax.set_yticks(yticks)
     ax.set_yticklabels(names)
@@ -526,13 +607,13 @@ def utilization_chart(names, data, colors, title, xlabel, ylabel):
         label.set_horizontalalignment("left")
         label.set_verticalalignment('center')
 
-    p = matplotlib.patches.Rectangle((0, 0), 1, 1, edgecolor=colors[0], 
+    p = mpl_Rectangle((0, 0), 1, 1, edgecolor=colors[0], 
             fc=colors[0]) 
     ax.plegend = ax.legend([p], ["Running"], loc="upper left",
             fancybox=True, shadow=True)
 
     ax.xaxis.grid(True, linestyle="-", which='major', color='black', alpha=0.7)
-    ax.xaxis.set_major_formatter(FuncFormatter(
+    ax.xaxis.set_major_formatter(mpl_FuncFormatter(
         lambda time, pos: time_to_string(time)[:-7]))
     ax.set_xlim(xmin=0)
     ax.get_figure().tight_layout()
@@ -546,8 +627,8 @@ def utilization_chart(names, data, colors, title, xlabel, ylabel):
 
 def place_chart(names, values, title, xlabel, ylabel):
 
-    figure = matplotlib.figure.Figure()
-    canvas = FigureCanvas(figure)
+    figure = mpl_Figure()
+    canvas = mpl_FigureCanvas(figure)
     figure.set_canvas(canvas)
 
     ax = figure.add_subplot(111, projection=BasicChart.name)
@@ -572,7 +653,7 @@ def place_chart(names, values, title, xlabel, ylabel):
     # set legend
     ax.plegend = ax.legend(loc="upper left", fancybox=True, shadow=True)
     ax.registr_pick_legend(ax.plegend, lines)
-    ax.xaxis.set_major_formatter(FuncFormatter(
+    ax.xaxis.set_major_formatter(mpl_FuncFormatter(
         lambda time, pos: time_to_string(time)[:-7]))
 
     # set basic properties
@@ -596,8 +677,8 @@ def time_to_string(nanosec):
     return "{0}:{1:0>2}:{2:0>2}:{3:0>9}".format(hours, minutes, sec, nsec)
 
 def _register_new_types_charts():
-    register_projection(BasicChart)
-    register_projection(TimeChart)
+    mpl_register_projection(BasicChart)
+    mpl_register_projection(TimeChart)
 
 _register_new_types_charts()
 
