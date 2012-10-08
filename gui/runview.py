@@ -24,7 +24,9 @@ import events as evt
 from canvas import NetCanvas
 from chart import color_names
 import chart
-from newcharts import ChartWidget, Data2DChart
+import newcharts
+from newcharts import time_to_string
+from newcharts import ChartWidget
 from matplotlib.ticker import FuncFormatter
 import matplotlib
 
@@ -155,39 +157,12 @@ class RunView(gtk.VBox):
             for times in line:
                 l.append((times[0], times[1] - times[0]))
             lines.append(l)
-#            l2 = line[0]
-#            l2.remove(l2[0])
-#            size = len(l2) - 1
-#            l1 = []
-#            for j in range(0, size, 2):
-#                l1.append((l2[j][0], (l2[j+1][0] - l2[j][0])))
-#            lines.append(l1)
 
-        # Create chart
-        chart_widget = ChartWidget()
-        figure = chart_widget.get_figure()
-        w, h = figure.get_size_inches()
-        dpi = figure.get_dpi()
-        # resize figure, it depends on count of lines (processes)
-        figure.set_size_inches(w, len(lines) * 0.8) 
-        # resize canvas, it depends on count of lines (processes)
-        figure.canvas.set_size_request(int(w * dpi), int(len(lines) * 0.7 * dpi))
-
-        chart_id = chart_widget.create_new_chart(ChartWidget.UTILIZATION_CHART)
-        chart = chart_widget.get_chart(chart_id)
-        chart.fill_data(lines, names, colors)
-
-        # set basic properties
-        chart.xaxis.grid(True, linestyle="-", which='major', color='black', alpha=0.7)
-        chart.xaxis.set_major_formatter(FuncFormatter(
-            lambda time, pos: time_to_string(time)[:-7]))
-        chart.set_xlim(xmin=0)
-        chart.get_figure().tight_layout()
-
-        chart.set_title("The running time of each processes")
-        chart.set_xlabel("Time")
-        chart.set_ylabel("Process")
-        return chart_widget
+#        # resize figure, it depends on count of lines (processes)
+#        figure.set_size_inches(w, len(lines) * 0.8) 
+#        # resize canvas, it depends on count of lines (processes)
+#        figure.canvas.set_size_request(int(w * dpi), int(len(lines) * 0.7 * dpi))
+        return newcharts.utilization_chart(names, lines, colors, "The running time of each processes", "Time", "Process")
 
     def _transitions_utilization(self):
         colors = ["#00aa00"]
@@ -203,115 +178,64 @@ class RunView(gtk.VBox):
             for times in line:
                 l.append((times[0], times[1] - times[0]))
             lines.append(l)
-#            l2 = line[0]
-#            size = len(l2) - 1
-#            l1 = []
-#            for j in range(0, size, 2):
-#                l1.append((l2[j][0], (l2[j+1][0] - l2[j][0])))
-#            lines.append(l1)
 
-        # Create chart
-        chart_widget = ChartWidget()
-        figure = chart_widget.get_figure()
-        w, h = figure.get_size_inches()
-        dpi = figure.get_dpi()
-        # resize figure, it depends on count of lines (processes)
-        figure.set_size_inches(w, len(lines) * 0.8) 
-        # resize canvas, it depends on count of lines (processes)
-        figure.canvas.set_size_request(int(w * dpi), int(len(lines) * 0.7 * dpi))
-
-        chart_id = chart_widget.create_new_chart(ChartWidget.UTILIZATION_CHART)
-        chart = chart_widget.get_chart(chart_id)
-        chart.fill_data(lines, names, colors)
-
-        # set basic properties
-        chart.xaxis.grid(True, linestyle="-", which='major', color='black', alpha=0.7)
-        chart.xaxis.set_major_formatter(FuncFormatter(
-            lambda time, pos: time_to_string(time)[:-7]))
-        chart.set_xlim(xmin=0)
-        chart.get_figure().tight_layout()
-
-        chart.set_title("The running time of each transitions")
-        chart.set_xlabel("Time")
-        chart.set_ylabel("Transition")
-
-        if isinstance(chart, evt.EventSource):
-            chart.set_callback("change_slider", 
-                    lambda time: self.scale.set_value(
-                        self.tracelog.get_index_from_time(time)))
-
-        return chart_widget
+        return newcharts.utilization_chart(
+                names, 
+                lines, 
+                colors, 
+                "The running time of each transitions",
+                "Time",
+                "Transition")
 
     def _place_chart(self):
         values = self.tracelog.statistics["tokens_values"]
         names = self.tracelog.statistics["tokens_names"]
-
-        data = Data2DChart((names, values))
-        chart_widget = ChartWidget()
-        chart_id = chart_widget.create_new_chart(ChartWidget.PLACE_CHART)
-        chart = chart_widget.get_chart(chart_id)
-        chart.fill_data(data)
-
-        # nastavovaci funkce musi byt az po vykresleni
-        chart.xaxis.set_major_formatter(FuncFormatter(
-            lambda time, pos: time_to_string(time)[:-7]))
-        chart.set_xlim(xmin = 0)
-        chart.get_figure().tight_layout()
-        chart.set_title("Cout of tokens in places in time")
-        chart.set_xlabel("Time")
-        chart.set_ylabel("Count")
-        return chart_widget
+        return newcharts.place_chart(
+                names, 
+                values, 
+                "Cout of tokens in places in time", 
+                "Time", 
+                "Cout")
 
     def _processes_histogram(self):
-        names = self.tracelog.statistics["proc_hist_names"]
-        values = self.tracelog.statistics["proc_hist_values"]
-        
-        chart_widget = ChartWidget()
-        chart_id= chart_widget.create_new_chart(ChartWidget.HISTOGRAM_CHART)
-        chart = chart_widget.get_chart(chart_id)
-        ss = len(color_names)
-#        for i in range(0, len(names)):
-#            chart.fill_data(names[i], values[i], color_names[i % ss])
-        chart.fill_data(names, values, color_names)
-
-        chart.xaxis.set_major_formatter(FuncFormatter(
-            lambda time, pos: time_to_string(time)[:-7]))
-        chart.set_xlim(xmin=0)
-        return chart_widget
+#        names = self.tracelog.statistics["proc_hist_names"]
+#        values = self.tracelog.statistics["proc_hist_values"]
+#        
+#        chart_widget = ChartWidget()
+#        chart_id= chart_widget.create_new_chart(ChartWidget.HISTOGRAM_CHART)
+#        chart = chart_widget.get_chart(chart_id)
+#        ss = len(color_names)
+##        for i in range(0, len(names)):
+##            chart.fill_data(names[i], values[i], color_names[i % ss])
+#        chart.fill_data(names, values, color_names)
+#
+#        chart.xaxis.set_major_formatter(FuncFormatter(
+#            lambda time, pos: time_to_string(time)[:-7]))
+#        chart.set_xlim(xmin=0)
+#        return chart_widget
+        return gtk.VBox()
 
     def _transitions_time_sum(self):
         values = self.tracelog.statistics["tr_tsum_values"]
         names = self.tracelog.statistics["tr_tsum_names"]
 
-        chart_widget = ChartWidget()
-        chart_id = chart_widget.create_new_chart(ChartWidget.TIME_SUM_CHART)
-        chart = chart_widget.get_chart(chart_id)
-        chart.fill_data(names, values)
-
-        # set basic properties
-        chart.yaxis.set_major_formatter(FuncFormatter(
-            lambda time, pos: time_to_string(time)[:10]))
-        chart.set_title("Sum times of each transitions")
-        chart.set_xlabel("Transitions")
-        chart.set_ylabel("Time SUM")
-        return chart_widget
+        return newcharts.time_sum_chart(
+                names,
+                values,
+                "Sum times of each transitions",
+                "Transition",
+                "Time SUM")
 
     def _processes_time_sum(self):
         values = self.tracelog.statistics["proc_tsum_values"]
         names = self.tracelog.statistics["proc_tsum_names"]
 
-        chart_widget = ChartWidget()
-        chart_id = chart_widget.create_new_chart(ChartWidget.TIME_SUM_CHART)
-        chart = chart_widget.get_chart(chart_id)
-        chart.fill_data(names, values)
-
-        # set basic properties
-        chart.yaxis.set_major_formatter(FuncFormatter(
-            lambda time, pos: time_to_string(time)[:10]))
-        chart.set_title("Sum times of each processes")
-        chart.set_xlabel("Processes")
-        chart.set_ylabel("Time SUM")
-        return chart_widget
+        return newcharts.time_sum_chart(
+                names,
+                values,
+                "Sum times of each processes",
+                "Process",
+                "Time SUM")
 
 
 class NetInstanceView(gtk.HPaned):
@@ -398,11 +322,11 @@ class NetInstanceView(gtk.HPaned):
         label = "Tokens of " + place.get_name()
         self.app.window.add_tab(mainwindow.Tab(label, vbox))
 
-
-def time_to_string(nanosec):
-    s = int(nanosec) / 1000000000
-    nsec = nanosec % 1000000000
-    sec = s % 60
-    minutes = (s / 60) % 60
-    hours = s / 60 / 60
-    return "{0}:{1:0>2}:{2:0>2}:{3:0>9}".format(hours, minutes, sec, nsec)
+#
+#def time_to_string(nanosec):
+#    s = int(nanosec) / 1000000000
+#    nsec = nanosec % 1000000000
+#    sec = s % 60
+#    minutes = (s / 60) % 60
+#    hours = s / 60 / 60
+#    return "{0}:{1:0>2}:{2:0>2}:{3:0>9}".format(hours, minutes, sec, nsec)
