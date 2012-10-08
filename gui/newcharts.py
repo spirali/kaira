@@ -453,7 +453,7 @@ class ChartWidget(gtk.VBox):
         toolbar.add(btn_xlock)
 
         icon_ylock = gtk.image_new_from_file(
-                os.path.join(paths.ICONS_DIR, "yunlock.svg"))
+                os.path.join(paths.ICONS_DIR, "ylock.svg"))
         btn_ylock = gtk.ToggleToolButton()
         btn_ylock.set_icon_widget(icon_ylock)
         btn_ylock.set_tooltip_text("Lock Y-axis (keep CTRL)")
