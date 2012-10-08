@@ -261,11 +261,20 @@ class Trace:
             else:
                 break
 
+    """
+        Read transition's trace function's data and
+        after this BACK tracelog pointer to inicial position.
+        This is necessary for correct loading of tracelog!!
+    """
     def get_transition_trace_function_data(self):
         values = []
+        pointer = self.pointer
         while not self.is_pointer_at_end():
             t = self.data[self.pointer]
-            if t == "i":
+            if t == "r":
+                self.pointer += 1
+                self._read_struct_token()
+            elif t == "i":
                 self.pointer += 1
                 value = self._read_struct_int()
                 values.append(value)
@@ -279,7 +288,24 @@ class Trace:
                 values.append(value)
             else:
                 break
+        self.pointer = pointer
         return values
+
+    """ Skip already loaded data from tracelog """
+    def skip_transition_trace_function_data(self):
+        while not self.is_pointer_at_end():
+            t = self.data[self.pointer]
+            if t == "i":
+                self.pointer += 1
+                self._read_struct_int()
+            elif t == "d":
+                self.pointer += 1
+                self._read_struct_double()
+            elif t == "s":
+                self.pointer += 1
+                self._read_cstring()
+            else:
+                break
 
     def get_next_event_time(self):
         if self.is_pointer_at_end():
@@ -330,9 +356,10 @@ class Trace:
 
     def _process_event_transition_fired(self, runinstance):
         time, transition_id = self._read_struct_transition_fired()
-        self.process_tokens_remove(runinstance)
         values = self.get_transition_trace_function_data()
         runinstance.transition_fired(self.process_id, self.thread_id, time, transition_id, values)
+        self.process_tokens_remove(runinstance)
+        self.skip_transition_trace_function_data()
         self.process_tokens_add(runinstance)
 
     def _process_event_transition_finished(self, runinstance):
@@ -343,7 +370,6 @@ class Trace:
     def _process_event_send_msg(self, runinstance):
         values = self._read_struct_send_msg()
         runinstance.event_send(self.process_id, self.thread_id, *values)
-        self.process_tokens_add(runinstance)
 
     def _process_event_spawn(self, runinstance):
         runinstance.event_spawn(self.process_id, self.thread_id, *self._read_struct_spawn())

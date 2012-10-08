@@ -175,7 +175,7 @@ def write_enable(builder, tr):
 
     w = build.Builder(builder.project)
     matches, _, _ = get_edges_mathing(builder.project, tr)
-    if tr.trace():
+    if tr.need_trace():
         w.line("CaTraceLog *tracelog = thread->get_tracelog();")
         w.if_begin("tracelog")
         w.line("tracelog->event_transition_fired({0.id});", tr)
@@ -236,7 +236,7 @@ def write_enable(builder, tr):
         w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
 
         w.line("bool lock = false;")
-        if tr.trace():
+        if tr.need_trace():
             w.if_begin("tracelog")
             w.line("tracelog->event_transition_finished();")
             w.block_end()
@@ -244,7 +244,7 @@ def write_enable(builder, tr):
         w.line("bool lock = true;")
 
     for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
-        if tr.trace():
+        if tr.need_trace():
             write_send_token(w, em, edge, True)
         else:
             write_send_token(w, em, edge, False)

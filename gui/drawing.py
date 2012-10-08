@@ -233,10 +233,10 @@ class PlaceDrawing(DrawingBase):
                 elif rem_t_in < len(self.removed_tokens):
                     rem_t_in += 1
 
-            # Draw green circle
+            # Draw circle
             x = math.sqrt((self.radius * self.radius) / 2) + 15
             if self.new_tokens:
-                cr.set_source_rgb(0.8,0,0)
+                cr.set_source_rgb(0.9,0.4,0)
             else:
                 cr.set_source_rgb(0.2,0.45,0)
             cr.arc(px + self.radius,py,8, 0, 2 * math.pi)

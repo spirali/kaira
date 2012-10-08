@@ -69,7 +69,9 @@ class RunInstance:
         self.last_event_process = process_id
         self.last_event_thread = thread_id
         index = process_id * self.threads_count + thread_id
-        self.last_event_activity = self.activites[index]
+        if self.last_event_activity is not None:
+            self.last_event_activity = \
+                TransitionQuit(time, process_id, thread_id, self.last_event_activity.transition)
         self.last_event_instance = self.net_instances[process_id]
 
     def event_send(self, process_id, thread_id, time, msg_id):
@@ -145,6 +147,10 @@ class TransitionExecution(ThreadActivity):
         ThreadActivity.__init__(self, time, process_id, thread_id)
         self.transition = transition
 
+class TransitionQuit(ThreadActivity):
+    def __init__(self, time, process_id, thread_id, transition):
+        ThreadActivity.__init__(self, time, process_id, thread_id)
+        self.transition = transition
 
 class NetInstance:
 
@@ -208,7 +214,12 @@ class NetInstance:
 
 class NetInstanceVisualConfig(VisualConfig):
 
-    def __init__(self, transition_executions, enabled_transitions, tokens, new_tokens, remove_tokens):
+    def __init__(self,
+                 transition_executions,
+                 enabled_transitions,
+                 tokens,
+                 new_tokens,
+                 remove_tokens):
         # transition_id -> [ text_labels ]
         self.transition_executions = transition_executions
         self.tokens = tokens
@@ -226,7 +237,9 @@ class NetInstanceVisualConfig(VisualConfig):
 
     def place_drawing(self, item):
         drawing = VisualConfig.place_drawing(self, item)
-        drawing.set_tokens(self.tokens[item.id], self.new_tokens[item.id], self.removed_tokens[item.id])
+        drawing.set_tokens(self.tokens[item.id],
+                           self.new_tokens[item.id],
+                           self.removed_tokens[item.id])
         return drawing
 
 
@@ -282,7 +295,6 @@ class Perspective(utils.EqMixin):
         for tr in self.runinstance.net.transitions():
             activies_by_transitions[tr.id] = []
 
-        color = (1.0, 1.0, 0, 0.8)
         runinstance = self.runinstance
         for i in range(runinstance.threads_count * runinstance.process_count):
             activity = runinstance.activites[i]
@@ -290,6 +302,10 @@ class Perspective(utils.EqMixin):
                 and activity.transition.id in activies_by_transitions:
 
                 if activity != runinstance.last_event_activity:
+                    if isinstance(runinstance.last_event_activity, TransitionQuit):
+                        color = (0.5, 0.5, 0.5, 0.8)
+                    else:
+                        color = (1.0, 1.0, 0, 0.8)
                     activies_by_transitions[activity.transition.id].append((activity, color))
 
         if (runinstance.last_event == "fired" or runinstance.last_event == "finish") \
