@@ -10,10 +10,18 @@ namespace cass {
 
 	class Core;
 
+	struct TransitionActivation {
+			CaTransitionDef *transition_def;
+			int thread_id;
+			int process_id;
+			void *data;
+	};
+
 	class Node {
 		public:
 			Node();
 			Node(CaNetDef *net_def, CaThreadBase *thread);
+			Node(const std::vector<TransitionActivation> &activations);
 			~Node();
 
 			size_t state_hash() const {
@@ -26,10 +34,13 @@ namespace cass {
 			Node * copy();
 
 			const std::vector<Node*> & get_nexts() const { return nexts; }
-
+			const std::vector<TransitionActivation> & get_activations() {
+				return activations;
+			};
 		protected:
 			Net **nets;
 			std::vector<Node*> nexts;
+			std::vector<TransitionActivation> activations;
 	};
 
 	struct NodeStateHash {

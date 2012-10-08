@@ -101,7 +101,7 @@ int CaNet::fire_transition(CaThread *thread, int transition_id)
 	CaTransitionDef *tr = def->get_transition_def(transition_id);
 	if (tr) {
 		lock();
-		int r = tr->find_and_fire(thread, this);
+		int r = tr->full_fire(thread, this);
 		if (r == CA_NOT_ENABLED) {
 			unlock();
 		}

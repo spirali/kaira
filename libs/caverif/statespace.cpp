@@ -21,6 +21,12 @@ Node::Node()
 	nets = new Net*[ca_process_count];
 }
 
+Node::Node(const std::vector<TransitionActivation> & activations)
+	: activations(activations)
+{
+	nets = new Net*[ca_process_count];
+}
+
 Node::~Node()
 {
 	delete [] nets;
@@ -40,21 +46,36 @@ void Node::generate(Core *core)
 				node = copy();
 			}
 			Net *net = node->nets[p];
-			//printf("CHECK %p %p\n", node, net);
-			if (CA_TRANSITION_FIRED == \
-				transitions[i]->find_and_fire(core->get_thread(), net)) {
-				//printf("FIRED %p %p %i\n", this, node, i);
+			void *data = transitions[i]->fire_phase1(core->get_thread(), net);
+			if (data) {
+				TransitionActivation activation;
+				activation.data = data;
+				activation.transition_def = transitions[i];
+				activation.process_id = p;
+				activation.thread_id = 1;
+				node->activations.push_back(activation);
 				Node *n = core->add_node(node);
 				nexts.push_back(n);
 				node = NULL;
 			}
 		}
 	}
+	std::vector<TransitionActivation>::iterator i;
+	int p = 0;
+	for (i = activations.begin(); i != activations.end(); i++, p++)
+	{
+		Node *node = copy();
+		node->activations.erase(node->activations.begin() + p);
+		Net *net = node->nets[i->process_id];
+		i->transition_def->fire_phase2(core->get_thread(), net, i->data);
+		Node *n = core->add_node(node);
+		nexts.push_back(n);
+	}
 }
 
 Node* Node::copy()
 {
-	Node *node = new Node();
+	Node *node = new Node(activations);
 	for (int i = 0; i < ca_process_count; i++) {
 		node->nets[i] = nets[i]->copy();
 	}
@@ -101,7 +122,9 @@ void Core::verify()
 		Node *node = *it;
 		const std::vector<Node*> &nexts = node->get_nexts();
 		for (size_t i = 0; i < nexts.size(); i++) {
-			printf("\"%p\" -> \"%p\"\n", node, nexts[i]);
+			printf("\"%p/%u\" -> \"%p/%u\"\n",
+				node, node->get_activations().size(),
+				nexts[i], nexts[i]->get_activations().size());
 		}
 	}
 	printf("}\n");

@@ -53,14 +53,32 @@ def write_vars_struct(builder, tr):
         builder.write_var_decl(name, builder.emit_type(t), True)
     builder.write_class_end()
 
+def write_tokens_struct(builder, tr):
+    """
+        Writes struct that serves as storage for tokens between "find_binding" and "fire"
+    """
+    class_name = "Tokens_{0.id}".format(tr)
+    builder.write_class_head(class_name)
+
+    for edge in tr.get_normal_edges_in():
+        place_t = builder.emit_type(edge.get_place_type())
+        builder.line("CaToken<{0} > *token_{1.uid};", place_t, edge)
+
+    builder.write_class_end()
+
 def write_transition_forward(builder, tr):
     if tr.code is not None:
         write_vars_struct(builder, tr)
 
+    write_tokens_struct(builder, tr)
+
     class_name = "Transition_{0.id}".format(tr)
     builder.write_class_head(class_name, "CaTransitionDef")
     builder.line("int get_id() {{ return {0.id}; }}", tr)
-    builder.line("int find_and_fire(CaThreadBase *thread, CaNetBase *net);")
+    builder.line("int full_fire(CaThreadBase *thread, CaNetBase *net);")
+    builder.line("void* fire_phase1(CaThreadBase *thread, CaNetBase *net);")
+    builder.line("void fire_phase2(CaThreadBase *thread, CaNetBase *net, void *data);")
+    builder.line("void cleanup_binding(void *data);")
     builder.line("bool is_enable(CaThreadBase *thread, CaNetBase *net);")
     builder.write_class_end()
     builder.line("static Transition_{0.id} transition_{0.id};", tr)
@@ -69,7 +87,10 @@ def write_transition_forward(builder, tr):
 def write_transition_functions(builder, tr, locking=True):
     if tr.code is not None:
         write_transition_user_function(builder, tr)
-    write_find_and_fire(builder, tr, locking=locking)
+    write_full_fire(builder, tr, locking=locking)
+    write_fire_phase1(builder, tr)
+    write_fire_phase2(builder, tr)
+    write_cleanup_binding(builder, tr)
     write_enable_check(builder, tr)
 
 def write_transition_user_function(builder, tr):
@@ -86,7 +107,7 @@ def write_activation(builder, net, transitions):
     for tr in transitions:
         builder.line("{0}->activate_transition_by_pos_id({1});", net, tr.get_pos_id())
 
-def write_send_token(builder, em, edge, locking=True, interface_edge=False):
+def write_send_token(builder, em, edge, locking=True, interface_edge=False, readonly_tokens=False):
 
     def write_lock():
         if not locking:
@@ -111,7 +132,7 @@ def write_send_token(builder, em, edge, locking=True, interface_edge=False):
     if edge.is_local():
         write_lock()
         place = edge.get_place()
-        if edge.token_source is not None:
+        if edge.token_source is not None and not readonly_tokens:
             write_place_add(builder,
                             method + "_token",
                             place,
@@ -168,19 +189,28 @@ def write_send_token(builder, em, edge, locking=True, interface_edge=False):
     if edge.guard is not None:
         builder.block_end()
 
-def write_find_and_fire(builder, tr, locking=True):
-    builder.line("int Transition_{0.id}::find_and_fire(CaThreadBase *thread, CaNetBase *net)",
-                 tr)
-    builder.block_begin()
-    builder.line("CaContext ctx(thread, net);")
+def write_remove_tokens(builder, tr):
+    for edge in tr.get_normal_edges_in():
+        if edge.get_place().tracing:
+            builder.if_begin("tracelog")
+            builder.line("n->place_{1.id}.remove(token_{0.uid}, tracelog, {1.id});",
+                edge, edge.get_place())
+            builder.line("}} else {{")
+            builder.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
+            builder.block_end()
+        else:
+            builder.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
 
-    w = build.Builder(builder.project)
+
+def write_fire_body(builder, tr, locking=True, remove_tokens=True, readonly_tokens=False):
+
     matches, _, _ = get_edges_mathing(builder.project, tr)
+
     if tr.tracing or tr.is_any_place_traced():
-        w.line("CaTraceLog *tracelog = thread->get_tracelog();")
-        w.if_begin("tracelog")
-        w.line("tracelog->event_transition_fired({0.id});", tr)
-        w.block_end()
+        builder.line("CaTraceLog *tracelog = thread->get_tracelog();")
+        builder.if_begin("tracelog")
+        builder.line("tracelog->event_transition_fired({0.id});", tr)
+        builder.block_end()
 
     em = emitter.Emitter(builder.project)
     for edge, _ in matches:
@@ -197,8 +227,7 @@ def write_find_and_fire(builder, tr, locking=True):
     for name in names:
         if name not in tr.var_edge: # Variable is not obtained from output
             t = builder.emit_type(context[name])
-            w.line("{1} out_value_{0};", token_out_counter, t)
-            #w.line("CaToken<{1}> token_out_{0}(value);", token_out_counter, t)
+            builder.line("{1} out_value_{0};", token_out_counter, t)
             vars_code[name] = "out_value_{0}".format(token_out_counter);
             token_out_counter += 1
         else:
@@ -210,53 +239,53 @@ def write_find_and_fire(builder, tr, locking=True):
 
     em.variable_emitter = lambda name: vars_code[name]
 
-    for edge, _ in matches:
-        if edge.get_place().tracing:
-            w.if_begin("tracelog")
-            w.line("n->place_{1.id}.remove(token_{0.uid}, tracelog, {1.id});",
-                edge, edge.get_place())
-            w.line("}} else {{")
-            w.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
-            w.block_end()
-        else:
-            w.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
+    if remove_tokens:
+        write_remove_tokens(builder, tr)
 
-    w.line("n->activate_transition_by_pos_id({0});", tr.get_pos_id())
+    builder.line("n->activate_transition_by_pos_id({0});", tr.get_pos_id())
 
     for edge in tr.get_packing_edges_in():
-        w.line("{1} = n->place_{0.id}.to_vector_and_clear();",
+        builder.line("{1} = n->place_{0.id}.to_vector_and_clear();",
                edge.get_place(), em.variable_emitter(edge.varname))
 
-    retvalue = "CA_TRANSITION_FIRED"
     if tr.code is not None:
         if locking:
-            w.line("net->unlock();")
+            builder.line("net->unlock();")
         if len(names) == 0:
-            w.line("Vars_{0.id} vars;", tr)
+            builder.line("Vars_{0.id} vars;", tr)
         else:
-            w.line("Vars_{0.id} vars({1});", tr, ",".join([ vars_code[n] for n in names ]))
-        w.line("transition_user_fn_{0.id}(ctx, vars);", tr)
+            builder.line("Vars_{0.id} vars({1});", tr, ",".join([ vars_code[n] for n in names ]))
+        builder.line("transition_user_fn_{0.id}(ctx, vars);", tr)
 
         if locking:
-            w.line("bool lock = false;")
+            builder.line("bool lock = false;")
         if tr.tracing or tr.is_any_place_traced():
-            w.if_begin("tracelog")
-            w.line("tracelog->event_transition_finished();")
-            w.block_end()
+            builder.if_begin("tracelog")
+            builder.line("tracelog->event_transition_finished();")
+            builder.block_end()
     elif locking:
-        w.line("bool lock = true;")
+        builder.line("bool lock = true;")
 
     for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
-        write_send_token(w, em, edge, locking=locking)
+        write_send_token(builder, em, edge, locking=locking, readonly_tokens=readonly_tokens)
 
     if locking:
-        w.line("if (lock) n->unlock();")
+        builder.line("if (lock) n->unlock();")
 
     for edge, _ in matches:
-        if not edge.token_reused:
-            w.line("delete token_{0.uid};", edge)
+        if not edge.token_reused and not readonly_tokens:
+            builder.line("delete token_{0.uid};", edge)
 
-    w.line("return {0};", retvalue)
+
+def write_full_fire(builder, tr, locking=True):
+    builder.line("int Transition_{0.id}::full_fire(CaThreadBase *thread, CaNetBase *net)",
+                 tr)
+    builder.block_begin()
+    builder.line("CaContext ctx(thread, net);")
+
+    w = build.Builder(builder.project)
+    write_fire_body(w, tr, locking=locking)
+    w.line("return CA_TRANSITION_FIRED;")
 
     write_enable_pattern_match(builder, tr, w)
     builder.line("return CA_NOT_ENABLED;")
@@ -271,6 +300,46 @@ def write_enable_check(builder, tr):
     w.line("return true;")
     write_enable_pattern_match(builder, tr, w)
     builder.line("return false;")
+    builder.block_end()
+
+def write_fire_phase1(builder, tr):
+    builder.line("void *Transition_{0.id}::fire_phase1(CaThreadBase *thread, CaNetBase *net)", tr)
+    builder.block_begin()
+
+    w = build.Builder(builder.project)
+    write_remove_tokens(w, tr)
+    w.line("Tokens_{0.id} *tokens = new Tokens_{0.id}();", tr)
+    for edge in tr.get_normal_edges_in():
+        w.line("tokens->token_{0.uid} = token_{0.uid};", edge);
+    w.line("return tokens;")
+
+    write_enable_pattern_match(builder, tr, w)
+    builder.line("return NULL;")
+    builder.block_end()
+
+def write_fire_phase2(builder, tr):
+    builder.line("void Transition_{0.id}::fire_phase2"
+                    "(CaThreadBase *thread, CaNetBase *net, void *data)",
+                 tr)
+    builder.block_begin()
+    builder.line("CaContext ctx(thread, net);")
+    builder.line("{0} *n = ({0}*) net;", get_net_class_name(tr.net))
+    builder.line("Tokens_{0.id} *tokens = (Tokens_{0.id}*) data;", tr)
+    for edge in tr.get_normal_edges_in():
+        place_t = builder.emit_type(edge.get_place_type())
+        builder.line("CaToken<{0}> *token_{1.uid} = tokens->token_{1.uid};", place_t, edge);
+
+    write_fire_body(builder, tr, locking=False, remove_tokens=False, readonly_tokens=True)
+    builder.block_end()
+
+def write_cleanup_binding(builder, tr):
+    builder.line("void Transition_{0.id}::cleanup_binding(void *data)", tr)
+    builder.block_begin()
+    builder.line("Tokens_{0.id} *tokens = (Tokens_{0.id}*) data;", tr)
+    for edge in tr.get_normal_edges_in():
+        place_t = builder.emit_type(edge.get_place_type())
+        builder.line("delete tokens->token_{1.uid};", place_t, edge);
+    builder.line("delete tokens;");
     builder.block_end()
 
 def write_enable_pattern_match(builder, tr, fire_code):
@@ -397,7 +466,6 @@ def write_init_net(builder, net):
             write_place_add(builder, "add_all", place,
                             "net->place_{0.id}.".format(place), "tokens")
         builder.block_end()
-
 
 def write_spawn(builder, net):
     builder.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def) {{", net)

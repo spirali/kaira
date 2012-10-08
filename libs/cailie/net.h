@@ -16,15 +16,16 @@ class CaThreadBase;
 class CaThread;
 class CaUnpacker;
 
-typedef int(CaEnableFn)(CaThreadBase *, CaNetBase *);
-typedef bool(CaEnableCheckFn)(CaThreadBase *, CaNetBase *);
 typedef CaNetBase * (CaSpawnFn)(CaThreadBase *, CaNetDef *);
 
 class CaTransitionDef {
 	public:
 		virtual ~CaTransitionDef() {}
 		virtual int get_id() = 0;
-		virtual int find_and_fire(CaThreadBase *thread, CaNetBase *net) = 0;
+		virtual int full_fire(CaThreadBase *thread, CaNetBase *net) = 0;
+		virtual void *fire_phase1(CaThreadBase *thread, CaNetBase *net) = 0;
+		virtual void fire_phase2(CaThreadBase *thread, CaNetBase *net, void *data) = 0;
+		virtual void cleanup_binding(void *data) = 0;
 		virtual bool is_enable(CaThreadBase *thread, CaNetBase *net) = 0;
 };
 
@@ -37,8 +38,8 @@ class CaTransition {
 		void set_active(bool value) { active = value; }
 		int get_id() { return def->get_id(); }
 
-		int find_and_fire(CaThreadBase *thread, CaNetBase *net) {
-			return def->find_and_fire(thread, net);
+		int full_fire(CaThreadBase *thread, CaNetBase *net) {
+			return def->full_fire(thread, net);
 		}
 
 		bool is_enable(CaThreadBase *thread, CaNetBase *net) {
