@@ -23,6 +23,7 @@ import paths
 import events as evt
 import numpy as np
 import matplotlib #TODO: Imports only things what it's needed! Prefix: mpl
+from matplotlib.ticker import FuncFormatter
 from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
                                                as FigureCanvas
 from matplotlib.projections import register_projection
@@ -325,200 +326,42 @@ class TimeChart(BasicChart):
         pass
 
     def _double_click(self, event):
-        # corrected double click :)
+        '''Connect to the replay window.'''
         if event.button == 1 and event.guiEvent.type == gtk.gdk._2BUTTON_PRESS:
             print 'double click'
 #            self.emit_event("change_slider", event.xdata) 
 
 
-class PlaceChart(BasicChart):
-
-    name = 'place_chart'
-
-    def __init__(self, fig, rec,
-                 axisbg  = None, # defaults to rc axes.facecolor
-                 frameon = True,
-                 sharex  = None,
-                 sharey  = None,
-                 label   = "",
-                 xscale  = None,
-                 yscale  = None,
-                 **kwargs
-                 ):
-        BasicChart.__init__(self, fig, rec, axisbg, frameon, 
-                sharex, sharey, label, xscale, yscale, **kwargs)
-
-    def fill_data(self, data):
-        self.data = data
-        lines = []
-        for ldata in data:
-            line = self.plot(ldata.get_xvalues(), ldata.get_yvalues(),
-                    'o-', drawstyle='steps-post', label=ldata.get_name())
-            lines.append(line)
-
-        for label in self.xaxis.get_ticklabels():
-            label.set_rotation(-35) 
-            label.set_horizontalalignment('left') 
-
-        self.plegend = self.legend(loc="upper left", fancybox=True, shadow=True)
-        self.registr_pick_legend(self.plegend, lines)
-
-class HistogramChart(BasicChart):
-
-    name = 'histogram_chart'
-
-    def fill_data(self, names, values, color):
-
-        lines = []
-
-        max = 4200000
-        for i, vals in enumerate(values):
-            if not vals: return #if it's values list empty
-            x = [key for key, val in vals.items()]
-#
-#            max = 0
-#            for time in x:
-#                if time > max:
-#                    max = time
-
-            #if are all values zero, doesn't make a sense to create the histogram
-#            if max == 0: return
-
-            step = max // 250 # Takovehle urcovani kroku dava celkem pekne vysledky
-            newx_size = max // step + 1
-
-            new_x = xrange(newx_size)
-            new_y = [0] * newx_size
-            for time in x:
-                range = time // step
-                new_y[range] += vals[time]
-
-#            self.bar(new_x, new_y, color=color[i % len(color)], alpha=0.6)
-            line = self.plot(new_x, new_y, color=color[i%len(color)],
-                    lw=1, label=names[i])
-            lines.append(line)
-
-        for label in self.xaxis.get_ticklabels():
-            label.set_fontsize(9)
-            label.set_rotation(-35)
-            label.set_horizontalalignment('left')
-
-        self.plegend = self.legend(loc="upper right", fancybox=True, shadow=True)
-        self.registr_pick_legend(self.plegend, lines)
-
-class TimeSumChart(BasicChart):
-
-    name = 'time_sum_chart'
-
-    def fill_data(self, names, values):
-        size = len(values)
-        x = xrange(size)
-        n, bins, patches = self.hist(x, size,
-                range=(0, size), weights=values, facecolor='green', alpha=0.75)
-
-        xticks = map(lambda x: x+0.5, x)
-        self.set_xticks(xticks)
-        self.set_xticklabels(names)
-
-        for label in self.xaxis.get_ticklabels():
-            label.set_fontsize(7)
-            label.set_rotation(-45)
-            label.set_horizontalalignment('left')
-
-class UtilizationChart(BasicChart):
-
-    name = 'utilization_chart'
-
-    def fill_data(self, data, names, colors):
-        self.data = data
-        ywidth = 2
-        yticks = []
-
-        for i, ldata in enumerate(data):
-            y = ((i+1) * ywidth) + (i+1)
-            yticks.append(y + ywidth/2)
-            self.broken_barh(ldata, (y, ywidth), edgecolor='face', 
-                    facecolor=colors[0])
-
-        self.set_yticks(yticks)
-        self.set_yticklabels(names)
-
-        for label in self.xaxis.get_ticklabels():
-            label.set_rotation(-35) 
-            label.set_horizontalalignment('left') 
-        for i, label in enumerate(self.yaxis.get_ticklabels()):
-            # add 3 white space on the begining of name
-            names[i] = "   %s" % names[i] 
-            label.set_horizontalalignment("left")
-            label.set_verticalalignment('center')
-
-        p = matplotlib.patches.Rectangle((0, 0), 1, 1, edgecolor=colors[0], 
-                fc=colors[0]) 
-        self.plegend = self.legend([p], ["Running"], loc="upper left",
-                fancybox=True, shadow=True)
-
-
 class ChartWidget(gtk.VBox):
 # TODO: redesing chart widget
 
-    PLACE_CHART = PlaceChart.name
-    UTILIZATION_CHART = UtilizationChart.name
-    TIME_SUM_CHART = TimeSumChart.name
-    HISTOGRAM_CHART = HistogramChart.name
-
-    supported_charts_types = {
-            PlaceChart.name : PlaceChart,
-            UtilizationChart.name : UtilizationChart,
-            TimeSumChart.name : TimeSumChart,
-            HistogramChart.name : HistogramChart}
-
-    def __init__(self, with_legend=True):
+    def __init__(self, figure, with_legend=True, xlock=False, ylock=False):
         gtk.VBox.__init__(self)
         self.with_legend = with_legend
+        self.xlock = xlock
+        self.ylock = ylock
 
-        self.charts = []
-        self.current_chart_id = None
-
-        # registr new type of axes
-        for name in ChartWidget.supported_charts_types:
-            register_projection(ChartWidget.supported_charts_types[name])
         # chart toolbar
         toolbar = self._chart_toolbar()
         self.pack_start(toolbar, False, False)
 
-        self.figure = matplotlib.figure.Figure()
-        canvas = FigureCanvas(self.figure)
+        self.figure = figure
+        ax = figure.gca()
+        ax.xlock = xlock
+        ax.ylock = ylock
+#        self.figure = matplotlib.figure.Figure()
+#        canvas = FigureCanvas(self.figure)
 
         # set size of canvas
         w, h = self.figure.get_figwidth(), self.figure.get_figheight()
         dpi = self.figure.get_dpi()
-        canvas.set_size_request(int(w * dpi), int(h * dpi))
+        self.figure.canvas.set_size_request(int(w * dpi), int(h * dpi))
 
         sc = gtk.ScrolledWindow()
         sc.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        sc.add_with_viewport(canvas)
+        sc.add_with_viewport(self.figure.canvas)
 
         self.pack_start(sc, True, True, 0)
-
-    def create_new_chart(self, type):
-        if type in ChartWidget.supported_charts_types:
-            ax = self.figure.add_subplot(111, projection=type)
-            self.charts.append(ax)
-            self.current_chart_id = len(self.charts) - 1
-            return self.current_chart_id
-        else:
-            print "Unsupported type of chart '%s'!" % type
-        
-    def get_current_chart(self):
-        return self.get_chart(self.current_chart_id)
-
-    def get_chart(self, id):
-        if id >= 0 and id < len(self.charts):
-            self.current_chart_id = id
-            return self.charts[id]
-        else:
-            print "Bad id '%d'!" % id
-            return None
 
     def get_figure(self):
         return self.figure;
@@ -537,8 +380,8 @@ class ChartWidget(gtk.VBox):
         toolbar.add(gtk.SeparatorToolItem())
 
         btn_restore = gtk.ToolButton()
-        btn_restore.connect("clicked", lambda w: self._restore_view_action(
-            self.get_current_chart()))
+        btn_restore.connect("clicked", lambda w: self._restore_view_action( 
+            self.figure.gca()))
         btn_restore.set_stock_id(gtk.STOCK_ZOOM_100)
         btn_restore.set_tooltip_text("Restore view")
         toolbar.add(btn_restore)
@@ -550,18 +393,31 @@ class ChartWidget(gtk.VBox):
         btn_hide_legend = gtk.ToggleToolButton()
         btn_hide_legend.set_icon_widget(icon_hide_legend)
         btn_hide_legend.set_tooltip_text("Hide legend")
-        btn_hide_legend.connect("toggled", self._hide_legend)
+        btn_hide_legend.connect("toggled", self._hide_legend_action)
         btn_hide_legend.set_sensitive(self.with_legend)
         toolbar.add(btn_hide_legend)
 
-        btn_zoom = gtk.ToggleToolButton("Zoom")
-        btn_zoom.set_tooltip_text("Resize (Keep CTRL)")
-        toolbar.add(btn_zoom)
+        toolbar.add(gtk.SeparatorToolItem())
 
+        icon_xlock = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "xlock.svg"))
+        btn_xlock = gtk.ToggleToolButton()
+        btn_xlock.set_icon_widget(icon_xlock)
+        btn_xlock.set_active(self.xlock)
+        btn_xlock.set_tooltip_text("Lock X-axis (Keep CTRL)")
+        toolbar.add(btn_xlock)
+
+        icon_ylock = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "yunlock.svg"))
+        btn_ylock = gtk.ToggleToolButton()
+        btn_ylock.set_icon_widget(icon_ylock)
+        btn_ylock.set_active(self.ylock)
+        btn_ylock.set_tooltip_text("Lock Y-axis (Keep CTRL)")
+        toolbar.add(btn_ylock)
         return toolbar
 
-    def _hide_legend(self, widget):
-        ax = self.get_current_chart()
+    def _hide_legend_action(self, widget):
+        ax = self.figure.gca()
         hide = widget.get_active()
         ax.hide_legend(hide)
 
@@ -610,52 +466,126 @@ class ChartWidget(gtk.VBox):
 
         dialog.destroy()
 
-class Data2DChart:
-    """ Data structure for a 2D charts. """
-    def __init__(self, data):
-        self.lines = []
-        self.parse_data(data)
+#*******************************************************************************
+# Defined method for "standard" graphs:
 
-    def __iter__(self):
-        self.idx = 0
-        return self
+def time_sum_chart(names, values, title, xlabel, ylabel):
+    figure = matplotlib.figure.Figure()
+    canvas = FigureCanvas(figure)
+    figure.set_canvas(canvas)
 
-    def next(self):
-        if self.idx >= len(self.lines):
-            raise StopIteration
-        else:
-            idx = self.idx
-            self.idx += 1 
-            return self.lines[idx]
+    ax = figure.add_subplot(111, projection=BasicChart.name)
 
-    def parse_data(self, data):
-        """ Parsing input data in to this structure. """
-        names, values = data
-        for line, name in enumerate(names):
-            xvalues, yvalues = zip(*values[line])
-            self.lines.append(Line(name, xvalues, yvalues))
+    size = len(values)
+    x = xrange(size)
+    n, bins, patches = ax.hist(x, size,
+            range=(0, size), weights=values, facecolor='green', alpha=0.75)
 
-class Line:
+    xticks = map(lambda x: x+0.5, x)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(names)
 
-    def __init__(self, name, xvalues, yvalues):
-        self.name = name
-        self.xvalues = xvalues
-        self.yvalues = yvalues
+    for label in ax.xaxis.get_ticklabels():
+        label.set_fontsize(7)
+        label.set_rotation(-45)
+        label.set_horizontalalignment('left')
 
-    def get_name(self):
-        return self.name
+    ax.yaxis.set_major_formatter(FuncFormatter(
+        lambda time, pos: time_to_string(time)[:10]))
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
 
-    def get_xvalues(self):
-        return self.xvalues
+    return ChartWidget(figure, with_legend=False, xlock=True)
 
-    def get_yvalues(self):
-        return self.yvalues
+def utilization_chart(names, data, colors, title, xlabel, ylabel):
+    figure = matplotlib.figure.Figure()
+    canvas = FigureCanvas(figure)
+    figure.set_canvas(canvas)
 
-# TODO: instead of classes of each chart makes only methods, which creats it!!
-#       Will be defined something like defaults graphs and method which returns
-#       empty axes of concrete type of chart (e.g. BasicChart, TimeChart).
-def place_chart(data):
-    pass
+    # TODO: Change it to TimeChart
+    ax = figure.add_subplot(111, projection=BasicChart.name)
+
+    ywidth = 2
+    yticks = []
+
+    for i, ldata in enumerate(data):
+        y = ((i+1) * ywidth) + (i+1)
+        yticks.append(y + ywidth/2)
+        ax.broken_barh(ldata, (y, ywidth), edgecolor='face', facecolor=colors[0])
+
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(names)
+
+    for label in ax.xaxis.get_ticklabels():
+        label.set_rotation(-35) 
+        label.set_horizontalalignment('left') 
+    for i, label in enumerate(ax.yaxis.get_ticklabels()):
+        # add 3 white space on the begining of name
+        names[i] = "   %s" % names[i] 
+        label.set_horizontalalignment("left")
+        label.set_verticalalignment('center')
+
+    p = matplotlib.patches.Rectangle((0, 0), 1, 1, edgecolor=colors[0], 
+            fc=colors[0]) 
+    ax.plegend = ax.legend([p], ["Running"], loc="upper left",
+            fancybox=True, shadow=True)
+
+    ax.xaxis.grid(True, linestyle="-", which='major', color='black', alpha=0.7)
+    ax.xaxis.set_major_formatter(FuncFormatter(
+        lambda time, pos: time_to_string(time)[:-7]))
+    ax.set_xlim(xmin=0)
+    ax.get_figure().tight_layout()
+
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    return ChartWidget(figure, ylock=True)
+
+
+def place_chart(names, values, title, xlabel, ylabel):
+
+    figure = matplotlib.figure.Figure()
+    canvas = FigureCanvas(figure)
+    figure.set_canvas(canvas)
+
+    ax = figure.add_subplot(111, projection=BasicChart.name)
+    
+    llines = []
+    for line, name in enumerate(names):
+        xvalues, yvalues = zip(*values[line])
+        llines.append((name, xvalues, yvalues))
+
+    # fill data
+    lines = []
+    for ldata in llines:
+        name, xvalues, yvalues = ldata
+        line = ax.plot(xvalues, yvalues,
+                'o-', drawstyle='steps-post', label=name)
+        lines.append(line)
+
+    for label in ax.xaxis.get_ticklabels():
+        label.set_rotation(-35) 
+        label.set_horizontalalignment('left') 
+
+    # set legend
+    ax.plegend = ax.legend(loc="upper left", fancybox=True, shadow=True)
+    ax.registr_pick_legend(ax.plegend, lines)
+    ax.xaxis.set_major_formatter(FuncFormatter(
+        lambda time, pos: time_to_string(time)[:-7]))
+
+    # set basic properties
+    ax.set_xlim(xmin = 0)
+    ax.get_figure().tight_layout()
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    return ChartWidget(figure)
+
+#******************************************************************************
+# TMP functions 
 
 def time_to_string(nanosec):
     s = int(nanosec) / 1000000000
@@ -664,3 +594,52 @@ def time_to_string(nanosec):
     minutes = (s / 60) % 60
     hours = s / 60 / 60
     return "{0}:{1:0>2}:{2:0>2}:{3:0>9}".format(hours, minutes, sec, nsec)
+
+def _register_new_types_charts():
+    register_projection(BasicChart)
+    register_projection(TimeChart)
+
+_register_new_types_charts()
+
+class HistogramChart(BasicChart):
+
+    name = 'histogram_chart'
+
+    def fill_data(self, names, values, color):
+
+        lines = []
+
+        max = 4200000
+        for i, vals in enumerate(values):
+            if not vals: return #if it's values list empty
+            x = [key for key, val in vals.items()]
+#
+#            max = 0
+#            for time in x:
+#                if time > max:
+#                    max = time
+
+            #if are all values zero, doesn't make a sense to create the histogram
+#            if max == 0: return
+
+            step = max // 250 # Takovehle urcovani kroku dava celkem pekne vysledky
+            newx_size = max // step + 1
+
+            new_x = xrange(newx_size)
+            new_y = [0] * newx_size
+            for time in x:
+                range = time // step
+                new_y[range] += vals[time]
+
+#            self.bar(new_x, new_y, color=color[i % len(color)], alpha=0.6)
+            line = self.plot(new_x, new_y, color=color[i%len(color)],
+                    lw=1, label=names[i])
+            lines.append(line)
+
+        for label in self.xaxis.get_ticklabels():
+            label.set_fontsize(9)
+            label.set_rotation(-35)
+            label.set_horizontalalignment('left')
+
+        self.plegend = self.legend(loc="upper right", fancybox=True, shadow=True)
+        self.registr_pick_legend(self.plegend, lines)
