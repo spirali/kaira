@@ -27,6 +27,7 @@ class CaTransitionDef {
 		virtual void fire_phase2(CaThreadBase *thread, CaNetBase *net, void *data) = 0;
 		virtual void cleanup_binding(void *data) = 0;
 		virtual bool is_enable(CaThreadBase *thread, CaNetBase *net) = 0;
+		virtual bool binding_equality(void *data1, void *data2) { return true; }
 };
 
 class CaTransition {

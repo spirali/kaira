@@ -66,7 +66,7 @@ def write_tokens_struct(builder, tr):
 
     builder.write_class_end()
 
-def write_transition_forward(builder, tr):
+def write_transition_forward(builder, tr, binding_equality):
     if tr.code is not None:
         write_vars_struct(builder, tr)
 
@@ -80,11 +80,13 @@ def write_transition_forward(builder, tr):
     builder.line("void fire_phase2(CaThreadBase *thread, CaNetBase *net, void *data);")
     builder.line("void cleanup_binding(void *data);")
     builder.line("bool is_enable(CaThreadBase *thread, CaNetBase *net);")
+    if binding_equality:
+        builder.line("bool binding_equality(void *data1, void *data2);")
     builder.write_class_end()
     builder.line("static Transition_{0.id} transition_{0.id};", tr)
     builder.emptyline();
 
-def write_transition_functions(builder, tr, locking=True):
+def write_transition_functions(builder, tr, locking=True, binding_equality=False):
     if tr.code is not None:
         write_transition_user_function(builder, tr)
     write_full_fire(builder, tr, locking=locking)
@@ -92,6 +94,8 @@ def write_transition_functions(builder, tr, locking=True):
     write_fire_phase2(builder, tr)
     write_cleanup_binding(builder, tr)
     write_enable_check(builder, tr)
+    if binding_equality:
+        write_binding_equality(builder, tr)
 
 def write_transition_user_function(builder, tr):
     declaration = "void transition_user_fn_{0.id}(CaContext &ctx, Vars_{0.id} &var)".format(tr)
@@ -276,7 +280,6 @@ def write_fire_body(builder, tr, locking=True, remove_tokens=True, readonly_toke
         if not edge.token_reused and not readonly_tokens:
             builder.line("delete token_{0.uid};", edge)
 
-
 def write_full_fire(builder, tr, locking=True):
     builder.line("int Transition_{0.id}::full_fire(CaThreadBase *thread, CaNetBase *net)",
                  tr)
@@ -340,6 +343,19 @@ def write_cleanup_binding(builder, tr):
         place_t = builder.emit_type(edge.get_place_type())
         builder.line("delete tokens->token_{1.uid};", place_t, edge);
     builder.line("delete tokens;");
+    builder.block_end()
+
+def write_binding_equality(builder, tr):
+    builder.line("bool Transition_{0.id}::binding_equality(void *data1, void *data2)", tr)
+    builder.block_begin()
+    builder.line("Tokens_{0.id} *tokens1 = (Tokens_{0.id}*) data1;", tr)
+    builder.line("Tokens_{0.id} *tokens2 = (Tokens_{0.id}*) data2;", tr)
+    conditions = [ "(tokens1->token_{0.uid}->value == tokens2->token_{0.uid}->value)".format(edge)
+                   for edge in tr.get_normal_edges_in() ]
+    if conditions:
+        builder.line("return {0};", "&&".join(conditions))
+    else:
+        builder.line("return true;")
     builder.block_end()
 
 def write_enable_pattern_match(builder, tr, fire_code):
@@ -524,13 +540,13 @@ def write_receive_method(builder, net):
     builder.line("}}")
     builder.write_method_end()
 
-def write_net_functions_forward(builder, net):
+def write_net_functions_forward(builder, net, binding_equality=False):
     for place in net.places:
         if place.code is not None:
             write_place_user_function(builder, place)
 
     for tr in net.transitions:
-        write_transition_forward(builder, tr)
+        write_transition_forward(builder, tr, binding_equality=binding_equality)
 
 def get_net_class_name(net):
     return "Net_" + str(net.id)

@@ -84,6 +84,25 @@ Node* Node::copy()
 
 bool Node::state_equals(const Node &node) const
 {
+	if (activations.size() != node.activations.size()) {
+		return false;
+	}
+	std::vector<TransitionActivation>::const_iterator i1;
+	std::vector<TransitionActivation>::const_iterator i2;
+	for (i1 = node.activations.begin(); i1 != node.activations.end(); i1++) {
+		for (i2 = activations.begin(); i2 != activations.end(); i2++) {
+			if (i1->transition_def == i2->transition_def &&
+				i1->process_id == i2->process_id &&
+				i1->thread_id == i2->thread_id &&
+				i1->transition_def->binding_equality(i1->data, i2->data))
+			{
+				break;
+			}
+		}
+		if (i2 == activations.end())
+			return false;
+	}
+
 	for (int i = 0; i < ca_process_count; i++) {
 		if (!nets[i]->is_equal(*node.nets[i]))
 			return false;

@@ -24,7 +24,7 @@ import buildnet
 def write_core(builder):
     build.write_basic_definitions(builder)
     for net in builder.project.nets:
-        buildnet.write_net_functions_forward(builder, net)
+        buildnet.write_net_functions_forward(builder, net, binding_equality=True)
     for net in builder.project.nets:
         write_net_class(builder, net)
         write_net_class_extension(builder, net)
@@ -101,4 +101,7 @@ def write_net_functions(builder, net):
     write_spawn(builder, net)
 
     for tr in net.transitions:
-        buildnet.write_transition_functions(builder, tr, locking=False)
+        buildnet.write_transition_functions(builder,
+                                            tr,
+                                            locking=False,
+                                            binding_equality=True)
