@@ -198,8 +198,8 @@ class RunView(gtk.VBox):
                 "Cout")
 
     def _processes_histogram(self):
-#        names = self.tracelog.statistics["proc_hist_names"]
-#        values = self.tracelog.statistics["proc_hist_values"]
+        names = self.tracelog.statistics["proc_hist_names"]
+        values = self.tracelog.statistics["proc_hist_values"]
 #        
 #        chart_widget = ChartWidget()
 #        chart_id= chart_widget.create_new_chart(ChartWidget.HISTOGRAM_CHART)
@@ -213,7 +213,13 @@ class RunView(gtk.VBox):
 #            lambda time, pos: time_to_string(time)[:-7]))
 #        chart.set_xlim(xmin=0)
 #        return chart_widget
-        return gtk.VBox()
+        return newcharts.histogram(
+                names,
+                values,
+                "Histogram of spent time",
+                "Time range",
+                "Count")
+
 
     def _transitions_time_sum(self):
         values = self.tracelog.statistics["tr_tsum_values"]

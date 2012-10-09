@@ -1,5 +1,6 @@
 #
-#    Copyright (C) 2012 Martin Surkovsky
+#    Copyright (C) 2012 Martin Surkovsky,
+#                       Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -33,6 +34,145 @@ from matplotlib.projections import register_projection \
 from matplotlib.figure      import Figure as mpl_Figure
 from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
                                                as mpl_FigureCanvas
+
+color_names =  [
+ '#8A2BE2',
+ '#A52A2A',
+ '#DEB887',
+ '#5F9EA0',
+ '#7FFF00',
+ '#D2691E',
+ '#FF7F50',
+ '#6495ED',
+ '#FFF8DC',
+ '#DC143C',
+ '#00FFFF',
+ '#00008B',
+ '#008B8B',
+ '#B8860B',
+ '#A9A9A9',
+ '#A9A9A9',
+ '#006400',
+ '#BDB76B',
+ '#8B008B',
+ '#556B2F',
+ '#FF8C00',
+ '#9932CC',
+ '#8B0000',
+ '#E9967A',
+ '#8FBC8F',
+ '#483D8B',
+ '#2F4F4F',
+ '#2F4F4F',
+ '#00CED1',
+ '#9400D3',
+ '#FF1493',
+ '#00BFFF',
+ '#696969',
+ '#696969',
+ '#1E90FF',
+ '#B22222',
+ '#FFFAF0',
+ '#228B22',
+ '#FF00FF',
+ '#DCDCDC',
+ '#F8F8FF',
+ '#FFD700',
+ '#DAA520',
+ '#808080',
+ '#808080',
+ '#008000',
+ '#ADFF2F',
+ '#F0FFF0',
+ '#FF69B4',
+ '#CD5C5C',
+ '#4B0082',
+ '#FFFFF0',
+ '#F0E68C',
+ '#E6E6FA',
+ '#FFF0F5',
+ '#7CFC00',
+ '#FFFACD',
+ '#ADD8E6',
+ '#F08080',
+ '#E0FFFF',
+ '#FAFAD2',
+ '#D3D3D3',
+ '#D3D3D3',
+ '#90EE90',
+ '#FFB6C1',
+ '#FFA07A',
+ '#20B2AA',
+ '#87CEFA',
+ '#778899',
+ '#778899',
+ '#B0C4DE',
+ '#FFFFE0',
+ '#00FF00',
+ '#32CD32',
+ '#FAF0E6',
+ '#FF00FF',
+ '#800000',
+ '#66CDAA',
+ '#0000CD',
+ '#BA55D3',
+ '#9370D8',
+ '#3CB371',
+ '#7B68EE',
+ '#00FA9A',
+ '#48D1CC',
+ '#C71585',
+ '#191970',
+ '#F5FFFA',
+ '#FFE4E1',
+ '#FFE4B5',
+ '#FFDEAD',
+ '#000080',
+ '#FDF5E6',
+ '#808000',
+ '#6B8E23',
+ '#FFA500',
+ '#FF4500',
+ '#DA70D6',
+ '#EEE8AA',
+ '#98FB98',
+ '#AFEEEE',
+ '#D87093',
+ '#FFEFD5',
+ '#FFDAB9',
+ '#CD853F',
+ '#FFC0CB',
+ '#DDA0DD',
+ '#B0E0E6',
+ '#800080',
+ '#FF0000',
+ '#BC8F8F',
+ '#4169E1',
+ '#8B4513',
+ '#FA8072',
+ '#F4A460',
+ '#2E8B57',
+ '#FFF5EE',
+ '#A0522D',
+ '#C0C0C0',
+ '#87CEEB',
+ '#6A5ACD',
+ '#708090',
+ '#708090',
+ '#FFFAFA',
+ '#00FF7F',
+ '#4682B4',
+ '#D2B48C',
+ '#008080',
+ '#D8BFD8',
+ '#FF6347',
+ '#40E0D0',
+ '#EE82EE',
+ '#F5DEB3',
+ '#FFFFFF',
+ '#F5F5F5',
+ '#FFFF00',
+ '#9ACD32']
 
 class BasicChart(mpl_Axes, evt.EventSource):
 
@@ -290,14 +430,14 @@ class BasicChart(mpl_Axes, evt.EventSource):
         # hint: ctrl+control is returned after release ctrl key. 
         # It coul'd be a bug of the matplotlib.
         if not self.moving_flag and \
-            (event.key == 'control' or event.key == 'ctrl+control'):
-
+                event.guiEvent.keyval == gtk.keysyms.Control_L:
             self.set_xlock(not self.xlock)
             if event.x is not None and event.y is not None:
                 self._draw_cross(event)
 
     def _switch_ylock_action(self, event):
-        if not self.moving_flag and event.key == 'shift':
+        if not self.moving_flag and \
+                event.guiEvent.keyval == gtk.keysyms.Shift_L:
             self.set_ylock(not self.ylock)
             if event.x is not None and event.y is not None:
                 self._draw_cross(event)
@@ -549,6 +689,59 @@ class ChartWidget(gtk.VBox):
 #*******************************************************************************
 # Defined method for "standard" graphs:
 
+def histogram(names, values, title, xlabel, ylabel):
+    figure = mpl_Figure()
+    canvas = mpl_FigureCanvas(figure)
+    figure.set_canvas(canvas)
+
+    ax = figure.add_subplot(111, projection=BasicChart.name)
+
+#    xticks = []
+    lines = []
+    for i, vals in enumerate(values):
+        if not vals: return #if it's values list empty
+        times = [time for time, val in vals.items()]
+        times.sort()
+
+        new_x, new_y = [], []
+        values_len = 0
+        for time in times:
+            time_range = time // 5000
+            if time_range < values_len:
+                new_y[time_range] += vals[time]
+            else:
+                new_x.append(time)
+                new_y.append(vals[time])
+                values_len += 1
+        
+#        if len(xticks) < len(new_x):
+#            xticks = new_x
+
+        # TODO: how to add correct version of x-axis values??
+        xvals = range(0, values_len)
+        
+#            ax.bar(new_x, new_y, color=color[i % len(color)], alpha=0.6)
+        line = ax.plot(xvals, new_y, color=color_names[i%len(color_names)],
+                lw=1, label=names[i])
+        lines.append(line)
+
+#    ax.set_xticks(xticks)
+    for label in ax.xaxis.get_ticklabels():
+        label.set_fontsize(9)
+        label.set_rotation(-35)
+        label.set_horizontalalignment('left')
+
+    ax.plegend = ax.legend(loc="upper right", fancybox=True, shadow=True)
+    ax.registr_pick_legend(ax.plegend, lines)
+
+    ax.xaxis.set_major_formatter(mpl_FuncFormatter(
+        lambda time, pos: time_to_string(time)[:-7]))
+    ax.set_xlim(xmin=0)
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    return ChartWidget(figure)
+
 def time_sum_chart(names, values, title, xlabel, ylabel):
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)
@@ -624,7 +817,6 @@ def utilization_chart(names, data, colors, title, xlabel, ylabel):
 
     return ChartWidget(figure, ylock=True)
 
-
 def place_chart(names, values, title, xlabel, ylabel):
 
     figure = mpl_Figure()
@@ -681,46 +873,3 @@ def _register_new_types_charts():
     mpl_register_projection(TimeChart)
 
 _register_new_types_charts()
-
-class HistogramChart(BasicChart):
-
-    name = 'histogram_chart'
-
-    def fill_data(self, names, values, color):
-
-        lines = []
-
-        max = 4200000
-        for i, vals in enumerate(values):
-            if not vals: return #if it's values list empty
-            x = [key for key, val in vals.items()]
-#
-#            max = 0
-#            for time in x:
-#                if time > max:
-#                    max = time
-
-            #if are all values zero, doesn't make a sense to create the histogram
-#            if max == 0: return
-
-            step = max // 250 # Takovehle urcovani kroku dava celkem pekne vysledky
-            newx_size = max // step + 1
-
-            new_x = xrange(newx_size)
-            new_y = [0] * newx_size
-            for time in x:
-                range = time // step
-                new_y[range] += vals[time]
-
-#            self.bar(new_x, new_y, color=color[i % len(color)], alpha=0.6)
-            line = self.plot(new_x, new_y, color=color[i%len(color)],
-                    lw=1, label=names[i])
-            lines.append(line)
-
-        for label in self.xaxis.get_ticklabels():
-            label.set_fontsize(9)
-            label.set_rotation(-35)
-            label.set_horizontalalignment('left')
-
-        self.plegend = self.legend(loc="upper right", fancybox=True, shadow=True)
-        self.registr_pick_legend(self.plegend, lines)
