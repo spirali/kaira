@@ -74,6 +74,7 @@ class TransitionDrawing(DrawingBase):
         self.guard = item.get_guard()
         self.doubleborder = item.get_code().strip() != ""
         self.executions = None
+        self.with_values = False
 
     def draw(self, cr):
         px, py = self.position
@@ -130,6 +131,21 @@ class TransitionDrawing(DrawingBase):
                 cr.show_text(text)
         if self.trace_text:
             draw_trace_box(cr, px - sx / 2 - 5, py - sy / 2 - 5, self.trace_text)
+
+        if self.with_values:
+            cr.move_to(px + sx/2 - 20, py - sy/2)
+            cr.line_to(px + sx/2, py - sy/2)
+            cr.line_to(px + sx/2, py - sy/2 + 20)
+            cr.close_path();
+
+            cr.set_source_rgb(0, 0, 0);
+            cr.stroke_preserve();
+            cr.set_source_rgb(1, 0.5, 0.2);
+            cr.fill();
+
+            cr.move_to(px + sx/2 - 9, py - sy/2 + 11)
+            cr.set_source_rgb(0, 0, 0)
+            cr.show_text("T")
 
     def draw_top(self, cr):
         if self.error_messages and "guard" in self.error_messages:
@@ -236,7 +252,7 @@ class PlaceDrawing(DrawingBase):
             # Draw circle
             x = math.sqrt((self.radius * self.radius) / 2) + 15
             if self.new_tokens:
-                cr.set_source_rgb(0.9,0.4,0)
+                cr.set_source_rgb(0.2,0.6,0)
             else:
                 cr.set_source_rgb(0.2,0.45,0)
             cr.arc(px + self.radius,py,8, 0, 2 * math.pi)
@@ -277,10 +293,15 @@ class PlaceDrawing(DrawingBase):
                 cr.rectangle(text_x - 3, text_y + rem_height + 4, text_width + 6, tok_height)
                 cr.fill()
 
-            # Print red rectangle for new tokens
+            # Print bordered rectangle for new tokens
             if self.new_tokens:
-                cr.set_source_rgba(1,0.45,0, 0.8)
                 cr.rectangle(text_x - 3, text_y + rem_height + tok_height + 4, text_width + 6, new_height)
+                cr.set_source_rgb(0,0,0)
+                cr.set_line_width(1.5)
+                cr.stroke()
+                cr.rectangle(text_x - 3, text_y + rem_height + tok_height + 4, text_width + 6, new_height)
+                cr.set_line_width(0.5)
+                cr.set_source_rgba(0.2,0.6,0,0.5)
                 cr.fill()
 
             cr.set_source_rgb(0.0,0.0,0.0)

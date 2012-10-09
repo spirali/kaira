@@ -227,6 +227,8 @@ class NetInstanceView(gtk.HPaned):
     def on_item_click(self, item):
         if item.is_place():
             self.open_tokens_tab(item)
+        elif item.is_transition() and isinstance(self.app.window.current_tab().widget, RunView):
+            self.open_transition_tab(item)
 
     def open_tokens_tab(self, place):
         text_buffer = gtk.TextBuffer()
@@ -257,6 +259,27 @@ class NetInstanceView(gtk.HPaned):
 
         label = "Tokens of " + place.get_name()
         self.app.window.add_tab(mainwindow.Tab(label, vbox))
+
+    def open_transition_tab(self, transition):
+        values = self.get_perspective().get_transition_trace_values(transition)
+        if values:
+            text_buffer = gtk.TextBuffer()
+            text_buffer.insert(text_buffer.get_end_iter(), "\n".join(map(str, values)))
+            text_area = gtk.TextView()
+            text_area.set_buffer(text_buffer)
+            text_area.set_editable(False)
+
+            sw = gtk.ScrolledWindow()
+            sw.add(text_area)
+            vbox = gtk.VBox()
+            vbox.pack_start(sw)
+            vbox.show_all()
+
+            if transition.get_name() == "":
+                label = "Traced values in T" + str(transition.get_id())
+            else:
+                label = "Traced values in " + transition.get_name()
+            self.app.window.add_tab(mainwindow.Tab(label, vbox))
 
 
 def time_to_string(nanosec):

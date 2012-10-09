@@ -70,8 +70,7 @@ class RunInstance:
         self.last_event_thread = thread_id
         index = process_id * self.threads_count + thread_id
         if self.last_event_activity is not None:
-            self.last_event_activity = \
-                TransitionQuit(time, process_id, thread_id, self.last_event_activity.transition)
+            self.last_event_activity.quit = True
         self.last_event_instance = self.net_instances[process_id]
 
     def event_send(self, process_id, thread_id, time, msg_id):
@@ -96,7 +95,7 @@ class RunInstance:
         self.last_event_instance = self.net_instances[process_id]
         transition = self.net.item_by_id(transition_id)
         self.last_event_activity = \
-            TransitionExecution(time, process_id, thread_id, transition)
+            TransitionExecution(time, process_id, thread_id, transition, values)
         for place in transition.get_packing_input_places():
             self.last_event_instance.remove_all_tokens(place.id)
         if transition.has_code():
@@ -143,14 +142,12 @@ class ThreadActivity:
 
 class TransitionExecution(ThreadActivity):
 
-    def __init__(self, time, process_id, thread_id, transition):
+    def __init__(self, time, process_id, thread_id, transition, values):
         ThreadActivity.__init__(self, time, process_id, thread_id)
         self.transition = transition
+        self.values = values
+        self.quit = False
 
-class TransitionQuit(ThreadActivity):
-    def __init__(self, time, process_id, thread_id, transition):
-        ThreadActivity.__init__(self, time, process_id, thread_id)
-        self.transition = transition
 
 class NetInstance:
 
@@ -169,6 +166,8 @@ class NetInstance:
         if lst is None:
             lst = []
             self.new_tokens[place_id] = lst
+        if len(token_value) == 1:
+            token_value = token_value[0]
         lst.append((token_pointer, token_value, send_time))
 
     def clear_removed_and_new_tokens(self):
@@ -216,6 +215,7 @@ class NetInstanceVisualConfig(VisualConfig):
 
     def __init__(self,
                  transition_executions,
+                 transitions_with_values,
                  enabled_transitions,
                  tokens,
                  new_tokens,
@@ -226,6 +226,7 @@ class NetInstanceVisualConfig(VisualConfig):
         self.new_tokens = new_tokens
         self.removed_tokens = remove_tokens
         self.enabled_transitions = enabled_transitions
+        self.transitions_with_values = transitions_with_values
 
     def transition_drawing(self, item):
         drawing = VisualConfig.transition_drawing(self, item)
@@ -233,6 +234,8 @@ class NetInstanceVisualConfig(VisualConfig):
         drawing.executions = executions
         if item.id in self.enabled_transitions:
             drawing.highlight = (0, 1, 0)
+        if item.id in self.transitions_with_values:
+            drawing.with_values = True
         return drawing
 
     def place_drawing(self, item):
@@ -288,6 +291,22 @@ class Perspective(utils.EqMixin):
                     tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
         return tokens
 
+    def get_transition_trace_values(self, transition):
+        if self.runinstance.net is None:
+            return None
+
+        values = []
+        runinstance = self.runinstance
+        for i in range(runinstance.threads_count * runinstance.process_count):
+            activity = runinstance.activites[i]
+            if isinstance(activity, TransitionExecution) \
+                and activity.transition.id == transition.id:
+                    run_on = "{0}/{1} --> ".format(i // runinstance.threads_count,
+                                                   i % runinstance.threads_count)
+                    values.append(run_on + "; ".join(map(str, activity.values)) + ";")
+
+        return values
+
     def get_visual_config(self):
         if self.runinstance.net is None:
             return VisualConfig()
@@ -296,17 +315,23 @@ class Perspective(utils.EqMixin):
             activies_by_transitions[tr.id] = []
 
         runinstance = self.runinstance
+        transitions_with_values = []
         for i in range(runinstance.threads_count * runinstance.process_count):
             activity = runinstance.activites[i]
-            if isinstance(activity, TransitionExecution) \
-                and activity.transition.id in activies_by_transitions:
+            if isinstance(activity, TransitionExecution):
+                if activity.transition.id in activies_by_transitions:
+                    if isinstance(runinstance.last_event_activity, TransitionExecution) \
+                        and runinstance.last_event_activity.quit:
 
-                if activity != runinstance.last_event_activity:
-                    if isinstance(runinstance.last_event_activity, TransitionQuit):
                         color = (0.5, 0.5, 0.5, 0.8)
-                    else:
+                        activies_by_transitions[activity.transition.id].append((activity, color))
+
+                    if activity != runinstance.last_event_activity:
                         color = (1.0, 1.0, 0, 0.8)
-                    activies_by_transitions[activity.transition.id].append((activity, color))
+                        activies_by_transitions[activity.transition.id].append((activity, color))
+
+                if activity.values:
+                    transitions_with_values.append(activity.transition.id)
 
         if (runinstance.last_event == "fired" or runinstance.last_event == "finish") \
             and runinstance.last_event_activity.transition.id \
@@ -339,4 +364,9 @@ class Perspective(utils.EqMixin):
                           for net_instance in self.net_instances.values()
                           if net_instance.enabled_transitions is not None ])
 
-        return NetInstanceVisualConfig(transition_executions, enabled, tokens, new_tokens, removed_tokens)
+        return NetInstanceVisualConfig(transition_executions,
+                                       transitions_with_values,
+                                       enabled,
+                                       tokens,
+                                       new_tokens,
+                                       removed_tokens)
