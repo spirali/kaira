@@ -227,7 +227,7 @@ class NetInstanceView(gtk.HPaned):
     def on_item_click(self, item):
         if item.is_place():
             self.open_tokens_tab(item)
-        elif item.is_transition() and isinstance(self.app.window.current_tab().widget, RunView):
+        elif item.is_transition():
             self.open_transition_tab(item)
 
     def open_tokens_tab(self, place):

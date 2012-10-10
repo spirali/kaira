@@ -73,7 +73,6 @@ class RunInstance:
         self.last_event = "quit"
         self.last_event_process = process_id
         self.last_event_thread = thread_id
-        index = process_id * self.threads_count + thread_id
         if self.last_event_activity is not None:
             self.last_event_activity.quit = True
         self.last_event_instance = self.net_instances[process_id]
@@ -104,7 +103,8 @@ class RunInstance:
         for place in transition.get_packing_input_places():
             self.last_event_instance.remove_all_tokens(place.id)
         if transition.has_code():
-            self.activites[process_id * self.threads_count + thread_id] = self.last_event_activity
+            index = process_id * self.threads_count + thread_id
+            self.activites[index] = self.last_event_activity
 
     def transition_finished(self, process_id, thread_id, time):
         self.last_event = "finish"
@@ -281,9 +281,10 @@ class Perspective(utils.EqMixin):
             if t is not None:
                 for token_pointer, token_value, token_time in t:
                     if token_time:
-                        tokens.append("{0}@{1} --> {2}".format(token_value,
-                                                               net_instance.process_id,
-                                                               runview.time_to_string(token_time, seconds=True)))
+                        tokens.append("{0}@{1} --> {2}".format(
+                            token_value,
+                            net_instance.process_id,
+                            runview.time_to_string(token_time, seconds=True)))
                     else:
                         tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
         return tokens
