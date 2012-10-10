@@ -315,6 +315,16 @@ class App:
             self.console_write("Cannot open function '{0}'\n".format(function.get_name()), "error")
             self.console_write(str(e) + "\n", "error")
 
+    def catch_ptp_exception(self, fn, show_errors=True):
+        try:
+            return (True, fn())
+        except ptp.PtpException, e:
+            if show_errors:
+                error_messages = {}
+                self._process_error_line(str(e), error_messages)
+                self.project.set_error_messages(error_messages)
+            return (False, None)
+
     def project_config(self):
         if self.window.switch_to_tab_by_key("project-config"):
             return
