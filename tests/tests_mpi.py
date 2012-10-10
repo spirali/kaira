@@ -3,7 +3,7 @@
 from testutils import Project
 import unittest
 
-class BuildTest(unittest.TestCase):
+class MpiBuildTest(unittest.TestCase):
 
     def test_libhelloworld(self):
         result = "40 10 Hello world\n80 10 Hello world\n"\

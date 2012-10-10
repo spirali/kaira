@@ -14,7 +14,7 @@ class OctaveProject(Project):
         self.build()
         self.run_test_m(expected_output)
 
-class BuildTest(unittest.TestCase):
+class OctaveBuildTest(unittest.TestCase):
 
     def test_octave(self):
         OctaveProject("octave").quick_test_octave(

@@ -109,7 +109,9 @@ class Project:
 
     def fail_ptp(self, output):
         self.export()
-        RunProgram(PTP_BIN, [ self.get_xml_filename(), "--build", self.get_directory() ]).fail(output)
+        RunProgram(PTP_BIN, [ self.get_xml_filename(),
+                              "--build",
+                              self.get_directory() ]).fail(output)
 
     def failed_make(self, output, args = []):
         self.export()
@@ -208,7 +210,9 @@ class Project:
         else:
             real_program = executable
 
-        self.server = subprocess.Popen([real_program] + run_args, cwd=self.get_server_directory(), env=env)
+        self.server = subprocess.Popen([real_program] + run_args,
+                                       cwd=self.get_server_directory(),
+                                       env=env)
         time.sleep(0.2) # Let's give some time to server to open socket
 
     def stop_server(self):
