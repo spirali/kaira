@@ -203,6 +203,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
         self.original_view_dim = None
         # legend
         self.plegend = None
+        self.mouse_on_legend = False
 
         # locking axes
         self.xlock = False
@@ -237,7 +238,10 @@ class BasicChart(mpl_Axes, evt.EventSource):
         fig.canvas.mpl_connect("key_release_event", self._switch_xlock_action)
         fig.canvas.mpl_connect("key_press_event", self._switch_ylock_action)
         fig.canvas.mpl_connect("key_release_event", self._switch_ylock_action)
+        # register event which stop is drawing cross if it's cursorn over legend
+        fig.canvas.mpl_connect("motion_notify_event", self._mouse_over_legend)
 
+    
     def __convertAxesToData(self, x, y):
         xdisplay, ydisplay = self.transAxes.transform((x,y))
         return self.transData.inverted().transform((xdisplay, ydisplay))
@@ -254,7 +258,8 @@ class BasicChart(mpl_Axes, evt.EventSource):
             self.xypress = None
 
     def _draw_cross(self, event, select_bg=None):
-        if self.xypress is None or select_bg is not None:
+        if not self.mouse_on_legend and \
+                (self.xypress is None or select_bg is not None):
             if self.cross_bg is None:
                 self.cross_bg = self.figure.canvas.copy_from_bbox(self.bbox)
 
@@ -314,7 +319,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
                     self.cross_bg = None
     
     def _draw_rectangle(self, event):
-        if not self.moving_flag and \
+        if not self.moving_flag and not self.mouse_on_legend and \
             self.xypress is not None and self.in_axes(event):
 
             x_start, y_start = self.xypress
@@ -446,6 +451,21 @@ class BasicChart(mpl_Axes, evt.EventSource):
         if event.key == 'm':
             self.set_moving_flag(not self.moving_flag)
 
+    def _mouse_over_legend(self, event):
+        if self.plegend is not None and self.plegend.get_visible():
+            bbox = self.plegend.get_frame()
+            x, y = bbox.get_x(), bbox.get_y()
+            width, height = bbox.get_width(), bbox.get_height()
+            if event.x >= x and event.x <= x + width and \
+                    event.y >= y and event.y <= y + height:
+                if self.cross_bg is not None:
+                    self.figure.canvas.restore_region(self.cross_bg)
+                    self.figure.canvas.blit(self.bbox)
+
+                self.mouse_on_legend = True
+            else:
+                self.mouse_on_legend = False
+
     def set_xlock(self, lock):
         self.xlock = lock
         self.emit_event("xlock_changed", lock)
@@ -463,7 +483,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
             self.plegend.set_visible(not(hide))
             self.figure.canvas.draw_idle()
 
-    def registr_pick_legend(self, legend, lines):
+    def register_pick_legend(self, legend, lines):
         lined = dict()
         for legline, originale in zip(legend.get_lines(), lines):
             legline.set_picker(5)
@@ -689,6 +709,24 @@ class ChartWidget(gtk.VBox):
 #*******************************************************************************
 # Defined method for "standard" graphs:
 
+def __register_histogram_pick_legend(ax, legend, lines): 
+    lined = dict()
+    for legline, originale in zip(legend.get_lines(), lines):
+        legline.set_picker(5)
+        lined[legline] = originale
+
+    def on_pick(event):
+        legline = event.artist
+        for [orig], x, y, color in lines:
+            vis = not orig.get_visible()
+            orig.set_visible(vis)
+        (orig, xvals, yvals, color) = lined[legline]
+        
+        ax.bar(xvals, yvals, color=color, alpha=0.6)
+        ax.figure.canvas.draw_idle()
+
+    ax.figure.canvas.mpl_connect('pick_event', on_pick)
+
 def histogram(names, values, title, xlabel, ylabel):
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)
@@ -696,7 +734,6 @@ def histogram(names, values, title, xlabel, ylabel):
 
     ax = figure.add_subplot(111, projection=BasicChart.name)
 
-#    xticks = []
     lines = []
     for i, vals in enumerate(values):
         if not vals: return #if it's values list empty
@@ -714,16 +751,13 @@ def histogram(names, values, title, xlabel, ylabel):
                 new_y.append(vals[time])
                 values_len += 1
         
-#        if len(xticks) < len(new_x):
-#            xticks = new_x
-
         # TODO: how to add correct version of x-axis values??
         xvals = range(0, values_len)
         
-#            ax.bar(new_x, new_y, color=color[i % len(color)], alpha=0.6)
+
         line = ax.plot(xvals, new_y, color=color_names[i%len(color_names)],
                 lw=1, label=names[i])
-        lines.append(line)
+        lines.append((line, xvals, new_y, color_names[i%len(color_names)]))
 
 #    ax.set_xticks(xticks)
     for label in ax.xaxis.get_ticklabels():
@@ -732,7 +766,8 @@ def histogram(names, values, title, xlabel, ylabel):
         label.set_horizontalalignment('left')
 
     ax.plegend = ax.legend(loc="upper right", fancybox=True, shadow=True)
-    ax.registr_pick_legend(ax.plegend, lines)
+#    ax.register_pick_legend(ax.plegend, lines)
+    __register_histogram_pick_legend(ax, ax.plegend, lines)
 
     ax.xaxis.set_major_formatter(mpl_FuncFormatter(
         lambda time, pos: time_to_string(time)[:-7]))
@@ -844,7 +879,7 @@ def place_chart(names, values, title, xlabel, ylabel):
 
     # set legend
     ax.plegend = ax.legend(loc="upper left", fancybox=True, shadow=True)
-    ax.registr_pick_legend(ax.plegend, lines)
+    ax.register_pick_legend(ax.plegend, lines)
     ax.xaxis.set_major_formatter(mpl_FuncFormatter(
         lambda time, pos: time_to_string(time)[:-7]))
 
