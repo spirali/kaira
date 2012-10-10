@@ -233,7 +233,7 @@ class NetInstanceView(gtk.HPaned):
     def open_tokens_tab(self, place):
         text_buffer = gtk.TextBuffer()
         t = self.get_perspective().get_removed_tokens(place)
-        removed_tokens = "\n".join("consumed - " + token for token in map(str, t))
+        removed_tokens = "\n".join("consumed: " + token for token in map(str, t))
         tokens = "\n".join(map(str, self.get_perspective().get_tokens(place)))
         new_tokens = "\n".join(map(str, self.get_perspective().get_new_tokens(place)))
 
@@ -242,11 +242,11 @@ class NetInstanceView(gtk.HPaned):
         if tokens != "" and new_tokens != "":
             tokens = tokens + "\n"
 
-        tag_italic = text_buffer.create_tag('italic', font="Italic")
-        tag_bold = text_buffer.create_tag('bold', font="Bold")
-        text_buffer.insert_with_tags(text_buffer.get_end_iter(), removed_tokens, tag_italic)
+        tag_removed = text_buffer.create_tag('removed', font="Italic")
+        tag_new = text_buffer.create_tag('new', font="Bold")
+        text_buffer.insert_with_tags(text_buffer.get_end_iter(), removed_tokens, tag_removed)
         text_buffer.insert(text_buffer.get_end_iter(), tokens)
-        text_buffer.insert_with_tags(text_buffer.get_end_iter(), new_tokens, tag_bold)
+        text_buffer.insert_with_tags(text_buffer.get_end_iter(), new_tokens, tag_new)
         text_area = gtk.TextView()
         text_area.set_buffer(text_buffer)
         text_area.set_editable(False)
@@ -282,9 +282,11 @@ class NetInstanceView(gtk.HPaned):
             self.app.window.add_tab(mainwindow.Tab(label, vbox))
 
 
-def time_to_string(nanosec):
+def time_to_string(nanosec, seconds=False):
     s = nanosec / 1000000000
     nsec = nanosec % 1000000000
+    if seconds:
+        return "{0:0>2}:{1:0>9}".format(s, nsec)
     sec = s % 60
     minutes = (s / 60) % 60
     hours = s / 60 / 60

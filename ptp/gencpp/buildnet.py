@@ -80,7 +80,7 @@ def write_activation(builder, net, transitions):
     for tr in transitions:
         builder.line("{0}->activate_transition_by_pos_id({1});", net, tr.get_pos_id())
 
-def write_send_token(builder, em, edge, trace, locking = True, interface_edge = False):
+def write_send_token(builder, em, edge, trace_send, locking=True, interface_edge=False):
 
     def write_lock():
         if not locking:
@@ -144,10 +144,11 @@ def write_send_token(builder, em, edge, trace, locking = True, interface_edge = 
         builder.line("{0} value = {1};",
                      builder.emit_type(edge.expr.nel_type), edge.expr.emit(em))
         
-        if trace:
+        if trace_send:
             builder.if_begin("tracelog")
             builder.line("tracelog->event_send_msg(thread->get_new_msg_id());")
             builder.block_end()
+
         if edge.is_normal(): # Pack normal edge
             builder.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, CA_RESERVED_PREFIX);")
             builder.line("{0};", build.get_pack_code(builder.project, t, "packer", "value"))
@@ -244,10 +245,7 @@ def write_enable(builder, tr):
         w.line("bool lock = true;")
 
     for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
-        if tr.need_trace():
-            write_send_token(w, em, edge, True)
-        else:
-            write_send_token(w, em, edge, False)
+        write_send_token(w, em, edge, trace_send=tr.need_trace())
 
     w.line("if (lock) n->unlock();")
 

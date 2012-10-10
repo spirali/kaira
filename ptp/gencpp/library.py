@@ -97,7 +97,10 @@ def write_library_function(builder, net):
     em = emitter.Emitter(builder.project)
     em.variable_emitter = lambda name: "___" + name
     for e in net.interface_edges_out:
-        buildnet.write_send_token(builder, em, e, trace = False, locking = False, interface_edge = True)
+        buildnet.write_send_token(builder, em, e,
+                                  trace_send=False,
+                                  locking=False,
+                                  interface_edge=True)
 
     builder.line("n->set_manual_delete();")
     builder.line("ca_main();")

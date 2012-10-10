@@ -196,7 +196,7 @@ class Trace:
     def process_event(self, runinstance):
         t = self.data[self.pointer]
         self.pointer += 1
-        runinstance.clear_removed_and_new_tokens()
+        runinstance.pre_event()
         if t == "T":
             self._process_event_transition_fired(runinstance)
         elif t == "F":
@@ -261,52 +261,6 @@ class Trace:
             else:
                 break
 
-    """
-        Read transition's trace function's data and
-        after this BACK tracelog pointer to inicial position.
-        This is necessary for correct loading of tracelog!!
-    """
-    def get_transition_trace_function_data(self):
-        values = []
-        pointer = self.pointer
-        while not self.is_pointer_at_end():
-            t = self.data[self.pointer]
-            if t == "r":
-                self.pointer += 1
-                self._read_struct_token()
-            elif t == "i":
-                self.pointer += 1
-                value = self._read_struct_int()
-                values.append(value)
-            elif t == "d":
-                self.pointer += 1
-                value = self._read_struct_double()
-                values.append(value)
-            elif t == "s":
-                self.pointer += 1
-                value = self._read_cstring()
-                values.append(value)
-            else:
-                break
-        self.pointer = pointer
-        return values
-
-    """ Skip already loaded data from tracelog """
-    def skip_transition_trace_function_data(self):
-        while not self.is_pointer_at_end():
-            t = self.data[self.pointer]
-            if t == "i":
-                self.pointer += 1
-                self._read_struct_int()
-            elif t == "d":
-                self.pointer += 1
-                self._read_struct_double()
-            elif t == "s":
-                self.pointer += 1
-                self._read_cstring()
-            else:
-                break
-
     def get_next_event_time(self):
         if self.is_pointer_at_end():
             return None
@@ -356,10 +310,13 @@ class Trace:
 
     def _process_event_transition_fired(self, runinstance):
         time, transition_id = self._read_struct_transition_fired()
-        values = self.get_transition_trace_function_data()
+        pointer1 = self.pointer
+        values = self._read_transition_trace_function_data()
+        pointer2 = self.pointer
+        self.pointer = pointer1
         runinstance.transition_fired(self.process_id, self.thread_id, time, transition_id, values)
         self.process_tokens_remove(runinstance)
-        self.skip_transition_trace_function_data()
+        self.pointer = pointer2
         self.process_tokens_add(runinstance)
 
     def _process_event_transition_finished(self, runinstance):
@@ -407,6 +364,29 @@ class Trace:
         s = self.data[start:self.pointer]
         self.pointer += 1
         return s
+
+    def _read_transition_trace_function_data(self):
+        values = []
+        while not self.is_pointer_at_end():
+            t = self.data[self.pointer]
+            if t == "r":
+                self.pointer += 1
+                self._read_struct_token()
+            elif t == "i":
+                self.pointer += 1
+                value = self._read_struct_int()
+                values.append(value)
+            elif t == "d":
+                self.pointer += 1
+                value = self._read_struct_double()
+                values.append(value)
+            elif t == "s":
+                self.pointer += 1
+                value = self._read_cstring()
+                values.append(value)
+            else:
+                break
+        return values
 
 
 class EventPointer:
@@ -500,9 +480,6 @@ class DataCollectingRunInstance(RunInstance):
         net_instance = self.last_event_instance
         self.change_tokens_data(net_instance.process_id,
                                 place_id, self.last_time, -1)
-
-    def clear_removed_and_new_tokens(self):
-        RunInstance.clear_removed_and_new_tokens(self)
 
     def get_transitions_utilization(self):
         names = []

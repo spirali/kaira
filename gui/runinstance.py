@@ -20,6 +20,7 @@
 import utils
 from copy import copy
 from drawing import VisualConfig
+import runview
 
 class RunInstance:
 
@@ -52,6 +53,10 @@ class RunInstance:
         index = process_id * self.threads_count + thread_id
         self.activites[index] = activity
         self.last_event_activity = activity
+
+    def pre_event(self):
+        """ This method is called by tracelog before each event_* """
+        self.clear_removed_and_new_tokens()
 
     def event_spawn(self, process_id, thread_id, time, net_id):
         self.net = self.project.find_net(net_id)
@@ -171,14 +176,21 @@ class NetInstance:
         lst.append((token_pointer, token_value, send_time))
 
     def clear_removed_and_new_tokens(self):
-        for place_id in self.new_tokens:
-            lst = self.tokens.get(place_id)
-            if lst is None:
-                lst = []
-                self.tokens[place_id] = lst
-            lst += self.new_tokens.get(place_id)
-        self.new_tokens = {}
-        self.removed_tokens = {}
+        """
+            'new_tokens' are moved into regular list of tokens and
+            'removed_tokens' tokens are emptied
+        """
+        if self.new_tokens:
+            for place_id in self.new_tokens:
+                lst = self.tokens.get(place_id)
+                if lst is None:
+                    lst = []
+                    self.tokens[place_id] = lst
+                lst += self.new_tokens.get(place_id)
+            self.new_tokens = {}
+
+        if self.removed_tokens:
+            self.removed_tokens = {}
 
     def remove_token(self, place_id, token_pointer):
         lst = self.tokens.get(place_id)
@@ -269,18 +281,12 @@ class Perspective(utils.EqMixin):
             if t is not None:
                 for token_pointer, token_value, token_time in t:
                     if token_time:
-                        tokens.append("{0}@{1}-->{2}".format(token_value,
-                                                             net_instance.process_id,
-                                                             self.parse_time(token_time)))
+                        tokens.append("{0}@{1} --> {2}".format(token_value,
+                                                               net_instance.process_id,
+                                                               runview.time_to_string(token_time, seconds=True)))
                     else:
                         tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
         return tokens
-
-    def parse_time(self, time):
-        s = time / 1000000000
-        nsec = time % 1000000000
-        sec = s % 60
-        return "{0:0>2}:{1:0>9}".format(sec, nsec)
 
     def get_removed_tokens(self, place):
         tokens = []
