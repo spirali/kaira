@@ -112,6 +112,19 @@ class TraceLog:
             trace = Trace(f.read(), process_id, thread_id, self.pointer_size)
             self.traces[process_id * self.threads_count + thread_id] = trace
 
+    def  get_index_from_time(self,  time):
+        last  =  len(self.timeline)  -  1
+        first  =  0
+        while  1:
+            if  last  <  first:
+                return last
+            i  =  (last  +  first)  /  2
+            t = self.get_event_time(i)
+            if time  >  t:
+                first  =  i  +  1
+            elif  time  <  t:
+                last  =  i  -  1
+
     def _preprocess(self):
         timeline = []
         trace_times = [ trace.get_next_event_time() for trace in self.traces ]
@@ -141,15 +154,49 @@ class TraceLog:
         self.timeline = timeline
         transition_names, transition_values = ri.get_transitions_utilization()
         tokens_names, tokens_values = ri.get_tokens_counts()
+        tr_tsum_names, tr_tsum_values = ri.get_transitions_time_sum()
+        proc_tsum_names, proc_tsum_values = self._make_processes_time_sum(ri.threads_data)
+        proc_hist_names, proc_hist_values = self._make_processes_his(ri.threads_data)
         self.statistics = {
             "threads" : ri.threads_data,
             "transition_names" : transition_names,
             "transition_values" : transition_values,
             "tokens_names" : tokens_names,
             "tokens_values" : tokens_values,
-
+            "proc_hist_names" : proc_hist_names,
+            "proc_hist_values" : proc_hist_values,
+            "proc_tsum_names" : proc_tsum_names,
+            "proc_tsum_values" : proc_tsum_values,
+            "tr_tsum_names" : tr_tsum_names,
+            "tr_tsum_values" : tr_tsum_values
         }
 
+    def _make_processes_his(self, data):
+        proc_names =  ["process {0}".format(p) for p in xrange(self.process_count)]
+        names = []
+        values = []
+
+        for name, [process] in zip(proc_names, data):
+            hist = dict()
+            for i, times in enumerate(process):
+                t = times[1] - times[0]
+                if t in hist:
+                    hist[t] += 1
+                else:
+                    hist[t] = 1
+            values.append(hist)
+            names.append("Histogram: {0}".format(name))
+        return names, values
+
+    def _make_processes_time_sum(self, data):
+        names =  ["process {0}".format(p) for p in xrange(self.process_count)]
+        values = []
+        for [process] in data:
+            sum = 0
+            for i, times in enumerate(process):
+                sum += (times[1] - times[0])
+            values.append(sum)
+        return names, values
 
 class Trace:
 
@@ -403,10 +450,9 @@ class DataCollectingRunInstance(RunInstance):
 
     def __init__(self, project, process_count, threads_count):
         RunInstance.__init__(self, project, process_count, threads_count)
-        begin = (0, None)
-        self.threads_data = [ [ [ begin ] for t in xrange(self.threads_count) ]
+        self.threads_data = [ [ [] for t in xrange(self.threads_count) ]
                               for p in xrange(self.process_count) ]
-        self.transitions_data = {} # [process_id][transition_id] -> [ (time, color) ]
+        self.transitions_data = {} # [process_id][transition_id] -> [ (start_time, end_time) ]
         self.tokens_data = {} # [process_id][place_id] -> int
         self.group_nets = {}
         self.last_time = 0
@@ -438,19 +484,16 @@ class DataCollectingRunInstance(RunInstance):
     def transition_fired(self, process_id, thread_id, time, transition_id, values):
         RunInstance.transition_fired(self, process_id, thread_id, time, transition_id, values)
         self.last_time = time
-        if self.last_event_activity.transition.has_code():
-            value = (time, 0)
-            self.threads_data[process_id][thread_id].append(value)
-            self.add_transition_data(process_id, transition_id, value)
 
     def transition_finished(self, process_id, thread_id, time):
+        time_start = self.activites[process_id * self.threads_count + thread_id].time
         RunInstance.transition_finished(self, process_id, thread_id, time)
         self.last_time = time
         activity = self.last_event_activity
         if activity.transition.has_code():
-            value = (time, None)
+            value = (time_start, time)
             self.threads_data[activity.process_id][activity.thread_id].append(value)
-            self.transitions_data[process_id][activity.transition.id].append(value)
+            self.add_transition_data(process_id, activity.transition.id, value)
 
     def event_spawn(self, process_id, thread_id, time, net_id):
         RunInstance.event_spawn(self, process_id, thread_id, time, net_id)
@@ -505,4 +548,20 @@ class DataCollectingRunInstance(RunInstance):
                     place_id,
                     process_id))
                 values.append(lst)
+        return names, values
+
+    def get_transitions_time_sum(self):
+        names = []
+        values = []
+        for process_id, p in self.transitions_data.items():
+            for transition_id, lst in p.items():
+                net, item = self.project.get_net_and_item(transition_id)
+                names.append("{0.name}({0.id}) {1.name}@{2}".format(
+                    net,
+                    item,
+                    process_id))
+                sum = 0
+                for times in lst:
+                    sum += (times[1] - times[0])
+                values.append(sum)
         return names, values

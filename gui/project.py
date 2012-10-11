@@ -74,7 +74,6 @@ class Project(EventSource):
         build_config.tracing = False
         build_config.nets = self.nets
         self.generator = ptp.get_generator_from_xml(self.export_xml(build_config))
-        print self.generator
         return self.generator
 
     def get_suitable_functions_for_place_tracing(self, place):

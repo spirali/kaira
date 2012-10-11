@@ -285,7 +285,7 @@ class Perspective(utils.EqMixin):
                         tokens.append("{0}@{1} --> {2}".format(
                             token_value,
                             net_instance.process_id,
-                            runview.time_to_string(token_time, seconds=True)))
+                            utils.time_to_string(token_time, seconds=True)))
                     else:
                         tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
         return tokens
