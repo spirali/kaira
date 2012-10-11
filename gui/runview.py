@@ -22,13 +22,12 @@ import gtkutils
 import mainwindow
 import events as evt
 from canvas import NetCanvas
-from chart import color_names
-import chart
-import newcharts
-from newcharts import ChartWidget
+import charts
+from charts import ChartWidget
 from matplotlib.ticker import FuncFormatter
 import matplotlib
 import utils
+
 
 class RunView(gtk.VBox):
 
@@ -105,7 +104,7 @@ class RunView(gtk.VBox):
         for name, item in self.views:
             if name == text:
                 item.show_all()
-                if isinstance(item, ChartWidget):
+                if isinstance(item, charts.ChartWidget):
                     # set focus on graph canvas
                     item.get_figure().canvas.grab_focus()
             else:
@@ -132,18 +131,6 @@ class RunView(gtk.VBox):
             time)
         self.info_label.set_markup(text)
 
-    def _utilization_chart(self, values, names, colors, legend):
-        sc = gtk.ScrolledWindow()
-        sc.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
-        maxtime = self.tracelog.get_max_time()
-        c = chart.UtilizationChart(values, names, legend, colors, (0, maxtime))
-        c.xlabel_format = lambda x: utils.time_to_string(x)[:-7]
-        w = chart.ChartWidget(c)
-        w.set_size_request(*c.get_size_request())
-        w.show_all()
-        sc.add_with_viewport(w)
-        return sc
-
     def _processes_utilization(self):
         colors = ["#00aa00"]
         values = self.tracelog.statistics["threads"]
@@ -159,7 +146,7 @@ class RunView(gtk.VBox):
                 l.append((times[0], times[1] - times[0]))
             lines.append(l)
 
-        return newcharts.utilization_chart(
+        return charts.utilization_chart(
                    names,
                    lines,
                    colors,
@@ -180,18 +167,18 @@ class RunView(gtk.VBox):
                 l.append((times[0], times[1] - times[0]))
             lines.append(l)
 
-        return newcharts.utilization_chart(
-                names,
-                lines,
-                colors,
-                "The running time of each transitions",
-                "Time",
-                "Transition")
+        return charts.utilization_chart(
+                   names,
+                   lines,
+                   colors,
+                   "The running time of each transitions",
+                   "Time",
+                   "Transition")
 
     def _place_chart(self):
         values = self.tracelog.statistics["tokens_values"]
         names = self.tracelog.statistics["tokens_names"]
-        return newcharts.place_chart(
+        return charts.place_chart(
                 names,
                 values,
                 "Cout of tokens in places in time",
@@ -201,7 +188,7 @@ class RunView(gtk.VBox):
     def _processes_histogram(self):
         names = self.tracelog.statistics["proc_hist_names"]
         values = self.tracelog.statistics["proc_hist_values"]
-        return newcharts.histogram(
+        return charts.histogram(
                 names,
                 values,
                 "Histogram of spent time",
@@ -212,7 +199,7 @@ class RunView(gtk.VBox):
     def _transitions_time_sum(self):
         values = self.tracelog.statistics["tr_tsum_values"]
         names = self.tracelog.statistics["tr_tsum_names"]
-        return newcharts.time_sum_chart(
+        return charts.time_sum_chart(
                 names,
                 values,
                 "Sum times of each transitions",
@@ -222,7 +209,7 @@ class RunView(gtk.VBox):
     def _processes_time_sum(self):
         values = self.tracelog.statistics["proc_tsum_values"]
         names = self.tracelog.statistics["proc_tsum_names"]
-        return newcharts.time_sum_chart(
+        return charts.time_sum_chart(
                 names,
                 values,
                 "Sum times of each processes",
