@@ -95,6 +95,9 @@ void CaThread::join()
 
 void CaThread::quit_all()
 {
+	if (get_tracelog()) {
+		get_tracelog()->event_net_quit();
+	}
 	process->quit_all(this);
 }
 
