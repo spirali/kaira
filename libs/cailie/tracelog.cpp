@@ -53,7 +53,7 @@ void CaTraceLog::write_time()
 		exit(-1);
 	}
 
-	uint64_t t = (time.tv_sec - initial_time.tv_sec) * 1000000000;
+	uint64_t t = ((uint64_t) (time.tv_sec - initial_time.tv_sec)) * 1000000000;
 	t += time.tv_nsec - initial_time.tv_nsec;
 	write_uint64(t);
 }
