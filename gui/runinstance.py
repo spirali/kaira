@@ -75,7 +75,10 @@ class RunInstance:
         self.last_event_thread = thread_id
         index = process_id * self.threads_count + thread_id
         self.last_event_activity = self.activites[index]
-        self.last_event_activity.quit = True
+        if self.last_event_activity is not None:
+            # None can occur when we are logging
+            # "quit" but not transition fire
+            self.last_event_activity.quit = True
         self.last_event_instance = self.net_instances[process_id]
 
     def event_send(self, process_id, thread_id, time, msg_id):
