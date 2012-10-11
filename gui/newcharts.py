@@ -21,6 +21,7 @@
 import gtk
 import os
 import paths
+import utils
 import events as evt
 import numpy as np
 from matplotlib.axes        import Axes as mpl_Axes
@@ -178,16 +179,17 @@ class BasicChart(mpl_Axes, evt.EventSource):
 
     name = 'basic_chart'
 
-    def __init__(self, fig, rec,
-                 axisbg  = None, # defaults to rc axes.facecolor
-                 frameon = True,
-                 sharex  = None,
-                 sharey  = None,
-                 label   = "",
-                 xscale  = None,
-                 yscale  = None,
-                 **kwargs
-                 ):
+    def __init__(self,
+                 fig,
+                 rec,
+                 axisbg=None, # defaults to rc axes.facecolor
+                 frameon=True,
+                 sharex=None,
+                 sharey=None,
+                 label="",
+                 xscale=None,
+                 yscale=None,
+                 **kwargs):
 
         mpl_Axes.__init__(self, fig, rec, axisbg, frameon,
                 sharex, sharey, label, xscale, yscale, **kwargs)
@@ -199,7 +201,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
         self.zoom_stack = []
         self.zoom_rect = None
         # move properties
-        self.xypress = None 
+        self.xypress = None
         self.original_view_dim = None
         # legend
         self.plegend = None
@@ -241,14 +243,13 @@ class BasicChart(mpl_Axes, evt.EventSource):
         # register event which stop is drawing cross if it's cursorn over legend
         fig.canvas.mpl_connect("motion_notify_event", self._mouse_over_legend)
 
-    
-    def __convertAxesToData(self, x, y):
+    def __convert_axes_to_data(self, x, y):
         xdisplay, ydisplay = self.transAxes.transform((x,y))
         return self.transData.inverted().transform((xdisplay, ydisplay))
 
     def _update_background(self, event):
         self.cross_bg = self.figure.canvas.copy_from_bbox(self.bbox)
- 
+
     def _drag_point(self, event):
         if event.button == 1:
             self.xypress = (event.x, event.y)
@@ -272,7 +273,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
                 inv = self.transAxes.inverted()
                 x, y = inv.transform((event.x, event.y))
 
-                xtext = time_to_string(event.xdata)[:-6]
+                xtext = utils.time_to_string(event.xdata)[:-6]
                 # the coefficient 7 is good result from an experiment :)
                 xtext_pos = -7 * len(xtext) - 10 if x > 0.5 else 10
                 ytext_pos = -20 if y > 0.5 else 30
@@ -283,10 +284,10 @@ class BasicChart(mpl_Axes, evt.EventSource):
                     self.draw_artist(l1)
 
                     a1 = mpl_Annotation(
-                            xtext, 
-                            xy=(x, y), xycoords='axes fraction', 
-                            xytext=(xtext_pos, ytext_pos), 
-                            textcoords='offset points', 
+                            xtext,
+                            xy=(x, y), xycoords='axes fraction',
+                            xytext=(xtext_pos, ytext_pos),
+                            textcoords='offset points',
                             bbox=dict(boxstyle="round", fc="#ffff00"))
                     a1.set_transform(mpl_IdentityTransform())
                     self._set_artist_props(a1)
@@ -304,7 +305,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
                     a2 = mpl_Annotation(
                             event.ydata,
                             xy=(x, y), xycoords='axes fraction',
-                            xytext=(xtext_pos, ytext_pos), 
+                            xytext=(xtext_pos, ytext_pos),
                             textcoords='offset points',
                             bbox=dict(boxstyle="round", fc="#ffff00"))
                     a2.set_transform(mpl_IdentityTransform())
@@ -317,7 +318,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
                     self.figure.canvas.restore_region(self.cross_bg)
                     self.figure.canvas.blit(self.bbox)
                     self.cross_bg = None
-    
+
     def _draw_rectangle(self, event):
         if not self.moving_flag and not self.mouse_on_legend and \
             self.xypress is not None and self.in_axes(event):
@@ -330,17 +331,17 @@ class BasicChart(mpl_Axes, evt.EventSource):
             else:
                 self.figure.canvas.restore_region(self.rect_bg)
 
-            inv = self.transData.inverted() 
+            inv = self.transData.inverted()
             ax_x_start, ax_y_start = inv.transform((x_start, y_start))
             ax_x_end, ax_y_end = inv.transform((x_end, y_end))
 
             if self.xlock:
-                ax_x_start = self.__convertAxesToData(0, 0)[0]
-                ax_x_end = self.__convertAxesToData(1, 1)[0]
+                ax_x_start = self.__convert_axes_to_data(0, 0)[0]
+                ax_x_end = self.__convert_axes_to_data(1, 1)[0]
 
             if self.ylock:
-                ax_y_start = self.__convertAxesToData(0, 0)[1]
-                ax_y_end = self.__convertAxesToData(1, 1)[1]
+                ax_y_start = self.__convert_axes_to_data(0, 0)[1]
+                ax_y_end = self.__convert_axes_to_data(1, 1)[1]
 
             self.zoom_rect = (
                     min(ax_x_start, ax_x_end),
@@ -389,14 +390,14 @@ class BasicChart(mpl_Axes, evt.EventSource):
             else:
                 xmin, xmax, ymin, ymax = self.zoom_stack.pop()
 
-            if (xmin is not None and xmax is not None and 
-                ymin is not None and ymax is not None):
+            if xmin is not None and xmax is not None and \
+               ymin is not None and ymax is not None:
                 self.set_xlim(xmin, xmax)
                 self.set_ylim(ymin, ymax)
                 self.figure.canvas.draw_idle()
 
     def _move_start(self, event):
-        ''' Save original view dimension, if it's still possible, if it's 
+        ''' Save original view dimension, if it's still possible, if it's
         still unused zoom.'''
         if len(self.zoom_stack) == 0 and self.original_view_dim is None:
             # Save original view for restoring a chart.
@@ -409,11 +410,10 @@ class BasicChart(mpl_Axes, evt.EventSource):
         bettween two coordinates system, because using pixel
         coordinates is better for moving with chart. '''
 
-        if self.moving_flag and self.xypress is not None: # "mouse drag"
-        
+        if self.moving_flag and self.xypress is not None:
             xpress, ypress = self.xypress
             x, y = event.x, event.y
-            diffx = xpress - x 
+            diffx = xpress - x
             diffy = ypress - y
             # coordinates in display (pixels) view
             xmin, ymin = self.transAxes.transform((0,0))
@@ -428,11 +428,11 @@ class BasicChart(mpl_Axes, evt.EventSource):
             self.set_xlim(data_xmin, data_xmax)
             self.set_ylim(data_ymin, data_ymax)
             # shift for next step
-            self.xypress = (x, y) 
+            self.xypress = (x, y)
             self.figure.canvas.draw_idle()
 
     def _switch_xlock_action(self, event):
-        # hint: ctrl+control is returned after release ctrl key. 
+        # hint: ctrl+control is returned after release ctrl key.
         # It coul'd be a bug of the matplotlib.
         if not self.moving_flag and \
                 event.guiEvent.keyval == gtk.keysyms.Control_L:
@@ -506,22 +506,24 @@ class BasicChart(mpl_Axes, evt.EventSource):
 
 class TimeChart(BasicChart):
 
-    '''This chart is connect to replay. It's realize through  the 
+    '''This chart is connect to replay. It's realize through  the
     'x or y (time) axis'. It's important so that the axis of time coresponds
     with the replay slider!'''
 
     name = 'time_chart'
 
-    def __init__(self, fig, rec,
-                 axisbg  = None, # defaults to rc axes.facecolor
-                 frameon = True,
-                 sharex  = None,
-                 sharey  = None,
-                 label   = "",
-                 xscale  = None,
-                 yscale  = None,
-                 **kwargs
-                 ):
+    def __init__(self,
+                 fig,
+                 rec,
+                 axisbg=None, # defaults to rc axes.facecolor
+                 frameon=True,
+                 sharex=None,
+                 sharey=None,
+                 label="",
+                 xscale=None,
+                 yscale=None,
+                 **kwargs):
+
         self.__init__(self, fig, rec, axisbg, frameon, sharex, sharey,
                 label, xscale, yscale, kwargs)
 
@@ -536,7 +538,7 @@ class TimeChart(BasicChart):
         '''Connect to the replay window.'''
         if event.button == 1 and event.guiEvent.type == gtk.gdk._2BUTTON_PRESS:
             print 'double click'
-#            self.emit_event("change_slider", event.xdata) 
+#            self.emit_event("change_slider", event.xdata)
 
 
 class ChartWidget(gtk.VBox):
@@ -583,7 +585,7 @@ class ChartWidget(gtk.VBox):
         toolbar.add(gtk.SeparatorToolItem())
 
         btn_restore = gtk.ToolButton()
-        btn_restore.connect("clicked", 
+        btn_restore.connect("clicked",
                 lambda w: self._btn_restore_view_action(self.figure.gca()))
         btn_restore.set_stock_id(gtk.STOCK_ZOOM_100)
         btn_restore.set_tooltip_text("Restore view")
@@ -608,7 +610,7 @@ class ChartWidget(gtk.VBox):
         btn_xlock.set_icon_widget(icon_xlock)
         btn_xlock.set_tooltip_text("Lock X-axis (keep CTRL)")
         btn_xlock.connect("toggled", self._btn_xlock_action)
-        ax.set_callback("xlock_changed", 
+        ax.set_callback("xlock_changed",
                 lambda xlock: btn_xlock.set_active(xlock))
         toolbar.add(btn_xlock)
 
@@ -678,7 +680,7 @@ class ChartWidget(gtk.VBox):
 
     def _btn_save_action(self, widget):
         # TODO: poradne navrhnout ukladaci okno!!
-        dialog = gtk.FileChooserDialog("Save graph", 
+        dialog = gtk.FileChooserDialog("Save graph",
                                        None, gtk.FILE_CHOOSER_ACTION_SAVE,
                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                         gtk.STOCK_SAVE, gtk.RESPONSE_OK))
@@ -709,7 +711,7 @@ class ChartWidget(gtk.VBox):
 #*******************************************************************************
 # Defined method for "standard" graphs:
 
-def __register_histogram_pick_legend(ax, legend, lines): 
+def __register_histogram_pick_legend(ax, legend, lines):
     lined = dict()
     for legline, originale in zip(legend.get_lines(), lines):
         legline.set_picker(5)
@@ -721,7 +723,7 @@ def __register_histogram_pick_legend(ax, legend, lines):
             vis = not orig.get_visible()
             orig.set_visible(vis)
         (orig, xvals, yvals, color) = lined[legline]
-        
+
         ax.bar(xvals, yvals, color=color, alpha=0.6)
         ax.figure.canvas.draw_idle()
 
@@ -750,10 +752,9 @@ def histogram(names, values, title, xlabel, ylabel):
                 new_x.append(time)
                 new_y.append(vals[time])
                 values_len += 1
-        
+
         # TODO: how to add correct version of x-axis values??
         xvals = range(0, values_len)
-        
 
         line = ax.plot(xvals, new_y, color=color_names[i%len(color_names)],
                 lw=1, label=names[i])
@@ -770,7 +771,7 @@ def histogram(names, values, title, xlabel, ylabel):
     __register_histogram_pick_legend(ax, ax.plegend, lines)
 
     ax.xaxis.set_major_formatter(mpl_FuncFormatter(
-        lambda time, pos: time_to_string(time)[:-7]))
+        lambda time, pos: utils.time_to_string(time)[:-7]))
     ax.set_xlim(xmin=0)
     ax.set_title(title)
     ax.set_xlabel(xlabel)
@@ -799,7 +800,7 @@ def time_sum_chart(names, values, title, xlabel, ylabel):
         label.set_horizontalalignment('left')
 
     ax.yaxis.set_major_formatter(mpl_FuncFormatter(
-        lambda time, pos: time_to_string(time)[:10]))
+        lambda time, pos: utils.time_to_string(time)[:10]))
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
@@ -827,22 +828,22 @@ def utilization_chart(names, data, colors, title, xlabel, ylabel):
     ax.set_yticklabels(names)
 
     for label in ax.xaxis.get_ticklabels():
-        label.set_rotation(-35) 
-        label.set_horizontalalignment('left') 
+        label.set_rotation(-35)
+        label.set_horizontalalignment('left')
     for i, label in enumerate(ax.yaxis.get_ticklabels()):
         # add 3 white space on the begining of name
-        names[i] = "   %s" % names[i] 
+        names[i] = "   %s" % names[i]
         label.set_horizontalalignment("left")
         label.set_verticalalignment('center')
 
-    p = mpl_Rectangle((0, 0), 1, 1, edgecolor=colors[0], 
-            fc=colors[0]) 
+    p = mpl_Rectangle((0, 0), 1, 1, edgecolor=colors[0],
+            fc=colors[0])
     ax.plegend = ax.legend([p], ["Running"], loc="upper left",
             fancybox=True, shadow=True)
 
     ax.xaxis.grid(True, linestyle="-", which='major', color='black', alpha=0.7)
     ax.xaxis.set_major_formatter(mpl_FuncFormatter(
-        lambda time, pos: time_to_string(time)[:-7]))
+        lambda time, pos: utils.time_to_string(time)[:-7]))
     ax.set_xlim(xmin=0)
     ax.get_figure().tight_layout()
 
@@ -853,13 +854,12 @@ def utilization_chart(names, data, colors, title, xlabel, ylabel):
     return ChartWidget(figure, ylock=True)
 
 def place_chart(names, values, title, xlabel, ylabel):
-
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)
     figure.set_canvas(canvas)
 
     ax = figure.add_subplot(111, projection=BasicChart.name)
-    
+
     llines = []
     for line, name in enumerate(names):
         xvalues, yvalues = zip(*values[line])
@@ -874,14 +874,14 @@ def place_chart(names, values, title, xlabel, ylabel):
         lines.append(line)
 
     for label in ax.xaxis.get_ticklabels():
-        label.set_rotation(-35) 
-        label.set_horizontalalignment('left') 
+        label.set_rotation(-35)
+        label.set_horizontalalignment('left')
 
     # set legend
     ax.plegend = ax.legend(loc="upper left", fancybox=True, shadow=True)
     ax.register_pick_legend(ax.plegend, lines)
     ax.xaxis.set_major_formatter(mpl_FuncFormatter(
-        lambda time, pos: time_to_string(time)[:-7]))
+        lambda time, pos: utils.time_to_string(time)[:-7]))
 
     # set basic properties
     ax.set_xlim(xmin = 0)
@@ -891,17 +891,6 @@ def place_chart(names, values, title, xlabel, ylabel):
     ax.set_ylabel(ylabel)
 
     return ChartWidget(figure)
-
-#******************************************************************************
-# TMP functions 
-
-def time_to_string(nanosec):
-    s = int(nanosec) / 1000000000
-    nsec = nanosec % 1000000000
-    sec = s % 60
-    minutes = (s / 60) % 60
-    hours = s / 60 / 60
-    return "{0}:{1:0>2}:{2:0>2}:{3:0>9}".format(hours, minutes, sec, nsec)
 
 def _register_new_types_charts():
     mpl_register_projection(BasicChart)

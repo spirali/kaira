@@ -25,10 +25,10 @@ from canvas import NetCanvas
 from chart import color_names
 import chart
 import newcharts
-from newcharts import time_to_string
 from newcharts import ChartWidget
 from matplotlib.ticker import FuncFormatter
 import matplotlib
+import utils
 
 class RunView(gtk.VBox):
 
@@ -41,12 +41,13 @@ class RunView(gtk.VBox):
 
         self.views = [
             ("Replay", self.netinstance_view),
-            ("Processes", self._processes_utilization()),
-            ("Transitions", self._transitions_utilization()),
-            ("Places", self._place_chart()),
-            ("Histogram of times processes", self._processes_histogram()),
-            ("Sum times of processes", self._processes_time_sum()),
-            ("Sum times of transitions", self._transitions_time_sum())
+            ("Process utilization", self._processes_utilization()),
+            ("Transitions utilization", self._transitions_utilization()),
+            ("Numbers of tokens", self._place_chart()),
+            # TET = Transition Execution Time
+            ("TETs per process", self._processes_histogram()),
+            ("Total TETs per process", self._processes_time_sum()),
+            ("Total TETs per transition", self._transitions_time_sum())
         ]
 
         self.pack_start(self._controlls(), False, False)
@@ -120,10 +121,10 @@ class RunView(gtk.VBox):
         index = self.get_event_index()
         last_index = self.tracelog.get_runinstances_count() - 1
         m = str(last_index)
-        maxtime = time_to_string(self.tracelog.get_event_time(last_index))
+        maxtime = utils.time_to_string(self.tracelog.get_event_time(last_index))
         self.counter_label.set_text("{0:0>{2}}/{1}".format(index, m, len(m)))
-        time = "{0:0>{1}}".format(time_to_string(self.tracelog.get_event_time(index)),
-                                                 len(maxtime))
+        time = "{0:0>{1}}".format(utils.time_to_string(self.tracelog.get_event_time(index)),
+                                  len(maxtime))
         text = "<span font_family='monospace'>{0}/{1} {3} {2}</span>".format(
             self.tracelog.get_event_process(index),
             self.tracelog.get_event_thread(index),
@@ -136,7 +137,7 @@ class RunView(gtk.VBox):
         sc.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
         maxtime = self.tracelog.get_max_time()
         c = chart.UtilizationChart(values, names, legend, colors, (0, maxtime))
-        c.xlabel_format = lambda x: time_to_string(x)[:-7]
+        c.xlabel_format = lambda x: utils.time_to_string(x)[:-7]
         w = chart.ChartWidget(c)
         w.set_size_request(*c.get_size_request())
         w.show_all()
@@ -158,11 +159,11 @@ class RunView(gtk.VBox):
                 l.append((times[0], times[1] - times[0]))
             lines.append(l)
 
-#        # resize figure, it depends on count of lines (processes)
-#        figure.set_size_inches(w, len(lines) * 0.8) 
-#        # resize canvas, it depends on count of lines (processes)
-#        figure.canvas.set_size_request(int(w * dpi), int(len(lines) * 0.7 * dpi))
-        return newcharts.utilization_chart(names, lines, colors, "The running time of each processes", "Time", "Process")
+        return newcharts.utilization_chart(
+                   names,
+                   lines,
+                   colors,
+                   "The running time of each processes", "Time", "Process")
 
     def _transitions_utilization(self):
         colors = ["#00aa00"]
@@ -180,9 +181,9 @@ class RunView(gtk.VBox):
             lines.append(l)
 
         return newcharts.utilization_chart(
-                names, 
-                lines, 
-                colors, 
+                names,
+                lines,
+                colors,
                 "The running time of each transitions",
                 "Time",
                 "Transition")
@@ -191,28 +192,15 @@ class RunView(gtk.VBox):
         values = self.tracelog.statistics["tokens_values"]
         names = self.tracelog.statistics["tokens_names"]
         return newcharts.place_chart(
-                names, 
-                values, 
-                "Cout of tokens in places in time", 
-                "Time", 
+                names,
+                values,
+                "Cout of tokens in places in time",
+                "Time",
                 "Cout")
 
     def _processes_histogram(self):
         names = self.tracelog.statistics["proc_hist_names"]
         values = self.tracelog.statistics["proc_hist_values"]
-#        
-#        chart_widget = ChartWidget()
-#        chart_id= chart_widget.create_new_chart(ChartWidget.HISTOGRAM_CHART)
-#        chart = chart_widget.get_chart(chart_id)
-#        ss = len(color_names)
-##        for i in range(0, len(names)):
-##            chart.fill_data(names[i], values[i], color_names[i % ss])
-#        chart.fill_data(names, values, color_names)
-#
-#        chart.xaxis.set_major_formatter(FuncFormatter(
-#            lambda time, pos: time_to_string(time)[:-7]))
-#        chart.set_xlim(xmin=0)
-#        return chart_widget
         return newcharts.histogram(
                 names,
                 values,
@@ -224,7 +212,6 @@ class RunView(gtk.VBox):
     def _transitions_time_sum(self):
         values = self.tracelog.statistics["tr_tsum_values"]
         names = self.tracelog.statistics["tr_tsum_names"]
-
         return newcharts.time_sum_chart(
                 names,
                 values,
@@ -235,7 +222,6 @@ class RunView(gtk.VBox):
     def _processes_time_sum(self):
         values = self.tracelog.statistics["proc_tsum_values"]
         names = self.tracelog.statistics["proc_tsum_names"]
-
         return newcharts.time_sum_chart(
                 names,
                 values,
@@ -328,11 +314,3 @@ class NetInstanceView(gtk.HPaned):
         label = "Tokens of " + place.get_name()
         self.app.window.add_tab(mainwindow.Tab(label, vbox))
 
-#
-#def time_to_string(nanosec):
-#    s = int(nanosec) / 1000000000
-#    nsec = nanosec % 1000000000
-#    sec = s % 60
-#    minutes = (s / 60) % 60
-#    hours = s / 60 / 60
-#    return "{0}:{1:0>2}:{2:0>2}:{3:0>9}".format(hours, minutes, sec, nsec)
