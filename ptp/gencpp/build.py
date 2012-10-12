@@ -32,6 +32,7 @@ class Builder(CppWriter):
         self.filename = filename
         self.project = project
         self.emitter = emitter.Emitter(project)
+        self.thread_class = "CaThread"
 
     def emit_type(self, t):
         return self.emitter.emit_type(t)

@@ -185,6 +185,11 @@ class Project(object):
             if net.id == id:
                 return net
 
+    def get_net_of_edge(self, edge):
+        for net in self.nets:
+            if edge.uid in [ e.uid for e in net.get_all_edges() ]:
+                return net
+
     def get_place(self, place_id):
         for net in self.nets:
             place = net.get_place(place_id)

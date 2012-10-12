@@ -86,12 +86,16 @@ def write_transition_forward(builder, tr, binding_equality):
     builder.line("static Transition_{0.id} transition_{0.id};", tr)
     builder.emptyline();
 
-def write_transition_functions(builder, tr, locking=True, binding_equality=False):
+def write_transition_functions(builder,
+                               tr,
+                               locking=True,
+                               binding_equality=False,
+                               use_get_net=False):
     if tr.code is not None:
         write_transition_user_function(builder, tr)
-    write_full_fire(builder, tr, locking=locking)
+    write_full_fire(builder, tr, locking=locking, use_get_net=use_get_net)
     write_fire_phase1(builder, tr)
-    write_fire_phase2(builder, tr)
+    write_fire_phase2(builder, tr, use_get_net=use_get_net)
     write_cleanup_binding(builder, tr)
     write_enable_check(builder, tr)
     if binding_equality:
@@ -111,8 +115,13 @@ def write_activation(builder, net, transitions):
     for tr in transitions:
         builder.line("{0}->activate_transition_by_pos_id({1});", net, tr.get_pos_id())
 
-def write_send_token(builder, em, edge, locking=True, interface_edge=False, readonly_tokens=False):
-
+def write_send_token(builder,
+                     em,
+                     edge,
+                     locking=True,
+                     interface_edge=False,
+                     readonly_tokens=False,
+                     use_get_net=False):
     def write_lock():
         if not locking:
             return
@@ -129,11 +138,18 @@ def write_send_token(builder, em, edge, locking=True, interface_edge=False, read
         builder.line("lock = false;")
         builder.block_end()
 
+    builder.line("// Output edge id={0.id} uid={0.uid} expr={0.expr} target={0.target}", edge)
     method = "add" if edge.is_normal() else "add_all"
 
     if edge.guard is not None:
         builder.if_begin(edge.guard.emit(em))
-    if edge.is_local():
+    if edge.is_local() or use_get_net:
+        builder.block_begin()
+        if use_get_net and not edge.is_local():
+            class_name = get_net_class_name(builder.project.get_net_of_edge(edge))
+            builder.line("{0} *n = ({0}*) thread->get_net({1});",
+                         class_name,
+                         edge.target.emit(em))
         write_lock()
         place = edge.get_place()
         if edge.token_source is not None and not readonly_tokens:
@@ -151,7 +167,8 @@ def write_send_token(builder, em, edge, locking=True, interface_edge=False, read
                             edge.expr.emit(em))
         if not interface_edge:
             write_activation(builder, "n", edge.get_place().get_transitions_out())
-    else:
+        builder.block_end()
+    else: # Remote send
         if edge.is_unicast():
             sendtype = ""
             builder.line("int target_{0.id} = {1};", edge, edge.target.emit(em))
@@ -206,7 +223,12 @@ def write_remove_tokens(builder, tr):
             builder.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
 
 
-def write_fire_body(builder, tr, locking=True, remove_tokens=True, readonly_tokens=False):
+def write_fire_body(builder,
+                    tr,
+                    locking=True,
+                    remove_tokens=True,
+                    readonly_tokens=False,
+                    use_get_net=False):
 
     matches, _, _ = get_edges_mathing(builder.project, tr)
 
@@ -271,7 +293,12 @@ def write_fire_body(builder, tr, locking=True, remove_tokens=True, readonly_toke
         builder.line("bool lock = true;")
 
     for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
-        write_send_token(builder, em, edge, locking=locking, readonly_tokens=readonly_tokens)
+        write_send_token(builder,
+                         em,
+                         edge,
+                         locking=locking,
+                         readonly_tokens=readonly_tokens,
+                         use_get_net=use_get_net)
 
     if locking:
         builder.line("if (lock) n->unlock();")
@@ -280,14 +307,15 @@ def write_fire_body(builder, tr, locking=True, remove_tokens=True, readonly_toke
         if not edge.token_reused and not readonly_tokens:
             builder.line("delete token_{0.uid};", edge)
 
-def write_full_fire(builder, tr, locking=True):
-    builder.line("int Transition_{0.id}::full_fire(CaThreadBase *thread, CaNetBase *net)",
+def write_full_fire(builder, tr, locking=True, use_get_net=False):
+    builder.line("int Transition_{0.id}::full_fire(CaThreadBase *t, CaNetBase *net)",
                  tr)
     builder.block_begin()
+    builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
     builder.line("CaContext ctx(thread, net);")
 
     w = build.Builder(builder.project)
-    write_fire_body(w, tr, locking=locking)
+    write_fire_body(w, tr, locking=locking, use_get_net=use_get_net)
     w.line("return CA_TRANSITION_FIRED;")
 
     write_enable_pattern_match(builder, tr, w)
@@ -295,10 +323,10 @@ def write_full_fire(builder, tr, locking=True):
     builder.block_end()
 
 def write_enable_check(builder, tr):
-    builder.line("bool Transition_{0.id}::is_enable(CaThreadBase *thread, CaNetBase *net) {{",
+    builder.line("bool Transition_{0.id}::is_enable(CaThreadBase *t, CaNetBase *net)",
                  tr)
-    builder.indent_push()
-
+    builder.block_begin()
+    builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
     w = CppWriter()
     w.line("return true;")
     write_enable_pattern_match(builder, tr, w)
@@ -306,9 +334,9 @@ def write_enable_check(builder, tr):
     builder.block_end()
 
 def write_fire_phase1(builder, tr):
-    builder.line("void *Transition_{0.id}::fire_phase1(CaThreadBase *thread, CaNetBase *net)", tr)
+    builder.line("void *Transition_{0.id}::fire_phase1(CaThreadBase *t, CaNetBase *net)", tr)
     builder.block_begin()
-
+    builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
     w = build.Builder(builder.project)
     write_remove_tokens(w, tr)
     w.line("Tokens_{0.id} *tokens = new Tokens_{0.id}();", tr)
@@ -320,11 +348,12 @@ def write_fire_phase1(builder, tr):
     builder.line("return NULL;")
     builder.block_end()
 
-def write_fire_phase2(builder, tr):
+def write_fire_phase2(builder, tr, use_get_net=False):
     builder.line("void Transition_{0.id}::fire_phase2"
-                    "(CaThreadBase *thread, CaNetBase *net, void *data)",
+                    "(CaThreadBase *t, CaNetBase *net, void *data)",
                  tr)
     builder.block_begin()
+    builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
     builder.line("CaContext ctx(thread, net);")
     builder.line("{0} *n = ({0}*) net;", get_net_class_name(tr.net))
     builder.line("Tokens_{0.id} *tokens = (Tokens_{0.id}*) data;", tr)
@@ -332,7 +361,12 @@ def write_fire_phase2(builder, tr):
         place_t = builder.emit_type(edge.get_place_type())
         builder.line("CaToken<{0}> *token_{1.uid} = tokens->token_{1.uid};", place_t, edge);
 
-    write_fire_body(builder, tr, locking=False, remove_tokens=False, readonly_tokens=True)
+    write_fire_body(builder,
+                    tr,
+                    locking=False,
+                    remove_tokens=False,
+                    readonly_tokens=True,
+                    use_get_net=use_get_net)
     builder.block_end()
 
 def write_cleanup_binding(builder, tr):

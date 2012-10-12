@@ -20,7 +20,7 @@ namespace cass {
 	class Node {
 		public:
 			Node();
-			Node(CaNetDef *net_def, CaThreadBase *thread);
+			Node(CaNetDef *net_def);
 			Node(const std::vector<TransitionActivation> &activations);
 			~Node();
 
@@ -64,7 +64,6 @@ namespace cass {
 			void verify();
 			Node * add_node(Node *node);
 			CaNetDef * get_net_def() { return net_def; }
-			Thread *get_thread() { return &thread; }
 		protected:
 			bool is_known_node(Node *node) const;
 			Node * get_node(Node *node) const;
@@ -74,7 +73,6 @@ namespace cass {
 									NodeStateEq> nodes;
 			Node *initial_node;
 			CaNetDef * net_def;
-			Thread thread;
 	};
 
 }

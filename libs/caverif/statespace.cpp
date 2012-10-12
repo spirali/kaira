@@ -8,11 +8,12 @@ extern int ca_process_count;
 
 using namespace cass;
 
-Node::Node(CaNetDef *net_def, CaThreadBase *thread)
+Node::Node(CaNetDef *net_def)
 {
 	nets = new Net*[ca_process_count];
 	for (int i = 0; i < ca_process_count; i++) {
-		nets[i] = (Net*) net_def->spawn(thread);
+		Thread thread(nets, i, 0);
+		nets[i] = (Net*) net_def->spawn(&thread);
 	}
 }
 
@@ -38,7 +39,6 @@ void Node::generate(Core *core)
 	const std::vector<CaTransitionDef*> &transitions =
 		def->get_transition_defs();
 	int transitions_count = def->get_transitions_count();
-
 	for (int p = 0; p < ca_process_count; p++) {
 		Node *node = NULL;
 		for (int i = 0; i < transitions_count; i++) {
@@ -46,13 +46,14 @@ void Node::generate(Core *core)
 				node = copy();
 			}
 			Net *net = node->nets[p];
-			void *data = transitions[i]->fire_phase1(core->get_thread(), net);
+			Thread thread(node->nets, p, 1);
+			void *data = transitions[i]->fire_phase1(&thread, net);
 			if (data) {
 				TransitionActivation activation;
 				activation.data = data;
 				activation.transition_def = transitions[i];
 				activation.process_id = p;
-				activation.thread_id = 1;
+				activation.thread_id = 0;
 				node->activations.push_back(activation);
 				Node *n = core->add_node(node);
 				nexts.push_back(n);
@@ -67,7 +68,8 @@ void Node::generate(Core *core)
 		Node *node = copy();
 		node->activations.erase(node->activations.begin() + p);
 		Net *net = node->nets[i->process_id];
-		i->transition_def->fire_phase2(core->get_thread(), net, i->data);
+		Thread thread(node->nets, i->process_id, i->thread_id);
+		i->transition_def->fire_phase2(&thread, net, i->data);
 		Node *n = core->add_node(node);
 		nexts.push_back(n);
 	}
@@ -121,9 +123,14 @@ Core::~Core()
 void Core::generate()
 {
 	net_def = defs[0]; // Take first definition
-	initial_node = new Node(net_def, &thread);
+	initial_node = new Node(net_def);
 	add_node(initial_node);
+	int count = 0;
 	do {
+		count++;
+		if (count % 1000 == 0) {
+			fprintf(stderr, "Nodes %i\n", count);
+		}
 		Node *node = not_processed.top();
 		not_processed.pop();
 		node->generate(this);
@@ -178,4 +185,10 @@ Node * Core::get_node(Node *node) const
 		return NULL;
 	else
 		return *it;
+}
+
+
+int Thread::get_process_count() const
+{
+	return ca_process_count;
 }

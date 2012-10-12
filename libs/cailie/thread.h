@@ -14,6 +14,7 @@ class CaThreadBase {
 		virtual int get_process_count() const = 0;
 		virtual int get_threads_count() const = 0;
 		virtual int get_process_id() const = 0;
+
 	protected:
 		int id;
 };

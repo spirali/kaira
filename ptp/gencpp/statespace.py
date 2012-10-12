@@ -83,6 +83,7 @@ def write_main(builder):
     builder.block_end()
 
 def write_statespace_program(builder):
+    builder.thread_class = "cass::Thread"
     build.write_header(builder)
     builder.line("#include <caverif.h>")
     build.write_types_declaration(builder)
@@ -104,4 +105,5 @@ def write_net_functions(builder, net):
         buildnet.write_transition_functions(builder,
                                             tr,
                                             locking=False,
-                                            binding_equality=True)
+                                            binding_equality=True,
+                                            use_get_net=True)

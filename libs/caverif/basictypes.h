@@ -12,18 +12,38 @@ namespace cass {
 	class Net : public CaNetBase
 	{
 		public:
-		virtual Net *copy() = 0;
-		virtual bool is_equal(const Net &net) const = 0;
-		void activate_transition_by_pos_id(int pos_id) {}
+			virtual Net *copy() = 0;
+			virtual bool is_equal(const Net &net) const = 0;
+			void activate_transition_by_pos_id(int pos_id) {}
 	};
 
 	typedef bool (NetEqFn)(Net *, Net*);
 
 	class Thread : public CaThreadBase {
-		void quit_all() {}
-		int get_process_count() const { return 1; }
-		int get_threads_count() const { return 1; }
-		int get_process_id() const { return 0; }
+		public:
+			Thread(Net **nets, int process_id, int thread_id)
+				: nets(nets), process_id(process_id), thread_id(thread_id) {}
+			void quit_all() {}
+			int get_process_count() const;
+			int get_threads_count() const { return 1; }
+			int get_process_id() const { return process_id; }
+			Net * get_net(int process_id) {
+				if (process_id < 0 || process_id >= get_process_count()) {
+					fprintf(stderr, "Invalid process_id %i\n", process_id);
+					exit(-1);
+				}
+				return nets[process_id];
+			}
+
+			void set(int process_id, int thread_id) {
+				this->process_id = process_id;
+				this->thread_id = thread_id;
+			}
+
+		protected:
+			Net **nets;
+			int process_id;
+			int thread_id;
 	};
 
 	template<typename T>
