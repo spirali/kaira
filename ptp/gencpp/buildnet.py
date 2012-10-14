@@ -66,7 +66,7 @@ def write_tokens_struct(builder, tr):
 
     builder.write_class_end()
 
-def write_transition_forward(builder, tr, binding_equality):
+def write_transition_forward(builder, tr):
     if tr.code is not None:
         write_vars_struct(builder, tr)
 
@@ -80,7 +80,7 @@ def write_transition_forward(builder, tr, binding_equality):
     builder.line("void fire_phase2(CaThreadBase *thread, CaNetBase *net, void *data);")
     builder.line("void cleanup_binding(void *data);")
     builder.line("bool is_enable(CaThreadBase *thread, CaNetBase *net);")
-    if binding_equality:
+    if builder.generate_operator_eq:
         builder.line("bool binding_equality(void *data1, void *data2);")
     builder.write_class_end()
     builder.line("static Transition_{0.id} transition_{0.id};", tr)
@@ -89,7 +89,6 @@ def write_transition_forward(builder, tr, binding_equality):
 def write_transition_functions(builder,
                                tr,
                                locking=True,
-                               binding_equality=False,
                                use_get_net=False):
     if tr.code is not None:
         write_transition_user_function(builder, tr)
@@ -98,7 +97,7 @@ def write_transition_functions(builder,
     write_fire_phase2(builder, tr, use_get_net=use_get_net)
     write_cleanup_binding(builder, tr)
     write_enable_check(builder, tr)
-    if binding_equality:
+    if builder.generate_operator_eq:
         write_binding_equality(builder, tr)
 
 def write_transition_user_function(builder, tr):
@@ -574,13 +573,13 @@ def write_receive_method(builder, net):
     builder.line("}}")
     builder.write_method_end()
 
-def write_net_functions_forward(builder, net, binding_equality=False):
+def write_net_functions_forward(builder, net):
     for place in net.places:
         if place.code is not None:
             write_place_user_function(builder, place)
 
     for tr in net.transitions:
-        write_transition_forward(builder, tr, binding_equality=binding_equality)
+        write_transition_forward(builder, tr)
 
 def get_net_class_name(net):
     return "Net_" + str(net.id)

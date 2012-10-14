@@ -32,7 +32,14 @@ class Builder(CppWriter):
         self.filename = filename
         self.project = project
         self.emitter = emitter.Emitter(project)
+
+        # Real class used for thread representation,
+        # CaThreadBase is cast to this type
         self.thread_class = "CaThread"
+
+        # Generate operator== and operator!= for internal types like Tuple
+        # It is necessary that all ExternTypes also implement this operator
+        self.generate_operator_eq = False
 
     def emit_type(self, t):
         return self.emitter.emit_type(t)
@@ -159,6 +166,19 @@ def write_tuple_class(builder, tp):
     for e, ta in decls:
         builder.line(get_pack_code(builder.project, ta, "packer", e) + ";")
     builder.write_method_end()
+
+    if builder.generate_operator_eq:
+        builder.line("bool operator==(const {0} &rhs) const", class_name)
+        builder.block_begin()
+        for e, ta in decls:
+            builder.line("if ({0} != rhs.{0}) return false;", e)
+        builder.line("return true;")
+        builder.block_end()
+
+        builder.line("bool operator!=(const {0} &rhs) const", class_name)
+        builder.block_begin()
+        builder.line("return !(*this == rhs);")
+        builder.block_end()
 
     builder.write_class_end()
 

@@ -24,7 +24,7 @@ import buildnet
 def write_core(builder):
     build.write_basic_definitions(builder)
     for net in builder.project.nets:
-        buildnet.write_net_functions_forward(builder, net, binding_equality=True)
+        buildnet.write_net_functions_forward(builder, net)
     for net in builder.project.nets:
         write_net_class(builder, net)
         write_net_class_extension(builder, net)
@@ -84,6 +84,8 @@ def write_main(builder):
 
 def write_statespace_program(builder):
     builder.thread_class = "cass::Thread"
+    builder.generate_operator_eq = True
+
     build.write_header(builder)
     builder.line("#include <caverif.h>")
     build.write_types_declaration(builder)
@@ -105,5 +107,4 @@ def write_net_functions(builder, net):
         buildnet.write_transition_functions(builder,
                                             tr,
                                             locking=False,
-                                            binding_equality=True,
                                             use_get_net=True)
