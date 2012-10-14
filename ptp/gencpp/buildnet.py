@@ -64,6 +64,9 @@ def write_tokens_struct(builder, tr):
         place_t = builder.emit_type(edge.get_place_type())
         builder.line("CaToken<{0} > *token_{1.uid};", place_t, edge)
 
+    for edge in tr.get_packing_edges_in():
+        place_t = builder.emit_type(edge.get_place_type())
+        builder.line("std::vector<{0} > packed_values_{1.uid};", place_t, edge)
     builder.write_class_end()
 
 def write_transition_forward(builder, tr):
@@ -221,13 +224,13 @@ def write_remove_tokens(builder, tr):
         else:
             builder.line("n->place_{1.id}.remove(token_{0.uid});", edge, edge.get_place())
 
-
 def write_fire_body(builder,
                     tr,
                     locking=True,
                     remove_tokens=True,
                     readonly_tokens=False,
-                    use_get_net=False):
+                    use_get_net=False,
+                    packed_tokens_from_place=True):
 
     matches, _, _ = get_edges_mathing(builder.project, tr)
 
@@ -269,9 +272,14 @@ def write_fire_body(builder,
 
     builder.line("n->activate_transition_by_pos_id({0});", tr.get_pos_id())
 
-    for edge in tr.get_packing_edges_in():
-        builder.line("{1} = n->place_{0.id}.to_vector_and_clear();",
-               edge.get_place(), em.variable_emitter(edge.varname))
+    if packed_tokens_from_place:
+        for edge in tr.get_packing_edges_in():
+            builder.line("{1} = n->place_{0.id}.to_vector_and_clear();",
+                   edge.get_place(), em.variable_emitter(edge.varname))
+    else:
+        for edge in tr.get_packing_edges_in():
+            builder.line("{1} = tokens->packed_values_{0.uid};",
+                   edge, em.variable_emitter(edge.varname))
 
     if tr.code is not None:
         if locking:
@@ -341,6 +349,10 @@ def write_fire_phase1(builder, tr):
     w.line("Tokens_{0.id} *tokens = new Tokens_{0.id}();", tr)
     for edge in tr.get_normal_edges_in():
         w.line("tokens->token_{0.uid} = token_{0.uid};", edge);
+
+    for edge in tr.get_packing_edges_in():
+        w.line("tokens->packed_values_{0.uid} = n->place_{1.id}.to_vector_and_clear();",
+               edge, edge.get_place())
     w.line("return tokens;")
 
     write_enable_pattern_match(builder, tr, w)
@@ -365,7 +377,8 @@ def write_fire_phase2(builder, tr, use_get_net=False):
                     locking=False,
                     remove_tokens=False,
                     readonly_tokens=True,
-                    use_get_net=use_get_net)
+                    use_get_net=use_get_net,
+                    packed_tokens_from_place=False)
     builder.block_end()
 
 def write_cleanup_binding(builder, tr):
@@ -383,8 +396,12 @@ def write_binding_equality(builder, tr):
     builder.block_begin()
     builder.line("Tokens_{0.id} *tokens1 = (Tokens_{0.id}*) data1;", tr)
     builder.line("Tokens_{0.id} *tokens2 = (Tokens_{0.id}*) data2;", tr)
-    conditions = [ "(tokens1->token_{0.uid}->value == tokens2->token_{0.uid}->value)".format(edge)
+    conditions = [ "(tokens1->token_{0.uid}->value == tokens2->token_{0.uid}->value)"
+                        .format(edge)
                    for edge in tr.get_normal_edges_in() ]
+    conditions += [ "(tokens1->packed_values_{0.uid} == tokens2->packed_values_{0.uid})"
+                        .format(edge)
+                   for edge in tr.get_packing_edges_in() ]
     if conditions:
         builder.line("return {0};", "&&".join(conditions))
     else:

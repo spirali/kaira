@@ -147,10 +147,15 @@ void Core::verify()
 	{
 		Node *node = *it;
 		const std::vector<Node*> &nexts = node->get_nexts();
+		if (node == initial_node) {
+			printf("S%p [style=filled, label=%i]\n",
+				node, node->get_activations().size());
+		} else {
+			printf("S%p [label=%i]\n",
+				node, node->get_activations().size());
+		}
 		for (size_t i = 0; i < nexts.size(); i++) {
-			printf("\"%p/%u\" -> \"%p/%u\"\n",
-				node, node->get_activations().size(),
-				nexts[i], nexts[i]->get_activations().size());
+			printf("S%p -> S%p\n", node, nexts[i]);
 		}
 	}
 	printf("}\n");
