@@ -14,6 +14,7 @@ namespace cass {
 		public:
 			virtual Net *copy() = 0;
 			virtual bool is_equal(const Net &net) const = 0;
+			virtual size_t hash() = 0;
 			void activate_transition_by_pos_id(int pos_id) {}
 	};
 
@@ -63,8 +64,22 @@ namespace cass {
 
 			}
 
-			size_t hash() const {
-				return 1;
+			size_t hash(size_t (hash_fn)(const T&)) const {
+				if (this->token == NULL) {
+					return 0;
+				}
+				CaToken<T> *t = this->token;
+				size_t h = 0;
+				do {
+					h += hash_fn(t->value);
+					h += h << 10;
+					h ^= h >> 6;
+					t = t->next;
+				} while (t != this->token);
+				h += h << 3;
+				h ^= h >> 11;
+				h += h << 15;
+				return h;
 			}
 
 			bool operator==(const Place<T> &rhs) const {

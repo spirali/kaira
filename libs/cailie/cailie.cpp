@@ -365,3 +365,30 @@ void ca_write_header(FILE *out, int process_count, int threads_count)
 	fputs(ca_project_description_string, out);
 	fputs("\n", out);
 }
+
+size_t ca_hash_string(std::string &v) {
+	std::string::const_iterator i;
+	size_t r = 37 * v.size();
+    int j = 0;
+	for (i = v.begin(); i != v.end() && j < 256; i++, j++) {
+		r = r * 101 + (*i);
+	}
+	return r;
+}
+
+size_t ca_hash(void *v, size_t size) {
+	char *vv = (char *) v;
+	size_t h = size;
+	for (size_t t = 0; t < size; t++) {
+		h = h * 101 + vv[t];
+	}
+	return h;
+}
+
+size_t ca_hash_double(double v) {
+	return ca_hash(&v, sizeof(double));
+}
+
+size_t ca_hash_float(float v) {
+	return ca_hash(&v, sizeof(float));
+}

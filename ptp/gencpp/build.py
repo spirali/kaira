@@ -37,9 +37,14 @@ class Builder(CppWriter):
         # CaThreadBase is cast to this type
         self.thread_class = "CaThread"
 
-        # Generate operator== and operator!= for internal types like Tuple
-        # It is necessary that all ExternTypes also implement this operator
+        # Generate operator== and operator!= for generated types
+        # If true then all ExternTypes have to implement operator== and operator!=
         self.generate_operator_eq = False
+
+        # Generate hash functions for generated types
+        # If true then all ExternTypes have to implement get_hash
+        self.generate_hash = False
+
 
     def emit_type(self, t):
         return self.emitter.emit_type(t)
@@ -107,6 +112,46 @@ def get_pack_code(project, t, packer, code):
             return "{0}.pack(&{1}, sizeof({1}))".format(packer, code)
         return "{0.name}_pack({1}, {2})".format(etype, packer, code)
     raise Exception("Unknown type: " + str(t))
+
+def get_hash_function_name(project, t):
+    if t == t_string:
+        return "ca_hash_string"
+    if t == t_double:
+        return "ca_hash_double"
+    if t == t_float:
+        return "ca_hash_float"
+    if t == t_int:
+        return "ca_hash_int"
+    if t == t_bool:
+        return "ca_hash_bool"
+    if t.name == "":
+        return "{0}_hash".format(t.get_safe_name())
+    if t.name == "Array":
+        return "array_{0}_hash".format(t.args[0].get_safe_name())
+    etype = project.get_extern_type(t.name)
+    if etype:
+        pass
+    raise Exception("Unknown type: " + str(t))
+
+def get_hash_code(project, t, code):
+    return "{0}({1})".format(get_hash_function_name(project, t), code)
+
+def get_hash_combination(codes):
+    if not codes:
+        return "113"
+    numbers = [1, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
+              73, 79, 83, 89, 97, 101, 103, 107, 109, 113]
+    result = []
+    for i, code in enumerate(codes):
+        result.append("({0} * {1})".format(numbers[i % len(numbers)], code))
+
+    return "^".join(result)
+
+
+
+def get_hash_codes(project, types_codes):
+    codes = [ get_hash_code(project, t, code) for t, code in types_codes ]
+    return get_hash_combination(codes)
 
 def get_code_as_string(project, expr, t):
     if t == t_string:
@@ -180,6 +225,15 @@ def write_tuple_class(builder, tp):
         builder.line("return !(*this == rhs);")
         builder.block_end()
 
+    if builder.generate_hash:
+        types_codes = [ (ta, name) for name, ta in decls ]
+        builder.line("size_t hash() const", class_name)
+        builder.block_begin()
+        builder.line("return {0};", get_hash_codes(builder.project, types_codes))
+        builder.block_end()
+
+
+
     builder.write_class_end()
 
 def write_array_as_string(builder, t):
@@ -215,6 +269,24 @@ def write_array_pack(builder, t):
     builder.block_end()
     builder.block_end()
 
+def write_array_hash(builder, t):
+    builder.line("size_t array_{0}_hash(const std::vector <{1} > &vector)",
+              t.get_safe_name(), builder.emit_type(t))
+    builder.block_begin()
+    builder.line("size_t h = vector.size();")
+    builder.line("for (std::vector<{0} >::const_iterator i = vector.begin(); i != vector.end(); i++)",
+              builder.emit_type(t))
+    builder.block_begin()
+    builder.line("h += {0};", get_hash_code(builder.project, t, "(*i)"))
+    builder.line("h += h << 10;")
+    builder.line("h ^= h >> 6;")
+    builder.block_end()
+    builder.line("h += h << 3;")
+    builder.line("h ^= h >> 11;")
+    builder.line("h += h << 15;")
+    builder.line("return h;")
+    builder.block_end()
+
 def write_array_unpack(builder, t):
     builder.line("std::vector <{1} > array_{0}_unpack(CaUnpacker &unpacker)",
               t.get_safe_name(), builder.emit_type(t))
@@ -237,6 +309,9 @@ def write_array_declaration(builder, t):
               t.get_safe_name(), builder.emit_type(t))
     builder.line("std::vector <{1} > array_{0}_unpack(CaUnpacker &unpacker);",
               t.get_safe_name(), builder.emit_type(t))
+    if builder.generate_hash:
+        builder.line("size_t array_{0}_hash(const std::vector <{1} > &vector);",
+                  t.get_safe_name(), builder.emit_type(t))
 
 def write_types_declaration(builder):
     write_extern_types_functions(builder, False)
@@ -255,6 +330,13 @@ def write_tuple_as_string(builder, t):
     builder.line("return s.as_string();")
     builder.block_end()
 
+def write_tuple_hash(builder, t):
+    builder.line("size_t {0}_hash(const {1} &s)",
+              t.get_safe_name(), builder.emit_type(t))
+    builder.block_begin()
+    builder.line("return s.hash();")
+    builder.block_end()
+
 def write_types(builder):
     write_extern_types_functions(builder, True)
     for t in get_ordered_types(builder.project):
@@ -262,8 +344,12 @@ def write_types(builder):
             write_array_as_string(builder, t.args[0])
             write_array_pack(builder, t.args[0])
             write_array_unpack(builder, t.args[0])
+            if builder.generate_hash:
+                write_array_hash(builder, t.args[0])
         if t.name == "":
             write_tuple_as_string(builder, t)
+            if builder.generate_hash:
+                write_tuple_hash(builder, t)
 
 def write_user_function(builder, ufunction):
     params =  ufunction.get_parameters()

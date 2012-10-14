@@ -22,6 +22,7 @@ import base.utils as utils
 from base.gentools import get_edges_mathing
 import emitter
 from base.expressions import ExprExtern
+from base.neltypes import t_array
 from writer import CppWriter
 import build
 
@@ -85,6 +86,8 @@ def write_transition_forward(builder, tr):
     builder.line("bool is_enable(CaThreadBase *thread, CaNetBase *net);")
     if builder.generate_operator_eq:
         builder.line("bool binding_equality(void *data1, void *data2);")
+    if builder.generate_hash:
+        builder.line("size_t binding_hash(void *data);")
     builder.write_class_end()
     builder.line("static Transition_{0.id} transition_{0.id};", tr)
     builder.emptyline();
@@ -102,6 +105,8 @@ def write_transition_functions(builder,
     write_enable_check(builder, tr)
     if builder.generate_operator_eq:
         write_binding_equality(builder, tr)
+    if builder.generate_hash:
+        write_binding_hash(builder, tr)
 
 def write_transition_user_function(builder, tr):
     declaration = "void transition_user_fn_{0.id}(CaContext &ctx, Vars_{0.id} &var)".format(tr)
@@ -406,6 +411,17 @@ def write_binding_equality(builder, tr):
         builder.line("return {0};", "&&".join(conditions))
     else:
         builder.line("return true;")
+    builder.block_end()
+
+def write_binding_hash(builder, tr):
+    builder.line("size_t Transition_{0.id}::binding_hash(void *data)", tr)
+    builder.block_begin()
+    builder.line("Tokens_{0.id} *tokens = (Tokens_{0.id}*) data;", tr)
+    types_codes = [ (edge.get_place_type(), "tokens->token_{0.uid}->value".format(edge))
+                    for edge in tr.get_normal_edges_in() ]
+    types_codes += [ (t_array(edge.get_place_type()), "tokens->packed_values_{0.uid}".format(edge))
+                     for edge in tr.get_packing_edges_in() ]
+    builder.line("return {0};", build.get_hash_codes(builder.project, types_codes))
     builder.block_end()
 
 def write_enable_pattern_match(builder, tr, fire_code):

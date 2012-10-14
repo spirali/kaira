@@ -24,9 +24,7 @@ namespace cass {
 			Node(const std::vector<TransitionActivation> &activations);
 			~Node();
 
-			size_t state_hash() const {
-				return 0;
-			}
+			size_t state_hash() const;
 
 			bool state_equals(const Node &rhs) const;
 

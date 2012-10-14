@@ -84,6 +84,27 @@ Node* Node::copy()
 	return node;
 }
 
+size_t Node::state_hash() const {
+	size_t h = activations.size();
+	std::vector<TransitionActivation>::const_iterator i;
+
+	/* For activations we have to use commutative hashing ! */
+	for (i = activations.begin(); i != activations.end(); i++)
+	{
+		size_t v = (size_t) i->transition_def;
+		v += (i->process_id << 16) + i->thread_id;
+		v ^= i->transition_def->binding_hash(i->data);
+		h ^= v;
+	}
+
+	for (int t = 0; t < ca_process_count; t++) {
+		h += nets[t]->hash();
+		h += h << 10;
+		h ^= h >> 6;
+	}
+	return h;
+}
+
 bool Node::state_equals(const Node &node) const
 {
 	if (activations.size() != node.activations.size()) {

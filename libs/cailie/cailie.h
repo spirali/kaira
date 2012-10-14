@@ -102,4 +102,11 @@ template <typename T> std::vector<T> ca_array_join(std::vector<T> vector1, std::
 	return v;
 }
 
+size_t ca_hash(char *v, size_t size);
+inline size_t ca_hash(const bool &v) { return (size_t) v; }
+inline size_t ca_hash_int(const int &v) { return (size_t) v; }
+size_t ca_hash_double(const double v);
+size_t ca_hash_float(const float v);
+size_t ca_hash_string(const std::string &v);
+
 #endif

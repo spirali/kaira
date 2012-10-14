@@ -72,6 +72,16 @@ def write_net_class_extension(builder, net):
     builder.line("return net;")
     builder.write_method_end()
 
+    builder.write_method_start("size_t hash()")
+    codes = [ "place_{0.id}.hash({1})".format(place,
+                                              build.get_hash_function_name(builder.project,
+                                                                           place.type))
+              for place in net.places ]
+    builder.line("return {0};", build.get_hash_combination(codes))
+    builder.write_method_end()
+
+
+
 def write_main(builder):
     builder.line("int main(int argc, char **argv)")
     builder.block_begin()
@@ -85,6 +95,7 @@ def write_main(builder):
 def write_statespace_program(builder):
     builder.thread_class = "cass::Thread"
     builder.generate_operator_eq = True
+    builder.generate_hash = True
 
     build.write_header(builder)
     builder.line("#include <caverif.h>")

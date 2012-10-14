@@ -28,6 +28,7 @@ class CaTransitionDef {
 		virtual void cleanup_binding(void *data) = 0;
 		virtual bool is_enable(CaThreadBase *thread, CaNetBase *net) = 0;
 		virtual bool binding_equality(void *data1, void *data2) { return true; }
+		virtual size_t binding_hash(void *data) { return 1; }
 };
 
 class CaTransition {
