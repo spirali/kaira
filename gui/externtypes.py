@@ -54,6 +54,7 @@ def native_extern_type_dialog(obj, mainwindow):
         mode_direct = builder.get_object("mode_direct")
         mode_custom = builder.get_object("mode_custom")
         octave_value = builder.get_object("octave_value")
+        hash_function = builder.get_object("hash")
 
         if obj.get_transport_mode() == "Custom":
             mode_custom.set_active(True)
@@ -62,6 +63,7 @@ def native_extern_type_dialog(obj, mainwindow):
         else:
             mode_disabled.set_active(True)
         octave_value.set_active(obj.is_octave_value())
+        hash_function.set_active(obj.has_hash_function())
 
         dlg.set_title("Extern type")
         dlg.set_transient_for(mainwindow)
@@ -69,6 +71,7 @@ def native_extern_type_dialog(obj, mainwindow):
             obj.set_name(wname.get_text())
             obj.set_raw_type(wrtype.get_text())
             obj.set_octave_value(octave_value.get_active())
+            obj.set_hash_function(hash_function.get_active())
             if mode_custom.get_active():
                 obj.set_transport_mode("Custom")
             elif mode_direct.get_active():

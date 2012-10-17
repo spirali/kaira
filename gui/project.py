@@ -474,22 +474,27 @@ class NativeExternType(ExternTypeBase):
         self.raw_type = ""
         self.transport_mode = "Disabled"
         self.octave_value = False
+        self.hash_function = False
 
         self.functions = {
             "getstring": "",
             "pack": "",
             "unpack": "",
             "to_octave_value":"",
-            "from_octave_value" : ""
+            "from_octave_value" : "",
+            "hash" : ""
         }
 
     def get_type(self):
         return "native"
 
     def get_note(self):
-        text = "Raw type: {0}, Transport: {1}".format(self.raw_type, self.transport_mode)
+        text = "Raw type: {0}, Transport: {1}".format(self.raw_type,
+                                                      self.transport_mode)
         if self.octave_value:
             text += ", Octave value"
+        if self.hash_function:
+            text += ", hash"
         return text
 
     def get_raw_type(self):
@@ -504,11 +509,19 @@ class NativeExternType(ExternTypeBase):
     def set_transport_mode(self, value):
         self.transport_mode = value
 
-    def is_octave_value(self):
-        return self.octave_value
+    def has_hash_function(self):
+        """ Returns True if ExternType has hash function """
+        return self.hash_function
+
+    def set_hash_function(self, value):
+        """ Controls whether ExternType has hash function  """
+        self.hash_function = value
 
     def set_octave_value(self, value):
         self.octave_value = value;
+
+    def is_octave_value(self):
+        return self.octave_value
 
     def set_function_code(self, function, code):
         self.functions[function] = code
@@ -532,6 +545,8 @@ class NativeExternType(ExternTypeBase):
         if self.octave_value:
             lst.append("to_octave_value")
             lst.append("from_octave_value")
+        if self.hash_function:
+            lst.append("hash")
         return lst
 
     def as_xml(self):
@@ -539,6 +554,7 @@ class NativeExternType(ExternTypeBase):
         e.set("raw-type", self.raw_type)
         e.set("transport-mode", self.transport_mode)
         e.set("octave-value", str(self.octave_value))
+        e.set("hash", str(self.hash_function))
 
         for name in self.functions:
             if self.has_function(name):

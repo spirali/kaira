@@ -555,7 +555,7 @@ class App:
         if search:
             line_no -= 2
 
-        if pos in ["getstring", "pack", "unpack"] and item_id is None:
+        if pos in ("getstring", "pack", "unpack", "hash") and item_id is None:
             item = self.project.find_extern_type(id_string)
             position = (pos, line_no)
             self.console_write_link(id_string + "/" + pos + (":" + str(line_no) if line_no else ""),

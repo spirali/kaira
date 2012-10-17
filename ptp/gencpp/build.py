@@ -130,7 +130,11 @@ def get_hash_function_name(project, t):
         return "array_{0}_hash".format(t.args[0].get_safe_name())
     etype = project.get_extern_type(t.name)
     if etype:
-        pass
+        if etype.has_hash_function():
+            return "{0}_hash".format(etype.name)
+        else:
+            raise utils.PtpException("Extern type '{0}' has not defined hash function"
+                                    .format(etype.name))
     raise Exception("Unknown type: " + str(t))
 
 def get_hash_code(project, t, code):
@@ -410,11 +414,16 @@ def write_extern_types_functions(builder, definitions):
     decls = {
              "getstring" : "std::string {0.name}_getstring(const {0.rawtype} &obj)",
              "pack" : "void {0.name}_pack(CaPacker &packer, {0.rawtype} &obj)",
-             "unpack" : "{0.rawtype} {0.name}_unpack(CaUnpacker &unpacker)"
+             "unpack" : "{0.rawtype} {0.name}_unpack(CaUnpacker &unpacker)",
+             "hash" : "size_t {0.name}_hash(const {0.rawtype} &obj)",
     }
 
     def write_fn(etype, name):
         source = ("*{0}/{1}".format(etype.get_name(), name), 1)
+        if etype.get_code(name) is None:
+            raise utils.PtpException(
+                    "Function '{0}' for extern type '{1.name}' has no body defined" \
+                        .format(name, etype))
         builder.write_function(decls[name].format(etype), etype.get_code(name), source)
 
     def declare_fn(etype, name):
@@ -438,6 +447,9 @@ def write_extern_types_functions(builder, definitions):
                                          "but pack/unpack missing.")
             f(etype, "pack")
             f(etype, "unpack")
+
+        if etype.has_hash_function():
+            f(etype, "hash")
 
 def write_parameters_setters(builder):
     for p in builder.project.get_parameters():
