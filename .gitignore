@@ -20,3 +20,5 @@ tests/projects/*
 samples/*/*.cpp
 samples/*/*.xml
 samples/*/makefile
+benchmarks/projects
+!benchmarks/*/*.proj

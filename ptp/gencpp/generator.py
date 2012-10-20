@@ -17,12 +17,17 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from builder import Builder, CppWriter, emit_declarations
-from octave import OctaveBuilder
 import emitter
 import os
 import base.utils
 import makefiles
+
+import build
+import writer
+import program
+import library
+import octave
+import rpc
 
 class CppGenerator:
 
@@ -39,7 +44,7 @@ class CppGenerator:
     def get_transition_user_fn_header(self, transition_id):
         transition = self.project.get_transition(transition_id)
         context = transition.get_context()
-        w = CppWriter()
+        w = writer.CppWriter()
         em = emitter.Emitter(self.project)
         w.line("struct Vars {{")
         for key, value in context.items():
@@ -57,8 +62,12 @@ class CppGenerator:
             ctx = "CaContext &ctx, "
         else:
             ctx = ""
-        decls = emit_declarations(em, ufunction.get_parameters())
+        decls = writer.emit_declarations(em, ufunction.get_parameters())
         return "{0} {1}({2}{3})\n{{\n".format(t, ufunction_name, ctx, decls)
+
+    def get_suitable_functions_for_place_tracing(self, place_id):
+        place = self.project.get_place(place_id)
+        return [ function.name for function in place.get_functions_for_tracing(self.project) ]
 
 
 class CppProgramGenerator(CppGenerator):
@@ -66,12 +75,11 @@ class CppProgramGenerator(CppGenerator):
     def build(self, directory):
         source_filename = os.path.join(directory, self.project.get_name() + ".cpp")
 
-        builder = Builder(self.project, source_filename)
-        builder.build()
+        builder = build.Builder(self.project, source_filename)
+        program.write_standalone_program(builder)
         builder.write_to_file()
 
         makefiles.write_program_makefile(self.project, directory)
-
 
 
 class CppLibGenerator(CppGenerator):
@@ -85,18 +93,18 @@ class CppLibGenerator(CppGenerator):
         if self.project.get_target_mode() == "rpc-lib":
             self.build_server(directory)
             self.build_client_library(directory)
-            makefiles.write_library_makefile(self.project, directory, rpc = True)
+            makefiles.write_library_makefile(self.project, directory, rpc=True)
 
         if self.project.get_target_mode() == "octave":
             self.build_library(directory)
             self.build_oct_files(directory)
-            makefiles.write_library_makefile(self.project, directory, octave = True)
+            makefiles.write_library_makefile(self.project, directory, octave=True)
 
         if self.project.get_target_mode() == "rpc-octave":
             self.build_server(directory)
             self.build_client_library(directory)
             self.build_oct_files(directory)
-            makefiles.write_library_makefile(self.project, directory, rpc = True, octave = True)
+            makefiles.write_library_makefile(self.project, directory, rpc=True, octave=True)
 
 
     def build_client_library(self, directory):
@@ -104,13 +112,13 @@ class CppLibGenerator(CppGenerator):
         header_filename = os.path.join(directory, self.project.get_name() + ".h")
 
         # Build .cpp
-        builder = Builder(self.project, source_filename)
-        builder.build_client_library(self.project.get_name() + ".h")
+        builder = build.Builder(self.project, source_filename)
+        rpc.write_client(builder, self.project.get_name() + ".h")
         builder.write_to_file()
 
         # Build .h
-        builder = Builder(self.project, header_filename)
-        builder.build_library_header_file()
+        builder = build.Builder(self.project, header_filename)
+        library.write_library_header_file(builder)
         builder.write_to_file()
 
 
@@ -124,10 +132,11 @@ class CppLibGenerator(CppGenerator):
         else:
             os.makedirs(server_directory)
 
-        source_filename = os.path.join(server_directory, self.project.get_name() + "_server.cpp")
+        source_filename = os.path.join(server_directory,
+                                       self.project.get_name() + "_server.cpp")
 
-        builder = Builder(self.project, source_filename)
-        builder.build_server()
+        builder = build.Builder(self.project, source_filename)
+        rpc.write_server(builder)
         builder.write_to_file()
 
         makefiles.write_server_makefile(self.project, server_directory)
@@ -137,25 +146,23 @@ class CppLibGenerator(CppGenerator):
         header_filename = os.path.join(directory, self.project.get_name() + ".h")
 
         # Build .cpp
-        builder = Builder(self.project, source_filename)
-        builder.build_library(self.project.get_name() + ".h")
+        builder = build.Builder(self.project, source_filename)
+        library.write_library(builder, self.project.get_name() + ".h")
         builder.write_to_file()
 
         # Build .h
-        builder = Builder(self.project, header_filename)
-        builder.build_library_header_file()
+        builder = build.Builder(self.project, header_filename)
+        library.write_library_header_file(builder)
         builder.write_to_file()
 
     def build_oct_files(self, directory):
         source_filename = os.path.join(directory, self.project.get_name() + "_oct.cpp")
         m_filename = os.path.join(directory, self.project.get_name() + ".m")
 
-        builder = Builder(self.project, source_filename)
-        builder.build_oct(self.project.get_name() + ".h")
+        builder = build.Builder(self.project, source_filename)
+        octave.write_oct_file(builder, self.project.get_name() + ".h")
         builder.write_to_file()
 
-        builder = OctaveBuilder(self.project)
-        builder.build_loader(self.project.get_name() + ".oct")
+        builder = octave.OctaveBuilder(self.project)
+        octave.write_loader(builder, self.project.get_name() + ".oct")
         builder.write_to_file(m_filename)
-
-

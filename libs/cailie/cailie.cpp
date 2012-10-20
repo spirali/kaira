@@ -1,4 +1,8 @@
 
+#ifdef CA_MPI
+#include <mpi.h>
+#endif
+
 #include "cailie.h"
 #include "listener.h"
 #include "utils.h"
@@ -7,10 +11,6 @@
 #include <assert.h>
 #include <stdarg.h>
 
-#ifdef CA_MPI
-#include <mpi.h>
-#endif
-
 int ca_threads_count = 1;
 const char *ca_project_description_string = NULL;
 int ca_listen_port = -1;
@@ -18,6 +18,7 @@ int ca_block_on_start = 0;
 CaNetDef **defs;
 int defs_count = 0;
 CaNet *master_net = NULL;
+CaListener *ca_listener = NULL;
 
 size_t ca_trace_log_size = 0;
 
@@ -35,32 +36,6 @@ void ca_project_description(const char *str) {
 	ca_project_description_string = str;
 }
 
-static CaListener * ca_init_listener(int process_count, CaProcess **processes)
-{
-	CaListener *listener = new CaListener(process_count, processes);
-	pthread_barrier_t start_barrier;
-
-	listener->init(ca_listen_port);
-	if (ca_listen_port == 0) {
-		printf("%i\n", listener->get_port());
-		fflush(stdout);
-	}
-
-	if (ca_block_on_start) {
-		pthread_barrier_init(&start_barrier, NULL, 2);
-		listener->set_start_barrier(&start_barrier);
-	}
-
-	listener->start();
-
-	if (ca_block_on_start) {
-		pthread_barrier_wait(&start_barrier);
-		pthread_barrier_destroy(&start_barrier);
-	}
-
-	return listener;
-}
-
 int ca_main()
 {
 	#ifdef CA_MPI
@@ -73,10 +48,22 @@ int ca_main()
 	#endif
 
 	#ifdef CA_SHMEM
-	CaListener *listener = NULL;
 
-	if (ca_listen_port != -1) {
-		listener = ca_init_listener(ca_process_count, processes);
+	if (ca_listener != NULL) {
+        pthread_barrier_t start_barrier;
+		ca_listener->set_processes(ca_process_count, processes);
+
+		if (ca_block_on_start) {
+			pthread_barrier_init(&start_barrier, NULL, 2);
+			ca_listener->set_start_barrier(&start_barrier);
+		}
+
+		ca_listener->start();
+
+		if (ca_block_on_start) {
+			pthread_barrier_wait(&start_barrier);
+			pthread_barrier_destroy(&start_barrier);
+		}
 	}
 
 	for (int t = 0; t < ca_process_count; t++) {
@@ -91,8 +78,9 @@ int ca_main()
 		processes[t]->clear();
 	}
 
-	if (listener != NULL) {
-		delete listener;
+	if (ca_listener != NULL) {
+		delete ca_listener;
+		ca_listener = NULL;
 	}
 	#endif
 
@@ -265,6 +253,20 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 		exit(1);
 	}
 	#endif
+
+	#ifdef CA_SHMEM
+	if (ca_listen_port != -1) {
+		ca_listener = new CaListener();
+		ca_listener->init(ca_listen_port);
+		if (ca_listen_port == 0) {
+			printf("%i\n", ca_listener->get_port());
+			fflush(stdout);
+		}
+		if (ca_block_on_start) {
+			ca_listener->wait_for_connection();
+		}
+	}
+	#endif
 }
 
 void ca_setup(int _defs_count, CaNetDef **_defs)
@@ -294,12 +296,11 @@ void ca_setup(int _defs_count, CaNetDef **_defs)
 }
 
 
-void ca_spawn_toplevel_net(int def_id)
+void ca_spawn_net(int def_id)
 {
 	#ifdef CA_SHMEM
-	int net_id = processes[0]->new_net_id();
 	for (int t = 0; t < ca_process_count; t++) {
-		CaNet *net = processes[t]->spawn_net(processes[t]->get_thread(0), def_id, net_id, NULL, false);
+		CaNet *net = processes[t]->spawn_net(processes[t]->get_thread(0), def_id, false);
 		net->unlock();
 		if (t == 0) {
 			master_net = net;
@@ -309,7 +310,7 @@ void ca_spawn_toplevel_net(int def_id)
 
 	#ifdef CA_MPI
 	CaThread *thread = process->get_thread(0);
-	CaNet *net = process->spawn_net(thread, def_id, process->new_net_id(), NULL, true);
+	CaNet *net = process->spawn_net(thread, def_id, true);
 	net->unlock();
 	master_net = net;
 	#endif
@@ -353,7 +354,7 @@ void ca_write_header(FILE *out, int process_count, int threads_count)
 
 	CaOutput output;
 	output.child("header");
-	output.set("pointer-size", sizeof(void*));
+	output.set("pointer-size", (int) sizeof(void*));
 	output.set("process-count", process_count);
 	output.set("threads-count", threads_count);
 	output.set("description-lines", lines);

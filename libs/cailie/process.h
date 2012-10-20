@@ -4,7 +4,6 @@
 
 #include <pthread.h>
 #include <vector>
-#include <map>
 #include <set>
 #include "messages.h"
 #include "net.h"
@@ -18,7 +17,7 @@
 #define CA_TAG_TOKENS 0
 #define CA_TAG_SERVICE 1
 
-enum CaServiceMessageType { CA_SM_QUIT, CA_SM_NET_CREATE, CA_SM_NET_HALT, CA_SM_WAKE , CA_SM_EXIT };
+enum CaServiceMessageType { CA_SM_QUIT, CA_SM_NET_CREATE, CA_SM_WAKE , CA_SM_EXIT };
 class CaProcess;
 class CaThread;
 struct CaServiceMessage {
@@ -26,22 +25,16 @@ struct CaServiceMessage {
 };
 
 struct CaServiceMessageNetCreate : CaServiceMessage {
-	int net_id;
 	int def_index;
-};
-
-struct CaServiceMessageNetHalt : CaServiceMessage {
-	int net_id;
 };
 
 struct CaTokens {
 	int place_index;
-	int net_id;
 	int tokens_count;
+	int msg_id;
 };
 
 struct CaUndeliverMessage {
-	int net_id;
 	void *data;
 };
 
@@ -63,25 +56,20 @@ class CaProcess {
 		void join();
 		void start_and_join();
 		void clear();
-		void inform_new_network(CaNet *net, CaThread *thread);
-		void inform_halt_network(int net_id, CaThread *thread);
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
-		void update_net_id_counters(int net_id);
-		bool is_future_id(int net_id);
 
 		int get_threads_count() const { return threads_count; }
 		int get_process_count() const { return process_count; }
 		int get_process_id() const { return process_id; }
 		void write_reports(FILE *out) const;
-		void fire_transition(int transition_id, int instance_id);
+		void fire_transition(int transition_id);
 
 		void quit_all(CaThread *thread);
-		void quit() { quit_flag = true; }
-		void halt(CaThread *thread, CaNet *net);
+		void quit();
 
-		CaNet * spawn_net(CaThread *thread, int def_index, int id, CaNet *parent_net, bool globally);
+		CaNet * get_net() { return net; }
 
-		int new_net_id();
+		CaNet * spawn_net(CaThread *thread, int def_index, bool globally);
 
 		CaThread *get_thread(int id);
 
@@ -106,20 +94,16 @@ class CaProcess {
 		void write_header(FILE *file);
 	protected:
 
-		void autohalt_check(CaNet *net);
-
+		CaNet *net;
 		int process_id;
 		int process_count;
 		int threads_count;
 		int defs_count;
 		CaNetDef **defs;
 		CaThread *threads;
-		int id_counter;
-		pthread_mutex_t counter_mutex;
-		int *process_id_counter;
-		std::map<int, std::vector<void* > > too_early_message;
-		/*memory of net's id which wasn't created, but was halted*/
-		std::set<int > halted_net;
+		std::vector<void* > too_early_message;
+		/*memory of net's id which wasn't created, but was quit*/
+		bool net_is_quit;
 
 		#ifdef CA_SHMEM
 		pthread_mutex_t packet_mutex;

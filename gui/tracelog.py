@@ -112,6 +112,19 @@ class TraceLog:
             trace = Trace(f.read(), process_id, thread_id, self.pointer_size)
             self.traces[process_id * self.threads_count + thread_id] = trace
 
+    def  get_index_from_time(self,  time):
+        last  =  len(self.timeline)  -  1
+        first  =  0
+        while  1:
+            if  last  <  first:
+                return last
+            i  =  (last  +  first)  /  2
+            t = self.get_event_time(i)
+            if time  >  t:
+                first  =  i  +  1
+            elif  time  <  t:
+                last  =  i  -  1
+
     def _preprocess(self):
         timeline = []
         trace_times = [ trace.get_next_event_time() for trace in self.traces ]
@@ -141,25 +154,63 @@ class TraceLog:
         self.timeline = timeline
         transition_names, transition_values = ri.get_transitions_utilization()
         tokens_names, tokens_values = ri.get_tokens_counts()
+        tr_tsum_names, tr_tsum_values = ri.get_transitions_time_sum()
+        proc_tsum_names, proc_tsum_values = self._make_processes_time_sum(ri.threads_data)
+        proc_hist_names, proc_hist_values = self._make_processes_his(ri.threads_data)
         self.statistics = {
             "threads" : ri.threads_data,
             "transition_names" : transition_names,
             "transition_values" : transition_values,
             "tokens_names" : tokens_names,
             "tokens_values" : tokens_values,
-
+            "proc_hist_names" : proc_hist_names,
+            "proc_hist_values" : proc_hist_values,
+            "proc_tsum_names" : proc_tsum_names,
+            "proc_tsum_values" : proc_tsum_values,
+            "tr_tsum_names" : tr_tsum_names,
+            "tr_tsum_values" : tr_tsum_values
         }
 
+    def _make_processes_his(self, data):
+        proc_names =  ["process {0}".format(p) for p in xrange(self.process_count)]
+        names = []
+        values = []
+
+        for name, [process] in zip(proc_names, data):
+            hist = dict()
+            for i, times in enumerate(process):
+                t = times[1] - times[0]
+                if t in hist:
+                    hist[t] += 1
+                else:
+                    hist[t] = 1
+            values.append(hist)
+            names.append("Histogram: {0}".format(name))
+        return names, values
+
+    def _make_processes_time_sum(self, data):
+        names =  ["process {0}".format(p) for p in xrange(self.process_count)]
+        values = []
+        for [process] in data:
+            sum = 0
+            for i, times in enumerate(process):
+                sum += (times[1] - times[0])
+            values.append(sum)
+        return names, values
 
 class Trace:
 
     struct_basic = struct.Struct("<Q")
-    struct_transition_fired = struct.Struct("<QiiB")
-    struct_spawn = struct.Struct("<Qiii")
+    struct_transition_fired = struct.Struct("<Qi")
+    struct_spawn = struct.Struct("<Qi")
+    struct_send = struct.Struct("Qi")
     struct_receive = struct.Struct("<Qi")
 
-    struct_token_4 = struct.Struct("<iL")
-    struct_token_8 = struct.Struct("<iQ")
+    struct_token_4 = struct.Struct("<Li")
+    struct_token_8 = struct.Struct("<Qi")
+
+    struct_int = struct.Struct("<i")
+    struct_double = struct.Struct("<d")
 
     def __init__(self, data, process_id, thread_id, pointer_size):
         self.data = data
@@ -172,6 +223,7 @@ class Trace:
             self.struct_token = self.struct_token_8
         else:
             Exception("Invalid pointer size")
+        self.info = self._read_header()
 
     def get_next_event_name(self):
         t = self.data[self.pointer]
@@ -179,14 +231,19 @@ class Trace:
             return "Fired"
         elif t == "F":
             return "Fin  "
+        elif t == "M":
+            return "Send "
         elif t == "R":
             return "Recv "
         elif t == "S":
             return "Spawn"
+        elif t == "H" or t == "Q": # "H" for backward compatability
+            return "Quit "
 
     def process_event(self, runinstance):
         t = self.data[self.pointer]
         self.pointer += 1
+        runinstance.pre_event()
         if t == "T":
             self._process_event_transition_fired(runinstance)
         elif t == "F":
@@ -195,30 +252,59 @@ class Trace:
             return self._process_event_receive(runinstance)
         elif t == "S":
             return self._process_event_spawn(runinstance)
+        elif t == "H" or t == "Q": # "H" for backward compatability
+            return self._process_event_quit(runinstance)
         else:
             raise Exception("Invalid event type '{0}/{1}'".format(t, ord(t)))
 
     def is_pointer_at_end(self):
         return self.pointer >= len(self.data)
 
-    def process_tokens_add(self, runinstance):
+    def process_tokens_add(self, runinstance, send_time=None):
+        place_id = None
+        token_pointer = None
+        values = []
         while not self.is_pointer_at_end():
             t = self.data[self.pointer]
             if t == "t":
+                if place_id is not None:
+                    runinstance.add_token(place_id, token_pointer, values, send_time)
+                values = []
                 self.pointer += 1
-                place_id, token_pointer = self._read_struct_token()
-                token_value = self._read_cstring()
-                runinstance.add_token(place_id, token_pointer, token_value)
+                token_pointer, place_id = self._read_struct_token()
+            elif t == "i":
+                self.pointer += 1
+                value = self._read_struct_int()
+                values.append(value)
+            elif t == "d":
+                self.pointer += 1
+                value = self._read_struct_double()
+                values.append(value)
+            elif t == "s":
+                self.pointer += 1
+                value = self._read_cstring()
+                values.append(value)
+            elif t == "M": # We want to skip SEND event in tracelog
+                self.pointer += 1
+                self._process_event_send_msg(runinstance)
             else:
+                if place_id is not None and token_pointer is not None:
+                    runinstance.add_token(place_id, token_pointer, values, send_time)
                 break
+
+        if self.is_pointer_at_end() and place_id is not None:
+            runinstance.add_token(place_id, token_pointer, values, send_time)
 
     def process_tokens_remove(self, runinstance):
         while not self.is_pointer_at_end():
             t = self.data[self.pointer]
-            if t == "s":
+            if t == "r":
                 self.pointer += 1
-                place_id, token_pointer = self._read_struct_token()
+                token_pointer, place_id = self._read_struct_token()
                 runinstance.remove_token(place_id, token_pointer)
+            elif t == "M": # We want to skip SEND event in tracelog
+                self.pointer += 1
+                self._process_event_send_msg(runinstance)
             else:
                 break
 
@@ -227,6 +313,17 @@ class Trace:
             return None
         else:
             return self.struct_basic.unpack_from(self.data, self.pointer + 1)[0]
+
+    def _read_header(self):
+        info = {}
+        while True:
+            key = self._read_cstring()
+            value = self._read_cstring()
+            if key == "" and value == "":
+                if "KairaThreadTrace" not in info or info["KairaThreadTrace"] != "1":
+                    raise Exception("Invalid format or version of KairaThreadTrace")
+                return info
+            info[key] = value
 
     def _read_struct_transition_fired(self):
         values = self.struct_transition_fired.unpack_from(self.data, self.pointer)
@@ -243,36 +340,69 @@ class Trace:
         self.pointer += self.struct_receive.size
         return values
 
+    def _read_struct_send_msg(self):
+        values = self.struct_send.unpack_from(self.data, self.pointer)
+        self.pointer += self.struct_send.size
+        return values
+
     def _read_struct_spawn(self):
         values = self.struct_spawn.unpack_from(self.data, self.pointer)
         self.pointer += self.struct_spawn.size
         return values
 
+    def _read_struct_quit(self):
+        values = self.struct_basic.unpack_from(self.data, self.pointer)
+        self.pointer += self.struct_basic.size
+        return values
+
     def _process_event_transition_fired(self, runinstance):
-        values = self._read_struct_transition_fired()
-        runinstance.transition_fired(values[0], self.process_id, self.thread_id,
-                                     values[1], values[2])
+        time, transition_id = self._read_struct_transition_fired()
+        pointer1 = self.pointer
+        values = self._read_transition_trace_function_data()
+        pointer2 = self.pointer
+        self.pointer = pointer1
+        runinstance.transition_fired(self.process_id, self.thread_id, time, transition_id, values)
         self.process_tokens_remove(runinstance)
+        self.pointer = pointer2
         self.process_tokens_add(runinstance)
 
     def _process_event_transition_finished(self, runinstance):
         time = self._read_struct_transition_finished()[0]
-        runinstance.transition_finished(time, self.process_id, self.thread_id)
+        runinstance.transition_finished(self.process_id, self.thread_id, time)
         self.process_tokens_add(runinstance)
+
+    def _process_event_send_msg(self, runinstance):
+        values = self._read_struct_send_msg()
+        runinstance.event_send(self.process_id, self.thread_id, *values)
 
     def _process_event_spawn(self, runinstance):
         runinstance.event_spawn(self.process_id, self.thread_id, *self._read_struct_spawn())
         self.process_tokens_add(runinstance)
 
-    def _process_event_receive(self, runinstance):
-        time, group_id = self._read_struct_receive()
-        runinstance.event_receive(time, self.process_id, self.thread_id, group_id)
+    def _process_event_quit(self, runinstance):
+        time = self._read_struct_quit()[0]
+        runinstance.event_quit(self.process_id, self.thread_id, time)
         self.process_tokens_add(runinstance)
+
+    def _process_event_receive(self, runinstance):
+        values = self._read_struct_receive()
+        send_time = runinstance.event_receive(self.process_id, self.thread_id, *values)
+        self.process_tokens_add(runinstance, send_time)
 
     def _read_struct_token(self):
         values = self.struct_token.unpack_from(self.data, self.pointer)
         self.pointer += self.struct_token.size
         return values
+
+    def _read_struct_int(self):
+        value = self.struct_int.unpack_from(self.data, self.pointer)
+        self.pointer += self.struct_int.size
+        return value[0]
+
+    def _read_struct_double(self):
+        value = self.struct_double.unpack_from(self.data, self.pointer)
+        self.pointer += self.struct_double.size
+        return value[0]
 
     def _read_cstring(self):
         start = self.pointer
@@ -281,6 +411,29 @@ class Trace:
         s = self.data[start:self.pointer]
         self.pointer += 1
         return s
+
+    def _read_transition_trace_function_data(self):
+        values = []
+        while not self.is_pointer_at_end():
+            t = self.data[self.pointer]
+            if t == "r":
+                self.pointer += 1
+                self._read_struct_token()
+            elif t == "i":
+                self.pointer += 1
+                value = self._read_struct_int()
+                values.append(value)
+            elif t == "d":
+                self.pointer += 1
+                value = self._read_struct_double()
+                values.append(value)
+            elif t == "s":
+                self.pointer += 1
+                value = self._read_cstring()
+                values.append(value)
+            else:
+                break
+        return values
 
 
 class EventPointer:
@@ -297,39 +450,29 @@ class DataCollectingRunInstance(RunInstance):
 
     def __init__(self, project, process_count, threads_count):
         RunInstance.__init__(self, project, process_count, threads_count)
-        begin = (0, None)
-        self.threads_data = [ [ [ begin ] for t in xrange(self.threads_count) ]
+        self.threads_data = [ [ [] for t in xrange(self.threads_count) ]
                               for p in xrange(self.process_count) ]
-        self.transitions_data = {} # [group_id][process_id][transition_id] -> [ (time, color) ]
-        self.tokens_data = {} # [group_id][process_id][place_id] -> int
+        self.transitions_data = {} # [process_id][transition_id] -> [ (start_time, end_time) ]
+        self.tokens_data = {} # [process_id][place_id] -> int
         self.group_nets = {}
         self.last_time = 0
 
-    def add_transition_data(self, group_id, process_id, transition_id, value):
-        group = self.transitions_data.get(group_id)
-        if group is None:
-            group = {}
-            self.transitions_data[group_id] = group
-            self.group_nets[group_id] = self.instance_groups[group_id].net
-        process = group.get(process_id)
+    def add_transition_data(self, process_id, transition_id, value):
+        process = self.transitions_data.get(process_id)
         if process is None:
             process = {}
-            group[process_id] = process
+            self.transitions_data[process_id] = process
         lst = process.get(transition_id)
         if lst is None:
             lst = []
             process[transition_id] = lst
         lst.append(value)
 
-    def change_tokens_data(self, group_id, process_id, place_id, time, change):
-        group = self.tokens_data.get(group_id)
-        if group is None:
-            group = {}
-            self.tokens_data[group_id] = group
-        process = group.get(process_id)
+    def change_tokens_data(self, process_id, place_id, time, change):
+        process = self.tokens_data.get(process_id)
         if process is None:
             process = {}
-            group[process_id] = process
+            self.tokens_data[process_id] = process
         lst = process.get(place_id)
         if lst is None:
             process[place_id] = [ (time, change) ]
@@ -338,67 +481,87 @@ class DataCollectingRunInstance(RunInstance):
         else:
             lst.append((time, lst[-1][1] + change))
 
-    def transition_fired(self, time, process_id, thread_id, group_id, transition_id):
-        RunInstance.transition_fired(self, time, process_id, thread_id, group_id, transition_id)
+    def transition_fired(self, process_id, thread_id, time, transition_id, values):
+        RunInstance.transition_fired(self, process_id, thread_id, time, transition_id, values)
         self.last_time = time
-        if self.last_event_activity.transition.has_code():
-            value = (time, 0)
-            self.threads_data[process_id][thread_id].append(value)
-            self.add_transition_data(group_id, process_id, transition_id, value)
 
-    def transition_finished(self, time, process_id, thread_id):
-        RunInstance.transition_finished(self, time, process_id, thread_id)
+    def transition_finished(self, process_id, thread_id, time):
+        time_start = self.activites[process_id * self.threads_count + thread_id].time
+        RunInstance.transition_finished(self, process_id, thread_id, time)
         self.last_time = time
         activity = self.last_event_activity
         if activity.transition.has_code():
-            value = (time, None)
+            value = (time_start, time)
             self.threads_data[activity.process_id][activity.thread_id].append(value)
-            self.transitions_data[activity.group_id][process_id][activity.transition.id].append(value)
+            self.add_transition_data(process_id, activity.transition.id, value)
 
-    def event_spawn(self, process_id, thread_id, time, net_id, group_id, parent_id):
-        RunInstance.event_spawn(self, process_id, thread_id, time, net_id, group_id, parent_id)
+    def event_spawn(self, process_id, thread_id, time, net_id):
+        RunInstance.event_spawn(self, process_id, thread_id, time, net_id)
         self.last_time = time
 
-    def event_receive(self, time, process_id, thread_id, group_id):
-        RunInstance.event_receive(self, time, process_id, thread_id, group_id)
+    def event_quit(self, process_id, thread_id, time):
+        RunInstance.event_quit(self, process_id, thread_id, time)
         self.last_time = time
 
-    def add_token(self, place_id, token_pointer, token_value):
-        RunInstance.add_token(self, place_id, token_pointer, token_value)
+    def event_send(self, process_id, thread_id, time, msg_id):
+        RunInstance.event_send(self, process_id, thread_id, time, msg_id)
+        self.last_time = time
+
+    def event_receive(self, process_id, thread_id, time, msg_id):
+        send_time = RunInstance.event_receive(self, process_id, thread_id, time, msg_id)
+        self.last_time = time
+        return send_time
+
+    def add_token(self, place_id, token_pointer, token_value, send_time):
+        RunInstance.add_token(self, place_id, token_pointer, token_value, send_time)
         net_instance = self.last_event_instance
-        self.change_tokens_data(net_instance.group_id, net_instance.process_id,
+        self.change_tokens_data(net_instance.process_id,
                                 place_id, self.last_time, 1)
 
     def remove_token(self, place_id, token_pointer):
         RunInstance.remove_token(self, place_id, token_pointer)
         net_instance = self.last_event_instance
-        self.change_tokens_data(net_instance.group_id, net_instance.process_id,
+        self.change_tokens_data(net_instance.process_id,
                                 place_id, self.last_time, -1)
 
     def get_transitions_utilization(self):
         names = []
         values = []
-        for group_id, g in self.transitions_data.items():
-            net = self.group_nets[group_id]
-            for process_id, p in g.items():
-                for transition_id, lst in p.items():
-                    names.append("{0.name}({0.id}) {1.name}@{2}".format(
-                        net,
-                        net.item_by_id(transition_id),
-                        process_id))
-                    values.append([lst])
+        for process_id, p in self.transitions_data.items():
+            for transition_id, lst in p.items():
+                net, item = self.project.get_net_and_item(transition_id)
+                names.append("{0.name}({0.id}) {1.name}@{2}".format(
+                    net,
+                    item,
+                    process_id))
+                values.append([lst])
         return names, values
 
     def get_tokens_counts(self):
         names = []
         values = []
-        for group_id, g in self.tokens_data.items():
-            net = self.group_nets[group_id]
-            for process_id, p in g.items():
-                for place_id, lst in p.items():
-                    names.append("{0.name}({0.id}) {1}@{2}".format(
-                        net,
-                        place_id,
-                        process_id))
-                    values.append(lst)
+        for process_id, p in self.tokens_data.items():
+            for place_id, lst in p.items():
+                net, item = self.project.get_net_and_item(place_id)
+                names.append("{0.name} {1}@{2}".format(
+                    net,
+                    place_id,
+                    process_id))
+                values.append(lst)
+        return names, values
+
+    def get_transitions_time_sum(self):
+        names = []
+        values = []
+        for process_id, p in self.transitions_data.items():
+            for transition_id, lst in p.items():
+                net, item = self.project.get_net_and_item(transition_id)
+                names.append("{0.name}({0.id}) {1.name}@{2}".format(
+                    net,
+                    item,
+                    process_id))
+                sum = 0
+                for times in lst:
+                    sum += (times[1] - times[0])
+                values.append(sum)
         return names, values

@@ -1,4 +1,7 @@
 
+#include "cailie.h"
+#include "listener.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,9 +14,6 @@
 #include <netinet/in.h>
 #include <unistd.h>
 
-
-#include "listener.h"
-#include "cailie.h"
 
 static int ca_init_listen_socket(int port)
 {
@@ -68,6 +68,19 @@ void * listener_thread(void *data)
 void CaListener::start()
 {
 	pthread_create(&thread, NULL, listener_thread, this);
+}
+
+
+void CaListener::wait_for_connection()
+{
+	fd_set s;
+	FD_ZERO(&s);
+	FD_SET(listen_socket,&s);
+	int r = select(listen_socket + 1, &s, NULL, NULL, NULL);
+	if (r < 0) {
+		perror("CaListener::wait_for_connection");
+		exit(-1);
+	}
 }
 
 void CaListener::main()
@@ -146,7 +159,8 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 		}
 
 		if (!strcmp(line, "REPORTS")) {
-			fprintf(comm_out, "<processes>");
+			fprintf(comm_out, "<processes net-id='%i'>",
+				processes[0]->get_net()->get_def_id());
 			for (int t = 0; t < process_count; t++) {
 				processes[t]->write_reports(comm_out);
 			}
@@ -161,9 +175,8 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 				continue;
 			}
 			int transition_id;
-			int instance_id;
 			int process_id;
-			if (3 != sscanf(line, "FIRE %i %i %i", &transition_id, &instance_id, &process_id)) {
+			if (2 != sscanf(line, "FIRE %i %i", &transition_id, &process_id)) {
 				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
@@ -172,7 +185,7 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 				continue;
 			}
 			CaProcess *p = processes[process_id];
-			p->fire_transition(transition_id, instance_id);
+			p->fire_transition(transition_id);
 			fprintf(comm_out, "Ok\n");
 			bool again;
 			do {

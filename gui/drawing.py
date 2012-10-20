@@ -49,7 +49,7 @@ class DrawingBase:
 
     highlight = None
     error_messages = None
-    trace_text = None
+    trace_text = []
 
     def __init__(self):
         pass
@@ -72,12 +72,9 @@ class TransitionDrawing(DrawingBase):
         self.size = item.get_size()
         self.name = item.get_name()
         self.guard = item.get_guard()
-        if item.subnet is None:
-            self.subnet_name = ""
-        else:
-            self.subnet_name = item.subnet.get_name()
         self.doubleborder = item.get_code().strip() != ""
         self.executions = None
+        self.with_values = False
 
     def draw(self, cr):
         px, py = self.position
@@ -101,19 +98,6 @@ class TransitionDrawing(DrawingBase):
         if self.doubleborder:
             cr.rectangle(px - sx/2 + 4, py - sy/2 + 4, sx - 8, sy - 8)
             cr.stroke()
-
-        if self.subnet_name:
-            tx, ty = utils.text_size(cr, self.subnet_name)
-            ax = px - tx / 2
-            ay = py + sy / 2 - ty / 2
-            cr.rectangle(ax - 5, ay - 2, tx + 10, ty + 4)
-            cr.set_source_rgb(1.0,1.0,1.0)
-            cr.fill()
-            cr.rectangle(ax - 5, ay - 2, tx + 10, ty + 4)
-            cr.set_source_rgb(0.0,0.0,0.0)
-            cr.stroke()
-            cr.move_to(ax, ay + ty)
-            cr.show_text(self.subnet_name)
 
         if self.name:
             tx, ty = utils.text_size(cr, self.name)
@@ -145,8 +129,23 @@ class TransitionDrawing(DrawingBase):
                 x += tx + 12
                 cr.set_source_rgb(0, 0, 0)
                 cr.show_text(text)
-        if self.trace_text is not None:
+        if self.trace_text:
             draw_trace_box(cr, px - sx / 2 - 5, py - sy / 2 - 5, self.trace_text)
+
+        if self.with_values:
+            cr.move_to(px + sx/2 - 20, py - sy/2)
+            cr.line_to(px + sx/2, py - sy/2)
+            cr.line_to(px + sx/2, py - sy/2 + 20)
+            cr.close_path();
+
+            cr.set_source_rgb(0, 0, 0);
+            cr.stroke_preserve();
+            cr.set_source_rgb(1, 0.5, 0.2);
+            cr.fill();
+
+            cr.move_to(px + sx/2 - 9, py - sy/2 + 11)
+            cr.set_source_rgb(0, 0, 0)
+            cr.show_text("T")
 
     def draw_top(self, cr):
         if self.error_messages and "guard" in self.error_messages:
@@ -161,7 +160,7 @@ class TransitionDrawing(DrawingBase):
 
 class PlaceDrawing(DrawingBase):
 
-    max_shown_tokens = 12
+    max_shown_tokens = 10
 
     def __init__(self, item):
         DrawingBase.__init__(self)
@@ -173,14 +172,28 @@ class PlaceDrawing(DrawingBase):
         self.init_string = item.get_init_string()
         self.place_type = item.get_place_type()
         self.tokens = None
+        self.new_tokens = None
+        self.removed_tokens = None
 
-    def set_tokens(self, tokens):
+    def set_tokens(self, tokens, new_tokens, removed_tokens):
         self.tokens = []
         for token in tokens:
             if len(token) > 25:
                 self.tokens.append(token[:18] + " ... (%i chars)" % len(token))
             else:
                 self.tokens.append(token)
+        self.new_tokens = []
+        for token in new_tokens:
+            if len(token) > 25:
+                self.new_tokens.append(token[:18] + " ... (%i chars)" % len(token))
+            else:
+                self.new_tokens.append(token)
+        self.removed_tokens = []
+        for token in removed_tokens:
+            if len(token) > 25:
+                self.removed_tokens.append(token[:18] + " ... (%i chars)" % len(token))
+            else:
+                self.removed_tokens.append(token)
 
     def draw(self, cr):
         px, py = self.position
@@ -212,19 +225,36 @@ class PlaceDrawing(DrawingBase):
             cr.set_source_rgb(0,0,0)
             cr.move_to(px + x, py + x)
             cr.show_text(self.place_type)
-        if self.trace_text is not None:
+        if self.trace_text:
             draw_trace_box(cr, px - 15, py - 15, self.trace_text)
 
     def draw_top(self, cr):
         px, py = self.position
 
-        if self.tokens:
-            tokens = self.tokens[:self.max_shown_tokens]
-            if len(self.tokens) != len(tokens):
+        if self.tokens or self.new_tokens or self.removed_tokens:
+            tokens = self.removed_tokens[:self.max_shown_tokens]
+            rem_t_in = len(tokens)
+            if len(tokens) < self.max_shown_tokens:
+                tokens += self.tokens[:self.max_shown_tokens-len(tokens)]
+            t_in = len(tokens) - rem_t_in
+            if len(tokens) < self.max_shown_tokens:
+                tokens += self.new_tokens[:self.max_shown_tokens-len(tokens)]
+            new_t_in = len(tokens) - rem_t_in - t_in
+            if len(self.tokens) + len(self.new_tokens) + len(self.removed_tokens) != len(tokens):
                 tokens.append("...")
-            # Draw green circle
+                if new_t_in < len(self.new_tokens):
+                    new_t_in += 1
+                elif t_in < len(self.tokens):
+                    t_in += 1
+                elif rem_t_in < len(self.removed_tokens):
+                    rem_t_in += 1
+
+            # Draw circle
             x = math.sqrt((self.radius * self.radius) / 2) + 15
-            cr.set_source_rgb(0.2,0.45,0)
+            if self.new_tokens:
+                cr.set_source_rgb(0.2,0.6,0)
+            else:
+                cr.set_source_rgb(0.2,0.45,0)
             cr.arc(px + self.radius,py,8, 0, 2 * math.pi)
             cr.fill()
 
@@ -233,24 +263,46 @@ class PlaceDrawing(DrawingBase):
             cr.set_source_rgb(0,0,0)
             cr.stroke()
 
-            init_text = str(len(self.tokens))
+            init_text = str(len(self.tokens + self.new_tokens))
             w, h = utils.text_size(cr, init_text)
             cr.set_source_rgb(0.8,0.8,0.8)
             cr.move_to(px + self.radius - w/2, py + h/2)
             cr.show_text(init_text)
 
             # Print token names
-            w_size = utils.text_size(cr, "W")[1] + 3
+            w_size = utils.text_size(cr, "W")[1] + 6
             texts = [ (t, utils.text_size(cr, t)[0]) for t in tokens ]
             text_height = len(tokens) * w_size
             text_width = max([ x[1] for x in texts ])
-
             text_x = px + self.radius + 12
             text_y = py - text_height / 2
 
-            cr.set_source_rgba(0.2,0.45,0,0.5)
-            cr.rectangle(text_x - 3, text_y - 3, text_width + 6, text_height + 6)
-            cr.fill()
+            rem_height = rem_t_in * w_size
+            tok_height = t_in * w_size
+            new_height = new_t_in * w_size
+
+            # Print gray rectangle for removed tokens
+            if self.removed_tokens:
+                cr.set_source_rgba(0.2,0.2,0.2,0.6)
+                cr.rectangle(text_x - 3, text_y + 4, text_width + 6, rem_height)
+                cr.fill()
+
+            # Print green rectangle for tokens
+            if self.tokens:
+                cr.set_source_rgba(0.2,0.45,0,0.5)
+                cr.rectangle(text_x - 3, text_y + rem_height + 4, text_width + 6, tok_height)
+                cr.fill()
+
+            # Print bordered rectangle for new tokens
+            if self.new_tokens:
+                cr.rectangle(text_x - 3, text_y + rem_height + tok_height + 4, text_width + 6, new_height)
+                cr.set_source_rgb(0,0,0)
+                cr.set_line_width(1.5)
+                cr.stroke()
+                cr.rectangle(text_x - 3, text_y + rem_height + tok_height + 4, text_width + 6, new_height)
+                cr.set_line_width(0.5)
+                cr.set_source_rgba(0.2,0.6,0,0.5)
+                cr.fill()
 
             cr.set_source_rgb(0.0,0.0,0.0)
             cr.set_source_rgb(1.0,1.0,1.0)
@@ -358,11 +410,6 @@ class InterfaceDrawing(DrawingBase):
         DrawingBase.__init__(self)
         self.position = item.get_position()
         self.size = item.get_size()
-        if item.net.get_autohalt():
-            self.text = "AH"
-        else:
-            self.text = "MH"
-
 
     def draw(self, cr):
         px, py = self.position
@@ -385,10 +432,6 @@ class InterfaceDrawing(DrawingBase):
         cr.stroke()
         cr.rectangle(px + 3, py + 3, sx - 6, sy - 6)
         cr.stroke()
-
-        cr.set_source_rgb(0.3,0.3,0.3)
-        cr.move_to(px + 15, py + 20)
-        cr.show_text(self.text)
 
 
 class InterfaceNodeDrawing(DrawingBase):
@@ -451,17 +494,26 @@ def rounded_rectangle(cr, x, y, w, h, r):
     cr.curve_to(x, y, x, y, x + r, y)
 
 def draw_trace_box(cr, x, y, text):
-    tx, ty = utils.text_size(cr, text, 8)
-    rounded_rectangle(cr, x, y, tx + 40, ty + 10, 10)
+    tw = 0
+    th = 0
+    for txt in text:
+        tx, ty = utils.text_size(cr, txt, 8)
+        th += ty
+        tw = tw if tw > tx else tx
+    rounded_rectangle(cr, x, y, tw + 40, th + len(text)*10, 10)
     cr.set_source_rgba(1.0, 0.5, 0.2, 0.9)
     cr.fill()
-    rounded_rectangle(cr, x, y, tx + 40, ty + 10, 10)
+    rounded_rectangle(cr, x, y, tw + 40, th + 10, 10)
     cr.set_source_rgba(1.0, 0.5, 0.2)
     cr.stroke()
 
     cr.set_source_rgb(1, 1, 1)
-    cr.move_to(x + 30, y + ty + 5)
-    cr.show_text(text)
+    th = -5
+    for txt in text:
+        tx, ty = utils.text_size(cr, txt, 8)
+        th += ty + 10
+        cr.move_to(x + 30, y + th)
+        cr.show_text(txt)
     cr.fill()
 
     cr.arc(x + 12, y + 7, 4, 0, 2 * math.pi)

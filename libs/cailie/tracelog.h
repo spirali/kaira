@@ -13,17 +13,22 @@ class CaTraceLog {
 
 	public:
 
-		/* filename == "" sets dynamic tracelog, ie. it is resized when necessary */
 		CaTraceLog(size_t size, const std::string &filename);
 		~CaTraceLog();
 
-		void event_net_spawn(int net_id, int instance_id, int parent_id);
-		void event_transition_fired(int instance_id, int transition_id);
+		void event_net_spawn(int net_id);
+		void event_net_quit();
+		void event_transition_fired(int transition_id);
 		void event_transition_finished();
-		void event_receive(int instance_id);
+		void event_send_msg(int msg_id);
+		void event_receive(int msg_id);
 
-		void trace_token(int place_id, void *pointer, const std::string &value);
-		void trace_token(int place_id, void *pointer);
+		void trace_token_add(int place_id, void *pointer);
+		void trace_token_remove(int place_id, void *pointer);
+
+		void trace_int(const int value);
+		void trace_double(const double value);
+		void trace_string(const std::string &str);
 
 		static void init();
 		static void write_head(const std::string &name);
@@ -55,6 +60,12 @@ class CaTraceLog {
 			pos++;
 		}
 
+		void write_double(const double value) {
+			memcpy(pos, &value, sizeof(double));
+			pos += sizeof(double);
+		}
+
+		void write_key_value(const std::string &key, const std::string &value);
 
 		void write_buffer();
 

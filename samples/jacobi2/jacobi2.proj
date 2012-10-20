@@ -1,19 +1,19 @@
-<project extenv="C++"><configuration><parameter default="10" description="" name="LIMIT" type="Int" /><parameter default="4" description="" name="SIZE_X" type="Int" /><parameter default="4" description="" name="SIZE_Y" type="Int" /><parameter default="200" description="" name="TEMP" type="Int" /><parameter default="5" description="" name="WORKERS" type="Int" /><extern-type name="Row" octave-value="False" raw-type="Row" transport-mode="Custom" type="native"><code name="getsize">	return ROW_DATA_SIZE;
+<project extenv="C++"><configuration><parameter default="10" description="" name="LIMIT" type="Int" /><parameter default="4" description="" name="SIZE_X" type="Int" /><parameter default="4" description="" name="SIZE_Y" type="Int" /><parameter default="200" description="" name="TEMP" type="Int" /><extern-type name="Row" octave-value="False" raw-type="Row" transport-mode="Custom" type="native"><code name="getsize">	return ROW_DATA_SIZE;
 </code><code name="unpack">	const double *data = (double *) unpacker.unpack(ROW_DATA_SIZE);
 	return Row(data);
 </code><code name="pack">	packer.pack(obj.get_raw_data(), ROW_DATA_SIZE);
-</code></extern-type><extern-type name="Data" octave-value="False" raw-type="Data *" transport-mode="Custom" type="native"><code name="getsize">	return (ROW_DATA_SIZE * obj-&gt;get_size()) + sizeof(int);
-</code><code name="unpack">	int t, size = unpacker.unpack_int();
-	Data *d = new Data(0, size);
+</code></extern-type><extern-type name="Data" octave-value="False" raw-type="Data" transport-mode="Custom" type="native"><code name="unpack">	int t, size = unpacker.unpack_int();
+	Data d(0, size);
 	for (t = 0; t &lt; size; t++)
 	{
-		d-&gt;set_raw_row(t, (double*) unpacker.unpack(ROW_DATA_SIZE));
+		d.set_raw_row(t, (double*) unpacker.unpack(ROW_DATA_SIZE));
 	}
 	return d;
-</code><code name="pack">	int t, size = obj-&gt;get_size();
+</code><code name="getstring">	return "Data";
+</code><code name="pack">	int t, size = obj.get_size();
 	packer.pack_int(size);
 	for (t = 0; t &lt; size; t++) {
-		packer.pack(obj-&gt;get_raw_row(t), ROW_DATA_SIZE);
+		packer.pack(obj.get_raw_row(t), ROW_DATA_SIZE);
 	}
 </code></extern-type><function id="0" name="to_up" parameters="" return-type="Int" with-context="True">	int count = ctx.process_count();
 	return (ctx.process_id() + count - 1) % count;
@@ -101,6 +101,31 @@ class Data {
 			init();
 		}
 		
+		Data(const Data &amp;c) {
+			this-&gt;size = c.size;
+			this-&gt;position = c.position;
+			array1 = new double[(size + 2) * (WIDTH + 2)];
+			memcpy(array1, c.array1, sizeof(double) * (size + 2) * (WIDTH + 2));
+			array2 = new double[(size + 2) * (WIDTH + 2)];
+			memcpy(array2, c.array2, sizeof(double) * (size + 2) * (WIDTH + 2));
+
+		}
+
+		Data &amp; operator= (const Data &amp; c) {
+		        if (this != &amp;c)
+			{
+				delete [] array1;
+				delete [] array2;
+				this-&gt;size = c.size;
+				this-&gt;position = c.position;
+				array1 = new double[(size + 2) * (WIDTH + 2)];
+				memcpy(array1, c.array1, sizeof(double) * (size + 2) * (WIDTH + 2));
+				array2 = new double[(size + 2) * (WIDTH + 2)];
+				memcpy(array2, c.array2, sizeof(double) * (size + 2) * (WIDTH + 2));
+		        }
+			return *this;
+		}
+
 		void init() {
 			int t;
 			for (t = (WIDTH + 2); t &lt; (size + 2) * (WIDTH + 2); t++) {
@@ -197,22 +222,20 @@ int id_to_size(int process_count, int iid)
 	}
 	return end - first;
 }</head-code></configuration><net id="101" name="Main" net-type="main"><place id="103" init_string="" place_type="Data" radius="20" x="70" y="285"><code>	int process_id = ctx.process_id();
-	Data *data = new Data(id_to_position(ctx.process_count(), process_id), id_to_size(ctx.process_count(), process_id));
-//	data-&gt;random_fill();
+	Data data(id_to_position(ctx.process_count(), process_id), id_to_size(ctx.process_count(), process_id));
 	tokens.push_back(data);
-</code></place><place id="104" init_string="" place_type="(Int, Row)" radius="20" x="295" y="360" /><place id="105" init_string="" place_type="Data" radius="20" x="295" y="285" /><place id="106" init_string="" place_type="(Int, Row)" radius="20" x="295" y="210" /><place id="107" init_string="[0]" place_type="Int" radius="20" x="635" y="375" /><place id="108" init_string="" place_type="(Int, Data)" radius="22" x="830" y="285" /><transition guard="" id="109" name="Init" sx="70" sy="35" x="190" y="285"><code>	var.data-&gt;get_rows(var.up, var.down);
+</code></place><place id="104" init_string="" place_type="(Int, Row)" radius="20" x="295" y="360" /><place id="105" init_string="" place_type="Data" radius="20" x="295" y="285" /><place id="106" init_string="" place_type="(Int, Row)" radius="20" x="295" y="210" /><place id="107" init_string="[0]" place_type="Int" radius="20" x="635" y="375" /><place id="108" init_string="" place_type="(Int, Data)" radius="22" x="830" y="285" /><transition guard="" id="109" name="Init" sx="70" sy="35" x="190" y="285"><code>	var.data.get_rows(var.up, var.down);
 </code></transition><transition guard="c &lt; #LIMIT" id="110" name="Compute" sx="70" sy="35" x="520" y="285"><code>	if (ctx.process_id() == 0) {
 		var.up.set_zero();
 	}
 	if (ctx.process_id() == ctx.process_count() - 1) {
 		var.down.set_zero();
 	}
-	var.data-&gt;compute(var.up, var.down);
+	var.data.compute(var.up, var.down);
 </code></transition><transition guard="" id="111" name="Send result" sx="70" sy="35" x="635" y="285" /><transition guard="" id="112" name="Write results" sx="70" sy="35" x="830" y="185"><code>	int t, size = var.results.size();
 	std::string s[size];
 	for (t=0; t &lt; size; t++) {
-		s[var.results[t].t0] = var.results[t].t1-&gt;as_html();
-		delete var.results[t].t1;
+		s[var.results[t].t0] = var.results[t].t1.as_html();
 	}
 	
 	std::ofstream stream("result.html");

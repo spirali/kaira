@@ -294,6 +294,18 @@ def makedir_if_not_exists(dirname):
     if not os.path.isdir(dirname):
         os.makedirs(dirname)
 
+def time_to_string(nanosec, seconds=False):
+    nanosec=long(nanosec)
+    s = nanosec / 1000000000
+    nsec = nanosec % 1000000000
+    if seconds:
+        return "{0:0>2}:{1:0>9}".format(s, nsec)
+    sec = s % 60
+    minutes = (s / 60) % 60
+    hours = s / 60 / 60
+    return "{0}:{1:0>2}:{2:0>2}:{3:0>9}".format(hours, minutes, sec, nsec)
+
+
 class EqMixin(object):
 
     def __eq__(self, other):

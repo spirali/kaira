@@ -19,7 +19,8 @@
 
 import utils as utils
 from base.expressions import ExprVar
-from base.neltypes import t_bool, derive_context, t_array, t_int
+from base.neltypes import derive_context
+from base.neltypes import t_bool, t_array, t_int, t_double, t_string
 import analysis
 
 class EdgeBase(utils.EqMixin):
@@ -76,8 +77,9 @@ class EdgeInPacking(EdgeBase):
         self.limit = limit
 
     def get_equations(self):
-        return [ (ExprVar(self.varname), t_array(self.get_place_type())),
-                (self.limit, t_int) ]
+        source = utils.get_source_path(self.id, "inscription")
+        return [ (ExprVar(self.varname, source), t_array(self.get_place_type())),
+                (self.limit, t_int.copy(source)) ]
 
     def inject_types(self, env, context):
         self.limit.inject_types(env, context)
@@ -142,13 +144,13 @@ class EdgeOut(EdgeBase):
 class Place(utils.EqByIdMixin):
 
     code = None
-    tracing = "off" # values: "off", "basic", "full"
 
     def __init__(self, net, id, type, init_expression):
         self.net = net
         self.id = id
         self.type = type
         self.init_expression = init_expression
+        self.tracing = []
 
     def inject_types(self):
         if self.init_expression is not None:
@@ -188,11 +190,25 @@ class Place(utils.EqByIdMixin):
     def get_areas(self):
         return self.net.get_areas_with_place(self)
 
+    def get_functions_for_tracing(self, project):
+        p = [ self.type ]
+        if self.type.name == "":
+            q = list(self.type.args)
+            return (project.get_user_functions_by_declaration(t_int, p) +
+               project.get_user_functions_by_declaration(t_double, p) +
+               project.get_user_functions_by_declaration(t_string, p) +
+               project.get_user_functions_by_declaration(t_int, q) +
+               project.get_user_functions_by_declaration(t_double, q) +
+               project.get_user_functions_by_declaration(t_string, q))
+
+        return (project.get_user_functions_by_declaration(t_int, p) +
+               project.get_user_functions_by_declaration(t_double, p) +
+               project.get_user_functions_by_declaration(t_string, p))
+
+
 class Transition(utils.EqByIdMixin):
 
     code = None
-    subnet = None
-    tracing = "off" # values: "off", "basic", "full"
 
     # After analysis it is dictionary variable_name -> EdgeIn
     # It returns edge (= token) where variable should be gather
@@ -204,6 +220,14 @@ class Transition(utils.EqByIdMixin):
         self.guard = guard
         self.edges_in = []
         self.edges_out = []
+        self.tracing = []
+
+    def need_trace(self):
+        if self.is_any_place_traced():
+            return True
+        if self.code and self.code.find("ctx.trace_") != -1:
+            return True
+        return len(self.tracing) > 0
 
     def get_normal_edges_out(self):
         return [ edge for edge in self.edges_out if edge.is_normal() ]
@@ -236,7 +260,7 @@ class Transition(utils.EqByIdMixin):
         return self.get_input_places() & self.get_output_places()
 
     def is_any_place_traced(self):
-        return any(place.tracing != "off" for place in self.get_places())
+        return any(place.tracing for place in self.get_places())
 
     def get_equations(self):
         result = []
@@ -268,25 +292,6 @@ class Transition(utils.EqByIdMixin):
     def get_source(self):
         return "*{0}".format(self.id)
 
-    def check(self):
-        if self.subnet is not None:
-            if self.code is not None:
-                raise utils.PtpException(
-                    "Transition cannot have internal code and assigned submodule in the same time",
-                    self.get_source())
-            ctx = self.get_context()
-            for v in self.subnet.get_module_input_vars():
-                if v not in ctx:
-                    raise utils.PtpException(
-                        "The assigned module requires variable '{0}'".format(v),
-                        self.get_source())
-            for name, t in self.subnet.get_interface_context().items():
-                if ctx[name] != t:
-                    raise utils.PtpException(
-                            ("Conflict of types with the assigned module in variable '{0}', "
-                            "type in module is {1}")
-                                .format(name, t), self.get_source())
-
 class Area(object):
 
     def __init__(self, net, id, expr, places):
@@ -310,8 +315,6 @@ def inject_types_for_empty_context(env, expr, t):
 
 class Net(object):
 
-    autohalt = False
-
     def __init__(self, project, id, name):
         self.project = project
         self.id = id
@@ -328,9 +331,6 @@ class Net(object):
 
     def is_module(self):
         return self.module_flag
-
-    def has_autohalt(self):
-        return self.autohalt
 
     def get_interface_edges_out(self):
         return self.interface_edges_out
@@ -408,9 +408,6 @@ class Net(object):
 
         for t in self.get_all_types():
             t.check(self.project)
-
-        for tr in self.transitions:
-            tr.check()
 
     def analyze(self):
         for tr in self.transitions:

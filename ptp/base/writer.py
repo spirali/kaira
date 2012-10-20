@@ -19,6 +19,8 @@
 
 class Writer(object):
 
+    filename = None
+
     def __init__(self):
         self.lines = []
         self.indent = ""
@@ -53,7 +55,11 @@ class Writer(object):
     def get_string(self):
         return "\n".join(self.lines) + "\n"
 
-    def write_to_file(self, filename):
+    def write_to_file(self, filename=None):
+        if filename is None:
+            assert self.filename is not None
+            filename = self.filename
+
         with open(filename, "w") as f:
             for line in self.lines:
                 f.write(line + "\n")

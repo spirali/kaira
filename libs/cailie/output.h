@@ -45,5 +45,6 @@ std::string ca_int_to_string(const int &i);
 std::string ca_double_to_string(const double &d);
 std::string ca_float_to_string(const float &f);
 std::string ca_bool_to_string(const bool &b);
+std::string ca_string_to_string(const std::string &s);
 
 #endif // CAILIE_OUTPUT_H

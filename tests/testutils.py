@@ -16,9 +16,12 @@ TEST_PROJECTS = os.path.join(KAIRA_TESTS, "projects")
 
 class RunProgram:
 
-    def __init__(self, filename, parameters = [], cwd = None, env = None):
+    def __init__(self, filename, parameters=None, cwd=None, env=None):
         self.filename = filename
-        self.parameters = parameters
+        if parameters is None:
+            self.parameters = []
+        else:
+            self.parameters = parameters
         self.cwd = cwd
         self.env = env
 
@@ -37,7 +40,10 @@ class RunProgram:
         return self.result(pr, expected_output)
 
     def fail(self, expected_stdout = None, expected_stderr = None, expected_stderr_prefix = None):
-        pr = subprocess.Popen([self.filename] + self.parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd = self.cwd)
+        pr = subprocess.Popen([self.filename] + self.parameters,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE,
+                              cwd=self.cwd)
         output,errs = pr.communicate()
         if pr.returncode == 0:
             self.error("Expected fail, but return code is zero")
@@ -91,7 +97,9 @@ class Project:
             return os.path.join(self.get_directory(), "main")
 
     def clean(self):
-        RunProgram("/bin/sh", [os.path.join(TEST_PROJECTS, "fullclean.sh")], cwd = self.get_directory()).run()
+        RunProgram("/bin/sh",
+                   [os.path.join(TEST_PROJECTS, "fullclean.sh")],
+                   cwd=self.get_directory()).run()
 
     def export(self):
         RunProgram("python", [ CMDUTILS, "--export", self.get_filename() ]).run()
@@ -101,7 +109,9 @@ class Project:
 
     def fail_ptp(self, output):
         self.export()
-        RunProgram(PTP_BIN, [ self.get_xml_filename(), "--build", self.get_directory() ]).fail(output)
+        RunProgram(PTP_BIN, [ self.get_xml_filename(),
+                              "--build",
+                              self.get_directory() ]).fail(output)
 
     def failed_make(self, output, args = []):
         self.export()
@@ -142,17 +152,17 @@ class Project:
         else:
             self._run(executable, run_args, result, **kw)
 
-    def _run(self, executable, run_args, result = None, result_fn = None, repeat = 1, env = None, fail = False):
-        rp = RunProgram(executable, run_args, env = env, cwd = self.get_directory())
+    def _run(self, executable, run_args, result=None, result_fn=None, repeat=1, env=None, fail=False):
+        rp = RunProgram(executable, run_args, env=env, cwd=self.get_directory())
         for x in xrange(repeat):
             if fail:
-                rp.fail(expected_stderr = result)
+                rp.fail(expected_stderr=result)
             else:
                 r = rp.run(result)
                 if result_fn is not None:
                     result_fn(r)
 
-    def quick_test(self, result = None, **kw):
+    def quick_test(self, result=None, **kw):
         self.build()
         self.run(result, **kw)
 
@@ -180,9 +190,11 @@ class Project:
             filename += "_mpi"
         return filename
 
-    def start_server(self, processes=1, threads=1, params={}):
-        env = { "CASERVER_PORT" : "14980" }
+    def start_server(self, processes=1, threads=1, params=None):
+        if params is None:
+            params = {}
 
+        env = { "CASERVER_PORT" : "14980" }
         executable = self.get_server_executable()
 
         if self.mpi:
@@ -198,7 +210,9 @@ class Project:
         else:
             real_program = executable
 
-        self.server = subprocess.Popen([real_program] + run_args, cwd=self.get_server_directory(), env=env)
+        self.server = subprocess.Popen([real_program] + run_args,
+                                       cwd=self.get_server_directory(),
+                                       env=env)
         time.sleep(0.2) # Let's give some time to server to open socket
 
     def stop_server(self):

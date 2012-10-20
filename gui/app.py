@@ -26,7 +26,7 @@ import sys
 import paths
 sys.path.append(paths.PTP_DIR)
 import gtkutils
-from mainwindow import MainWindow, Tab
+from mainwindow import MainWindow, Tab, SaveTab
 from netview import NetView
 from simconfig import SimConfigDialog
 from projectconfig import ProjectConfig
@@ -40,10 +40,10 @@ import externtypes
 import functions
 import loader
 import ptp
-import utils
 import runview
+import codetests
 
-VERSION_STRING = '0.4'
+VERSION_STRING = '0.5'
 
 class App:
     """
@@ -208,7 +208,7 @@ class App:
     def build_project(self, target):
         self.console_write("Building '{0}' ...\n".format(target))
         build_config = self.project.get_build_config(target)
-        self._start_build(self.project, build_config,
+        self.start_build(self.project, build_config,
                           lambda p: self.console_write("Build finished\n", "success"))
 
     def get_grid_size(self):
@@ -243,10 +243,21 @@ class App:
     def _add_project_file_filters(self, dialog):
         self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files = True)
 
+    def edit_code_tests(self):
+        if not self.project.is_library():
+            self.show_info_dialog("Tests are available only for project type 'Library'.")
+            return
+        if self.window.switch_to_tab_by_key("codetests"):
+            return
+        widget = codetests.CodeTestList(self)
+        self.window.add_tab(SaveTab("Tests", widget, "codetests"))
+
     def transition_edit(self, transition, lineno = None):
         position = ("", lineno) if lineno is not None else None
 
-        if self.window.switch_to_tab_by_key(transition, lambda tab: tab.widget.jump_to_position(position)):
+        if self.window.switch_to_tab_by_key(
+                transition,
+                lambda tab: tab.widget.jump_to_position(position)):
             return
 
         def open_tab(stdout):
@@ -292,7 +303,9 @@ class App:
 
     def function_edit(self, function, lineno = None):
         position = ("", lineno) if lineno is not None else None
-        if self.window.switch_to_tab_by_key(function, lambda tab: tab.widget.jump_to_position(position)):
+        if self.window.switch_to_tab_by_key(
+                function,
+                lambda tab: tab.widget.jump_to_position(position)):
             return
         try:
             editor = functions.FunctionEditor(self.project, function)
@@ -301,6 +314,16 @@ class App:
         except ptp.PtpException, e:
             self.console_write("Cannot open function '{0}'\n".format(function.get_name()), "error")
             self.console_write(str(e) + "\n", "error")
+
+    def catch_ptp_exception(self, fn, show_errors=True):
+        try:
+            return (True, fn())
+        except ptp.PtpException, e:
+            if show_errors:
+                error_messages = {}
+                self._process_error_line(str(e), error_messages)
+                self.project.set_error_messages(error_messages)
+            return (False, None)
 
     def project_config(self):
         if self.window.switch_to_tab_by_key("project-config"):
@@ -314,56 +337,65 @@ class App:
         w = settings.SettingsWidget(self)
         self.window.add_tab(Tab("Settings", w, "settings"))
 
-    def edit_sourcefile(self, filename):
-        tab_tag = "file:" + filename
-        if self.window.switch_to_tab_by_key(tab_tag):
-            return
-        self.window.add_tab(codeedit.TabCodeFileEditor(filename, tab_tag,
-            self.project.get_syntax_highlight_key()))
-
     def edit_head(self, lineno = None):
         position = ("", lineno) if lineno is not None else None
 
-        if self.window.switch_to_tab_by_key("Head", lambda tab: tab.widget.jump_to_position(position)):
+        if self.window.switch_to_tab_by_key(
+                "Head",
+                lambda tab: tab.widget.jump_to_position(position)):
             return
 
         editor = codeedit.HeadCodeEditor(self.project)
         self.window.add_tab(codeedit.TabCodeEditor("Head", editor, "Head"))
         editor.jump_to_position(position)
 
-    def simulation_start(self, valgrind = False):
+    def run_simulated_program(self, name, directory, simconfig, valgrind):
         def output(line, stream):
-            self.console_write("OUTPUT: " + line, "output")
+            self.console_write_output(line)
             return True
 
+        if valgrind:
+            program_name = "valgrind"
+            parameters = [ "-q", name ]
+        else:
+            program_name = name
+            parameters = []
+
+        parameters += [ "-s", "auto", "-b", "-r", str(simconfig.process_count) ]
+        sprocess = process.Process(program_name, output)
+        sprocess.cwd = directory
+        # FIXME: Timeout
+        other_params = [ "-p{0}={1}".format(k, v)
+                         for (k, v) in simconfig.parameters_values.items() ]
+        first_line = sprocess.start_and_get_first_line(parameters + other_params)
+        try:
+            port = int(first_line)
+        except ValueError:
+            self.console_write("Simulated program return invalid first line: "
+                + first_line, "error")
+            return None, None
+        return sprocess, port
+
+
+    def simulation_start(self, valgrind = False):
         def project_builded(project):
-            if valgrind:
-                program_name = "valgrind"
-                parameters = [ "-q", build_config.get_executable_filename() ]
-            else:
-                program_name = build_config.get_executable_filename()
-                parameters = []
-
-            parameters += [ "-s", "auto", "-b", "-r", str(simconfig.process_count) ]
-            sprocess = process.Process(program_name, output)
-            sprocess.cwd = project.get_directory()
-            # FIXME: Timeout
-            other_params = [ "-p{0}={1}".format(k, v) for (k, v) in simconfig.parameters_values.items() ]
-            first_line = sprocess.start_and_get_first_line(parameters + other_params)
-            try:
-                port = int(first_line)
-            except ValueError:
-                self.console_write("Simulated program return invalid first line: " + first_line, "error")
+            sprocess, port = self.run_simulated_program(
+                build_config.get_executable_filename(),
+                project.get_directory(),
+                simconfig,
+                valgrind)
+            if sprocess is None:
                 return
-
             simulation = self.new_simulation()
             simulation.quit_on_shutdown = True
-            simulation.set_callback("inited", lambda: self.window.add_tab(simview.SimViewTab(self, simulation)))
+            simulation.set_callback(
+                "inited",
+                lambda: self.window.add_tab(simview.SimViewTab(self, simulation)))
             simulation.set_callback("shutdown", lambda: sprocess.shutdown())
             simulation.connect("localhost", port)
 
         if self.project.get_simulator_net() is None:
-            self.console_write("No network is selected for simulations\n", "error")
+            self.console_write("No net is selected for simulations\n", "error")
             return
 
         simconfig = self.project.get_simconfig()
@@ -373,7 +405,7 @@ class App:
 
         build_config = self.project.get_build_config("simulation")
         self.console_write("Preparing simulation ...\n")
-        self._start_build(self.project, build_config, project_builded)
+        self.start_build(self.project, build_config, project_builded)
 
     def open_simconfig_dialog(self):
         dialog = SimConfigDialog(self.window, self.project)
@@ -387,7 +419,10 @@ class App:
             dialog.destroy()
 
     def show_message_dialog(self, text, type):
-        error_dlg = gtk.MessageDialog(parent=self.window, type=type, message_format=text, buttons=gtk.BUTTONS_OK)
+        error_dlg = gtk.MessageDialog(parent=self.window,
+                                      type=type,
+                                      message_format=text,
+                                      buttons=gtk.BUTTONS_OK)
         try:
             error_dlg.run()
         finally:
@@ -401,6 +436,9 @@ class App:
 
     def console_write(self, text, tag_name = "normal"):
         self.window.console.write(text, tag_name)
+
+    def console_write_output(self, text):
+        self.console_write("OUTPUT: " + text, "output")
 
     def console_write_link(self, text, callback):
         self.window.console.write_link(text, callback)
@@ -447,31 +485,36 @@ class App:
         self.window.set_title("Kaira - {0} ({1})" \
             .format(self.project.get_name(), self.project.get_extenv_name()))
 
-    def _run_makefile(self, project, build_directory, build_ok_callback = None, target = None):
+    def _run_build_program(self, name, args, directory, build_ok_callback):
         def on_exit(code):
             if build_ok_callback and code == 0:
-                build_ok_callback(project)
+                build_ok_callback()
         def on_line(line, stream):
             self._process_error_line(line, None)
             return True
-        p = process.Process("make",on_line, on_exit)
-        p.cwd = build_directory
-        if target is None:
-            p.start()
-        else:
-            p.start([target])
+        p = process.Process(name, on_line, on_exit)
+        p.cwd = directory
+        p.start(args)
 
-    def _start_build(self, proj, build_config, build_ok_callback):
+    def _run_makefile(self, project, build_directory, build_ok_callback=None, target=None):
+        args = []
+        if target is not None:
+            args.append(target)
+        self._run_build_program("make", args, build_directory, lambda: build_ok_callback(project))
+
+    def start_build(self, proj, build_config, build_ok_callback):
         if self.get_settings("save-before-build"):
             self._save_project(silent = True)
 
         extra_args = [ "--build", build_config.directory ]
         self._start_ptp(proj,
                         build_config,
-                        lambda lines: self._run_makefile(proj, build_config.directory, build_ok_callback),
+                        lambda lines: self._run_makefile(proj,
+                                                         build_config.directory,
+                                                         build_ok_callback),
                         extra_args = extra_args)
 
-    def _start_ptp(self, proj, build_config, build_ok_callback = None, extra_args = []):
+    def _start_ptp(self, proj, build_config, build_ok_callback=None, extra_args=[]):
         stdout = []
         def on_exit(code):
             error_messages = {}
@@ -525,13 +568,15 @@ class App:
 
         item = self.project.get_item(item_id)
         if pos == "function" and item.is_transition():
-            self.console_write_link(str(item_id) + "/" + pos + (":" + str(line_no) if line_no else ""),
-                lambda: self.transition_edit(item, line_no))
+            self.console_write_link(str(item_id) + "/" + pos +
+                                        (":" + str(line_no) if line_no else ""),
+                                    lambda: self.transition_edit(item, line_no))
             self.console_write(message[message.find(":"):] if line_no else ":" + message)
             return True
         if pos == "init_function" and item.is_place():
-            self.console_write_link(str(item_id) + "/" + pos + (":" + str(line_no) if line_no else ""),
-                lambda: self.place_edit(item, line_no))
+            self.console_write_link(str(item_id) + "/" + pos +
+                                       (":" + str(line_no) if line_no else ""),
+                                    lambda: self.place_edit(item, line_no))
             self.console_write(message[message.find(":"):] if line_no else ":" + message)
             return True
         if pos == "user_function":
@@ -587,9 +632,11 @@ class App:
         self.window.add_tab(Tab("Welcome", label, has_close_button = False))
 
     def import_project(self):
-        dialog = gtk.FileChooserDialog("Import project", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                 gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+        dialog = gtk.FileChooserDialog("Import project",
+                                       self.window,
+                                       gtk.FILE_CHOOSER_ACTION_OPEN,
+                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                                            gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
         try:
             self._add_project_file_filters(dialog)

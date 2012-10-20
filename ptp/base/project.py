@@ -22,7 +22,7 @@ import base.parser as parser
 from base.expressions import Env, ExprCall, ExprVar, ExprInt
 
 import xml.etree.ElementTree as xml
-from base.utils import PtpException
+from base.utils import PtpException, get_source_path
 from net import Net, Area, Place, Transition, EdgeIn, EdgeInPacking, EdgeOut
 
 class ExternType(object):
@@ -89,6 +89,10 @@ class UserFunction(object):
     def check(self, project):
         for t in self.get_all_types():
             t.check(project)
+
+    def meet_declaration(self, returntype, parameter_types):
+        return self.returntype == returntype and \
+               [ t for _, t in self.parameters ] == parameter_types
 
 class Parameter(object):
 
@@ -166,6 +170,10 @@ class Project(object):
     def get_user_function(self, name):
         return self.user_functions.get(name)
 
+    def get_user_functions_by_declaration(self, returntype, parameter_types):
+        return [ function for function in self.user_functions.values()
+                    if function.meet_declaration(returntype, parameter_types) ]
+
     def get_parameter(self, name):
         return self.parameters.get(name)
 
@@ -209,7 +217,7 @@ class Project(object):
 
 def get_source(element, name):
     id = utils.xml_int(element, "id")
-    return "*{0}/{1}".format(id, name)
+    return get_source_path(id, name)
 
 def load_edge_in(element, net, transition):
     id = utils.xml_int(element, "id")
@@ -235,6 +243,12 @@ def load_edge_out(element, net, transition):
     sendmode, target = send
     return EdgeOut(id, net.get_place(place_id), transition, expr, mode, sendmode, target, guard)
 
+def load_tracing(element):
+    trace = []
+    for t in element.findall("trace"):
+        trace.append(t.text)
+    return trace
+
 def load_transition(element, project, net):
     id = utils.xml_int(element, "id")
 
@@ -243,14 +257,9 @@ def load_transition(element, project, net):
     transition.edges_in = map(lambda e: load_edge_in(e, net, transition), element.findall("edge-in"))
     transition.edges_out = map(lambda e: load_edge_out(e, net, transition), element.findall("edge-out"))
 
-    subnet_id = utils.xml_int(element, "subnet", -1)
-    if subnet_id > 0:
-        transition.subnet = project.get_net(subnet_id)
-
     if element.find("code") is not None:
         transition.code = element.find("code").text
-
-    transition.tracing = utils.xml_str(element, "tracing", "off")
+    transition.tracing = load_tracing(element)
     return transition
 
 def load_place(element, net):
@@ -261,7 +270,7 @@ def load_place(element, net):
     place = Place(net, id, type, init_expr)
     if element.find("code") is not None:
         place.code = element.find("code").text
-    place.tracing = utils.xml_str(element, "tracing", "off")
+    place.tracing = load_tracing(element)
     return place
 
 def load_area(element, net):
@@ -272,7 +281,6 @@ def load_area(element, net):
 
 def load_net(element, project):
     net = Net(project, utils.xml_int(element, "id"), utils.xml_str(element, "name"))
-    net.autohalt = utils.xml_bool(element, "autohalt")
     return net
 
 def load_net_content(element, project, net):

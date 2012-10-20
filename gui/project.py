@@ -65,11 +65,20 @@ class Project(EventSource):
         self.target_mode = value
 
     def get_generator(self):
+        """ Can raise PtpException """
         if self.generator:
             return self.generator
-        build_config = self.get_build_config("release")
+        build_config = BuildConfig()
+        build_config.project_name = self.get_name()
+        build_config.extenv = self.get_extenv_name()
+        build_config.tracing = False
+        build_config.nets = self.nets
         self.generator = ptp.get_generator_from_xml(self.export_xml(build_config))
         return self.generator
+
+    def get_suitable_functions_for_place_tracing(self, place):
+        """ Can raise PtpException """
+        return self.get_generator().get_suitable_functions_for_place_tracing(place.id)
 
     def get_build_config(self, name):
         build_config = BuildConfig()
@@ -181,6 +190,16 @@ class Project(EventSource):
             item = net.get_item(id)
             if item is not None:
                 return item
+
+    def get_net_and_item(self, id):
+        for function in self.functions:
+            if function.id == id:
+                return None, function
+        for net in self.nets:
+            item = net.get_item(id)
+            if item is not None:
+                return net, item
+        return None, None
 
     def has_error_messages(self, item):
         return item.get_id() in self.error_messages

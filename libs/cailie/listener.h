@@ -8,9 +8,14 @@ class CaProcess;
 
 class CaListener {
 	public:
-		CaListener(int process_count, CaProcess **processes) : process_count(process_count), processes(processes), start_barrier(NULL) {}
+		CaListener() : process_count(0), processes(NULL) {}
 		void init(int port);
+		void wait_for_connection();
 		int get_port();
+		void set_processes(int process_count, CaProcess **processes) {
+			this->process_count = process_count;
+			this->processes = processes;
+		}
 		void set_start_barrier(pthread_barrier_t *barrier) { start_barrier = barrier; }
 		void start();
 		void main();
@@ -19,8 +24,8 @@ class CaListener {
 		int listen_socket;
 		int process_count;
 		CaProcess **processes;
-		pthread_barrier_t *start_barrier;
 		pthread_t thread;
+		pthread_barrier_t *start_barrier;
 };
 
 #endif

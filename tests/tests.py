@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from testutils import Project
-from unittest import TestCase
 import unittest
 
-class BuildTest(TestCase):
+class BuildTest(unittest.TestCase):
 
     def test_helloworld(self):
         Project("helloworld", "helloworlds").quick_test("Hello world 12\n")
@@ -28,10 +27,6 @@ class BuildTest(TestCase):
 
     def test_broken2(self):
         Project("broken2", "broken").fail_ptp("*102/type: Type missing\n")
-
-    def test_broken_module(self):
-        Project("broken_module", "broken").fail_ptp(
-            "*103: Conflict of types with the assigned module in variable 'x', type in module is String\n")
 
     def test_parameters(self):
         Project("parameters").quick_test("9 7\n", processes = 10, params = { "first" : 10, "second" : 7 })
@@ -95,23 +90,6 @@ class BuildTest(TestCase):
     def test_bool(self):
         Project("bool").quick_test("Ok\n")
 
-    def test_modules1(self):
-        p = Project("modules1")
-        p.build()
-        p.run("148\n", processes=2)
-        p.run("148\n", threads=2, processes=2, repeat=100)
-        p.run("148\n", threads=5, processes=3, repeat=100)
-
-    def test_modules2(self):
-        Project("modules2").quick_test("0\n", processes=4)
-
-    def test_library_processes(self):
-        result = "".join([ "{0}\n".format(x) for x in range(1, 101) ])
-        p = Project("overtake")
-        p.build_main()
-        p.failed_run_main("Net 2 sends 1 token(s) to invalid process id 1 (valid ids: [0 .. 0])\n")
-        for x in range(2, 5):
-            p.run_main(result, processes = x * x, threads = x * x)
 
     def test_libhelloworld(self):
         result = "40 10 Hello world\n80 10 Hello world\n"\
@@ -126,9 +104,6 @@ class BuildTest(TestCase):
             p.run_main("2000 31 31 9000 29700\n", repeat=3)
         finally:
             p.stop_server()
-
-    def test_factorial(self):
-        Project("factorial").quick_test_main("3628800\n", processes=5, threads=5)
 
     def test_bigtoken(self):
         Project("bigtoken").quick_test("18000000\n", processes=5, threads=5)

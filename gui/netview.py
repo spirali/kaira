@@ -1,5 +1,7 @@
 #
 #    Copyright (C) 2010 Stanislav Bohm
+#                  2012 Martin Kozubek
+#                  2012 Lukas Tomaszek
 #
 #    This file is part of Kaira.
 #
@@ -28,6 +30,7 @@ from net import Net
 import cairo
 import gtkutils
 import glib
+import undoredo
 
 action_cursor = {
     "none" : None,
@@ -87,7 +90,7 @@ class NetViewVisualConfig(VisualConfig):
 
     def preprocess(self, item, drawing):
         if self.show_tracing and (item.is_transition() or item.is_place()):
-            drawing.trace_text = item.get_trace_text()
+            drawing.trace_text = item.tracing
         if item == self.mouseover_highlighted:
             drawing.set_highlight((0.6,0.6,0.8,8.0))
         if self.project.has_error_messages(item):
@@ -104,6 +107,11 @@ class NetView(gtk.VBox):
         self.project = project
         self.app = app
         self.tool = None
+        self.undolist = None
+        self.undolist_changed = None
+        self.last_active_entry_text = None
+        self.last_active_entry_get = None
+        self.last_active_entry_set = None
         self.entry_types = []
         self.set_size_request(500,400)
 
@@ -122,10 +130,12 @@ class NetView(gtk.VBox):
         paned.show_all()
 
         self.netlist.hide()
-
         self.transition_edit_callback = None
         self.place_edit_callback = None
         self.set_tool(nettools.SelectTool(self))
+        self.connect("key_press_event", self._key_press)
+
+        self.switch_to_net(self.get_net(), False)
 
     def get_grid_size(self):
         return self.app.get_grid_size()
@@ -149,8 +159,30 @@ class NetView(gtk.VBox):
     def switch_to_net(self, net, select_in_netlist = True):
         if select_in_netlist:
             self.netlist.select_object(net)
+
+        if self.undolist_changed is not None:
+            self.undolist_changed.remove()
+            self.undolist_changed = None
+
+        if net is not None:
+            self.undolist = net.undolist
+            self.undolist_changed = self.undolist.set_callback(
+                                         "changed",
+                                         self.on_undolist_changed)
+            self.on_undolist_changed()
+        else:
+            self.undolist = None
+
         self.tool.set_net(net)
         self.canvas.set_net(net)
+
+    def on_undolist_changed(self):
+        if self.undolist is None:
+            self.button_undo.set_sensitive(False)
+            self.button_redo.set_sensitive(False)
+        else:
+            self.button_undo.set_sensitive(self.undolist.has_undo())
+            self.button_redo.set_sensitive(self.undolist.has_redo())
 
     def get_zoom(self):
         return self.canvas.get_zoom()
@@ -198,13 +230,27 @@ class NetView(gtk.VBox):
         else:
             self.netlist.hide()
 
+    def undo(self):
+        if self.undolist.has_undo():
+            self.undolist.undo()
+
+    def redo(self):
+        if self.undolist.has_redo():
+            self.undolist.redo()
+
     def _controls(self):
-        icon_arrow = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "arrow.png"))
-        icon_transition = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "transition.png"))
-        icon_place = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "place.png"))
-        icon_arc = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "arc.png"))
-        icon_area = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "area.png"))
-        icon_trace = gtk.image_new_from_file(os.path.join(paths.ICONS_DIR, "trace.png"))
+        icon_arrow = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "arrow.svg"))
+        icon_transition = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "transition.svg"))
+        icon_place = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "place.svg"))
+        icon_arc = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "arc.svg"))
+        icon_area = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "area.svg"))
+        icon_trace = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "trace.svg"))
 
         toolbar = gtk.Toolbar()
 
@@ -217,7 +263,18 @@ class NetView(gtk.VBox):
         button1.connect("toggled", lambda w: self.set_show_tracing(w.get_active()))
         button1.set_icon_widget(icon_trace)
         toolbar.add(button1)
+        toolbar.add(gtk.SeparatorToolItem())
 
+        self.button_undo = gtk.ToolButton()
+        self.button_undo.connect("clicked", lambda w: self.undo())
+        self.button_undo.set_stock_id(gtk.STOCK_UNDO)
+
+        self.button_redo = gtk.ToolButton()
+        self.button_redo.connect("clicked", lambda w: self.redo())
+        self.button_redo.set_stock_id(gtk.STOCK_REDO)
+
+        toolbar.add(self.button_undo)
+        toolbar.add(self.button_redo)
         toolbar.add(gtk.SeparatorToolItem())
 
         button1 = gtk.RadioToolButton(None,None)
@@ -267,7 +324,7 @@ class NetView(gtk.VBox):
 
     def _net_canvas(self):
         self.vconfig = NetViewVisualConfig(self.project)
-        c = NetCanvas(self.get_net(), self._draw, self.vconfig)
+        c = NetCanvas(None, self._draw, self.vconfig)
         c.set_callback("button_down", self._button_down)
         c.set_callback("button_up", self._button_up)
         c.set_callback("mouse_move", self._mouse_move)
@@ -313,6 +370,16 @@ class NetView(gtk.VBox):
         if self.tool and self.tool.net:
             self.tool.mouse_move(event, position)
 
+    def _key_press(self, w, event):
+        if event.state & gtk.gdk.CONTROL_MASK and \
+               gtk.gdk.keyval_name(event.keyval) == "space" and \
+               self.entry_types:
+            self.set_next_entry_type()
+
+    def set_next_entry_type(self):
+        current = self.entry_switch.get_active()
+        self.entry_switch.set_active((current + 1) % len(self.entry_types))
+
     def set_entry_types(self, etypes):
         self.entry_types = etypes
         names = [ x[0] for x in etypes ]
@@ -340,8 +407,19 @@ class NetView(gtk.VBox):
 
     def _entry_switch_changed(self, w):
         if self.entry_types and self.entry_switch.get_active_text():
+            if self.last_active_entry_get:
+                if self.last_active_entry_get() != self.last_active_entry_text:
+                    undo_action = undoredo.SetValueAction(self.last_active_entry_set,
+                                                          self.last_active_entry_text,
+                                                          self.last_active_entry_get())
+                    self.undolist.add(undo_action)
             name, get, set = self.active_entry_type()
+            self.last_active_entry_get = get
+            self.last_active_entry_set = set
+            self.last_active_entry_text = get()
             self.entry.set_text(get())
+            self.entry.select_region(0, -1)
+
 
 class NetList(ObjectTree):
 
@@ -366,6 +444,7 @@ class NetList(ObjectTree):
             ("-", None),
             ("Copy net", self._copy),
             ("Rename net", self._rename),
+            ("Remove net", self._remove),
             ("-", None),
             ("Tracing", [
                 ("Trace everything", self._trace_everything),

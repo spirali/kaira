@@ -19,11 +19,15 @@
 
 import gtk
 import gtkutils
-import objectlist
 import mainwindow
+import events as evt
 from canvas import NetCanvas
-from drawing import VisualConfig
-import chart
+import charts
+from charts import ChartWidget
+from matplotlib.ticker import FuncFormatter
+import matplotlib
+import utils
+
 
 class RunView(gtk.VBox):
 
@@ -36,9 +40,13 @@ class RunView(gtk.VBox):
 
         self.views = [
             ("Replay", self.netinstance_view),
-            ("Processes", self._processes_utilization()),
-            ("Transitions", self._transitions_utilization()),
-            ("Places", self._place_chart()),
+            ("Process utilization", self._processes_utilization()),
+            ("Transitions utilization", self._transitions_utilization()),
+            ("Numbers of tokens", self._place_chart()),
+            # TET = Transition Execution Time
+            ("TETs per process", self._processes_histogram()),
+            ("Total TETs per process", self._processes_time_sum()),
+            ("Total TETs per transition", self._transitions_time_sum())
         ]
 
         self.pack_start(self._controlls(), False, False)
@@ -68,6 +76,7 @@ class RunView(gtk.VBox):
         button.connect("clicked", lambda w:
             self.scale.set_value(min(self.tracelog.get_runinstances_count() - 1,
                                      self.get_event_index() + 1)))
+
         toolbar.pack_start(button, False, False)
 
         self.scale.set_draw_value(False)
@@ -95,6 +104,9 @@ class RunView(gtk.VBox):
         for name, item in self.views:
             if name == text:
                 item.show_all()
+                if isinstance(item, charts.ChartWidget):
+                    # set focus on graph canvas
+                    item.get_figure().canvas.grab_focus()
             else:
                 item.hide()
 
@@ -108,10 +120,10 @@ class RunView(gtk.VBox):
         index = self.get_event_index()
         last_index = self.tracelog.get_runinstances_count() - 1
         m = str(last_index)
-        maxtime = time_to_string(self.tracelog.get_event_time(last_index))
+        maxtime = utils.time_to_string(self.tracelog.get_event_time(last_index))
         self.counter_label.set_text("{0:0>{2}}/{1}".format(index, m, len(m)))
-        time = "{0:0>{1}}".format(time_to_string(self.tracelog.get_event_time(index)),
-                                                 len(maxtime))
+        time = "{0:0>{1}}".format(utils.time_to_string(self.tracelog.get_event_time(index)),
+                                  len(maxtime))
         text = "<span font_family='monospace'>{0}/{1} {3} {2}</span>".format(
             self.tracelog.get_event_process(index),
             self.tracelog.get_event_thread(index),
@@ -119,48 +131,90 @@ class RunView(gtk.VBox):
             time)
         self.info_label.set_markup(text)
 
-    def _utilization_chart(self, values, names, colors, legend):
-        sc = gtk.ScrolledWindow()
-        sc.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
-        maxtime = self.tracelog.get_max_time()
-        c = chart.UtilizationChart(values, names, legend, colors, (0, maxtime))
-        c.xlabel_format = lambda x: time_to_string(x)[:-7]
-        w = chart.ChartWidget(c)
-        w.set_size_request(*c.get_size_request())
-        w.show_all()
-        sc.add_with_viewport(w)
-        return sc
-
     def _processes_utilization(self):
-        colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
+        colors = ["#00aa00"]
         values = self.tracelog.statistics["threads"]
         names =  [ "process {0}".format(p) for p in xrange(self.tracelog.process_count) ]
-        legend = [ (0, "Running") ]
-        return self._utilization_chart(values, names, colors, legend)
+
+        # Transform data for chart
+        values.reverse()
+        names.reverse()
+        lines = []
+        for i, [line] in enumerate(values):
+            l = []
+            for times in line:
+                l.append((times[0], times[1] - times[0]))
+            lines.append(l)
+
+        return charts.utilization_chart(
+                   names,
+                   lines,
+                   colors,
+                   "The running time of each processes", "Time", "Process")
 
     def _transitions_utilization(self):
-        colors = [ ((0.2,0.5,0.2), (0.0,0.9,0.0)) ]
+        colors = ["#00aa00"]
         names = self.tracelog.statistics["transition_names"]
         values = self.tracelog.statistics["transition_values"]
-        legend = [ (0, "Running") ]
-        return self._utilization_chart(values, names, colors, legend)
+
+        # Transform data for chart
+        values.reverse()
+        names.reverse()
+        lines = []
+        for i, [line] in enumerate(values):
+            l = []
+            for times in line:
+                l.append((times[0], times[1] - times[0]))
+            lines.append(l)
+
+        return charts.utilization_chart(
+                   names,
+                   lines,
+                   colors,
+                   "The running time of each transitions",
+                   "Time",
+                   "Transition")
 
     def _place_chart(self):
         values = self.tracelog.statistics["tokens_values"]
         names = self.tracelog.statistics["tokens_names"]
+        return charts.place_chart(
+                names,
+                values,
+                "Cout of tokens in places in time",
+                "Time",
+                "Cout")
 
-        vbox = gtk.HBox()
-        placelist = gtkutils.SimpleList((("Place|foreground", str),("_", str)))
-        colors = chart.color_names
-        for i, name in enumerate(names):
-            placelist.append((name,colors[i % len(colors)]))
-        vbox.pack_start(placelist, False, False)
-        maxtime = self.tracelog.get_max_time()
-        c = chart.TimeChart(values, min_time=0, max_time=maxtime, min_value=0)
-        c.xlabel_format = lambda x: time_to_string(x)[:-7]
-        w = chart.ChartWidget(c)
-        vbox.pack_start(w, True, True)
-        return vbox
+    def _processes_histogram(self):
+        names = self.tracelog.statistics["proc_hist_names"]
+        values = self.tracelog.statistics["proc_hist_values"]
+        return charts.histogram(
+                names,
+                values,
+                "Histogram of spent time",
+                "Time range",
+                "Count")
+
+
+    def _transitions_time_sum(self):
+        values = self.tracelog.statistics["tr_tsum_values"]
+        names = self.tracelog.statistics["tr_tsum_names"]
+        return charts.time_sum_chart(
+                names,
+                values,
+                "Sum times of each transitions",
+                "Transition",
+                "Time SUM")
+
+    def _processes_time_sum(self):
+        values = self.tracelog.statistics["proc_tsum_values"]
+        names = self.tracelog.statistics["proc_tsum_names"]
+        return charts.time_sum_chart(
+                names,
+                values,
+                "Sum times of each processes",
+                "Process",
+                "Time SUM")
 
 
 class NetInstanceView(gtk.HPaned):
@@ -168,10 +222,7 @@ class NetInstanceView(gtk.HPaned):
     def __init__(self, app):
         gtk.HPaned.__init__(self)
         self.app = app
-        vbox = gtk.VBox()
-        vbox.pack_start(self._perspectives())
-        vbox.pack_start(self._groups())
-        self.pack1(vbox, False)
+        self.pack1(self._perspectives(), False)
         self.canvas_sc = gtk.ScrolledWindow()
         self.canvas = self._create_canvas(None)
         self.canvas_sc.add_with_viewport(self.canvas)
@@ -185,11 +236,10 @@ class NetInstanceView(gtk.HPaned):
     def get_perspective(self):
         return self.perspectives.get_selection(0)
 
-    def get_group(self):
-        return self.groups.selected_object()
-
     def set_runinstance(self, runinstance):
-        self._refresh_groups(runinstance.get_instance_groups())
+        self.runinstance = runinstance
+        self.canvas.set_net(runinstance.net)
+        self._refresh_perspectives(runinstance.get_perspectives())
 
     def _create_canvas(self, vconfig):
         c = NetCanvas(None, None, vconfig, zoom = 1)
@@ -208,34 +258,11 @@ class NetInstanceView(gtk.HPaned):
             self.perspectives.select_first()
         self._perspectives_changed(None)
 
-    def _refresh_groups(self, groups):
-        selected_group = self.get_group()
-        self.groups.clear()
-        selected = False
-        for group in groups:
-            self.groups.add_object(group)
-            if selected_group and group.id == selected_group.id:
-                self.groups.select_object(group)
-                selected = True
-
-        if not selected:
-            if selected_group:
-                self.groups.select_object(selected_group.parent)
-            else:
-                self.groups.select_first()
-        self._groups_changed(self.get_group())
-
     def _perspectives(self):
         self.perspectives = gtkutils.SimpleList((("_", object), ("Views",str)))
         self.perspectives.set_size_request(80,10)
         self.perspectives.connect_view("cursor-changed", self._perspectives_changed);
         return self.perspectives
-
-    def _groups(self):
-        self.groups = objectlist.ObjectList((("_", object), ("Instances",str)))
-        self.groups.cursor_changed = self._groups_changed
-        self.groups.object_as_row = lambda obj: (obj, obj.get_name())
-        return self.groups
 
     def _perspectives_changed(self, w):
         perspective = self.get_perspective()
@@ -245,20 +272,10 @@ class NetInstanceView(gtk.HPaned):
             self.canvas.set_vconfig(None)
         self.redraw()
 
-    def _groups_changed(self, obj):
-        if obj is not None:
-            self.canvas.set_net(obj.net)
-            self._refresh_perspectives(obj.get_perspectives())
-        else:
-            self.canvas.set_net(None)
-            self._refresh_perspectives([])
-        self.redraw()
-
     def _button_down(self, event, pos):
-        group = self.get_group()
-        if group is None:
+        if self.runinstance.net is None:
             return
-        item = group.net.get_item_at_position(pos)
+        item = self.runinstance.net.get_item_at_position(pos)
         if item is None:
             return
         self.on_item_click(item)
@@ -266,11 +283,26 @@ class NetInstanceView(gtk.HPaned):
     def on_item_click(self, item):
         if item.is_place():
             self.open_tokens_tab(item)
+        elif item.is_transition():
+            self.open_transition_tab(item)
 
     def open_tokens_tab(self, place):
         text_buffer = gtk.TextBuffer()
+        t = self.get_perspective().get_removed_tokens(place)
+        removed_tokens = "\n".join("consumed: " + token for token in map(str, t))
         tokens = "\n".join(map(str, self.get_perspective().get_tokens(place)))
+        new_tokens = "\n".join(map(str, self.get_perspective().get_new_tokens(place)))
+
+        if removed_tokens != "" and tokens != "":
+            removed_tokens = removed_tokens + "\n"
+        if tokens != "" and new_tokens != "":
+            tokens = tokens + "\n"
+
+        tag_removed = text_buffer.create_tag('removed', font="Italic")
+        tag_new = text_buffer.create_tag('new', font="Bold")
+        text_buffer.insert_with_tags(text_buffer.get_end_iter(), removed_tokens, tag_removed)
         text_buffer.insert(text_buffer.get_end_iter(), tokens)
+        text_buffer.insert_with_tags(text_buffer.get_end_iter(), new_tokens, tag_new)
         text_area = gtk.TextView()
         text_area.set_buffer(text_buffer)
         text_area.set_editable(False)
@@ -284,11 +316,23 @@ class NetInstanceView(gtk.HPaned):
         label = "Tokens of " + place.get_name()
         self.app.window.add_tab(mainwindow.Tab(label, vbox))
 
+    def open_transition_tab(self, transition):
+        values = self.get_perspective().get_transition_trace_values(transition)
+        if values:
+            text_buffer = gtk.TextBuffer()
+            text_buffer.insert(text_buffer.get_end_iter(), "\n".join(map(str, values)))
+            text_area = gtk.TextView()
+            text_area.set_buffer(text_buffer)
+            text_area.set_editable(False)
 
-def time_to_string(nanosec):
-    s = nanosec / 1000000000
-    nsec = nanosec % 1000000000
-    sec = s % 60
-    minutes = (s / 60) % 60
-    hours = s / 60 / 60
-    return "{0}:{1:0>2}:{2:0>2}:{3:0>9}".format(hours, minutes, sec, nsec)
+            sw = gtk.ScrolledWindow()
+            sw.add(text_area)
+            vbox = gtk.VBox()
+            vbox.pack_start(sw)
+            vbox.show_all()
+
+            if transition.get_name() == "":
+                label = "Traced values in T" + str(transition.get_id())
+            else:
+                label = "Traced values in " + transition.get_name()
+            self.app.window.add_tab(mainwindow.Tab(label, vbox))

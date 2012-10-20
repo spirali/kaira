@@ -19,11 +19,8 @@
 #
 
 import gtk
-from canvas import NetCanvas
-from drawing import VisualConfig
 import gtkutils
 import mainwindow
-import objectlist
 from runview import NetInstanceView
 
 class SimViewTab(mainwindow.Tab):
@@ -60,7 +57,7 @@ class SimView(NetInstanceView):
         if not ids:
             return
         process_id = self.simulation.random.choice(ids)
-        self.simulation.fire_transition(transition.id, self.get_group().id, process_id)
+        self.simulation.fire_transition(transition.id, process_id)
 
 
 def connect_dialog(mainwindow):

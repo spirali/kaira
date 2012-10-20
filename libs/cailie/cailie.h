@@ -2,6 +2,10 @@
 #ifndef CAILIE_H
 #define CAILIE_H
 
+#ifdef CA_MPI
+#include <mpi.h>
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -21,28 +25,40 @@
 
 class CaContext {
 	public:
-		CaContext(CaThread *thread, CaNet *net) : thread(thread), net(net), halt_flag(false) {}
+		CaContext(CaThread *thread, CaNet *net) : thread(thread), net(net) {}
 
 		void quit() { thread->quit_all(); }
-		void halt() { halt_flag = true; }
 		int process_id() { return thread->get_process_id(); }
 		int process_count() { return thread->get_process_count(); }
 		int threads_count() { return thread->get_threads_count(); }
-		bool get_halt_flag() { return halt_flag; }
+
+		void trace_string(const std::string &str) {
+			CaTraceLog *tracelog = thread->get_tracelog();
+			if (tracelog) {
+				tracelog->trace_string(str);
+			}
+		}
+		void trace_int(const int value) {
+			CaTraceLog *tracelog = thread->get_tracelog();
+			if (tracelog) {
+				tracelog->trace_int(value);
+			}
+		}
+		void trace_double(const double value) {
+			CaTraceLog *tracelog = thread->get_tracelog();
+			if (tracelog) {
+				tracelog->trace_double(value);
+			}
+		}
 	protected:
 		CaThread *thread;
 		CaNet *net;
-
-		/** We need halt_flag because we need pospone thread->quit. We cannot call
-			thread->halt directly because other thread could process finalizer
-			before current transition put its token into output places */
-		bool halt_flag;
 };
 
 /* Main functions */
 void ca_init(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs);
 void ca_setup(int defs_count, CaNetDef **defs);
-void ca_spawn_toplevel_net(int def_id);
+void ca_spawn_net(int def_id);
 int ca_main();
 void ca_project_description(const char *str);
 

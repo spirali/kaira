@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011 Stanislav Bohm
+#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #                  2012       Martin Surkovsky
 #
@@ -24,6 +24,7 @@ from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
 from copy import copy
 from sys import maxint
+import undoredo
 
 class Net:
 
@@ -40,7 +41,7 @@ class Net:
         self.items = []
         self.change_callback = lambda n: None
         self.interface_box = None
-        self.autohalt = True
+        self.undolist = undoredo.UndoList()
 
     def get_name(self):
         return self.name
@@ -70,13 +71,6 @@ class Net:
     def remove_item(self, item):
         self.items.remove(item)
         self.changed()
-
-    def set_autohalt(self, value):
-        self.autohalt = value
-        self.changed()
-
-    def get_autohalt(self):
-        return self.autohalt
 
     def set_name(self, name):
         self.name = name
@@ -137,8 +131,6 @@ class Net:
         e.set("name", self.name)
         e.set("id", str(self.id))
         e.set("net-type", self.net_type)
-        if self.is_module():
-            e.set("autohalt", str(self.autohalt))
         for item in self.items:
             e.append(item.as_xml())
         return e
@@ -172,10 +164,6 @@ class Net:
         e = xml.Element("net")
         e.set("name", self.name)
         e.set("id", str(self.id))
-        if self.is_module():
-            e.set("autohalt", str(self.autohalt))
-        else:
-            e.set("autohalt", "False")
 
         for place in self.places():
             e.append(place.export_xml(build_config))
@@ -218,7 +206,7 @@ class Net:
     def edges_from(self, item, postprocess = False):
         edges = [ i for i in self.items if i.is_edge() and i.from_item == item ]
         if postprocess:
-            edges = edges + [ i.make_complement() for i in self.edges_to(item) if i.is_bidirectional() ]
+            edges += [ i.make_complement() for i in self.edges_to(item) if i.is_bidirectional() ]
             return sum([ edge.postprocess() for edge in edges ], [])
         else:
             return edges
@@ -226,16 +214,20 @@ class Net:
     def edges_to(self, item, postprocess = False):
         edges = [ i for i in self.items if i.is_edge() and i.to_item == item ]
         if postprocess:
-            edges = edges + [ i.make_complement() for i in self.edges_from(item) if i.is_bidirectional() ]
+            edges += [ i.make_complement() for i in self.edges_from(item) if i.is_bidirectional() ]
             return sum( [ edge.postprocess() for edge in edges ], [])
         else:
             return edges
 
     def edges_of(self, item):
-        return [ i for i in self.items if i.is_edge() and (i.to_item == item or i.from_item == item) ]
+        return [ i for i in self.items
+                 if i.is_edge() and (i.to_item == item or i.from_item == item) ]
 
     def corners(self, cr):
         """ Returns bounding box as left-top and right-bottom points """
+        if not self.items:
+             return ((0,0), (100,100))
+
         t = maxint
         l = maxint
         r = 0
@@ -250,11 +242,15 @@ class Net:
 
     def trace_nothing(self):
         for i in self.transitions() + self.places():
-            i.tracing = False
+            i.tracing = []
 
     def trace_everything(self):
-        for i in self.transitions() + self.places():
-            i.tracing = True
+        for i in self.transitions():
+            if not "fire" in i.tracing:
+                i.tracing.insert(0, "fire")
+        for i in self.places():
+            if not "value" in i.tracing:
+                i.tracing.insert(0, "value")
 
 
 class NetItem(object):
@@ -294,6 +290,7 @@ class NetItem(object):
 
     def delete(self):
         self.net.delete_item(self)
+        return [ self ]
 
     def create_xml_element(self, name):
         element =  xml.Element(name)
@@ -307,11 +304,11 @@ class NetItem(object):
 class NetElement(NetItem):
 
     code = ""
-    tracing = False
 
     def __init__(self, net, id, position):
         NetItem.__init__(self, net, id)
         self.position = position
+        self.tracing = []
 
     def has_code(self):
         return self.code != ""
@@ -320,7 +317,7 @@ class NetElement(NetItem):
         return self.code
 
     def set_code(self, code):
-        self.code = code.strip()
+        self.code = code
         self.changed()
 
     def get_position(self):
@@ -340,9 +337,11 @@ class NetElement(NetItem):
         return self.net.edges_to(self, postprocess)
 
     def delete(self):
+        deleted = []
         for edge in self.edges():
-            edge.delete()
-        NetItem.delete(self)
+            deleted += edge.delete()
+        deleted += NetItem.delete(self)
+        return deleted
 
     def xml_code_element(self):
         e = xml.Element("code")
@@ -360,7 +359,6 @@ class Transition(NetElement):
     size = (70, 35)
     name = ""
     guard = ""
-    subnet = None
 
     def get_name(self):
         return self.name
@@ -387,13 +385,7 @@ class Transition(NetElement):
         return True
 
     def is_immediate(self):
-        return not self.has_code() and self.subnet is None
-
-    def get_trace_text(self):
-        if self.tracing:
-            return "fire"
-        else:
-            return None
+        return not self.has_code()
 
     def as_xml(self):
         e = self.create_xml_element("transition")
@@ -403,15 +395,14 @@ class Transition(NetElement):
         e.set("y", str(self.position[1]))
         e.set("sx", str(self.size[0]))
         e.set("sy", str(self.size[1]))
-        if self.subnet:
-            e.set("subnet", str(self.subnet.get_id()))
         if self.has_code():
             e.append(self.xml_code_element())
+        if self.tracing:
+            for t in self.tracing:
+                trace = xml.Element("trace")
+                trace.text = t
+                e.append(trace)
         return e
-
-    def set_subnet(self, net):
-        self.subnet = net
-        self.changed()
 
     def export_xml(self, build_config):
         e = self.create_xml_element("transition")
@@ -420,9 +411,6 @@ class Transition(NetElement):
         if self.has_code():
             e.append(self.xml_code_element())
 
-        if self.subnet:
-            e.set("subnet", str(self.subnet.get_id()))
-
         for edge in self.edges_to(postprocess = True):
             e.append(edge.create_xml_export_element("edge-in"))
 
@@ -430,7 +418,10 @@ class Transition(NetElement):
             e.append(edge.create_xml_export_element("edge-out"))
 
         if build_config.tracing and self.tracing:
-            e.set("tracing", "full")
+            for t in self.tracing:
+                trace = xml.Element("trace")
+                trace.text = t
+                e.append(trace)
         return e
 
     def get_drawing(self, vconfig):
@@ -490,7 +481,7 @@ class Transition(NetElement):
         (tx_bearing, ty_bearing,
          twidth, theight,
          tx_advance, ty_advance) = cr.text_extents(self.get_guard())
-        if twidth == 0 and theight == 0: 
+        if twidth == 0 and theight == 0:
             return ((px - sx/2, py - sy/2), (px + sx/2, py + sy/2))
         else:
             tx = px - twidth/2
@@ -540,12 +531,6 @@ class Place(NetElement):
     def is_place(self):
         return True
 
-    def get_trace_text(self):
-        if self.tracing:
-            return "values"
-        else:
-            return None
-
     def as_xml(self):
         e = self.create_xml_element("place")
         e.set("x", str(self.position[0]))
@@ -555,6 +540,11 @@ class Place(NetElement):
         e.set("init_string", self.init_string)
         if self.has_code():
             e.append(self.xml_code_element())
+        if self.tracing:
+            for t in self.tracing:
+                trace = xml.Element("trace")
+                trace.text = t
+                e.append(trace)
         return e
 
     def export_xml(self, build_config):
@@ -565,7 +555,10 @@ class Place(NetElement):
         if self.has_code():
             e.append(self.xml_code_element())
         if build_config.tracing and self.tracing:
-            e.set("tracing", "full")
+            for t in self.tracing:
+                trace = xml.Element("trace")
+                trace.text = t
+                e.append(trace)
         return e
 
     def get_drawing(self, vconfig):
@@ -616,7 +609,7 @@ class Place(NetElement):
             (isx_bearing, isy_bearing,
              is_width, is_height,
              isx_advance, isy_advance) = cr.text_extents(self.init_string)
-            
+
             # 'pt' = 'place_type'
             (ptx_bearing, pty_bearing,
              pt_width, pt_height,
@@ -689,7 +682,8 @@ class Edge(NetItem):
 
     def set_inscription_position(self, position):
         points = self.get_all_points()
-        self.inscription_point, self.inscription_param = utils.nearest_point_of_multiline(points, position)
+        self.inscription_point, self.inscription_param = \
+            utils.nearest_point_of_multiline(points, position)
         self.offset = utils.vector_diff(self.compute_insciption_point() , position)
         self.inscription_position = position
         self.changed()
@@ -728,7 +722,8 @@ class Edge(NetItem):
     def compute_insciption_point(self):
         points = self.get_all_points()
         if self.inscription_point < len(points) - 1:
-            vec = utils.make_vector(points[self.inscription_point], points[self.inscription_point + 1])
+            vec = utils.make_vector(points[self.inscription_point],
+                                    points[self.inscription_point + 1])
             vec = utils.vector_mul_scalar(vec, self.inscription_param)
         else:
             vec = (0, 0)
@@ -769,7 +764,11 @@ class Edge(NetItem):
         return [sp] + self.points + [ep]
 
     def is_at_position(self, position):
-        if self.inscription_position and utils.position_inside_rect(position, utils.vector_diff(self.inscription_position, (self.inscription_size[0]/2, 0)), self.inscription_size, 4):
+        if self.inscription_position and \
+           utils.position_inside_rect(position,
+                                      utils.vector_diff(self.inscription_position,
+                                                        (self.inscription_size[0]/2, 0)),
+                                      self.inscription_size, 4):
             return True
 
         if self.nearest_edge_point_index(position, 7) is not None:
@@ -785,8 +784,13 @@ class Edge(NetItem):
             self.points[i] = p
             self.changed()
 
-        if self.inscription_position and utils.position_inside_rect(position, utils.vector_diff(self.inscription_position, (self.inscription_size[0]/2, 0)), self.inscription_size, 4):
-            return factory.get_move_action(self.get_inscription_position(), self.set_inscription_position, position)
+        if self.inscription_position and \
+           utils.position_inside_rect(position,
+                                      utils.vector_diff(self.inscription_position,
+                                                        (self.inscription_size[0]/2, 0)),
+                                      self.inscription_size, 4):
+            return factory.get_move_action(self.get_inscription_position(),
+                                           self.set_inscription_position, position)
 
         i = self.nearest_edge_point_index(position, 7)
         if i is not None:
@@ -845,6 +849,10 @@ class RectItem(NetItem):
     def get_size(self):
         return self.size
 
+    def set_size(self, size):
+        self.size = size
+        self.changed()
+
     def resize_rbottom(self, original_pos, original_size, rel_change):
         self.size = utils.vector_add(original_size, rel_change)
         self.changed()
@@ -881,8 +889,20 @@ class RectItem(NetItem):
         return utils.position_on_rect(position, self.position, self.size, 5)
 
     def get_action(self, position, factory):
+        def get_position_and_size():
+            return self.position, self.size
+        def set_position_and_size(position_and_size):
+            self.position = position_and_size[0]
+            self.size = position_and_size[1]
+            self.changed()
+
         def make_action(f, cursor):
-            return factory.get_custom_move_action(position, lambda r: f(original_pos, original_size, r), cursor)
+            return factory.get_custom_move_action(
+                position,
+                lambda r: f(original_pos, original_size, r),
+                set_position_and_size,
+                get_position_and_size,
+                cursor)
         px, py = position
         mx, my = self.position
         sx, sy = self.size
@@ -957,7 +977,8 @@ class NetArea(RectItem):
         return [ place for place in self.net.places() if self.is_inside(place) ]
 
     def transitions(self):
-        return [ transition for transition in self.net.transitions() if self.is_inside(transition) ]
+        return [ transition for transition in self.net.transitions()
+                 if self.is_inside(transition) ]
 
     def corners(self, cr):
         if self.name == "" and self.init_expr == "":
@@ -972,7 +993,7 @@ class NetArea(RectItem):
             (iex_bearing, iey_bearing,
              iewidth, ieheight,
              iex_advance, iey_advance) = cr.text_extents(self.init_expr)
-             
+
             return ((min(l, r - nwidth),  t + min(ny_bearing, iey_bearing) - 5),
                     (max(r, l + iewidth), b))
 
@@ -1132,6 +1153,12 @@ def load_code(element):
     else:
         return ""
 
+def load_tracing(element):
+    trace = []
+    for t in element.findall("trace"):
+        trace.append(t.text)
+    return trace
+
 def load_place(element, net, loader):
     id = loader.get_id(element)
     place = net.add_place((xml_int(element,"x"), xml_int(element, "y")), id)
@@ -1139,6 +1166,7 @@ def load_place(element, net, loader):
     place.place_type = xml_str(element,"place_type", "")
     place.init_string = xml_str(element,"init_string", "")
     place.code = load_code(element)
+    place.tracing =  load_tracing(element)
 
 def load_transition(element, net, loader):
     id = loader.get_id(element)
@@ -1148,11 +1176,8 @@ def load_transition(element, net, loader):
     transition.size = (sx, sy)
     transition.name = xml_str(element,"name", "")
     transition.guard = xml_str(element,"guard", "")
-    if element.get("subnet") is not None:
-        """ Subnet should be network, but all networks is not yet loaded so we only remember the id
-            and we replace id by network lately """
-        transition.subnet = xml_int(element,"subnet")
     transition.code = load_code(element)
+    transition.tracing = load_tracing(element)
 
 def load_edge(element, net, loader):
     id = loader.get_id(element)
@@ -1169,8 +1194,10 @@ def load_edge(element, net, loader):
         ix = xml_int(element, "inscription_x")
         iy = xml_int(element, "inscription_y")
         edge.inscription_position = (ix, iy)
-        edge.inscription_point, edge.inscription_param = utils.nearest_point_of_multiline(edge.get_all_points(), edge.inscription_position)
-        edge.offset = utils.vector_diff(edge.compute_insciption_point() , edge.inscription_position)
+        edge.inscription_point, edge.inscription_param = \
+            utils.nearest_point_of_multiline(edge.get_all_points(), edge.inscription_position)
+        edge.offset = utils.vector_diff(edge.compute_insciption_point(),
+                                        edge.inscription_position)
 
 def load_area(element, net, loader):
     id = loader.get_id(element)
@@ -1196,12 +1223,6 @@ def load_interface_node(element, net, loader):
     py = xml_int(element, "y")
     net.add_interface_node((px, py), id)
 
-def nets_postload_process(project, loader):
-    for net in project.get_nets():
-        for transition in net.transitions():
-            if transition.subnet is not None and isinstance(transition.subnet, int):
-                transition.subnet = project.find_net(loader.translate_id(transition.subnet))
-
 def load_net(element, project, loader):
     name = element.get("name", "Main") # Setting "Main" for backward compatability
     id = loader.get_id(element)
@@ -1217,7 +1238,6 @@ def load_net(element, project, loader):
     interface_box = element.find("interface-box")
     if interface_box is not None:
         load_interface_box(interface_box, net, loader)
-        net.set_autohalt(utils.xml_bool(element, "autohalt", True))
 
     for e in element.findall("interface-node"):
         load_interface_node(e, net, loader)
@@ -1235,5 +1255,3 @@ def load_net(element, project, loader):
         load_edge(e, net, loader)
 
     return net
-
-
