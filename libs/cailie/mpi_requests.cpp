@@ -36,7 +36,7 @@ void CaMpiRequests::check()
 	}
 }
 
-MPI_Request * CaMpiRequests::new_request(char *data, bool with_previous_data)
+MPI_Request * CaMpiRequests::new_request(char *data)
 {
 	if (requests_count == requests_capacity) {
 		requests_capacity *= 2;
@@ -45,7 +45,7 @@ MPI_Request * CaMpiRequests::new_request(char *data, bool with_previous_data)
 		// FIXME: Alloc test
 	}
 
-	if(with_previous_data) {
+	if(!data) {
 		if(requests_count == 0) {
 			fprintf(stderr, "There is no previous data\n");
 			exit(-1);

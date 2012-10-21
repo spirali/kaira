@@ -39,7 +39,7 @@ void ca_project_description(const char *str) {
 int ca_main()
 {
 	#ifdef CA_MPI
-	CaServiceMessage *m = (CaServiceMessage*) alloca(sizeof(CaServiceMessage));
+	CaServiceMessage *m = (CaServiceMessage*) malloc(sizeof(CaServiceMessage));
 	m->type = CA_SM_WAKE;
 	process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), process->get_thread(0), 0);
 	process->start_and_join();
@@ -122,7 +122,7 @@ void ca_finalize()
 	MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
 	if(process_id == 0) {
 		CaServiceMessage *m =
-		(CaServiceMessage *) alloca(sizeof(CaServiceMessage));
+		(CaServiceMessage *) malloc(sizeof(CaServiceMessage));
 		m->type = CA_SM_EXIT;
 		process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), process->get_thread(0), 0);
 	}

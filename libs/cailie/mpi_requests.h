@@ -25,7 +25,7 @@ class CaMpiRequests {
 		CaMpiRequests();
 		~CaMpiRequests();
 		void check();
-		MPI_Request * new_request(char *data, bool with_previous_data);
+		MPI_Request * new_request(char *data);
 
 	protected:
 		MPI_Request *requests;

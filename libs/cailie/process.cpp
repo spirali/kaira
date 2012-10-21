@@ -129,7 +129,7 @@ CaNet * CaProcess::spawn_net(CaThread *thread, int def_index, bool globally)
 		 def_index, globally);
 	if (globally && !defs[def_index]->is_local()) {
 		CaServiceMessageNetCreate *m =
-			(CaServiceMessageNetCreate *) alloca(sizeof(CaServiceMessageNetCreate));
+			(CaServiceMessageNetCreate *) malloc(sizeof(CaServiceMessageNetCreate));
 		m->type = CA_SM_NET_CREATE;
 		m->def_index = def_index;
 		broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessageNetCreate), thread, process_id);
@@ -242,7 +242,7 @@ void CaProcess::send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *ba
 
 void CaProcess::quit_all(CaThread *thread)
 {
-	CaServiceMessage *m = (CaServiceMessage*) alloca(sizeof(CaServiceMessage));
+	CaServiceMessage *m = (CaServiceMessage*) malloc(sizeof(CaServiceMessage));
 	m->type = CA_SM_QUIT;
 	broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), thread, process_id);
 	quit();

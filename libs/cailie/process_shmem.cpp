@@ -12,6 +12,7 @@ void CaProcess::broadcast_packet(int tag, void *data, size_t size, CaThread *thr
 		memcpy(d, data, size);
 		processes[t]->add_packet(tag, d);
 	}
+	free(data);
 }
 
 void CaProcess::add_packet(int tag, void *data)
