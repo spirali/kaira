@@ -8,14 +8,12 @@
 class CaRequestData {
 
 	public:
-		CaRequestData(char *data) { request_data = data; data_counter = 1; };
-		~CaRequestData() { free(request_data); }
-		void increase_counter() { data_counter++; };
-		int decrease_counter() { return --data_counter; };
-
+		CaRequestData(char *data) : data(data), ref_counter(1) {};
+		void inc_refcounter() { ref_counter++; };
+		void dec_refcounter() { if (--ref_counter == 0) { free(data); delete this; } };
 	private:
-		char *request_data;
-		int data_counter;
+		char *data;
+		int ref_counter;
 
 };
 
@@ -29,7 +27,7 @@ class CaMpiRequests {
 
 	protected:
 		MPI_Request *requests;
-		CaRequestData **request_data_pointer;
+		CaRequestData **requests_data;
 		size_t requests_count;
 		size_t requests_capacity;
 
