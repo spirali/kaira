@@ -36,7 +36,6 @@ void CaProcess::add_packet(int tag, void *data)
 
 void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net, int place_index, int tokens_count, const CaPacker &packer, CaThread *thread)
 {
-	char *buffer = packer.get_buffer();
 	std::vector<int>::const_iterator i;
 	CaTokens *data = (CaTokens*) packer.get_buffer();
 	data->place_index = place_index;
@@ -50,13 +49,17 @@ void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net,
 			exit(1);
 		}
 		CA_DLOG("SEND index=%i target=%i process=%i\n", place_index, target, get_process_id());
+		void *d;
+		if ((i + 1) == targets.end()) {
+			d = data;
+		} else {
+			d = malloc(packer.get_size());
+			memcpy(d, data, packer.get_size());
+		}
 		CaProcess *p = processes[target];
-		void *d = malloc(packer.get_size());
-		memcpy(d, data, packer.get_size());
 		p->add_packet(CA_TAG_TOKENS, d);
 
 	}
-	free(buffer);
 }
 
 int CaProcess::process_packets(CaThread *thread)
