@@ -5,9 +5,14 @@
 #include "net.h"
 #include "thread.h"
 #include "place.h"
+#include <deque>
 
 namespace cass {
 
+	struct Packet {
+		size_t size;
+		void *data;
+	};
 
 	class Net : public CaNetBase
 	{
@@ -22,27 +27,45 @@ namespace cass {
 
 	class Thread : public CaThreadBase {
 		public:
-			Thread(Net **nets, int process_id, int thread_id)
-				: nets(nets), process_id(process_id), thread_id(thread_id) {}
+			Thread(std::deque<Packet> *packets, int process_id, int thread_id)
+				: packets(packets), process_id(process_id), thread_id(thread_id) {}
 			void quit_all() {}
 			int get_process_count() const;
 			int get_threads_count() const { return 1; }
 			int get_process_id() const { return process_id; }
-			Net * get_net(int process_id) {
-				if (process_id < 0 || process_id >= get_process_count()) {
-					fprintf(stderr, "Invalid process_id %i\n", process_id);
-					exit(-1);
-				}
-				return nets[process_id];
-			}
 
 			void set(int process_id, int thread_id) {
 				this->process_id = process_id;
 				this->thread_id = thread_id;
 			}
 
+			void send(int target,
+					  CaNetBase *net,
+                      int place_index,
+                      const CaPacker &packer) {
+				multisend(target, net, place_index, 1, packer);
+			}
+			void multisend(int target,
+						   CaNetBase *net,
+						   int place_index,
+						   int tokens_count,
+                           const CaPacker &packer) {
+				std::vector<int> a(1);
+				a[0] = target;
+				multisend_multicast(a, net, place_index, tokens_count, packer);
+			}
+
+			void send_multicast(const std::vector<int> &targets,
+							    CaNetBase *net,
+                                int place_index,
+                                const CaPacker &packer) {
+				multisend_multicast(targets, net, place_index, 1, packer);
+			}
+			void multisend_multicast(const std::vector<int> &targets, CaNetBase *net,
+				int place_index, int tokens_count, const CaPacker &packer);
+
 		protected:
-			Net **nets;
+			std::deque<Packet> *packets;
 			int process_id;
 			int thread_id;
 	};

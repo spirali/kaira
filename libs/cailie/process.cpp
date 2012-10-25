@@ -60,7 +60,7 @@ void CaProcess::process_packet(CaThread *thread, int tag, void *data)
 	CA_DLOG("RECV net=%i index=%i process=%i thread=%i\n",
 		tokens->net_id, place_index, get_process_id(), thread->get_id());
 	for (int t = 0; t < tokens_count; t++) {
-		n->receive(thread, place_index, unpacker);
+		n->receive(place_index, unpacker);
 	}
 	CA_DLOG("EOR index=%i process=%i thread=%i\n", place_index, get_process_id(), thread->get_id());
 	n->unlock();

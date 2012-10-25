@@ -102,7 +102,7 @@ template <typename T> std::vector<T> ca_array_join(std::vector<T> vector1, std::
 	return v;
 }
 
-size_t ca_hash(void *v, size_t size);
+size_t ca_hash(void *v, size_t size, size_t h=0);
 inline size_t ca_hash_bool(const bool &v) { return (size_t) v; }
 inline size_t ca_hash_int(const int &v) { return (size_t) v; }
 size_t ca_hash_double(const double v);

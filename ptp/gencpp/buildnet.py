@@ -94,13 +94,12 @@ def write_transition_forward(builder, tr):
 
 def write_transition_functions(builder,
                                tr,
-                               locking=True,
-                               use_get_net=False):
+                               locking=True):
     if tr.code is not None:
         write_transition_user_function(builder, tr)
-    write_full_fire(builder, tr, locking=locking, use_get_net=use_get_net)
+    write_full_fire(builder, tr, locking=locking)
     write_fire_phase1(builder, tr)
-    write_fire_phase2(builder, tr, use_get_net=use_get_net)
+    write_fire_phase2(builder, tr)
     write_cleanup_binding(builder, tr)
     write_enable_check(builder, tr)
     if builder.generate_operator_eq:
@@ -127,8 +126,7 @@ def write_send_token(builder,
                      edge,
                      locking=True,
                      interface_edge=False,
-                     readonly_tokens=False,
-                     use_get_net=False):
+                     readonly_tokens=False):
     def write_lock():
         if not locking:
             return
@@ -150,13 +148,8 @@ def write_send_token(builder,
 
     if edge.guard is not None:
         builder.if_begin(edge.guard.emit(em))
-    if edge.is_local() or use_get_net:
+    if edge.is_local():
         builder.block_begin()
-        if use_get_net and not edge.is_local():
-            class_name = get_net_class_name(builder.project.get_net_of_edge(edge))
-            builder.line("{0} *n = ({0}*) thread->get_net({1});",
-                         class_name,
-                         edge.target.emit(em))
         write_lock()
         place = edge.get_place()
         if edge.token_source is not None and not readonly_tokens:
@@ -234,7 +227,6 @@ def write_fire_body(builder,
                     locking=True,
                     remove_tokens=True,
                     readonly_tokens=False,
-                    use_get_net=False,
                     packed_tokens_from_place=True):
 
     matches, _, _ = get_edges_mathing(builder.project, tr)
@@ -309,9 +301,7 @@ def write_fire_body(builder,
                          em,
                          edge,
                          locking=locking,
-                         readonly_tokens=readonly_tokens,
-                         use_get_net=use_get_net)
-
+                         readonly_tokens=readonly_tokens)
     if locking:
         builder.line("if (lock) n->unlock();")
 
@@ -319,7 +309,7 @@ def write_fire_body(builder,
         if not edge.token_reused and not readonly_tokens:
             builder.line("delete token_{0.uid};", edge)
 
-def write_full_fire(builder, tr, locking=True, use_get_net=False):
+def write_full_fire(builder, tr, locking=True):
     builder.line("int Transition_{0.id}::full_fire(CaThreadBase *t, CaNetBase *net)",
                  tr)
     builder.block_begin()
@@ -327,7 +317,7 @@ def write_full_fire(builder, tr, locking=True, use_get_net=False):
     builder.line("CaContext ctx(thread, net);")
 
     w = build.Builder(builder.project)
-    write_fire_body(w, tr, locking=locking, use_get_net=use_get_net)
+    write_fire_body(w, tr, locking=locking)
     w.line("return CA_TRANSITION_FIRED;")
 
     write_enable_pattern_match(builder, tr, w)
@@ -364,7 +354,7 @@ def write_fire_phase1(builder, tr):
     builder.line("return NULL;")
     builder.block_end()
 
-def write_fire_phase2(builder, tr, use_get_net=False):
+def write_fire_phase2(builder, tr):
     builder.line("void Transition_{0.id}::fire_phase2"
                     "(CaThreadBase *t, CaNetBase *net, void *data)",
                  tr)
@@ -382,7 +372,6 @@ def write_fire_phase2(builder, tr, use_get_net=False):
                     locking=False,
                     remove_tokens=False,
                     readonly_tokens=True,
-                    use_get_net=use_get_net,
                     packed_tokens_from_place=False)
     builder.block_end()
 
@@ -588,10 +577,10 @@ def write_reports_method(builder, net):
 
 def write_receive_method(builder, net):
     builder.write_method_start(
-        "void receive(CaThread *thread, int place_pos, CaUnpacker &unpacker)")
+        "void receive(int place_pos, CaUnpacker &unpacker)")
     builder.line("switch(place_pos) {{")
     for place in net.places:
-        edges = place.get_edges_in(with_interface = True)
+        edges = place.get_edges_in(with_interface=True)
         if any((edge.target is not None for edge in edges)):
             builder.line("case {0}:", place.get_pos_id())
             builder.indent_push()

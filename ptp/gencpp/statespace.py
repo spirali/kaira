@@ -51,6 +51,8 @@ def write_net_class(builder, net):
                                   [ "{0}(net.{0})".format(name) for name, t in place_decls ])
     builder.write_method_end()
 
+    buildnet.write_receive_method(builder, net)
+
     for name, t in place_decls:
         builder.write_var_decl(name, t)
 
@@ -117,5 +119,4 @@ def write_net_functions(builder, net):
     for tr in net.transitions:
         buildnet.write_transition_functions(builder,
                                             tr,
-                                            locking=False,
-                                            use_get_net=True)
+                                            locking=False)

@@ -376,9 +376,8 @@ size_t ca_hash_string(std::string &v) {
 	return r;
 }
 
-size_t ca_hash(void *v, size_t size) {
+size_t ca_hash(void *v, size_t size, size_t h) {
 	char *vv = (char *) v;
-	size_t h = size;
 	for (size_t t = 0; t < size; t++) {
 		h = h * 101 + vv[t];
 	}

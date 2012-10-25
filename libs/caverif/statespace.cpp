@@ -1,5 +1,6 @@
 
 #include "statespace.h"
+#include "cailie.h"
 #include <vector>
 
 extern CaNetDef **defs;
@@ -11,8 +12,9 @@ using namespace cass;
 Node::Node(CaNetDef *net_def)
 {
 	nets = new Net*[ca_process_count];
+	packets = new std::deque<Packet>[ca_process_count];
 	for (int i = 0; i < ca_process_count; i++) {
-		Thread thread(nets, i, 0);
+		Thread thread(packets, i, 0);
 		nets[i] = (Net*) net_def->spawn(&thread);
 	}
 }
@@ -20,17 +22,23 @@ Node::Node(CaNetDef *net_def)
 Node::Node()
 {
 	nets = new Net*[ca_process_count];
+	packets = new std::deque<Packet>[ca_process_count];
 }
 
-Node::Node(const std::vector<TransitionActivation> & activations)
+Node::Node(const std::vector<TransitionActivation> & activations, std::deque<Packet> *packets)
 	: activations(activations)
 {
 	nets = new Net*[ca_process_count];
+	this->packets = new std::deque<Packet>[ca_process_count];
+	for (int t = 0; t < ca_process_count; t++) {
+		this->packets[t] = packets[t];
+	}
 }
 
 Node::~Node()
 {
 	delete [] nets;
+	delete [] packets;
 }
 
 void Node::generate(Core *core)
@@ -39,6 +47,8 @@ void Node::generate(Core *core)
 	const std::vector<CaTransitionDef*> &transitions =
 		def->get_transition_defs();
 	int transitions_count = def->get_transitions_count();
+
+	/* Fire transitions */
 	for (int p = 0; p < ca_process_count; p++) {
 		Node *node = NULL;
 		for (int i = 0; i < transitions_count; i++) {
@@ -46,7 +56,7 @@ void Node::generate(Core *core)
 				node = copy();
 			}
 			Net *net = node->nets[p];
-			Thread thread(node->nets, p, 1);
+			Thread thread(node->packets, p, 1);
 			void *data = transitions[i]->fire_phase1(&thread, net);
 			if (data) {
 				TransitionActivation activation;
@@ -61,6 +71,8 @@ void Node::generate(Core *core)
 			}
 		}
 	}
+
+	/* Finish transitions */
 	std::vector<TransitionActivation>::iterator i;
 	int p = 0;
 	for (i = activations.begin(); i != activations.end(); i++, p++)
@@ -68,8 +80,28 @@ void Node::generate(Core *core)
 		Node *node = copy();
 		node->activations.erase(node->activations.begin() + p);
 		Net *net = node->nets[i->process_id];
-		Thread thread(node->nets, i->process_id, i->thread_id);
+		Thread thread(node->packets, i->process_id, i->thread_id);
 		i->transition_def->fire_phase2(&thread, net, i->data);
+		Node *n = core->add_node(node);
+		nexts.push_back(n);
+	}
+
+	/* Receive packets */
+	for (int p = 0; p < ca_process_count; p++) {
+		if (packets[p].empty()) {
+			continue;
+		}
+		Node *node = copy();
+		Packet packet = node->packets[p].front();
+		node->packets[p].pop_front();
+		CaTokens *tokens = (CaTokens *) packet.data;
+		CaUnpacker unpacker(tokens + 1);
+		Net *net = node->nets[p];
+		int place_index = tokens->place_index;
+		int tokens_count = tokens->tokens_count;
+		for (int t = 0; t < tokens_count; t++) {
+			net->receive(place_index, unpacker);
+		}
 		Node *n = core->add_node(node);
 		nexts.push_back(n);
 	}
@@ -77,7 +109,7 @@ void Node::generate(Core *core)
 
 Node* Node::copy()
 {
-	Node *node = new Node(activations);
+	Node *node = new Node(activations, packets);
 	for (int i = 0; i < ca_process_count; i++) {
 		node->nets[i] = nets[i]->copy();
 	}
@@ -101,6 +133,10 @@ size_t Node::state_hash() const {
 		h += nets[t]->hash();
 		h += h << 10;
 		h ^= h >> 6;
+		std::deque<Packet>::const_iterator i;
+		for (i = packets[t].begin(); i != packets[t].end(); i++) {
+			h = ca_hash(i->data, i->size, h);
+		}
 	}
 	return h;
 }
@@ -110,6 +146,12 @@ bool Node::state_equals(const Node &node) const
 	if (activations.size() != node.activations.size()) {
 		return false;
 	}
+	for (int i = 0; i < ca_process_count; i++) {
+		if (packets[i].size() != node.packets[i].size()) {
+			return false;
+		}
+	}
+
 	std::vector<TransitionActivation>::const_iterator i1;
 	std::vector<TransitionActivation>::const_iterator i2;
 	for (i1 = node.activations.begin(); i1 != node.activations.end(); i1++) {
@@ -124,6 +166,16 @@ bool Node::state_equals(const Node &node) const
 		}
 		if (i2 == activations.end())
 			return false;
+	}
+
+	for (int i = 0; i < ca_process_count; i++) {
+		std::deque<Packet>::const_iterator p1 = packets[i].begin();
+		std::deque<Packet>::const_iterator p2 = node.packets[i].begin();
+        for (; p1 != packets[i].end(); p1++, p2++) {
+			if (p1->size != p2->size || memcmp(p1->data, p2->data, p1->size)) {
+				return false;
+			}
+		}
 	}
 
 	for (int i = 0; i < ca_process_count; i++) {
@@ -195,7 +247,6 @@ Node * Core::add_node(Node *node)
 	}
 }
 
-
 bool Core::is_known_node(Node *node) const
 {
 	return nodes.find(node) != nodes.end();
@@ -213,8 +264,32 @@ Node * Core::get_node(Node *node) const
 		return *it;
 }
 
-
 int Thread::get_process_count() const
 {
 	return ca_process_count;
+}
+
+void Thread::multisend_multicast(const std::vector<int> &targets,
+								 CaNetBase *net,
+								 int place_index,
+								 int tokens_count,
+								 const CaPacker &packer)
+{
+	std::vector<int>::const_iterator i;
+	CaTokens *data = (CaTokens*) packer.get_buffer();
+	data->place_index = place_index;
+	data->tokens_count = tokens_count;
+	Packet packet;
+	packet.data = data;
+	packet.size = packer.get_size();
+	for (i = targets.begin(); i != targets.end(); i++) {
+		int target = *i;
+		if(target < 0 || target >= ca_process_count) {
+			fprintf(stderr,
+					"Net sends %i token(s) to invalid process id %i (valid ids: [0 .. %i])\n",
+					tokens_count, target, ca_process_count - 1);
+			exit(1);
+		}
+		packets[target].push_back(packet);
+	}
 }

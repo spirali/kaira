@@ -21,7 +21,8 @@ namespace cass {
 		public:
 			Node();
 			Node(CaNetDef *net_def);
-			Node(const std::vector<TransitionActivation> &activations);
+			Node(const std::vector<TransitionActivation> &activations,
+				 std::deque<Packet> *packets);
 			~Node();
 
 			size_t state_hash() const;
@@ -37,8 +38,9 @@ namespace cass {
 			};
 		protected:
 			Net **nets;
-			std::vector<Node*> nexts;
+			std::deque<Packet> *packets;
 			std::vector<TransitionActivation> activations;
+			std::vector<Node*> nexts;
 	};
 
 	struct NodeStateHash {
