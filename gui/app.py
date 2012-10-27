@@ -263,18 +263,17 @@ class App:
                 lambda tab: tab.widget.jump_to_position(position)):
             return
 
-        def open_tab(stdout):
-            if transition.get_name() != "":
-                name = "T:" + transition.get_name()
-            else:
-                name = "T: <unnamed" + str(transition.get_id()) + ">"
-            editor = codeedit.TransitionCodeEditor(self.project, transition, "".join(stdout))
-            self.window.add_tab(Tab(name, editor, transition))
-            editor.jump_to_position(position)
-
-        build_config = self.project.get_build_config("simulation")
-        self._start_ptp(self.project, build_config, open_tab,
-            extra_args = [ "--transition-user-fn", str(transition.get_id()) ])
+        if transition.get_name() != "":
+            name = "T:" + transition.get_name()
+        else:
+            name = "T: <unnamed" + str(transition.get_id()) + ">"
+        generator = self.get_safe_generator()
+        if generator is None:
+            return
+        header = generator.get_transition_user_fn_header(transition.id)
+        editor = codeedit.TransitionCodeEditor(self.project, transition, header)
+        self.window.add_tab(Tab(name, editor, transition))
+        editor.jump_to_position(position)
 
     def place_edit(self, place, lineno = None):
         position = ("", lineno) if lineno is not None else None
@@ -284,15 +283,15 @@ class App:
             lambda tab: tab.widget.jump_to_position(position)):
             return
 
-        def open_tab(stdout):
-            name = "P: " + str(place.get_id())
-            editor = codeedit.PlaceCodeEditor(self.project, place, "".join(stdout))
-            self.window.add_tab(Tab(name, editor, place))
-            editor.jump_to_position(position)
+        generator = self.get_safe_generator()
+        if generator is None:
+            return
+        header = generator.get_place_user_fn_header(place.id)
+        name = "P: " + str(place.get_id())
+        editor = codeedit.PlaceCodeEditor(self.project, place, header)
+        self.window.add_tab(Tab(name, editor, place))
+        editor.jump_to_position(position)
 
-        build_config = self.project.get_build_config("simulation")
-        self._start_ptp(self.project, build_config, open_tab,
-            extra_args = [ "--place-user-fn", str(place.get_id())])
 
     def extern_type_functions_edit(self, externtype, position = None):
         if self.window.switch_to_tab_by_key(
@@ -470,6 +469,15 @@ class App:
 
     def set_settings(self, name, value):
         self.settings[name] = value
+
+    def get_safe_generator(self):
+        """ Calls self.project,get_generator(), if errors occur shows them and returns None"""
+        try:
+            return self.project.get_generator()
+        except ptp.PtpException, e:
+            error_messages = {}
+            self._process_error_line(e.message, error_messages)
+            self.project.set_error_messages(error_messages)
 
     def _project_changed(self):
         self.nv.net_changed()
