@@ -280,7 +280,7 @@ def write_fire_body(builder,
 
     if tr.code is not None:
         if locking:
-            builder.line("net->unlock();")
+            builder.line("n->unlock();")
         if len(names) == 0:
             builder.line("Vars_{0.id} vars;", tr)
         else:
@@ -365,7 +365,7 @@ def write_fire_phase2(builder, tr):
     builder.line("Tokens_{0.id} *tokens = (Tokens_{0.id}*) data;", tr)
     for edge in tr.get_normal_edges_in():
         place_t = builder.emit_type(edge.get_place_type())
-        builder.line("CaToken<{0}> *token_{1.uid} = tokens->token_{1.uid};", place_t, edge);
+        builder.line("CaToken<{0} > *token_{1.uid} = tokens->token_{1.uid};", place_t, edge);
 
     write_fire_body(builder,
                     tr,
@@ -539,9 +539,10 @@ def write_init_net(builder, net):
         builder.block_end()
 
 def write_spawn(builder, net):
-    builder.line("CaNet * spawn_{0.id}(CaThread *thread, CaNetDef *def) {{", net)
+    builder.line("CaNetBase * spawn_{0.id}(CaThreadBase *thread, CaNetDef *def) {{", net)
     builder.indent_push()
-    builder.line("{0} *net = new {0}(def, thread);", get_net_class_name(net))
+    builder.line("{0} *net = new {0}(def, ({1}*) thread);", get_net_class_name(net),
+                                                            builder.thread_class)
     write_init_net(builder, net)
     builder.line("return net;")
     builder.block_end()
@@ -566,13 +567,6 @@ def write_reports_method(builder, net):
         builder.block_end()
         builder.block_end()
         builder.line('output.back();')
-    for tr in net.transitions:
-        builder.line("if (enable_check_{0.id}(thread, this)) {{", tr)
-        builder.indent_push()
-        builder.line('output.child("enabled");')
-        builder.line('output.set("id", {0.id});', tr)
-        builder.line('output.back();')
-        builder.block_end()
     builder.write_method_end()
 
 def write_receive_method(builder, net):

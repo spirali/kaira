@@ -105,11 +105,11 @@ class Project:
         RunProgram("python", [ CMDUTILS, "--export", self.get_filename() ]).run()
 
     def run_ptp(self):
-        RunProgram(PTP_BIN, [ self.get_xml_filename(), "--build", self.get_directory() ]).run()
+        RunProgram(PTP_BIN, [ "build", self.get_xml_filename(), "--output", self.get_directory() ]).run()
 
     def fail_ptp(self, output):
         self.export()
-        RunProgram(PTP_BIN, [ self.get_xml_filename(), "--build", self.get_directory() ]).fail(output)
+        RunProgram(PTP_BIN, [ "build", self.get_xml_filename(), "--output", self.get_directory() ]).fail(output)
 
     def failed_make(self, output, args = []):
         self.export()
