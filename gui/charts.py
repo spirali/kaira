@@ -16,7 +16,7 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
-#
+
 
 import gtk
 import os
@@ -24,7 +24,10 @@ import paths
 import utils
 import events as evt
 import numpy as np
+import matplotlib.cm as cm
 from matplotlib.axes        import Axes as mpl_Axes
+from matplotlib.container   import Container as mpl_Container
+from matplotlib.artist      import Artist as mpl_Artist
 from matplotlib.lines       import Line2D as mpl_Line
 from matplotlib.patches     import Rectangle as mpl_Rectangle
 from matplotlib.text        import Annotation as mpl_Annotation
@@ -36,144 +39,131 @@ from matplotlib.figure      import Figure as mpl_Figure
 from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
                                                as mpl_FigureCanvas
 
-color_names =  [
- '#8A2BE2',
- '#A52A2A',
- '#DEB887',
- '#5F9EA0',
- '#7FFF00',
- '#D2691E',
- '#FF7F50',
- '#6495ED',
- '#FFF8DC',
- '#DC143C',
- '#00FFFF',
- '#00008B',
- '#008B8B',
- '#B8860B',
- '#A9A9A9',
- '#A9A9A9',
- '#006400',
- '#BDB76B',
- '#8B008B',
- '#556B2F',
- '#FF8C00',
- '#9932CC',
- '#8B0000',
- '#E9967A',
- '#8FBC8F',
- '#483D8B',
- '#2F4F4F',
- '#2F4F4F',
- '#00CED1',
- '#9400D3',
- '#FF1493',
- '#00BFFF',
- '#696969',
- '#696969',
- '#1E90FF',
- '#B22222',
- '#FFFAF0',
- '#228B22',
- '#FF00FF',
- '#DCDCDC',
- '#F8F8FF',
- '#FFD700',
- '#DAA520',
- '#808080',
- '#808080',
- '#008000',
- '#ADFF2F',
- '#F0FFF0',
- '#FF69B4',
- '#CD5C5C',
- '#4B0082',
- '#FFFFF0',
- '#F0E68C',
- '#E6E6FA',
- '#FFF0F5',
- '#7CFC00',
- '#FFFACD',
- '#ADD8E6',
- '#F08080',
- '#E0FFFF',
- '#FAFAD2',
- '#D3D3D3',
- '#D3D3D3',
- '#90EE90',
- '#FFB6C1',
- '#FFA07A',
- '#20B2AA',
- '#87CEFA',
- '#778899',
- '#778899',
- '#B0C4DE',
- '#FFFFE0',
- '#00FF00',
- '#32CD32',
- '#FAF0E6',
- '#FF00FF',
- '#800000',
- '#66CDAA',
- '#0000CD',
- '#BA55D3',
- '#9370D8',
- '#3CB371',
- '#7B68EE',
- '#00FA9A',
- '#48D1CC',
- '#C71585',
- '#191970',
- '#F5FFFA',
- '#FFE4E1',
- '#FFE4B5',
- '#FFDEAD',
- '#000080',
- '#FDF5E6',
- '#808000',
- '#6B8E23',
- '#FFA500',
- '#FF4500',
- '#DA70D6',
- '#EEE8AA',
- '#98FB98',
- '#AFEEEE',
- '#D87093',
- '#FFEFD5',
- '#FFDAB9',
- '#CD853F',
- '#FFC0CB',
- '#DDA0DD',
- '#B0E0E6',
- '#800080',
- '#FF0000',
- '#BC8F8F',
- '#4169E1',
- '#8B4513',
- '#FA8072',
- '#F4A460',
- '#2E8B57',
- '#FFF5EE',
- '#A0522D',
- '#C0C0C0',
- '#87CEEB',
- '#6A5ACD',
- '#708090',
- '#708090',
- '#FFFAFA',
- '#00FF7F',
- '#4682B4',
- '#D2B48C',
- '#008080',
- '#D8BFD8',
- '#FF6347',
- '#40E0D0',
- '#EE82EE',
- '#F5DEB3',
- '#FFFFFF',
- '#F5F5F5',
- '#FFFF00',
- '#9ACD32']
+class LineConfig:
+
+    """ Information abou concrete line in a chart.
+    
+    Keyword arguments:
+    mpl_line1 -- an instance of matplotlib.lines.Line2D, which is used in 
+                 the original chart.
+    x_values  -- x-values of the line.
+    y_values  -- y-values of the line.
+    color     -- used color.
+    """
+
+    def __init__(
+            self,
+            mpl_line1,
+            x_values,
+            y_values,
+            color):
+
+        self.mpl_line1 = mpl_line1
+        self.x_values = x_values
+        self.y_values = y_values
+        self.color = color
+
+        # instance of line used in legend
+        self.mpl_legline = None
+        # alternative view of line1. If they are same, then line2 = line1.
+        self.mpl_line2 = None
+        # line1 is default visible
+        self.mpl_line1_visible = True
+        # line2 is default imvisible. It is switching between them.
+        self.mpl_line2_visible = False
+
+    def get_mpl_line1(self):
+        return self.mpl_line1
+
+    def get_x_values(self):
+        return self.x_values
+
+    def get_y_values(self):
+        return self.y_values
+
+    def get_color(self):
+        return self.color
+
+    def get_mpl_legline(self):
+        return self.mpl_legline
+
+    def set_mpl_legline(self, mpl_legline):
+        self.mpl_legline = mpl_legline
+
+    def get_mpl_line2(self):
+        return self.mpl_line2
+
+    def set_mpl_line2(self, mpl_line2):
+        self.mpl_line2 = mpl_line2
+
+    def get_mpl_line1_visible(self):
+        return self.mpl_line1_visible
+
+    def set_mpl_line1_visible(self, visible):
+        self.mpl_line1_visible = visible
+        self.__set_visible(visible, self.mpl_line1)
+    
+    def get_mpl_line2_visible(self):
+        return self.mpl_line2_visible;
+
+    def set_mpl_line2_visible(self, visible):
+        if self.mpl_line2 is not None:
+            self.mpl_line2_visible = visible
+            self.__set_visible(visible, self.mpl_line2)
+        else:
+            raise Exception("Line 2 is not created!")
+
+    def __set_visible(self, visible, line):
+        if line is None:
+            raise Exception("Line is None!")
+
+        if isinstance(line, mpl_Artist):
+            line.set_visible(visible)
+        elif isinstance(line, mpl_Container):
+            for child in line.get_children():
+                self.__set_visible(visible, child)
+
+class DrawLinesConfig:
+
+    ''' The class which stores information about how to show selected lines.'''
+    def __init__(self, lines_config):
+        self.lines_config = lines_config
+        self.count_of_changes = 0
+   
+    def change_lines_config(self, change, change_legline_fn=utils.empty_fn):
+
+        old_count_of_changes = self.count_of_changes
+
+        if not change.get_mpl_line2_visible():
+            self.count_of_changes += 1
+            change_legline_fn(change.get_mpl_legline(), 'on')
+        else:
+            self.count_of_changes -= 1
+            change_legline_fn(change.get_mpl_legline(), 'off')
+        
+        # all lines will be shown (default state)
+        if old_count_of_changes == 1 and self.count_of_changes == 0:
+            for line_config in self.lines_config:
+                line_config.set_mpl_line1_visible(True)
+                legline = line_config.get_mpl_legline()
+                change_legline_fn(legline, 'original')
+                if line_config.get_mpl_line2() is not None:
+                    line_config.set_mpl_line2_visible(False)
+        
+        # one selected lines will be shown and other lines will be hide
+        elif old_count_of_changes == 0 and self.count_of_changes == 1:
+            for line_config in self.lines_config:
+                line_config.set_mpl_line1_visible(False)
+                legline = line_config.get_mpl_legline()
+                change_legline_fn(legline, 'off')
+            change_legline_fn(change.get_mpl_legline(), 'on')
+
+        # will be shown next selected line
+        if self.count_of_changes > 0:
+            if change.get_mpl_line2() is not None:
+                change.set_mpl_line2_visible(not change.get_mpl_line2_visible())
+            else:
+                change.set_mpl_line2('create_new')
 
 class BasicChart(mpl_Axes, evt.EventSource):
 
@@ -191,12 +181,11 @@ class BasicChart(mpl_Axes, evt.EventSource):
                  yscale=None,
                  **kwargs):
 
-        mpl_Axes.__init__(self, fig, rec, axisbg, frameon,
-                sharex, sharey, label, xscale, yscale, **kwargs)
+        mpl_Axes.__init__(
+            self, fig, rec, axisbg, frameon, sharex, sharey, label, 
+            xscale, yscale, **kwargs)
         evt.EventSource.__init__(self)
 
-        # chart data
-        self.data = None
         # zoom properties
         self.zoom_stack = []
         self.zoom_rect = None
@@ -234,7 +223,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
         fig.canvas.mpl_connect("button_press_event", self._move_start)
         fig.canvas.mpl_connect("motion_notify_event", self._moving)
         fig.canvas.mpl_connect(
-                "key_press_event", self._switch_moving_flag_action)
+            "key_press_event", self._switch_moving_flag_action)
         # register axes locking events
         fig.canvas.mpl_connect("key_press_event", self._switch_xlock_action)
         fig.canvas.mpl_connect("key_release_event", self._switch_xlock_action)
@@ -261,6 +250,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
     def _draw_cross(self, event, select_bg=None):
         if not self.mouse_on_legend and \
                 (self.xypress is None or select_bg is not None):
+
             if self.cross_bg is None:
                 self.cross_bg = self.figure.canvas.copy_from_bbox(self.bbox)
 
@@ -279,23 +269,25 @@ class BasicChart(mpl_Axes, evt.EventSource):
                 ytext_pos = -20 if y > 0.5 else 30
 
                 if not self.xlock:
-                    l1 = mpl_Line([x, x], [0, 1], c="#ff0000",
-                            lw=1, transform=self.transAxes, figure=self.figure)
+                    l1 = mpl_Line(
+                        [x, x], [0, 1], c="#ff0000", lw=1, 
+                        transform=self.transAxes, figure=self.figure)
                     self.draw_artist(l1)
 
                     a1 = mpl_Annotation(
-                            xtext,
-                            xy=(x, y), xycoords='axes fraction',
-                            xytext=(xtext_pos, ytext_pos),
-                            textcoords='offset points',
-                            bbox=dict(boxstyle="round", fc="#ffff00"))
+                        xtext,
+                        xy=(x, y), xycoords='axes fraction',
+                        xytext=(xtext_pos, ytext_pos),
+                        textcoords='offset points',
+                        bbox=dict(boxstyle="round", fc="#ffff00"))
                     a1.set_transform(mpl_IdentityTransform())
                     self._set_artist_props(a1)
                     self.draw_artist(a1)
 
                 if not self.ylock:
-                    l2 = mpl_Line([0, 1], [y, y], c="#ff0000",
-                            lw=1, transform=self.transAxes, figure=self.figure)
+                    l2 = mpl_Line(
+                       [0, 1], [y, y], c="#ff0000", lw=1, 
+                       transform=self.transAxes, figure=self.figure)
                     self.draw_artist(l2)
 
                     if self.xlock:
@@ -303,11 +295,11 @@ class BasicChart(mpl_Axes, evt.EventSource):
                     else:
                         ytext_pos -= 20
                     a2 = mpl_Annotation(
-                            event.ydata,
-                            xy=(x, y), xycoords='axes fraction',
-                            xytext=(xtext_pos, ytext_pos),
-                            textcoords='offset points',
-                            bbox=dict(boxstyle="round", fc="#ffff00"))
+                        event.ydata,
+                        xy=(x, y), xycoords='axes fraction',
+                        xytext=(xtext_pos, ytext_pos),
+                        textcoords='offset points',
+                        bbox=dict(boxstyle="round", fc="#ffff00"))
                     a2.set_transform(mpl_IdentityTransform())
                     self._set_artist_props(a2)
                     self.draw_artist(a2)
@@ -321,7 +313,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
 
     def _draw_rectangle(self, event):
         if not self.moving_flag and not self.mouse_on_legend and \
-            self.xypress is not None and self.in_axes(event):
+                self.xypress is not None and self.in_axes(event):
 
             x_start, y_start = self.xypress
             x_end, y_end = event.x, event.y
@@ -344,16 +336,17 @@ class BasicChart(mpl_Axes, evt.EventSource):
                 ax_y_end = self.__convert_axes_to_data(1, 1)[1]
 
             self.zoom_rect = (
-                    min(ax_x_start, ax_x_end),
-                    min(ax_y_start, ax_y_end),
-                    max(ax_x_start, ax_x_end),
-                    max(ax_y_start, ax_y_end))
+                min(ax_x_start, ax_x_end),
+                min(ax_y_start, ax_y_end),
+                max(ax_x_start, ax_x_end),
+                max(ax_y_start, ax_y_end))
 
-            rec = mpl_Rectangle((ax_x_start, ax_y_start),
-                    width=(ax_x_end - ax_x_start),
-                    height=(ax_y_end - ax_y_start),
-                    fc="#0000ff", ec="#000000", alpha=0.1, lw=1,
-                    transform=self.transData, figure=self.figure)
+            rec = mpl_Rectangle(
+                (ax_x_start, ax_y_start),
+                width=(ax_x_end - ax_x_start),
+                height=(ax_y_end - ax_y_start),
+                fc="#0000ff", ec="#000000", alpha=0.1, lw=1,
+                transform=self.transData, figure=self.figure)
 
             self.draw_artist(rec)
             self.figure.canvas.blit(self.bbox)
@@ -391,7 +384,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
                 xmin, xmax, ymin, ymax = self.zoom_stack.pop()
 
             if xmin is not None and xmax is not None and \
-               ymin is not None and ymax is not None:
+                    ymin is not None and ymax is not None:
                 self.set_xlim(xmin, xmax)
                 self.set_ylim(ymin, ymax)
                 self.figure.canvas.draw_idle()
@@ -483,23 +476,35 @@ class BasicChart(mpl_Axes, evt.EventSource):
             self.plegend.set_visible(not(hide))
             self.figure.canvas.draw_idle()
 
-    def register_pick_legend(self, legend, lines):
-        lined = dict()
-        for legline, originale in zip(legend.get_lines(), lines):
-            legline.set_picker(5)
-            lined[legline] = originale
+    def register_pick_legend(self, legend, lines_config):
 
+        def change_legline_fn(legline, action='original'):
+
+            if action == 'original' or action == 'on':
+                legline.set_alpha(1.0)
+                legline._legmarker.set_alpha(1.0)
+            elif action == 'off':
+                legline.set_alpha(0.3)
+                legline._legmarker.set_alpha(0.3)
+            else:
+                raise Exception(
+                    'Unexpected parameter \'which_use={0}\''.format(action))
+
+        lined = dict()
+        for legline, line_config in zip(legend.get_lines(), lines_config):
+            legline.set_picker(5)
+            lined[legline] = line_config
+            line_config.set_mpl_legline(legline)
+
+        dlc = DrawLinesConfig(lines_config)
         def on_pick(event):
             legline = event.artist
-            [originale] = lined[legline]
-            vis = not originale.get_visible()
-            originale.set_visible(vis)
-
-            if vis:
-                legline.set_alpha(1.0)
-            else:
-                legline.set_alpha(0.2)
-
+            line_config = lined[legline]
+            dlc.change_lines_config(line_config, change_legline_fn)
+            
+            if line_config.get_mpl_line2() == 'create_new':
+                line_config.set_mpl_line2(line_config.get_mpl_line1())
+                line_config.set_mpl_line2_visible(True)
             self.figure.canvas.draw_idle()
 
         self.figure.canvas.mpl_connect('pick_event', on_pick)
@@ -524,8 +529,9 @@ class TimeChart(BasicChart):
                  yscale=None,
                  **kwargs):
 
-        self.__init__(self, fig, rec, axisbg, frameon, sharex, sharey,
-                label, xscale, yscale, kwargs)
+        self.__init__(
+            self, fig, rec, axisbg, frameon, sharex, sharey, label, 
+            xscale, yscale, kwargs)
 
         # Connect the connection to replay slider. Event is connected through
         # gtk connect not mpl_connect, because canvas extends gtk.DrawingArea.
@@ -547,7 +553,7 @@ class ChartWidget(gtk.VBox):
         gtk.VBox.__init__(self)
 
         self.figure = figure
-        ax = figure.gca() # TODO: Is it corrent??
+        ax = figure.gca()
 
         # chart toolbar
         toolbar = self._chart_toolbar(ax, with_legend)
@@ -585,8 +591,9 @@ class ChartWidget(gtk.VBox):
         toolbar.add(gtk.SeparatorToolItem())
 
         btn_restore = gtk.ToolButton()
-        btn_restore.connect("clicked",
-                lambda w: self._btn_restore_view_action(self.figure.gca()))
+        btn_restore.connect(
+            "clicked", 
+            lambda w: self._btn_restore_view_action(self.figure.gca()))
         btn_restore.set_stock_id(gtk.STOCK_ZOOM_100)
         btn_restore.set_tooltip_text("Restore view")
         toolbar.add(btn_restore)
@@ -594,7 +601,7 @@ class ChartWidget(gtk.VBox):
         toolbar.add(gtk.SeparatorToolItem())
 
         icon_hide_legend = gtk.image_new_from_file(
-                os.path.join(paths.ICONS_DIR, "hide_legend.svg"))
+            os.path.join(paths.ICONS_DIR, "hide_legend.svg"))
         btn_hide_legend = gtk.ToggleToolButton()
         btn_hide_legend.set_icon_widget(icon_hide_legend)
         btn_hide_legend.set_tooltip_text("Hide legend")
@@ -605,39 +612,41 @@ class ChartWidget(gtk.VBox):
         toolbar.add(gtk.SeparatorToolItem())
 
         icon_xlock = gtk.image_new_from_file(
-                os.path.join(paths.ICONS_DIR, "xlock.svg"))
+            os.path.join(paths.ICONS_DIR, "xlock.svg"))
         btn_xlock = gtk.ToggleToolButton()
         btn_xlock.set_icon_widget(icon_xlock)
         btn_xlock.set_tooltip_text("Lock X-axis (keep CTRL)")
         btn_xlock.connect("toggled", self._btn_xlock_action)
-        ax.set_callback("xlock_changed",
-                lambda xlock: btn_xlock.set_active(xlock))
+        ax.set_callback(
+            "xlock_changed", lambda xlock: btn_xlock.set_active(xlock))
         toolbar.add(btn_xlock)
 
         icon_ylock = gtk.image_new_from_file(
-                os.path.join(paths.ICONS_DIR, "ylock.svg"))
+            os.path.join(paths.ICONS_DIR, "ylock.svg"))
         btn_ylock = gtk.ToggleToolButton()
         btn_ylock.set_icon_widget(icon_ylock)
         btn_ylock.set_tooltip_text("Lock Y-axis (keep CTRL)")
         btn_ylock.connect("toggled", self._btn_ylock_action)
-        ax.set_callback("ylock_changed",
-                lambda ylock: btn_ylock.set_active(ylock))
+        ax.set_callback(
+            "ylock_changed", lambda ylock: btn_ylock.set_active(ylock))
         toolbar.add(btn_ylock)
 
         icon_moving = gtk.image_new_from_file(
-                os.path.join(paths.ICONS_DIR, "moving.svg"))
+            os.path.join(paths.ICONS_DIR, "moving.svg"))
         btn_moving = gtk.ToggleToolButton()
         btn_moving.set_icon_widget(icon_moving)
         btn_moving.set_tooltip_text("Catch canvas (press key 'm')")
         btn_moving.connect("toggled", self._btn_moving_action)
-        ax.set_callback("moving_flag_changed",
-                lambda moving_flag: self._moving_flag_changed(
-                    moving_flag, btn_moving, btn_xlock, btn_ylock))
+        ax.set_callback(
+            "moving_flag_changed", 
+            lambda moving_flag: self._moving_flag_changed(
+                moving_flag, btn_moving, btn_xlock, btn_ylock))
         toolbar.add(btn_moving)
 
         return toolbar
 
-    def _moving_flag_changed(self, moving_flag, btn_moving, btn_xlock, btn_ylock):
+    def _moving_flag_changed(
+            self, moving_flag, btn_moving, btn_xlock, btn_ylock):
         btn_moving.set_active(moving_flag)
         btn_xlock.set_sensitive(not moving_flag)
         btn_ylock.set_sensitive(not moving_flag)
@@ -680,12 +689,10 @@ class ChartWidget(gtk.VBox):
 
     def _btn_save_action(self, widget):
         # TODO: poradne navrhnout ukladaci okno!!
-        dialog = gtk.FileChooserDialog("Save graph",
-                                       None, gtk.FILE_CHOOSER_ACTION_SAVE,
-                                       (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                                        gtk.STOCK_SAVE, gtk.RESPONSE_OK))
-
-        dialog.set_current_folder(os.getcwd())
+        dialog = gtk.FileChooserDialog(
+            "Save graph", None, gtk.FILE_CHOOSER_ACTION_SAVE, 
+            (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, 
+                gtk.STOCK_SAVE, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
 
         svg_filter = gtk.FileFilter()
@@ -713,34 +720,59 @@ class ChartWidget(gtk.VBox):
 #*******************************************************************************
 # Defined method for "standard" graphs:
 
-def __register_histogram_pick_legend(ax, legend, lines):
-    lined = dict()
-    for legline, originale in zip(legend.get_lines(), lines):
-        legline.set_picker(5)
-        lined[legline] = originale
+def _register_histogram_pick_legend(ax, legend, lines_config):
 
+    def change_legline_fn(legline, action='orig'):
+        if action == 'original':
+            legline.set_linewidth(1.0)
+            legline.set_alpha(1.0)
+        elif action == 'on':
+            legline.set_linewidth(6.0)
+            legline.set_alpha(1.0)
+        elif action == 'off':
+            legline.set_linewidth(6.0)
+            legline.set_alpha(0.3)
+        else:
+            raise Exception('Unexpected parameter \'{0}\''.format(action))
+
+    lined = dict()
+
+    for legline, line_config in zip(legend.get_lines(), lines_config):
+        legline.set_picker(5)
+        lined[legline] = line_config
+        line_config.set_mpl_legline(legline)
+
+    dlc = DrawLinesConfig(lines_config)
     def on_pick(event):
         legline = event.artist
-        for [orig], x, y, color in lines:
-            vis = not orig.get_visible()
-            orig.set_visible(vis)
-        (orig, xvals, yvals, color) = lined[legline]
-
-        ax.bar(xvals, yvals, color=color, alpha=0.6)
+        line_config = lined[legline]
+        dlc.change_lines_config(line_config, change_legline_fn)
+        if line_config.get_mpl_line2() == 'create_new':
+            bar = ax.bar(line_config.get_x_values(), line_config.get_y_values(), 
+                    color=line_config.get_color(), alpha=0.6)
+            line_config.set_mpl_line2(bar)
+            line_config.set_mpl_line2_visible(True)
         ax.figure.canvas.draw_idle()
 
     ax.figure.canvas.mpl_connect('pick_event', on_pick)
 
-def histogram(names, values, title, xlabel, ylabel):
+def histogram(names, values, title="", xlabel="", ylabel=""):
+
+    if not names or not values:
+        raise Exception(
+            "The input data for histogram are incomplete: '{0}'!".format(title))
+
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)
     figure.set_canvas(canvas)
 
     ax = figure.add_subplot(111, projection=BasicChart.name)
 
-    lines = []
+    lines_config = []
+    cpalete = cm.get_cmap()
+    vals_size = len(values)
     for i, vals in enumerate(values):
-        if not vals: return #if it's values list empty
+
         times = [time for time, val in vals.items()]
         times.sort()
 
@@ -755,22 +787,21 @@ def histogram(names, values, title, xlabel, ylabel):
                 new_y.append(vals[time])
                 values_len += 1
 
-        # TODO: how to add correct version of x-axis values??
-        xvals = range(0, values_len)
+        if len(new_y) > 0:
+            # TODO: how to add correct version of x-axis values??
+            xvals = range(0, values_len)
+            color = cm.Paired(float(i)/vals_size)
+            line, = ax.plot(xvals, new_y, color=color,
+                    lw=1, label=names[i])
+            lines_config.append(LineConfig(line, xvals, new_y, color))
 
-        line = ax.plot(xvals, new_y, color=color_names[i%len(color_names)],
-                lw=1, label=names[i])
-        lines.append((line, xvals, new_y, color_names[i%len(color_names)]))
-
-#    ax.set_xticks(xticks)
     for label in ax.xaxis.get_ticklabels():
         label.set_fontsize(9)
         label.set_rotation(-35)
         label.set_horizontalalignment('left')
 
     ax.plegend = ax.legend(loc="upper right", fancybox=True, shadow=True)
-#    ax.register_pick_legend(ax.plegend, lines)
-    __register_histogram_pick_legend(ax, ax.plegend, lines)
+    _register_histogram_pick_legend(ax, ax.plegend, lines_config)
 
     ax.xaxis.set_major_formatter(mpl_FuncFormatter(
         lambda time, pos: utils.time_to_string(time)[:-7]))
@@ -778,9 +809,15 @@ def histogram(names, values, title, xlabel, ylabel):
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
+
     return ChartWidget(figure)
 
-def time_sum_chart(names, values, title, xlabel, ylabel):
+def time_sum_chart(names, values, title="", xlabel="", ylabel=""):
+
+    if not names or not values:
+        raise Exception(
+            "The input data for sum chart are incomplete: '{0}'!".format(title)) 
+
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)
     figure.set_canvas(canvas)
@@ -809,7 +846,14 @@ def time_sum_chart(names, values, title, xlabel, ylabel):
 
     return ChartWidget(figure, with_legend=False, xlock=True)
 
-def utilization_chart(names, data, colors, title, xlabel, ylabel):
+def utilization_chart(names, values, title="", xlabel="", ylabel="", 
+        threads_count=1):
+
+    if not names or not values:
+        raise Exception(
+            "The input data for utilization chart" +
+            " are incomplete: '{0}'!".format(title)) 
+
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)
     figure.set_canvas(canvas)
@@ -820,11 +864,13 @@ def utilization_chart(names, data, colors, title, xlabel, ylabel):
     ywidth = 2
     yticks = []
 
-    for i, ldata in enumerate(data):
+    alpha_chanel = 1.0/threads_count
+    for i, ldata in enumerate(values):
         y = ((i+1) * ywidth) + (i+1)
         yticks.append(y + ywidth/2)
         ax.broken_barh(
-                ldata, (y, ywidth), edgecolor='face', facecolor=colors[0])
+            ldata, (y, ywidth), 
+            edgecolor='face', facecolor='green', alpha=alpha_chanel)
 
     ax.set_yticks(yticks)
     ax.set_yticklabels(names)
@@ -838,10 +884,9 @@ def utilization_chart(names, data, colors, title, xlabel, ylabel):
         label.set_horizontalalignment("left")
         label.set_verticalalignment('center')
 
-    p = mpl_Rectangle((0, 0), 1, 1, edgecolor=colors[0],
-            fc=colors[0])
-    ax.plegend = ax.legend([p], ["Running"], loc="upper left",
-            fancybox=True, shadow=True)
+    p = mpl_Rectangle((0, 0), 1, 1, edgecolor='green', fc='green', alpha=0.75)
+    ax.plegend = ax.legend(
+        [p], ["Running"], loc="upper left", fancybox=True, shadow=True)
 
     ax.xaxis.grid(True, linestyle="-", which='major', color='black', alpha=0.7)
     ax.xaxis.set_major_formatter(mpl_FuncFormatter(
@@ -853,9 +898,18 @@ def utilization_chart(names, data, colors, title, xlabel, ylabel):
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
 
+    # resize figure
+    w, h = figure.get_size_inches()
+    figure.set_size_inches(w, len(values) * 0.4)
     return ChartWidget(figure, ylock=True)
 
-def place_chart(names, values, title, xlabel, ylabel):
+def place_chart(names, values, title="", xlabel="", ylabel=""):
+
+    if not names or not values:
+        raise Exception(
+            "The input data for place chart" + 
+            " are incomplete: '{0}'!".format(title))
+
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)
     figure.set_canvas(canvas)
@@ -868,12 +922,13 @@ def place_chart(names, values, title, xlabel, ylabel):
         llines.append((name, xvalues, yvalues))
 
     # fill data
-    lines = []
+    lines_config = []
     for ldata in llines:
         name, xvalues, yvalues = ldata
-        line = ax.plot(xvalues, yvalues,
-                'o-', drawstyle='steps-post', label=name)
-        lines.append(line)
+        line, = ax.plot(
+            xvalues, yvalues, 'o-', drawstyle='steps-post', label=name)
+        lines_config.append(
+            LineConfig(line, xvalues, yvalues, line.get_color()))
 
     for label in ax.xaxis.get_ticklabels():
         label.set_rotation(-35)
@@ -881,7 +936,7 @@ def place_chart(names, values, title, xlabel, ylabel):
 
     # set legend
     ax.plegend = ax.legend(loc="upper left", fancybox=True, shadow=True)
-    ax.register_pick_legend(ax.plegend, lines)
+    ax.register_pick_legend(ax.plegend, lines_config)
     ax.xaxis.set_major_formatter(mpl_FuncFormatter(
         lambda time, pos: utils.time_to_string(time)[:-7]))
 
