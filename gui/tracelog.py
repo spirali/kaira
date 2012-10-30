@@ -179,8 +179,7 @@ class TraceLog:
         names = []
         for p in range(self.process_count):
             for t in range(self.threads_count):
-                names.append("process {0}`{1}".format(
-                    self.process_count, self.threads_count))
+                names.append("process {0}`{1}".format(p, t))
 
         values = []
         for thread in data:
