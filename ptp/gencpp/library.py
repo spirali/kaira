@@ -28,8 +28,18 @@ import writer
 def write_library_functions(builder):
     for net in builder.project.nets:
             write_library_function(builder, net)
-    build.write_parameters_setters(builder, )
+    write_parameters_setters(builder)
     write_library_init_function(builder, )
+
+def write_parameters_setters(builder):
+    for p in builder.project.get_parameters():
+        builder.line("void set_pararameter_{0}({1} value)",
+                     p.get_name(),
+                     builder.emit_type(p.get_type()))
+        builder.block_begin()
+        builder.line("param::{0}.__set_value(value);", p.get_name())
+        builder.block_end()
+
 
 def write_library(builder, header_filename):
     builder.line("#include \"{0}\"", header_filename)

@@ -630,16 +630,12 @@ def write_net_functions(builder, net):
 def write_main_setup(builder):
     builder.line("ca_project_description({0});",
         builder.emitter.const_string(builder.project.description))
-    params = builder.project.get_parameters()
-    names = ",".join((builder.emitter.const_string(p.name) for p in params))
-    builder.line("const char *pnames[] = {{{0}}};", names)
-    descriptions = ",".join((builder.emitter.const_string(p.description) for p in params))
-    builder.line("const char *pdesc[] = {{{0}}};", descriptions)
-    pvalues = ",".join(("&__param_" + p.name for p in params))
-    builder.line("int *pvalues[] = {{{0}}};", pvalues)
+    builder.line("std::vector<CaParameter*> parameters;")
+    for p in builder.project.get_parameters():
+        builder.line("parameters.push_back(&param::{0});", p.get_name())
+
     builder.emptyline()
-    builder.line("ca_init(argc, argv, {0}, pnames, pvalues, pdesc);",
-        len(builder.project.get_parameters()))
+    builder.line("ca_init(argc, argv, parameters);")
 
     for net in builder.project.nets:
         write_register_net(builder, net)

@@ -11,6 +11,7 @@ source_files =  [
 	"listener.cpp",
 	"tracelog.cpp",
 	"utils.cpp",
+	"parameters.cpp",
 ]
 
 Export("source_files")

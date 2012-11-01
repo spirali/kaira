@@ -16,6 +16,7 @@
 #include "place.h"
 #include "thread.h"
 #include "net.h"
+#include "parameters.h"
 
 #define CA_DLOG(...)
 
@@ -37,7 +38,7 @@ class CaContext {
 };
 
 /* Main functions */
-void ca_init(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs);
+void ca_init(int argc, char **argv, std::vector<CaParameter*> &parameters);
 void ca_setup(int defs_count, CaNetDef **defs);
 void ca_spawn_net(int def_id);
 int ca_main();

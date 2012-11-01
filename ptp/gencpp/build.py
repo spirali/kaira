@@ -151,8 +151,6 @@ def get_hash_combination(codes):
 
     return "^".join(result)
 
-
-
 def get_hash_codes(project, types_codes):
     codes = [ get_hash_code(project, t, code) for t, code in types_codes ]
     return get_hash_combination(codes)
@@ -172,7 +170,8 @@ def write_header(builder):
     builder.line('#include <stdio.h>')
     builder.line('#include <sstream>')
     builder.emptyline()
-
+    write_parameters_forward(builder)
+    builder.emptyline()
     if builder.project.get_head_code():
         builder.line_directive("*head", 1)
         builder.raw_text(builder.project.get_head_code())
@@ -180,13 +179,19 @@ def write_header(builder):
                                              builder.get_next_line_number())
         builder.emptyline()
 
+def write_parameters_forward(builder):
+    builder.line("struct param")
+    builder.block_begin()
+    for p in builder.project.get_parameters():
+        builder.line("static CaParameterInt {0};", p.get_name())
+    builder.write_class_end()
+
 def write_parameters(builder):
     for p in builder.project.get_parameters():
-        tstr = builder.emitter.emit_type(p.get_type())
-        builder.line("{0} __param_{1};", tstr, p.get_name())
-        decl = "{0} parameter_{1}()".format(tstr, p.get_name())
-        code = "\treturn __param_{0};".format(p.get_name())
-        builder.write_function(decl, code)
+        builder.line("CaParameterInt param::{0}({1}, {2}, CA_PARAMETER_MANDATORY);",
+                     p.name,
+                     builder.emitter.const_string(p.name),
+                     builder.emitter.const_string(p.description))
 
 def write_tuple_class(builder, tp):
     class_name = tp.get_safe_name()
@@ -450,15 +455,6 @@ def write_extern_types_functions(builder, definitions):
 
         if etype.has_hash_function():
             f(etype, "hash")
-
-def write_parameters_setters(builder):
-    for p in builder.project.get_parameters():
-        builder.line("void set_pararameter_{0}({1} {0})",
-                     p.get_name(),
-                     builder.emit_type(p.get_type()))
-        builder.block_begin()
-        builder.line("__param_{0} = {0};", p.get_name())
-        builder.block_end()
 
 def write_basic_definitions(builder):
     write_parameters(builder)
