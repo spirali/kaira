@@ -153,6 +153,7 @@ class TraceLog:
             trace_times[minimal_time_index] = trace.get_next_event_time()
 
         self.timeline = timeline
+        self.bigtable = ri
         transition_names, transition_values = ri.get_transitions_utilization()
         tokens_names, tokens_values = ri.get_tokens_counts()
 #        tr_tsum_names, tr_tsum_values = ri.get_transitions_time_sum()
@@ -453,16 +454,49 @@ class EventPointer:
     def execute(self, runinstance):
         self.tr
 
-
 class DataCollectingRunInstance(RunInstance):
+
+    ATTR_ACTION      = 'action'
+    ATTR_TIME        = 'time'
+    ATTR_PROCESS     = 'process'
+    ATTR_THREAD      = 'thread'
+    ATTR_TRANSITION  = 'transition'
+    ATTR_TIME_LENGTH = 'time_length'
 
     def __init__(self, project, process_count, threads_count):
         RunInstance.__init__(self, project, process_count, threads_count)
+
         self.threads_data = [ [] for t in range(self.process_count * self.threads_count)]
         self.transitions_data = {} # [transition_id] -> [ (start_time, lenght) ]
         self.tokens_data = {} # [process_id][place_id] -> int
         self.group_nets = {}
         self.last_time = 0
+
+        self.bigtable = {DataCollectingRunInstance.ATTR_ACTION      : [],
+                         DataCollectingRunInstance.ATTR_TIME        : [],
+                         DataCollectingRunInstance.ATTR_PROCESS     : [],
+                         DataCollectingRunInstance.ATTR_THREAD      : [],
+                         DataCollectingRunInstance.ATTR_TRANSITION  : [],
+                         DataCollectingRunInstance.ATTR_TIME_LENGTH : []}
+
+
+    def add_entry(self, action, time, process, thread, transition, time_length):
+        self.bigtable[DataCollectingRunInstance.ATTR_ACTION].append(action)
+        self.bigtable[DataCollectingRunInstance.ATTR_TIME].append(time)
+        self.bigtable[DataCollectingRunInstance.ATTR_PROCESS].append(process)
+        self.bigtable[DataCollectingRunInstance.ATTR_THREAD].append(thread)
+        self.bigtable[DataCollectingRunInstance.ATTR_TRANSITION].append(transition)
+        self.bigtable[DataCollectingRunInstance.ATTR_TIME_LENGTH].append(time_length)
+
+    def get_entry(self, idx):
+        action      = self.bigtable[DataCollectingRunInstance.ATTR_ACTION][idx]
+        time        = self.bigtable[DataCollectingRunInstance.ATTR_TIME][idx]
+        process     = self.bigtable[DataCollectingRunInstance.ATTR_PROCESS][idx]
+        thread      = self.bigtable[DataCollectingRunInstance.ATTR_THREAD][idx]
+        transition  = self.bigtable[DataCollectingRunInstance.ATTR_TRANSITION][idx]
+        time_length = self.bigtable[DataCollectingRunInstance.ATTR_TIME_LENGTH][idx]
+
+        return (action, time, process, thread, transition, time_length)
 
     def add_transition_data(self, process_id, thread_id, transition_id, value):
         if transition_id not in self.transitions_data:
@@ -500,21 +534,37 @@ class DataCollectingRunInstance(RunInstance):
             self.threads_data[activity.process_id * self.threads_count + activity.thread_id].append(value)
             self.add_transition_data(process_id, thread_id, activity.transition.id, value)
 
+            self.add_entry(
+                "tr_fired", time_start, process_id, thread_id, activity.transition.get_id(), (time - time_start))
+
     def event_spawn(self, process_id, thread_id, time, net_id):
         RunInstance.event_spawn(self, process_id, thread_id, time, net_id)
         self.last_time = time
+
+        self.add_entry(
+            self.last_event, time, process_id, thread_id, None, None)
 
     def event_quit(self, process_id, thread_id, time):
         RunInstance.event_quit(self, process_id, thread_id, time)
         self.last_time = time
 
+        self.add_entry(
+            self.last_event, time, process_id, thread_id, None, None)
+
     def event_send(self, process_id, thread_id, time, msg_id):
         RunInstance.event_send(self, process_id, thread_id, time, msg_id)
         self.last_time = time
 
+        self.add_entry(
+            self.last_event, time, process_id, thread_id, None, None)
+
     def event_receive(self, process_id, thread_id, time, msg_id):
         send_time = RunInstance.event_receive(self, process_id, thread_id, time, msg_id)
         self.last_time = time
+
+        self.add_entry(
+            self.last_event, time, process_id, thread_id, None, None)
+
         return send_time
 
     def add_token(self, place_id, token_pointer, token_value, send_time):
@@ -528,7 +578,6 @@ class DataCollectingRunInstance(RunInstance):
         net_instance = self.last_event_instance
         self.change_tokens_data(net_instance.process_id,
                                 place_id, self.last_time, -1)
-
 
     def get_transitions_utilization_gthreads(self):
         dnames = {}
@@ -634,3 +683,17 @@ class DataCollectingRunInstance(RunInstance):
                     sum += (times[1] - times[0])
                 values.append(sum)
         return names, values
+
+    def export_bigtable(self, filename):
+        f = open(filename, 'w')
+        length = len(self.bigtable[DataCollectingRunInstance.ATTR_ACTION])
+        for i in range(length):
+            ent = self.get_entry(i)
+            if ent is not None:
+                action, time, process, thread, transition, time_length = ent
+                transition = "" if transition is None else transition
+                time_length = "" if time_length is None else time_length
+
+                f.write("\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\"\n".format(
+                    action, time, process, thread, transition, time_length))
+        f.close()

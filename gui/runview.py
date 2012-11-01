@@ -60,6 +60,12 @@ class RunView(gtk.VBox):
             upper=self.tracelog.get_runinstances_count(), step_incr=1, page_incr=1, page_size=1))
         toolbar = gtk.HBox(False)
 
+        button = gtk.Button("Export")
+        button.connect(
+            "clicked", lambda w: self.tracelog.bigtable.export_bigtable(
+                "/home/sur096/Desktop/bigtable.csv"))
+        toolbar.pack_start(button, False, False)
+
         combo = gtk.combo_box_new_text()
         for name, item in self.views:
             combo.append_text(name)
