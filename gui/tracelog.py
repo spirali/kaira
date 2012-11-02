@@ -684,7 +684,7 @@ class DataCollectingRunInstance(RunInstance):
                 values.append(sum)
         return names, values
 
-    def export_bigtable(self, filename):
+    def export(self, filename):
         f = open(filename, 'w')
         length = len(self.bigtable[DataCollectingRunInstance.ATTR_ACTION])
         for i in range(length):

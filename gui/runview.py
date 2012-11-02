@@ -18,6 +18,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import os
 import gtk
 import gtkutils
 import mainwindow
@@ -62,8 +63,7 @@ class RunView(gtk.VBox):
 
         button = gtk.Button("Export")
         button.connect(
-            "clicked", lambda w: self.tracelog.bigtable.export_bigtable(
-                "/home/sur096/Desktop/bigtable.csv"))
+            "clicked", self._export_bigtable)
         toolbar.pack_start(button, False, False)
 
         combo = gtk.combo_box_new_text()
@@ -106,6 +106,57 @@ class RunView(gtk.VBox):
         runinstance = self.tracelog.get_event_runinstance(index)
         self.netinstance_view.set_runinstance(runinstance)
         self.update_labels()
+
+    def _export_bigtable(self, w):
+        chooser = gtk.FileChooserDialog(
+                title="Export big table", action=gtk.FILE_CHOOSER_ACTION_SAVE,
+                buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                         gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+
+        chooser.set_current_folder(os.getcwd())
+        chooser.set_current_name("bigtable.csv")
+
+        filefilter = gtk.FileFilter()
+        filefilter.set_name("Coma separated values")
+        filefilter.add_mime_type("text/csv")
+        filefilter.add_pattern("*.csv")
+        chooser.add_filter(filefilter)
+
+        try:
+            response = chooser.run()
+
+            if response == gtk.RESPONSE_OK:
+                filename = chooser.get_filename()
+                save = True
+                if os.path.isfile(filename):
+                    confirm_dialog = gtk.Dialog(
+                        "Confirm save", chooser, 0,
+                        (gtk.STOCK_NO, gtk.RESPONSE_NO,
+                            gtk.STOCK_OK, gtk.RESPONSE_OK))
+                    confirm_dialog.set_default_size(150, 100)
+                    label = gtk.Label(
+                        "File '{0}' in the chosen directory already exists!\nDo you want to replace it?".format(
+                            os.path.basename(filename)))
+
+                    confirm_dialog.get_content_area().add(label)
+                    confirm_dialog.show_all()
+                    try:
+                        confirm_response = confirm_dialog.run()
+                        if confirm_response == gtk.RESPONSE_NO:
+                            save = False
+                    finally:
+                        confirm_dialog.destroy()
+                if save:
+                    self.tracelog.bigtable.export(chooser.get_filename())
+                    info_dialog = gtk.Dialog(
+                        "Export OK", chooser, 0, (gtk.STOCK_OK, gtk.RESPONSE_OK))
+                    label = gtk.Label("The big table was exported.")
+                    info_dialog.get_content_area().add(label)
+                    info_dialog.show_all()
+                    info_dialog.run()
+                    info_dialog.destroy()
+        finally:
+            chooser.destroy()
 
     def _view_change(self, w):
         text = w.get_active_text()
