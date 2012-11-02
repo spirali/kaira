@@ -684,6 +684,8 @@ class ChartWidget(gtk.VBox):
                                        None, gtk.FILE_CHOOSER_ACTION_SAVE,
                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                         gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+
+        dialog.set_current_folder(os.getcwd())
         dialog.set_default_response(gtk.RESPONSE_OK)
 
         svg_filter = gtk.FileFilter()

@@ -136,6 +136,8 @@ class App:
         dialog = gtk.FileChooserDialog("Open project", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
                 (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                  gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+
+        dialog.set_current_folder(os.getcwd())
         dialog.set_default_response(gtk.RESPONSE_OK)
         try:
             self._add_project_file_filters(dialog)
@@ -156,8 +158,10 @@ class App:
         dialog = gtk.FileChooserDialog("Open Log", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
                 (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                  gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+
+        dialog.set_current_folder(os.getcwd())
+        dialog.set_default_response(gtk.RESPONSE_OK)
         try:
-            dialog.set_default_response(gtk.RESPONSE_OK)
             self._add_file_filters(dialog, (("Kaira Tracelog Header", "*.kth"),), all_files = True)
 
             response = dialog.run()
@@ -186,8 +190,10 @@ class App:
         dialog = gtk.FileChooserDialog("Save net", self.window, gtk.FILE_CHOOSER_ACTION_SAVE,
                 (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                  gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+
+        dialog.set_current_folder(os.getcwd())
+        dialog.set_default_response(gtk.RESPONSE_OK)
         try:
-            dialog.set_default_response(gtk.RESPONSE_OK)
             self._add_project_file_filters(dialog)
 
             response = dialog.run()
@@ -613,6 +619,8 @@ class App:
         dialog = gtk.FileChooserDialog(title, self.window, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
                 (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                  gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+
+        dialog.set_current_folder(os.getcwd())
         dialog.set_default_response(gtk.RESPONSE_OK)
         try:
             if dialog.run() == gtk.RESPONSE_OK:
@@ -637,6 +645,8 @@ class App:
                                        gtk.FILE_CHOOSER_ACTION_OPEN,
                                         (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                             gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+
+        dialog.set_current_folder(os.getcwd())
         dialog.set_default_response(gtk.RESPONSE_OK)
         try:
             self._add_project_file_filters(dialog)

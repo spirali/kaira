@@ -78,10 +78,10 @@ class BuildOptionsWidget(gtk.VBox):
         dialog = gtk.FileChooserDialog("Add source files", self.get_toplevel(), gtk.FILE_CHOOSER_ACTION_OPEN,
                 (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                  gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+        dialog.set_current_folder(self.project.get_directory())
+        dialog.set_default_response(gtk.RESPONSE_OK)
+        dialog.set_select_multiple(True)
         try:
-            dialog.set_current_folder(self.project.get_directory())
-            dialog.set_default_response(gtk.RESPONSE_OK)
-            dialog.set_select_multiple(True)
 
             ffilter = gtk.FileFilter()
             ffilter.set_name("Source files")
