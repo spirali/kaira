@@ -170,7 +170,7 @@ CaProcess::CaProcess(int process_id, int process_count, int threads_count, int d
 		for (int t = 0; t < threads_count; t++) {
 			std::stringstream s;
 			s << "trace-" << process_id << "-" << t << ".ktt";
-			threads[t].set_tracelog(new CaTraceLog(ca_trace_log_size, s.str()), process_id * process_count + t);
+			threads[t].set_tracelog(new CaTraceLog(ca_trace_log_size, s.str()), process_id * threads_count + t);
 		}
 	}
 
