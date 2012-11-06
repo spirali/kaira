@@ -1,6 +1,5 @@
 
 #include "statespace.h"
-#include "cailie.h"
 #include <vector>
 
 extern CaNetDef **defs;
@@ -8,6 +7,25 @@ extern int defs_count;
 extern int ca_process_count;
 
 using namespace cass;
+
+bool write_dot = false;
+
+static void args_callback(char c, char *optarg, void *data)
+{
+	if (c == 'V') {
+		if (!strcmp(optarg, "dot")) {
+			write_dot = true;
+			return;
+		}
+		fprintf(stderr, "Invalid argument in -V\n");
+		exit(1);
+	}
+}
+
+void cass::init(int argc, char **argv, std::vector<CaParameter*> &parameters)
+{
+	ca_init(argc, argv, parameters, "V:", args_callback);
+}
 
 Node::Node(CaNetDef *net_def)
 {
@@ -210,9 +228,11 @@ void Core::generate()
 	} while (!not_processed.empty());
 }
 
-void Core::verify()
+void Core::write_dot_file(const std::string &filename)
 {
-	printf("digraph X {\n");
+	FILE *f = fopen(filename.c_str(), "w");
+
+	fprintf(f, "digraph X {\n");
 	google::sparse_hash_set<Node*,
 							NodeStateHash,
 							NodeStateEq>::const_iterator it;
@@ -221,17 +241,26 @@ void Core::verify()
 		Node *node = *it;
 		const std::vector<Node*> &nexts = node->get_nexts();
 		if (node == initial_node) {
-			printf("S%p [style=filled, label=%i]\n",
+			fprintf(f, "S%p [style=filled, label=%i]\n",
 				node, node->get_activations().size());
 		} else {
-			printf("S%p [label=%i]\n",
+			fprintf(f, "S%p [label=%i]\n",
 				node, node->get_activations().size());
 		}
 		for (size_t i = 0; i < nexts.size(); i++) {
-			printf("S%p -> S%p\n", node, nexts[i]);
+			fprintf(f, "S%p -> S%p\n", node, nexts[i]);
 		}
 	}
-	printf("}\n");
+	fprintf(f, "}\n");
+
+	fclose(f);
+}
+
+void Core::postprocess()
+{
+	if (write_dot) {
+		write_dot_file("statespace.dot");
+	}
 }
 
 Node * Core::add_node(Node *node)

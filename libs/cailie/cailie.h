@@ -38,7 +38,14 @@ class CaContext {
 };
 
 /* Main functions */
-void ca_init(int argc, char **argv, std::vector<CaParameter*> &parameters);
+void ca_init(
+	int argc,
+	char **argv,
+	std::vector<CaParameter*> &parameters,
+	const std::string& extra_args = "",
+	void extra_args_callback(char, char*, void*) = NULL,
+	void *extra_args_data = NULL);
+
 void ca_setup(int defs_count, CaNetDef **defs);
 void ca_spawn_net(int def_id);
 int ca_main();

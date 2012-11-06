@@ -4,6 +4,7 @@
 
 #include <stack>
 #include <google/sparse_hash_set>
+#include "cailie.h"
 #include "basictypes.h"
 
 namespace cass {
@@ -61,7 +62,8 @@ namespace cass {
 			Core();
 			~Core();
 			void generate();
-			void verify();
+			void postprocess();
+			void write_dot_file(const std::string &filename);
 			Node * add_node(Node *node);
 			CaNetDef * get_net_def() { return net_def; }
 		protected:
@@ -75,5 +77,6 @@ namespace cass {
 			CaNetDef * net_def;
 	};
 
+	void init(int argc, char **argv, std::vector<CaParameter*> &parameters);
 }
 #endif // CAVERIF_STATESPACE_H

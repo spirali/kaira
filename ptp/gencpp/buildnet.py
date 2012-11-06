@@ -627,7 +627,7 @@ def write_net_functions(builder, net):
     for tr in net.transitions:
         write_transition_functions(builder, tr)
 
-def write_main_setup(builder):
+def write_main_setup(builder, init_function="ca_init"):
     builder.line("ca_project_description({0});",
         builder.emitter.const_string(builder.project.description))
     builder.line("std::vector<CaParameter*> parameters;")
@@ -635,7 +635,8 @@ def write_main_setup(builder):
         builder.line("parameters.push_back(&param::{0});", p.get_name())
 
     builder.emptyline()
-    builder.line("ca_init(argc, argv, parameters);")
+    builder.line("{0}(argc, argv, parameters);", init_function)
+    builder.emptyline()
 
     for net in builder.project.nets:
         write_register_net(builder, net)

@@ -82,15 +82,13 @@ def write_net_class_extension(builder, net):
     builder.line("return {0};", build.get_hash_combination(codes))
     builder.write_method_end()
 
-
-
 def write_main(builder):
     builder.line("int main(int argc, char **argv)")
     builder.block_begin()
-    buildnet.write_main_setup(builder)
     builder.line("cass::Core core;")
+    buildnet.write_main_setup(builder, "cass::init")
     builder.line("core.generate();")
-    builder.line("core.verify();")
+    builder.line("core.postprocess();")
     builder.line("return 0;")
     builder.block_end()
 

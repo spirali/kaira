@@ -146,7 +146,12 @@ void ca_finalize()
 	}
 }
 
-void ca_init(int argc, char **argv, std::vector<CaParameter*> &parameters)
+void ca_init(int argc,
+			 char **argv,
+			 std::vector<CaParameter*> &parameters,
+			 const std::string &extra_args,
+			 void (extra_args_callback)(char, char*, void*),
+			 void *extra_args_data)
 {
 	CaTraceLog::init();
 	size_t t;
@@ -159,8 +164,8 @@ void ca_init(int argc, char **argv, std::vector<CaParameter*> &parameters)
 
 	atexit(ca_finalize);
 	ca_parameters = parameters;
-
-	while ((c = getopt_long (argc, argv, "hp:t:l:s:br:T:", longopts, NULL)) != -1)
+	std::string all_args = std::string("hp:t:l:s:br:T:") + extra_args;
+	while ((c = getopt_long (argc, argv, all_args.c_str(), longopts, NULL)) != -1)
 		switch (c) {
 			case 'h': {
 				size_t max_len = 0;
@@ -229,7 +234,11 @@ void ca_init(int argc, char **argv, std::vector<CaParameter*> &parameters)
 			} break;
 			case '?':
 			default:
-				exit(1);
+				if (extra_args_callback != NULL) {
+					extra_args_callback(c, optarg, extra_args_data);
+				} else {
+					exit(1);
+				}
 			}
 
 	#ifdef CA_MPI
