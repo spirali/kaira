@@ -113,6 +113,18 @@ class MainWindow(gtk.Window):
         ag = gtk.AccelGroup()
         self.add_accel_group(ag)
 
+        def add_accelerator(item, key, ctrl=False, shift=False):
+            mask = 0
+            if ctrl:
+                mask |= gtk.gdk.CONTROL_MASK
+            if shift:
+                mask |= gtk.gdk.SHIFT_MASK
+            item.add_accelerator("activate",
+                                 ag,
+                                 gtk.gdk.keyval_from_name(key),
+                                 mask,
+                                 gtk.ACCEL_VISIBLE)
+
         self.project_sensitives = []
         self.tracing_sensitives = []
 
@@ -171,12 +183,12 @@ class MainWindow(gtk.Window):
 
         item = gtk.MenuItem("Run _simulation")
         item.connect("activate", lambda w: self.app.simulation_start())
-        item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("F7"), 0, gtk.ACCEL_VISIBLE)
+        add_accelerator(item, "F7")
         build_menu.append(item)
 
         item = gtk.MenuItem("Confi_gure simulation")
         item.connect("activate", lambda w: self.app.open_simconfig_dialog())
-        item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("F8"), 0, gtk.ACCEL_VISIBLE)
+        add_accelerator(item, "F8")
         build_menu.append(item)
 
         build_menu.append(gtk.SeparatorMenuItem())
@@ -214,22 +226,19 @@ class MainWindow(gtk.Window):
 
         item = gtk.MenuItem("Close tab")
         item.connect("activate", lambda w: self.app.close_current_tab())
-        item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("W"),
-                             gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+        add_accelerator(item, "W", ctrl=True)
         view_menu.append(item)
 
         edit_menu = gtk.Menu()
 
         item = gtk.MenuItem("Undo")
         item.connect("activate", lambda w: self.app.nv.undo())
-        item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("Z"),
-                             gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+        add_accelerator(item, "Z", ctrl=True)
         edit_menu.append(item)
 
         item = gtk.MenuItem("Redo")
         item.connect("activate", lambda w: self.app.nv.redo())
-        item.add_accelerator("activate", ag, gtk.gdk.keyval_from_name("Z"),
-                             gtk.gdk.CONTROL_MASK | gtk.gdk.SHIFT_MASK, gtk.ACCEL_VISIBLE)
+        add_accelerator(item, "Z", ctrl=True, shift=True)
         edit_menu.append(item)
 
         edit_menu.append(gtk.SeparatorMenuItem())
