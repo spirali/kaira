@@ -75,6 +75,13 @@ class LineConfig:
     def get_mpl_line1(self):
         return self.mpl_line1
 
+    def copy_mpl_line1(self):
+
+        l = mpl_Line(
+            self.x_values, self.y_values, marker='o',
+            drawstyle='steps-post', color=self.color)
+        return l
+
     def get_x_values(self):
         return self.x_values
 
@@ -503,7 +510,9 @@ class BasicChart(mpl_Axes, evt.EventSource):
             dlc.change_lines_config(line_config, change_legline_fn)
             
             if line_config.get_mpl_line2() == 'create_new':
-                line_config.set_mpl_line2(line_config.get_mpl_line1())
+                line2 = line_config.copy_mpl_line1()
+                self.add_line(line2)
+                line_config.set_mpl_line2(line2)
                 line_config.set_mpl_line2_visible(True)
             self.figure.canvas.draw_idle()
 
