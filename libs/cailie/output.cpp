@@ -69,17 +69,33 @@ static void find_and_replace(std::string &s, const char c, const std::string rep
 	}
 }
 
+static void sanitize_string(std::string &s)
+{
+	find_and_replace(s, '&', "&amp;");
+	find_and_replace(s, '<', "&lt;");
+	find_and_replace(s, '>', "&gt;");
+}
+
 void CaOutput::set(const std::string & name, const std::string & value)
 {
 	std::string v = value;
-	find_and_replace(v, '&', "&amp;");
-	find_and_replace(v, '<', "&lt;");
-	find_and_replace(v, '>', "&gt;");
+	sanitize_string(v);
 	find_and_replace(v, '\n', "\\n");
 	find_and_replace(v, '\t', "\\t");
 	find_and_replace(v, '\r', "\\r");
 	find_and_replace(v, '\'', "\\'");
 	_set(name, v);
+}
+
+void CaOutput::text(const std::string &text)
+{
+	if (open_tag) {
+		fprintf(file, ">");
+		open_tag = false;
+	}
+	std::string v = text;
+	sanitize_string(v);
+	fputs(v.c_str(), file);
 }
 
 void CaOutput::_set(const std::string & name, const std::string & value)

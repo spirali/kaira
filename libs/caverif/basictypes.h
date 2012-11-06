@@ -28,8 +28,12 @@ namespace cass {
 	class Thread : public CaThreadBase {
 		public:
 			Thread(std::deque<Packet> *packets, int process_id, int thread_id)
-				: packets(packets), process_id(process_id), thread_id(thread_id) {}
-			void quit_all() {}
+				: packets(packets),
+				  process_id(process_id),
+                  thread_id(thread_id),
+				  quit(false) {
+			}
+			void quit_all() { quit = true; }
 			int get_process_count() const;
 			int get_threads_count() const { return 1; }
 			int get_process_id() const { return process_id; }
@@ -63,11 +67,12 @@ namespace cass {
 			}
 			void multisend_multicast(const std::vector<int> &targets, CaNetBase *net,
 				int place_index, int tokens_count, const CaPacker &packer);
-
+			bool get_quit_flag() { return quit; }
 		protected:
 			std::deque<Packet> *packets;
 			int process_id;
 			int thread_id;
+			bool quit;
 	};
 
 	template<typename T>

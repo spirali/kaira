@@ -20,6 +20,8 @@ class CaOutput {
 		}
 		void set(const std::string &name, const bool value);
 
+		void text(const std::string &text);
+
 	protected:
 		void _set(const std::string &name, const std::string &s);
 		FILE *file;

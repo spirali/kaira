@@ -5,16 +5,23 @@
 extern CaNetDef **defs;
 extern int defs_count;
 extern int ca_process_count;
+extern char *ca_project_description_string;
 
 using namespace cass;
 
 bool write_dot = false;
+
+bool analyse_quit = false;
 
 static void args_callback(char c, char *optarg, void *data)
 {
 	if (c == 'V') {
 		if (!strcmp(optarg, "dot")) {
 			write_dot = true;
+			return;
+		}
+		if (!strcmp(optarg, "quit")) {
+			analyse_quit = true;
 			return;
 		}
 		fprintf(stderr, "Invalid argument in -V\n");
@@ -27,7 +34,7 @@ void cass::init(int argc, char **argv, std::vector<CaParameter*> &parameters)
 	ca_init(argc, argv, parameters, "V:", args_callback);
 }
 
-Node::Node(CaNetDef *net_def)
+Node::Node(CaNetDef *net_def) : flag(NULL)
 {
 	nets = new Net*[ca_process_count];
 	packets = new std::deque<Packet>[ca_process_count];
@@ -37,14 +44,14 @@ Node::Node(CaNetDef *net_def)
 	}
 }
 
-Node::Node()
+Node::Node() : flag(NULL)
 {
 	nets = new Net*[ca_process_count];
 	packets = new std::deque<Packet>[ca_process_count];
 }
 
 Node::Node(const std::vector<TransitionActivation> & activations, std::deque<Packet> *packets)
-	: activations(activations)
+	: activations(activations), flag(NULL)
 {
 	nets = new Net*[ca_process_count];
 	this->packets = new std::deque<Packet>[ca_process_count];
@@ -57,10 +64,21 @@ Node::~Node()
 {
 	delete [] nets;
 	delete [] packets;
+
+	NodeFlag *f = flag;
+	while (f) {
+		NodeFlag *next = f->next;
+		delete f;
+		f = next;
+	}
 }
 
 void Node::generate(Core *core)
 {
+	if (get_flag("quit")) {
+		return;
+	}
+
 	CaNetDef *def = core->get_net_def();
 	const std::vector<CaTransitionDef*> &transitions =
 		def->get_transition_defs();
@@ -71,7 +89,7 @@ void Node::generate(Core *core)
 		Node *node = NULL;
 		for (int i = 0; i < transitions_count; i++) {
 			if (node == NULL) {
-				node = copy();
+				node = copy_state();
 			}
 			Net *net = node->nets[p];
 			Thread thread(node->packets, p, 1);
@@ -95,11 +113,14 @@ void Node::generate(Core *core)
 	int p = 0;
 	for (i = activations.begin(); i != activations.end(); i++, p++)
 	{
-		Node *node = copy();
+		Node *node = copy_state();
 		node->activations.erase(node->activations.begin() + p);
 		Net *net = node->nets[i->process_id];
 		Thread thread(node->packets, i->process_id, i->thread_id);
 		i->transition_def->fire_phase2(&thread, net, i->data);
+		if (thread.get_quit_flag()) {
+			node->add_flag("quit", "");
+		}
 		Node *n = core->add_node(node);
 		nexts.push_back(n);
 	}
@@ -109,7 +130,7 @@ void Node::generate(Core *core)
 		if (packets[p].empty()) {
 			continue;
 		}
-		Node *node = copy();
+		Node *node = copy_state();
 		Packet packet = node->packets[p].front();
 		node->packets[p].pop_front();
 		CaTokens *tokens = (CaTokens *) packet.data;
@@ -125,7 +146,7 @@ void Node::generate(Core *core)
 	}
 }
 
-Node* Node::copy()
+Node* Node::copy_state()
 {
 	Node *node = new Node(activations, packets);
 	for (int i = 0; i < ca_process_count; i++) {
@@ -134,7 +155,31 @@ Node* Node::copy()
 	return node;
 }
 
-size_t Node::state_hash() const {
+
+void Node::add_flag(const std::string &name, const std::string &value)
+{
+	NodeFlag *f = new NodeFlag;
+	f->name = name;
+	f->value = value;
+	f->next = flag;
+	flag = f;
+}
+
+
+NodeFlag *Node::get_flag(const std::string &name)
+{
+	NodeFlag *f = flag;
+	while(f) {
+		if (f->name == name) {
+			return f;
+		}
+		f = f->next;
+	}
+	return NULL;
+}
+
+size_t Node::state_hash() const
+{
 	size_t h = activations.size();
 	std::vector<TransitionActivation>::const_iterator i;
 
@@ -156,6 +201,8 @@ size_t Node::state_hash() const {
 			h = ca_hash(i->data, i->size, h);
 		}
 	}
+
+	// TODO: hash from flags
 	return h;
 }
 
@@ -200,6 +247,24 @@ bool Node::state_equals(const Node &node) const
 		if (!nets[i]->is_equal(*node.nets[i]))
 			return false;
 	}
+
+	NodeFlag *f1 = flag;
+	NodeFlag *f2 = node.flag;
+	while (f1 != NULL && f2 != NULL) {
+		if (f1->name != f2->name) {
+			return false;
+		}
+		if (f1->value != f2->value) {
+			return false;
+		}
+		f1 = f1->next;
+		f2 = f2->next;
+	}
+
+	if (f1 != f2) {
+		return false;
+	}
+
 	return true;
 }
 
@@ -261,6 +326,75 @@ void Core::postprocess()
 	if (write_dot) {
 		write_dot_file("statespace.dot");
 	}
+
+	FILE *f = fopen("report.xml", "w");
+	CaOutput report(f);
+	report.child("report");
+	report.set("version", 1);
+
+	report.child("analysis");
+	report.set("name", "Overall statistics");
+	report.child("result");
+	report.set("name", "Number of states");
+	report.set("value", nodes.size());
+	report.back();
+	report.back();
+
+	if (analyse_quit) {
+		run_analysis_quit(report);
+	}
+
+	report.child("description");
+	report.text(ca_project_description_string);
+	report.back();
+
+	report.back();
+	fclose(f);
+}
+
+void Core::run_analysis_quit(CaOutput &report)
+{
+	size_t quit_states = 0;
+	size_t dead_ends = 0;
+
+	google::sparse_hash_set<Node*,
+							NodeStateHash,
+							NodeStateEq>::const_iterator it;
+	for (it = nodes.begin(); it != nodes.end(); it++)
+	{
+		Node *node = *it;
+		if (node->get_flag("quit")) {
+			quit_states++;
+		} else if (node->get_nexts().size() == 0) {
+			dead_ends++;
+		}
+	}
+	report.child("analysis");
+	report.set("name", "Quit analysis");
+
+	report.child("result");
+	report.set("name", "Number of quit states");
+	report.set("value", quit_states);
+	if (quit_states == 0) {
+		report.set("status", "fail");
+		report.set("text", "There is no quit-state");
+	} else {
+		report.set("status", "ok");
+	}
+	report.back();
+
+	report.child("result");
+	report.set("name", "Number of dead-ends");
+	report.set("value", dead_ends);
+	if (dead_ends != 0) {
+		report.set("status", "fail");
+		report.set("text", "There are dead-ends");
+	} else {
+		report.set("status", "ok");
+	}
+	report.back();
+
+	report.back();
 }
 
 Node * Core::add_node(Node *node)

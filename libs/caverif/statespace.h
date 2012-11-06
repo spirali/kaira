@@ -18,6 +18,12 @@ namespace cass {
 			void *data;
 	};
 
+	struct NodeFlag {
+		std::string name;
+		std::string value;
+		NodeFlag *next;
+	};
+
 	class Node {
 		public:
 			Node();
@@ -31,17 +37,24 @@ namespace cass {
 			bool state_equals(const Node &rhs) const;
 
 			void generate(Core *statespace);
-			Node * copy();
+			Node * copy_state();
 
 			const std::vector<Node*> & get_nexts() const { return nexts; }
 			const std::vector<TransitionActivation> & get_activations() {
 				return activations;
 			};
+
+			void add_flag(const std::string &name, const std::string &value);
+			NodeFlag *get_flag(const std::string &name);
 		protected:
+			/** State of computation */
 			Net **nets;
 			std::deque<Packet> *packets;
 			std::vector<TransitionActivation> activations;
+
+			/** Node state */
 			std::vector<Node*> nexts;
+			NodeFlag *flag;
 	};
 
 	struct NodeStateHash {
@@ -67,8 +80,10 @@ namespace cass {
 			Node * add_node(Node *node);
 			CaNetDef * get_net_def() { return net_def; }
 		protected:
+			void run_analysis_quit(CaOutput &report);
+
 			bool is_known_node(Node *node) const;
-			Node * get_node(Node *node) const;
+			Node *get_node(Node *node) const;
 			std::stack<Node*> not_processed;
 			google::sparse_hash_set<Node*,
 									NodeStateHash,
