@@ -357,15 +357,13 @@ void ca_write_header(FILE *out, int process_count, int threads_count)
 		}
 	}
 
-	CaOutput output;
+	CaOutput output(out);
 	output.child("header");
 	output.set("pointer-size", (int) sizeof(void*));
 	output.set("process-count", process_count);
 	output.set("threads-count", threads_count);
 	output.set("description-lines", lines);
-	CaOutputBlock *block = output.back();
-	block->write(out);
-	delete block;
+	output.back();
 	fputs("\n", out);
 	fputs(ca_project_description_string, out);
 	fputs("\n", out);

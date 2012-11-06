@@ -264,15 +264,13 @@ void CaProcess::quit()
 
 void CaProcess::write_reports(FILE *out) const
 {
-	CaOutput output;
+	CaOutput output(out);
 	output.child("process");
 	output.set("id", process_id);
 	output.set("running", !quit_flag);
 
 	net->write_reports(&threads[0], output);
-	CaOutputBlock *block = output.back();
-	block->write(out);
-	delete block;
+	output.back();
 }
 
 // Designed for calling during simulation
