@@ -9,9 +9,9 @@ extern char *ca_project_description_string;
 
 using namespace cass;
 
-bool write_dot = false;
-
-bool analyse_quit = false;
+static bool write_dot = false;
+static bool analyse_quit = false;
+static std::string project_name;
 
 static void args_callback(char c, char *optarg, void *data)
 {
@@ -31,6 +31,9 @@ static void args_callback(char c, char *optarg, void *data)
 
 void cass::init(int argc, char **argv, std::vector<CaParameter*> &parameters)
 {
+	char s[1024];
+	strncpy(s, argv[0], 1024);
+	project_name = basename(s); // basename can modify its argument
 	ca_init(argc, argv, parameters, "V:", args_callback);
 }
 
@@ -327,7 +330,7 @@ void Core::postprocess()
 		write_dot_file("statespace.dot");
 	}
 
-	FILE *f = fopen("report.xml", "w");
+	FILE *f = fopen((project_name + ".kreport").c_str(), "w");
 	CaOutput report(f);
 	report.child("report");
 	report.set("version", 1);

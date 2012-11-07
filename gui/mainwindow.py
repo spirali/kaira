@@ -197,9 +197,15 @@ class MainWindow(gtk.Window):
         item.connect("activate", lambda w: self.app.simulation_start(valgrind = True))
         build_menu.append(item)
 
+        analyze_menu = gtk.Menu()
+
         item = gtk.MenuItem("Run state space _analysis")
         item.connect("activate", lambda w: self.app.run_statespace_analysis())
-        build_menu.append(item)
+        analyze_menu.append(item)
+
+        item = gtk.MenuItem("Open _report")
+        item.connect("activate", lambda w: self.app.load_report())
+        analyze_menu.append(item)
 
         view_menu = gtk.Menu()
 
@@ -275,6 +281,10 @@ class MainWindow(gtk.Window):
         main_menu.append(item)
         item = gtk.MenuItem("_Run")
         item.set_submenu(build_menu)
+        self.project_sensitives.append(item)
+        main_menu.append(item)
+        item = gtk.MenuItem("_Analyze")
+        item.set_submenu(analyze_menu)
         self.project_sensitives.append(item)
         main_menu.append(item)
         return main_menu

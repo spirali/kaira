@@ -42,6 +42,7 @@ import loader
 import ptp
 import runview
 import codetests
+import report
 
 VERSION_STRING = '0.5'
 
@@ -65,7 +66,9 @@ class App:
         if args:
             if os.path.isfile(args[0]):
                 if args[0].endswith(".kth"):
-                    self.open_tracelog_tab(args[0])
+                    self.load_tracelog(args[0])
+                elif args[0].endswith(".kreport"):
+                    self.load_report(args[0])
                 else:
                     self.set_project(loader.load_project(args[0]))
             else:
@@ -105,7 +108,7 @@ class App:
             builder.get_object("newproject-dir").set_text(os.path.join(directory[0], name))
             builder.get_object("newproject-ok").set_sensitive(name != "")
         def change_directory(w):
-            d = self._directory_choose_dialog("Project directory")
+            d = self.run_file_dialog("Project directory", "open-directory")
             if d is not None:
                 directory[0] = d
                 project_name_changed()
@@ -132,50 +135,63 @@ class App:
         finally:
             dlg.hide()
 
-    def create_file_dialog(self, name, action=gtk.FILE_CHOOSER_ACTION_OPEN):
-        dialog = gtk.FileChooserDialog(name,
+    def run_file_dialog(self, title, mode, filter_name=None, pattern=None):
+        if mode == "open":
+            action = gtk.FILE_CHOOSER_ACTION_OPEN
+            stock = gtk.STOCK_OPEN
+        elif mode == "save":
+            action = gtk.FILE_CHOOSER_ACTION_SAVE
+            stock = gtk.STOCK_SAVE
+        elif mode == "open-directory":
+            action = gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER
+            stock = gtk.STOCK_OPEN
+        dialog = gtk.FileChooserDialog(title,
                                        self.window,
                                        action,
                                        (gtk.STOCK_CANCEL,
                                         gtk.RESPONSE_CANCEL,
-                                        gtk.STOCK_OPEN,
+                                        stock,
                                         gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
-        return dialog
+        if filter_name is not None:
+            self._add_file_filters(dialog, ((filter_name, pattern),), all_files=True)
 
+        try:
+            if dialog.run() == gtk.RESPONSE_OK:
+                return dialog.get_filename()
+            else:
+                return None
+        finally:
+            dialog.destroy()
 
     def load_project(self):
-        dialog = self.create_file_dialog("Open project")
-        dialog.set_default_response(gtk.RESPONSE_OK)
-        try:
-            self._add_project_file_filters(dialog)
-            response = dialog.run()
-            if response == gtk.RESPONSE_OK:
-                filename = dialog.get_filename()
-                if filename[-5:] != ".proj":
-                    filename = filename + ".proj"
+        filename = self.run_file_dialog("Open project", "open", "Project", "*.proj")
+        if filename is None:
+            return
 
-                p = self._catch_io_error(lambda: loader.load_project(filename))
-                if p:
-                    # TODO: set statusbar
-                    self.set_project(p)
-        finally:
-            dialog.destroy()
+        if filename[-5:] != ".proj":
+            filename = filename + ".proj"
 
-    def load_tracelog(self):
-        dialog = self.create_file_dialog("Open tracelog")
-        try:
-            self._add_file_filters(dialog, (("Kaira Tracelog Header", "*.kth"),), all_files=True)
-            response = dialog.run()
-            if response == gtk.RESPONSE_OK:
-                self.open_tracelog_tab(dialog.get_filename())
-        finally:
-            dialog.destroy()
+        p = self._catch_io_error(lambda: loader.load_project(filename))
+        if p:
+            self.set_project(p)
 
-    def open_tracelog_tab(self, filename):
+    def load_tracelog(self, filename=None):
+        if filename is None:
+            filename = self.run_file_dialog("Open tracelog", "open", "Tracelog header", "*.kth")
+            if filename is None:
+                return
         t = self._catch_io_error(lambda: TraceLog(filename))
         rv = runview.RunView(self, t)
         self.window.add_tab(Tab("Tracelog", rv))
+
+    def load_report(self, filename=None):
+        if filename is None:
+            filename = self.run_file_dialog("Open report", "open", "Report", "*.kreport")
+            if filename is None:
+                return
+        r = self._catch_io_error(lambda: report.Report(filename))
+        self.window.add_tab(Tab("Report", report.ReportWidget(r)))
 
     def save_project(self):
         if self.project.get_filename() is None:
@@ -189,18 +205,13 @@ class App:
             tab.close()
 
     def save_project_as(self):
-        dialog = self.create_file_dialog("Save project", gtk.FILE_CHOOSER_ACTION_SAVE)
-        try:
-            self._add_project_file_filters(dialog)
-            response = dialog.run()
-            if response == gtk.RESPONSE_OK:
-                filename = dialog.get_filename()
-                if filename[-5:] != ".proj":
-                    filename = filename + ".proj"
-                self.project.set_filename(filename)
-                self._save_project()
-        finally:
-            dialog.destroy()
+        filename = self.run_file_dialog("Save project", "save", "Project", "*.project")
+        if filename is None:
+            return
+        if filename[-5:] != ".proj":
+            filename = filename + ".proj"
+        self.project.set_filename(filename)
+        self._save_project()
 
     def _save_project(self, silent = False):
         self.window.foreach_tab(lambda tab: tab.project_save())
@@ -244,9 +255,6 @@ class App:
             ffilter.set_name(f[0])
             ffilter.add_pattern(f[1])
             dialog.add_filter(ffilter)
-
-    def _add_project_file_filters(self, dialog):
-        self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files=True)
 
     def edit_code_tests(self):
         if not self.project.is_library():
@@ -614,16 +622,6 @@ class App:
         else:
             self.console_write(line)
 
-    def _directory_choose_dialog(self, title):
-        dialog = self.create_file_dialog(title, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER)
-        try:
-            if dialog.run() == gtk.RESPONSE_OK:
-                return dialog.get_filename()
-            else:
-                return None
-        finally:
-            dialog.destroy()
-
     def _open_welcome_tab(self):
         label = gtk.Label()
         line = "<span size='xx-large'>Kaira</span>\nv{0}\n\n" \
@@ -635,17 +633,13 @@ class App:
         self.window.add_tab(Tab("Welcome", label, has_close_button=False))
 
     def import_project(self):
-        dialog = self.create_file_dialog("Import project")
-        try:
-            self._add_project_file_filters(dialog)
-            response = dialog.run()
-            if response == gtk.RESPONSE_OK:
-                filename = dialog.get_filename()
-                if filename[-5:] != ".proj":
-                    filename = filename + ".proj"
-                loader.import_project(self.project, filename)
-        finally:
-            dialog.destroy()
+        filename = self.run_file_dialog("Import project", "open", "Project", "*.proj")
+        if filename is None:
+            return
+
+        if filename[-5:] != ".proj":
+            filename = filename + ".proj"
+        loader.import_project(self.project, filename)
 
 if __name__ == "__main__":
     args = sys.argv[1:] # Remove "app.py"
