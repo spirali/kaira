@@ -105,7 +105,7 @@ class App:
             builder.get_object("newproject-dir").set_text(os.path.join(directory[0], name))
             builder.get_object("newproject-ok").set_sensitive(name != "")
         def change_directory(w):
-            d = self._directory_choose_dialog("Select project directory")
+            d = self._directory_choose_dialog("Project directory")
             if d is not None:
                 directory[0] = d
                 project_name_changed()
@@ -132,10 +132,20 @@ class App:
         finally:
             dlg.hide()
 
+    def create_file_dialog(self, name, action=gtk.FILE_CHOOSER_ACTION_OPEN):
+        dialog = gtk.FileChooserDialog(name,
+                                       self.window,
+                                       action,
+                                       (gtk.STOCK_CANCEL,
+                                        gtk.RESPONSE_CANCEL,
+                                        gtk.STOCK_OPEN,
+                                        gtk.RESPONSE_OK))
+        dialog.set_default_response(gtk.RESPONSE_OK)
+        return dialog
+
+
     def load_project(self):
-        dialog = gtk.FileChooserDialog("Open project", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                 gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+        dialog = self.create_file_dialog("Open project")
         dialog.set_default_response(gtk.RESPONSE_OK)
         try:
             self._add_project_file_filters(dialog)
@@ -153,13 +163,9 @@ class App:
             dialog.destroy()
 
     def load_tracelog(self):
-        dialog = gtk.FileChooserDialog("Open Log", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                 gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+        dialog = self.create_file_dialog("Open tracelog")
         try:
-            dialog.set_default_response(gtk.RESPONSE_OK)
-            self._add_file_filters(dialog, (("Kaira Tracelog Header", "*.kth"),), all_files = True)
-
+            self._add_file_filters(dialog, (("Kaira Tracelog Header", "*.kth"),), all_files=True)
             response = dialog.run()
             if response == gtk.RESPONSE_OK:
                 self.open_tracelog_tab(dialog.get_filename())
@@ -183,13 +189,9 @@ class App:
             tab.close()
 
     def save_project_as(self):
-        dialog = gtk.FileChooserDialog("Save net", self.window, gtk.FILE_CHOOSER_ACTION_SAVE,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                 gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+        dialog = self.create_file_dialog("Save project", gtk.FILE_CHOOSER_ACTION_SAVE)
         try:
-            dialog.set_default_response(gtk.RESPONSE_OK)
             self._add_project_file_filters(dialog)
-
             response = dialog.run()
             if response == gtk.RESPONSE_OK:
                 filename = dialog.get_filename()
@@ -220,7 +222,7 @@ class App:
     def set_grid_size(self, grid_size):
         self.grid_size = grid_size
 
-    def _catch_io_error(self, fcn, return_on_ok = None, return_on_err = None):
+    def _catch_io_error(self, fcn, return_on_ok=None, return_on_err=None):
         try:
             result = fcn()
             if return_on_ok == None:
@@ -244,7 +246,7 @@ class App:
             dialog.add_filter(ffilter)
 
     def _add_project_file_filters(self, dialog):
-        self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files = True)
+        self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files=True)
 
     def edit_code_tests(self):
         if not self.project.is_library():
@@ -367,7 +369,6 @@ class App:
                 + first_line, "error")
             return None, None
         return sprocess, port
-
 
     def simulation_start(self, valgrind = False):
         def project_builded(project):
@@ -513,7 +514,6 @@ class App:
                                                          build_config.directory,
                                                          build_ok_callback))
 
-
     def _start_ptp(self, proj, build_config, build_ok_callback=None):
         stdout = []
         def on_exit(code):
@@ -615,10 +615,7 @@ class App:
             self.console_write(line)
 
     def _directory_choose_dialog(self, title):
-        dialog = gtk.FileChooserDialog(title, self.window, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                 gtk.STOCK_OPEN, gtk.RESPONSE_OK))
-        dialog.set_default_response(gtk.RESPONSE_OK)
+        dialog = self.create_file_dialog(title, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER)
         try:
             if dialog.run() == gtk.RESPONSE_OK:
                 return dialog.get_filename()
@@ -629,20 +626,16 @@ class App:
 
     def _open_welcome_tab(self):
         label = gtk.Label()
-        line1 = "<span size='xx-large'>Kaira</span>\nv{0}\n\n".format(VERSION_STRING)
-        line2 = "News &amp; documentation can be found at\n"
-        line3 = "<a href='http://verif.cs.vsb.cz/kaira'>http://verif.cs.vsb.cz/kaira</a>"
-        label.set_markup(line1 + line2 + line3)
+        line = "<span size='xx-large'>Kaira</span>\nv{0}\n\n" \
+                "News &amp; documentation can be found at\n" \
+                "<a href='http://verif.cs.vsb.cz/kaira'>http://verif.cs.vsb.cz/kaira</a>" \
+                    .format(VERSION_STRING)
+        label.set_markup(line)
         label.set_justify(gtk.JUSTIFY_CENTER)
-        self.window.add_tab(Tab("Welcome", label, has_close_button = False))
+        self.window.add_tab(Tab("Welcome", label, has_close_button=False))
 
     def import_project(self):
-        dialog = gtk.FileChooserDialog("Import project",
-                                       self.window,
-                                       gtk.FILE_CHOOSER_ACTION_OPEN,
-                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                                            gtk.STOCK_OPEN, gtk.RESPONSE_OK))
-        dialog.set_default_response(gtk.RESPONSE_OK)
+        dialog = self.create_file_dialog("Import project")
         try:
             self._add_project_file_filters(dialog)
             response = dialog.run()
