@@ -126,6 +126,11 @@ class TraceLog:
                 last  =  i  -  1
 
     def _preprocess(self):
+        # Set time offsets
+        starttime = min([ trace.get_init_time() for trace in self.traces ])
+        for trace in self.traces:
+            trace.time_offset = starttime - trace.get_init_time()
+
         timeline = []
         trace_times = [ trace.get_next_event_time() for trace in self.traces ]
 
@@ -203,7 +208,7 @@ class Trace:
     struct_basic = struct.Struct("<Q")
     struct_transition_fired = struct.Struct("<Qi")
     struct_spawn = struct.Struct("<Qi")
-    struct_send = struct.Struct("Qi")
+    struct_send = struct.Struct("<Qi")
     struct_receive = struct.Struct("<Qi")
 
     struct_token_4 = struct.Struct("<Li")
@@ -217,6 +222,7 @@ class Trace:
         self.pointer = 0
         self.process_id = process_id
         self.thread_id = thread_id
+        self.time_offset = 0
         if pointer_size == 4:
             self.struct_token = self.struct_token_4
         elif pointer_size == 8:
@@ -224,6 +230,13 @@ class Trace:
         else:
             Exception("Invalid pointer size")
         self.info = self._read_header()
+
+    def get_init_time(self):
+        s = self.info.get("inittime")
+        if s is not None:
+            return int(s)
+        else:
+            return 0
 
     def get_next_event_name(self):
         t = self.data[self.pointer]
@@ -312,7 +325,8 @@ class Trace:
         if self.is_pointer_at_end():
             return None
         else:
-            return self.struct_basic.unpack_from(self.data, self.pointer + 1)[0]
+            return self.struct_basic.unpack_from(self.data, self.pointer + 1)[0] + \
+                   self.time_offset
 
     def _read_header(self):
         info = {}
@@ -320,10 +334,12 @@ class Trace:
             key = self._read_cstring()
             value = self._read_cstring()
             if key == "" and value == "":
-                if "KairaThreadTrace" not in info or info["KairaThreadTrace"] != "1":
-                    raise Exception("Invalid format or version of KairaThreadTrace")
-                return info
+                break
             info[key] = value
+
+        if "KairaThreadTrace" not in info or info["KairaThreadTrace"] != "1":
+            raise Exception("Invalid format or version of KairaThreadTrace")
+        return info
 
     def _read_struct_transition_fired(self):
         values = self.struct_transition_fired.unpack_from(self.data, self.pointer)
@@ -361,32 +377,50 @@ class Trace:
         values = self._read_transition_trace_function_data()
         pointer2 = self.pointer
         self.pointer = pointer1
-        runinstance.transition_fired(self.process_id, self.thread_id, time, transition_id, values)
+        runinstance.transition_fired(self.process_id,
+                                     self.thread_id,
+                                     time + self.time_offset,
+                                     transition_id,
+                                     values)
         self.process_tokens_remove(runinstance)
         self.pointer = pointer2
         self.process_tokens_add(runinstance)
 
     def _process_event_transition_finished(self, runinstance):
         time = self._read_struct_transition_finished()[0]
-        runinstance.transition_finished(self.process_id, self.thread_id, time)
+        runinstance.transition_finished(self.process_id,
+                                        self.thread_id,
+                                        time + self.time_offset)
         self.process_tokens_add(runinstance)
 
     def _process_event_send_msg(self, runinstance):
-        values = self._read_struct_send_msg()
-        runinstance.event_send(self.process_id, self.thread_id, *values)
+        time, msg_id = self._read_struct_send_msg()
+        runinstance.event_send(self.process_id,
+                               self.thread_id,
+                               time + self.time_offset,
+                               msg_id)
 
     def _process_event_spawn(self, runinstance):
-        runinstance.event_spawn(self.process_id, self.thread_id, *self._read_struct_spawn())
+        time, net_id = self._read_struct_spawn()
+        runinstance.event_spawn(self.process_id,
+                                self.thread_id,
+                                time + self.time_offset,
+                                net_id)
         self.process_tokens_add(runinstance)
 
     def _process_event_quit(self, runinstance):
         time = self._read_struct_quit()[0]
-        runinstance.event_quit(self.process_id, self.thread_id, time)
+        runinstance.event_quit(self.process_id,
+                               self.thread_id,
+                               time + self.time_offset)
         self.process_tokens_add(runinstance)
 
     def _process_event_receive(self, runinstance):
-        values = self._read_struct_receive()
-        send_time = runinstance.event_receive(self.process_id, self.thread_id, *values)
+        time, msg_id = self._read_struct_receive()
+        send_time = runinstance.event_receive(self.process_id,
+                                              self.thread_id,
+                                              time + self.time_offset,
+                                              msg_id)
         self.process_tokens_add(runinstance, send_time)
 
     def _read_struct_token(self):

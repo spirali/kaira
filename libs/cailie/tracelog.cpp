@@ -34,6 +34,10 @@ CaTraceLog::CaTraceLog(size_t size, const std::string &filename)
 		exit(-1);
 	}
 	write_key_value("hostname", hostname);
+	char tmp[200];
+	snprintf(tmp, 200, "%lli%09li",
+		(long long int) initial_time.tv_sec, initial_time.tv_nsec);
+	write_key_value("inittime", tmp);
 	write_key_value("", ""); // Terminate config section
 }
 
