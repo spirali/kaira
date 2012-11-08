@@ -76,7 +76,7 @@ class LineConfig:
         return self.mpl_line1
 
     def copy_mpl_line1(self):
-
+        # TODO: make more general. Not allways is first line of this type!
         l = mpl_Line(
             self.x_values, self.y_values, marker='o',
             drawstyle='steps-post', color=self.color)
@@ -255,72 +255,98 @@ class BasicChart(mpl_Axes, evt.EventSource):
             self.xypress = None
 
     def _draw_cross(self, event, select_bg=None):
+
+        def crop_coordinate(c_axes, flag):
+            """
+                It crops the coordinate and returns two values:
+                    - coordinate in axes format <0, 1>
+                    - coordinate in data format
+
+                c_axes -- cordinate in axes format
+                flag -- flag says which coordinate is required, possible
+                        values: 'x' or 'y'.
+                returns (<0,1>, <min_value, max_value>)
+            """
+            idx = 0 if flag == 'x' else 1
+            if c_axes < 0:
+                return (0, self.__convert_axes_to_data(0, 0)[idx])
+            elif c_axes > 1:
+                return (1, self.__convert_axes_to_data(1, 1)[idx])
+            else:
+                return (c_axes,
+                        self.__convert_axes_to_data(c_axes, c_axes)[idx])
+
+        def format_value(value, formatter):
+            if value is not None and isinstance(formatter, mpl_FuncFormatter):
+                return formatter.format_data(value)
+            else:
+                return str(value)
+
         if not self.mouse_on_legend and \
                 (self.xypress is None or select_bg is not None):
 
             if self.cross_bg is None:
                 self.cross_bg = self.figure.canvas.copy_from_bbox(self.bbox)
 
-            if self.in_axes(event):
-                if select_bg is not None:
-                    self.figure.canvas.restore_region(select_bg)
-                elif self.cross_bg is not None:
-                    self.figure.canvas.restore_region(self.cross_bg)
+            if select_bg is not None:
+                self.figure.canvas.restore_region(select_bg)
+            elif self.cross_bg is not None:
+                self.figure.canvas.restore_region(self.cross_bg)
 
-                inv = self.transAxes.inverted()
-                x, y = inv.transform((event.x, event.y))
+            inv = self.transAxes.inverted()
+            x, y = inv.transform((event.x, event.y))
+            (x, xdata) = crop_coordinate(x, 'x')
+            (y, ydata) = crop_coordinate(y, 'y')
 
-                xtext = utils.time_to_string(event.xdata)[:-6]
-                # the coefficient 7 is good result from an experiment :)
-                xtext_pos = -7 * len(xtext) - 10 if x > 0.5 else 10
-                ytext_pos = -20 if y > 0.5 else 30
+            xtext = format_value(xdata, self.xaxis.get_major_formatter())
+            ytext = format_value(ydata, self.yaxis.get_major_formatter())
 
-                if not self.xlock:
-                    l1 = mpl_Line(
-                        [x, x], [0, 1], c="#ff0000", lw=1, 
-                        transform=self.transAxes, figure=self.figure)
-                    self.draw_artist(l1)
+            # the coefficient 7 is good result from an experiment :)
+            xtext_pos = -7 * len(xtext) - 10 if x > 0.5 else 10
+            ytext_pos = -20 if y > 0.5 else 30
 
-                    a1 = mpl_Annotation(
-                        xtext,
-                        xy=(x, y), xycoords='axes fraction',
-                        xytext=(xtext_pos, ytext_pos),
-                        textcoords='offset points',
-                        bbox=dict(boxstyle="round", fc="#ffff00"))
-                    a1.set_transform(mpl_IdentityTransform())
-                    self._set_artist_props(a1)
-                    self.draw_artist(a1)
+            if not self.xlock:
+                l1 = mpl_Line(
+                    [x, x], [0, 1], c="#ff0000", lw=1,
+                    transform=self.transAxes, figure=self.figure)
+                self.draw_artist(l1)
 
-                if not self.ylock:
-                    l2 = mpl_Line(
-                       [0, 1], [y, y], c="#ff0000", lw=1, 
-                       transform=self.transAxes, figure=self.figure)
-                    self.draw_artist(l2)
+                a1 = mpl_Annotation(
+                    xtext,
+                    xy=(x, y), xycoords='axes fraction',
+                    xytext=(xtext_pos, ytext_pos),
+                    textcoords='offset points',
+                    bbox=dict(boxstyle="round", fc="#ffff00"))
+                a1.set_transform(mpl_IdentityTransform())
+                self._set_artist_props(a1)
+                self.draw_artist(a1)
 
-                    if self.xlock:
-                        ytext_pos = -20 if y > 0.5 else 10
-                    else:
-                        ytext_pos -= 20
-                    a2 = mpl_Annotation(
-                        event.ydata,
-                        xy=(x, y), xycoords='axes fraction',
-                        xytext=(xtext_pos, ytext_pos),
-                        textcoords='offset points',
-                        bbox=dict(boxstyle="round", fc="#ffff00"))
-                    a2.set_transform(mpl_IdentityTransform())
-                    self._set_artist_props(a2)
-                    self.draw_artist(a2)
+            if not self.ylock:
+                l2 = mpl_Line(
+                   [0, 1], [y, y], c="#ff0000", lw=1,
+                   transform=self.transAxes, figure=self.figure)
+                self.draw_artist(l2)
 
-                self.figure.canvas.blit(self.bbox)
-            else:
-                if self.cross_bg is not None:
-                    self.figure.canvas.restore_region(self.cross_bg)
-                    self.figure.canvas.blit(self.bbox)
-                    self.cross_bg = None
+                if self.xlock:
+                    ytext_pos = -20 if y > 0.5 else 10
+                else:
+                    ytext_pos -= 20
+                a2 = mpl_Annotation(
+                    ytext,
+                    xy=(x, y), xycoords='axes fraction',
+                    xytext=(xtext_pos, ytext_pos),
+                    textcoords='offset points',
+                    bbox=dict(boxstyle="round", fc="#ffff00"))
+                a2.set_transform(mpl_IdentityTransform())
+                self._set_artist_props(a2)
+                self.draw_artist(a2)
+
+            self.figure.canvas.blit(self.bbox)
 
     def _draw_rectangle(self, event):
-        if not self.moving_flag and not self.mouse_on_legend and \
-                self.xypress is not None and self.in_axes(event):
+        if not self.moving_flag \
+                and not self.mouse_on_legend \
+                and self.xypress is not None:
 
             x_start, y_start = self.xypress
             x_end, y_end = event.x, event.y
