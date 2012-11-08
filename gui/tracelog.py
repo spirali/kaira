@@ -129,7 +129,7 @@ class TraceLog:
         # Set time offsets
         starttime = min([ trace.get_init_time() for trace in self.traces ])
         for trace in self.traces:
-            trace.time_offset = starttime - trace.get_init_time()
+            trace.time_offset = trace.get_init_time() - starttime
 
         timeline = []
         trace_times = [ trace.get_next_event_time() for trace in self.traces ]
