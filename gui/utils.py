@@ -22,6 +22,9 @@ import math
 import os
 from copy import copy
 
+def empty_fn(*args, **kwords):
+	pass
+
 def make_vector(point1, point2):
     return (point2[0] - point1[0], point2[1] - point1[1])
 

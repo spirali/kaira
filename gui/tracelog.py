@@ -1,5 +1,6 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm
+#    Copyright (C) 2012 Stanislav Bohm,
+#                       Martin Surkovsky
 #
 #    This file is part of Kaira.
 #
@@ -159,9 +160,10 @@ class TraceLog:
         self.timeline = timeline
         transition_names, transition_values = ri.get_transitions_utilization()
         tokens_names, tokens_values = ri.get_tokens_counts()
-        tr_tsum_names, tr_tsum_values = ri.get_transitions_time_sum()
-        proc_tsum_names, proc_tsum_values = self._make_processes_time_sum(ri.threads_data)
+#        tr_tsum_names, tr_tsum_values = ri.get_transitions_time_sum()
+#        proc_tsum_names, proc_tsum_values = self._make_processes_time_sum(ri.threads_data)
         proc_hist_names, proc_hist_values = self._make_processes_his(ri.threads_data)
+        trans_gthreads_names, trans_gthreads_values = ri.get_transitions_utilization_gthreads()
         self.statistics = {
             "threads" : ri.threads_data,
             "transition_names" : transition_names,
@@ -170,38 +172,44 @@ class TraceLog:
             "tokens_values" : tokens_values,
             "proc_hist_names" : proc_hist_names,
             "proc_hist_values" : proc_hist_values,
-            "proc_tsum_names" : proc_tsum_names,
-            "proc_tsum_values" : proc_tsum_values,
-            "tr_tsum_names" : tr_tsum_names,
-            "tr_tsum_values" : tr_tsum_values
+#            "proc_tsum_names" : proc_tsum_names,
+#            "proc_tsum_values" : proc_tsum_values,
+#            "tr_tsum_names" : tr_tsum_names,
+#            "tr_tsum_values" : tr_tsum_values,
+            "trans_gthreads_names" : trans_gthreads_names,
+            "trans_gthreads_values" : trans_gthreads_values
         }
 
     def _make_processes_his(self, data):
-        proc_names =  ["process {0}".format(p) for p in xrange(self.process_count)]
         names = []
-        values = []
+        for p in range(self.process_count):
+            for t in range(self.threads_count):
+                names.append("process {0}`{1}".format(p, t))
 
-        for name, [process] in zip(proc_names, data):
+        values = []
+        for thread in data:
             hist = dict()
-            for i, times in enumerate(process):
-                t = times[1] - times[0]
+            for times in thread:
+                t = times[1]
                 if t in hist:
                     hist[t] += 1
                 else:
                     hist[t] = 1
             values.append(hist)
-            names.append("Histogram: {0}".format(name))
+
         return names, values
 
-    def _make_processes_time_sum(self, data):
-        names =  ["process {0}".format(p) for p in xrange(self.process_count)]
-        values = []
-        for [process] in data:
-            sum = 0
-            for i, times in enumerate(process):
-                sum += (times[1] - times[0])
-            values.append(sum)
-        return names, values
+#    def _make_processes_time_sum(self, data):
+#        names =  ["process {0}".format(p) for p in xrange(self.process_count)]
+#        values = []
+#        for process in data:
+#            sum = 0
+#            for thread in process:
+#                for times in thread:
+#                    sum += (times[1] - times[0])
+#            values.append(sum)
+#
+#        return names, values
 
 class Trace:
 
@@ -484,22 +492,19 @@ class DataCollectingRunInstance(RunInstance):
 
     def __init__(self, project, process_count, threads_count):
         RunInstance.__init__(self, project, process_count, threads_count)
-        self.threads_data = [ [ [] for t in xrange(self.threads_count) ]
-                              for p in xrange(self.process_count) ]
-        self.transitions_data = {} # [process_id][transition_id] -> [ (start_time, end_time) ]
+        self.threads_data = [ [] for t in range(self.process_count * self.threads_count)]
+        self.transitions_data = {} # [transition_id] -> [ (start_time, lenght) ]
         self.tokens_data = {} # [process_id][place_id] -> int
         self.group_nets = {}
         self.last_time = 0
 
-    def add_transition_data(self, process_id, transition_id, value):
-        process = self.transitions_data.get(process_id)
-        if process is None:
-            process = {}
-            self.transitions_data[process_id] = process
-        lst = process.get(transition_id)
-        if lst is None:
-            lst = []
-            process[transition_id] = lst
+    def add_transition_data(self, process_id, thread_id, transition_id, value):
+        if transition_id not in self.transitions_data:
+            transition_data = [[] for t in range(self.process_count * self.threads_count)]
+            self.transitions_data[transition_id] = transition_data
+
+        transition_data = self.transitions_data[transition_id] # [[],[],[], ...]
+        lst = transition_data[process_id * self.threads_count + thread_id]
         lst.append(value)
 
     def change_tokens_data(self, process_id, place_id, time, change):
@@ -525,9 +530,9 @@ class DataCollectingRunInstance(RunInstance):
         self.last_time = time
         activity = self.last_event_activity
         if activity.transition.has_code():
-            value = (time_start, time)
-            self.threads_data[activity.process_id][activity.thread_id].append(value)
-            self.add_transition_data(process_id, activity.transition.id, value)
+            value = (time_start, time - time_start)
+            self.threads_data[activity.process_id * self.threads_count + activity.thread_id].append(value)
+            self.add_transition_data(process_id, thread_id, activity.transition.id, value)
 
     def event_spawn(self, process_id, thread_id, time, net_id):
         RunInstance.event_spawn(self, process_id, thread_id, time, net_id)
@@ -558,17 +563,81 @@ class DataCollectingRunInstance(RunInstance):
         self.change_tokens_data(net_instance.process_id,
                                 place_id, self.last_time, -1)
 
-    def get_transitions_utilization(self):
-        names = []
-        values = []
-        for process_id, p in self.transitions_data.items():
-            for transition_id, lst in p.items():
-                net, item = self.project.get_net_and_item(transition_id)
-                names.append("{0.name}({0.id}) {1.name}@{2}".format(
+
+    def get_transitions_utilization_gthreads(self):
+        dnames = {}
+        dvalues = {}
+        transition_ids = self.transitions_data.keys()
+
+        for transition_id in transition_ids:
+            transition_data = self.transitions_data[transition_id]
+            net, item = self.project.get_net_and_item(transition_id)
+
+            for process_id in range(self.process_count):
+                process_data = []
+                if process_id not in dvalues:
+                    dvalues[process_id] = []
+                if process_id not in dnames:
+                    dnames[process_id] = []
+                for thread_id in range(self.threads_count):
+                    process_data.append(transition_data[process_id * self.threads_count + thread_id])
+
+                threads_in_process = []
+                for threads in process_data:
+                    for thread in threads:
+                        if thread is not None:
+                            threads_in_process.append(thread)
+                dvalues[process_id].append(threads_in_process)
+
+                dnames[process_id].append("{0.name} {1.name}@{2}".format(
                     net,
                     item,
                     process_id))
-                values.append([lst])
+
+        values = []         
+        names = []
+        for process_id in range(self.process_count):
+            process_data = dvalues[process_id]
+            names_data = dnames[process_id]
+            for data, name in zip(process_data, names_data):
+                values.append(data)
+                names.append(name)
+
+        return names, values
+
+    def get_transitions_utilization(self):
+        dnames = {}
+        dvalues = {}        
+        transition_ids = self.transitions_data.keys()
+
+        # resorting by process_id
+        for transition_id in transition_ids:
+           transition_data = self.transitions_data[transition_id] 
+           net, item = self.project.get_net_and_item(transition_id)
+           
+           for process_id in range(self.process_count):
+               for thread_id in range(self.threads_count):
+                   if process_id not in dvalues:
+                       dvalues[process_id] = []
+                   dvalues[process_id].append(transition_data[process_id * self.threads_count + thread_id])
+                   if process_id not in dnames:
+                       dnames[process_id] = []
+                   dnames[process_id].append("{0.name} {1.name}@{2}`{3}".format(
+                       net,
+                       item,
+                       process_id,
+                       thread_id))
+
+        values = []
+        names = []
+
+        # make result names and values data
+        for process_id in range(self.process_count):
+            process_data = dvalues[process_id]
+            names_data = dnames[process_id]
+            for data, name in zip(process_data, names_data):
+                values.append(data)
+                names.append(name)
         return names, values
 
     def get_tokens_counts(self):

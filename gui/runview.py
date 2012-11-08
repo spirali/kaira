@@ -1,5 +1,6 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm
+#    Copyright (C) 2012 Stanislav Bohm,
+#                       Martin Surkovsky
 #
 #    This file is part of Kaira.
 #
@@ -42,6 +43,7 @@ class RunView(gtk.VBox):
             ("Replay", self.netinstance_view),
             ("Process utilization", self._processes_utilization()),
             ("Transitions utilization", self._transitions_utilization()),
+            ("Transitions utilization threads group", self._transition_utilization_group_threads()),
             ("Numbers of tokens", self._place_chart()),
             # TET = Transition Execution Time
             ("TETs per process", self._processes_histogram()),
@@ -132,52 +134,49 @@ class RunView(gtk.VBox):
         self.info_label.set_markup(text)
 
     def _processes_utilization(self):
-        colors = ["#00aa00"]
         values = self.tracelog.statistics["threads"]
-        names =  [ "process {0}".format(p) for p in xrange(self.tracelog.process_count) ]
+        names = []
+        for p in range(self.tracelog.process_count):
+            for t in range(self.tracelog.threads_count):
+                names.append("process {0}`{1}".format(p, t))
 
-        # Transform data for chart
-        values.reverse()
         names.reverse()
-        lines = []
-        for i, [line] in enumerate(values):
-            l = []
-            for times in line:
-                l.append((times[0], times[1] - times[0]))
-            lines.append(l)
-
+        values.reverse()
         return charts.utilization_chart(
                    names,
-                   lines,
-                   colors,
+                   values,
                    "The running time of each processes", "Time", "Process")
 
     def _transitions_utilization(self):
-        colors = ["#00aa00"]
         names = self.tracelog.statistics["transition_names"]
         values = self.tracelog.statistics["transition_values"]
 
-        # Transform data for chart
         values.reverse()
         names.reverse()
-        lines = []
-        for i, [line] in enumerate(values):
-            l = []
-            for times in line:
-                l.append((times[0], times[1] - times[0]))
-            lines.append(l)
-
         return charts.utilization_chart(
                    names,
-                   lines,
-                   colors,
+                   values,
                    "The running time of each transitions",
                    "Time",
                    "Transition")
 
+    def _transition_utilization_group_threads(self):
+        names = self.tracelog.statistics["trans_gthreads_names"]
+        values = self.tracelog.statistics["trans_gthreads_values"]
+
+        values.reverse()
+        names.reverse()
+        return charts.utilization_chart(
+                names,
+                values,
+                "The running time of each transitions",
+                "Time",
+                "Transition", self.tracelog.threads_count)
+
     def _place_chart(self):
         values = self.tracelog.statistics["tokens_values"]
         names = self.tracelog.statistics["tokens_names"]
+
         return charts.place_chart(
                 names,
                 values,
@@ -197,24 +196,26 @@ class RunView(gtk.VBox):
 
 
     def _transitions_time_sum(self):
-        values = self.tracelog.statistics["tr_tsum_values"]
-        names = self.tracelog.statistics["tr_tsum_names"]
-        return charts.time_sum_chart(
-                names,
-                values,
-                "Sum times of each transitions",
-                "Transition",
-                "Time SUM")
+#        values = self.tracelog.statistics["tr_tsum_values"]
+#        names = self.tracelog.statistics["tr_tsum_names"]
+#        return charts.time_sum_chart(
+#                names,
+#                values,
+#                "Sum times of each transitions",
+#                "Transition",
+#                "Time SUM")
+        return gtk.VBox()
 
     def _processes_time_sum(self):
-        values = self.tracelog.statistics["proc_tsum_values"]
-        names = self.tracelog.statistics["proc_tsum_names"]
-        return charts.time_sum_chart(
-                names,
-                values,
-                "Sum times of each processes",
-                "Process",
-                "Time SUM")
+#        values = self.tracelog.statistics["proc_tsum_values"]
+#        names = self.tracelog.statistics["proc_tsum_names"]
+#        return charts.time_sum_chart(
+#                names,
+#                values,
+#                "Sum times of each processes",
+#                "Process",
+#                "Time SUM")
+        return gtk.VBox()
 
 
 class NetInstanceView(gtk.HPaned):
