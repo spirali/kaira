@@ -20,7 +20,6 @@
 
 import math
 import os
-from copy import copy
 
 def make_vector(point1, point2):
     return (point2[0] - point1[0], point2[1] - point1[1])

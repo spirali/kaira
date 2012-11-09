@@ -43,6 +43,7 @@ import ptp
 import runview
 import codetests
 import report
+import statespace
 
 VERSION_STRING = '0.5'
 
@@ -216,16 +217,18 @@ class App:
     def _save_project(self, silent = False):
         self.window.foreach_tab(lambda tab: tab.project_save())
         if self._catch_io_error(self.project.save, True, False) and not silent:
-            self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
+            self.console_write("Project saved as '{0}'\n".format(self.project.get_filename()),
+                               "success")
 
     def build_project(self, target):
         self.console_write("Building '{0}' ...\n".format(target))
         build_config = self.project.get_build_config(target)
-        self.start_build(self.project, build_config,
-                          lambda p: self.console_write("Build finished\n", "success"))
+        self.start_build(self.project,
+                         build_config,
+                         lambda: self.console_write("Build finished\n", "success"))
 
     def run_statespace_analysis(self):
-        self.build_project("statespace")
+        self.window.add_tab(Tab("Statespace", statespace.StatespaceConfig(self)))
 
     def get_grid_size(self):
         return self.grid_size
@@ -379,10 +382,10 @@ class App:
         return sprocess, port
 
     def simulation_start(self, valgrind = False):
-        def project_builded(project):
+        def project_builded():
             sprocess, port = self.run_simulated_program(
                 build_config.get_executable_filename(),
-                project.get_directory(),
+                self.project.get_directory(),
                 simconfig,
                 valgrind)
             if sprocess is None:
@@ -495,24 +498,39 @@ class App:
         self.window.set_title("Kaira - {0} ({1})" \
             .format(self.project.get_name(), self.project.get_extenv_name()))
 
-    def _run_build_program(self, name, args, directory, build_ok_callback):
+    def _run_build_program(self, name, args, directory, ok_callback, fail_callback):
         def on_exit(code):
-            if build_ok_callback and code == 0:
-                build_ok_callback()
+            if code == 0:
+                if ok_callback:
+                    ok_callback()
+            else:
+                if fail_callback:
+                    fail_callback()
+
         def on_line(line, stream):
             self._process_error_line(line, None)
             return True
+
         p = process.Process(name, on_line, on_exit)
         p.cwd = directory
         p.start(args)
 
-    def _run_makefile(self, project, build_directory, build_ok_callback=None, target=None):
+    def _run_makefile(self,
+                      project,
+                      build_directory,
+                      ok_callback=None,
+                      fail_callback=None,
+                      target=None):
         args = []
         if target is not None:
             args.append(target)
-        self._run_build_program("make", args, build_directory, lambda: build_ok_callback(project))
+        self._run_build_program("make",
+                                args,
+                                build_directory,
+                                ok_callback,
+                                fail_callback)
 
-    def start_build(self, proj, build_config, build_ok_callback):
+    def start_build(self, proj, build_config, ok_callback, fail_callback=None):
         if self.get_settings("save-before-build"):
             self._save_project(silent=True)
 
@@ -520,20 +538,26 @@ class App:
                         build_config,
                         lambda lines: self._run_makefile(proj,
                                                          build_config.directory,
-                                                         build_ok_callback))
+                                                         ok_callback,
+                                                         fail_callback),
+                        fail_callback)
 
-    def _start_ptp(self, proj, build_config, build_ok_callback=None):
+    def _start_ptp(self, proj, build_config, ok_callback=None, fail_callback=None):
         stdout = []
         def on_exit(code):
             error_messages = {}
-            if build_ok_callback and code == 0:
+            if code == 0:
                 self.project.set_error_messages(error_messages)
-                build_ok_callback(stdout)
+                if ok_callback:
+                    ok_callback(stdout)
             else:
                 for line in stdout:
                     self._process_error_line(line, error_messages)
                 self.project.set_error_messages(error_messages)
                 self.console_write("Building failed\n", "error")
+                if fail_callback:
+                    fail_callback()
+
         def on_line(line, stream):
             #self.console_write(line)
             stdout.append(line)
