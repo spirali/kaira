@@ -6,7 +6,7 @@
 
 #include "thread.h"
 
-CaThread::CaThread() : messages(NULL), tracelog(NULL)
+CaThread::CaThread() : messages(NULL)
 {
 	pthread_mutex_init(&messages_mutex, NULL);
 }
@@ -127,7 +127,7 @@ void CaThread::run_scheduler()
 		}
 		tr->set_active(false);
 		CA_DLOG("Transition tried id=%i process=%i thread=%i\n", tr->id, get_process_id(), id);
-		int res = tr->fire(this, n);
+		int res = tr->full_fire(this, n);
 		if (res == CA_NOT_ENABLED) {
 			CA_DLOG("Transition is dead id=%i process=%i thread=%i\n", tr->id, get_process_id(), id);
 			n->unlock();

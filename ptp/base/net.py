@@ -332,6 +332,10 @@ class Net(object):
     def is_module(self):
         return self.module_flag
 
+    def get_all_edges(self):
+        return sum([ t.edges_in + t.edges_out for t in self.transitions ], []) + \
+               self.interface_edges_in + self.interface_edges_out
+
     def get_interface_edges_out(self):
         return self.interface_edges_out
 

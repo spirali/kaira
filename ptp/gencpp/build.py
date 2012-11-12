@@ -33,6 +33,19 @@ class Builder(CppWriter):
         self.project = project
         self.emitter = emitter.Emitter(project)
 
+        # Real class used for thread representation,
+        # CaThreadBase is cast to this type
+        self.thread_class = "CaThread"
+
+        # Generate operator== and operator!= for generated types
+        # If true then all ExternTypes have to implement operator== and operator!=
+        self.generate_operator_eq = False
+
+        # Generate hash functions for generated types
+        # If true then all ExternTypes have to implement get_hash
+        self.generate_hash = False
+
+
     def emit_type(self, t):
         return self.emitter.emit_type(t)
 
@@ -100,6 +113,48 @@ def get_pack_code(project, t, packer, code):
         return "{0.name}_pack({1}, {2})".format(etype, packer, code)
     raise Exception("Unknown type: " + str(t))
 
+def get_hash_function_name(project, t):
+    if t == t_string:
+        return "ca_hash_string"
+    if t == t_double:
+        return "ca_hash_double"
+    if t == t_float:
+        return "ca_hash_float"
+    if t == t_int:
+        return "ca_hash_int"
+    if t == t_bool:
+        return "ca_hash_bool"
+    if t.name == "":
+        return "{0}_hash".format(t.get_safe_name())
+    if t.name == "Array":
+        return "array_{0}_hash".format(t.args[0].get_safe_name())
+    etype = project.get_extern_type(t.name)
+    if etype:
+        if etype.has_hash_function():
+            return "{0}_hash".format(etype.name)
+        else:
+            raise utils.PtpException("Extern type '{0}' has not defined hash function"
+                                    .format(etype.name))
+    raise Exception("Unknown type: " + str(t))
+
+def get_hash_code(project, t, code):
+    return "{0}({1})".format(get_hash_function_name(project, t), code)
+
+def get_hash_combination(codes):
+    if not codes:
+        return "113"
+    numbers = [1, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
+              73, 79, 83, 89, 97, 101, 103, 107, 109, 113]
+    result = []
+    for i, code in enumerate(codes):
+        result.append("({0} * {1})".format(numbers[i % len(numbers)], code))
+
+    return "^".join(result)
+
+def get_hash_codes(project, types_codes):
+    codes = [ get_hash_code(project, t, code) for t, code in types_codes ]
+    return get_hash_combination(codes)
+
 def get_code_as_string(project, expr, t):
     if t == t_string:
         return expr
@@ -115,7 +170,8 @@ def write_header(builder):
     builder.line('#include <stdio.h>')
     builder.line('#include <sstream>')
     builder.emptyline()
-
+    write_parameters_forward(builder)
+    builder.emptyline()
     if builder.project.get_head_code():
         builder.line_directive("*head", 1)
         builder.raw_text(builder.project.get_head_code())
@@ -123,13 +179,19 @@ def write_header(builder):
                                              builder.get_next_line_number())
         builder.emptyline()
 
+def write_parameters_forward(builder):
+    builder.line("struct param")
+    builder.block_begin()
+    for p in builder.project.get_parameters():
+        builder.line("static CaParameterInt {0};", p.get_name())
+    builder.write_class_end()
+
 def write_parameters(builder):
     for p in builder.project.get_parameters():
-        tstr = builder.emitter.emit_type(p.get_type())
-        builder.line("{0} __param_{1};", tstr, p.get_name())
-        decl = "{0} parameter_{1}()".format(tstr, p.get_name())
-        code = "\treturn __param_{0};".format(p.get_name())
-        builder.write_function(decl, code)
+        builder.line("CaParameterInt param::{0}({1}, {2}, CA_PARAMETER_MANDATORY);",
+                     p.name,
+                     builder.emitter.const_string(p.name),
+                     builder.emitter.const_string(p.description))
 
 def write_tuple_class(builder, tp):
     class_name = tp.get_safe_name()
@@ -159,6 +221,28 @@ def write_tuple_class(builder, tp):
         builder.line(get_pack_code(builder.project, ta, "packer", e) + ";")
     builder.write_method_end()
 
+    if builder.generate_operator_eq:
+        builder.line("bool operator==(const {0} &rhs) const", class_name)
+        builder.block_begin()
+        for e, ta in decls:
+            builder.line("if ({0} != rhs.{0}) return false;", e)
+        builder.line("return true;")
+        builder.block_end()
+
+        builder.line("bool operator!=(const {0} &rhs) const", class_name)
+        builder.block_begin()
+        builder.line("return !(*this == rhs);")
+        builder.block_end()
+
+    if builder.generate_hash:
+        types_codes = [ (ta, name) for name, ta in decls ]
+        builder.line("size_t hash() const", class_name)
+        builder.block_begin()
+        builder.line("return {0};", get_hash_codes(builder.project, types_codes))
+        builder.block_end()
+
+
+
     builder.write_class_end()
 
 def write_array_as_string(builder, t):
@@ -182,7 +266,6 @@ def write_array_as_string(builder, t):
     builder.line("return osstream.str();")
     builder.block_end()
 
-
 def write_array_pack(builder, t):
     builder.line("void array_{0}_pack(CaPacker &packer, std::vector <{1} > &vector)",
               t.get_safe_name(), builder.emit_type(t))
@@ -193,6 +276,24 @@ def write_array_pack(builder, t):
     builder.block_begin()
     builder.line("{0};", get_pack_code(builder.project, t, "packer", "(*i)"))
     builder.block_end()
+    builder.block_end()
+
+def write_array_hash(builder, t):
+    builder.line("size_t array_{0}_hash(const std::vector <{1} > &vector)",
+              t.get_safe_name(), builder.emit_type(t))
+    builder.block_begin()
+    builder.line("size_t h = vector.size();")
+    builder.line("for (std::vector<{0} >::const_iterator i = vector.begin(); i != vector.end(); i++)",
+              builder.emit_type(t))
+    builder.block_begin()
+    builder.line("h += {0};", get_hash_code(builder.project, t, "(*i)"))
+    builder.line("h += h << 10;")
+    builder.line("h ^= h >> 6;")
+    builder.block_end()
+    builder.line("h += h << 3;")
+    builder.line("h ^= h >> 11;")
+    builder.line("h += h << 15;")
+    builder.line("return h;")
     builder.block_end()
 
 def write_array_unpack(builder, t):
@@ -217,6 +318,9 @@ def write_array_declaration(builder, t):
               t.get_safe_name(), builder.emit_type(t))
     builder.line("std::vector <{1} > array_{0}_unpack(CaUnpacker &unpacker);",
               t.get_safe_name(), builder.emit_type(t))
+    if builder.generate_hash:
+        builder.line("size_t array_{0}_hash(const std::vector <{1} > &vector);",
+                  t.get_safe_name(), builder.emit_type(t))
 
 def write_types_declaration(builder):
     write_extern_types_functions(builder, False)
@@ -235,6 +339,13 @@ def write_tuple_as_string(builder, t):
     builder.line("return s.as_string();")
     builder.block_end()
 
+def write_tuple_hash(builder, t):
+    builder.line("size_t {0}_hash(const {1} &s)",
+              t.get_safe_name(), builder.emit_type(t))
+    builder.block_begin()
+    builder.line("return s.hash();")
+    builder.block_end()
+
 def write_types(builder):
     write_extern_types_functions(builder, True)
     for t in get_ordered_types(builder.project):
@@ -242,8 +353,12 @@ def write_types(builder):
             write_array_as_string(builder, t.args[0])
             write_array_pack(builder, t.args[0])
             write_array_unpack(builder, t.args[0])
+            if builder.generate_hash:
+                write_array_hash(builder, t.args[0])
         if t.name == "":
             write_tuple_as_string(builder, t)
+            if builder.generate_hash:
+                write_tuple_hash(builder, t)
 
 def write_user_function(builder, ufunction):
     params =  ufunction.get_parameters()
@@ -304,11 +419,16 @@ def write_extern_types_functions(builder, definitions):
     decls = {
              "getstring" : "std::string {0.name}_getstring(const {0.rawtype} &obj)",
              "pack" : "void {0.name}_pack(CaPacker &packer, {0.rawtype} &obj)",
-             "unpack" : "{0.rawtype} {0.name}_unpack(CaUnpacker &unpacker)"
+             "unpack" : "{0.rawtype} {0.name}_unpack(CaUnpacker &unpacker)",
+             "hash" : "size_t {0.name}_hash(const {0.rawtype} &obj)",
     }
 
     def write_fn(etype, name):
         source = ("*{0}/{1}".format(etype.get_name(), name), 1)
+        if etype.get_code(name) is None:
+            raise utils.PtpException(
+                    "Function '{0}' for extern type '{1.name}' has no body defined" \
+                        .format(name, etype))
         builder.write_function(decls[name].format(etype), etype.get_code(name), source)
 
     def declare_fn(etype, name):
@@ -333,11 +453,11 @@ def write_extern_types_functions(builder, definitions):
             f(etype, "pack")
             f(etype, "unpack")
 
-def write_parameters_setters(builder):
-    for p in builder.project.get_parameters():
-        builder.line("void set_pararameter_{0}({1} {0})",
-                     p.get_name(),
-                     builder.emit_type(p.get_type()))
-        builder.block_begin()
-        builder.line("__param_{0} = {0};", p.get_name())
-        builder.block_end()
+        if etype.has_hash_function():
+            f(etype, "hash")
+
+def write_basic_definitions(builder):
+    write_parameters(builder)
+    write_types(builder)
+    write_user_functions(builder)
+    write_trace_user_functions(builder)

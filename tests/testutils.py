@@ -53,7 +53,7 @@ class RunProgram:
 
     def check_output(self, expected, output, f = lambda a, b: a == b):
         if expected is not None and not f(expected, output):
-            self.error("Excepted >>{0}<<, got >>{1}<<".format(expected, output))
+			self.error("Excepted >>{0}<<, got >>{1}<<".format(expected, output))
 
     def error(self, text):
         raise Exception("Program '%s/%s': %s" % (self.filename, self.parameters, text))
@@ -105,13 +105,14 @@ class Project:
         RunProgram("python", [ CMDUTILS, "--export", self.get_filename() ]).run()
 
     def run_ptp(self):
-        RunProgram(PTP_BIN, [ self.get_xml_filename(), "--build", self.get_directory() ]).run()
+        RunProgram(PTP_BIN, [ "build", self.get_xml_filename(), "--output", self.get_directory() ]).run()
 
     def fail_ptp(self, output):
         self.export()
-        RunProgram(PTP_BIN, [ self.get_xml_filename(),
-                              "--build",
-                              self.get_directory() ]).fail(output)
+        RunProgram(PTP_BIN, ["build",
+                             self.get_xml_filename(),
+                             "--output",
+                             self.get_directory()]).fail(output)
 
     def failed_make(self, output, args = []):
         self.export()

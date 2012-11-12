@@ -27,12 +27,19 @@ from net import Net, Area, Place, Transition, EdgeIn, EdgeInPacking, EdgeOut
 
 class ExternType(object):
 
-    def __init__(self, name, rawtype, transport_mode, codes, octave_value):
+    def __init__(self,
+                 name,
+                 rawtype,
+                 transport_mode,
+                 codes,
+                 octave_value,
+                 hash_function):
         self.name = name
         self.rawtype = rawtype
         self.transport_mode = transport_mode
         self.codes = codes
         self.octave_value =  octave_value
+        self.hash_function = hash_function
 
     def get_name(self):
         return self.name
@@ -51,6 +58,10 @@ class ExternType(object):
 
     def is_octave_value(self):
         return self.octave_value
+
+    def has_hash_function(self):
+        return self.hash_function
+
 
 class UserFunction(object):
 
@@ -185,6 +196,11 @@ class Project(object):
             if net.id == id:
                 return net
 
+    def get_net_of_edge(self, edge):
+        for net in self.nets:
+            if edge.uid in [ e.uid for e in net.get_all_edges() ]:
+                return net
+
     def get_place(self, place_id):
         for net in self.nets:
             place = net.get_place(place_id)
@@ -302,8 +318,15 @@ def load_extern_type(element):
         rawtype = utils.xml_str(element, "raw-type")
         transport_mode = utils.xml_str(element, "transport-mode")
         octave_value = utils.xml_bool(element, "octave-value")
-        codes = dict((utils.xml_str(e, "name"), e.text) for e in element.findall("code"))
-        return ExternType(name, rawtype, transport_mode, codes, octave_value)
+        hash_function = utils.xml_bool(element, "hash")
+        codes = dict((utils.xml_str(e, "name"), e.text)
+                      for e in element.findall("code"))
+        return ExternType(name,
+                          rawtype,
+                          transport_mode,
+                          codes,
+                          octave_value,
+                          hash_function)
 
     if t == "protobuffer":
         raise Exception("Need implementation")

@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011 Stanislav Bohm
+#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
@@ -42,6 +42,8 @@ import loader
 import ptp
 import runview
 import codetests
+import report
+import statespace
 
 VERSION_STRING = '0.5'
 
@@ -65,7 +67,9 @@ class App:
         if args:
             if os.path.isfile(args[0]):
                 if args[0].endswith(".kth"):
-                    self.open_tracelog_tab(args[0])
+                    self.load_tracelog(args[0])
+                elif args[0].endswith(".kreport"):
+                    self.load_report(args[0])
                 else:
                     self.set_project(loader.load_project(args[0]))
             else:
@@ -105,7 +109,7 @@ class App:
             builder.get_object("newproject-dir").set_text(os.path.join(directory[0], name))
             builder.get_object("newproject-ok").set_sensitive(name != "")
         def change_directory(w):
-            d = self._directory_choose_dialog("Select project directory")
+            d = self.run_file_dialog("Project directory", "open-directory")
             if d is not None:
                 directory[0] = d
                 project_name_changed()
@@ -132,48 +136,64 @@ class App:
         finally:
             dlg.hide()
 
+    def run_file_dialog(self, title, mode, filter_name=None, pattern=None):
+        if mode == "open":
+            action = gtk.FILE_CHOOSER_ACTION_OPEN
+            stock = gtk.STOCK_OPEN
+        elif mode == "save":
+            action = gtk.FILE_CHOOSER_ACTION_SAVE
+            stock = gtk.STOCK_SAVE
+        elif mode == "open-directory":
+            action = gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER
+            stock = gtk.STOCK_OPEN
+        dialog = gtk.FileChooserDialog(title,
+                                       self.window,
+                                       action,
+                                       (gtk.STOCK_CANCEL,
+                                        gtk.RESPONSE_CANCEL,
+                                        stock,
+                                        gtk.RESPONSE_OK))
+        dialog.set_current_folder(os.getcwd())
+        dialog.set_default_response(gtk.RESPONSE_OK)
+        if filter_name is not None:
+            self._add_file_filters(dialog, ((filter_name, pattern),), all_files=True)
+
+        try:
+            if dialog.run() == gtk.RESPONSE_OK:
+                return dialog.get_filename()
+            else:
+                return None
+        finally:
+            dialog.destroy()
+
     def load_project(self):
-        dialog = gtk.FileChooserDialog("Open project", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                 gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+        filename = self.run_file_dialog("Open project", "open", "Project", "*.proj")
+        if filename is None:
+            return
 
-        dialog.set_current_folder(os.getcwd())
-        dialog.set_default_response(gtk.RESPONSE_OK)
-        try:
-            self._add_project_file_filters(dialog)
-            response = dialog.run()
-            if response == gtk.RESPONSE_OK:
-                filename = dialog.get_filename()
-                if filename[-5:] != ".proj":
-                    filename = filename + ".proj"
+        if filename[-5:] != ".proj":
+            filename = filename + ".proj"
 
-                p = self._catch_io_error(lambda: loader.load_project(filename))
-                if p:
-                    # TODO: set statusbar
-                    self.set_project(p)
-        finally:
-            dialog.destroy()
+        p = self._catch_io_error(lambda: loader.load_project(filename))
+        if p:
+            self.set_project(p)
 
-    def load_tracelog(self):
-        dialog = gtk.FileChooserDialog("Open Log", self.window, gtk.FILE_CHOOSER_ACTION_OPEN,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                 gtk.STOCK_OPEN, gtk.RESPONSE_OK))
-
-        dialog.set_current_folder(os.getcwd())
-        dialog.set_default_response(gtk.RESPONSE_OK)
-        try:
-            self._add_file_filters(dialog, (("Kaira Tracelog Header", "*.kth"),), all_files = True)
-
-            response = dialog.run()
-            if response == gtk.RESPONSE_OK:
-                self.open_tracelog_tab(dialog.get_filename())
-        finally:
-            dialog.destroy()
-
-    def open_tracelog_tab(self, filename):
+    def load_tracelog(self, filename=None):
+        if filename is None:
+            filename = self.run_file_dialog("Open tracelog", "open", "Tracelog header", "*.kth")
+            if filename is None:
+                return
         t = self._catch_io_error(lambda: TraceLog(filename))
         rv = runview.RunView(self, t)
         self.window.add_tab(Tab("Tracelog", rv))
+
+    def load_report(self, filename=None):
+        if filename is None:
+            filename = self.run_file_dialog("Open report", "open", "Report", "*.kreport")
+            if filename is None:
+                return
+        r = self._catch_io_error(lambda: report.Report(filename))
+        self.window.add_tab(Tab("Report", report.ReportWidget(r)))
 
     def save_project(self):
         if self.project.get_filename() is None:
@@ -187,35 +207,29 @@ class App:
             tab.close()
 
     def save_project_as(self):
-        dialog = gtk.FileChooserDialog("Save net", self.window, gtk.FILE_CHOOSER_ACTION_SAVE,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                 gtk.STOCK_SAVE, gtk.RESPONSE_OK))
-
-        dialog.set_current_folder(os.getcwd())
-        dialog.set_default_response(gtk.RESPONSE_OK)
-        try:
-            self._add_project_file_filters(dialog)
-
-            response = dialog.run()
-            if response == gtk.RESPONSE_OK:
-                filename = dialog.get_filename()
-                if filename[-5:] != ".proj":
-                    filename = filename + ".proj"
-                self.project.set_filename(filename)
-                self._save_project()
-        finally:
-            dialog.destroy()
+        filename = self.run_file_dialog("Save project", "save", "Project", "*.project")
+        if filename is None:
+            return
+        if filename[-5:] != ".proj":
+            filename = filename + ".proj"
+        self.project.set_filename(filename)
+        self._save_project()
 
     def _save_project(self, silent = False):
         self.window.foreach_tab(lambda tab: tab.project_save())
         if self._catch_io_error(self.project.save, True, False) and not silent:
-            self.console_write("Project saved as '%s'\n" % self.project.get_filename(), "success")
+            self.console_write("Project saved as '{0}'\n".format(self.project.get_filename()),
+                               "success")
 
     def build_project(self, target):
         self.console_write("Building '{0}' ...\n".format(target))
         build_config = self.project.get_build_config(target)
-        self.start_build(self.project, build_config,
-                          lambda p: self.console_write("Build finished\n", "success"))
+        self.start_build(self.project,
+                         build_config,
+                         lambda: self.console_write("Build finished\n", "success"))
+
+    def run_statespace_analysis(self):
+        self.window.add_tab(Tab("Statespace", statespace.StatespaceConfig(self)))
 
     def get_grid_size(self):
         return self.grid_size
@@ -223,7 +237,7 @@ class App:
     def set_grid_size(self, grid_size):
         self.grid_size = grid_size
 
-    def _catch_io_error(self, fcn, return_on_ok = None, return_on_err = None):
+    def _catch_io_error(self, fcn, return_on_ok=None, return_on_err=None):
         try:
             result = fcn()
             if return_on_ok == None:
@@ -246,9 +260,6 @@ class App:
             ffilter.add_pattern(f[1])
             dialog.add_filter(ffilter)
 
-    def _add_project_file_filters(self, dialog):
-        self._add_file_filters(dialog, (("Projects", "*.proj"),), all_files = True)
-
     def edit_code_tests(self):
         if not self.project.is_library():
             self.show_info_dialog("Tests are available only for project type 'Library'.")
@@ -266,18 +277,17 @@ class App:
                 lambda tab: tab.widget.jump_to_position(position)):
             return
 
-        def open_tab(stdout):
-            if transition.get_name() != "":
-                name = "T:" + transition.get_name()
-            else:
-                name = "T: <unnamed" + str(transition.get_id()) + ">"
-            editor = codeedit.TransitionCodeEditor(self.project, transition, "".join(stdout))
-            self.window.add_tab(Tab(name, editor, transition))
-            editor.jump_to_position(position)
-
-        build_config = self.project.get_build_config("simulation")
-        self._start_ptp(self.project, build_config, open_tab,
-            extra_args = [ "--transition-user-fn", str(transition.get_id()) ])
+        if transition.get_name() != "":
+            name = "T:" + transition.get_name()
+        else:
+            name = "T: <unnamed" + str(transition.get_id()) + ">"
+        generator = self.get_safe_generator()
+        if generator is None:
+            return
+        header = generator.get_transition_user_fn_header(transition.id)
+        editor = codeedit.TransitionCodeEditor(self.project, transition, header)
+        self.window.add_tab(Tab(name, editor, transition))
+        editor.jump_to_position(position)
 
     def place_edit(self, place, lineno = None):
         position = ("", lineno) if lineno is not None else None
@@ -287,15 +297,15 @@ class App:
             lambda tab: tab.widget.jump_to_position(position)):
             return
 
-        def open_tab(stdout):
-            name = "P: " + str(place.get_id())
-            editor = codeedit.PlaceCodeEditor(self.project, place, "".join(stdout))
-            self.window.add_tab(Tab(name, editor, place))
-            editor.jump_to_position(position)
+        generator = self.get_safe_generator()
+        if generator is None:
+            return
+        header = generator.get_place_user_fn_header(place.id)
+        name = "P: " + str(place.get_id())
+        editor = codeedit.PlaceCodeEditor(self.project, place, header)
+        self.window.add_tab(Tab(name, editor, place))
+        editor.jump_to_position(position)
 
-        build_config = self.project.get_build_config("simulation")
-        self._start_ptp(self.project, build_config, open_tab,
-            extra_args = [ "--place-user-fn", str(place.get_id())])
 
     def extern_type_functions_edit(self, externtype, position = None):
         if self.window.switch_to_tab_by_key(
@@ -382,12 +392,11 @@ class App:
             return None, None
         return sprocess, port
 
-
     def simulation_start(self, valgrind = False):
-        def project_builded(project):
+        def project_builded():
             sprocess, port = self.run_simulated_program(
                 build_config.get_executable_filename(),
-                project.get_directory(),
+                self.project.get_directory(),
                 simconfig,
                 valgrind)
             if sprocess is None:
@@ -484,6 +493,15 @@ class App:
     def set_settings(self, name, value):
         self.settings[name] = value
 
+    def get_safe_generator(self):
+        """ Calls self.project,get_generator(), if errors occur shows them and returns None"""
+        try:
+            return self.project.get_generator()
+        except ptp.PtpException, e:
+            error_messages = {}
+            self._process_error_line(e.message, error_messages)
+            self.project.set_error_messages(error_messages)
+
     def _project_changed(self):
         self.nv.net_changed()
 
@@ -491,47 +509,66 @@ class App:
         self.window.set_title("Kaira - {0} ({1})" \
             .format(self.project.get_name(), self.project.get_extenv_name()))
 
-    def _run_build_program(self, name, args, directory, build_ok_callback):
+    def _run_build_program(self, name, args, directory, ok_callback, fail_callback):
         def on_exit(code):
-            if build_ok_callback and code == 0:
-                build_ok_callback()
+            if code == 0:
+                if ok_callback:
+                    ok_callback()
+            else:
+                if fail_callback:
+                    fail_callback()
+
         def on_line(line, stream):
             self._process_error_line(line, None)
             return True
+
         p = process.Process(name, on_line, on_exit)
         p.cwd = directory
         p.start(args)
 
-    def _run_makefile(self, project, build_directory, build_ok_callback=None, target=None):
+    def _run_makefile(self,
+                      project,
+                      build_directory,
+                      ok_callback=None,
+                      fail_callback=None,
+                      target=None):
         args = []
         if target is not None:
             args.append(target)
-        self._run_build_program("make", args, build_directory, lambda: build_ok_callback(project))
+        self._run_build_program("make",
+                                args,
+                                build_directory,
+                                ok_callback,
+                                fail_callback)
 
-    def start_build(self, proj, build_config, build_ok_callback):
+    def start_build(self, proj, build_config, ok_callback, fail_callback=None):
         if self.get_settings("save-before-build"):
-            self._save_project(silent = True)
+            self._save_project(silent=True)
 
-        extra_args = [ "--build", build_config.directory ]
         self._start_ptp(proj,
                         build_config,
                         lambda lines: self._run_makefile(proj,
                                                          build_config.directory,
-                                                         build_ok_callback),
-                        extra_args = extra_args)
+                                                         ok_callback,
+                                                         fail_callback),
+                        fail_callback)
 
-    def _start_ptp(self, proj, build_config, build_ok_callback=None, extra_args=[]):
+    def _start_ptp(self, proj, build_config, ok_callback=None, fail_callback=None):
         stdout = []
         def on_exit(code):
             error_messages = {}
-            if build_ok_callback and code == 0:
+            if code == 0:
                 self.project.set_error_messages(error_messages)
-                build_ok_callback(stdout)
+                if ok_callback:
+                    ok_callback(stdout)
             else:
                 for line in stdout:
                     self._process_error_line(line, error_messages)
                 self.project.set_error_messages(error_messages)
                 self.console_write("Building failed\n", "error")
+                if fail_callback:
+                    fail_callback()
+
         def on_line(line, stream):
             #self.console_write(line)
             stdout.append(line)
@@ -540,12 +577,17 @@ class App:
             return
         p = process.Process(paths.PTP_BIN, on_line, on_exit)
         p.cwd = proj.get_directory()
-        args = [ build_config.get_export_filename() ]
 
+        args = []
         if self.get_settings("ptp-debug"):
-            args.insert(0, "--debug")
+            args.append("--debug")
 
-        p.start(args + extra_args)
+        if build_config.directory is not None:
+            args += [ "--output", build_config.directory ]
+
+        args.append(build_config.operation)
+        args.append(build_config.get_export_filename())
+        p.start(args)
 
     def _try_make_error_with_link(self, id_string, item_id, pos, message):
         search = re.search("^\d+:", message)
@@ -564,7 +606,7 @@ class App:
         if search:
             line_no -= 2
 
-        if pos in ["getstring", "pack", "unpack"] and item_id is None:
+        if pos in ("getstring", "pack", "unpack", "hash") and item_id is None:
             item = self.project.find_extern_type(id_string)
             position = (pos, line_no)
             self.console_write_link(id_string + "/" + pos + (":" + str(line_no) if line_no else ""),
@@ -615,49 +657,24 @@ class App:
         else:
             self.console_write(line)
 
-    def _directory_choose_dialog(self, title):
-        dialog = gtk.FileChooserDialog(title, self.window, gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                 gtk.STOCK_OPEN, gtk.RESPONSE_OK))
-
-        dialog.set_current_folder(os.getcwd())
-        dialog.set_default_response(gtk.RESPONSE_OK)
-        try:
-            if dialog.run() == gtk.RESPONSE_OK:
-                return dialog.get_filename()
-            else:
-                return None
-        finally:
-            dialog.destroy()
-
     def _open_welcome_tab(self):
         label = gtk.Label()
-        line1 = "<span size='xx-large'>Kaira</span>\nv{0}\n\n".format(VERSION_STRING)
-        line2 = "News &amp; documentation can be found at\n"
-        line3 = "<a href='http://verif.cs.vsb.cz/kaira'>http://verif.cs.vsb.cz/kaira</a>"
-        label.set_markup(line1 + line2 + line3)
+        line = "<span size='xx-large'>Kaira</span>\nv{0}\n\n" \
+                "News &amp; documentation can be found at\n" \
+                "<a href='http://verif.cs.vsb.cz/kaira'>http://verif.cs.vsb.cz/kaira</a>" \
+                    .format(VERSION_STRING)
+        label.set_markup(line)
         label.set_justify(gtk.JUSTIFY_CENTER)
-        self.window.add_tab(Tab("Welcome", label, has_close_button = False))
+        self.window.add_tab(Tab("Welcome", label, has_close_button=False))
 
     def import_project(self):
-        dialog = gtk.FileChooserDialog("Import project",
-                                       self.window,
-                                       gtk.FILE_CHOOSER_ACTION_OPEN,
-                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                                            gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+        filename = self.run_file_dialog("Import project", "open", "Project", "*.proj")
+        if filename is None:
+            return
 
-        dialog.set_current_folder(os.getcwd())
-        dialog.set_default_response(gtk.RESPONSE_OK)
-        try:
-            self._add_project_file_filters(dialog)
-            response = dialog.run()
-            if response == gtk.RESPONSE_OK:
-                filename = dialog.get_filename()
-                if filename[-5:] != ".proj":
-                    filename = filename + ".proj"
-                loader.import_project(self.project, filename)
-        finally:
-            dialog.destroy()
+        if filename[-5:] != ".proj":
+            filename = filename + ".proj"
+        loader.import_project(self.project, filename)
 
 if __name__ == "__main__":
     args = sys.argv[1:] # Remove "app.py"

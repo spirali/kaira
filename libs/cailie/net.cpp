@@ -3,48 +3,43 @@
 #include <stdio.h>
 #include <string.h>
 
-CaNetDef::CaNetDef(int index, int id, int transitions_count, CaSpawnFn *spawn_fn, bool local)
+CaNetDef::CaNetDef(int index, int id, CaSpawnFn *spawn_fn, bool local)
 {
 	this->index = index;
 	this->id = id;
-	this->transitions_count = transitions_count;
 	this->spawn_fn = spawn_fn;
-	this->transitions = new CaTransition[transitions_count];
 	this->local = local;
 }
 
 CaNetDef::~CaNetDef()
 {
-	delete [] transitions;
 }
 
-
-CaTransition * CaNetDef::copy_transitions()
+CaTransition * CaNetDef::make_transitions()
 {
-	CaTransition *ts = new CaTransition[transitions_count];
-	memcpy(ts, transitions, transitions_count * sizeof(CaTransition));
+	CaTransition *ts = new CaTransition[transition_defs.size()];
+	for (size_t i = 0; i < transition_defs.size(); i++) {
+		ts[i].set_def(transition_defs[i]);
+	}
 	return ts;
 }
 
-void CaNetDef::register_transition(int i, int id, CaEnableFn *enable_fn,
-	CaEnableCheckFn *enable_check_fn)
+void CaNetDef::register_transition(CaTransitionDef *transition_def)
 {
-	transitions[i].id = id;
-	transitions[i].enable_fn = enable_fn;
-	transitions[i].enable_check_fn = enable_check_fn;
+	transition_defs.push_back(transition_def);
 }
 
-CaTransition* CaNetDef::get_transition(int transition_id)
+CaTransitionDef* CaNetDef::get_transition_def(int transition_id)
 {
-	for (int t = 0; t < transition_id; t++) {
-		if (transitions[t].id == transition_id) {
-			return &transitions[t];
+	for (size_t t = 0; t < transition_defs.size(); t++) {
+		if (transition_defs[t]->get_id() == transition_id) {
+			return transition_defs[t];
 		}
 	}
 	return NULL;
 }
 
-CaNet * CaNetDef::spawn(CaThread *thread)
+CaNetBase * CaNetDef::spawn(CaThreadBase *thread)
 {
 	return spawn_fn(thread, this);
 }
@@ -61,7 +56,7 @@ CaNet::CaNet(CaNetDef *def, CaThread *thread) :
 	} else {
 		mutex = NULL;
 	}
-	transitions = def->copy_transitions();
+	transitions = def->make_transitions();
 	activate_all_transitions();
 }
 
@@ -89,6 +84,15 @@ void CaNet::activate_transition_by_pos_id(int pos_id)
 void CaNet::write_reports(CaThread *thread, CaOutput &output)
 {
 	write_reports_content(thread, output);
+	int t;
+	for (t = 0; t < def->get_transitions_count(); t++) {
+		if (transitions[t].is_enable(thread, this)) {
+			output.child("enabled");
+			output.set("id", transitions[t].get_id());
+			output.back();
+		}
+	}
+
 }
 
 CaTransition * CaNet::pick_active_transition()
@@ -103,10 +107,10 @@ CaTransition * CaNet::pick_active_transition()
 
 int CaNet::fire_transition(CaThread *thread, int transition_id)
 {
-	CaTransition *tr = def->get_transition(transition_id);
+	CaTransitionDef *tr = def->get_transition_def(transition_id);
 	if (tr) {
 		lock();
-		int r = tr->fire(thread, this);
+		int r = tr->full_fire(thread, this);
 		if (r == CA_NOT_ENABLED) {
 			unlock();
 		}

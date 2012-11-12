@@ -6,29 +6,12 @@
 #include <vector>
 #include <stack>
 
-class CaOutputBlock {
-	public:
-
-		CaOutputBlock(const std::string & name) { _name = name; }
-		~CaOutputBlock();
-
-		void add_child(CaOutputBlock *block) { _children.push_back(block); }
-		void set(const std::string & name, const std::string & value);
-
-		void write(FILE *file);
-
-	protected:
-		std::string _name;
-		std::vector<std::pair<std::string, std::string> > _attributes;
-		std::vector<CaOutputBlock*> _children;
-};
-
 class CaOutput {
 	public:
-		~CaOutput();
+		CaOutput(FILE *file);
 
 		void child(const std::string &name);
-		CaOutputBlock * back();
+		void back();
 		void set(const std::string &name, const int i);
 		void set(const std::string &name, const unsigned int i);
 		void set(const std::string &name, const std::string &s);
@@ -36,9 +19,14 @@ class CaOutput {
 			set(name, std::string(s));
 		}
 		void set(const std::string &name, const bool value);
-	private:
+
+		void text(const std::string &text);
+
+	protected:
 		void _set(const std::string &name, const std::string &s);
-		std::stack<CaOutputBlock*> _stack;
+		FILE *file;
+		std::stack<std::string> stack;
+		bool open_tag;
 };
 
 std::string ca_int_to_string(const int &i);

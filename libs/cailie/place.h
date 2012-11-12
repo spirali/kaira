@@ -6,7 +6,7 @@
 #include <string>
 #include "tracelog.h"
 
-template<class T> class CaToken {
+template<typename T> class CaToken {
 
 	public:
 		CaToken(const T &value) : value(value) {}
@@ -36,7 +36,7 @@ template<class T> class CaToken {
 		CaToken<T> *next;
 };
 
-template<class T> class CaPlace {
+template<typename T> class CaPlace {
 
 	public:
 		CaPlace() : token(NULL), tokens_count(0) {}
@@ -138,7 +138,7 @@ template<class T> class CaPlace {
 			return v;
 		}
 
-		std::vector<T> to_vector() {
+		std::vector<T> to_vector() const {
 			std::vector<T> v;
 			if (token) {
 				v.reserve(tokens_count);
@@ -164,11 +164,11 @@ template<class T> class CaPlace {
 			}
 		}
 
-		CaToken<T> * begin() { return token; }
-		size_t size() { return tokens_count; }
-		CaToken<T> * last() { return token->prev; }
-		bool is_empty() { return token == NULL; }
-		T first_value() { return token->value; }
+		CaToken<T> * begin() const { return token; }
+		size_t size() const { return tokens_count; }
+		CaToken<T> * last() const { return token->prev; }
+		bool is_empty() const { return token == NULL; }
+		T first_value() const { return token->value; }
 
 	protected:
 		/* This is a naive implementation, it needs benchmarks
