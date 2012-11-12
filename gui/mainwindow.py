@@ -153,21 +153,30 @@ class MainWindow(gtk.Window):
         self.project_sensitives.append(item)
         file_menu.append(item)
 
-        file_menu.append(gtk.SeparatorMenuItem())
-
-        item = gtk.MenuItem("_Connect to application")
-        item.connect("activate", lambda w: self.app.connect_to_application())
-        file_menu.append(item)
-
-        item = gtk.MenuItem("Open tracelo_g")
-        item.connect("activate", lambda w: self.app.load_tracelog())
-        file_menu.append(item)
 
         file_menu.append(gtk.SeparatorMenuItem())
 
         item = gtk.MenuItem("_Quit")
         item.connect("activate", gtk.main_quit)
         file_menu.append(item)
+
+        simulator_menu = gtk.Menu()
+
+        item = gtk.MenuItem("_Run simulation")
+        item.connect("activate", lambda w: self.app.simulation_start())
+        add_accelerator(item, "F7")
+        simulator_menu.append(item)
+
+        item = gtk.MenuItem("Confi_gure simulation")
+        item.connect("activate", lambda w: self.app.open_simconfig_dialog())
+        add_accelerator(item, "F8")
+        simulator_menu.append(item)
+
+        simulator_menu.append(gtk.SeparatorMenuItem())
+
+        item = gtk.MenuItem("Run _simulation in Valgrind")
+        item.connect("activate", lambda w: self.app.simulation_start(valgrind = True))
+        simulator_menu.append(item)
 
         build_menu = gtk.Menu()
 
@@ -179,25 +188,21 @@ class MainWindow(gtk.Window):
         item.connect("activate", lambda w: self.app.build_project("traced"))
         build_menu.append(item)
 
-        build_menu.append(gtk.SeparatorMenuItem())
-
-        item = gtk.MenuItem("Run _simulation")
-        item.connect("activate", lambda w: self.app.simulation_start())
-        add_accelerator(item, "F7")
-        build_menu.append(item)
-
-        item = gtk.MenuItem("Confi_gure simulation")
-        item.connect("activate", lambda w: self.app.open_simconfig_dialog())
-        add_accelerator(item, "F8")
-        build_menu.append(item)
-
-        build_menu.append(gtk.SeparatorMenuItem())
-
-        item = gtk.MenuItem("Run _simulation in Valgrind")
-        item.connect("activate", lambda w: self.app.simulation_start(valgrind = True))
+        item = gtk.MenuItem("Build project (s_tatespace)")
+        item.connect("activate", lambda w: self.app.build_project("statespace"))
         build_menu.append(item)
 
         analyze_menu = gtk.Menu()
+
+        item = gtk.MenuItem("Open tracelo_g")
+        item.connect("activate", lambda w: self.app.load_tracelog())
+        analyze_menu.append(item)
+
+        item = gtk.MenuItem("_Connect to application")
+        item.connect("activate", lambda w: self.app.connect_to_application())
+        analyze_menu.append(item)
+
+        analyze_menu.append(gtk.SeparatorMenuItem())
 
         item = gtk.MenuItem("Run state space _analysis")
         item.connect("activate", lambda w: self.app.run_statespace_analysis())
@@ -279,11 +284,15 @@ class MainWindow(gtk.Window):
         item.set_submenu(edit_menu)
         self.project_sensitives.append(item)
         main_menu.append(item)
-        item = gtk.MenuItem("_Run")
+        item = gtk.MenuItem("_Build")
         item.set_submenu(build_menu)
         self.project_sensitives.append(item)
         main_menu.append(item)
-        item = gtk.MenuItem("_Analyze")
+        item = gtk.MenuItem("_Simulation")
+        item.set_submenu(simulator_menu)
+        self.project_sensitives.append(item)
+        main_menu.append(item)
+        item = gtk.MenuItem("_Analysis")
         item.set_submenu(analyze_menu)
         self.project_sensitives.append(item)
         main_menu.append(item)
@@ -356,6 +365,7 @@ class Console(gtk.ScrolledWindow):
         w = self.textview.get_window(gtk.TEXT_WINDOW_TEXT)
         w.set_cursor(cursor)
 
+
 class Tab:
 
     window = None
@@ -386,6 +396,7 @@ class Tab:
 
     def project_export(self):
         pass
+
 
 class SaveTab(Tab):
 
