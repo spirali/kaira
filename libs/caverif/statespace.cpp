@@ -141,8 +141,9 @@ void Node::generate(Core *core)
 		Net *net = node->nets[p];
 		int place_index = tokens->place_index;
 		int tokens_count = tokens->tokens_count;
+		Thread thread(node->packets, -1, -1);
 		for (int t = 0; t < tokens_count; t++) {
-			net->receive(place_index, unpacker);
+			net->receive(&thread, place_index, unpacker);
 		}
 		Node *n = core->add_node(node);
 		nexts.push_back(n);
