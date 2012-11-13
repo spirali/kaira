@@ -2,6 +2,7 @@
 import subprocess
 import os
 import time
+import xml.etree.ElementTree as xml
 
 KAIRA_TESTS = os.path.dirname(os.path.abspath(__file__))
 KAIRA_ROOT = os.path.dirname(KAIRA_TESTS)
@@ -104,8 +105,10 @@ class Project:
     def export(self):
         RunProgram("python", [ CMDUTILS, "--export", self.get_filename() ]).run()
 
-    def run_ptp(self):
-        RunProgram(PTP_BIN, [ "build", self.get_xml_filename(), "--output", self.get_directory() ]).run()
+    def run_ptp(self, operation=None):
+        if operation is None:
+            operation = "build"
+        RunProgram(PTP_BIN, [ operation, self.get_xml_filename(), "--output", self.get_directory() ]).run()
 
     def fail_ptp(self, output):
         self.export()
@@ -131,22 +134,35 @@ class Project:
     def _make(self, args = []):
         RunProgram("make", args, cwd = self.get_directory()).run()
 
-    def build(self):
+    def build(self, operation=None):
         self.export()
-        self.run_ptp()
+        self.run_ptp(operation)
         self.make_project()
 
-    def run(self, result = None, executable = None, processes = 1, threads = 1, params = {}, **kw):
+    def run(self,
+            result=None,
+            executable=None,
+            processes=1,
+            threads=1,
+            params={},
+            extra_args=None,
+            **kw):
+
         if executable is None:
             executable = self.get_executable()
 
         if self.mpi and not self.rpc:
-            run_args = [ "-np", str(processes), executable, "--threads={0}".format(threads) ]
+            run_args = [ "-np", str(processes),
+                         executable,
+                         "--threads={0}".format(threads) ]
         else:
             run_args = [ "-r{0}".format(processes), "--threads={0}".format(threads) ]
 
         for name in params:
             run_args.append("-p{0}={1}".format(name, params[name]))
+
+        if extra_args:
+            run_args += extra_args
 
         if self.mpi and not self.rpc:
             self._run("mpirun", run_args, result, **kw)
@@ -166,6 +182,16 @@ class Project:
     def quick_test(self, result=None, **kw):
         self.build()
         self.run(result, **kw)
+
+    def statespace(self, analyses=None, **kw):
+        self.build("statespace")
+        if analyses:
+            extra_args = [ "-V" + a for a in analyses ]
+        else:
+            extra_args = None
+        self.run(None, extra_args=extra_args, **kw)
+        kreport = os.path.join(self.get_directory(), self.name + ".kreport")
+        return xml.parse(kreport).getroot()
 
     def build_main(self):
         self.build()
