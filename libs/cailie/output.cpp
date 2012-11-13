@@ -62,10 +62,11 @@ void CaOutput::back()
 
 static void find_and_replace(std::string &s, const char c, const std::string replace)
 {
-	size_t i;
-	while ((i = s.find(c)) != std::string::npos)
+	size_t i = 0;
+	while ((i = s.find(c, i)) != std::string::npos)
 	{
 		s.replace(i, 1, replace);
+		i++;
 	}
 }
 

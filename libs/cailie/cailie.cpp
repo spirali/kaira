@@ -368,7 +368,7 @@ void ca_write_header(FILE *out, int process_count, int threads_count)
 	fputs("\n", out);
 }
 
-size_t ca_hash_string(std::string &v) {
+size_t ca_hash_string(const std::string &v) {
 	std::string::const_iterator i;
 	size_t r = 37 * v.size();
     int j = 0;
