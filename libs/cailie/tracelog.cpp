@@ -84,6 +84,13 @@ void CaTraceLog::event_net_quit()
 	write_time();
 }
 
+void CaTraceLog::event_idle()
+{
+	check_size(1 + sizeof(uint64_t));
+	write_char('I');
+	write_time();
+}
+
 void CaTraceLog::event_transition_fired(int transition_id)
 {
 	check_size(1 + sizeof(uint64_t) + sizeof(int32_t));

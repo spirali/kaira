@@ -81,6 +81,14 @@ class RunInstance:
             self.last_event_activity.quit = True
         self.last_event_instance = self.net_instances[process_id]
 
+    def event_idle(self, process_id, thread_id, time):
+        self.last_event = "idle"
+        self.last_event_process = process_id
+        self.last_event_thread = thread_id
+        index = process_id * self.threads_count + thread_id
+        self.last_event_activity = None
+        self.last_event_instance = self.net_instances[process_id]
+
     def event_send(self, process_id, thread_id, time, msg_id):
         self.send_msg[process_id * self.threads_count + thread_id].append((msg_id, time))
 
