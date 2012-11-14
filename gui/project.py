@@ -243,11 +243,10 @@ class Project(EventSource):
     # takes instace of BuildConfig
     # Returns xml.Element
     def export_xml(self, build_config):
-
         root = xml.Element("project")
         root.set("name", self.get_name())
-
         root.set("extenv", build_config.extenv)
+        root.set("root-directory", self.get_directory())
 
         if self.get_target_mode():
             root.set("target-mode", self.get_target_mode())

@@ -19,7 +19,7 @@
 
 import base.utils
 import paths
-import os
+import os.path
 
 def create_makefile_config():
     return {
@@ -63,9 +63,10 @@ def prepare_makefile(project, config = None):
 
     return makefile
 
-def get_other_dependancies(project):
+def get_other_dependancies(project, directory):
+    d = os.path.relpath(project.get_root_directory(), directory)
     if project.get_build_option("OTHER_FILES"):
-        return [ os.path.splitext(f)[0] + ".o"
+        return [ os.path.join(d, os.path.splitext(f)[0] + ".o")
                  for f in project.get_build_option("OTHER_FILES").split("\n") ]
     else:
         return []
@@ -82,7 +83,7 @@ def write_statespace_makefile(project, directory):
     name_o = name + ".o"
     name_cpp = name + ".cpp"
 
-    deps = [ name_o ] + get_other_dependancies(project)
+    deps = [ name_o ] + get_other_dependancies(project, directory)
 
     makefile.rule("all", [ name ], phony=True)
     makefile.rule(name,
@@ -113,7 +114,7 @@ def write_program_makefile(project, directory):
     makefile.rule("mpi", [ name + "_mpi"], phony = True)
     makefile.rule("mpidebug", [name + "_mpidebug"], phony = True)
 
-    other_deps = get_other_dependancies(project)
+    other_deps = get_other_dependancies(project, directory)
 
     deps = [ name_o ] + other_deps
     deps_debug = [ name_debug_o ] + other_deps
@@ -163,7 +164,7 @@ def write_server_makefile(project, directory):
     makefile.rule("all", [ name ], phony = True)
     makefile.rule("mpi", [ name_mpi ], phony = True)
 
-    other_deps = get_other_dependancies(project)
+    other_deps = get_other_dependancies(project, directory)
     deps = [ name_o ] + other_deps
     deps_mpi = [ name_mpi_o ] + other_deps
 
@@ -192,7 +193,7 @@ def write_library_makefile(project, directory, rpc = False, octave = False):
         config["libs"].append("caclient")
 
     makefile = prepare_makefile(project, config)
-    other_deps = get_other_dependancies(project)
+    other_deps = get_other_dependancies(project, directory)
 
     name = project.get_name()
     name_o = name + ".o"

@@ -124,8 +124,9 @@ class Parameter(object):
 
 class Project(object):
 
-    def __init__(self, name, extenv, target_mode, description):
+    def __init__(self, name, root_directory, extenv, target_mode, description):
         self.name = name
+        self.root_directory = root_directory
         self.extenv = extenv
         self.target_mode = target_mode
         self.nets = []
@@ -135,6 +136,9 @@ class Project(object):
         self.parameters = {}
         self.build_options = {}
         self.head_code = ""
+
+    def get_root_directory(self):
+        return self.root_directory
 
     def get_name(self):
         return self.name
@@ -378,7 +382,8 @@ def load_project(element):
     name = utils.xml_str(element, "name")
     extenv = utils.xml_str(element, "extenv")
     target_mode = utils.xml_str(element, "target-mode", "default")
-    p = Project(name, extenv, target_mode, description)
+    root_directory = utils.xml_str(element, "root-directory")
+    p = Project(name, root_directory, extenv, target_mode, description)
 
     load_configuration(element.find("configuration"), p)
 
