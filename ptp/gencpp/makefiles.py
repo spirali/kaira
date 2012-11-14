@@ -97,52 +97,38 @@ def write_statespace_makefile(project, directory):
                   "rm -f {0} {1}".format(name, " ".join(deps)), phony=True)
     makefile.write_to_file(os.path.join(directory, "makefile"))
 
-
 def write_program_makefile(project, directory):
     makefile = prepare_makefile(project)
 
     name = project.get_name()
     name_o = name + ".o"
     name_cpp = name + ".cpp"
-    name_debug = name + "_debug"
-    name_debug_o = name + "_debug.o"
     name_mpi_o = name + "_mpi.o"
-    name_mpi_debug_o = name + "_mpi_debug.o"
 
     makefile.rule("all", [ name ], phony = True)
-    makefile.rule("debug", [ name_debug ], phony = True)
     makefile.rule("mpi", [ name + "_mpi"], phony = True)
-    makefile.rule("mpidebug", [name + "_mpidebug"], phony = True)
 
     other_deps = get_other_dependancies(project, directory)
 
     deps = [ name_o ] + other_deps
-    deps_debug = [ name_debug_o ] + other_deps
     deps_mpi = [ name_mpi_o ] + other_deps
-    deps_mpi_debug = [ name_mpi_debug_o ] + other_deps
     makefile.rule(name, deps,
-        "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
-
-    makefile.rule(name_debug, deps_debug,
-        "$(CC) " + " ".join(deps_debug) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) " )
+        "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) ")
 
     makefile.rule(name + "_mpi", deps_mpi, "$(MPICC) -D CA_MPI " + " ".join(deps_mpi)
         + " -o $@ $(CFLAGS) $(INCLUDE) $(MPILIBDIR) $(MPILIBS)" )
-    makefile.rule(name + "_mpidebug", deps_mpi_debug, "$(MPICC) -D CA_MPI " + " ".join(deps_mpi_debug)
-        + " -o $@ $(CFLAGS) $(INCLUDE) $(MPILIBDIR) $(MPILIBS)" )
 
-    makefile.rule(name_o, [ name_cpp ], "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
+    makefile.rule(name_o,
+                  [ name_cpp ],
+                  "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
 
-    makefile.rule(name_debug_o, [ name_cpp ],
-        "$(CC) -DCA_LOG $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_debug_o))
     makefile.rule(name_mpi_o, [ name_cpp ],
         "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
-    makefile.rule(name_mpi_debug_o, [ name_cpp ],
-        "$(MPICC) -DCA_MPI -DCA_LOG $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_debug_o))
-    all = deps + [ name_o, name_mpi_o, name_debug_o, name_mpi_debug_o ]
+
+    all = deps + [ name_o, name_mpi_o ]
 
     makefile.rule("clean", [],
-        "rm -f {0} {0}_debug {0}_mpi {0}_mpidebug {1}".format(name," ".join(all)), phony = True)
+        "rm -f {0} {0}_mpi {1}".format(name," ".join(all)), phony=True)
     makefile.write_to_file(os.path.join(directory, "makefile"))
 
 def write_server_makefile(project, directory):
