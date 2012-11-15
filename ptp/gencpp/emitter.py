@@ -17,7 +17,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-infix_functions = [ "+", "-", "*", "/", "==", "!=", "&&", "||", "<", ">", "<=", ">=" ]
+infix_functions = [ "+", "-", "*", "/", "%", "==", "!=", "&&", "||", "<", ">", "<=", ">=" ]
 
 from base.neltypes import Type
 

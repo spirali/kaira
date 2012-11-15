@@ -28,6 +28,7 @@ lpar = Suppress("(")
 rpar = Suppress(")")
 delim = Suppress(",")
 operator_chars = [ "+", "-", "*", "/", "%", "=", "!", "<", ">", "&", "|" ]
+
 def OpKeyword(x):
     return Keyword(x, operator_chars)
 
@@ -62,22 +63,25 @@ def number_action(tokens):
 
 ident = Word(alphanums+"_")
 expression = Forward()
-number = (Optional("-", "+") + Word(digits) + Optional(Suppress(".") + Word(digits))).setParseAction(number_action)
+number = (Optional("-", "+") + Word(digits) +
+          Optional(Suppress(".") + Word(digits))).setParseAction(number_action)
 string = dblQuotedString.setParseAction(lambda tokens: e.ExprString(tokens[0][1:-1]))
-array_normal = Optional(Group(expression + ZeroOrMore( Suppress( delim ) + expression )), [])
+array_normal = Optional(Group(expression + ZeroOrMore(delim + expression )), [])
 array_normal.setParseAction(lambda tokens: e.ExprArray(tuple(tokens[0])))
 array_range = expression + Suppress(Literal("..")) + expression
 array_range.setParseAction(lambda tokens: e.ExprCall('range', list(tokens)))
 array = Suppress("[") + (array_range | array_normal) + Suppress("]")
 parameter = (Suppress("#") + ident).setParseAction(lambda tokens: e.ExprParam(tokens[0]))
-parens = lpar + Optional(Group(expression + ZeroOrMore( Suppress( delim ) + expression )), []) + rpar
+parens = lpar + Optional(Group(expression + ZeroOrMore(delim + expression )), []) + rpar
 var_or_call = (ident + Optional(parens, None)).setParseAction(ident_action)
 tupleparser = parens.copy().setParseAction(tuple_action)
 atom = (number | string | var_or_call | tupleparser | parameter | array)
 
-op1 = OpKeyword("*") | OpKeyword("/")
+op1 = OpKeyword("*") | OpKeyword("/") | OpKeyword("%")
 op2 = OpKeyword("+") | OpKeyword("-") | OpKeyword("++") | OpKeyword("--")
-op3 = OpKeyword("==") | OpKeyword("!=") | OpKeyword("<=") | OpKeyword(">=") | OpKeyword("<") | OpKeyword(">")
+op3 = (OpKeyword("==") | OpKeyword("!=") |
+       OpKeyword("<=") | OpKeyword(">=") |
+       OpKeyword("<") | OpKeyword(">"))
 op4 = OpKeyword("&&") | OpKeyword("||")
 
 expr1 = (atom + ZeroOrMore(op1 + atom)).setParseAction(operator_action)
@@ -86,15 +90,17 @@ expr3 = (expr2 + ZeroOrMore(op3 + expr2)).setParseAction(operator_action)
 expression << (expr3 + ZeroOrMore(op4 + expr3)).setParseAction(operator_action)
 
 typeparser = Forward()
-typeargs = Optional(lpar + Group(typeparser + ZeroOrMore( Suppress( delim ) + typeparser )) + rpar, [])
-typeparser << (Optional(ident,"") + typeargs).setParseAction(lambda tokens: t.Type(tokens[0], list(tokens[1])))
+typeargs = Optional(lpar + Group(typeparser + ZeroOrMore(delim + typeparser)) + rpar, [])
+typeparser << (Optional(ident,"") + typeargs) \
+                .setParseAction(lambda tokens: t.Type(tokens[0], list(tokens[1])))
 
 packing = Suppress("~").setParseAction(lambda tokens: "packing")
 multicast = Suppress("~").setParseAction(lambda tokens: "multicast")
-output = Optional(packing, "normal") + expression \
-    + Optional(Group(Suppress("@") + Optional(multicast, "unicast") + expression), ("local", None)) \
-        .setParseAction(lambda tokens: tuple(tokens[0])) \
-    + Optional(Suppress("?") + expression, None)
+output = (Optional(packing, "normal") + expression +
+          Optional(Group(Suppress("@") + Optional(multicast, "unicast") + expression),
+                   ("local", None))
+            .setParseAction(lambda tokens: tuple(tokens[0])) +
+          Optional(Suppress("?") + expression, None))
 input = Optional(packing, "normal") + expression + StringEnd()
 
 parameter = (typeparser + ident).setParseAction(lambda tokens: (tokens[1], tokens[0]))
