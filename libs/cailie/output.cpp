@@ -118,7 +118,7 @@ void CaOutput::set(const std::string & name, const int value)
 	fprintf(file, " %s='%i'", name.c_str(), value);
 }
 
-void CaOutput::set(const std::string & name, const unsigned int value)
+void CaOutput::set(const std::string & name, const size_t value)
 {
-	fprintf(file, " %s='%u'", name.c_str(), value);
+	fprintf(file, " %s='%llu'", name.c_str(), (unsigned long long) value);
 }
