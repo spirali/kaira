@@ -152,7 +152,8 @@ class TraceLog:
             trace = self.traces[minimal_time_index]
 
             # Timeline update
-            timeline.append(EventPointer(minimal_time_index, trace.pointer))
+            if trace.is_next_event_visible():
+                timeline.append(EventPointer(minimal_time_index, trace.pointer))
 
             trace.process_event(ri)
             trace_times[minimal_time_index] = trace.get_next_event_time()
@@ -247,7 +248,13 @@ class Trace:
         else:
             return 0
 
+    def is_next_event_visible(self):
+        """ Return name of event as 5-character string """
+        t = self.data[self.pointer]
+        return t != "I" and t != "M"
+
     def get_next_event_name(self):
+        """ Return name of event as 5-character string """
         t = self.data[self.pointer]
         if t == "T":
             return "Fired"
@@ -259,6 +266,8 @@ class Trace:
             return "Recv "
         elif t == "S":
             return "Spawn"
+        elif t == "I":
+            return "Idle "
         elif t == "H" or t == "Q": # "H" for backward compatability
             return "Quit "
 
@@ -274,6 +283,8 @@ class Trace:
             return self._process_event_receive(runinstance)
         elif t == "S":
             return self._process_event_spawn(runinstance)
+        elif t == "I":
+            return self._process_event_idle(runinstance)
         elif t == "H" or t == "Q": # "H" for backward compatability
             return self._process_event_quit(runinstance)
         else:
@@ -431,6 +442,12 @@ class Trace:
                                               time + self.time_offset,
                                               msg_id)
         self.process_tokens_add(runinstance, send_time)
+
+    def _process_event_idle(self, runinstance):
+        time = self._read_struct_quit()[0]
+        runinstance.event_idle(self.process_id,
+                               self.thread_id,
+                               time + self.time_offset)
 
     def _read_struct_token(self):
         values = self.struct_token.unpack_from(self.data, self.pointer)
@@ -725,38 +742,20 @@ class DataCollectingRunInstance(RunInstance):
         return names, values
 
     def get_transitions_utilization(self):
-        dnames = {}
-        dvalues = {}        
         transition_ids = self.transitions_data.keys()
-
-        # resorting by process_id
-        for transition_id in transition_ids:
-           transition_data = self.transitions_data[transition_id] 
-           net, item = self.project.get_net_and_item(transition_id)
-           
-           for process_id in range(self.process_count):
-               for thread_id in range(self.threads_count):
-                   if process_id not in dvalues:
-                       dvalues[process_id] = []
-                   dvalues[process_id].append(transition_data[process_id * self.threads_count + thread_id])
-                   if process_id not in dnames:
-                       dnames[process_id] = []
-                   dnames[process_id].append("{0.name} {1.name}@{2}`{3}".format(
-                       net,
-                       item,
-                       process_id,
-                       thread_id))
-
         values = []
         names = []
 
-        # make result names and values data
-        for process_id in range(self.process_count):
-            process_data = dvalues[process_id]
-            names_data = dnames[process_id]
-            for data, name in zip(process_data, names_data):
-                values.append(data)
-                names.append(name)
+        for transition_id, transition_data in self.transitions_data.items():
+           net, item = self.project.get_net_and_item(transition_id)
+           for process_id in xrange(self.process_count):
+               for thread_id in xrange(self.threads_count):
+                   index = process_id * self.threads_count + thread_id
+                   values.append(transition_data[index])
+                   names.append("{0.name} {1.name}@{2}`{3}".format(net,
+                                                                   item,
+                                                                   process_id,
+                                                                   thread_id))
         return names, values
 
     def get_tokens_counts(self):

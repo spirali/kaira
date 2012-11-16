@@ -1,4 +1,4 @@
-#    Copyright (C) 2011 Stanislav Bohm
+#    Copyright (C) 2011, 2012 Stanislav Bohm
 #    Copyright (C) 2011 Ondrej Meca
 #
 #    This file is part of Kaira.
@@ -69,6 +69,7 @@ class ProjectCpp(ProjectCppBase):
     def is_library(self):
         return False
 
+
 class ProjectCppLibrary(ProjectCppBase):
 
     def __init__(self, file_name):
@@ -82,6 +83,7 @@ class ProjectCppLibrary(ProjectCppBase):
     def is_library(self):
         return True
 
+
 class ExternTypeCpp(NativeExternType):
 
     def get_default_function_code(self, name):
@@ -92,12 +94,14 @@ class ExternTypeCpp(NativeExternType):
 
     def get_function_declaration(self, name):
         if name == "getstring":
-            return "std::string getstring(const " + self.raw_type + " &obj)"
+            return "std::string getstring(const {0} &obj)".format(self.raw_type)
         elif name == "pack":
-            return "void pack(CaPacker &packer, const " + self.raw_type + " &obj)"
+            return "void pack(CaPacker &packer, const {0} &obj)".format(self.raw_type)
         elif name == "unpack":
             return self.raw_type + " unpack(CaUnpacker &unpacker)"
         elif name == "to_octave_value":
-            return "octave_value to_octave_value(const " + self.raw_type + " &obj)"
+            return "octave_value to_octave_value(const {0} &obj)".format(self.raw_type)
         elif name == "from_octave_value":
-            return ""+self.raw_type+" from_octave_value(const octave_value &obj)"
+            return self.raw_type + " from_octave_value(const octave_value &obj)"
+        elif name == "hash":
+            return "size_t hash(const {0} &obj)".format(self.raw_type)

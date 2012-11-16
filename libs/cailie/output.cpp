@@ -35,57 +35,73 @@ std::string ca_string_to_string(const std::string &s)
 	return s;
 }
 
-CaOutput::~CaOutput()
+CaOutput::CaOutput(FILE *file) : file(file), open_tag(false)
 {
-	while (!_stack.empty()) {
-		delete _stack.top();
-		_stack.pop();
-	}
 }
 
 void CaOutput::child(const std::string & name)
 {
-	CaOutputBlock *block = new CaOutputBlock(name);
-	_stack.push(block);
+	if (open_tag) {
+		fprintf(file, ">");
+	}
+	fprintf(file, "<%s", name.c_str());
+	stack.push(name);
+	open_tag = true;
 }
 
-CaOutputBlock * CaOutput::back()
+void CaOutput::back()
 {
-	CaOutputBlock *block = _stack.top();
-	_stack.pop();
-	if (!_stack.empty()) {
-		CaOutputBlock *parent = _stack.top();
-		parent->add_child(block);
+	if (open_tag) {
+		open_tag = false;
+		fprintf(file, " />");
+	} else {
+		fprintf(file, "</%s>", stack.top().c_str());
 	}
-	return block;
+	stack.pop();
 }
 
 static void find_and_replace(std::string &s, const char c, const std::string replace)
 {
-	size_t i;
-	while ((i = s.find(c)) != std::string::npos)
+	size_t i = 0;
+	while ((i = s.find(c, i)) != std::string::npos)
 	{
 		s.replace(i, 1, replace);
+		i++;
 	}
+}
+
+static void sanitize_string(std::string &s)
+{
+	find_and_replace(s, '&', "&amp;");
+	find_and_replace(s, '<', "&lt;");
+	find_and_replace(s, '>', "&gt;");
 }
 
 void CaOutput::set(const std::string & name, const std::string & value)
 {
 	std::string v = value;
-	find_and_replace(v, '&', "&amp;");
-	find_and_replace(v, '<', "&lt;");
-	find_and_replace(v, '>', "&gt;");
+	sanitize_string(v);
 	find_and_replace(v, '\n', "\\n");
 	find_and_replace(v, '\t', "\\t");
 	find_and_replace(v, '\r', "\\r");
+	find_and_replace(v, '\'', "\\'");
 	_set(name, v);
+}
+
+void CaOutput::text(const std::string &text)
+{
+	if (open_tag) {
+		fprintf(file, ">");
+		open_tag = false;
+	}
+	std::string v = text;
+	sanitize_string(v);
+	fputs(v.c_str(), file);
 }
 
 void CaOutput::_set(const std::string & name, const std::string & value)
 {
-	assert(!_stack.empty());
-	CaOutputBlock *block = _stack.top();
-	block->set(name, value);
+	fprintf(file, " %s='%s'", name.c_str(), value.c_str());
 }
 
 void CaOutput::set(const std::string & name, const bool value)
@@ -99,45 +115,10 @@ void CaOutput::set(const std::string & name, const bool value)
 
 void CaOutput::set(const std::string & name, const int value)
 {
-	_set(name, ca_int_to_string(value));
+	fprintf(file, " %s='%i'", name.c_str(), value);
 }
 
-void CaOutput::set(const std::string & name, const unsigned int value)
+void CaOutput::set(const std::string & name, const size_t value)
 {
-	_set(name, ca_int_to_string(value));
-}
-
-void CaOutputBlock::set(const std::string &name, const std::string & value)
-{
-	std::pair<std::string,std::string> p(name, value);
-	_attributes.push_back(p);
-}
-
-void CaOutputBlock::write(FILE *file)
-{
-	fprintf(file,"<%s", _name.c_str());
-
-	std::vector<std::pair<std::string, std::string> >::iterator i;
-	for (i = _attributes.begin(); i != _attributes.end(); i++) {
-		fprintf(file, " %s='%s'", (*i).first.c_str(), (*i).second.c_str());
-	}
-
-	if (_children.size() > 0) {
-		fprintf(file,">");
-		std::vector<CaOutputBlock*>::iterator i;
-		for (i = _children.begin(); i != _children.end(); i++) {
-			(*i)->write(file);
-		}
-		fprintf(file,"</%s>", _name.c_str());
-	} else {
-		fprintf(file, " />");
-	}
-}
-
-CaOutputBlock::~CaOutputBlock()
-{
-		std::vector<CaOutputBlock*>::iterator i;
-		for (i = _children.begin(); i != _children.end(); i++) {
-			delete (*i);
-		}
+	fprintf(file, " %s='%llu'", name.c_str(), (unsigned long long) value);
 }

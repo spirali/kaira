@@ -20,7 +20,6 @@
 
 import math
 import os
-from copy import copy
 
 def empty_fn(*args, **kwords):
 	pass

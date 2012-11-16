@@ -6,7 +6,7 @@
 
 #include "thread.h"
 
-CaThread::CaThread() : messages(NULL), tracelog(NULL)
+CaThread::CaThread() : messages(NULL)
 {
 	pthread_mutex_init(&messages_mutex, NULL);
 }
@@ -104,13 +104,8 @@ void CaThread::quit_all()
 void CaThread::run_scheduler()
 {
 	process_messages();
-	unsigned int counter = 0;
+	bool in_idle = false;
 	while(!process->quit_flag) {
-		counter++;
-		if (counter > 1) {
-			sched_yield();
-			counter = 0;
-		}
 		process_messages();
 
 		if(process->get_net() == NULL) {
@@ -118,21 +113,28 @@ void CaThread::run_scheduler()
 		}
 
 		CaNet *n = process->get_net();
-		if (!n->try_lock())
+		if (!n->try_lock()) {
+			sched_yield();
 			continue;
+		}
 		CaTransition *tr = n->pick_active_transition();
 		if (tr == NULL) {
 			n->unlock();
+			if (!in_idle && tracelog) {
+				tracelog->event_idle();
+			}
+			in_idle = true;
 			continue;
 		}
+	    in_idle = false;
 		tr->set_active(false);
-		CA_DLOG("Transition tried id=%i process=%i thread=%i\n", tr->id, get_process_id(), id);
-		int res = tr->fire(this, n);
+		CA_DLOG("Transition tried id=%i process=%i thread=%i\n",
+				 tr->id, get_process_id(), id);
+		int res = tr->full_fire(this, n);
 		if (res == CA_NOT_ENABLED) {
-			CA_DLOG("Transition is dead id=%i process=%i thread=%i\n", tr->id, get_process_id(), id);
+			CA_DLOG("Transition is dead id=%i process=%i thread=%i\n",
+					 tr->id, get_process_id(), id);
 			n->unlock();
-		} else {
-			counter = 0;
 		}
 	}
 }

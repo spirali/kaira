@@ -100,21 +100,17 @@ class BuildOptionsWidget(gtk.VBox):
                 filenames = dialog.get_filenames()
                 directory = self.project.get_directory()
 
-                other_files = self.project.get_build_option("OTHER_FILES").split("\n")
-
-                # TODO: Add files produced by ptp
-                forbidden = [ self.project.get_head_filename() ]
+                other_files = self.project.get_build_option("OTHER_FILES") \
+                                .split("\n")
 
                 for filename in filenames:
                     if not filename.startswith(directory):
-                        self.app.show_error_dialog("File '{0}' is not in the project directory.".format(filename))
+                        self.app.show_error_dialog(
+                            "File '{0}' is not in the project directory."
+                            .format(filename))
                         return
 
                     f = filename[len(directory) + 1:]
-                    if filename in forbidden:
-                        self.app.show_info_dialog("Files '{0}' is always a part of the project. You don't need to add it explicitly.".format(f))
-                        continue
-
                     if f in other_files:
                         continue
                     self.filelist.append((f,))

@@ -199,6 +199,7 @@ class HeadCodeEditor(CodeEditor):
                             [ section ],
                             ("", 1, 0),
                             header)
+        self.view.set_show_line_numbers(True)
 
     def save(self):
         self.project.set_head_code(self.get_text())

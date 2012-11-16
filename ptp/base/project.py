@@ -27,12 +27,19 @@ from net import Net, Area, Place, Transition, EdgeIn, EdgeInPacking, EdgeOut
 
 class ExternType(object):
 
-    def __init__(self, name, rawtype, transport_mode, codes, octave_value):
+    def __init__(self,
+                 name,
+                 rawtype,
+                 transport_mode,
+                 codes,
+                 octave_value,
+                 hash_function):
         self.name = name
         self.rawtype = rawtype
         self.transport_mode = transport_mode
         self.codes = codes
         self.octave_value =  octave_value
+        self.hash_function = hash_function
 
     def get_name(self):
         return self.name
@@ -51,6 +58,10 @@ class ExternType(object):
 
     def is_octave_value(self):
         return self.octave_value
+
+    def has_hash_function(self):
+        return self.hash_function
+
 
 class UserFunction(object):
 
@@ -113,8 +124,9 @@ class Parameter(object):
 
 class Project(object):
 
-    def __init__(self, name, extenv, target_mode, description):
+    def __init__(self, name, root_directory, extenv, target_mode, description):
         self.name = name
+        self.root_directory = root_directory
         self.extenv = extenv
         self.target_mode = target_mode
         self.nets = []
@@ -124,6 +136,9 @@ class Project(object):
         self.parameters = {}
         self.build_options = {}
         self.head_code = ""
+
+    def get_root_directory(self):
+        return self.root_directory
 
     def get_name(self):
         return self.name
@@ -183,6 +198,11 @@ class Project(object):
     def get_net(self, id):
         for net in self.nets:
             if net.id == id:
+                return net
+
+    def get_net_of_edge(self, edge):
+        for net in self.nets:
+            if edge.uid in [ e.uid for e in net.get_all_edges() ]:
                 return net
 
     def get_place(self, place_id):
@@ -302,8 +322,15 @@ def load_extern_type(element):
         rawtype = utils.xml_str(element, "raw-type")
         transport_mode = utils.xml_str(element, "transport-mode")
         octave_value = utils.xml_bool(element, "octave-value")
-        codes = dict((utils.xml_str(e, "name"), e.text) for e in element.findall("code"))
-        return ExternType(name, rawtype, transport_mode, codes, octave_value)
+        hash_function = utils.xml_bool(element, "hash")
+        codes = dict((utils.xml_str(e, "name"), e.text)
+                      for e in element.findall("code"))
+        return ExternType(name,
+                          rawtype,
+                          transport_mode,
+                          codes,
+                          octave_value,
+                          hash_function)
 
     if t == "protobuffer":
         raise Exception("Need implementation")
@@ -355,7 +382,8 @@ def load_project(element):
     name = utils.xml_str(element, "name")
     extenv = utils.xml_str(element, "extenv")
     target_mode = utils.xml_str(element, "target-mode", "default")
-    p = Project(name, extenv, target_mode, description)
+    root_directory = utils.xml_str(element, "root-directory")
+    p = Project(name, root_directory, extenv, target_mode, description)
 
     load_configuration(element.find("configuration"), p)
 

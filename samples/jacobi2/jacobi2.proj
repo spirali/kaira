@@ -1,15 +1,15 @@
-<project extenv="C++"><configuration><parameter default="10" description="" name="LIMIT" type="Int" /><parameter default="4" description="" name="SIZE_X" type="Int" /><parameter default="4" description="" name="SIZE_Y" type="Int" /><parameter default="200" description="" name="TEMP" type="Int" /><extern-type name="Row" octave-value="False" raw-type="Row" transport-mode="Custom" type="native"><code name="getsize">	return ROW_DATA_SIZE;
+<project extenv="C++"><configuration><parameter default="10" description="" name="LIMIT" type="Int" /><parameter default="4" description="" name="SIZE_X" type="Int" /><parameter default="4" description="" name="SIZE_Y" type="Int" /><parameter default="200" description="" name="TEMP" type="Int" /><extern-type hash="False" name="Row" octave-value="False" raw-type="Row" transport-mode="Custom" type="native"><code name="getsize">	return ROW_DATA_SIZE;
 </code><code name="unpack">	const double *data = (double *) unpacker.unpack(ROW_DATA_SIZE);
 	return Row(data);
 </code><code name="pack">	packer.pack(obj.get_raw_data(), ROW_DATA_SIZE);
-</code></extern-type><extern-type name="Data" octave-value="False" raw-type="Data" transport-mode="Custom" type="native"><code name="unpack">	int t, size = unpacker.unpack_int();
+</code></extern-type><extern-type hash="False" name="Data" octave-value="False" raw-type="Data" transport-mode="Custom" type="native"><code name="getstring">	return "Data";
+</code><code name="unpack">	int t, size = unpacker.unpack_int();
 	Data d(0, size);
 	for (t = 0; t &lt; size; t++)
 	{
 		d.set_raw_row(t, (double*) unpacker.unpack(ROW_DATA_SIZE));
 	}
 	return d;
-</code><code name="getstring">	return "Data";
 </code><code name="pack">	int t, size = obj.get_size();
 	packer.pack_int(size);
 	for (t = 0; t &lt; size; t++) {
@@ -26,13 +26,9 @@
 #include &lt;algorithm&gt;
 #include &lt;iomanip&gt;
 
-#define WIDTH parameter_SIZE_X()
+#define WIDTH param::SIZE_X()
 #define ROW_DATA_SIZE (sizeof(double) * WIDTH)
 
-int parameter_WORKERS();
-int parameter_SIZE_Y();
-int parameter_SIZE_X();
-int parameter_TEMP();
 
 class Row {
 	
@@ -140,11 +136,11 @@ class Data {
 
 		void set_fixed_temp()
 		{
-			int source_y = parameter_SIZE_Y() / 2;
+			int source_y = param::SIZE_Y() / 2;
 			if (source_y &gt;= position &amp;&amp; source_y &lt; position + size) {
 				source_y -= position;
-				int source_x = parameter_SIZE_X() / 2;
-				array1[ (source_y + 1) * (WIDTH + 2) + (source_x + 1) ] = parameter_TEMP();
+				int source_x = param::SIZE_X() / 2;
+				array1[ (source_y + 1) * (WIDTH + 2) + (source_x + 1) ] = param::TEMP();
 			}
 		}
 		
@@ -208,17 +204,17 @@ class Data {
 
 int id_to_position(int process_count, int iid)
 {
-	int rows_per_instance = ((parameter_SIZE_Y() - 1) / process_count) + 1;
+	int rows_per_instance = ((param::SIZE_Y() - 1) / process_count) + 1;
 	return rows_per_instance * iid;
 }
 
 int id_to_size(int process_count, int iid)
 {
-	int rows_per_instance = ((parameter_SIZE_Y() - 1) / process_count) + 1;
+	int rows_per_instance = ((param::SIZE_Y() - 1) / process_count) + 1;
 	int first = rows_per_instance * iid;
 	int end = first + rows_per_instance;
-	if (parameter_SIZE_Y() &lt; end) {
-		end = parameter_SIZE_Y();
+	if (param::SIZE_Y() &lt; end) {
+		end = param::SIZE_Y();
 	}
 	return end - first;
 }</head-code></configuration><net id="101" name="Main" net-type="main"><place id="103" init_string="" place_type="Data" radius="20" x="70" y="285"><code>	int process_id = ctx.process_id();

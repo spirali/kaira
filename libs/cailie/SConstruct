@@ -10,7 +10,8 @@ source_files =  [
 	"packing.cpp",
 	"listener.cpp",
 	"tracelog.cpp",
-	"utils.cpp"
+	"utils.cpp",
+	"parameters.cpp",
 ]
 
 Export("source_files")

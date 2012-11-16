@@ -6,18 +6,35 @@
 #include "tracelog.h"
 #include <limits.h>
 
-class CaThread {
+class CaThreadBase {
+	public:
+		CaThreadBase() : tracelog(NULL) {}
+
+		int get_id() { return id; }
+		virtual ~CaThreadBase() {}
+
+		virtual void quit_all() = 0;
+		virtual int get_process_count() const = 0;
+		virtual int get_threads_count() const = 0;
+		virtual int get_process_id() const = 0;
+
+		CaTraceLog* get_tracelog() { return tracelog; }
+	protected:
+		int id;
+		CaTraceLog *tracelog;
+};
+
+class CaThread : public CaThreadBase {
 	public:
 		CaThread();
 		~CaThread();
-		int get_id() { return id; }
 		void start();
 		void join();
 		void run_scheduler();
 
-		int get_process_id() { return process->get_process_id(); }
-		int get_process_count() { return process->get_process_count(); }
-		int get_threads_count() { return process->get_threads_count(); }
+		int get_process_id() const { return process->get_process_id(); }
+		int get_process_count() const { return process->get_process_count(); }
+		int get_threads_count() const { return process->get_threads_count(); }
 
 		#ifdef CA_MPI
 		CaMpiRequests * get_requests() { return &requests; }
@@ -48,9 +65,11 @@ class CaThread {
 
 		CaNet * spawn_net(int def_index);
 
-		void set_process(CaProcess *process, int id) { this->process = process; this->id = id; }
+		void set_process(CaProcess *process, int id) {
+			this->process = process;
+			this->id = id;
+		}
 
-		CaTraceLog* get_tracelog() { return tracelog; }
 		void set_tracelog(CaTraceLog *tracelog, int id) { this->tracelog = tracelog; this->msg_id = id; }
 		int get_msg_id() { return msg_id; };
 		int get_new_msg_id();
@@ -61,13 +80,11 @@ class CaThread {
 		pthread_t thread;
 		pthread_mutex_t messages_mutex;
 		CaThreadMessage *messages;
-		int id;
 
 		#ifdef CA_MPI
 		CaMpiRequests requests;
 		#endif
 
-		CaTraceLog *tracelog;
 		int msg_id;
 };
 

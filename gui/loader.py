@@ -80,6 +80,7 @@ def load_extern_type(element, project):
         p.set_raw_type(utils.xml_str(element, "raw-type"))
         p.set_transport_mode(utils.xml_str(element, "transport-mode"))
         p.set_octave_value(utils.xml_bool(element, "octave-value", False))
+        p.set_hash_function(utils.xml_bool(element, "hash", False))
         for e in element.findall("code"):
             name = utils.xml_str(e, "name")
             p.set_function_code(name, e.text)

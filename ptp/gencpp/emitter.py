@@ -17,7 +17,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-infix_functions = [ "+", "-", "*", "/", "==", "!=", "&&", "||", "<", ">", "<=", ">=" ]
+infix_functions = [ "+", "-", "*", "/", "%", "==", "!=", "&&", "||", "<", ">", "<=", ">=" ]
 
 from base.neltypes import Type
 
@@ -96,7 +96,7 @@ class Emitter(object):
             return "false"
 
     def parameter(self, name):
-        return "__param_" + name
+        return "param::{0}()".format(name)
 
     def variable(self, name):
         return self.variable_emitter(name)

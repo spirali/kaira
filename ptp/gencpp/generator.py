@@ -28,11 +28,15 @@ import program
 import library
 import octave
 import rpc
+import statespace
 
 class CppGenerator:
 
     def __init__(self, project):
         self.project = project
+
+    def get_filename(self, directory, suffix):
+        return os.path.join(directory, self.project.get_name() + suffix)
 
     def get_place_user_fn_header(self, place_id):
         place = self.project.get_place(place_id)
@@ -73,13 +77,18 @@ class CppGenerator:
 class CppProgramGenerator(CppGenerator):
 
     def build(self, directory):
-        source_filename = os.path.join(directory, self.project.get_name() + ".cpp")
-
-        builder = build.Builder(self.project, source_filename)
+        builder = build.Builder(self.project, self.get_filename(directory, ".cpp"))
         program.write_standalone_program(builder)
         builder.write_to_file()
 
         makefiles.write_program_makefile(self.project, directory)
+
+    def build_statespace(self, directory):
+        builder = build.Builder(self.project, self.get_filename(directory, ".cpp"))
+        statespace.write_statespace_program(builder)
+        builder.write_to_file()
+
+        makefiles.write_statespace_makefile(self.project, directory)
 
 
 class CppLibGenerator(CppGenerator):
@@ -108,8 +117,8 @@ class CppLibGenerator(CppGenerator):
 
 
     def build_client_library(self, directory):
-        source_filename = os.path.join(directory, self.project.get_name() + ".cpp")
-        header_filename = os.path.join(directory, self.project.get_name() + ".h")
+        source_filename = self.get_filename(directory, ".cpp")
+        header_filename = self.get_filename(directory, ".h")
 
         # Build .cpp
         builder = build.Builder(self.project, source_filename)
@@ -142,8 +151,8 @@ class CppLibGenerator(CppGenerator):
         makefiles.write_server_makefile(self.project, server_directory)
 
     def build_library(self, directory):
-        source_filename = os.path.join(directory, self.project.get_name() + ".cpp")
-        header_filename = os.path.join(directory, self.project.get_name() + ".h")
+        source_filename = self.get_filename(directory, ".cpp")
+        header_filename = self.get_filename(directory, ".h")
 
         # Build .cpp
         builder = build.Builder(self.project, source_filename)

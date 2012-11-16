@@ -6,6 +6,7 @@
 #include "cailie.h"
 #include "listener.h"
 #include "utils.h"
+#include "parameters.h"
 
 #include <getopt.h>
 #include <assert.h>
@@ -19,6 +20,7 @@ CaNetDef **defs;
 int defs_count = 0;
 CaNet *master_net = NULL;
 CaListener *ca_listener = NULL;
+std::vector<CaParameter*> ca_parameters;
 
 size_t ca_trace_log_size = 0;
 
@@ -36,12 +38,32 @@ void ca_project_description(const char *str) {
 	ca_project_description_string = str;
 }
 
+static void check_parameters()
+{
+	bool exit_flag = false;
+	for (size_t t = 0; t < ca_parameters.size(); t++) {
+		if (!ca_parameters[t]->check_mode_before_run()) {
+			exit_flag = true;
+		}
+	}
+	if (exit_flag) {
+		exit(1);
+	}
+}
+
 int ca_main()
 {
+	check_parameters();
+
 	#ifdef CA_MPI
 	CaServiceMessage *m = (CaServiceMessage*) malloc(sizeof(CaServiceMessage));
 	m->type = CA_SM_WAKE;
-	process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), process->get_thread(0), 0);
+	process->broadcast_packet(
+		CA_TAG_SERVICE,
+		m,
+		sizeof(CaServiceMessage),
+		process->get_thread(0),
+		0);
 	process->start_and_join();
 	process->clear();
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -87,25 +109,6 @@ int ca_main()
 	return 0;
 }
 
-static int ca_set_argument(int params_count, const char **param_names, int **param_data, char *name, char *value)
-{
-	int t;
-	for (t = 0; t < params_count; t++) {
-		if (!strcmp(name, param_names[t])) {
-			char *err = NULL;
-			int i = strtol(value, &err, 10);
-			if (*err != '\0') {
-				fprintf(stderr, "Invalid parameter value\n");
-				exit(1);
-			}
-			(*param_data[t]) = i;
-			return t;
-		}
-	}
-	fprintf(stderr, "Unknown parameter '%s'\n", name);
-	exit(1);
-}
-
 void ca_finalize()
 {
 	#ifdef CA_SHMEM
@@ -124,7 +127,12 @@ void ca_finalize()
 		CaServiceMessage *m =
 		(CaServiceMessage *) malloc(sizeof(CaServiceMessage));
 		m->type = CA_SM_EXIT;
-		process->broadcast_packet(CA_TAG_SERVICE, m, sizeof(CaServiceMessage), process->get_thread(0), 0);
+		process->broadcast_packet(
+			CA_TAG_SERVICE,
+			m,
+			sizeof(CaServiceMessage),
+			process->get_thread(0),
+			0);
 	}
 	MPI_Finalize();
 	delete process;
@@ -138,7 +146,12 @@ void ca_finalize()
 	}
 }
 
-void ca_init(int argc, char **argv, size_t params_count, const char **param_names, int **param_data, const char **param_descs)
+void ca_init(int argc,
+			 char **argv,
+			 std::vector<CaParameter*> &parameters,
+			 const std::string &extra_args,
+			 void (extra_args_callback)(char, char*, void*),
+			 void *extra_args_data)
 {
 	CaTraceLog::init();
 	size_t t;
@@ -149,27 +162,24 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 		{ NULL,		0,	NULL,  0}
 	};
 
-	bool setted[params_count];
-	for (t = 0; t < params_count; t++) {
-		setted[t] = false;
-	}
-
 	atexit(ca_finalize);
-
-	while ((c = getopt_long (argc, argv, "hp:t:l:s:br:T:", longopts, NULL)) != -1)
+	ca_parameters = parameters;
+	std::string all_args = std::string("hp:t:l:s:br:T:") + extra_args;
+	while ((c = getopt_long (argc, argv, all_args.c_str(), longopts, NULL)) != -1)
 		switch (c) {
 			case 'h': {
 				size_t max_len = 0;
-				for (t = 0; t < params_count; t++) {
-					if (max_len > strlen(param_names[t])) {
-						max_len = strlen(param_names[t]);
+				for (t = 0; t < parameters.size(); t++) {
+					if (max_len > parameters[t]->get_name().size()) {
+						max_len = parameters[t]->get_name().size();
 					}
 				}
-				for (t=0; t < params_count; t++) {
-					printf("Parameters:\n");
-					printf("%s", param_names[t]);
-					for (size_t s = strlen(param_names[t]); s < max_len; s++) { printf(" "); }
-					printf(" - %s\n", param_descs[t]);
+				printf("Parameters:\n");
+				for (t=0; t < parameters.size(); t++) {
+					printf("%s", parameters[t]->get_name().c_str());
+					for (size_t s = parameters[t]->get_name().size();
+							s < max_len; s++) { printf(" "); }
+					printf(" - %s\n", parameters[t]->get_description().c_str());
 				}
 				exit(0);
 			}
@@ -197,8 +207,7 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 				}
 				*s = 0;
 				s++;
-				int r = ca_set_argument(params_count, param_names, param_data, str, s);
-				setted[r] = true;
+				ca_set_parameter(parameters, str, s);
 			} break;
 			case 's': {
 				if (!strcmp(optarg, "auto")) {
@@ -225,16 +234,12 @@ void ca_init(int argc, char **argv, size_t params_count, const char **param_name
 			} break;
 			case '?':
 			default:
-				exit(1);
+				if (extra_args_callback != NULL) {
+					extra_args_callback(c, optarg, extra_args_data);
+				} else {
+					exit(1);
+				}
 			}
-	bool exit_f = false;
-	for (t = 0; t < params_count; t++) {
-		if (!setted[t]) {
-			exit_f = true;
-			fprintf(stderr, "Mandatory parameter '%s' required\n", param_names[t]);
-		}
-	}
-	if (exit_f) { exit(1); }
 
 	#ifdef CA_MPI
 	int provided;
@@ -330,7 +335,6 @@ CaProcess * ca_get_first_process()
 	#ifdef CA_SHMEM
 	return processes[0];
 	#endif
-
 }
 
 std::vector<int> ca_range(int from, int upto)
@@ -352,16 +356,40 @@ void ca_write_header(FILE *out, int process_count, int threads_count)
 		}
 	}
 
-	CaOutput output;
+	CaOutput output(out);
 	output.child("header");
 	output.set("pointer-size", (int) sizeof(void*));
 	output.set("process-count", process_count);
 	output.set("threads-count", threads_count);
 	output.set("description-lines", lines);
-	CaOutputBlock *block = output.back();
-	block->write(out);
-	delete block;
+	output.back();
 	fputs("\n", out);
 	fputs(ca_project_description_string, out);
 	fputs("\n", out);
+}
+
+size_t ca_hash_string(const std::string &v) {
+	std::string::const_iterator i;
+	size_t r = 37 * v.size();
+    int j = 0;
+	for (i = v.begin(); i != v.end() && j < 256; i++, j++) {
+		r = r * 101 + (*i);
+	}
+	return r;
+}
+
+size_t ca_hash(void *v, size_t size, size_t h) {
+	char *vv = (char *) v;
+	for (size_t t = 0; t < size; t++) {
+		h = h * 101 + vv[t];
+	}
+	return h;
+}
+
+size_t ca_hash_double(double v) {
+	return ca_hash(&v, sizeof(double));
+}
+
+size_t ca_hash_float(float v) {
+	return ca_hash(&v, sizeof(float));
 }

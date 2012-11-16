@@ -28,8 +28,18 @@ import writer
 def write_library_functions(builder):
     for net in builder.project.nets:
             write_library_function(builder, net)
-    build.write_parameters_setters(builder, )
+    write_parameters_setters(builder)
     write_library_init_function(builder, )
+
+def write_parameters_setters(builder):
+    for p in builder.project.get_parameters():
+        builder.line("void set_pararameter_{0}({1} value)",
+                     p.get_name(),
+                     builder.emit_type(p.get_type()))
+        builder.block_begin()
+        builder.line("param::{0}.__set_value(value);", p.get_name())
+        builder.block_end()
+
 
 def write_library(builder, header_filename):
     builder.line("#include \"{0}\"", header_filename)
@@ -61,26 +71,7 @@ def write_library_header_file(builder):
 def write_library_init_function(builder):
     builder.line("void calib_init(int argc, char **argv)")
     builder.block_begin()
-    builder.line("ca_project_description({0});",
-        builder.emitter.const_string(builder.project.description))
-    params = builder.project.get_parameters()
-    names = ",".join((builder.emitter.const_string(p.name) for p in params))
-    builder.line("const char *pnames[] = {{{0}}};", names)
-    descriptions = ",".join((builder.emitter.const_string(p.description) for p in params))
-    builder.line("const char *pdesc[] = {{{0}}};", descriptions)
-    pvalues = ",".join(("&__param_" + p.name for p in params))
-    builder.line("int *pvalues[] = {{{0}}};", pvalues)
-    builder.emptyline()
-    builder.line("ca_init(argc, argv, {0}, pnames, pvalues, pdesc);",
-        len(builder.project.get_parameters()))
-
-    for net in builder.project.nets:
-        buildnet.write_register_net(builder, net)
-
-    defs = [ "def_{0.id}".format(net) for net in builder.project.nets ]
-    builder.line("CaNetDef *defs[] = {{{0}}};", ",".join(defs))
-    builder.line("ca_setup({0}, defs);", len(defs));
-
+    buildnet.write_main_setup(builder)
     builder.block_end()
 
 def write_library_function(builder, net):
