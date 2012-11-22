@@ -278,7 +278,7 @@ class App:
             return
 
         if transition.get_name() != "":
-            name = "T:" + transition.get_name()
+            name = "T: {0} <id: {1}>".format(transition.get_name(), transition.get_id())
         else:
             name = "T: <unnamed" + str(transition.get_id()) + ">"
         generator = self.get_safe_generator()
