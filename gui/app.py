@@ -138,8 +138,12 @@ class App:
             dlg.hide()
 
     def export_tracelog_table(self):
+        filename = self.run_file_dialog("Export tracelog table", "save", "csv", "*.csv")
+        if filename is None:
+            return
         tab = self.window.get_current_tab()
-        tab.widget.export_tracelog_table()
+        tab.widget.export_tracelog_table(filename)
+        self.console_write("Tracelog table '{0}' exported.\n".format(filename), "success")
 
     def run_file_dialog(self, title, mode, filter_name=None, pattern=None):
         if mode == "open":
@@ -164,12 +168,22 @@ class App:
             self._add_file_filters(dialog, ((filter_name, pattern),), all_files=True)
 
         try:
-            if dialog.run() == gtk.RESPONSE_OK:
-                return dialog.get_filename()
-            else:
-                return None
+            response = dialog.run()
+            filename = dialog.get_filename()
         finally:
             dialog.destroy()
+
+        if response == gtk.RESPONSE_OK:
+            if mode == "save" and \
+               os.path.isfile(filename) and \
+               not self.show_yesno_dialog(
+                   "File '{0}' already exists. Do you want to overwrite it?"
+                        .format(filename)):
+               return None
+            return filename
+        else:
+            return None
+
 
     def load_project(self):
         filename = self.run_file_dialog("Open project", "open", "Project", "*.proj")
@@ -474,6 +488,16 @@ class App:
                                       buttons=gtk.BUTTONS_OK)
         try:
             error_dlg.run()
+        finally:
+            error_dlg.destroy()
+
+    def show_yesno_dialog(self, text):
+        error_dlg = gtk.MessageDialog(parent=self.window,
+                                      type=gtk.MESSAGE_QUESTION,
+                                      message_format=text,
+                                      buttons=gtk.BUTTONS_YES_NO)
+        try:
+            return error_dlg.run() == gtk.RESPONSE_YES
         finally:
             error_dlg.destroy()
 
