@@ -212,15 +212,20 @@ class MainWindow(gtk.Window):
         add("Run _simulation in Valgrind",
             lambda: self.app.simulation_start(valgrind=True),
             "project")
+        add("_Connect to application", self.app.connect_to_application)
+
+        menu = gtk.Menu()
+        item = gtk.MenuItem("_Tracelog")
+        item.set_submenu(menu)
+        main_menu.append(item)
+
+        add("Open tracelo_g", self.app.load_tracelog)
+        add("E_xport tracelog table", self.app.export_tracelog_table, "tracelog")
 
         menu = gtk.Menu()
         item = gtk.MenuItem("_Analysis")
         item.set_submenu(menu)
         main_menu.append(item)
-
-        add("Open tracelo_g", self.app.load_tracelog)
-        add("_Connect to application", self.app.connect_to_application)
-        menu.append(gtk.SeparatorMenuItem())
 
         add("Run state space _analysis", self.app.run_statespace_analysis, "project")
         add("Open _report", self.app.load_report)

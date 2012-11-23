@@ -137,6 +137,10 @@ class App:
         finally:
             dlg.hide()
 
+    def export_tracelog_table(self):
+        tab = self.window.get_current_tab()
+        tab.widget.export_tracelog_table()
+
     def run_file_dialog(self, title, mode, filter_name=None, pattern=None):
         if mode == "open":
             action = gtk.FILE_CHOOSER_ACTION_OPEN

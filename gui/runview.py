@@ -61,11 +61,6 @@ class RunView(gtk.VBox):
             upper=self.tracelog.get_runinstances_count(), step_incr=1, page_incr=1, page_size=1))
         toolbar = gtk.HBox(False)
 
-        button = gtk.Button("Export")
-        button.connect(
-            "clicked", self._export_bigtable)
-        toolbar.pack_start(button, False, False)
-
         combo = gtk.combo_box_new_text()
         for name, item in self.views:
             combo.append_text(name)
@@ -107,9 +102,9 @@ class RunView(gtk.VBox):
         self.netinstance_view.set_runinstance(runinstance)
         self.update_labels()
 
-    def _export_bigtable(self, w):
+    def export_tracelog_table(self):
         chooser = gtk.FileChooserDialog(
-                title="Export big table", action=gtk.FILE_CHOOSER_ACTION_SAVE,
+                title="Export tracelog table", action=gtk.FILE_CHOOSER_ACTION_SAVE,
                 buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                          gtk.STOCK_SAVE, gtk.RESPONSE_OK))
 
