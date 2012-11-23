@@ -151,7 +151,7 @@ class MainWindow(gtk.Window):
         add("_Open project", self.app.load_project)
         add("I_mport project", self.app.import_project)
         add("_Save project", self.app.save_project, "project")
-        add("Save project _as", self.app.save_project, "project")
+        add("Save project _as", self.app.save_project_as, "project")
         menu.append(gtk.SeparatorMenuItem())
         add("_Quit", gtk.main_quit)
 

@@ -226,7 +226,7 @@ class App:
             tab.close()
 
     def save_project_as(self):
-        filename = self.run_file_dialog("Save project", "save", "Project", "*.project")
+        filename = self.run_file_dialog("Save project", "save", "Project", "*.proj")
         if filename is None:
             return
         if filename[-5:] != ".proj":
