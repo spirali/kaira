@@ -24,10 +24,10 @@ import mainwindow
 from runview import NetInstanceView
 
 class SimViewTab(mainwindow.Tab):
-    def __init__(self, app, simulation, tabname = "Simulation"):
+    def __init__(self, app, simulation, tabname="Simulation", mainmenu_groups=()):
         self.simulation = simulation
         simview = SimView(app, simulation)
-        mainwindow.Tab.__init__(self, tabname, simview, None)
+        mainwindow.Tab.__init__(self, tabname, simview, mainmenu_groups=mainmenu_groups)
 
     def close(self):
         mainwindow.Tab.close(self)

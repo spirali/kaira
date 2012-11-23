@@ -55,7 +55,6 @@ class App:
     def __init__(self, args):
         self.window = MainWindow(self)
         self.window.set_size_request(500,450)
-        self.window.project_is_active(False)
         self.nv = None
         self._open_welcome_tab()
         self.grid_size = 1
@@ -94,14 +93,16 @@ class App:
         self.window.console.reset()
         self._project_changed()
         self._project_filename_changed()
-        self.window.project_is_active(True)
 
     def init_tabs(self):
         self.window.close_all_tabs()
         self.nv = NetView(self, self.project)
         self.nv.transition_edit_callback = self.transition_edit
         self.nv.place_edit_callback = self.place_edit
-        self.window.add_tab(Tab("Nets", self.nv, has_close_button = False))
+        self.window.add_tab(Tab("Nets",
+                                self.nv,
+                                mainmenu_groups=("project", "undo"),
+                                has_close_button=False))
 
     def new_project(self):
         def project_name_changed(w = None):
@@ -185,7 +186,7 @@ class App:
                 return
         t = self._catch_io_error(lambda: TraceLog(filename))
         rv = runview.RunView(self, t)
-        self.window.add_tab(Tab("Tracelog", rv))
+        self.window.add_tab(Tab("Tracelog", rv, mainmenu_groups=("tracelog",)))
 
     def load_report(self, filename=None):
         if filename is None:
@@ -202,7 +203,7 @@ class App:
             self._save_project()
 
     def close_current_tab(self, force=False):
-        tab = self.window.current_tab()
+        tab = self.window.get_current_tab()
         if force or tab.has_close_button():
             tab.close()
 
@@ -229,13 +230,23 @@ class App:
                          lambda: self.console_write("Build finished\n", "success"))
 
     def run_statespace_analysis(self):
-        self.window.add_tab(Tab("Statespace", statespace.StatespaceConfig(self)))
+        self.window.add_tab(Tab("Statespace",
+                                statespace.StatespaceConfig(self),
+                                mainmenu_groups=("project",)))
 
     def get_grid_size(self):
         return self.grid_size
 
     def set_grid_size(self, grid_size):
         self.grid_size = grid_size
+
+    def undo(self):
+        tab = self.window.get_current_tab()
+        tab.widget.undo()
+
+    def redo(self):
+        tab = self.window.get_current_tab()
+        tab.widget.redo()
 
     def _catch_io_error(self, fcn, return_on_ok=None, return_on_err=None):
         try:
@@ -267,7 +278,10 @@ class App:
         if self.window.switch_to_tab_by_key("codetests"):
             return
         widget = codetests.CodeTestList(self)
-        self.window.add_tab(SaveTab("Tests", widget, "codetests"))
+        self.window.add_tab(SaveTab("Tests",
+                                    widget,
+                                    "codetests",
+                                    mainmenu_groups=()))
 
     def transition_edit(self, transition, lineno = None):
         position = ("", lineno) if lineno is not None else None
@@ -286,7 +300,10 @@ class App:
             return
         header = generator.get_transition_user_fn_header(transition.id)
         editor = codeedit.TransitionCodeEditor(self.project, transition, header)
-        self.window.add_tab(Tab(name, editor, transition))
+        self.window.add_tab(Tab(name,
+                                editor,
+                                transition,
+                                mainmenu_groups=("project",)))
         editor.jump_to_position(position)
 
     def place_edit(self, place, lineno = None):
@@ -303,7 +320,7 @@ class App:
         header = generator.get_place_user_fn_header(place.id)
         name = "P: " + str(place.get_id())
         editor = codeedit.PlaceCodeEditor(self.project, place, header)
-        self.window.add_tab(Tab(name, editor, place))
+        self.window.add_tab(Tab(name, editor, place, mainmenu_groups=("project",)))
         editor.jump_to_position(position)
 
 
@@ -314,7 +331,10 @@ class App:
             return
 
         editor = externtypes.ExternTypeEditor(self.project, externtype)
-        self.window.add_tab(Tab(externtype.get_name(), editor, externtype))
+        self.window.add_tab(Tab(externtype.get_name(),
+                                editor,
+                                externtype,
+                                mainmenu_groups=("project",)))
         editor.jump_to_position(position)
 
     def function_edit(self, function, lineno = None):
@@ -325,7 +345,10 @@ class App:
             return
         try:
             editor = functions.FunctionEditor(self.project, function)
-            self.window.add_tab(Tab(function.get_name(), editor, function))
+            self.window.add_tab(Tab(function.get_name(),
+                                    editor,
+                                    function,
+                                    mainmenu_groups=("project",)))
             editor.jump_to_position(position)
         except ptp.PtpException, e:
             self.console_write("Cannot open function '{0}'\n".format(function.get_name()), "error")
@@ -344,14 +367,17 @@ class App:
     def project_config(self):
         if self.window.switch_to_tab_by_key("project-config"):
             return
-        w = ProjectConfig(self)
-        self.window.add_tab(Tab("Project", w, "project-config"))
+        widget = ProjectConfig(self)
+        self.window.add_tab(Tab("Project",
+                                widget,
+                                "project-config",
+                                mainmenu_groups=("project",)))
 
     def edit_settings(self):
         if self.window.switch_to_tab_by_key("settings"):
             return
-        w = settings.SettingsWidget(self)
-        self.window.add_tab(Tab("Settings", w, "settings"))
+        widget = settings.SettingsWidget(self)
+        self.window.add_tab(Tab("Settings", widget, "settings"))
 
     def edit_head(self, lineno = None):
         position = ("", lineno) if lineno is not None else None
@@ -362,7 +388,9 @@ class App:
             return
 
         editor = codeedit.HeadCodeEditor(self.project)
-        self.window.add_tab(codeedit.TabCodeEditor("Head", editor, "Head"))
+        tab = codeedit.TabCodeEditor("Head", editor, "Head")
+        tab.mainmenu_groups = ("project",)
+        self.window.add_tab(tab)
         editor.jump_to_position(position)
 
     def run_simulated_program(self, name, directory, simconfig, valgrind):
@@ -405,7 +433,9 @@ class App:
             simulation.quit_on_shutdown = True
             simulation.set_callback(
                 "inited",
-                lambda: self.window.add_tab(simview.SimViewTab(self, simulation)))
+                lambda: self.window.add_tab(simview.SimViewTab(self,
+                                                               simulation,
+                                                               mainmenu_groups=("project",))))
             simulation.set_callback("shutdown", lambda: sprocess.shutdown())
             simulation.connect("localhost", port)
 
@@ -474,7 +504,9 @@ class App:
     def connect_to_application(self):
         def inited():
             self.console_write("Connected\n", "success")
-            self.window.add_tab(simview.SimViewTab(self, simulation, "{0}:{1}".format(host, port)))
+            self.window.add_tab(simview.SimViewTab(self,
+                                                   simulation,
+                                                   "{0}:{1}".format(host, port)))
 
         address = simview.connect_dialog(self.window);
         if address is None:

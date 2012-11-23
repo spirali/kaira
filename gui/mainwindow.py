@@ -40,17 +40,15 @@ class MainWindow(gtk.Window):
         self.notebook.set_scrollable(True)
         paned.pack1(self.notebook, True)
 
+        self.notebook.connect("switch-page", self._on_tab_switch)
+
         self.console = Console()
         self.console.set_size_request(300,100)
         paned.pack2(self.console, False)
 
         vbox.show_all()
 
-    def project_is_active(self, value):
-        for w in self.project_sensitives:
-            w.set_sensitive(value)
-
-    def add_tab(self, tab, switch = True):
+    def add_tab(self, tab, switch=True):
         if tab.has_close_button():
             button = gtk.Button()
             button.set_relief(gtk.RELIEF_NONE)
@@ -85,7 +83,7 @@ class MainWindow(gtk.Window):
         num = self.notebook.page_num(tab.get_widget())
         self.notebook.set_current_page(num)
 
-    def switch_to_tab_by_key(self, key, fn = None):
+    def switch_to_tab_by_key(self, key, fn=None):
         for tab in self.tablist:
             if tab.get_key() == key:
                 self.switch_to_tab(tab)
@@ -103,7 +101,7 @@ class MainWindow(gtk.Window):
         for tab in self.tablist[:]:
             tab.close()
 
-    def current_tab(self):
+    def get_current_tab(self):
         widget = self.notebook.get_nth_page(self.notebook.get_current_page())
         for tab in self.tablist:
             if tab.get_widget() == widget:
@@ -112,6 +110,9 @@ class MainWindow(gtk.Window):
     def _create_main_menu(self):
         ag = gtk.AccelGroup()
         self.add_accel_group(ag)
+        menu = None
+        main_menu = gtk.MenuBar()
+        self.mainmenu_groups = {}
 
         def add_accelerator(item, key, ctrl=False, shift=False):
             mask = 0
@@ -125,178 +126,126 @@ class MainWindow(gtk.Window):
                                  mask,
                                  gtk.ACCEL_VISIBLE)
 
-        self.project_sensitives = []
-        self.tracing_sensitives = []
+        def add(label,
+                callback,
+                event_group=None,
+                key=None,
+                ctrl=False,
+                shift=False):
+            item = gtk.MenuItem(label)
+            item.connect("activate", lambda w: callback())
+            menu.append(item)
+            if key is not None:
+                add_accelerator(item, key, ctrl, shift)
+            if event_group is not None:
+                self.mainmenu_groups.setdefault(event_group, [])
+                self.mainmenu_groups[event_group].append(item)
+            return item
 
-        file_menu = gtk.Menu()
+        menu = gtk.Menu()
+        item = gtk.MenuItem("_Project")
+        item.set_submenu(menu)
+        main_menu.append(item)
 
-        item = gtk.MenuItem("_New project")
-        item.connect("activate", lambda w: self.app.new_project())
-        file_menu.append(item)
+        add("_New project", self.app.new_project)
+        add("_Open project", self.app.load_project)
+        add("I_mport project", self.app.import_project)
+        add("_Save project", self.app.save_project, "project")
+        add("Save project _as", self.app.save_project, "project")
+        menu.append(gtk.SeparatorMenuItem())
+        add("_Quit", gtk.main_quit)
 
-        item = gtk.MenuItem("_Open project")
-        item.connect("activate", lambda w: self.app.load_project())
-        file_menu.append(item)
-
-        item = gtk.MenuItem("I_mport project")
-        item.connect("activate", lambda w: self.app.import_project())
-        self.project_sensitives.append(item)
-        file_menu.append(item)
-
-        item = gtk.MenuItem("_Save project")
-        item.connect("activate", lambda w: self.app.save_project())
-        self.project_sensitives.append(item)
-        file_menu.append(item)
-
-        item = gtk.MenuItem("Save project _as")
-        item.connect("activate", lambda w: self.app.save_project_as())
-        self.project_sensitives.append(item)
-        file_menu.append(item)
-
-
-        file_menu.append(gtk.SeparatorMenuItem())
-
-        item = gtk.MenuItem("_Quit")
-        item.connect("activate", gtk.main_quit)
-        file_menu.append(item)
-
-        simulator_menu = gtk.Menu()
-
-        item = gtk.MenuItem("_Run simulation")
-        item.connect("activate", lambda w: self.app.simulation_start())
-        add_accelerator(item, "F7")
-        simulator_menu.append(item)
-
-        item = gtk.MenuItem("Confi_gure simulation")
-        item.connect("activate", lambda w: self.app.open_simconfig_dialog())
-        add_accelerator(item, "F8")
-        simulator_menu.append(item)
-
-        simulator_menu.append(gtk.SeparatorMenuItem())
-
-        item = gtk.MenuItem("Run _simulation in Valgrind")
-        item.connect("activate", lambda w: self.app.simulation_start(valgrind = True))
-        simulator_menu.append(item)
-
-        build_menu = gtk.Menu()
-
-        item = gtk.MenuItem("B_uild project (release)")
-        item.connect("activate", lambda w: self.app.build_project("release"))
-        build_menu.append(item)
-
-        item = gtk.MenuItem("Build project (t_raced)")
-        item.connect("activate", lambda w: self.app.build_project("traced"))
-        build_menu.append(item)
-
-        item = gtk.MenuItem("Build project (s_tatespace)")
-        item.connect("activate", lambda w: self.app.build_project("statespace"))
-        build_menu.append(item)
-
-        analyze_menu = gtk.Menu()
-
-        item = gtk.MenuItem("Open tracelo_g")
-        item.connect("activate", lambda w: self.app.load_tracelog())
-        analyze_menu.append(item)
-
-        item = gtk.MenuItem("_Connect to application")
-        item.connect("activate", lambda w: self.app.connect_to_application())
-        analyze_menu.append(item)
-
-        analyze_menu.append(gtk.SeparatorMenuItem())
-
-        item = gtk.MenuItem("Run state space _analysis")
-        item.connect("activate", lambda w: self.app.run_statespace_analysis())
-        analyze_menu.append(item)
-
-        item = gtk.MenuItem("Open _report")
-        item.connect("activate", lambda w: self.app.load_report())
-        analyze_menu.append(item)
-
-        view_menu = gtk.Menu()
+        menu = gtk.Menu()
+        item = gtk.MenuItem("_View")
+        item.set_submenu(menu)
+        main_menu.append(item)
 
         item = gtk.RadioMenuItem(None, "No grid")
         item.connect("activate", lambda w: self.app.set_grid_size(1))
         item.set_active(True)
-        view_menu.append(item)
+        menu.append(item)
 
         item = gtk.RadioMenuItem(item, "Small grid (5x5)")
         item.connect("activate", lambda w: self.app.set_grid_size(5))
-        view_menu.append(item)
+        menu.append(item)
 
         item = gtk.RadioMenuItem(item, "Big grid (25x25)")
         item.connect("activate", lambda w: self.app.set_grid_size(25))
-        view_menu.append(item)
+        menu.append(item)
 
-        view_menu.append(gtk.SeparatorMenuItem())
+        menu.append(gtk.SeparatorMenuItem())
+        add("Hide error messages", self.app.hide_error_messages, "project")
+        menu.append(gtk.SeparatorMenuItem())
+        self.close_tab_item = add("Close tab", self.app.close_current_tab, key="W", ctrl=True)
 
-        item = gtk.MenuItem("Hide error messages")
-        item.connect("activate", lambda w: self.app.hide_error_messages())
-        view_menu.append(item)
-
-        view_menu.append(gtk.SeparatorMenuItem())
-
-        item = gtk.MenuItem("Close tab")
-        item.connect("activate", lambda w: self.app.close_current_tab())
-        add_accelerator(item, "W", ctrl=True)
-        view_menu.append(item)
-
-        edit_menu = gtk.Menu()
-
-        item = gtk.MenuItem("Undo")
-        item.connect("activate", lambda w: self.app.nv.undo())
-        add_accelerator(item, "Z", ctrl=True)
-        edit_menu.append(item)
-
-        item = gtk.MenuItem("Redo")
-        item.connect("activate", lambda w: self.app.nv.redo())
-        add_accelerator(item, "Z", ctrl=True, shift=True)
-        edit_menu.append(item)
-
-        edit_menu.append(gtk.SeparatorMenuItem())
-
-        item = gtk.MenuItem("Edit _project details")
-        item.connect("activate", lambda w: self.app.project_config())
-        edit_menu.append(item)
-
-        item = gtk.MenuItem("Edit _head code")
-        item.connect("activate", lambda w: self.app.edit_head())
-        edit_menu.append(item)
-
-        item = gtk.MenuItem("Edit _tests")
-        item.connect("activate", lambda w: self.app.edit_code_tests())
-        edit_menu.append(item)
-
-        edit_menu.append(gtk.SeparatorMenuItem())
-
-        item = gtk.MenuItem("Edit _settings")
-        item.connect("activate", lambda w: self.app.edit_settings())
-        edit_menu.append(item)
-
-        main_menu = gtk.MenuBar()
-        item = gtk.MenuItem("_Project")
-        item.set_submenu(file_menu)
-        main_menu.append(item)
-        item = gtk.MenuItem("_View")
-        item.set_submenu(view_menu)
-        self.project_sensitives.append(item)
-        main_menu.append(item)
+        menu = gtk.Menu()
         item = gtk.MenuItem("_Edit")
-        item.set_submenu(edit_menu)
-        self.project_sensitives.append(item)
+        item.set_submenu(menu)
         main_menu.append(item)
+
+        add("Undo", self.app.undo, "undo", key="Z", ctrl=True)
+        add("Redo", self.app.redo, "undo", key="Z", ctrl=True, shift=True)
+        menu.append(gtk.SeparatorMenuItem())
+        add("Edit _project details", self.app.project_config, "project")
+        add("Edit _head code", self.app.edit_head, "project")
+        add("Edit _tests", self.app.edit_code_tests, "project")
+        menu.append(gtk.SeparatorMenuItem())
+        add("Edit _settings", self.app.edit_settings)
+
+        menu = gtk.Menu()
         item = gtk.MenuItem("_Build")
-        item.set_submenu(build_menu)
-        self.project_sensitives.append(item)
+        item.set_submenu(menu)
         main_menu.append(item)
+
+        add("Build project (_relea_se)", lambda: self.app.build_project("release"), "project")
+        add("Build project (_traced)", lambda: self.app.build_project("traced"), "project")
+        add("Build project (_statespace)", lambda: self.app.build_project("statespace"), "project")
+
+        menu = gtk.Menu()
         item = gtk.MenuItem("_Simulation")
-        item.set_submenu(simulator_menu)
-        self.project_sensitives.append(item)
+        item.set_submenu(menu)
         main_menu.append(item)
+
+        add("_Run simulation", self.app.simulation_start, "project", key="F7")
+        add("Confi_gure simulation", self.app.open_simconfig_dialog, "project", key="F8")
+        menu.append(gtk.SeparatorMenuItem())
+        add("Run _simulation in Valgrind",
+            lambda: self.app.simulation_start(valgrind=True),
+            "project")
+
+        menu = gtk.Menu()
         item = gtk.MenuItem("_Analysis")
-        item.set_submenu(analyze_menu)
-        self.project_sensitives.append(item)
+        item.set_submenu(menu)
         main_menu.append(item)
+
+        add("Open tracelo_g", self.app.load_tracelog)
+        add("_Connect to application", self.app.connect_to_application)
+        menu.append(gtk.SeparatorMenuItem())
+
+        add("Run state space _analysis", self.app.run_statespace_analysis, "project")
+        add("Open _report", self.app.load_report)
+
         return main_menu
+
+    def _on_tab_switch(self, w, page, page_index):
+        widget = self.notebook.get_nth_page(page_index)
+        tab = None
+        for t in self.tablist:
+            if t.get_widget() == widget:
+                tab = t
+                break
+
+        if tab is None:
+            self.close_tab_item.set_sensitive(False)
+            groups = ()
+        else:
+            self.close_tab_item.set_sensitive(tab.has_close_button())
+            groups = tab.mainmenu_groups
+
+        for group in self.mainmenu_groups:
+             sensitive = group in groups
+             for item in self.mainmenu_groups[group]:
+                 item.set_sensitive(sensitive)
 
 
 class Console(gtk.ScrolledWindow):
@@ -370,10 +319,16 @@ class Tab:
 
     window = None
 
-    def __init__(self, name, widget, key = None, has_close_button = True):
+    def __init__(self,
+                 name,
+                 widget,
+                 key=None,
+                 mainmenu_groups=(),
+                 has_close_button=True):
         self.name = name
         self.widget = widget
         self.key = key
+        self.mainmenu_groups = mainmenu_groups
         self.close_button = has_close_button
 
     def get_widget(self):
