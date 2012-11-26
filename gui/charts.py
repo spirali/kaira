@@ -882,7 +882,7 @@ def time_sum_chart(names, values, title="", xlabel="", ylabel=""):
     return ChartWidget(figure, with_legend=False, xlock=True)
 
 def utilization_chart(names, values, title="", xlabel="", ylabel="", 
-        threads_count=1):
+        threads_count=1, idles=None):
 
     if not names or not values:
         raise Exception(
@@ -900,6 +900,14 @@ def utilization_chart(names, values, title="", xlabel="", ylabel="",
     yticks = []
 
     alpha_chanel = 1.0/threads_count
+
+    if idles is not None:
+        for i, lidle in enumerate(idles):
+            y = ((i+1) * ywidth) + (i+1)
+            ax.broken_barh(
+                lidle, (y, ywidth),
+                edgecolor='face', facecolor='#eaa769', alpha=alpha_chanel)
+
     for i, ldata in enumerate(values):
         y = ((i+1) * ywidth) + (i+1)
         yticks.append(y + ywidth/2)
@@ -920,8 +928,13 @@ def utilization_chart(names, values, title="", xlabel="", ylabel="",
         label.set_verticalalignment('center')
 
     p = mpl_Rectangle((0, 0), 1, 1, edgecolor='green', fc='green', alpha=0.75)
-    ax.plegend = ax.legend(
-        [p], ["Running"], loc="upper left", fancybox=True, shadow=True)
+    if idles is not None:
+        idle_leg = mpl_Rectangle((0,0), 1, 1, edgecolor='#eaa769', fc='#eaa769', alpha=0.75)
+        ax.plegend = ax.legend(
+            [p,idle_leg], ["Running", "Idle"], loc="upper left", fancybox=True, shadow=True)
+    else:
+        ax.plegend = ax.legend(
+            [p], ["Running"], loc="upper left", fancybox=True, shadow=True)
 
     ax.xaxis.grid(True, linestyle="-", which='major', color='black', alpha=0.7)
     ax.xaxis.set_major_formatter(mpl_FuncFormatter(
