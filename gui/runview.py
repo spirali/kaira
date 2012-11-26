@@ -192,6 +192,8 @@ class RunView(gtk.VBox):
 
     def _processes_utilization(self):
         values = self.tracelog.statistics["threads"]
+        idles = self.tracelog.statistics["idles"]
+
         names = []
         for p in range(self.tracelog.process_count):
             for t in range(self.tracelog.threads_count):
@@ -199,10 +201,12 @@ class RunView(gtk.VBox):
 
         names.reverse()
         values.reverse()
+        idles.reverse()
         return charts.utilization_chart(
                    names,
                    values,
-                   "The running time of each processes", "Time", "Process")
+                   "The running time of each processes", "Time", "Process",
+                   idles=idles)
 
     def _transitions_utilization(self):
         names = self.tracelog.statistics["transition_names"]

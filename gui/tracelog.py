@@ -168,6 +168,7 @@ class TraceLog:
         trans_gthreads_names, trans_gthreads_values = ri.get_transitions_utilization_gthreads()
         self.statistics = {
             "threads" : ri.threads_data,
+            "idles" : ri.idles_data,
             "transition_names" : transition_names,
             "transition_values" : transition_values,
             "tokens_names" : tokens_names,
@@ -539,11 +540,13 @@ class DataCollectingRunInstance(RunInstance):
         RunInstance.__init__(self, project, process_count, threads_count)
 
         self.threads_data = [ [] for t in range(self.process_count * self.threads_count)]
+        self.idles_data = [ [] for t in range(self.process_count * self.threads_count)]
         self.transitions_data = {} # [transition_id] -> [ (start_time, lenght) ]
         self.tokens_data = {} # [process_id][place_id] -> int
         self.group_nets = {}
         self.last_time = 0
         self.last_event_info = None
+        self.idles = {}
         self.tokens_info = dict()
         self.sender_info = dict()
 
@@ -571,6 +574,19 @@ class DataCollectingRunInstance(RunInstance):
         self.bigtable['time_send'].append(time_length)
         self.bigtable['place_id'].append(place_id)
         self.bigtable['token_value'].append(token_value)
+
+    def store_idle(self, process_id, thread_id, time):
+        idx = process_id * self.threads_count + thread_id
+        idle_start_time = self.idles.pop(idx, None)
+        if idle_start_time is not None:
+            self.add_entry(
+                "idle", self.last_event_info.get_name(),
+                idle_start_time,
+                process_id, thread_id,
+                process_id, thread_id,
+                "", time - idle_start_time, "", "")
+            return (idle_start_time, time - idle_start_time)
+        return None
 
     def get_entry(self, idx):
         action      = self.bigtable['action'][idx]
@@ -611,9 +627,13 @@ class DataCollectingRunInstance(RunInstance):
 
     def transition_fired(self, process_id, thread_id, time, transition_id, values):
         RunInstance.transition_fired(self, process_id, thread_id, time, transition_id, values)
+        idle_value = self.store_idle(process_id, thread_id, time)
+        if idle_value is not None:
+            self.idles_data[process_id * self.threads_count + thread_id].append(idle_value)
+
         self.last_time = time
         self.last_event_info = EventInformation(
-            "_transition_fired", time, process_id, thread_id, transition_id, "")
+            "_transition_fired", time, process_id, thread_id, transition_id, 0)
 
     def transition_finished(self, process_id, thread_id, time):
         time_start = self.activites[process_id * self.threads_count + thread_id].time
@@ -653,6 +673,10 @@ class DataCollectingRunInstance(RunInstance):
 
     def event_receive(self, process_id, thread_id, time, msg_id):
         send_time = RunInstance.event_receive(self, process_id, thread_id, time, msg_id)
+        idle_value = self.store_idle(process_id, thread_id, time)
+        if idle_value is not None:
+            self.idles_data[process_id * self.threads_count + thread_id].append(idle_value)
+
         self.last_time = time
         (snd_process, snd_thread) = self.sender_info.pop(msg_id, (-1, -1))
         self.add_entry(
@@ -662,9 +686,15 @@ class DataCollectingRunInstance(RunInstance):
             process_id, thread_id,
             "", send_time, "", "")
 
+
         self.last_event_info = EventInformation(
             "_event_send", time, process_id, thread_id, "", send_time)
         return send_time
+
+    def event_idle(self, process_id, thread_id, time):
+        RunInstance.event_idle(self, process_id, thread_id, time)
+        idx = process_id * self.threads_count + thread_id
+        self.idles[idx] = time
 
     def add_token(self, place_id, token_pointer, token_value, send_time):
         RunInstance.add_token(self, place_id, token_pointer, token_value, send_time)
