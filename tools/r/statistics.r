@@ -1,0 +1,81 @@
+# th - as table_header
+th_action        <- "action"
+th_prv_action    <- "prv_action"
+th_start_time    <- "start_time"
+th_snd_process   <- "snd_process"
+th_snd_thread    <- "snd_thread"
+th_rcv_process   <- "rcv_process"
+th_rcv_thread    <- "rcv_thread"
+th_id_transition <- "id_transition"
+th_send_time     <- "send_time"
+th_id_place      <- "id_place"
+th_token_value   <- "token_value"
+
+table_header <- c(th_action, th_prv_action, th_start_time,
+    th_snd_process, th_snd_thread, th_rcv_process, th_rcv_thread,
+    th_id_transition, th_send_time, th_id_place, th_token_value)
+
+# a - as action
+a_transition_executed <- "transition_executed"
+a_send_receive        <- "send_receive"
+a_add_token           <- "add_token"
+a_remove_token        <- "remove_token"
+a_idle                <- "idle"
+
+load_bigtable <- function(filename, sep=",") {
+    bigt <- read.table(filename, header=TRUE, sep=sep, col.names=table_header)
+    return(bigt)
+}
+
+# TODO: add function for remove outliers
+boxplot_transition_time_executing <- function(bigtable, nprocesses, id_transition, rm_outliers=TRUE) {
+    p <- vector(mode="list", length=nprocesses)
+    for (i in 1:nprocesses) {
+        proc_id <- i - 1
+        condition <- bigtable[[th_action]] == a_transition_executed &
+                     bigtable[[th_rcv_process]] == proc_id &
+                     bigtable[[th_id_transition]] == id_transition &
+                     !is.na(bigtable[[th_send_time]])
+
+        entry <- bigtable[[th_send_time]][condition]
+
+        if (rm_outliers) {
+            entry <- remove_outliers(entry)
+        }
+        p[[i]] <- entry[!is.na(entry)]
+    }
+    return(p)
+}
+
+sum_processes <- function(bigtable, nprocesses, id_transition=NULL) {
+    p <- c(1:nprocesses)
+
+    condition <- bigtable[[th_action]] == a_transition_executed
+    if (!is.null(id_transition)) {
+        condition <- condition & bigtable[[th_id_transition]] == id_transition
+    }
+
+    for (i in 1:nprocesses) {
+        proc_id <- i - 1    
+        # add id process to a general condition
+        actual_cond <- condition & bigtable[[th_rcv_process]] == proc_id
+        entry <- bigtable[[th_send_time]][actual_cond]
+        p[i] <- sum(entry, na.rm=TRUE)
+    }
+    return(p)
+}
+
+time_vs_send_time <- function(bigtable, id_process, id_transition=NULL, rm_outliers=TRUE) {
+
+    condition <- bigtable[[th_action]] == a_transition_executed &
+                 bigtable[[th_rcv_process]] == id_process
+
+    if (!is.null(id_transition)) {
+        condition <- condition & bigtable[[th_id_transition]] == id_transition
+    }
+
+    times <- bigtable[[th_start_time]][condition]
+    time_lengths <- bigtable[[th_send_time]][condition & !is.na(bigtable[[th_send_time]])]
+
+    return(list(t=times, tl=time_lengths))
+}
