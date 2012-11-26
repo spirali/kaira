@@ -27,7 +27,15 @@ load_bigtable <- function(filename, sep=",") {
     return(bigt)
 }
 
-# TODO: add function for remove outliers
+remove_outliers <- function(x, na.rm=TRUE, ...) {
+    qnt <- quantile(x, probs=c(0.25, 0.75), na.rm=na.rm, ...)
+    H <- 1.5 * IQR(x, na.rm=na.rm)
+    y <- x
+    y[x < (qnt[1] - H)] <- NA
+    y[x > (qnt[2] + H)] <- NA
+    return(y)
+}
+
 boxplot_transition_time_executing <- function(bigtable, nprocesses, id_transition, rm_outliers=TRUE) {
     p <- vector(mode="list", length=nprocesses)
     for (i in 1:nprocesses) {
@@ -76,6 +84,11 @@ time_vs_send_time <- function(bigtable, id_process, id_transition=NULL, rm_outli
 
     times <- bigtable[[th_start_time]][condition]
     time_lengths <- bigtable[[th_send_time]][condition & !is.na(bigtable[[th_send_time]])]
+
+    if (rm_outliers) {
+        times <- remove_outliers(times)
+        time_lengths <- remove_outliers(time_lengths)
+    }
 
     return(list(t=times, tl=time_lengths))
 }
