@@ -39,7 +39,9 @@ def prepare_makefile(project, config = None):
     makefile.set("CFLAGS", project.get_build_option("CFLAGS"))
 
     makefile.set("INCLUDE",
-                 "-I" + paths.CAILIE_DIR + " " + " ".join("-I" + s for s in config["include"]))
+                 "-I{0} -I{1} {2}".format(paths.CAILIE_DIR,
+                                          project.root_directory,
+                                          " ".join("-I" + s for s in config["include"])))
 
     makefile.set("LIBDIR",
                  "-L" + paths.CAILIE_LIB_DIR + " " + " ".join("-L" + s for s in config["libdir"]))
