@@ -7,13 +7,14 @@ th_snd_thread    <- "snd_thread"
 th_rcv_process   <- "rcv_process"
 th_rcv_thread    <- "rcv_thread"
 th_id_transition <- "id_transition"
+th_tr_value     <- "tr_value"
 th_send_time     <- "send_time"
 th_id_place      <- "id_place"
 th_token_value   <- "token_value"
 
 table_header <- c(th_action, th_prv_action, th_start_time,
     th_snd_process, th_snd_thread, th_rcv_process, th_rcv_thread,
-    th_id_transition, th_send_time, th_id_place, th_token_value)
+    th_id_transition, th_tr_value, th_send_time, th_id_place, th_token_value)
 
 # a - as action
 a_transition_executed <- "transition_executed"
@@ -36,21 +37,31 @@ remove_outliers <- function(x, na.rm=TRUE, ...) {
     return(y)
 }
 
-boxplot_transition_time_executing <- function(bigtable, nprocesses, id_transition, rm_outliers=TRUE) {
+transition_executing_time <- function(
+        bigtable, id_process, id_transition=NULL, rm_outliers=TRUE) {
+    condition <- bigtable[[th_action]] == a_transition_executed &
+                 bigtable[[th_rcv_process]] == id_process &
+                 !is.na(bigtable[[th_send_time]])
+    if(!is.null(id_transition)) {
+        condition <- condition & bigtable[[th_id_transition]] == id_transition
+    }
+
+    entry <- bigtable[[th_send_time]][condition]
+    if (rm_outliers) {
+        entry <- remove_outliers(entry)
+    }
+    return(entry)
+}
+
+# tet - transition execution time
+tet_projection_through_processes <- function(
+        bigtable, nprocesses, id_transition=NULL, rm_outliers=TRUE) {
+
     p <- vector(mode="list", length=nprocesses)
     for (i in 1:nprocesses) {
-        proc_id <- i - 1
-        condition <- bigtable[[th_action]] == a_transition_executed &
-                     bigtable[[th_rcv_process]] == proc_id &
-                     bigtable[[th_id_transition]] == id_transition &
-                     !is.na(bigtable[[th_send_time]])
-
-        entry <- bigtable[[th_send_time]][condition]
-
-        if (rm_outliers) {
-            entry <- remove_outliers(entry)
-        }
-        p[[i]] <- entry[!is.na(entry)]
+        id_process <- i - 1
+        p[[i]] <- transition_time_executing(
+            bigtable, id_process, id_transition, rm_outliers)
     }
     return(p)
 }
@@ -64,7 +75,7 @@ sum_processes <- function(bigtable, nprocesses, id_transition=NULL) {
     }
 
     for (i in 1:nprocesses) {
-        proc_id <- i - 1    
+        proc_id <- i - 1
         # add id process to a general condition
         actual_cond <- condition & bigtable[[th_rcv_process]] == proc_id
         entry <- bigtable[[th_send_time]][actual_cond]
@@ -73,7 +84,7 @@ sum_processes <- function(bigtable, nprocesses, id_transition=NULL) {
     return(p)
 }
 
-time_vs_send_time <- function(bigtable, id_process, id_transition=NULL, rm_outliers=TRUE) {
+time_vs_time_length <- function(bigtable, id_process, id_transition=NULL, rm_outliers=TRUE) {
 
     condition <- bigtable[[th_action]] == a_transition_executed &
                  bigtable[[th_rcv_process]] == id_process
@@ -83,12 +94,31 @@ time_vs_send_time <- function(bigtable, id_process, id_transition=NULL, rm_outli
     }
 
     times <- bigtable[[th_start_time]][condition]
-    time_lengths <- bigtable[[th_send_time]][condition & !is.na(bigtable[[th_send_time]])]
+    time_lengths <- bigtable[[th_send_time]][condition]
 
     if (rm_outliers) {
         times <- remove_outliers(times)
         time_lengths <- remove_outliers(time_lengths)
     }
 
-    return(list(t=times, tl=time_lengths))
+    return(list(times=times, time_lengths=time_lengths))
+}
+
+#*******************************************************************************
+# GRAPHS
+
+boxplot_tet_through_processes <- function(
+        bigtable, nprocesses, id_transition=NULL, rm_outliers=TRUE,
+        xlim=NULL, ylim=NULL) {
+
+    boxplot_data <- tet_projection_through_processes(
+        bigtable, nprocesses, id_transition, rm_outliers)
+
+    title <- "TET on processes"
+
+    boxplot(boxplot_data,
+            names=c(0:(nprocesses-1)),
+            xlim=xlim, ylim=ylim,
+            title=title)
+
 }

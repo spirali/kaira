@@ -41,7 +41,7 @@ class RunView(gtk.VBox):
             ("Process utilization", self._processes_utilization()),
             ("Transitions utilization", self._transitions_utilization()),
             ("Transitions utilization threads group", self._transition_utilization_group_threads()),
-            ("Numbers of tokens", self._place_chart()),
+#            ("Numbers of tokens", self._place_chart()),
             # TET = Transition Execution Time
             ("TETs per process", self._processes_histogram()),
             ("Total TETs per process", self._processes_time_sum()),
