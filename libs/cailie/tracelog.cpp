@@ -3,6 +3,7 @@
 #include "output.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 
 struct timespec CaTraceLog::initial_time;
 
