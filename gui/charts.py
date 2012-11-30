@@ -42,9 +42,8 @@ from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
 class LineConfig:
 
     """ Information abou concrete line in a chart.
-    
     Keyword arguments:
-    mpl_line1 -- an instance of matplotlib.lines.Line2D, which is used in 
+    mpl_line1 -- an instance of matplotlib.lines.Line2D, which is used in
                  the original chart.
     x_values  -- x-values of the line.
     y_values  -- y-values of the line.
@@ -109,7 +108,7 @@ class LineConfig:
     def set_mpl_line1_visible(self, visible):
         self.mpl_line1_visible = visible
         self.__set_visible(visible, self.mpl_line1)
-    
+
     def get_mpl_line2_visible(self):
         return self.mpl_line2_visible;
 
@@ -136,7 +135,7 @@ class DrawLinesConfig:
     def __init__(self, lines_config):
         self.lines_config = lines_config
         self.count_of_changes = 0
-   
+
     def change_lines_config(self, change, change_legline_fn=utils.empty_fn):
 
         old_count_of_changes = self.count_of_changes
@@ -147,7 +146,7 @@ class DrawLinesConfig:
         else:
             self.count_of_changes -= 1
             change_legline_fn(change.get_mpl_legline(), 'off')
-        
+
         # all lines will be shown (default state)
         if old_count_of_changes == 1 and self.count_of_changes == 0:
             for line_config in self.lines_config:
@@ -156,7 +155,7 @@ class DrawLinesConfig:
                 change_legline_fn(legline, 'original')
                 if line_config.get_mpl_line2() is not None:
                     line_config.set_mpl_line2_visible(False)
-        
+
         # one selected lines will be shown and other lines will be hide
         elif old_count_of_changes == 0 and self.count_of_changes == 1:
             for line_config in self.lines_config:
@@ -189,7 +188,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
                  **kwargs):
 
         mpl_Axes.__init__(
-            self, fig, rec, axisbg, frameon, sharex, sharey, label, 
+            self, fig, rec, axisbg, frameon, sharex, sharey, label,
             xscale, yscale, **kwargs)
         evt.EventSource.__init__(self)
 
@@ -534,7 +533,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
             legline = event.artist
             line_config = lined[legline]
             dlc.change_lines_config(line_config, change_legline_fn)
-            
+
             if line_config.get_mpl_line2() == 'create_new':
                 line2 = line_config.copy_mpl_line1()
                 self.add_line(line2)
@@ -565,7 +564,7 @@ class TimeChart(BasicChart):
                  **kwargs):
 
         self.__init__(
-            self, fig, rec, axisbg, frameon, sharex, sharey, label, 
+            self, fig, rec, axisbg, frameon, sharex, sharey, label,
             xscale, yscale, kwargs)
 
         # Connect the connection to replay slider. Event is connected through
@@ -627,7 +626,7 @@ class ChartWidget(gtk.VBox):
 
         btn_restore = gtk.ToolButton()
         btn_restore.connect(
-            "clicked", 
+            "clicked",
             lambda w: self._btn_restore_view_action(self.figure.gca()))
         btn_restore.set_stock_id(gtk.STOCK_ZOOM_100)
         btn_restore.set_tooltip_text("Restore view")
@@ -673,7 +672,7 @@ class ChartWidget(gtk.VBox):
         btn_moving.set_tooltip_text("Catch canvas (press key 'm')")
         btn_moving.connect("toggled", self._btn_moving_action)
         ax.set_callback(
-            "moving_flag_changed", 
+            "moving_flag_changed",
             lambda moving_flag: self._moving_flag_changed(
                 moving_flag, btn_moving, btn_xlock, btn_ylock))
         toolbar.add(btn_moving)
@@ -725,8 +724,8 @@ class ChartWidget(gtk.VBox):
     def _btn_save_action(self, widget):
         # TODO: poradne navrhnout ukladaci okno!!
         dialog = gtk.FileChooserDialog(
-            "Save graph", None, gtk.FILE_CHOOSER_ACTION_SAVE, 
-            (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, 
+            "Save graph", None, gtk.FILE_CHOOSER_ACTION_SAVE,
+            (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                 gtk.STOCK_SAVE, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
 
@@ -783,7 +782,7 @@ def _register_histogram_pick_legend(ax, legend, lines_config):
         line_config = lined[legline]
         dlc.change_lines_config(line_config, change_legline_fn)
         if line_config.get_mpl_line2() == 'create_new':
-            bar = ax.bar(line_config.get_x_values(), line_config.get_y_values(), 
+            bar = ax.bar(line_config.get_x_values(), line_config.get_y_values(),
                     color=line_config.get_color(), alpha=0.6)
             line_config.set_mpl_line2(bar)
             line_config.set_mpl_line2_visible(True)
@@ -851,7 +850,7 @@ def time_sum_chart(names, values, title="", xlabel="", ylabel=""):
 
     if not names or not values:
         raise Exception(
-            "The input data for sum chart are incomplete: '{0}'!".format(title)) 
+            "The input data for sum chart are incomplete: '{0}'!".format(title))
 
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)
@@ -881,13 +880,13 @@ def time_sum_chart(names, values, title="", xlabel="", ylabel=""):
 
     return ChartWidget(figure, with_legend=False, xlock=True)
 
-def utilization_chart(names, values, title="", xlabel="", ylabel="", 
+def utilization_chart(names, values, title="", xlabel="", ylabel="",
         threads_count=1, idles=None):
 
     if not names or not values:
         raise Exception(
             "The input data for utilization chart" +
-            " are incomplete: '{0}'!".format(title)) 
+            " are incomplete: '{0}'!".format(title))
 
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)
@@ -912,7 +911,7 @@ def utilization_chart(names, values, title="", xlabel="", ylabel="",
         y = ((i+1) * ywidth) + (i+1)
         yticks.append(y + ywidth/2)
         ax.broken_barh(
-            ldata, (y, ywidth), 
+            ldata, (y, ywidth),
             edgecolor='face', facecolor='green', alpha=alpha_chanel)
 
     ax.set_yticks(yticks)
@@ -955,7 +954,7 @@ def place_chart(names, values, title="", xlabel="", ylabel=""):
 
     if not names or not values:
         raise Exception(
-            "The input data for place chart" + 
+            "The input data for place chart" +
             " are incomplete: '{0}'!".format(title))
 
     figure = mpl_Figure()

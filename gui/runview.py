@@ -200,27 +200,24 @@ class RunView(gtk.VBox):
 
 
     def _transitions_time_sum(self):
-#        values = self.tracelog.statistics["tr_tsum_values"]
-#        names = self.tracelog.statistics["tr_tsum_names"]
-#        return charts.time_sum_chart(
-#                names,
-#                values,
-#                "Sum times of each transitions",
-#                "Transition",
-#                "Time SUM")
-        return gtk.VBox()
+        values = self.tracelog.statistics["tr_tsum_values"]
+        names = self.tracelog.statistics["tr_tsum_names"]
+        return charts.time_sum_chart(
+                names,
+                values,
+                "Sum times of each transitions",
+                "Transition",
+                "Time SUM")
 
     def _processes_time_sum(self):
-#        values = self.tracelog.statistics["proc_tsum_values"]
-#        names = self.tracelog.statistics["proc_tsum_names"]
-#        return charts.time_sum_chart(
-#                names,
-#                values,
-#                "Sum times of each processes",
-#                "Process",
-#                "Time SUM")
-        return gtk.VBox()
-
+        values = self.tracelog.statistics["proc_tsum_values"]
+        names = self.tracelog.statistics["proc_tsum_names"]
+        return charts.time_sum_chart(
+                names,
+                values,
+                "Sum times of each processes",
+                "Process",
+                "Time SUM")
 
 class NetInstanceView(gtk.HPaned):
 

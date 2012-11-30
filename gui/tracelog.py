@@ -162,8 +162,8 @@ class TraceLog:
         self.bigtable = ri
         transition_names, transition_values = ri.get_transitions_utilization()
         tokens_names, tokens_values = ri.get_tokens_counts()
-#        tr_tsum_names, tr_tsum_values = ri.get_transitions_time_sum()
-#        proc_tsum_names, proc_tsum_values = self._make_processes_time_sum(ri.threads_data)
+        tr_tsum_names, tr_tsum_values = ri.get_transitions_time_sum()
+        proc_tsum_names, proc_tsum_values = self._make_processes_time_sum(ri.threads_data)
         proc_hist_names, proc_hist_values = self._make_processes_his(ri.threads_data)
         trans_gthreads_names, trans_gthreads_values = ri.get_transitions_utilization_gthreads()
         self.statistics = {
@@ -175,10 +175,10 @@ class TraceLog:
             "tokens_values" : tokens_values,
             "proc_hist_names" : proc_hist_names,
             "proc_hist_values" : proc_hist_values,
-#            "proc_tsum_names" : proc_tsum_names,
-#            "proc_tsum_values" : proc_tsum_values,
-#            "tr_tsum_names" : tr_tsum_names,
-#            "tr_tsum_values" : tr_tsum_values,
+            "proc_tsum_names" : proc_tsum_names,
+            "proc_tsum_values" : proc_tsum_values,
+            "tr_tsum_names" : tr_tsum_names,
+            "tr_tsum_values" : tr_tsum_values,
             "trans_gthreads_names" : trans_gthreads_names,
             "trans_gthreads_values" : trans_gthreads_values
         }
@@ -202,17 +202,17 @@ class TraceLog:
 
         return names, values
 
-#    def _make_processes_time_sum(self, data):
-#        names =  ["process {0}".format(p) for p in xrange(self.process_count)]
-#        values = []
-#        for process in data:
-#            sum = 0
-#            for thread in process:
-#                for times in thread:
-#                    sum += (times[1] - times[0])
-#            values.append(sum)
-#
-#        return names, values
+    def _make_processes_time_sum(self, data):
+        names =  ["process {0}".format(p) for p in xrange(self.process_count)]
+        values = []
+
+        for process in data:
+            sum = 0
+            for time in process:
+                sum += time[1]
+            values.append(sum)
+
+        return names, values
 
 class Trace:
 
@@ -562,7 +562,9 @@ class DataCollectingRunInstance(RunInstance):
                          'place_id'        : [],
                          'token_value'     : []}
 
-    def add_entry(self, action, previous_action, time, snd_process, snd_thread, process, thread, transition, time_length, place_id, token_value):
+    def add_entry(self, action, previous_action, time,
+            snd_process, snd_thread, process, thread,
+            transition, time_length, place_id, token_value):
         self.bigtable['action'].append(action)
         self.bigtable['previous_action'].append(previous_action)
         self.bigtable['time_start'].append(time)
@@ -601,7 +603,9 @@ class DataCollectingRunInstance(RunInstance):
         place_id    = self.bigtable['place_id'][idx]
         token_value = self.bigtable['token_value'][idx]
 
-        return (action, previous_action, time, snd_process, snd_thread, process, thread, transition, time_length, place_id, token_value)
+        return (action, previous_action, time,
+                snd_process, snd_thread, process, thread,
+                transition, time_length, place_id, token_value)
 
     def add_transition_data(self, process_id, thread_id, transition_id, value):
         if transition_id not in self.transitions_data:
@@ -646,7 +650,8 @@ class DataCollectingRunInstance(RunInstance):
             self.add_transition_data(process_id, thread_id, activity.transition.id, value)
 
             self.add_entry(
-                "transition_executed", self.last_event_info.get_name(), time_start, process_id, thread_id, process_id, thread_id,
+                "transition_executed", self.last_event_info.get_name(), time_start,
+                process_id, thread_id, process_id, thread_id,
                 activity.transition.id, (time - time_start), "", "")
             self.last_event_info = EventInformation(
                 "_transition_finished", time, process_id, thread_id,
@@ -710,7 +715,8 @@ class DataCollectingRunInstance(RunInstance):
 
         val = token_value[0] if token_value is not None else ""
         self.add_entry(
-            "add_token", previous_action, time, process, thread, process, thread, transition,
+            "add_token", previous_action, time,
+            process, thread, process, thread, transition,
             send_time, place_id, val)
 
     def remove_token(self, place_id, token_pointer):
@@ -727,48 +733,27 @@ class DataCollectingRunInstance(RunInstance):
         time_length = self.last_event_info.get_time_length()
 
         self.add_entry(
-            "remove_token", previous_action, time, process, thread, process, thread, transition,
+            "remove_token", previous_action, time,
+            process, thread, process, thread, transition,
             time_length, place_id, "")
 
     def get_transitions_utilization_gthreads(self):
-        dnames = {}
-        dvalues = {}
-        transition_ids = self.transitions_data.keys()
 
-        for transition_id in transition_ids:
-            transition_data = self.transitions_data[transition_id]
-            net, item = self.project.get_net_and_item(transition_id)
-
-            for process_id in range(self.process_count):
-                process_data = []
-                if process_id not in dvalues:
-                    dvalues[process_id] = []
-                if process_id not in dnames:
-                    dnames[process_id] = []
-                for thread_id in range(self.threads_count):
-                    process_data.append(transition_data[process_id * self.threads_count + thread_id])
-
-                threads_in_process = []
-                for threads in process_data:
-                    for thread in threads:
-                        if thread is not None:
-                            threads_in_process.append(thread)
-                dvalues[process_id].append(threads_in_process)
-
-                dnames[process_id].append("{0.name} {1.name}@{2}".format(
-                    net,
-                    item,
-                    process_id))
-
-        values = []         
+        values = []
         names = []
-        for process_id in range(self.process_count):
-            process_data = dvalues[process_id]
-            names_data = dnames[process_id]
-            for data, name in zip(process_data, names_data):
-                values.append(data)
-                names.append(name)
 
+        for process_id in xrange(self.process_count):
+            for transition_id, transition_data in self.transitions_data.items():
+                net, item = self.project.get_net_and_item(transition_id)
+                process_data = []
+                for thread_id in xrange(self.threads_count):
+                    index = process_id * self.threads_count + thread_id
+                    data = transition_data[index]
+                    for d in data:
+                        process_data.append(d)
+                values.append(process_data)
+                names.append(
+                    "{0.name} {1.name}@{2}".format(net, item, process_id))
         return names, values
 
     def get_transitions_utilization(self):
@@ -776,16 +761,15 @@ class DataCollectingRunInstance(RunInstance):
         values = []
         names = []
 
-        for transition_id, transition_data in self.transitions_data.items():
-           net, item = self.project.get_net_and_item(transition_id)
-           for process_id in xrange(self.process_count):
-               for thread_id in xrange(self.threads_count):
-                   index = process_id * self.threads_count + thread_id
-                   values.append(transition_data[index])
-                   names.append("{0.name} {1.name}@{2}`{3}".format(net,
-                                                                   item,
-                                                                   process_id,
-                                                                   thread_id))
+        for process_id in xrange(self.process_count):
+            for thread_id in xrange(self.threads_count):
+                for transition_id, transition_data in self.transitions_data.items():
+                    net, item = self.project.get_net_and_item(transition_id)
+                    index = process_id * self.threads_count + thread_id
+                    values.append(transition_data[index])
+                    names.append("{0.name} {1.name}@{2}`{3}".format(
+                        net, item, process_id, thread_id))
+
         return names, values
 
     def get_tokens_counts(self):
@@ -804,17 +788,17 @@ class DataCollectingRunInstance(RunInstance):
     def get_transitions_time_sum(self):
         names = []
         values = []
-        for process_id, p in self.transitions_data.items():
-            for transition_id, lst in p.items():
-                net, item = self.project.get_net_and_item(transition_id)
-                names.append("{0.name}({0.id}) {1.name}@{2}".format(
-                    net,
-                    item,
-                    process_id))
-                sum = 0
-                for times in lst:
-                    sum += (times[1] - times[0])
-                values.append(sum)
+        for transition_id, transition_data in self.transitions_data.items():
+            net, item = self.project.get_net_and_item(transition_id)
+            names.append("{0.name}({0.id}) {1.name}".format(net, item))
+            sum = 0
+            for process_id in xrange(self.process_count):
+                for thread_id in xrange(self.threads_count):
+                    index = process_id * self.threads_count + thread_id
+                    data = transition_data[index]
+                    for times in data:
+                        sum += times[1]
+            values.append(sum)
         return names, values
 
     def export(self, filename):
@@ -823,8 +807,14 @@ class DataCollectingRunInstance(RunInstance):
         for i in range(length):
             ent = self.get_entry(i)
             if ent is not None:
-                action, previous_action, time, snd_process, snd_thread, process, thread, transition, time_length, place_id, token_value = ent
+                action, previous_action, time, \
+                snd_process, snd_thread, process, thread, \
+                transition, time_length, place_id, token_value = ent
 
-                f.write("\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\",\"{6}\",\"{7}\",\"{8}\",\"{9}\",\"{10}\"\n".format(
-                    action, previous_action, time, snd_process, snd_thread, process, thread, transition, time_length, place_id, token_value))
+                f.write("\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\"," +
+                        "\"{6}\",\"{7}\",\"{8}\",\"{9}\",\"{10}\"\n".format(
+                            action, previous_action, time,
+                            snd_process, snd_thread, process,
+                            thread, transition, time_length,
+                            place_id, token_value))
         f.close()
