@@ -38,14 +38,14 @@ class RunView(gtk.VBox):
 
         self.views = [
             ("Replay", self.netinstance_view),
-            ("Process utilization", self._processes_utilization()),
-            ("Transitions utilization", self._transitions_utilization()),
-            ("Transitions utilization threads group", self._transition_utilization_group_threads()),
+            ("Utilizations of processes", self._processes_utilization()),
+            ("Utilizations of transitions", self._transitions_utilization()),
+            ("Utilizations of trans. (by threads)", self._transition_utilization_group_threads()),
             ("Numbers of tokens", self._place_chart()),
             # TET = Transition Execution Time
             ("TETs per process", self._processes_histogram()),
-            ("Total TETs per process", self._processes_time_sum()),
-            ("Total TETs per transition", self._transitions_time_sum())
+            ("Summations of TETs per process", self._processes_time_sum()),
+            ("Summations of TETs per transition", self._transitions_time_sum())
         ]
 
         self.pack_start(self._controlls(), False, False)
@@ -148,7 +148,7 @@ class RunView(gtk.VBox):
         return charts.utilization_chart(
                    names,
                    values,
-                   "The running time of each processes", "Time", "Process",
+                   "Utilizations of processes", "Time", "Processes",
                    idles=idles)
 
     def _transitions_utilization(self):
@@ -160,7 +160,7 @@ class RunView(gtk.VBox):
         return charts.utilization_chart(
                    names,
                    values,
-                   "The running time of each transitions",
+                   "Utilizations of transitions",
                    "Time",
                    "Transition")
 
@@ -173,7 +173,7 @@ class RunView(gtk.VBox):
         return charts.utilization_chart(
                 names,
                 values,
-                "The running time of each transitions",
+                "Utilization of transitions (group by threads)",
                 "Time",
                 "Transition", self.tracelog.threads_count)
 
@@ -184,9 +184,9 @@ class RunView(gtk.VBox):
         return charts.place_chart(
                 names,
                 values,
-                "Cout of tokens in places in time",
+                "Number of tokens in places",
                 "Time",
-                "Cout")
+                "Number of tokens")
 
     def _processes_histogram(self):
         names = self.tracelog.statistics["proc_hist_names"]
@@ -194,9 +194,9 @@ class RunView(gtk.VBox):
         return charts.histogram(
                 names,
                 values,
-                "Histogram of spent time",
-                "Time range",
-                "Count")
+                "Histograms of transition execution times",
+                "Time",
+                "Densitiy")
 
 
     def _transitions_time_sum(self):
@@ -205,9 +205,9 @@ class RunView(gtk.VBox):
         return charts.time_sum_chart(
                 names,
                 values,
-                "Sum times of each transitions",
-                "Transition",
-                "Time SUM")
+                "Summations of transition execution times",
+                "Transitions",
+                "Sum of times")
 
     def _processes_time_sum(self):
         values = self.tracelog.statistics["proc_tsum_values"]
@@ -215,9 +215,9 @@ class RunView(gtk.VBox):
         return charts.time_sum_chart(
                 names,
                 values,
-                "Sum times of each processes",
-                "Process",
-                "Time SUM")
+                "Summations of transition execution times for each processes",
+                "Processes",
+                "Sum of times")
 
 class NetInstanceView(gtk.HPaned):
 
