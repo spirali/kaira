@@ -251,12 +251,18 @@ class NetInstanceView(gtk.HPaned):
 
     def _refresh_perspectives(self, perspectives):
         p = self.get_perspective()
+        if p is not None:
+            name = self.get_perspective().name
+        else:
+            name = None
+        selected = False
         self.perspectives.clear()
-        for pe in perspectives:
-            i = self.perspectives.append((pe, str(pe.name)))
-            if p == pe:
+        for p in perspectives:
+            i = self.perspectives.append((p, str(p.name)))
+            if name == p.name:
                 self.perspectives.select_iter(i)
-        if p not in perspectives:
+                selected = True
+        if not selected:
             self.perspectives.select_first()
         self._perspectives_changed(None)
 
