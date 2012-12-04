@@ -22,7 +22,6 @@ import math
 import utils
 from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
-from copy import copy
 from sys import maxint
 import undoredo
 
@@ -411,12 +410,11 @@ class Transition(NetElement):
         if self.has_code():
             e.append(self.xml_code_element())
 
-        for edge in self.edges_to(postprocess = True):
+        for edge in self.edges_to(postprocess=True):
             e.append(edge.create_xml_export_element("edge-in"))
 
-        for edge in self.edges_from(postprocess = True):
+        for edge in self.edges_from(postprocess=True):
             e.append(edge.create_xml_export_element("edge-out"))
-
         if build_config.tracing and self.tracing:
             for t in self.tracing:
                 trace = xml.Element("trace")
@@ -637,6 +635,13 @@ class Edge(NetItem):
         self.inscription_param = 0.5
         self.offset = (0,10)
 
+    def simple_copy(self):
+        """ Copy of edge that preserves topological properties:
+            id, inscription, from_item and to_item """
+        e = Edge(self.net, self.id, self.from_item, self.to_item, [])
+        e.inscription = self.inscription
+        return e
+
     ## Add new point on to an edge.
     #  @param point Point which should be added.
     def add_point(self, point):
@@ -695,7 +700,7 @@ class Edge(NetItem):
     def make_complement(self):
         """ This function returns exact copy of the edge with changed directions,
             This is used during splitting bidirectional edges """
-        c = copy(self)
+        c = self.simple_copy()
         c.switch_direction()
         return c
 
@@ -705,7 +710,7 @@ class Edge(NetItem):
         edges = []
         for inscription in self.inscription.split(";"):
             if inscription.strip() != "":
-                c = copy(self)
+                c = self.simple_copy()
                 c.inscription = inscription
                 edges.append(c)
         return edges
