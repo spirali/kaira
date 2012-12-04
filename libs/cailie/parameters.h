@@ -16,9 +16,9 @@ class CaParameter{
 
 	public:
 		CaParameter(const std::string &name,
-						const std::string &description,
-						CaParameterMode mode)
-							: name(name), description(description), mode(mode)
+					const std::string &description,
+					CaParameterMode mode)
+						: name(name), description(description), mode(mode)
 						{}
 		virtual ~CaParameter() {};
 		virtual bool parse_value(const std::string &str) = 0;

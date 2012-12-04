@@ -64,10 +64,12 @@ def load_project_from_xml(root, filename):
 
 def load_parameter(element, project):
     p = Parameter()
-    p.set_name(utils.xml_str(element, "name"))
-    p.set_description(utils.xml_str(element, "description", ""))
-    p.set_default(utils.xml_str(element, "default", "0"))
-    p.set_type(utils.xml_str(element, "type"))
+    p.name = utils.xml_str(element, "name")
+    p.description = utils.xml_str(element, "description", "")
+    p.default = utils.xml_str(element, "default", "0")
+    p.type = utils.xml_str(element, "type")
+    p.policy = utils.xml_str(element, "policy", "mandatory")
+    p.changed()
     project.add_parameter(p)
 
 def load_extern_type(element, project):

@@ -375,39 +375,15 @@ class Parameter:
         self.name = ""
         self.type = "Int"
         self.description = ""
+        self.policy = "mandatory"
         self.default = "0"
-
-    def set_name(self, name):
-        self.name = name
-        self.changed()
-
-    def get_name(self):
-        return self.name
-
-    def set_type(self, type):
-        self.type = type
-        self.changed()
-
-    def get_type(self):
-        return self.type
-
-    def get_description(self):
-        return self.description
-
-    def get_default(self):
-        return self.default
-
-    def set_description(self, description):
-        self.description = description
-        self.changed()
-
-    def set_default(self, default):
-        self.default = default
-        self.changed()
 
     def changed(self):
         if self.project:
             self.project.reset_param_values()
+
+    def is_editable(self):
+        return self.policy != "constant"
 
     def as_xml(self):
         e = xml.Element("parameter")
@@ -415,6 +391,7 @@ class Parameter:
         e.set("type", self.type)
         e.set("description", self.description)
         e.set("default", self.default)
+        e.set("policy", self.policy)
         return e
 
 class ExternTypeBase:

@@ -188,10 +188,17 @@ def write_parameters_forward(builder):
 
 def write_parameters(builder):
     for p in builder.project.get_parameters():
-        builder.line("CaParameterInt param::{0}({1}, {2}, CA_PARAMETER_MANDATORY);",
+        policy = "CA_PARAMETER_" + p.get_policy().upper()
+        if p.get_policy() == "mandatory":
+            default = ""
+        else:
+            default = ", " + p.default
+        builder.line("CaParameterInt param::{0}({1}, {2}, {3}{4});",
                      p.name,
                      builder.emitter.const_string(p.name),
-                     builder.emitter.const_string(p.description))
+                     builder.emitter.const_string(p.description),
+                     policy,
+                     default)
 
 def write_tuple_class(builder, tp):
     class_name = tp.get_safe_name()

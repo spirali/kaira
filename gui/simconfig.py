@@ -51,9 +51,13 @@ class SimConfigDialog(gtk.Dialog):
         self.entries = {}
         self.vbox.pack_start(self.table)
 
-        self.processes_entry = self._add_entry(0, "<b>Processes</b>", str(project.simconfig.process_count))
+        self.processes_entry = self._add_entry(0,
+                                               "<b>Processes</b>",
+                                               str(project.simconfig.process_count))
         self.table_index = 1
-        for i, p in enumerate(project.get_parameters()):
+        parameters = [ parameter for parameter in project.get_parameters()
+                                 if parameter.is_editable() ]
+        for i, p in enumerate(parameters):
             self._add_parameter(i + 1, p)
 
         self.table.show_all()
@@ -80,8 +84,8 @@ class SimConfigDialog(gtk.Dialog):
         return entry
 
     def _add_parameter(self, table_index, param):
-        name = param.get_name() + " (" + param.get_type() + ")"
-        self.entries[param.get_name()] = self._add_entry(table_index, name, param.get_default())
+        name = "{0} ({1})".format(param.name, param.type)
+        self.entries[param.name] = self._add_entry(table_index, name, param.default)
 
     def _entry_changed(self, w):
         params_ok = all([ entry.get_text().strip() for entry in self.entries.values() ])

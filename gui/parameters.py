@@ -25,23 +25,46 @@ from project import Parameter
 def parameters_dialog(parameter, mainwindow):
     builder = gtkutils.load_ui("parameter-dialog")
     dlg = builder.get_object("parameter-dialog")
+
     try:
+        name = builder.get_object("name")
+        name.set_text(parameter.name)
 
-        wname = builder.get_object("name")
-        wname.set_text(parameter.get_name())
+        desc = builder.get_object("description")
+        desc.set_text(parameter.description)
 
-        wdesc = builder.get_object("description")
-        wdesc.set_text(parameter.get_description())
+        default = builder.get_object("default")
+        default.set_text(parameter.default)
 
-        wdefault = builder.get_object("default")
-        wdefault.set_text(parameter.get_default())
+        policy_mandatory = builder.get_object("policy_mandatory")
+        policy_optional = builder.get_object("policy_optional")
+        policy_constant = builder.get_object("policy_constant")
+
+        if parameter.policy == "mandatory":
+            policy_mandatory.set_active(True)
+        elif parameter.policy == "optional":
+            policy_optional.set_active(True)
+        elif parameter.policy == "constant":
+            policy_constant.set_active(True)
+        else:
+            raise Exception("Invalid parameter policy")
+
+        default.set_text(parameter.default)
 
         dlg.set_title("Parameter")
         dlg.set_transient_for(mainwindow)
         if dlg.run() == gtk.RESPONSE_OK:
-            parameter.set_name(wname.get_text())
-            parameter.set_description(wdesc.get_text())
-            parameter.set_default(wdefault.get_text())
+            parameter.name = name.get_text()
+            parameter.description = desc.get_text()
+            parameter.default = default.get_text()
+
+            if policy_mandatory.get_active():
+                parameter.policy = "mandatory"
+            if policy_optional.get_active():
+                parameter.policy = "optional"
+            if policy_constant.get_active():
+                parameter.policy = "constant"
+            parameter.changed()
             return True
         return False
     finally:
@@ -50,11 +73,17 @@ def parameters_dialog(parameter, mainwindow):
 class ParametersWidget(ObjectList):
 
     def __init__(self, project, mainwindow):
-        defs = [("_", object), ("Name", str), ("Policy", str), ("Type", str), ("Default", str), ("Description", str) ]
+        defs = [("_", object),
+                ("Name", str),
+                ("Policy", str),
+                ("Type", str),
+                ("Default", str),
+                ("Description", str)]
         buttons = [
             (None, gtk.STOCK_ADD, self._add_parameter),
             (None, gtk.STOCK_REMOVE, self._remove_parameter),
-            (None, gtk.STOCK_EDIT, self._edit_parameter) ]
+            (None, gtk.STOCK_EDIT, self._edit_parameter)]
+
         ObjectList.__init__(self, defs, buttons)
         self.project = project
         self.mainwindow = mainwindow
@@ -62,9 +91,9 @@ class ParametersWidget(ObjectList):
         self.fill(project.get_parameters())
 
     def object_as_row(self, parameter):
-        return [ parameter, parameter.get_name(),
-                "Mandatory", parameter.get_type(), parameter.get_default(),
-                parameter.get_description()]
+        return [ parameter, parameter.name,
+                parameter.policy, parameter.type, parameter.default,
+                parameter.description]
 
     def row_activated(self, selected):
         self._edit_parameter(selected)

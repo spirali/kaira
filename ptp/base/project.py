@@ -107,10 +107,12 @@ class UserFunction(object):
 
 class Parameter(object):
 
-    def __init__(self, name, type, description):
+    def __init__(self, name, type, default, description, policy):
         self.name = name
         self.type = type
+        self.default = default
         self.description = description
+        self.policy = policy
 
     def get_name(self):
         return self.name
@@ -120,6 +122,9 @@ class Parameter(object):
 
     def get_description(self):
         return self.description
+
+    def get_policy(self):
+        return self.policy
 
 
 class Project(object):
@@ -351,9 +356,11 @@ def load_user_function(element):
 
 def load_parameter(element):
     name = utils.xml_str(element, "name")
+    default = utils.xml_str(element, "default")
     description = utils.xml_str(element, "description")
     type = parser.parse_type(utils.xml_str(element, "type"), None)
-    return Parameter(name, type, description)
+    policy = utils.xml_str(element, "policy")
+    return Parameter(name, type, default, description, policy)
 
 def load_build_option(element, project):
     name = utils.xml_str(element, "name")
