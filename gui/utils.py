@@ -307,6 +307,11 @@ def time_to_string(nanosec, seconds=False):
     hours = s / 60 / 60
     return "{0}:{1:0>2}:{2:0>2}:{3:0>9}".format(hours, minutes, sec, nsec)
 
+def mkdir_if_needed_and_open(filename, mode="w"):
+    directory = os.path.dirname(filename)
+    if not os.path.isdir(directory):
+       os.makedirs(directory)
+    return open(filename, mode)
 
 class EqMixin(object):
 

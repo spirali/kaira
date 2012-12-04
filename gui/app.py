@@ -25,6 +25,8 @@ import re
 import sys
 import paths
 sys.path.append(paths.PTP_DIR)
+import ConfigParser
+
 import gtkutils
 from mainwindow import MainWindow, Tab, SaveTab
 from netview import NetView
@@ -44,6 +46,7 @@ import runview
 import codetests
 import report
 import statespace
+import utils
 
 VERSION_STRING = '0.5'
 
@@ -58,10 +61,7 @@ class App:
         self.nv = None
         self._open_welcome_tab()
         self.grid_size = 1
-        self.settings = {
-            "save-before-build" : True,
-            "ptp-debug" : False
-        }
+        self.settings = self.load_settings()
 
         if args:
             if os.path.isfile(args[0]):
@@ -73,6 +73,28 @@ class App:
                     self.set_project(loader.load_project(args[0]))
             else:
                 self.console_write("File '%s' not found\n" % args[0], "error")
+
+    def get_settings_filename(self):
+        return os.path.expanduser("~/.config/kaira/kaira.conf")
+
+    def load_settings(self):
+        settings = ConfigParser.ConfigParser()
+
+        # Fill defaults
+        settings.add_section("main")
+        settings.set("main", "save-before-build", "True")
+        settings.set("main", "ptp-debug", "False")
+
+        filename = self.get_settings_filename()
+        if os.path.isfile(filename):
+            with open(filename, "r") as f:
+                settings.readfp(f)
+        return settings
+
+    def save_settings(self):
+        filename = self.get_settings_filename()
+        with utils.mkdir_if_needed_and_open(filename) as f:
+            self.settings.write(f)
 
     def run(self):
         try:
@@ -547,12 +569,6 @@ class App:
         self.console_write("Connecting to {0}:{1} ...\n".format(host, port))
         simulation.connect(host, port)
 
-    def get_settings(self, name):
-        return self.settings[name]
-
-    def set_settings(self, name, value):
-        self.settings[name] = value
-
     def get_safe_generator(self):
         """ Calls self.project,get_generator(), if errors occur shows them and returns None"""
         try:
@@ -602,7 +618,7 @@ class App:
                                 fail_callback)
 
     def start_build(self, proj, build_config, ok_callback, fail_callback=None):
-        if self.get_settings("save-before-build"):
+        if self.settings.getboolean("main", "save-before-build"):
             self._save_project(silent=True)
 
         self._start_ptp(proj,
@@ -639,7 +655,7 @@ class App:
         p.cwd = proj.get_directory()
 
         args = []
-        if self.get_settings("ptp-debug"):
+        if self.settings.getboolean("main", "ptp-debug"):
             args.append("--debug")
 
         if build_config.directory is not None:
