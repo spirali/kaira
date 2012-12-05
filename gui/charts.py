@@ -754,6 +754,21 @@ class ChartWidget(gtk.VBox):
 #*******************************************************************************
 # Defined method for "standard" graphs:
 
+def _empty_chart(title="", xlabel="", ylabel=""):
+    figure = mpl_Figure()
+    canvas = mpl_FigureCanvas(figure)
+    figure.set_canvas(canvas)
+
+    ax = figure.add_subplot(111, projection=BasicChart.name)
+
+    ax.text(0.5, 0.5, 'No measured data.', color='#aa0000', fontsize=36,
+        ha='center', va='center', alpha=1.0, transform=ax.transAxes)
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    return ChartWidget(figure)
+
 def _register_histogram_pick_legend(ax, legend, lines_config):
 
     def change_legline_fn(legline, action='orig'):
@@ -793,8 +808,7 @@ def _register_histogram_pick_legend(ax, legend, lines_config):
 def histogram(names, values, title="", xlabel="", ylabel=""):
 
     if not names or not values:
-        raise Exception(
-            "The input data for histogram are incomplete: '{0}'!".format(title))
+        return _empty_chart(title, xlabel, ylabel)
 
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)
@@ -849,8 +863,7 @@ def histogram(names, values, title="", xlabel="", ylabel=""):
 def time_sum_chart(names, values, title="", xlabel="", ylabel=""):
 
     if not names or not values:
-        raise Exception(
-            "The input data for sum chart are incomplete: '{0}'!".format(title))
+        return _empty_chart(title, xlabel, ylabel)
 
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)
@@ -884,9 +897,7 @@ def utilization_chart(names, values, title="", xlabel="", ylabel="",
         threads_count=1, idles=None):
 
     if not names or not values:
-        raise Exception(
-            "The input data for utilization chart" +
-            " are incomplete: '{0}'!".format(title))
+        return _empty_chart(title, xlabel, ylabel)
 
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)
@@ -953,9 +964,7 @@ def utilization_chart(names, values, title="", xlabel="", ylabel="",
 def place_chart(names, values, title="", xlabel="", ylabel=""):
 
     if not names or not values:
-        raise Exception(
-            "The input data for place chart" +
-            " are incomplete: '{0}'!".format(title))
+        return _empty_chart(title, xlabel, ylabel)
 
     figure = mpl_Figure()
     canvas = mpl_FigureCanvas(figure)

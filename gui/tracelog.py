@@ -198,7 +198,9 @@ class TraceLog:
                     hist[t] += 1
                 else:
                     hist[t] = 1
-            values.append(hist)
+            if hist:
+                # add value iff hist dict. is not empty.
+                values.append(hist)
 
         return names, values
 

@@ -95,7 +95,7 @@ class RunInstance:
     def event_receive(self, process_id, thread_id, time, msg_id):
         self.last_event = "receive"
         source = msg_id % (self.process_count * self.threads_count)
-        send_time = None
+        send_time = 0
         for i, (id, t) in enumerate(self.send_msg[source]):
             if id == msg_id:
                 send_time = time - t
