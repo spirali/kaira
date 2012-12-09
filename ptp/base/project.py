@@ -28,12 +28,14 @@ from net import Net, Area, Place, Transition, EdgeIn, EdgeInPacking, EdgeOut
 class ExternType(object):
 
     def __init__(self,
+                 id,
                  name,
                  rawtype,
                  transport_mode,
                  codes,
                  octave_value,
                  hash_function):
+        self.id = id
         self.name = name
         self.rawtype = rawtype
         self.transport_mode = transport_mode
@@ -322,6 +324,7 @@ def load_net_content(element, project, net):
 def load_extern_type(element):
     t = utils.xml_str(element, "type")
     name = utils.xml_str(element, "name")
+    id = utils.xml_int(element, "id")
 
     if t == "native":
         rawtype = utils.xml_str(element, "raw-type")
@@ -330,7 +333,8 @@ def load_extern_type(element):
         hash_function = utils.xml_bool(element, "hash")
         codes = dict((utils.xml_str(e, "name"), e.text)
                       for e in element.findall("code"))
-        return ExternType(name,
+        return ExternType(id,
+                          name,
                           rawtype,
                           transport_mode,
                           codes,

@@ -191,6 +191,9 @@ class Project(EventSource):
         for function in self.functions:
             if function.id == id:
                 return function
+        for item in self.extern_types:
+            if item.id == id:
+                return item
         for net in self.nets:
             item = net.get_item(id)
             if item is not None:
@@ -200,6 +203,9 @@ class Project(EventSource):
         for function in self.functions:
             if function.id == id:
                 return None, function
+        for item in self.extern_types:
+            if item.id == id:
+                return None, item
         for net in self.nets:
             item = net.get_item(id)
             if item is not None:
@@ -277,6 +283,7 @@ class Project(EventSource):
         return self.functions
 
     def add_extern_type(self, obj):
+        obj.set_project(self)
         self.extern_types.append(obj)
         self.changed()
 
@@ -350,6 +357,7 @@ class Project(EventSource):
 
         return e
 
+
 class BuildConfig:
 
     tracing = False
@@ -367,6 +375,7 @@ class BuildConfig:
 
     def get_executable_filename(self):
         return self.get_filename(self.project_name)
+
 
 class Parameter:
     project = None
@@ -394,10 +403,12 @@ class Parameter:
         e.set("policy", self.policy)
         return e
 
+
 class ExternTypeBase:
 
-    def __init__(self):
+    def __init__(self, id):
         self.name = ""
+        self.id = id
 
     def get_name(self):
         return self.name
@@ -409,12 +420,19 @@ class ExternTypeBase:
         e = xml.Element("extern-type")
         e.set("name", self.name)
         e.set("type", self.get_type())
+        e.set("id", str(self.id))
         return e
+
+    def set_project(self, project):
+        self.project = project
+        if self.id is None:
+            self.id = project.new_id()
+
 
 class ProtobufferExternType(ExternTypeBase):
 
-    def __init__(self):
-        ExternTypeBase.__init__(self)
+    def __init__(self, id=None):
+        ExternTypeBase.__init__(self, id)
         self.code = ""
 
     def get_type(self):
@@ -450,8 +468,8 @@ class NativeExternType(ExternTypeBase):
         Transport modes: "Disabled", "Direct", "Custom"
     """
 
-    def __init__(self):
-        ExternTypeBase.__init__(self)
+    def __init__(self, id=None):
+        ExternTypeBase.__init__(self, id)
         self.name = ""
         self.raw_type = ""
         self.transport_mode = "Disabled"
@@ -563,7 +581,7 @@ class Function():
 
     project = None
 
-    def __init__(self, id = None):
+    def __init__(self, id=None):
         self.name = ""
         self.code = ""
 

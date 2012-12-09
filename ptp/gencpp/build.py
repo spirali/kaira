@@ -431,7 +431,7 @@ def write_extern_types_functions(builder, definitions):
     }
 
     def write_fn(etype, name):
-        source = ("*{0}/{1}".format(etype.get_name(), name), 1)
+        source = ("*{0}/{1}".format(etype.id, name), 1)
         if etype.get_code(name) is None:
             raise utils.PtpException(
                     "Function '{0}' for extern type '{1.name}' has no body defined" \

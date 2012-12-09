@@ -286,7 +286,8 @@ class Console(gtk.ScrolledWindow):
 
     def write(self, text, tag_name="normal"):
         self.buffer.insert_with_tags_by_name(self.buffer.get_end_iter(), text, tag_name)
-        self.textview.scroll_to_iter(self.buffer.get_end_iter(),0.0)
+        mark = self.buffer.get_mark("insert")
+        self.textview.scroll_to_mark(mark,0.0)
 
     def write_link(self, text, callback):
         new_id = str(self.id_counter)

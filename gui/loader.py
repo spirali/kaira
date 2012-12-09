@@ -60,6 +60,13 @@ def load_project_from_xml(root, filename):
         project.simulator_net = project.get_tests()[0]
 
     project.id_counter += 1
+
+    # For backward compatability
+    # fix ids
+    for et in project.extern_types:
+        if et.id == -1:
+            et.id = project.new_id()
+
     return project
 
 def load_parameter(element, project):
@@ -72,10 +79,14 @@ def load_parameter(element, project):
     p.changed()
     project.add_parameter(p)
 
-def load_extern_type(element, project):
+def load_extern_type(element, project, loader):
     # Default value is "native" for backward compatability
     t = utils.xml_str(element, "type", "native")
     p = project.create_extern_type(t)
+    if element.get("id"):
+        p.id = loader.get_id(element)
+    else:
+        p.id = -1 # For backward compatability, id are fixed after load
     p.set_name(utils.xml_str(element, "name"))
 
     if t == "native":
@@ -92,7 +103,7 @@ def load_extern_type(element, project):
 
 def load_function(element, project, loader):
     id = loader.get_id(element)
-    f =  Function(id)
+    f = Function(id)
     f.set_name(utils.xml_str(element, "name"))
     f.set_return_type(utils.xml_str(element, "return-type"))
     f.set_parameters(utils.xml_str(element, "parameters"))
@@ -111,7 +122,7 @@ def load_configuration(element, project, loader):
     for e in element.findall("parameter"):
         load_parameter(e, project)
     for e in element.findall("extern-type"):
-        load_extern_type(e, project)
+        load_extern_type(e, project, loader)
     for e in element.findall("build-option"):
         load_build_option(e, project)
     for e in element.findall("function"):

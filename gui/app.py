@@ -62,6 +62,9 @@ class App:
         self._open_welcome_tab()
         self.grid_size = 1
         self.settings = self.load_settings()
+        self.message_parser = re.compile(
+            "\*(?P<location>((?P<id_int>\d+)/(?P<section>[^:]*)|(?P<id_string>[^:]+))"
+            "(:(?P<line>\d+))?):(?P<message>.*)")
 
         if args:
             if os.path.isfile(args[0]):
@@ -123,8 +126,13 @@ class App:
         self.nv.place_edit_callback = self.place_edit
         self.window.add_tab(Tab("Nets",
                                 self.nv,
+                                "nets",
                                 mainmenu_groups=("project", "undo"),
                                 has_close_button=False))
+
+    def switch_to_net(self, net):
+        self.window.switch_to_tab_by_key("nets")
+        self.nv.switch_to_net(net)
 
     def new_project(self):
         def project_name_changed(w = None):
@@ -323,7 +331,7 @@ class App:
                                     "codetests",
                                     mainmenu_groups=()))
 
-    def transition_edit(self, transition, lineno = None):
+    def transition_edit(self, transition, lineno=None):
         position = ("", lineno) if lineno is not None else None
 
         if self.window.switch_to_tab_by_key(
@@ -346,7 +354,7 @@ class App:
                                 mainmenu_groups=("project",)))
         editor.jump_to_position(position)
 
-    def place_edit(self, place, lineno = None):
+    def place_edit(self, place, lineno=None):
         position = ("", lineno) if lineno is not None else None
 
         if self.window.switch_to_tab_by_key(
@@ -364,7 +372,7 @@ class App:
         editor.jump_to_position(position)
 
 
-    def extern_type_functions_edit(self, externtype, position = None):
+    def extern_type_functions_edit(self, externtype, position=None):
         if self.window.switch_to_tab_by_key(
             externtype,
             lambda tab: tab.widget.jump_to_position(position)):
@@ -377,7 +385,7 @@ class App:
                                 mainmenu_groups=("project",)))
         editor.jump_to_position(position)
 
-    def function_edit(self, function, lineno = None):
+    def function_edit(self, function, lineno=None):
         position = ("", lineno) if lineno is not None else None
         if self.window.switch_to_tab_by_key(
                 function,
@@ -665,73 +673,59 @@ class App:
         args.append(build_config.get_export_filename())
         p.start(args)
 
-    def _try_make_error_with_link(self, id_string, item_id, pos, message):
-        search = re.search("^\d+:", message)
-        line_no = int(search.group(0)[:-1]) if search else 0
+    def _process_error_line(self, line, error_messages):
+        match = self.message_parser.match(line)
+        if match is None:
+            self.console_write(line)
+            return
 
-        if id_string == "head":
-            self.console_write_link(id_string + (":" + str(line_no) if line_no else ""),
-                lambda: self.edit_head(line_no))
-            self.console_write(message[message.find(":"):] if line_no else ":" + message)
-            return True
+        section = match.group("section")
+        location = match.group("location")
+        message = match.group("message")
 
-        # 2 is subtracted because #LINE directive is place before function definition, but
+        if match.group("id_int") is not None:
+            net, item = self.project.get_net_and_item(int(match.group("id_int")))
+            if item is None:
+                self.console_write(line)
+                return
+            if net is not None:
+                location = net.name + ":" + location
+            if error_messages is not None:
+                d = error_messages.setdefault(item.id, {})
+                lines = d.setdefault(section, [])
+                lines.append(message)
+        else:
+            item = match.group("id_string")
+
+        if match.group("line") is not None:
+            line_no = int(match.group("line"))
+        else:
+            line_no = 0
+
+        # In case of generated template:
+        # 2 is subtracted because #LINE directive is place
+        # before function definition, but
         # we jump at the line counted from the beginnging of user defined text
         # 1 for function definition, 1 for line with {
 
-        if search:
-            line_no -= 2
-
-        if pos in ("getstring", "pack", "unpack", "hash") and item_id is None:
-            item = self.project.find_extern_type(id_string)
-            position = (pos, line_no)
-            self.console_write_link(id_string + "/" + pos + (":" + str(line_no) if line_no else ""),
-                lambda: self.extern_type_functions_edit(item, position))
-            self.console_write(message[message.find(":"):] if line_no else ":" + message)
-            return True
-
-        item = self.project.get_item(item_id)
-        if pos == "function" and item.is_transition():
-            self.console_write_link(str(item_id) + "/" + pos +
-                                        (":" + str(line_no) if line_no else ""),
-                                    lambda: self.transition_edit(item, line_no))
-            self.console_write(message[message.find(":"):] if line_no else ":" + message)
-            return True
-        if pos == "init_function" and item.is_place():
-            self.console_write_link(str(item_id) + "/" + pos +
-                                       (":" + str(line_no) if line_no else ""),
-                                    lambda: self.place_edit(item, line_no))
-            self.console_write(message[message.find(":"):] if line_no else ":" + message)
-            return True
-        if pos == "user_function":
-            self.console_write_link(item.get_name() + (":" + str(line_no) if line_no else ""),
-                lambda: self.function_edit(item, line_no))
-            self.console_write(message[message.find(":"):] if line_no else ":" + message)
-            return True
-        return False
-
-    def _process_error_line(self, line, error_messages):
-        if line.startswith("*"):
-            sections = line[1:].split(":",1)
-            if "/" in sections[0]:
-                id_string, pos = sections[0].split("/")
-            else:
-                id_string = sections[0]
-                pos = None
-            try:
-                item_id = int(id_string)
-            except ValueError:
-                item_id = None
-            if self._try_make_error_with_link(id_string, item_id, pos, sections[1]):
-                return
-            if error_messages is None:
-                self.console_write(line)
-            else:
-                d = error_messages.setdefault(item_id, {})
-                lines = d.setdefault(pos, [])
-                lines.append(sections[1].strip())
+        if item == "head":
+            callback = lambda: self.edit_head(line_no)
+        elif section == "function":
+            callback = lambda: self.transition_edit(item, line_no - 2)
+        elif section == "init_function":
+            callback = lambda: self.place_edit(item, line_no - 2)
+        elif section == "user_function":
+            callback = lambda: self.function_edit(item, line_no - 2)
+        elif section in ("getstring", "pack", "unpack", "hash"):
+            callback = lambda: self.extern_type_functions_edit(item, (section, line_no - 2))
+        elif net is not None:
+            callback = lambda: self.switch_to_net(net)
         else:
             self.console_write(line)
+            return
+
+        self.console_write_link(location, callback)
+        self.console_write(":" + message + "\n")
 
     def _open_welcome_tab(self):
         label = gtk.Label()
