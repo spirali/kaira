@@ -162,13 +162,19 @@ def pairs_generator(lst):
     for x in xrange(len(lst) - 1):
         yield (lst[x], lst[x+1])
 
-def text_size(cr, text, min_h = 0, min_w = 0):
+def text_size(cr, text, min_h=0, min_w=0):
     extends = cr.text_extents(text)
-    return max(min_w, extends[2]), max(min_h, extends[3])
+	# extends[1] is negative and it means distance from the top
+	# to the baseline of a text
+    return max(min_w, extends[2]), max(min_h, -extends[1])
 
 def snap_to_grid(point, grid_size):
     px, py = point
     return (int(px / grid_size) * grid_size, int(py / grid_size) * grid_size)
+
+def point_square_distance(point1, point2):
+	dx, dy = make_vector(point1, point2)
+	return dx*dx + dy*dy
 
 def point_distance(point1, point2):
     return vector_len(make_vector(point1, point2))
@@ -312,6 +318,87 @@ def mkdir_if_needed_and_open(filename, mode="w"):
     if not os.path.isdir(directory):
        os.makedirs(directory)
     return open(filename, mode)
+
+# Collision with line (point, direction) = point, velocity
+# Circle (center, radius)
+# Returns triplet (cross_x, cross_y, t)
+def circle_collision(point, velocity, center, radius):
+    a = velocity[0]*velocity[0]+velocity[1]*velocity[1];
+    b = 2 * (point[0]*velocity[0]+point[1]*velocity[1]- \
+        velocity[0]*center[0]-velocity[1]*center[1]);
+    c = center[0]*center[0]+center[1]*center[1]-radius*radius-2*point[0]*center[0] \
+        -2*point[1]*center[1]+point[0]*point[0]+point[1]*point[1]
+    d = b*b-4*a*c;
+
+    if d<0.00001:
+        return None
+
+    t1 = (-b+math.sqrt(d))/(2*a);
+    t2 = (-b-math.sqrt(d))/(2*a);
+
+    tax = point[0] + velocity[0] * t1;
+    tay = point[1] + velocity[1] * t1;
+    tbx = point[0] + velocity[0] * t2;
+    tby = point[1] + velocity[1] * t2;
+
+    if t1 > -0.000001 and t1 < 1.000001:
+        if t2 > -0.000001 and t2 < 1.000001:
+            if t1 < t2:
+                return (tax, tay, t1)
+            else:
+                return (tbx, tby, t2)
+        else:
+            return (tax, tay, t1)
+    else:
+        if t2 > -0.000001 and t2 < 1.000001:
+            return (tbx, tby, t2)
+        else:
+            return None
+
+def line_intersec_get_t(p1, v1, p2, v2):
+    d = v2[0] * v1[1] - v2[1] * v1[0]
+    if abs(d) < 0.000001:
+        return None
+    z = p2[1] * v1[0] - p1[1] * v1[0] - p2[0] * v1[1]  + p1[0] * v1[1]
+    s = z / d
+
+    if s < -0.000001 or s > 1.000001:
+        return None
+
+    if abs(v1[1]) > abs(v1[0]):
+        t = (p2[1] - p1[1] + v2[1] * s) / v1[1]
+    else:
+        t = (p2[0] - p1[0] + v2[0] * s) / v1[0]
+
+    if t < -0.000001 or t > 1.000001:
+        return None
+
+    return t
+
+def is_in_round_rectangle(position, size, r, point, tolerance=5):
+    px, py = position
+    sx, sy = size[0] + tolerance, size[1] + tolerance
+
+    # current position
+    cpx, cpy = point
+
+    if  (px - r) <= cpx <= (px + sx + r) and \
+            (py - r) <= cpy <= (py + sy + r):
+
+        if ((px <= cpx <= (px+sx)) and (py-r) <= cpy <= (py+sy+r)) or \
+                ((px-r) <= cpx <= (px+sx+r) and (py <= cpy <= (py+sy))):
+            return True
+        else:
+            r_sq = r * r
+            if point_square_distance((px,py), (cpx, cpy)) <= r_sq or \
+                   point_square_distance((px+sx, py), (cpx, cpy)) <= r_sq or \
+                   point_square_distance((px, py+sy), (cpx, cpy)) <= r_sq or \
+                   point_square_distance((px+sx, py+sy), (cpx, cpy)) <= r_sq:
+                return True
+            else:
+                return False
+    else:
+        return False
 
 class EqMixin(object):
 

@@ -157,6 +157,28 @@ class TransitionDrawing(DrawingBase):
         if self.error_messages and None in self.error_messages:
             draw_error_box(cr, self.position, self.error_messages[None])
 
+def draw_round_rectangle(cr, px, py, sx, sy, radius):
+    """
+        It draws an rectangle with acr corners.
+
+        px -- x position of base rectangle
+        py -- y position of base rectangle
+        sx -- width of base rectangle
+        sy -- height of base rectangle
+        radius -- radius in corner
+    """
+    cr.arc(px, py, radius, math.pi, 1.5*math.pi)
+    cr.line_to(px + sx, py - radius)
+
+    cr.arc(px + sx, py, radius, 1.5*math.pi, 0)
+    cr.line_to(px + sx + radius, py + sy)
+
+    cr.arc(px + sx, py + sy, radius, 0, math.pi/2)
+    cr.line_to(px, py + sy + radius)
+
+    cr.arc(px, py + sy, radius, math.pi/2, math.pi)
+    cr.line_to(px - radius, py)
+    cr.close_path()
 
 class PlaceDrawing(DrawingBase):
 
@@ -166,6 +188,8 @@ class PlaceDrawing(DrawingBase):
         DrawingBase.__init__(self)
         self.position = item.get_position()
         self.radius = item.get_radius()
+        self.name = item.get_name()
+        self.size = item.get_size()
         self.error_messages = None
         self.highlight = None
         self.doubleborder = item.get_code().strip() != ""
@@ -197,33 +221,42 @@ class PlaceDrawing(DrawingBase):
 
     def draw(self, cr):
         px, py = self.position
-        cr.arc(px, py, self.radius, 0, 2 * math.pi)
+        sx, sy = self.size
+
+        # draw rounded rectangle
+        draw_round_rectangle(cr, px, py, sx, sy, self.radius)
         cr.set_source_rgb(1, 1, 1)
         cr.fill()
 
         if self.highlight:
-            cr.arc(px, py, self.radius, 0, 2 * math.pi)
+            draw_round_rectangle(cr, px, py, sx, sy, self.radius)
             cr.set_line_width(6.5)
             cr.set_source_rgba(*self.highlight)
             cr.stroke()
 
-        cr.arc(px, py, self.radius, 0, 2 * math.pi)
+        draw_round_rectangle(cr, px, py, sx, sy, self.radius)
         cr.set_line_width(1.5)
         cr.set_source_rgb(0,0,0)
         cr.stroke()
 
         if self.doubleborder:
-            cr.arc(px, py, self.radius - 3, 0, math.pi * 2)
+            draw_round_rectangle(cr, px, py, sx, sy, self.radius - 3)
             cr.stroke()
 
-        x = math.sqrt((self.radius * self.radius) / 2) + 5
+        if self.name:
+            tx, ty = utils.text_size(cr, self.name)
+            cr.set_source_rgb(0,0,0)
+            cr.move_to(px + (sx - tx)/2, py + (sy + ty)/2)
+            cr.show_text(self.name)
+
+        x = sx + self.radius + 2
         if self.init_string:
             cr.set_source_rgb(0,0,0)
-            cr.move_to(px + x, py - x)
+            cr.move_to(px + x, py - self.radius/2)
             cr.show_text(self.init_string)
         if self.place_type:
             cr.set_source_rgb(0,0,0)
-            cr.move_to(px + x, py + x)
+            cr.move_to(px + x, py + sy + self.radius)
             cr.show_text(self.place_type)
         if self.trace_text:
             draw_trace_box(cr, px - 15, py - 15, self.trace_text)
@@ -317,7 +350,6 @@ class PlaceDrawing(DrawingBase):
             draw_error_box_after_text(cr, self.place_type, (px + x, py + x), self.error_messages["type"])
         if self.error_messages and "init" in self.error_messages:
             draw_error_box_after_text(cr, self.init_string, (px + x, py - x), self.error_messages["init"])
-
 
 class EdgeDrawing(DrawingBase):
 
