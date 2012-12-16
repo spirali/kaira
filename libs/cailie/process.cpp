@@ -154,6 +154,7 @@ CaProcess::CaProcess(
 	this->defs = defs;
 	this->threads_count = threads_count;
 	this->net_is_quit = false;
+	this->quit_flag = false;
 	threads = new CaThread[threads_count];
 	// TODO: ALLOCTEST
 	for (int t = 0; t < threads_count; t++) {

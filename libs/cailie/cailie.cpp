@@ -27,6 +27,7 @@ size_t ca_trace_log_size = 0;
 #ifdef CA_SHMEM
 CaProcess **processes = NULL;
 int ca_process_count = 1;
+bool ca_sequential_run = false;
 #endif
 
 #ifdef CA_MPI
@@ -88,16 +89,30 @@ int ca_main()
 		}
 	}
 
-	for (int t = 0; t < ca_process_count; t++) {
-		processes[t]->start();
-	}
+	if (ca_sequential_run) {
+		bool quit = false;
+		while(!quit) {
+			for (int t = 0; t < ca_process_count; t++) {
+				CaThread *thread = processes[t]->get_thread(0);
+				thread->run_one_step();
+				if (processes[t]->quit_flag) {
+					quit = true;
+					break;
+				}
+			}
+		}
+	} else { // Normal run
+		for (int t = 0; t < ca_process_count; t++) {
+			processes[t]->start();
+		}
 
-	for (int t = 0; t < ca_process_count; t++) {
-		processes[t]->join();
-	}
+		for (int t = 0; t < ca_process_count; t++) {
+			processes[t]->join();
+		}
 
-	for (int t = 0; t < ca_process_count; t++) {
-		processes[t]->clear();
+		for (int t = 0; t < ca_process_count; t++) {
+			processes[t]->clear();
+		}
 	}
 
 	if (ca_listener != NULL) {
@@ -164,7 +179,7 @@ void ca_init(int argc,
 
 	atexit(ca_finalize);
 	ca_parameters = parameters;
-	std::string all_args = std::string("hp:t:l:s:br:T:") + extra_args;
+	std::string all_args = std::string("hp:t:l:s:br:T:S") + extra_args;
 	while ((c = getopt_long (argc, argv, all_args.c_str(), longopts, NULL)) != -1)
 		switch (c) {
 			case 'h': {
@@ -243,6 +258,17 @@ void ca_init(int argc,
 					exit(1);
 				}
 			} break;
+
+			case 'S': {
+				#ifdef CA_MPI
+				fprintf(stderr, "Sequential run is not possible for the MPI version\n");
+				exit(1);
+				#endif
+				#ifdef CA_SHMEM
+				ca_sequential_run = true;
+				#endif
+			} break;
+
 			case '?':
 			default:
 				if (extra_args_callback != NULL) {

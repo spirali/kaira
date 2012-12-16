@@ -108,11 +108,11 @@ void CaThread::run_scheduler()
 	while(!process->quit_flag) {
 		process_messages();
 
-		if(process->get_net() == NULL) {
+		CaNet *n = process->get_net();
+		if (n == NULL) {
 			continue;
 		}
 
-		CaNet *n = process->get_net();
 		if (!n->try_lock()) {
 			sched_yield();
 			continue;
@@ -137,6 +137,21 @@ void CaThread::run_scheduler()
 			n->unlock();
 		}
 	}
+}
+
+void CaThread::run_one_step()
+{
+	process_messages();
+	CaNet *net = process->get_net();
+	if (net == NULL) {
+		return;
+	}
+	CaTransition *tr = net->pick_active_transition();
+	if (tr == NULL) {
+		return;
+	}
+	tr->set_active(false);
+	tr->full_fire(this, net);
 }
 
 CaNet * CaThread::spawn_net(int def_index)

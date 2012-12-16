@@ -31,6 +31,7 @@ class CaThread : public CaThreadBase {
 		void start();
 		void join();
 		void run_scheduler();
+		void run_one_step();
 
 		int get_process_id() const { return process->get_process_id(); }
 		int get_process_count() const { return process->get_process_count(); }
