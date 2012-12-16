@@ -1,0 +1,62 @@
+
+Kaira: User Guide
+=================
+
+Introduction
+------------
+
+Semantics
+---------
+
+Net Language (NeL)
+------------------
+
+Operators
+~~~~~~~~~
+
+Priorities of operators
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Priority 1 ::
+ `*, /, %`
+Priority 2 ::
+ `+, -, ++, --`
+Priority 3 ::
+ `==, !=, <=, >=, <, >`
+Priority 4 ::
+ `&&, ||`
+
+Tracelogging
+------------
+
+State space analysis
+--------------------
+
+More about generating programs
+------------------------------
+
+Targets
+~~~~~~~
+
+Kaira generates the following application from a project:
+
+release ::
+traced ::
+statespace ::
+simulation :: Only for the internal usage by simulator, it is not inteded to be manually run by the user.
+
+Arguments of generated programs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-p *NAME=VALUE* :: Set project parameter *NAME*
+-t *N* --threads=*N* :: Set number of threads per each process
+-r *N* :: Set number of processes (only in threads version)
+-h --help :: Print description of project parameters
+-s *PORT* :: The application listens on defined *PORT*. *PORT* can be 'auto',
+           then application chooses some free port and print it on stdout as the first line.
+-b :: Block the application immediately after initialization and
+      wait for the first connection via port defined by -s argument.
+-S :: Sequential mode. Application is run in sequentially independently on
+	  number of processes or threads. (only in threads version)
+-T *SIZE* :: Enables tracelogging with in-memory buffer of *SIZE* bytes,
+			 suffixes K, M or G can be used
