@@ -185,14 +185,25 @@ void ca_init(int argc,
 			}
 			case 't': {
 			      ca_threads_count = atoi(optarg);
+				  if (ca_threads_count < 1) {
+						fprintf(stderr, "Invalid number of threads\n");
+						exit(-1);
+				  }
 			      break;
 			}
 			case 'r': {
 					#ifdef CA_MPI
-					fprintf(stderr, "Argument -r is not allowed for MPI backend, please use `mpirun -np X`");
+					fprintf(stderr,
+							"Argument -r is not allowed for MPI backend, "
+							"use `mpirun -np %s`\n",
+							argv[0]);
 					exit(-1);
 					#else
 					ca_process_count = atoi(optarg);
+					if (ca_process_count < 1) {
+						fprintf(stderr, "Invalid number of processes\n");
+						exit(-1);
+					}
 					break;
 					#endif
 			}
