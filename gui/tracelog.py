@@ -639,7 +639,15 @@ class DataCollectingRunInstance(RunInstance):
             self.idles_data[process_id * self.threads_count + thread_id].append(idle_value)
 
         self.last_time = time
-        transition_value = "" if not values else values[0]
+        if not values:
+            transition_value = ""
+        else:
+            tr_vals_count = len(values)
+            transition_value = "{0}:".format(tr_vals_count)
+            for i in range(0, tr_vals_count-1):
+                transition_value += "{0};".format(values[i])
+            transition_value += str(values[tr_vals_count-1])
+
         self.last_event_info = EventInformation(
             "_transition_fired", time, process_id, thread_id, transition_id, transition_value, 0)
 
