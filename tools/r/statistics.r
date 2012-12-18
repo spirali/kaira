@@ -7,7 +7,7 @@ th_snd_thread    <- "snd_thread"
 th_rcv_process   <- "rcv_process"
 th_rcv_thread    <- "rcv_thread"
 th_id_transition <- "id_transition"
-th_tr_value     <- "tr_value"
+th_tr_value      <- "tr_value"
 th_send_time     <- "send_time"
 th_id_place      <- "id_place"
 th_token_value   <- "token_value"
@@ -35,6 +35,14 @@ remove_outliers <- function(x, na.rm=TRUE, ...) {
     y[x < (qnt[1] - H)] <- NA
     y[x > (qnt[2] + H)] <- NA
     return(y)
+}
+
+remove_outliers <- function(bigtable, column, na.rm=TRUE, ...) {
+    qnt <- quantile(bigtable[[column]], probs=c(0.25, 0.75), na.rm=na.rm, ...)
+    H <- 1.5 * IQR(bigtable[[column]], na.rm=na.rm)
+
+    new_bigt <- bigtable[bigtable[[column]] >= (qnt[1] - H) & bigtable[[column]] <= (qnt[2] + H),]
+    return(new_bigt)
 }
 
 transition_executing_time <- function(
