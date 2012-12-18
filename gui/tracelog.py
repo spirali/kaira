@@ -548,6 +548,7 @@ class DataCollectingRunInstance(RunInstance):
         self.transitions_data = {} # [transition_id] -> [ (start_time, lenght) ]
         self.tokens_data = {} # [process_id][place_id] -> int
         self.group_nets = {}
+        self.last_transition_fired = {}
         self.last_time = 0
         self.last_event_info = None
         self.idles = {}
@@ -640,13 +641,15 @@ class DataCollectingRunInstance(RunInstance):
 
         self.last_time = time
         if not values:
-            transition_value = ""
+            transition_value = None
         else:
             tr_vals_count = len(values)
             transition_value = "{0}:".format(tr_vals_count)
             for i in range(0, tr_vals_count-1):
                 transition_value += "{0};".format(values[i])
             transition_value += str(values[tr_vals_count-1])
+
+        self.last_transition_fired[process_id * self.threads_count + thread_id] = transition_value
 
         self.last_event_info = EventInformation(
             "_transition_fired", time, process_id, thread_id, transition_id, transition_value, 0)
@@ -661,12 +664,13 @@ class DataCollectingRunInstance(RunInstance):
             self.threads_data[activity.process_id * self.threads_count + activity.thread_id].append(value)
             self.add_transition_data(process_id, thread_id, activity.transition.id, value)
 
+            transition_values = self.last_transition_fired.pop(process_id * self.threads_count + thread_id, None)
             self.add_entry(
                 "transition_executed", self.last_event_info.get_name(), time_start, process_id, thread_id, process_id, thread_id,
-                activity.transition.id, self.last_event_info.get_transition_value(), (time - time_start), "", "")
+                activity.transition.id, transition_values, (time - time_start), "", "")
             self.last_event_info = EventInformation(
                 "_transition_finished", time, process_id, thread_id,
-                activity.transition.id, self.last_event_info.get_transition_value(), (time-time_start))
+                activity.transition.id, transition_values, (time-time_start))
 
     def event_spawn(self, process_id, thread_id, time, net_id):
         RunInstance.event_spawn(self, process_id, thread_id, time, net_id)
