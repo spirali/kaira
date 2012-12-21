@@ -21,8 +21,10 @@ mortary <- function(bigtable, transition_id, processs=NULL) {
 
 #    plot(x, executed_times)
 #    levelplot(vals~x*y | processes, data,
-    levelplot(vals~x*y, data,
+    levelplot(log10(vals)~x*y, data,
+    cuts=30,
+    pretty=TRUE,
     xlab="X Coordinate", ylab="Y Coordinate",
     main="Executing time of 'find intersection' trans. depends on [x, y] coordinates",
-    col.regions=rainbow(500, start=0.3, end=1.0))
+    col.regions=rainbow(50, start=0.3, end=1.0))
 }
