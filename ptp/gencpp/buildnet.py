@@ -191,7 +191,7 @@ def write_send_token(builder,
         traw = builder.emit_type(t)
         builder.line("{0} value = {1};",
                      builder.emit_type(edge.expr.nel_type), edge.expr.emit(em))
-        
+
         if trace_send:
             builder.if_begin("tracelog")
             builder.line("tracelog->event_send_msg(thread->get_new_msg_id());")
@@ -327,7 +327,7 @@ def write_full_fire(builder, tr, locking=True):
     write_fire_body(w, tr, locking=locking)
     w.line("return CA_TRANSITION_FIRED;")
 
-    write_enable_pattern_match(builder, tr, w)
+    write_enable_pattern_match(builder, tr, w, "return CA_NOT_ENABLED;")
     builder.line("return CA_NOT_ENABLED;")
     builder.block_end()
 
@@ -338,7 +338,7 @@ def write_enable_check(builder, tr):
     builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
     w = CppWriter()
     w.line("return true;")
-    write_enable_pattern_match(builder, tr, w)
+    write_enable_pattern_match(builder, tr, w, "return false;")
     builder.line("return false;")
     builder.block_end()
 
@@ -359,7 +359,7 @@ def write_fire_phase1(builder, tr):
                edge, edge.get_place())
     w.line("return tokens;")
 
-    write_enable_pattern_match(builder, tr, w)
+    write_enable_pattern_match(builder, tr, w, "return NULL;")
     builder.line("return NULL;")
     builder.block_end()
 
@@ -422,7 +422,7 @@ def write_binding_hash(builder, tr):
     builder.line("return {0};", build.get_hash_codes(builder.project, types_codes))
     builder.block_end()
 
-def write_enable_pattern_match(builder, tr, fire_code):
+def write_enable_pattern_match(builder, tr, fire_code, fail_command):
     def variable_emitter(name):
         edge = tr.var_edge[name]
         token = ExprExtern("token_{0.uid}".format(edge))
@@ -444,9 +444,9 @@ def write_enable_pattern_match(builder, tr, fire_code):
 
     # Check if there are enough tokens
     for place, count in need_tokens.items():
-        builder.line("if (n->place_{0.id}.size() < {1}) return false;", place, count)
+        builder.line("if (n->place_{0.id}.size() < {1}) {2}", place, count, fail_command)
 
-    em.set_extern("fail", "return false;")
+    em.set_extern("fail", fail_command)
     for i in initcode:
         i.emit(em, builder)
 
@@ -480,7 +480,7 @@ def write_enable_pattern_match(builder, tr, fire_code):
             builder.line("token_{0.uid} = token_{0.uid}->next;", matches[-1][0])
             builder.line("continue;")
         else:
-            builder.line("return false;")
+            builder.line(fail_command)
         builder.block_end()
 
     builder.block_begin()
