@@ -67,7 +67,7 @@ class CodeTest(utils.EqMixin):
         shutil.rmtree(self.get_directory())
 
     def build(self, app, callback):
-        app._run_build_program("make", [], self.get_directory(), callback)
+        app._run_build_program("make", [], self.get_directory(), callback, None)
 
     def get_executable_filename(self):
         return os.path.join(self.get_directory(), self.name)
@@ -241,7 +241,7 @@ class CodeTestList(gtk.VBox):
             build_config = self.app.project.get_build_config("release")
             self.app.start_build(self.app.project,
                                  build_config,
-                                 lambda p: obj.build(self.app, callback))
+                                 lambda: obj.build(self.app, callback))
 
         target = self.switch.get_active_text()
 
