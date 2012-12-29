@@ -38,7 +38,7 @@ def write_loader(builder, oct_file):
     builder.line("{0}_init()", builder.project.get_name())
 
 def write_oct_conversions(builder):
-    builder.line("std::vector<std::vector<double > > Matrix_to_double_vectors(Matrix matrix)")
+    builder.line("std::vector<std::vector<double > > Matrix_to_double_vectors(const Matrix &matrix)")
     builder.block_begin()
     builder.line("std::vector<std::vector<double > > result;")
     builder.line("for(int i=0;i<matrix.rows();i++)")
@@ -55,7 +55,7 @@ def write_oct_conversions(builder):
 
     builder.emptyline()
 
-    builder.line("Matrix Double_vectors_to_Matrix(std::vector<std::vector<double > > data)")
+    builder.line("Matrix Double_vectors_to_Matrix(const std::vector<std::vector<double > > &data)")
     builder.block_begin()
     builder.line("int rows=data.size(), columns=0;")
     builder.line("for(int i=0;i<data.size();i++)")
@@ -73,6 +73,28 @@ def write_oct_conversions(builder):
     builder.block_end()
     builder.line("return result;")
     builder.block_end()
+
+    builder.emptyline()
+
+    builder.raw_text("""
+    Matrix Array_Double_to_oct_Matrix(const std::vector<double> &v)
+    {
+        Matrix matrix(v.size(), 1);
+        for(int i=0; i<v.size(); i++) {
+            matrix(i, 0) = v[i];
+        }
+        return matrix;
+    }
+
+    std::vector<double> oct_Matrix_to_Array_Double(const Matrix &matrix)
+    {
+        std::vector<double> v;
+        for(int i=0; i<matrix.rows(); i++) {
+            v.push_back(matrix(i, 0));
+        }
+        return v;
+    }
+    """)
 
 def write_oct_file(builder, header_filename):
     builder.line("#include <octave/oct.h>")
@@ -154,6 +176,7 @@ def write_oct_function(builder, net):
 def emit_parameter_form_octave_value(project, parameter, t):
     if isinstance(t, str):
         raise Exception("'{0}' cannot be converted from octave value".format(t))
+
     if t.name == "":
         return t.get_safe_name()
     a = t.get_arity()
@@ -174,10 +197,13 @@ def emit_parameter_form_octave_value(project, parameter, t):
 
     if a == 1 and t.name == "Array":
         inner_type = t.args[0]
+        if inner_type.name == "Double":
+            return "oct_Matrix_to_Array_Double({0}.matrix_value())".format(parameter);
         if inner_type.get_arity() == 1 and inner_type.name == "Array":
             inner_type = inner_type.args[0]
             if inner_type.name == "Double":
                 return "Matrix_to_double_vectors({0}.matrix_value())".format(parameter)
+
     raise Exception("Type '{0}' cannot be converted from octave value".format(t))
 
 def emit_result_to_octave_value(project, result, t):
@@ -192,6 +218,8 @@ def emit_result_to_octave_value(project, result, t):
             return "{0}_to_octave_value({1})".format(etype.name,result)
     if  t.get_arity() == 1 and t.name == "Array":
         inner_type = t.args[0]
+        if inner_type.name == "Double":
+            return "Array_Double_to_oct_Matrix({0})".format(result);
         if inner_type.get_arity() == 1 and inner_type.name == "Array":
             inner_type = inner_type.args[0]
             if inner_type == t_double:
