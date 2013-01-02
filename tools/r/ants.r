@@ -12,7 +12,8 @@ ants_fitness_vs_time <- function(ants, processes) {
                         ants[[th_token_value]] > -1 &
                         !is.na(ants[[th_token_value]]), ]
         xlist[[i]] <- ants_proc[[th_start_time]] / 1000000
-        ylist[[i]] <- fitted(lm(token_value ~ start_time + I(start_time^2) + I(start_time^3) + I(start_time^4), data=ants_proc))
+        ylist[[i]] <- ants_proc[[th_token_value]]
+#        ylist[[i]] <- fitted(lm(token_value ~ start_time + I(start_time^2) + I(start_time^3) + I(start_time^4) + I(start_time^5) + I(start_time^6), data=ants_proc))
         cols[i] <- colors[i%%length(colors)]
         names[i] <- paste("process", id_proc, sep=" ")
     }
