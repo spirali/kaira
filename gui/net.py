@@ -574,8 +574,8 @@ class Place(NetElement):
         return vconfig.place_drawing(self)
 
     def resize(self, point):
-        sx = max(point[0], 0)
-        sy = max(point[1], 0)
+        sx = max(point[0]-self.radius, 0)
+        sy = max(point[1]-self.radius, 0)
         self.size = (sx, sy)
         self.changed()
 

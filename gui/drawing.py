@@ -261,6 +261,9 @@ class PlaceDrawing(DrawingBase):
         if self.trace_text:
             draw_trace_box(cr, px - 15, py - 15, self.trace_text)
 
+#*******************************************************************************
+# Repair simulation drawing
+
     def draw_top(self, cr):
         px, py = self.position
 
@@ -283,23 +286,24 @@ class PlaceDrawing(DrawingBase):
                     rem_t_in += 1
 
             # Draw circle
-            x = math.sqrt((self.radius * self.radius) / 2) + 15
+            xcoord = px + self.size[0] + self.radius
+            ycoord = py + self.size[1] / 2
             if self.new_tokens:
                 cr.set_source_rgb(0.2,0.6,0)
             else:
                 cr.set_source_rgb(0.2,0.45,0)
-            cr.arc(px + self.radius,py,8, 0, 2 * math.pi)
+            cr.arc(xcoord, ycoord,8, 0, 2 * math.pi)
             cr.fill()
 
             cr.set_line_width(0.5)
-            cr.arc(px + self.radius,py,8, 0, 2 * math.pi)
+            cr.arc(xcoord, ycoord,8, 0, 2 * math.pi)
             cr.set_source_rgb(0,0,0)
             cr.stroke()
 
             init_text = str(len(self.tokens + self.new_tokens))
             w, h = utils.text_size(cr, init_text)
             cr.set_source_rgb(0.8,0.8,0.8)
-            cr.move_to(px + self.radius - w/2, py + h/2)
+            cr.move_to(xcoord - w/2, ycoord + h/2)
             cr.show_text(init_text)
 
             # Print token names
@@ -307,8 +311,8 @@ class PlaceDrawing(DrawingBase):
             texts = [ (t, utils.text_size(cr, t)[0]) for t in tokens ]
             text_height = len(tokens) * w_size
             text_width = max([ x[1] for x in texts ])
-            text_x = px + self.radius + 12
-            text_y = py - text_height / 2
+            text_x = xcoord + 12
+            text_y = ycoord - text_height / 2
 
             rem_height = rem_t_in * w_size
             tok_height = t_in * w_size
@@ -345,11 +349,19 @@ class PlaceDrawing(DrawingBase):
                 cr.move_to(text_x, text_y)
                 cr.show_text(t)
 
-        x = math.sqrt((self.radius * self.radius) / 2) + 5
         if self.error_messages and "type" in self.error_messages:
-            draw_error_box_after_text(cr, self.place_type, (px + x, py + x), self.error_messages["type"])
+            draw_error_box_after_text(
+                cr,
+                self.place_type,
+                (px + self.size[0] + self.radius, py + self.size[1] + self.radius),
+                self.error_messages["type"])
+
         if self.error_messages and "init" in self.error_messages:
-            draw_error_box_after_text(cr, self.init_string, (px + x, py - x), self.error_messages["init"])
+            draw_error_box_after_text(
+                cr,
+                self.init_string,
+                (px + self.size[0] + self.radius, py - self.size[1] - self.radius),
+                self.error_messages["init"])
 
 class EdgeDrawing(DrawingBase):
 
