@@ -617,7 +617,7 @@ class Place(NetElement):
 
     def is_at_position(self, position):
         return utils.is_in_round_rectangle(
-            self.position, self.size, self.radius, position, 5)
+            self.position, self.size, self.radius, position, 10)
 
     def get_action(self, position, factory):
         bp = self.get_border_point(position)
