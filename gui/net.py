@@ -352,7 +352,6 @@ class NetElement(NetItem):
             if area.is_inside(self):
                 return area
 
-
 class Transition(NetElement):
 
     size = (70, 35)
@@ -501,19 +500,32 @@ class Transition(NetElement):
 
 
 class Place(NetElement):
-
     radius = 20
+    size = (0, 0)
+
+    name = ""
     place_type = ""
     init_string = ""
-
-    def get_name(self):
-        return str(self.get_id())
 
     def get_radius(self):
         return self.radius
 
+    def get_size(self):
+        return self.size
+
+    def get_name(self):
+        return self.name
+
+    def set_name(self, name):
+        self.name = name
+        self.changed()
+
     def get_init_string(self):
         return self.init_string
+
+    def set_place_type(self, place_type):
+        self.place_type = place_type
+        self.changed()
 
     def set_init_string(self, init_string):
         self.init_string = init_string
@@ -522,10 +534,6 @@ class Place(NetElement):
     def get_place_type(self):
         return self.place_type
 
-    def set_place_type(self, place_type):
-        self.place_type = place_type
-        self.changed()
-
     def is_place(self):
         return True
 
@@ -533,7 +541,10 @@ class Place(NetElement):
         e = self.create_xml_element("place")
         e.set("x", str(self.position[0]))
         e.set("y", str(self.position[1]))
+        e.set("name", str(self.name))
         e.set("radius", str(self.radius))
+        e.set("sx", str(self.size[0]))
+        e.set("sy", str(self.size[1]))
         e.set("place_type", self.place_type)
         e.set("init_string", self.init_string)
         if self.has_code():
@@ -547,7 +558,7 @@ class Place(NetElement):
 
     def export_xml(self, build_config):
         e = self.create_xml_element("place")
-        e.set("name", "name")
+        e.set("name", self.name)
         e.set("type", self.place_type)
         e.set("init-expr", self.init_string)
         if self.has_code():
@@ -562,47 +573,75 @@ class Place(NetElement):
     def get_drawing(self, vconfig):
         return vconfig.place_drawing(self)
 
-    def is_at_position(self, position):
-        dist = utils.point_distance(self.position, position)
-        return dist < self.radius + 5
-
-    def get_action(self, position, factory):
-        dist = utils.point_distance(self.position, position)
-
-        if dist < self.radius + 5 and dist > self.radius - 5:
-            return factory.get_resize_action(self, position, self.resize)
-
-        if dist < self.radius:
-            return factory.get_move_action(self.get_position(), self.set_position, position)
-
     def resize(self, point):
-        px, py = point
-        self.radius = math.sqrt(px * px + py * py)
+        sx = max(point[0]-self.radius, 0)
+        sy = max(point[1]-self.radius, 0)
+        self.size = (sx, sy)
         self.changed()
 
     def get_border_point(self, outer_point):
+        e = 0.01
+        r = self.radius
         px, py = self.position
         ox, oy = outer_point
-        vx = ox - px
-        vy = oy - py
-        d = math.sqrt(vx * vx + vy * vy)
-        if d < 0.0001:
-            return outer_point
-        nx = vx / d * self.radius
-        ny = vy / d * self.radius
-        return (nx + px, ny + py)
+        sx, sy = self.size
+        cx, cy = px + sx/2, py + sy/2
+        ux, uy = cx - ox, cy - oy
+
+        results = []
+        t = [None] * 4
+        t[0] = utils.line_intersec_get_t((ox, oy), (ux, uy), (px-e,      py-r),    (sx+e, 0.0))
+        t[1] = utils.line_intersec_get_t((ox, oy), (ux, uy), (px-e,      py+sy+r), (sx+e, 0.0))
+        t[2] = utils.line_intersec_get_t((ox, oy), (ux, uy), (px-r,      py-e),    (0.0, sy+e))
+        t[3] = utils.line_intersec_get_t((ox, oy), (ux, uy), (px+sx+r,   py-e),    (0.0, sy+e))
+
+        min_idx = utils.index_of_minimal_value(t)
+        if min_idx is not None:
+            results.append(t[min_idx])
+
+        t[0] = utils.circle_collision((ox, oy), (ux, uy), (px,    py),    r)
+        t[1] = utils.circle_collision((ox, oy), (ux, uy), (px+sx, py),    r)
+        t[2] = utils.circle_collision((ox, oy), (ux, uy), (px,    py+sy), r)
+        t[3] = utils.circle_collision((ox, oy), (ux, uy), (px+sx, py+sy), r)
+
+        for i in range(0,4):
+            if t[i] is not None:
+                col_x, col_y, c = t[i]
+                results.append(c)
+
+        if not results:
+            return (cx, cy)
+
+        c = min(results)
+        return (ox + ux*c, oy + uy*c)
+
+    def is_at_position(self, position):
+        return utils.is_in_round_rectangle(
+            self.position, self.size, self.radius, position, 10)
+
+    def get_action(self, position, factory):
+        bp = self.get_border_point(position)
+        dist = utils.point_distance(position, bp)
+        inside = utils.is_in_round_rectangle(
+            self.position, self.size, self.radius, position, 0)
+        if not inside and dist < 5:
+            return factory.get_resize_action(self, position, self.resize)
+
+        if self.is_at_position(position):
+            return factory.get_move_action(self.get_position(), self.set_position, position)
 
     def get_text_entries(self):
         return [ ("Type", self.get_place_type, self.set_place_type),
-                ("Init", self.get_init_string, self.set_init_string) ]
+                ("Init", self.get_init_string, self.set_init_string),
+                ("Name", self.get_name, self.set_name)]
 
     def corners(self, cr):
         px, py = self.position
+        sx, sy = self.size
         r = self.radius
         if self.init_string == "" and self.place_type == "":
-            return ((px - r, py - r), (px + r, py + r))
+            return ((px-r, py-r), (px + sx + r, py + sy + r))
         else:
-            x = math.sqrt((r * r) / 2) + 5
             # 'is' = 'init_string'
             (isx_bearing, isy_bearing,
              is_width, is_height,
@@ -616,12 +655,12 @@ class Place(NetElement):
             (ascent, descent, height, max_x_advance, max_y_advance) = cr.font_extents()
 
         return ((px - r, py - r + isy_bearing),
-                (px + x + max(is_width, pt_width), py + x + descent))
-
+                (px + sx + r + max(is_width, pt_width), py + sy + r + descent))
 
 class Edge(NetItem):
 
     bidirectional = False
+    z_level = 1
 
     def __init__(self, net, id, from_item, to_item, points):
         NetItem.__init__(self, net, id)
@@ -1167,7 +1206,9 @@ def load_tracing(element):
 def load_place(element, net, loader):
     id = loader.get_id(element)
     place = net.add_place((xml_int(element,"x"), xml_int(element, "y")), id)
+    place.name = xml_str(element, "name", "")
     place.radius = xml_int(element,"radius")
+    place.size = (xml_int(element,"sx", 0), xml_int(element,"sy", 0))
     place.place_type = xml_str(element,"place_type", "")
     place.init_string = xml_str(element,"init_string", "")
     place.code = load_code(element)

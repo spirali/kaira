@@ -157,6 +157,28 @@ class TransitionDrawing(DrawingBase):
         if self.error_messages and None in self.error_messages:
             draw_error_box(cr, self.position, self.error_messages[None])
 
+def draw_round_rectangle(cr, px, py, sx, sy, radius):
+    """
+        It draws an rectangle with acr corners.
+
+        px -- x position of base rectangle
+        py -- y position of base rectangle
+        sx -- width of base rectangle
+        sy -- height of base rectangle
+        radius -- radius in corner
+    """
+    cr.arc(px, py, radius, math.pi, 1.5*math.pi)
+    cr.line_to(px + sx, py - radius)
+
+    cr.arc(px + sx, py, radius, 1.5*math.pi, 0)
+    cr.line_to(px + sx + radius, py + sy)
+
+    cr.arc(px + sx, py + sy, radius, 0, math.pi/2)
+    cr.line_to(px, py + sy + radius)
+
+    cr.arc(px, py + sy, radius, math.pi/2, math.pi)
+    cr.line_to(px - radius, py)
+    cr.close_path()
 
 class PlaceDrawing(DrawingBase):
 
@@ -166,6 +188,8 @@ class PlaceDrawing(DrawingBase):
         DrawingBase.__init__(self)
         self.position = item.get_position()
         self.radius = item.get_radius()
+        self.name = item.get_name()
+        self.size = item.get_size()
         self.error_messages = None
         self.highlight = None
         self.doubleborder = item.get_code().strip() != ""
@@ -197,36 +221,48 @@ class PlaceDrawing(DrawingBase):
 
     def draw(self, cr):
         px, py = self.position
-        cr.arc(px, py, self.radius, 0, 2 * math.pi)
+        sx, sy = self.size
+
+        # draw rounded rectangle
+        draw_round_rectangle(cr, px, py, sx, sy, self.radius)
         cr.set_source_rgb(1, 1, 1)
         cr.fill()
 
         if self.highlight:
-            cr.arc(px, py, self.radius, 0, 2 * math.pi)
+            draw_round_rectangle(cr, px, py, sx, sy, self.radius)
             cr.set_line_width(6.5)
             cr.set_source_rgba(*self.highlight)
             cr.stroke()
 
-        cr.arc(px, py, self.radius, 0, 2 * math.pi)
+        draw_round_rectangle(cr, px, py, sx, sy, self.radius)
         cr.set_line_width(1.5)
         cr.set_source_rgb(0,0,0)
         cr.stroke()
 
         if self.doubleborder:
-            cr.arc(px, py, self.radius - 3, 0, math.pi * 2)
+            draw_round_rectangle(cr, px, py, sx, sy, self.radius - 3)
             cr.stroke()
 
-        x = math.sqrt((self.radius * self.radius) / 2) + 5
+        if self.name:
+            tx, ty = utils.text_size(cr, self.name)
+            cr.set_source_rgb(0,0,0)
+            cr.move_to(px + (sx - tx)/2, py + (sy + ty)/2)
+            cr.show_text(self.name)
+
+        x = sx + self.radius + 2
         if self.init_string:
             cr.set_source_rgb(0,0,0)
-            cr.move_to(px + x, py - x)
+            cr.move_to(px + x, py - self.radius/2)
             cr.show_text(self.init_string)
         if self.place_type:
             cr.set_source_rgb(0,0,0)
-            cr.move_to(px + x, py + x)
+            cr.move_to(px + x, py + sy + self.radius)
             cr.show_text(self.place_type)
         if self.trace_text:
             draw_trace_box(cr, px - 15, py - 15, self.trace_text)
+
+#*******************************************************************************
+# Repair simulation drawing
 
     def draw_top(self, cr):
         px, py = self.position
@@ -250,23 +286,24 @@ class PlaceDrawing(DrawingBase):
                     rem_t_in += 1
 
             # Draw circle
-            x = math.sqrt((self.radius * self.radius) / 2) + 15
+            xcoord = px + self.size[0] + self.radius
+            ycoord = py + self.size[1] / 2
             if self.new_tokens:
                 cr.set_source_rgb(0.2,0.6,0)
             else:
                 cr.set_source_rgb(0.2,0.45,0)
-            cr.arc(px + self.radius,py,8, 0, 2 * math.pi)
+            cr.arc(xcoord, ycoord,8, 0, 2 * math.pi)
             cr.fill()
 
             cr.set_line_width(0.5)
-            cr.arc(px + self.radius,py,8, 0, 2 * math.pi)
+            cr.arc(xcoord, ycoord,8, 0, 2 * math.pi)
             cr.set_source_rgb(0,0,0)
             cr.stroke()
 
             init_text = str(len(self.tokens + self.new_tokens))
             w, h = utils.text_size(cr, init_text)
             cr.set_source_rgb(0.8,0.8,0.8)
-            cr.move_to(px + self.radius - w/2, py + h/2)
+            cr.move_to(xcoord - w/2, ycoord + h/2)
             cr.show_text(init_text)
 
             # Print token names
@@ -274,8 +311,8 @@ class PlaceDrawing(DrawingBase):
             texts = [ (t, utils.text_size(cr, t)[0]) for t in tokens ]
             text_height = len(tokens) * w_size
             text_width = max([ x[1] for x in texts ])
-            text_x = px + self.radius + 12
-            text_y = py - text_height / 2
+            text_x = xcoord + 12
+            text_y = ycoord - text_height / 2
 
             rem_height = rem_t_in * w_size
             tok_height = t_in * w_size
@@ -312,12 +349,19 @@ class PlaceDrawing(DrawingBase):
                 cr.move_to(text_x, text_y)
                 cr.show_text(t)
 
-        x = math.sqrt((self.radius * self.radius) / 2) + 5
         if self.error_messages and "type" in self.error_messages:
-            draw_error_box_after_text(cr, self.place_type, (px + x, py + x), self.error_messages["type"])
-        if self.error_messages and "init" in self.error_messages:
-            draw_error_box_after_text(cr, self.init_string, (px + x, py - x), self.error_messages["init"])
+            draw_error_box_after_text(
+                cr,
+                self.place_type,
+                (px + self.size[0] + self.radius, py + self.size[1] + self.radius),
+                self.error_messages["type"])
 
+        if self.error_messages and "init" in self.error_messages:
+            draw_error_box_after_text(
+                cr,
+                self.init_string,
+                (px + self.size[0] + self.radius, py - self.size[1] - self.radius),
+                self.error_messages["init"])
 
 class EdgeDrawing(DrawingBase):
 
