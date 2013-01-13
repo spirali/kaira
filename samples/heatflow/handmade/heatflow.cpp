@@ -99,13 +99,11 @@ int main(int argc, char **argv)
 {
 	MPI_Init(&argc, &argv);
 	parse_args(argc, argv);
-	init_times();
 	int rank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	int size;
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	compute(rank, size);
-	write_times(rank);
 	MPI_Finalize();
 	return 0;
 }
