@@ -86,7 +86,7 @@ namespace cass {
 				}
 				CaToken<T> *t = place.token;
 				do {
-					add(t->value);
+					this->add(t->value);
 					t = t->next;
 				} while (t != place.token);
 
