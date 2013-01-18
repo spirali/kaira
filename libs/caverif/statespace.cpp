@@ -311,10 +311,10 @@ void Core::write_dot_file(const std::string &filename)
 		const std::vector<Node*> &nexts = node->get_nexts();
 		if (node == initial_node) {
 			fprintf(f, "S%p [style=filled, label=%i]\n",
-				node, node->get_activations().size());
+				node, (int) node->get_activations().size());
 		} else {
 			fprintf(f, "S%p [label=%i]\n",
-				node, node->get_activations().size());
+				node, (int) node->get_activations().size());
 		}
 		for (size_t i = 0; i < nexts.size(); i++) {
 			fprintf(f, "S%p -> S%p\n", node, nexts[i]);
