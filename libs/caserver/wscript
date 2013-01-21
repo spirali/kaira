@@ -1,0 +1,12 @@
+
+source_files = (
+    "caserver.cpp",
+    "client.cpp"
+)
+
+def build(ctx):
+    ctx.stlib(source=source_files,
+              target="caserver",
+              name="caserver",
+              includes="../cailie",
+              use="cailie")

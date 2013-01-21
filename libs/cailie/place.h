@@ -1,4 +1,3 @@
-
 #ifndef CAILIE_PLACE_H
 #define CAILIE_PLACE_H
 

@@ -1,5 +1,0 @@
-
-source_files = [ "statespace.cpp" ]
-
-env = Environment(CCFLAGS="-O0 -fPIC -ggdb -Wall -I../cailie")
-env.StaticLibrary("caverif", source_files)

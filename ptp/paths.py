@@ -22,12 +22,13 @@ import os
 KAIRA_PTP = os.path.dirname(os.path.abspath(__file__))
 KAIRA_ROOT = os.path.dirname(KAIRA_PTP)
 
-KAIRA_LIBS_DIR = os.path.join(KAIRA_ROOT, "libs")
+CAILIE_INCLUDE_DIR = "libs/cailie"
+CAILIE_LIB_DIR = "build/libs/cailie"
 
-CAILIE_DIR = "cailie"
-CAILIE_LIB_DIR = "cailie/build"
-CAILIE_MPI_LIB_DIR = "cailie/build-mpi"
+CASERVER_INCLUDE_DIR = "libs/caserver"
+CASERVER_LIB_DIR = "build/libs/caserver"
+CACLIENT_INCLUDE_DIR = "libs/caclient"
+CACLIENT_LIB_DIR = "build/libs/caclient"
 
-CASERVER_DIR = "caserver"
-CACLIENT_DIR = "caclient"
-CAVERIF_DIR = "caverif"
+CAVERIF_INCLUDE_DIR = "libs/caverif"
+CAVERIF_LIB_DIR = "build/libs/caverif"

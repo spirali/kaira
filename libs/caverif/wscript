@@ -1,0 +1,11 @@
+source_files = (
+    "statespace.cpp"
+)
+
+def build(ctx):
+    if not ctx.env.CAVERIF:
+        return
+    ctx.stlib(source=source_files,
+              target="caverif",
+              includes="../cailie",
+              name="caverif")

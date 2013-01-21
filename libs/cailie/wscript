@@ -1,0 +1,30 @@
+
+source_files =  (
+    "cailie.cpp",
+    "process.cpp",
+    "thread.cpp",
+    "messages.cpp",
+    "listener.cpp",
+    "net.cpp",
+    "output.cpp",
+    "packing.cpp",
+    "tracelog.cpp",
+    "utils.cpp",
+    "parameters.cpp",
+)
+
+def build(ctx):
+    files = source_files + ("process_shmem.cpp",)
+    ctx.stlib(source=files,
+              target="cailie",
+              cxxflags="-DCA_SHMEM",
+              name="cailie")
+
+    if ctx.env.HAVE_MPI:
+        env = ctx.all_envs["mpi"]
+        files = source_files + ("process_mpi.cpp", "mpi_requests.cpp")
+        ctx.stlib(source=files,
+                  target="cailiempi",
+                  cxxflags="-DCA_MPI",
+                  name="cailiempi",
+                  env=env)

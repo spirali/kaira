@@ -1,0 +1,11 @@
+
+source_files = (
+    "caclient.cpp",
+)
+
+def build(ctx):
+    ctx.stlib(source=source_files,
+              target="caclient",
+              name="caclient",
+              includes="../cailie",
+              use="cailie")

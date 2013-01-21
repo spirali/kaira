@@ -1,0 +1,4 @@
+
+Run the following commands:
+$ ./waf configure
+$ ./waf
