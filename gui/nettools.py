@@ -159,20 +159,6 @@ class NetTool:
                     trace = [("value", (False, callback(self.selected_item, "value", True)))]
                 else:
                     trace = [("value", (True, callback(self.selected_item, "value", False)))]
-                trace_fn = []
-
-                ok, functions = self.netview.app.catch_ptp_exception(
-                    lambda: self.net.project.get_suitable_functions_for_place_tracing(
-                                self.selected_item),
-                    show_errors=False)
-
-                if ok:
-                    for fn in functions:
-                        check = "fn: " + fn in self.selected_item.tracing
-                        trace_fn.append((fn, (check, callback(self.selected_item,
-                                                              "fn: " + fn,
-                                                              not check))))
-                    trace.append(("add function", trace_fn))
 
                 menu_actions = [
                     ("Delete", delete_event),

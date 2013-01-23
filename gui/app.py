@@ -683,6 +683,7 @@ class App:
         location = match.group("location")
         message = match.group("message")
 
+        net = None
         if match.group("id_int") is not None:
             net, item = self.project.get_net_and_item(int(match.group("id_int")))
             if item is None:

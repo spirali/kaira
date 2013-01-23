@@ -1,0 +1,108 @@
+#
+#    Copyright (C) 2013 Stanislav Bohm
+#
+#    This file is part of Kaira.
+#
+#    Kaira is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Kaira is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+from writer import Writer
+import subprocess
+import re
+
+class Check:
+
+    content = ""
+    own_message = None
+    validator = None
+    key = None
+    message = None
+
+    def write_prologue(self, writer):
+        pass
+
+    def write_epilogue(self, writer):
+        pass
+
+    def write_content(self, writer):
+        pass
+
+    def write(self, writer):
+        self.start_line = writer.get_next_line_number()
+        self.write_prologue(writer)
+        self.write_content(writer)
+        self.write_epilogue(writer)
+        self.end_line = writer.get_current_line_numer()
+
+    def process_match(self, line_no, message):
+        if self.start_line <= line_no and self.end_line >= line_no:
+            if self.own_message is not None:
+                self.message = self.own_message
+            else:
+                self.message = message
+            return True
+        return False
+
+    def new_id(self):
+        return self.validator.new_id()
+
+
+class Tester:
+
+    def __init__(self, prologue=None):
+        self.prologue = prologue
+        self.id_counter = 30000
+        self.compiler = "gcc"
+        self.filename = "/tmp/kaira.cpp"
+        self.message_parser = re.compile(
+            "(?P<filename>[^:]*):(?P<line>\d+):(?P<message>.*)")
+        self.checks = []
+
+    def new_id(self):
+        self.id_counter += 1
+        return "____cpptest____{0}".format(self.id_counter)
+
+    def add(self, check):
+        check.validator = self
+        self.checks.append(check)
+
+    def process_message(self, line):
+        match = self.message_parser.match(line)
+        if match is None:
+            return
+        if match.group("filename") != self.filename:
+            return
+        line_no = int(match.group("line"))
+        message = match.group("message")
+        for check in self.checks:
+            if check.process_match(line_no, message):
+                return check
+
+    def run(self):
+        writer = Writer()
+        if self.prologue:
+            writer.raw_text(self.prologue)
+        for check in self.checks:
+            check.write(writer)
+
+        writer.write_to_file(self.filename)
+        p = subprocess.Popen(["gcc", "-fsyntax-only", self.filename],
+                             stderr=subprocess.STDOUT,
+                             stdout=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        for line in stdout.split("\n"):
+            check = self.process_message(line)
+            if check is not None:
+                return check
+        return None

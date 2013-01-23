@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm
+#    Copyright (C) 2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -17,20 +17,29 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import parser
+import generator
+import checker
 
-import buildnet
-import build
+class CppTargetEnv:
 
-def write_main(builder):
-    builder.line("int main(int argc, char **argv)")
-    builder.block_begin()
-    buildnet.write_main_setup(builder)
-    builder.line("ca_spawn_net(0);");
-    builder.line("ca_main();");
-    builder.line("return 0;")
-    builder.block_end()
+    def parse_typename(self, string, source):
+        parser.check_typename(string, source)
+        return string
 
-def write_standalone_program(builder):
-    build.write_header(builder)
-    buildnet.write_core(builder)
-    write_main(builder)
+    def is_expr_variable(self, string):
+        return parser.is_variable(string)
+
+    def get_checker(self, project):
+        return checker.Checker()
+
+class CppProgram(CppTargetEnv):
+
+    def get_generator(self, project):
+        return generator.CppProgramGenerator(project)
+
+
+class CppLib(CppTargetEnv):
+
+    def get_generator(self, project):
+        return generator.CppLibGenerator(project)

@@ -17,7 +17,6 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from base.neltypes import t_int, t_string, t_float, t_double, t_bool
 from base.writer import Writer
 import library
 

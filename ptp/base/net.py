@@ -18,9 +18,6 @@
 #
 
 import utils as utils
-from base.expressions import ExprVar
-from base.neltypes import derive_context
-from base.neltypes import t_bool, t_array, t_int, t_double, t_string
 import analysis
 
 class EdgeBase(utils.EqMixin):
@@ -45,6 +42,10 @@ class EdgeBase(utils.EqMixin):
     def get_transition(self):
         return self.transition
 
+    def get_source(self):
+        return "*{0}/inscription".format(self.id)
+
+
 class EdgeIn(EdgeBase):
 
     # setup by analysis
@@ -54,20 +55,21 @@ class EdgeIn(EdgeBase):
         EdgeBase.__init__(self, id, place, transition)
         self.expr = expr
 
-    def get_equations(self):
-        return [ (self.expr, self.get_place_type()) ]
-
-    def inject_types(self, env, context):
-        self.expr.inject_types(env, context)
-
     def is_normal(self):
         return True
 
     def is_packing(self):
         return False
 
-    def get_free_vars(self):
-        return self.expr.get_free_vars()
+    def is_variable(self):
+        return self.transition.net.project.is_expr_variable(self.expr)
+
+    def check(self, checker):
+        return checker.check_expression(self.expr,
+                                        self.transition.get_decls(),
+                                        self.get_place_type(),
+                                        self.get_source())
+
 
 class EdgeInPacking(EdgeBase):
 
@@ -76,22 +78,12 @@ class EdgeInPacking(EdgeBase):
         self.varname = varname
         self.limit = limit
 
-    def get_equations(self):
-        source = utils.get_source_path(self.id, "inscription")
-        return [ (ExprVar(self.varname, source), t_array(self.get_place_type())),
-                (self.limit, t_int.copy(source)) ]
-
-    def inject_types(self, env, context):
-        self.limit.inject_types(env, context)
-
     def is_normal(self):
         return False
 
     def is_packing(self):
         return True
 
-    def get_free_vars(self):
-        return set([self.varname])
 
 class EdgeOut(EdgeBase):
 
@@ -121,25 +113,15 @@ class EdgeOut(EdgeBase):
     def is_multicast(self):
         return self.sendmode == 'multicast'
 
-    def get_equations(self):
-        if self.is_normal():
-            eq = [ (self.expr, self.get_place_type()) ]
-        else:
-            eq = [ (self.expr, t_array(self.get_place_type())) ]
-        if self.is_unicast():
-            eq.append((self.target, t_int))
-        if self.is_multicast():
-            eq.append((self.target, t_array(t_int)))
-        if self.guard:
-            eq.append((self.guard, t_bool))
-        return eq
+    def is_variable(self):
+        return self.transition.net.project.is_expr_variable(self.expr)
 
-    def inject_types(self, env, context):
-        self.expr.inject_types(env, context)
-        if self.target:
-            self.target.inject_types(env, context)
-        if self.guard:
-            self.guard.inject_types(env, context)
+    def check(self, checker):
+        return checker.check_expression(self.expr,
+                                        self.transition.get_decls(),
+                                        self.get_place_type(),
+                                        self.get_source())
+
 
 class Place(utils.EqByIdMixin):
 
@@ -151,12 +133,6 @@ class Place(utils.EqByIdMixin):
         self.type = type
         self.init_expression = init_expression
         self.tracing = []
-
-    def inject_types(self):
-        if self.init_expression is not None:
-            inject_types_for_empty_context(self.net.project.get_env(),
-                                           self.init_expression,
-                                           t_array(self.type))
 
     def get_pos_id(self):
         return self.net.places.index(self)
@@ -190,20 +166,11 @@ class Place(utils.EqByIdMixin):
     def get_areas(self):
         return self.net.get_areas_with_place(self)
 
-    def get_functions_for_tracing(self, project):
-        p = [ self.type ]
-        if self.type.name == "":
-            q = list(self.type.args)
-            return (project.get_user_functions_by_declaration(t_int, p) +
-               project.get_user_functions_by_declaration(t_double, p) +
-               project.get_user_functions_by_declaration(t_string, p) +
-               project.get_user_functions_by_declaration(t_int, q) +
-               project.get_user_functions_by_declaration(t_double, q) +
-               project.get_user_functions_by_declaration(t_string, q))
+    def check(self, checker):
+        checker.check_type(self.type, self.get_source("type"))
 
-        return (project.get_user_functions_by_declaration(t_int, p) +
-               project.get_user_functions_by_declaration(t_double, p) +
-               project.get_user_functions_by_declaration(t_string, p))
+    def get_source(self, location):
+        return "*{0}/{1}".format(self.id, location)
 
 
 class Transition(utils.EqByIdMixin):
@@ -221,6 +188,8 @@ class Transition(utils.EqByIdMixin):
         self.edges_in = []
         self.edges_out = []
         self.tracing = []
+        self.var_edges = None
+        self.match_edges = None
 
     def need_trace(self):
         if self.is_any_place_traced():
@@ -241,9 +210,6 @@ class Transition(utils.EqByIdMixin):
     def get_packing_edges_in(self):
         return [ edge for edge in self.edges_in if edge.is_packing() ]
 
-    def get_context(self):
-        return derive_context(self.net.project.get_env(), self.get_equations())
-
     def get_all_edges(self):
         return self.edges_in + self.edges_out
 
@@ -262,27 +228,6 @@ class Transition(utils.EqByIdMixin):
     def is_any_place_traced(self):
         return any(place.tracing for place in self.get_places())
 
-    def get_equations(self):
-        result = []
-        for e in self.get_all_edges():
-            result += e.get_equations()
-        if self.guard:
-            result.append((self.guard, t_bool))
-        return result
-
-    def get_types(self):
-        return set([ t for _, t in self.get_equations() ])
-
-    def inject_types(self):
-        env = self.net.project.get_env()
-        eq = []
-        for e in self.get_all_edges():
-            eq += e.get_equations()
-        context = derive_context(env, eq)
-
-        for e in self.get_all_edges():
-            e.inject_types(env, context)
-
     def get_pos_id(self):
         return self.net.transitions.index(self)
 
@@ -292,6 +237,40 @@ class Transition(utils.EqByIdMixin):
     def get_source(self):
         return "*{0}".format(self.id)
 
+    def get_decls_dict(self):
+        decls_dict = {}
+        from_input = []
+        for edge in self.get_normal_edges_in():
+            if edge.is_variable():
+                if edge.expr not in decls_dict:
+                    decls_dict[edge.expr] = edge.get_place_type()
+                    from_input.append(edge.expr)
+                else:
+                    raise utils.PtpException(
+                        "Incosistent types for variable '{0}'".format(edge.expr))
+
+        for edge in self.get_normal_edges_in():
+            if edge.is_variable():
+                if edge.expr not in decls_dict:
+                    decls_dict[edge.expr] = edge.get_place_type()
+                elif edge.expr not in from_input:
+                    raise utils.PtpException(
+                        "Incosistent types for variable '{0}'".format(edge.expr))
+        return decls_dict
+
+    def get_decls(self):
+        decls = self.get_decls_dict().items()
+        decls.sort(key=lambda x: x[1])
+        return decls
+
+    def check(self, checker):
+        for edge in self.edges_in:
+            edge.check(checker)
+
+        for edge in self.edges_out:
+            edge.check(checker)
+
+
 class Area(object):
 
     def __init__(self, net, id, expr, places):
@@ -300,18 +279,9 @@ class Area(object):
         self.places = places
         self.expr = expr
 
-    def inject_types(self):
-        inject_types_for_empty_context(self.net.project.get_env(), self.expr, t_array(t_int))
-
     def is_place_inside(self, place):
         return place in self.places
 
-def inject_types_for_empty_context(env, expr, t):
-    eq = [ (expr, t) ]
-    context = derive_context(env, eq)
-    if context != {}:
-        raise Exception("Variables occurs in initial expression")
-    expr.inject_types(env, context)
 
 class Net(object):
 
@@ -352,15 +322,6 @@ class Net(object):
             if transition.id == id:
                 return transition
 
-    def get_all_types(self):
-        result = set()
-        for place in self.places:
-            result.add(place.type)
-        for tr in self.transitions:
-            for t in tr.get_types():
-                result.update(t.get_subtypes())
-        return result
-
     def get_index(self):
         return self.project.nets.index(self)
 
@@ -372,33 +333,11 @@ class Net(object):
                     return index
                 index += 1
 
-    def inject_types(self):
-        for place in self.places:
-            place.inject_types()
-        for tr in self.transitions:
-            tr.inject_types()
-        for area in self.areas:
-            area.inject_types()
-        self.inject_types_interface()
-
-    def get_interface_context(self):
-        eq = []
-        env = self.project.get_env()
-        for e in self.interface_edges_out + self.interface_edges_in:
-            eq += e.get_equations()
-        return derive_context(env, eq)
-
     def get_module_input_vars(self):
         return set().union(*[ e.expr.get_free_vars() for e in self.interface_edges_out ])
 
     def get_module_output_vars(self):
         return set().union(* [ e.get_free_vars() for e in self.interface_edges_in ])
-
-    def inject_types_interface(self):
-        context = self.get_interface_context()
-        env = self.project.get_env()
-        for e in self.interface_edges_in + self.interface_edges_out:
-            e.inject_types(env, context)
 
     def get_areas_with_place(self, place):
         return [ area for area in self.areas if area.is_place_inside(place) ]
@@ -406,12 +345,17 @@ class Net(object):
     def is_local(self):
         return all((tr.is_local() for tr in self.transitions))
 
-    def check(self):
-        """ Check consistency of net, raise exception if something is wrong,
-            inject_types exptected before calling check"""
+    def check(self, checker):
+        for place in self.places:
+            place.check(checker)
 
+        for transition in self.transitions:
+            transition.check(checker)
+
+        """
         for t in self.get_all_types():
             t.check(self.project)
+        """
 
     def analyze(self):
         for tr in self.transitions:

@@ -17,7 +17,6 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import emitter
 import os
 import base.utils
 import makefiles
@@ -30,6 +29,7 @@ import octave
 import rpc
 import statespace
 
+
 class CppGenerator:
 
     def __init__(self, project):
@@ -40,38 +40,21 @@ class CppGenerator:
 
     def get_place_user_fn_header(self, place_id):
         place = self.project.get_place(place_id)
-        t = emitter.Emitter(self.project).emit_type(place.type)
-        if t[-1] == ">":
-            t += " "
-        return "void place_fn(CaContext &ctx, std::vector<{1}> &tokens)\n".format(place, t)
+        type_name = place.type
+        if type_name[-1] == ">":
+            type_name += " "
+        return "void place_fn(CaContext &ctx, std::vector<{1}> &tokens)\n".format(place, type_name)
 
     def get_transition_user_fn_header(self, transition_id):
         transition = self.project.get_transition(transition_id)
-        context = transition.get_context()
         w = writer.CppWriter()
-        em = emitter.Emitter(self.project)
         w.line("struct Vars {{")
-        for key, value in context.items():
-            w.line("\t{1} {0};", key, em.emit_type(value))
+        for name, t in transition.get_decls():
+            w.line("\t{0} {1};", t, name)
         w.line("}};")
         w.emptyline()
         w.line("void transition_fn(CaContext &ctx, Vars &var)")
         return w.get_string()
-
-    def get_user_function_header(self, ufunction_name):
-        ufunction = self.project.get_user_function(ufunction_name)
-        em = emitter.Emitter(self.project)
-        t = em.emit_type(ufunction.get_returntype())
-        if ufunction.with_context:
-            ctx = "CaContext &ctx, "
-        else:
-            ctx = ""
-        decls = writer.emit_declarations(em, ufunction.get_parameters())
-        return "{0} {1}({2}{3})\n{{\n".format(t, ufunction_name, ctx, decls)
-
-    def get_suitable_functions_for_place_tracing(self, place_id):
-        place = self.project.get_place(place_id)
-        return [ function.name for function in place.get_functions_for_tracing(self.project) ]
 
 
 class CppProgramGenerator(CppGenerator):

@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm
+#    Copyright (C) 2012, 2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -20,12 +20,33 @@
 from base.writer import Writer
 import os
 
-def emit_declarations(emitter, decls, reference = False):
+def emit_declarations(decls, reference=False):
     if reference:
         r = "&"
     else:
         r = ""
-    return ",".join(("{0} {2}{1}".format(emitter.emit_type(t), name, r) for name, t in decls))
+    return ",".join(("{0} {2}{1}".format(t, name, r) for name, t in decls))
+
+def const_string(value):
+    def escape(char):
+        if char == "\n":
+            return "\\n"
+        if char == "\r":
+            return "\\r"
+        if char == "\t":
+            return "\\t"
+        if char == "\\":
+            return "\\\\"
+        if char == '"':
+            return '\\"'
+        return char
+    return '"{0}"'.format("".join((escape(char) for char in value)))
+
+def const_boolean(value):
+    if value:
+        return "true"
+    else:
+        return "false"
 
 
 class CppWriter(Writer):
@@ -103,6 +124,3 @@ class CppWriter(Writer):
         if file_lineno:
             self.line_directive(os.path.basename(self.filename),
                                                  self.get_next_line_number())
-
-    def emit_declarations(self, decls, reference = False):
-        return emit_declarations(self.emitter, decls, reference)
