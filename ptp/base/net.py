@@ -20,107 +20,66 @@
 import utils as utils
 import analysis
 
-class EdgeBase(utils.EqMixin):
 
-    """
-        Edge has attribute uid because id (provided by gui) is not necessary unique.
-        It occurs in net with (graphical) edge with inscription "x;y", then gui creates
-        two edges with same id
-    """
-    def __init__(self, id, place, transition):
+class Edge(utils.EqMixin):
+
+    def __init__(self, id, transition, place, inscriptions, config):
         self.id = id
         self.uid = utils.get_unique_id()
         self.place = place
         self.transition = transition
-
-    def get_place(self):
-        return self.place
-
-    def get_place_type(self):
-        return self.place.type
-
-    def get_transition(self):
-        return self.transition
+        for inscription in inscriptions:
+            inscription.edge = self
+        self.inscriptions = inscriptions
+        self.config = config
 
     def get_source(self):
         return "*{0}/inscription".format(self.id)
 
-
-class EdgeIn(EdgeBase):
-
-    # setup by analysis
-    token_reused = False
-
-    def __init__(self, id, place, transition, expr):
-        EdgeBase.__init__(self, id, place, transition)
-        self.expr = expr
-
-    def is_normal(self):
-        return True
-
-    def is_packing(self):
-        return False
-
-    def is_variable(self):
-        return self.transition.net.project.is_expr_variable(self.expr)
+    def get_place_type(self):
+        return self.place.type
 
     def check(self, checker):
-        return checker.check_expression(self.expr,
-                                        self.transition.get_decls(),
-                                        self.get_place_type(),
-                                        self.get_source())
+        for inscription in self.inscriptions:
+            checker.check_expression(inscription.expr,
+                                     self.transition.get_decls(),
+                                     self.get_place_type(),
+                                     self.get_source())
 
+    def get_decls(self):
+        return [ (inscription.expr, self.get_place_type()) for inscription in self.inscriptions
+                    if inscription.is_variable() ]
 
-class EdgeInPacking(EdgeBase):
+    def get_variable_sources(self):
+        sources = {}
+        for inscription in self.inscriptions:
+            if inscription.is_variable() and inscription.expr not in sources:
+                sources[inscription.expr] = inscription.uid
+        return sources
 
-    def __init__(self, id, place, transition, varname, limit):
-        EdgeBase.__init__(self, id, place, transition)
-        self.varname = varname
-        self.limit = limit
+    def get_tokens_number(self):
+        return len(self.inscriptions)
 
-    def is_normal(self):
-        return False
-
-    def is_packing(self):
-        return True
-
-
-class EdgeOut(EdgeBase):
-
-    # setup by analysis
-    token_source = None # EdgeIn or None
-
-    def __init__(self, id, place, transition, expr, mode, sendmode, target, guard):
-        EdgeBase.__init__(self, id, place, transition)
-        self.expr = expr
-        self.mode = mode # 'normal' | 'packing'
-        self.sendmode = sendmode # 'unicast' | 'multicast' | 'local'
-        self.target = target
-        self.guard = guard
-
-    def is_normal(self):
-        return self.mode == 'normal'
-
-    def is_packing(self):
-        return self.mode == 'packing'
+    def get_token_inscriptions(self):
+        return self.inscriptions
 
     def is_local(self):
-        return self.sendmode == 'local'
+        return True
 
-    def is_unicast(self):
-        return self.sendmode == 'unicast'
 
-    def is_multicast(self):
-        return self.sendmode == 'multicast'
+class EdgeInscription(utils.EqMixin):
+
+    edge = None
+
+    def __init__(self, expr):
+        self.expr = expr
+        self.uid = utils.get_unique_id()
+
+    def get_type(self):
+        return self.edge.get_place_type()
 
     def is_variable(self):
-        return self.transition.net.project.is_expr_variable(self.expr)
-
-    def check(self, checker):
-        return checker.check_expression(self.expr,
-                                        self.transition.get_decls(),
-                                        self.get_place_type(),
-                                        self.get_source())
+        return self.edge.transition.net.project.is_expr_variable(self.expr)
 
 
 class Place(utils.EqByIdMixin):
@@ -141,11 +100,11 @@ class Place(utils.EqByIdMixin):
         result = []
         for tr in self.net.transitions:
             for edge in tr.edges_out:
-                if edge.get_place() == self:
+                if edge.place == self:
                     result.append(edge)
         if with_interface:
             for edge in self.net.get_interface_edges_out():
-                if edge.get_place() == self:
+                if edge.place == self:
                     result.append(edge)
         return result
 
@@ -153,7 +112,7 @@ class Place(utils.EqByIdMixin):
         result = []
         for tr in self.net.transitions:
             for edge in tr.edges_in:
-                if edge.get_place() == self:
+                if edge.place == self:
                     result.append(edge)
         return result
 
@@ -180,10 +139,6 @@ class Transition(utils.EqByIdMixin):
 
     code = None
 
-    # After analysis it is dictionary variable_name -> EdgeIn
-    # It returns edge (= token) where variable should be gather
-    var_edge = None
-
     def __init__(self, net, id, guard):
         self.net = net
         self.id = id
@@ -191,8 +146,14 @@ class Transition(utils.EqByIdMixin):
         self.edges_in = []
         self.edges_out = []
         self.tracing = []
-        self.var_edges = None
-        self.match_edges = None
+        self.var_exprs = None
+        self.match_exprs = None
+
+    def get_token_inscriptions_in(self):
+        return sum([ edge.get_token_inscriptions() for edge in self.edges_in ], [])
+
+    def get_token_inscriptions_out(self):
+        return sum([ edge.get_token_inscriptions() for edge in self.edges_out ], [])
 
     def need_trace(self):
         if self.is_any_place_traced():
@@ -201,23 +162,8 @@ class Transition(utils.EqByIdMixin):
             return True
         return len(self.tracing) > 0
 
-    def get_normal_edges_out(self):
-        return [ edge for edge in self.edges_out if edge.is_normal() ]
-
-    def get_packing_edges_out(self):
-        return [ edge for edge in self.edges_out if edge.is_packing() ]
-
-    def get_normal_edges_in(self):
-        return [ edge for edge in self.edges_in if edge.is_normal() ]
-
-    def get_packing_edges_in(self):
-        return [ edge for edge in self.edges_in if edge.is_packing() ]
-
     def get_all_edges(self):
         return self.edges_in + self.edges_out
-
-    def get_basic_input_edges(self):
-        return self.edges_in
 
     def get_input_places(self):
         return set([ edge.place for edge in self.edges_in ])
@@ -243,22 +189,22 @@ class Transition(utils.EqByIdMixin):
     def get_decls_dict(self):
         decls_dict = {}
         from_input = []
-        for edge in self.get_normal_edges_in():
-            if edge.is_variable():
-                if edge.expr not in decls_dict:
-                    decls_dict[edge.expr] = edge.get_place_type()
-                    from_input.append(edge.expr)
-                else:
+        for edge in self.edges_in:
+            for name, t in edge.get_decls():
+                if name not in decls_dict:
+                    decls_dict[name] = t
+                    from_input.append(name)
+                elif name != decls_dict[name]:
                     raise utils.PtpException(
-                        "Incosistent types for variable '{0}'".format(edge.expr))
+                        "Inconsistent types for variable '{0}'".format(name))
 
-        for edge in self.get_normal_edges_in():
-            if edge.is_variable():
-                if edge.expr not in decls_dict:
-                    decls_dict[edge.expr] = edge.get_place_type()
-                elif edge.expr not in from_input:
+        for edge in self.edges_out:
+            for name, t in edge.get_decls():
+                if name not in decls_dict:
+                    decls_dict[name] = t
+                elif name != decls_dict[name] and name not in from_input:
                     raise utils.PtpException(
-                        "Incosistent types for variable '{0}'".format(edge.expr))
+                        "Inconsistent types for variable '{0}'".format(name))
         return decls_dict
 
     def get_decls(self):

@@ -56,13 +56,15 @@ def write_tokens_struct(builder, tr):
     class_name = "Tokens_{0.id}".format(tr)
     builder.write_class_head(class_name)
 
-    for edge in tr.get_normal_edges_in():
-        builder.line("CaToken<{0} > *token_{1.uid};",
-            edge.get_place_type(), edge)
+    for inscription in tr.get_token_inscriptions_in():
+        builder.line("CaToken<{0} > *token_{1};",
+            inscription.get_type(), inscription.uid)
 
+    """
     for edge in tr.get_packing_edges_in():
         builder.line("std::vector<{0} > packed_values_{1.uid};",
             edge.get_place_type(), edge)
+    """
 
     builder.write_class_end()
 
@@ -140,37 +142,22 @@ def write_send_token(builder,
         builder.line("lock = false;")
         builder.block_end()
 
-    def write_add(method):
-        place = edge.get_place()
-        """
-        if edge.token_source is not None and not readonly_tokens:
-            write_place_add(builder,
-                            method + "_token",
-                            place,
-                            "n->place_{0.id}.".format(place),
-                            ExprExtern("token_{0.uid}_builder"
-                                        .format(edge.token_source)).emit(em))
-        else:
-        """
-
+    def write_add(method, expr):
         write_place_add(builder,
                         method,
-                        place,
-                        "{0}->place_{1.id}.".format(net_expr, place),
-                        edge.expr)
-
+                        edge.place,
+                        "{0}->place_{1.id}.".format(net_expr, edge.place),
+                        expr)
         if not interface_edge:
-            write_activation(builder, net_expr, edge.get_place().get_transitions_out())
+            write_activation(builder, net_expr, edge.place.get_transitions_out())
 
-    builder.line("// Output edge id={0.id} uid={0.uid} expr={0.expr} target={0.target}", edge)
+    # if edge.guard is not None:
+    #    builder.if_begin(edge.guard)
 
-    method = "add" if edge.is_normal() else "add_all"
-
-    if edge.guard is not None:
-        builder.if_begin(edge.guard)
     if edge.is_local():
         write_lock()
-        write_add(method)
+        for inscription in edge.get_token_inscriptions():
+            write_add("add", inscription.expr)
     else: # Remote send
         if edge.is_unicast():
             sendtype = ""
@@ -212,23 +199,25 @@ def write_send_token(builder,
             builder.line("thread->multisend{0}(target_{1.id}, n, {2}, value.size(), packer);",
                    sendtype,edge, edge.get_place().get_pos_id())
         builder.block_end()
-    if edge.guard is not None:
-        builder.block_end()
+
+    #if edge.guard is not None:
+    #    builder.block_end()
 
 def write_remove_tokens(builder, net_expr, tr):
-    for edge in tr.get_normal_edges_in():
-        token_var = build.get_safe_id("token_{0.uid}".format(edge))
-        if edge.get_place().tracing:
+    for inscription in tr.get_token_inscriptions_in():
+        token_var = build.get_safe_id("token_{0.uid}".format(inscription))
+        place = inscription.edge.place
+        if place.tracing:
             builder.if_begin("tracelog")
             builder.line("{0}->place_{1.id}.remove({1}, tracelog, {2.id});",
-                net_expr, token_var, edge.get_place())
+                net_expr, token_var, place)
             builder.line("}} else {{")
             builder.line("{0}->place_{2.id}.remove({1});",
-                net_expr, token_var, edge.get_place())
+                net_expr, token_var, place)
             builder.block_end()
         else:
             builder.line("{0}->place_{2.id}.remove({1});",
-                net_expr, token_var, edge.get_place())
+                net_expr, token_var, place)
 
 def write_fire_body(builder,
                     tr,
@@ -282,7 +271,7 @@ def write_fire_body(builder,
         builder.line("bool lock = true;")
 
 
-    for edge in tr.get_packing_edges_out() + tr.get_normal_edges_out():
+    for edge in tr.edges_out:
         write_send_token(builder,
                          edge,
                          net_expr,
@@ -452,9 +441,9 @@ def write_cleanup_binding(builder, tr):
     builder.line("void Transition_{0.id}::cleanup_binding(void *data)", tr)
     builder.block_begin()
     builder.line("Tokens_{0.id} *tokens = (Tokens_{0.id}*) data;", tr)
-    for edge in tr.get_normal_edges_in():
+    for inscription in tr.get_token_inscriptions_in():
         builder.line("delete tokens->token_{1.uid};",
-            edge.get_place_type(), edge);
+            inscription.get_type(), inscription);
     builder.line("delete tokens;");
     builder.block_end()
 
@@ -490,36 +479,39 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
     n, var = map(build.get_safe_id, [ "n", "var" ])
     builder.line("{0} *{1} = ({0}*) net;", get_net_class_name(tr.net), n)
 
-    need_tokens = utils.multiset([ edge.get_place() for edge in tr.get_normal_edges_in() ])
-
     # Check if there are enough tokens
-    for place, count in need_tokens.items():
+    for edge in tr.edges_in:
         builder.line("if ({0}->place_{1.id}.size() < {2}) {3}",
-            n, place, count, fail_command)
+            n, edge.place, edge.get_tokens_number(), fail_command)
 
+    for edge in tr.edges_in:
+        prev_var = None
+        for inscription in edge.get_token_inscriptions():
+            token_var = build.get_safe_id("token_{0}".format(inscription.uid))
+            builder.line("// Edge id={0.id} uid={1.uid} expr={1.expr}",
+                edge, inscription)
+            line = "CaToken < {0} > *{1} = ".format(edge.get_place_type(), token_var)
+            if prev_var is None:
+                builder.line("{0} {1}->place_{2.id}.begin();",
+                            line, n, edge.place)
+            else:
+                builder.line("{0} {1}->next;", line, prev_var)
+            prev_var = token_var
 
-    for edge in tr.var_edges:
-        builder.line("// Edge id={0.id} uid={0.uid} expr={0.expr}", edge)
-        token_var = build.get_safe_id("token_{0}".format(edge.uid))
-        builder.line("CaToken < {0} > *{1} = {2}->place_{3.id}.begin();",
-            edge.get_place_type(),
-            token_var,
-            n,
-            edge.place)
-        builder.line("{0} &{1} = {2}->value;",
-             edge.get_place_type(), edge.expr, token_var)
+    sources_uid = tr.variable_sources.values()
+    decls_dict = tr.get_decls_dict()
 
-    for edge in tr.match_edges:
-        builder.line("// Edge id={0.id} uid={0.uid} expr={0.expr}", edge)
-        token_var = build.get_safe_id("token_{0}".format(edge.uid))
-        builder.line("CaToken < {0} > *{1} = {2}->place_{3.id}.begin();",
-            edge.get_place_type(),
-            token_var,
-            n,
-            edge.place)
-        builder.line("if ({1}->value != ({0})) {2}",
-            edge.expr, token_var, fail_command)
+    for name, uid in tr.variable_sources.items():
+        token_var = build.get_safe_id("token_{0}".format(uid))
+        builder.line("{0} &{1} = {2}->value;", decls_dict[name], name, token_var)
 
+    for edge in tr.edges_in:
+        for inscription in edge.get_token_inscriptions():
+            if inscription.uid in sources_uid:
+                continue
+            token_var = build.get_safe_id("token_{0}".format(edge.uid))
+            builder.line("if ({1}->value != ({0})) {2}",
+                inscription.expr, token_var, fail_command)
 
     builder.block_begin()
     builder.add_writer(fire_code)
@@ -691,7 +683,7 @@ def write_receive_method(builder, net):
     builder.line("switch(place_pos) {{")
     for place in net.places:
         edges = place.get_edges_in(with_interface=True)
-        if any((edge.target is not None for edge in edges)):
+        if any((not edge.is_local() for edge in edges)):
             builder.line("case {0}:", place.get_pos_id())
             builder.indent_push()
             write_place_add(builder,

@@ -19,11 +19,13 @@
 
 import pyparsing as pp
 import base.utils as utils
+import base.net
 
 digits = "0123456789"
 operator_chars = "+-*/%=!<>&|"
 
-lpar, rpar, dot, delim, sem = map(pp.Suppress, "().,;")
+lpar, rpar, dot, delim, sem, lbracket, rbracket \
+    = map(pp.Suppress, "().,;[]")
 
 ident = pp.Word(pp.alphas+"_:", pp.alphanums+"_:")
 expression = pp.Forward()
@@ -37,12 +39,23 @@ term = number | string | var_or_call
 expression << term
 
 mark = pp.Empty().setParseAction(lambda loc, t: loc)
-expression_marks = pp.Group(mark + expression.suppress() + mark)
+full_expression = (mark + expression.suppress() + mark) \
+    .setParseAction(lambda s, loc, t: s[t[0]:t[1]])
 
-expressions_marks = expression_marks + pp.ZeroOrMore(sem + expression_marks)
+expressions = pp.delimitedList(full_expression, ";")
+
+"""
+expression_marks = pp.Group(mark + expression.suppress() + mark)
+expressions_marks = pp.delimitedList(expression_marks, ";")
+"""
 
 typename = ident
 
+edge_config_param = lpar + mark + expression.suppress() + mark + rpar
+edge_config_item = ident + pp.Optional(edge_config_param, None)
+edge_config = lbracket + pp.delimitedList(edge_config_item, ";") + rbracket
+
+edge_expr = pp.Optional(edge_config, None) + pp.Group(expressions)
 
 def check_expression(expr):
     if len(expr) == 0:
@@ -68,11 +81,19 @@ def is_variable(expr):
     except pp.ParseException:
         return False
 
+def take_substrings(string, pairs):
+    return [ string[start:end] for start, end in pairs ]
+
 def split_expressions(string, source):
     if string.strip() == "":
         return []
     try:
-        return [ string[start:end] for start, end in
-            expressions_marks.parseString(string, parseAll=True) ]
+        return expressions.parseString(string, parseAll=True)
     except pp.ParseException, e:
         raise utils.PtpException(e.msg, source)
+
+def parse_edge_expression(string, source):
+    configs, expressions = edge_expr.parseString(string, parseAll=True)
+    return (edge_config,
+            [ base.net.EdgeInscription(expr)
+                for expr in expressions ])

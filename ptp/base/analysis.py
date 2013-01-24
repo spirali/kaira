@@ -23,22 +23,11 @@ def all_free_variables(edges):
     return utils.unions(edges, lambda edge: edge.get_free_vars())
 
 def analyze_transition(tr):
+    variable_sources = {}
 
-    # Get rid of packing edges or with taget or with guard
-    project = tr.net.project
-    edges_in = tr.get_normal_edges_in()
+    for edge in tr.edges_in:
+        for name, uid in edge.get_variable_sources().items():
+            if name not in variable_sources:
+                variable_sources[name] = uid
 
-    variables = []
-    var_edges = []
-    match_edges = []
-
-    for edge in edges_in:
-        expr = edge.expr
-        if project.is_expr_variable(expr) and expr not in variables:
-            variables.append(expr)
-            var_edges.append(edge)
-        else:
-            match_edges.append(edge)
-
-    tr.var_edges = var_edges
-    tr.match_edges = match_edges
+    tr.variable_sources = variable_sources

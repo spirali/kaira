@@ -21,7 +21,7 @@ import base.utils as utils
 
 import xml.etree.ElementTree as xml
 from base.utils import get_source_path
-from net import Net, Area, Place, Transition, EdgeIn, EdgeInPacking, EdgeOut
+from net import Net, Area, Place, Transition, Edge
 
 class ExternType(object):
 
@@ -95,6 +95,7 @@ class UserFunction(object):
     def meet_declaration(self, returntype, parameter_types):
         return self.returntype == returntype and \
                [ t for _, t in self.parameters ] == parameter_types
+
 
 class Parameter(object):
 
@@ -218,6 +219,9 @@ class Project(object):
     def parse_expressions(self, string, source):
         return self.target_env.parse_expressions(string, source)
 
+    def parse_edge_expression(self, string, source):
+        return self.target_env.parse_edge_expression(string, source)
+
     def get_generator(self):
         return self.target_env.get_generator(self)
 
@@ -226,37 +230,16 @@ def get_source(element, name):
     id = utils.xml_int(element, "id")
     return get_source_path(id, name)
 
-def load_edge_in(element, net, transition):
+def load_edge_in(element, project, net, transition):
     id = utils.xml_int(element, "id")
     place_id = utils.xml_int(element, "place-id")
-    expr = element.get("expr")
-    return EdgeIn(id, net.get_place(place_id), transition, expr)
-    """
-    source = get_source(element, "inscription")
-    mode, expr = parser.parse_input_inscription(utils.xml_str(element, "expr"), source)
-    if mode == 'normal':
-        return EdgeIn(id, net.get_place(place_id), transition, expr)
-    else:
-        if isinstance(expr, ExprCall) and len(expr.args) == 1:
-            limit = expr.args[0]
-        elif isinstance(expr, ExprVar):
-            limit = ExprInt(0)
-            limit.set_source(source)
-        else:
-            raise PtpException("Invalid syntax for input packing expression", source)
-        return EdgeInPacking(id, net.get_place(place_id), transition, expr.name, limit)
-    """
-def load_edge_out(element, net, transition):
-    id = utils.xml_int(element, "id")
-    place_id = utils.xml_int(element, "place-id")
-    """
-    mode, expr, send, guard = parser.parse_output_inscription(utils.xml_str(element, "expr"), get_source(element, "inscription"))
-    """
-    mode = "normal"
-    expr = element.get("expr")
-    sendmode, target = ("local", None)
-    guard = None
-    return EdgeOut(id, net.get_place(place_id), transition, expr, mode, sendmode, target, guard)
+    config, expressions = project.parse_edge_expression(
+        element.get("expr"), get_source(element, "inscription"))
+    return Edge(id, transition, net.get_place(place_id), expressions, config)
+
+def load_edge_out(element, project, net, transition):
+    # Loading edge-in and edge-out are now same
+    return load_edge_in(element, project, net, transition)
 
 def load_tracing(element):
     trace = []
@@ -269,8 +252,10 @@ def load_transition(element, project, net):
 
     guard = None
     transition = Transition(net, id, guard)
-    transition.edges_in = map(lambda e: load_edge_in(e, net, transition), element.findall("edge-in"))
-    transition.edges_out = map(lambda e: load_edge_out(e, net, transition), element.findall("edge-out"))
+    transition.edges_in = map(lambda e:
+        load_edge_in(e, project, net, transition), element.findall("edge-in"))
+    transition.edges_out = map(lambda e:
+        load_edge_out(e, project, net, transition), element.findall("edge-out"))
 
     if element.find("code") is not None:
         transition.code = element.find("code").text

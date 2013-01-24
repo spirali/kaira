@@ -202,21 +202,17 @@ class Net:
         self.items.remove(item)
         self.changed()
 
-    def edges_from(self, item, postprocess = False):
+    def edges_from(self, item, postprocess=False):
         edges = [ i for i in self.items if i.is_edge() and i.from_item == item ]
         if postprocess:
             edges += [ i.make_complement() for i in self.edges_to(item) if i.is_bidirectional() ]
-            return sum([ edge.postprocess() for edge in edges ], [])
-        else:
-            return edges
+        return edges
 
-    def edges_to(self, item, postprocess = False):
+    def edges_to(self, item, postprocess=False):
         edges = [ i for i in self.items if i.is_edge() and i.to_item == item ]
         if postprocess:
             edges += [ i.make_complement() for i in self.edges_from(item) if i.is_bidirectional() ]
-            return sum( [ edge.postprocess() for edge in edges ], [])
-        else:
-            return edges
+        return edges
 
     def edges_of(self, item):
         return [ i for i in self.items
@@ -329,10 +325,10 @@ class NetElement(NetItem):
     def edges(self):
         return self.net.edges_of(self)
 
-    def edges_from(self, postprocess = False):
+    def edges_from(self, postprocess=False):
         return self.net.edges_from(self, postprocess)
 
-    def edges_to(self, postprocess = False):
+    def edges_to(self, postprocess=False):
         return self.net.edges_to(self, postprocess)
 
     def delete(self):
@@ -742,17 +738,6 @@ class Edge(NetItem):
         c = self.simple_copy()
         c.switch_direction()
         return c
-
-    def postprocess(self):
-        if self.inscription.strip() == "":
-            return [self]
-        edges = []
-        for inscription in self.inscription.split(";"):
-            if inscription.strip() != "":
-                c = self.simple_copy()
-                c.inscription = inscription
-                edges.append(c)
-        return edges
 
     def get_end_points(self):
         if self.points:
