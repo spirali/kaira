@@ -127,11 +127,11 @@ class Place(utils.EqByIdMixin):
 
     code = None
 
-    def __init__(self, net, id, type, init_expression):
+    def __init__(self, net, id, type, init_exprs):
         self.net = net
         self.id = id
         self.type = type
-        self.init_expression = init_expression
+        self.init_exprs = init_exprs
         self.tracing = []
 
     def get_pos_id(self):
@@ -168,6 +168,9 @@ class Place(utils.EqByIdMixin):
 
     def check(self, checker):
         checker.check_type(self.type, self.get_source("type"))
+        source = self.get_source("type")
+        for expr in self.init_exprs:
+            checker.check_expression(expr, [], self.type, source)
 
     def get_source(self, location):
         return "*{0}/{1}".format(self.id, location)

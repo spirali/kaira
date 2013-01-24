@@ -629,7 +629,7 @@ def write_init_net(builder, net):
                      area,
                      area.expr.emit(builder.emitter))
     for place in net.places:
-        if not (place.init_expression or place.code):
+        if not (place.init_exprs or place.code):
             continue
         areas = place.get_areas()
         if areas == []:
@@ -640,9 +640,13 @@ def write_init_net(builder, net):
                           .format(area) for area in areas ]
             builder.if_begin(" && ".join(conditions))
 
-        if place.init_expression is not None:
-            write_place_add(builder, "add_all", place, "net->place_{0.id}.".format(place),
-                               place.init_expression.emit(builder.emitter))
+        for expr in place.init_exprs:
+            write_place_add(builder,
+                            "add",
+                            place,
+                            "net->place_{0.id}.".format(place),
+                            expr)
+
         if place.code is not None:
             builder.line("std::vector<{0} > tokens;", place.type)
             builder.line("place_user_fn_{0.id}(ctx, tokens);", place)

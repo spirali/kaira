@@ -27,11 +27,15 @@ class CppTargetEnv:
         parser.check_typename(string, source)
         return string
 
+    def parse_expressions(self, string, source):
+        return parser.split_expressions(string, source)
+
     def is_expr_variable(self, string):
         return parser.is_variable(string)
 
     def get_checker(self, project):
         return checker.Checker()
+
 
 class CppProgram(CppTargetEnv):
 

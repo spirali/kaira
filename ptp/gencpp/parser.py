@@ -23,7 +23,7 @@ import base.utils as utils
 digits = "0123456789"
 operator_chars = "+-*/%=!<>&|"
 
-lpar, rpar, dot, delim = map(pp.Suppress, "().,")
+lpar, rpar, dot, delim, sem = map(pp.Suppress, "().,;")
 
 ident = pp.Word(pp.alphas+"_:", pp.alphanums+"_:")
 expression = pp.Forward()
@@ -36,17 +36,19 @@ var_or_call = ident + pp.Optional(parens)
 term = number | string | var_or_call
 expression << term
 
+mark = pp.Empty().setParseAction(lambda loc, t: loc)
+expression_marks = pp.Group(mark + expression.suppress() + mark)
+
+expressions_marks = expression_marks + pp.ZeroOrMore(sem + expression_marks)
+
 typename = ident
 
-expression_endl = expression + pp.StringEnd()
-typename_endl = typename + pp.StringEnd()
-variable_endl = ident + pp.StringEnd()
 
 def check_expression(expr):
     if len(expr) == 0:
         return "Expression is empty"
     try:
-        expression_endl.parseString(expr)
+        expression.parseString(expr, parseAll=True)
         return None
     except pp.ParseException, e:
         return e.lineno, e.col, e.msg
@@ -55,13 +57,22 @@ def check_typename(tname, source):
     if len(tname) == 0:
         raise utils.PtpException("Type is empty", source)
     try:
-        typename_endl.parseString(tname)
+        typename.parseString(tname, parseAll=True)
     except pp.ParseException, e:
         raise utils.PtpException(e.msg, source)
 
 def is_variable(expr):
     try:
-        variable_endl.parseString(expr)
+        ident.parseString(expr, parseAll=True)
         return True
     except pp.ParseException:
         return False
+
+def split_expressions(string, source):
+    if string.strip() == "":
+        return []
+    try:
+        return [ string[start:end] for start, end in
+            expressions_marks.parseString(string, parseAll=True) ]
+    except pp.ParseException, e:
+        raise utils.PtpException(e.msg, source)

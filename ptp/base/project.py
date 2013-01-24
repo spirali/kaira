@@ -215,6 +215,9 @@ class Project(object):
     def parse_typename(self, string, source):
         return self.target_env.parse_typename(string, source)
 
+    def parse_expressions(self, string, source):
+        return self.target_env.parse_expressions(string, source)
+
     def get_generator(self):
         return self.target_env.get_generator(self)
 
@@ -276,9 +279,11 @@ def load_transition(element, project, net):
 
 def load_place(element, project, net):
     id = utils.xml_int(element, "id")
-    type_name = project.parse_typename(element.get("type"), get_source(element, "type"))
-    init_expr = None # init-expr
-    place = Place(net, id, type_name, init_expr)
+    type_name = project.parse_typename(element.get("type"),
+                                       get_source(element, "type"))
+    init_exprs = project.parse_expressions(element.get("init-expr"),
+                                           get_source(element, "init-expr"))
+    place = Place(net, id, type_name, init_exprs)
     if element.find("code") is not None:
         place.code = element.find("code").text
     place.tracing = load_tracing(element)
