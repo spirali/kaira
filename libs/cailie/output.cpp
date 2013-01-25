@@ -1,39 +1,7 @@
 
 #include "output.h"
 #include <stdio.h>
-#include <sstream>
 #include <assert.h>
-
-std::string ca_int_to_string(const int &i)
-{
-	std::stringstream osstream;
-	osstream << i;
-	return osstream.str();
-}
-
-std::string ca_float_to_string(const float &f)
-{
-	std::stringstream osstream;
-	osstream << f;
-	return osstream.str();
-}
-
-std::string ca_double_to_string(const double &d)
-{
-	std::stringstream osstream;
-	osstream << d;
-	return osstream.str();
-}
-
-std::string ca_bool_to_string(const bool &b)
-{
-	return b ? "true" : "false";
-}
-
-std::string ca_string_to_string(const std::string &s)
-{
-	return s;
-}
 
 CaOutput::CaOutput(FILE *file) : file(file), open_tag(false)
 {

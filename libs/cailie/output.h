@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <stack>
+#include <sstream>
 
 class CaOutput {
 	public:
@@ -29,10 +30,30 @@ class CaOutput {
 		bool open_tag;
 };
 
-std::string ca_int_to_string(const int &i);
-std::string ca_double_to_string(const double &d);
-std::string ca_float_to_string(const float &f);
-std::string ca_bool_to_string(const bool &b);
-std::string ca_string_to_string(const std::string &s);
+template<typename T> std::string to_string(const T &value) {
+	std::stringstream osstream;
+	osstream << value;
+	return osstream.str();
+}
+
+inline std::string get_token_name(const int &value) {
+	return to_string<int>(value);
+}
+
+inline std::string get_token_name(const double &value) {
+	return to_string<double>(value);
+}
+
+inline std::string get_token_name(const float &value) {
+	return to_string<double>(value);
+}
+
+inline std::string get_token_name(const std::string &value) {
+	return value;
+}
+
+inline std::string get_token_name(const bool &value) {
+	return value ? "true" : "false";
+}
 
 #endif // CAILIE_OUTPUT_H

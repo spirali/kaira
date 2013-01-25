@@ -668,8 +668,7 @@ def write_reports_method(builder, net):
 
         builder.do_begin()
         builder.line('output.child("token");')
-        builder.line('output.set("value", {0});',
-                     build.get_code_as_string(builder.project, "t->value", place.type))
+        builder.line('output.set("value", get_token_name(t->value));')
         builder.line('output.back();')
         builder.line("t = t->next;")
         builder.do_end("t != place_{0.id}.begin()".format(place))
