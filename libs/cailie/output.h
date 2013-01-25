@@ -37,15 +37,15 @@ template<typename T> std::string to_string(const T &value) {
 }
 
 inline std::string get_token_name(const int &value) {
-	return to_string<int>(value);
+	return to_string(value);
 }
 
 inline std::string get_token_name(const double &value) {
-	return to_string<double>(value);
+	return to_string(value);
 }
 
 inline std::string get_token_name(const float &value) {
-	return to_string<double>(value);
+	return to_string(value);
 }
 
 inline std::string get_token_name(const std::string &value) {

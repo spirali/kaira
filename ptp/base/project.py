@@ -233,9 +233,9 @@ def get_source(element, name):
 def load_edge_in(element, project, net, transition):
     id = utils.xml_int(element, "id")
     place_id = utils.xml_int(element, "place-id")
-    config, expressions = project.parse_edge_expression(
+    config, expressions, target = project.parse_edge_expression(
         element.get("expr"), get_source(element, "inscription"))
-    return Edge(id, transition, net.get_place(place_id), expressions, config)
+    return Edge(id, transition, net.get_place(place_id), expressions, config, target)
 
 def load_edge_out(element, project, net, transition):
     # Loading edge-in and edge-out are now same

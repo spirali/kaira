@@ -164,10 +164,14 @@ def write_send_token(builder,
     else: # Remote send
         if edge.is_unicast():
             sendtype = ""
-            builder.line("int target_{0.id} = {1};", edge, edge.target.emit(em))
+            builder.line("int target_{0.id} = {1};", edge, edge.target)
             builder.if_begin("target_{0.id} == thread->get_process_id()".format(edge))
             write_lock()
-            write_add(method)
+            if edge.is_bulk_edge():
+                write_add("add_all", edge.inscriptions[0].expr)
+            else:
+                for inscription in edge.get_token_inscriptions():
+                    write_add("add", inscription.expr)
             builder.indent_pop()
             builder.line("}} else {{")
             builder.indent_push()
@@ -177,30 +181,29 @@ def write_send_token(builder,
             builder.block_begin()
 
         write_unlock()
-        t = edge.get_place_type()
-        builder.line("{0} value = {1};", t, edge.expr)
-
         if trace_send:
             builder.if_begin("tracelog")
             builder.line("tracelog->event_send_msg(thread->get_new_msg_id());")
             builder.block_end()
 
-        if edge.is_normal(): # Pack normal edge
+        if edge.is_token_edge(): # Pack normal edge
             builder.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, CA_RESERVED_PREFIX);")
-            builder.line("{0};", build.get_pack_code(builder.project, t, "packer", "value"))
-            builder.line("thread->send{0}(target_{1.id}, n, {2}, packer);",
-                   sendtype, edge, edge.get_place().get_pos_id())
+            for inscription in edge.get_token_inscriptions():
+                builder.line("pack(packer, {0});", inscription.expr)
+            builder.line("thread->multisend{0}(target_{1.id}, {4}, {2}, {3}, packer);",
+                   sendtype, edge, edge.place.get_pos_id(), len(edge.inscriptions), net_expr)
         else: # Pack packing edge
             # TODO: Pack in one step if type is directly packable
+            expr = edge.inscriptions[0].expr
             builder.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, CA_RESERVED_PREFIX);")
             builder.line(
-                "for (std::vector<{0} >::iterator i = value.begin(); i != value.end(); i++)",
-                edge.get_place_type())
+                "for (std::vector<{0} >::iterator i = {1}.begin(); i != {1}.end(); i++)",
+                edge.get_place_type(), expr)
             builder.block_begin()
-            builder.line("{0};", build.get_pack_code(builder.project, t, "packer", "(*i)"))
+            builder.line("pack(packer, (*i));")
             builder.block_end()
-            builder.line("thread->multisend{0}(target_{1.id}, n, {2}, value.size(), packer);",
-                   sendtype,edge, edge.get_place().get_pos_id())
+            builder.line("thread->multisend{0}(target_{1.id}, {3}, {2}, ({4}).size(), packer);",
+                   sendtype,edge, edge.place.get_pos_id(), net_expr, expr)
         builder.block_end()
 
     #if edge.guard is not None:
@@ -691,7 +694,7 @@ def write_receive_method(builder, net):
                             "add",
                             place,
                             "place_{0.id}.".format(place),
-                            build.get_unpack_code(builder.project, place.type, "unpacker"))
+                            "unpack<{0}>(unpacker)".format(place.type, "unpacker"))
             write_activation(builder, "this", place.get_transitions_out())
             builder.line("break;")
             builder.indent_pop()

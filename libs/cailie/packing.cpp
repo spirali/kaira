@@ -27,3 +27,8 @@ void CaPacker::free()
 {
 	::free(buffer);
 }
+
+template<> int unpack<int>(CaUnpacker &unpacker)
+{
+	return direct_unpack<int>(unpacker);
+}

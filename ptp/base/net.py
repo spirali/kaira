@@ -25,7 +25,7 @@ def get_container_type(typename):
 
 class Edge(utils.EqMixin):
 
-    def __init__(self, id, transition, place, inscriptions, config):
+    def __init__(self, id, transition, place, inscriptions, config, target):
         self.id = id
         self.uid = utils.get_unique_id()
         self.place = place
@@ -34,6 +34,7 @@ class Edge(utils.EqMixin):
             inscription.edge = self
         self.inscriptions = inscriptions
         self.config = config
+        self.target = target
 
     def get_source(self):
         return "*{0}/inscription".format(self.id)
@@ -108,13 +109,16 @@ class Edge(utils.EqMixin):
             return []
 
     def is_local(self):
-        return True
+        return self.target is None
 
     def is_bulk_edge(self):
         return "bulk" in self.config
 
     def is_token_edge(self):
         return not self.is_bulk_edge()
+
+    def is_unicast(self):
+        return True
 
 class EdgeInscription(utils.EqMixin):
 

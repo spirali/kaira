@@ -49,4 +49,29 @@ class CaPacker {
 		char *buffer;
 };
 
+template<typename T> void direct_pack(CaPacker &packer, T value) {
+	packer.pack(&value, sizeof(T));
+}
+
+inline void pack(CaPacker &packer, int value) {
+	direct_pack(packer, value);
+}
+
+inline void pack(CaPacker &packer, double value) {
+	direct_pack(packer, value);
+}
+
+template<typename T> T direct_unpack(CaUnpacker &unpacker) {
+	T *value = (T*)unpacker.unpack(sizeof(T));
+	return *value;
+}
+
+template<typename T> T unpack(CaUnpacker &unpacker) {
+	T x;
+	unpack_to(unpacker, x);
+	return x;
+}
+
+template<> int unpack<int>(CaUnpacker &unpacker);
+
 #endif

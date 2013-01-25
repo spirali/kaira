@@ -53,7 +53,9 @@ edge_config_param = lpar + full_expression + rpar
 edge_config_item = pp.Group(ident + pp.Optional(edge_config_param, None))
 edge_config = lbracket + pp.Group(pp.delimitedList(edge_config_item, ",")) + rbracket
 
-edge_expr = pp.Optional(edge_config, ()) + pp.Group(expressions)
+edge_expr = (pp.Optional(edge_config, ()) +
+             pp.Group(expressions) +
+             pp.Optional(pp.Suppress("@") + full_expression, None))
 
 def check_expression(expr):
     if len(expr) == 0:
@@ -92,7 +94,7 @@ def split_expressions(string, source):
 
 def parse_edge_expression(string, source):
     try:
-        configs, expressions = edge_expr.parseString(string, parseAll=True)
+        configs, expressions, target = edge_expr.parseString(string, parseAll=True)
     except pp.ParseException, e:
         raise utils.PtpException(e.msg, source)
 
@@ -106,4 +108,5 @@ def parse_edge_expression(string, source):
 
     return (config,
             [ base.net.EdgeInscription(expr)
-                for expr in expressions ])
+                for expr in expressions ],
+            target)
