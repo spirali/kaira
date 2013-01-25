@@ -60,11 +60,12 @@ class Check:
 
 class Tester:
 
-    def __init__(self, prologue=None):
-        self.prologue = prologue
+    def __init__(self):
+        self.prologues = []
         self.id_counter = 30000
         self.compiler = "gcc"
         self.filename = "/tmp/kaira.cpp"
+        self.args = ()
         self.message_parser = re.compile(
             "(?P<filename>[^:]*):(?P<line>\d+):(?P<message>.*)")
         self.checks = []
@@ -72,6 +73,9 @@ class Tester:
     def new_id(self):
         self.id_counter += 1
         return "____cpptest____{0}".format(self.id_counter)
+
+    def add_prologue(self, prologue):
+        self.prologues.append(prologue)
 
     def add(self, check):
         check.validator = self
@@ -91,13 +95,14 @@ class Tester:
 
     def run(self):
         writer = Writer()
-        if self.prologue:
-            writer.raw_text(self.prologue)
+        for prologue in self.prologues:
+            writer.raw_text(prologue)
+
         for check in self.checks:
             check.write(writer)
 
         writer.write_to_file(self.filename)
-        p = subprocess.Popen(["gcc", "-fsyntax-only", self.filename],
+        p = subprocess.Popen(("gcc",) + tuple(self.args) + ("-fsyntax-only", self.filename),
                              stderr=subprocess.STDOUT,
                              stdout=subprocess.PIPE)
         stdout, stderr = p.communicate()

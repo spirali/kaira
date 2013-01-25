@@ -19,7 +19,7 @@
 
 import os
 
-KAIRA_PTP = os.path.dirname(os.path.abspath(__file__))
+KAIRA_PTP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KAIRA_ROOT = os.path.dirname(KAIRA_PTP)
 
 CAILIE_INCLUDE_DIR = "libs/cailie"

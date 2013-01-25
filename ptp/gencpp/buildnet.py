@@ -156,8 +156,11 @@ def write_send_token(builder,
 
     if edge.is_local():
         write_lock()
-        for inscription in edge.get_token_inscriptions():
-            write_add("add", inscription.expr)
+        if edge.is_bulk_edge():
+            write_add("add_all", edge.inscriptions[0].expr)
+        else:
+            for inscription in edge.get_token_inscriptions():
+                write_add("add", inscription.expr)
     else: # Remote send
         if edge.is_unicast():
             sendtype = ""
@@ -240,16 +243,14 @@ def write_fire_body(builder,
     builder.line("{0}->activate_transition_by_pos_id({1});",
         net_expr, tr.get_pos_id())
 
-    """ PACKING
     if packed_tokens_from_place:
-        for edge in tr.get_packing_edges_in():
-            builder.line("{1} = n->place_{0.id}.to_vector_and_clear();",
-                   edge.get_place(), em.variable_emitter(edge.varname))
+        for edge in tr.get_bulk_edges_in():
+                builder.line("{2} {3} = {0}->place_{1.id}.to_vector_and_clear();",
+                       net_expr, edge.place, edge.get_type(), edge.inscriptions[0].expr)
     else:
-        for edge in tr.get_packing_edges_in():
-            builder.line("{1} = tokens->packed_values_{0.uid};",
-                   edge, em.variable_emitter(edge.varname))
-    """
+        for edge in tr.get_bulk_edges_in():
+            builder.line("{1} {2} = tokens->packed_values_{0.uid}",
+                edge, edge.get_type(),  edge.inscriptions[0].expr)
 
     if tr.code is not None:
         if locking:

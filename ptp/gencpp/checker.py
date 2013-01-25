@@ -20,6 +20,8 @@
 
 import base.tester
 import base.utils as utils
+import base.paths as paths
+import os.path
 
 class CheckType(base.tester.Check):
 
@@ -68,6 +70,8 @@ class Checker:
 
     def run(self):
         tester = base.tester.Tester()
+        tester.add_prologue("#include <cailie.h>")
+        tester.args = [ "-I", os.path.join(paths.KAIRA_ROOT, paths.CAILIE_INCLUDE_DIR) ]
 
         for t, sources in self.types.items():
             check = CheckType(t)

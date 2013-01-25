@@ -20,6 +20,8 @@
 import utils as utils
 import analysis
 
+def get_container_type(typename):
+    return "std::vector<{0} >".format(typename)
 
 class Edge(utils.EqMixin):
 
@@ -39,13 +41,26 @@ class Edge(utils.EqMixin):
     def get_place_type(self):
         return self.place.type
 
-    def check(self, checker, valid_keys):
-        for inscription in self.inscriptions:
-            checker.check_expression(inscription.expr,
-                                     self.transition.get_decls(),
-                                     self.get_place_type(),
-                                     self.get_source())
+    def get_type(self):
+        if self.is_bulk_edge():
+            return get_container_type(self.place.type)
+        else:
+            return self.place.type
 
+    def check(self, checker):
+        if self.is_bulk_edge():
+            checker.check_expression(self.inscriptions[0].expr,
+                                     self.transition.get_decls(),
+                                     get_container_type(self.get_place_type()),
+                                     self.get_source())
+        else:
+            for inscription in self.inscriptions:
+                checker.check_expression(inscription.expr,
+                                         self.transition.get_decls(),
+                                         self.get_place_type(),
+                                         self.get_source())
+
+    def check_config(self, valid_keys):
         invalid_key = utils.key_not_in_list(self.config, valid_keys)
         if invalid_key is not None:
             raise utils.PtpException("Invalid config item '{0}'".format(invalid_key),
@@ -53,31 +68,53 @@ class Edge(utils.EqMixin):
 
 
     def check_edge_in(self, checker):
-        self.check(checker, [])
+        self.check_config(("bulk",))
+        if "bulk" in self.config:
+            if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
+                raise utils.PtpException("'bulk' needs a single variable")
+        self.check(checker)
 
     def check_edge_out(self, checker):
-        self.check(checker, [])
+        self.check_config(("bulk",))
+        if "bulk" in self.config:
+            if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
+                raise utils.PtpException("'bulk' needs a single variable")
+        self.check(checker)
 
     def get_decls(self):
-        return [ (inscription.expr, self.get_place_type()) for inscription in self.inscriptions
-                    if inscription.is_variable() ]
+        if self.is_bulk_edge():
+            return [ (self.inscriptions[0].expr,
+                     self.get_type()) ]
+        else:
+            return [ (inscription.expr, self.get_place_type())
+                        for inscription in self.inscriptions
+                        if inscription.is_variable() ]
 
     def get_variable_sources(self):
         sources = {}
-        for inscription in self.inscriptions:
-            if inscription.is_variable() and inscription.expr not in sources:
-                sources[inscription.expr] = inscription.uid
+        if self.is_token_edge():
+            for inscription in self.inscriptions:
+                if inscription.is_variable() and inscription.expr not in sources:
+                    sources[inscription.expr] = inscription.uid
         return sources
 
     def get_tokens_number(self):
         return len(self.inscriptions)
 
     def get_token_inscriptions(self):
-        return self.inscriptions
+        if self.is_token_edge():
+            return self.inscriptions
+        else:
+            return []
 
     def is_local(self):
         return True
 
+    def is_bulk_edge(self):
+        return "bulk" in self.config
+
+    def is_token_edge(self):
+        return not self.is_bulk_edge()
 
 class EdgeInscription(utils.EqMixin):
 
@@ -167,6 +204,12 @@ class Transition(utils.EqByIdMixin):
     def get_token_inscriptions_out(self):
         return sum([ edge.get_token_inscriptions() for edge in self.edges_out ], [])
 
+    def get_bulk_edges_in(self):
+        return [ edge for edge in self.edges_in if edge.is_bulk_edge() ]
+
+    def get_bulk_edges_out(self):
+        return [ edge for edge in self.edges_out if edge.is_bulk_edge() ]
+
     def need_trace(self):
         if self.is_any_place_traced():
             return True
@@ -208,7 +251,8 @@ class Transition(utils.EqByIdMixin):
                     from_input.append(name)
                 elif name != decls_dict[name]:
                     raise utils.PtpException(
-                        "Inconsistent types for variable '{0}'".format(name))
+                        "Inconsistent types for variable '{0}'".format(name),
+                        edge.get_source())
 
         for edge in self.edges_out:
             for name, t in edge.get_decls():
@@ -216,8 +260,10 @@ class Transition(utils.EqByIdMixin):
                     decls_dict[name] = t
                 elif name != decls_dict[name] and name not in from_input:
                     raise utils.PtpException(
-                        "Inconsistent types for variable '{0}'".format(name))
+                        "Inconsistent types for variable '{0}'".format(name),
+                        edge.get_source())
         return decls_dict
+
 
     def get_decls(self):
         decls = self.get_decls_dict().items()
