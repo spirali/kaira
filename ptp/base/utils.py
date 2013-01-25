@@ -118,6 +118,11 @@ def create_dict(lst, key):
         d[key(item)] = item
     return d
 
+def key_not_in_list(dictionary, lst):
+    for key in dictionary:
+        if key not in lst:
+            return key
+
 id_counter = 1000
 def get_unique_id():
     global id_counter

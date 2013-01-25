@@ -654,16 +654,21 @@ class App:
                     fail_callback()
 
         def on_line(line, stream):
-            #self.console_write(line)
+            if debug:
+                self.console_write(line)
             stdout.append(line)
             return True
         if not self.export_project(proj, build_config):
             return
+
+
+        debug = self.settings.getboolean("main", "ptp-debug")
         p = process.Process(paths.PTP_BIN, on_line, on_exit)
         p.cwd = proj.get_directory()
 
         args = []
-        if self.settings.getboolean("main", "ptp-debug"):
+
+        if debug:
             args.append("--debug")
 
         if build_config.directory is not None:

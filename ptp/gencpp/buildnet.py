@@ -509,7 +509,7 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
         for inscription in edge.get_token_inscriptions():
             if inscription.uid in sources_uid:
                 continue
-            token_var = build.get_safe_id("token_{0}".format(edge.uid))
+            token_var = build.get_safe_id("token_{0}".format(inscription.uid))
             builder.line("if ({1}->value != ({0})) {2}",
                 inscription.expr, token_var, fail_command)
 

@@ -39,12 +39,24 @@ class Edge(utils.EqMixin):
     def get_place_type(self):
         return self.place.type
 
-    def check(self, checker):
+    def check(self, checker, valid_keys):
         for inscription in self.inscriptions:
             checker.check_expression(inscription.expr,
                                      self.transition.get_decls(),
                                      self.get_place_type(),
                                      self.get_source())
+
+        invalid_key = utils.key_not_in_list(self.config, valid_keys)
+        if invalid_key is not None:
+            raise utils.PtpException("Invalid config item '{0}'".format(invalid_key),
+                self.get_source())
+
+
+    def check_edge_in(self, checker):
+        self.check(checker, [])
+
+    def check_edge_out(self, checker):
+        self.check(checker, [])
 
     def get_decls(self):
         return [ (inscription.expr, self.get_place_type()) for inscription in self.inscriptions
@@ -214,10 +226,10 @@ class Transition(utils.EqByIdMixin):
 
     def check(self, checker):
         for edge in self.edges_in:
-            edge.check(checker)
+            edge.check_edge_in(checker)
 
         for edge in self.edges_out:
-            edge.check(checker)
+            edge.check_edge_out(checker)
 
 
 class Area(object):

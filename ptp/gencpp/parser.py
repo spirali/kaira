@@ -22,21 +22,24 @@ import base.utils as utils
 import base.net
 
 digits = "0123456789"
-operator_chars = "+-*/%=!<>&|"
+operator_chars = "+-*/%=!<>&|~"
 
 lpar, rpar, dot, delim, sem, lbracket, rbracket \
     = map(pp.Suppress, "().,;[]")
 
 ident = pp.Word(pp.alphas+"_:", pp.alphanums+"_:")
 expression = pp.Forward()
-number = (pp.Optional("-", "+") + pp.Word(digits) +
-          pp.Optional(dot + pp.Word(digits)))
+number = pp.Word(digits) + pp.Optional(dot + pp.Word(digits))
 string = pp.dblQuotedString
 operator = pp.Word(operator_chars)
 parens = lpar + pp.Optional(expression + pp.ZeroOrMore(delim + expression)) + rpar
-var_or_call = ident + pp.Optional(parens)
-term = number | string | var_or_call
-expression << term
+basic_expression = pp.Forward()
+basic_expression << ((number |
+                     string |
+                     ident + pp.Optional(parens) |
+                     lpar + expression + rpar)
+                        + pp.Optional(pp.OneOrMore(operator) + basic_expression))
+expression << pp.Optional(operator) + basic_expression
 
 mark = pp.Empty().setParseAction(lambda loc, t: loc)
 full_expression = (mark + expression.suppress() + mark) \
@@ -44,18 +47,13 @@ full_expression = (mark + expression.suppress() + mark) \
 
 expressions = pp.delimitedList(full_expression, ";")
 
-"""
-expression_marks = pp.Group(mark + expression.suppress() + mark)
-expressions_marks = pp.delimitedList(expression_marks, ";")
-"""
-
 typename = ident
 
-edge_config_param = lpar + mark + expression.suppress() + mark + rpar
-edge_config_item = ident + pp.Optional(edge_config_param, None)
-edge_config = lbracket + pp.delimitedList(edge_config_item, ";") + rbracket
+edge_config_param = lpar + full_expression + rpar
+edge_config_item = pp.Group(ident + pp.Optional(edge_config_param, None))
+edge_config = lbracket + pp.Group(pp.delimitedList(edge_config_item, ",")) + rbracket
 
-edge_expr = pp.Optional(edge_config, None) + pp.Group(expressions)
+edge_expr = pp.Optional(edge_config, ()) + pp.Group(expressions)
 
 def check_expression(expr):
     if len(expr) == 0:
@@ -93,7 +91,19 @@ def split_expressions(string, source):
         raise utils.PtpException(e.msg, source)
 
 def parse_edge_expression(string, source):
-    configs, expressions = edge_expr.parseString(string, parseAll=True)
-    return (edge_config,
+    try:
+        configs, expressions = edge_expr.parseString(string, parseAll=True)
+    except pp.ParseException, e:
+        raise utils.PtpException(e.msg, source)
+
+    config = {}
+    for name, param in configs:
+        if name in config:
+            raise utils.PtpException(
+                "Configuration option '{0}' used twice".format(name), source)
+        else:
+            config[name] = param
+
+    return (config,
             [ base.net.EdgeInscription(expr)
                 for expr in expressions ])
