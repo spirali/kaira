@@ -443,9 +443,11 @@ class AreaDrawing(DrawingBase):
         cr.show_text(self.name)
 
     def draw_top(self, cr):
-        if self.error_messages and "instances" in self.error_messages:
+        if self.error_messages and "init-exprs" in self.error_messages:
             px, py = self.position
-            draw_error_box_after_text(cr, self.init_expr,(px, py - 5), self.error_messages["instances"])
+            draw_error_box_after_text(cr,
+                                      self.init_expr,(px, py - 5),
+                                      self.error_messages["init-exprs"])
 
 
 class InterfaceDrawing(DrawingBase):

@@ -280,14 +280,21 @@ class Transition(utils.EqByIdMixin):
 
 class Area(object):
 
-    def __init__(self, net, id, expr, places):
+    def __init__(self, net, id, exprs, places):
         self.net = net
         self.id = id
         self.places = places
-        self.expr = expr
+        self.exprs = exprs
 
     def is_place_inside(self, place):
         return place in self.places
+
+    def check(self, checker):
+        for expr in self.exprs:
+            checker.check_expression(expr, [], "int", self.get_source("init-exprs"))
+
+    def get_source(self, location):
+        return "*{0}/{1}".format(self.id, location)
 
 
 class Net(object):
@@ -359,10 +366,8 @@ class Net(object):
         for transition in self.transitions:
             transition.check(checker)
 
-        """
-        for t in self.get_all_types():
-            t.check(self.project)
-        """
+        for area in self.areas:
+            area.check(checker)
 
     def analyze(self):
         for tr in self.transitions:

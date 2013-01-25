@@ -618,9 +618,10 @@ def write_init_net(builder, net):
     builder.line("CaContext ctx(thread, net);")
     builder.line("int pid = thread->get_process_id();")
     for area in net.areas:
-        builder.line("std::vector<int> area_{0.id} = {1};",
-                     area,
-                     area.expr.emit(builder.emitter))
+        builder.line("std::vector<int> area_{0.id};", area)
+        for expr in area.exprs:
+            builder.line("area_{0.id}.push_back({1});", area, expr)
+
     for place in net.places:
         if not (place.init_exprs or place.code):
             continue

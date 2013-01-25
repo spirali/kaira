@@ -267,18 +267,19 @@ def load_place(element, project, net):
     type_name = project.parse_typename(element.get("type"),
                                        get_source(element, "type"))
     init_exprs = project.parse_expressions(element.get("init-expr"),
-                                           get_source(element, "init-expr"))
+                                           get_source(element, "init-exprs"))
     place = Place(net, id, type_name, init_exprs)
     if element.find("code") is not None:
         place.code = element.find("code").text
     place.tracing = load_tracing(element)
     return place
 
-def load_area(element, net):
+def load_area(element, project, net):
     id = utils.xml_int(element, "id")
-    expr = None
+    exprs = project.parse_expressions(element.get("init-expr"),
+                                      get_source(element, "init-expr"))
     places = [ net.get_place(utils.xml_int(e, "id")) for e in element.findall("place") ]
-    return Area(net, id, expr, places)
+    return Area(net, id, exprs, places)
 
 def load_net(element, project):
     net = Net(project, utils.xml_int(element, "id"), utils.xml_str(element, "name"))
@@ -287,7 +288,7 @@ def load_net(element, project):
 def load_net_content(element, project, net):
     net.places = [ load_place(e, project, net) for e in element.findall("place") ]
     net.transitions = [ load_transition(e, project, net) for e in element.findall("transition") ]
-    net.areas = [ load_area(e, net) for e in element.findall("area") ]
+    net.areas = [ load_area(e, project, net) for e in element.findall("area") ]
 
     interface = element.find("interface")
     if interface is not None:
