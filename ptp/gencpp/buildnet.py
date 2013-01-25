@@ -253,7 +253,11 @@ def write_fire_body(builder,
     else:
         for edge in tr.get_bulk_edges_in():
             builder.line("{1} {2} = tokens->packed_values_{0.uid}",
-                edge, edge.get_type(),  edge.inscriptions[0].expr)
+                edge, edge.get_type(), edge.inscriptions[0].expr)
+
+    decls = tr.get_decls_dict()
+    for name in tr.variable_freshes:
+        builder.line("{0} {1};", decls[name], name)
 
     if tr.code is not None:
         if locking:

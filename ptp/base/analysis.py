@@ -31,3 +31,13 @@ def analyze_transition(tr):
                 variable_sources[name] = uid
 
     tr.variable_sources = variable_sources
+
+    variable_freshes = []
+
+    for edge in tr.edges_out:
+        for name, t in edge.get_decls():
+            if name not in variable_sources and name not in variable_freshes:
+                variable_freshes.append(name)
+
+    tr.variable_sources = variable_sources
+    tr.variable_freshes = variable_freshes
