@@ -179,13 +179,22 @@ class Place(utils.EqByIdMixin):
         return self.net.get_areas_with_place(self)
 
     def check(self, checker):
-        checker.check_type(self.type, self.get_source("type"))
+        functions = [ "token_name" ]
+        if self.is_receiver():
+            functions.append("pack")
+            functions.append("unpack")
+        checker.check_type(self.type, self.get_source("type"), functions)
         source = self.get_source("type")
         for expr in self.init_exprs:
             checker.check_expression(expr, [], self.type, source)
 
     def get_source(self, location):
         return "*{0}/{1}".format(self.id, location)
+
+    def is_receiver(self):
+        edges = self.get_edges_in(with_interface=True)
+        return any(not edge.is_local() for edge in edges)
+
 
 
 class Transition(utils.EqByIdMixin):

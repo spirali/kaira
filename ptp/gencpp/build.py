@@ -19,7 +19,6 @@
 
 
 import base.utils as utils
-import os.path
 from writer import CppWriter, const_string
 
 class Builder(CppWriter):
@@ -92,8 +91,7 @@ def write_header(builder):
     if builder.project.get_head_code():
         builder.line_directive("*head", 1)
         builder.raw_text(builder.project.get_head_code())
-        builder.line_directive(os.path.basename(builder.filename),
-                                             builder.get_next_line_number())
+        builder.line_directive(None, builder.get_next_line_number() + 1)
         builder.emptyline()
 
 def write_parameters_forward(builder):

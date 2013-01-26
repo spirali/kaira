@@ -71,5 +71,5 @@ class Writer(object):
     def get_next_line_number(self):
         return len(self.lines) + 1
 
-    def get_current_line_numer(self):
+    def get_current_line_number(self):
         return len(self.lines)

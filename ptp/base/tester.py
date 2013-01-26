@@ -17,7 +17,6 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from writer import Writer
 import subprocess
 import re
 
@@ -43,7 +42,7 @@ class Check:
         self.write_prologue(writer)
         self.write_content(writer)
         self.write_epilogue(writer)
-        self.end_line = writer.get_current_line_numer()
+        self.end_line = writer.get_current_line_number()
 
     def process_match(self, line_no, message):
         if self.start_line <= line_no and self.end_line >= line_no:
@@ -61,7 +60,6 @@ class Check:
 class Tester:
 
     def __init__(self):
-        self.prologues = []
         self.id_counter = 30000
         self.compiler = "gcc"
         self.filename = "/tmp/kaira.cpp"
@@ -69,13 +67,13 @@ class Tester:
         self.message_parser = re.compile(
             "(?P<filename>[^:]*):(?P<line>\d+):(?P<message>.*)")
         self.checks = []
+        self.prepare_writer = None
+        self.stdout = None
+        self.stderr = None
 
     def new_id(self):
         self.id_counter += 1
         return "____cpptest____{0}".format(self.id_counter)
-
-    def add_prologue(self, prologue):
-        self.prologues.append(prologue)
 
     def add(self, check):
         check.validator = self
@@ -94,19 +92,19 @@ class Tester:
                 return check
 
     def run(self):
-        writer = Writer()
-        for prologue in self.prologues:
-            writer.raw_text(prologue)
+        assert self.prepare_writer is not None
+        writer = self.prepare_writer(self.filename)
 
         for check in self.checks:
             check.write(writer)
 
         writer.write_to_file(self.filename)
-        p = subprocess.Popen(("gcc",) + tuple(self.args) + ("-fsyntax-only", self.filename),
-                             stderr=subprocess.STDOUT,
+        p = subprocess.Popen(("g++",) + tuple(self.args) +
+                             ("-O0", "-c", "-o", "/tmp/kaira.o", self.filename),
+                             stderr=subprocess.PIPE,
                              stdout=subprocess.PIPE)
-        stdout, stderr = p.communicate()
-        for line in stdout.split("\n"):
+        self.stdout, self.stderr = p.communicate()
+        for line in self.stderr.split("\n"):
             check = self.process_message(line)
             if check is not None:
                 return check

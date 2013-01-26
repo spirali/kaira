@@ -19,12 +19,11 @@
 
 class PtpException(Exception):
 
-    def __init__(self, message, source = None):
-        if source is None:
-            text = message
-        else:
-            text = source + ": " + message
-        Exception.__init__(self, text)
+    def __init__(self, message, source=None):
+        if source is not None:
+            message = source + ": " + message
+        Exception.__init__(self, message)
+
 
 class EqMixin(object):
 
@@ -34,6 +33,7 @@ class EqMixin(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
 
 class EqByIdMixin(object):
 

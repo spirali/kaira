@@ -676,7 +676,7 @@ def write_reports_method(builder, net):
 
         builder.do_begin()
         builder.line('output.child("token");')
-        builder.line('output.set("value", get_token_name(t->value));')
+        builder.line('output.set("value", token_name(t->value));')
         builder.line('output.back();')
         builder.line("t = t->next;")
         builder.do_end("t != place_{0.id}.begin()".format(place))
@@ -690,8 +690,7 @@ def write_receive_method(builder, net):
         "void receive(CaThreadBase *thread, int place_pos, CaUnpacker &unpacker)")
     builder.line("switch(place_pos) {{")
     for place in net.places:
-        edges = place.get_edges_in(with_interface=True)
-        if any((not edge.is_local() for edge in edges)):
+        if place.is_receiver():
             builder.line("case {0}:", place.get_pos_id())
             builder.indent_push()
             write_place_add(builder,

@@ -111,9 +111,12 @@ class CppWriter(Writer):
         self.write_method_start(decl)
 
     def line_directive(self, filename, lineno):
-        self.line('#line {0} "{1}"', lineno, filename)
+        if filename is None:
+            self.line('#line {0} __BASE_FILE__', lineno)
+        else:
+            self.line('#line {0} "{1}"', lineno, filename)
 
-    def write_function(self, declaration, code, file_lineno = None):
+    def write_function(self, declaration, code, file_lineno=None):
         if file_lineno:
             filename, lineno = file_lineno
             self.line_directive(filename, lineno)
@@ -122,5 +125,5 @@ class CppWriter(Writer):
         self.raw_text(code)
         self.line("}}")
         if file_lineno:
-            self.line_directive(os.path.basename(self.filename),
-                                                 self.get_next_line_number())
+            self.line_directive(None,
+                                self.get_next_line_number() + 1)

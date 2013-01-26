@@ -37,7 +37,7 @@ class CppTargetEnv:
         return parser.is_variable(string)
 
     def get_checker(self, project):
-        return checker.Checker()
+        return checker.Checker(project)
 
 
 class CppProgram(CppTargetEnv):

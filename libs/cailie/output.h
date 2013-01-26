@@ -36,23 +36,23 @@ template<typename T> std::string to_string(const T &value) {
 	return osstream.str();
 }
 
-inline std::string get_token_name(const int &value) {
+inline std::string token_name(const int &value) {
 	return to_string(value);
 }
 
-inline std::string get_token_name(const double &value) {
+inline std::string token_name(const double &value) {
 	return to_string(value);
 }
 
-inline std::string get_token_name(const float &value) {
+inline std::string token_name(const float &value) {
 	return to_string(value);
 }
 
-inline std::string get_token_name(const std::string &value) {
+inline std::string token_name(const std::string &value) {
 	return value;
 }
 
-inline std::string get_token_name(const bool &value) {
+inline std::string token_name(const bool &value) {
 	return value ? "true" : "false";
 }
 

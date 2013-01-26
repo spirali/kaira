@@ -22,22 +22,15 @@ import base.tester
 import base.utils as utils
 import base.paths as paths
 import os.path
-
-class CheckType(base.tester.Check):
-
-    def __init__(self, type_name):
-        self.type_name = type_name
-
-    def write_content(self, writer):
-        writer.line("{0} {1};", self.type_name, self.new_id())
-
+import build
 
 class CheckStatement(base.tester.Check):
 
-    def __init__(self, expression, decls=(), return_type="void"):
+    def __init__(self, expression, decls=(), return_type="void", source=None):
         self.expression = expression
         self.decls = decls
         self.return_type = return_type
+        self.source = source
 
     def write_prologue(self, writer):
         writer.line("{0} {1} ({2}) {{",
@@ -51,46 +44,96 @@ class CheckStatement(base.tester.Check):
     def write_content(self, writer):
         writer.raw_line(self.expression)
 
+    def throw_exception(self):
+        raise utils.PtpException(self.message, self.source)
+
+class TypeChecker:
+
+    def __init__(self, name, source, functions):
+        self.name = name
+        self.sources = set([ source ])
+        self.functions = set(functions)
+
+    def update(self, type_checker):
+        assert type_checker.name == self.name
+        self.sources.update(type_checker.sources)
+        self.functions.update(type_checker.functions)
+
+    def add_checks(self, tester):
+        var = tester.new_id()
+        decls = ((var, self.name + " &"),)
+
+        source = min(self.sources)
+        check = CheckStatement("{0} *{1};".format(self.name, tester.new_id()), source=source)
+        check.own_message = "Invalid type '{0}'".format(self.name)
+        tester.add(check)
+
+        message = "Function '{0}' not defined for type '{1}'"
+        if "token_name" in self.functions:
+            check = CheckStatement("token_name({0});".format(var),
+                                   decls, source=source)
+            check.own_message = message.format("token_name", self.name)
+            tester.add(check)
+
+        if "pack" in self.functions:
+            check = CheckStatement("pack(packer, {0});".format(var),
+                                   decls + (("packer", "CaPacker &"),),
+                                   source=source)
+            check.own_message = message.format("pack", self.name)
+            tester.add(check)
+
+        if "pack" in self.functions:
+            check = CheckStatement("return unpack<{0} >(unpacker);".format(self.name),
+                                   decls + (("unpacker", "CaUnpacker &"),),
+                                   self.name,
+                                   source=source)
+            check.own_message = message.format("unpack", self.name)
+            tester.add(check)
+
+
 
 class Checker:
 
-    def __init__(self):
+    def __init__(self, project):
+        self.project = project
         self.types = {}
         self.expressions = []
 
-    def check_type(self, typename, source):
-        sources = self.types.get(typename)
-        if sources:
-            self.types[typename].append(source)
+    def check_type(self, typename, source, functions=()):
+        t = self.types.get(typename)
+        if t is None:
+            self.types[typename] = TypeChecker(typename, source, functions)
         else:
-            self.types[typename] = [ source ]
+            self.types[typename].update(TypeChecker(typename, source, functions))
 
     def check_expression(self, expr, decls, return_type, source):
         self.expressions.append((expr, decls, return_type, source))
 
+    def prepare_writer(self, filename):
+        builder = build.Builder(self.project, filename)
+        build.write_header(builder)
+        return builder
+
     def run(self):
         tester = base.tester.Tester()
-        tester.add_prologue("#include <cailie.h>")
+        tester.prepare_writer = self.prepare_writer
         tester.args = [ "-I", os.path.join(paths.KAIRA_ROOT, paths.CAILIE_INCLUDE_DIR) ]
 
-        for t, sources in self.types.items():
-            check = CheckType(t)
-            check.key = sources[0]
-            tester.add(CheckType(t))
+        tester.run()
+
+        if tester.stderr:
+            raise utils.PtpException(tester.stderr)
+
+        for t in self.types.values():
+            t.add_checks(tester)
 
         for expr, decls, return_type, source in self.expressions:
-            check = CheckStatement(expr + ";", decls)
-            check.key = source
+            check = CheckStatement(expr + ";", decls, source=source)
             tester.add(check)
-            check = CheckStatement("return (" + expr + ");", decls, return_type)
-            check.key = source
+            check = CheckStatement("return (" + expr + ");", decls, return_type, source)
             check.own_message = "Invalid type of expression"
             tester.add(check)
 
         check = tester.run()
         if check is not None:
-            self.resolve_error(check)
-
-    def resolve_error(self, check):
-        source = check.key
-        raise utils.PtpException(check.message, source)
+            check.throw_exception()
