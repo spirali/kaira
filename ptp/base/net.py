@@ -251,8 +251,8 @@ class Transition(utils.EqByIdMixin):
     def is_local(self):
         return all((edge.is_local() for edge in self.edges_out))
 
-    def get_source(self):
-        return "*{0}".format(self.id)
+    def get_source(self, location):
+        return "*{0}/{1}".format(self.id, location)
 
     def get_decls_dict(self):
         decls_dict = {}
@@ -283,12 +283,22 @@ class Transition(utils.EqByIdMixin):
         decls.sort(key=lambda x: x[1])
         return decls
 
+    def get_input_decls(self):
+        # FIXME: Return only variables on input edges
+        return self.get_decls()
+
     def check(self, checker):
         for edge in self.edges_in:
             edge.check_edge_in(checker)
 
         for edge in self.edges_out:
             edge.check_edge_out(checker)
+
+        if self.guard:
+            checker.check_expression(self.guard,
+                                     self.get_input_decls(),
+                                     "bool",
+                                     self.get_source("guard"))
 
 
 class Area(object):

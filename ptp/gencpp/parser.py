@@ -38,6 +38,7 @@ basic_expression << ((number |
                      string |
                      ident + pp.Optional(parens) |
                      lpar + expression + rpar)
+                        + pp.Optional(dot + basic_expression)
                         + pp.Optional(pp.OneOrMore(operator) + basic_expression))
 expression << pp.Optional(operator) + basic_expression
 
@@ -57,14 +58,16 @@ edge_expr = (pp.Optional(edge_config, ()) +
              pp.Group(expressions) +
              pp.Optional(pp.Suppress("@") + full_expression, None))
 
-def check_expression(expr):
-    if len(expr) == 0:
-        return "Expression is empty"
+def parse_expression(expr, source, allow_empty):
+    if len(expr.strip()) == 0:
+        if allow_empty:
+            return None
+        else:
+            return "Expression is empty"
     try:
-        expression.parseString(expr, parseAll=True)
-        return None
+        return full_expression.parseString(expr, parseAll=True)[0]
     except pp.ParseException, e:
-        return e.lineno, e.col, e.msg
+        raise utils.PtpException(e.msg, source)
 
 def check_typename(tname, source):
     if len(tname) == 0:

@@ -30,6 +30,9 @@ class CppTargetEnv:
     def parse_expressions(self, string, source):
         return parser.split_expressions(string, source)
 
+    def parse_expression(self, string, source, allow_empty):
+        return parser.parse_expression(string, source, allow_empty)
+
     def parse_edge_expression(self, string, source):
         return parser.parse_edge_expression(string, source)
 

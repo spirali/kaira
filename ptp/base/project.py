@@ -219,6 +219,9 @@ class Project(object):
     def parse_expressions(self, string, source):
         return self.target_env.parse_expressions(string, source)
 
+    def parse_expression(self, string, source, allow_empty=False):
+        return self.target_env.parse_expression(string, source, allow_empty)
+
     def parse_edge_expression(self, string, source):
         return self.target_env.parse_edge_expression(string, source)
 
@@ -250,7 +253,9 @@ def load_tracing(element):
 def load_transition(element, project, net):
     id = utils.xml_int(element, "id")
 
-    guard = None
+    guard = project.parse_expression(element.get("guard"),
+                                     get_source(element, "guard"),
+                                     allow_empty=True)
     transition = Transition(net, id, guard)
     transition.edges_in = map(lambda e:
         load_edge_in(e, project, net, transition), element.findall("edge-in"))

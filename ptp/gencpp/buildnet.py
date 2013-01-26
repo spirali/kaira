@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm
+#    Copyright (C) 2012, 2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -520,6 +520,9 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
             token_var = build.get_safe_id("token_{0}".format(inscription.uid))
             builder.line("if ({1}->value != ({0})) {2}",
                 inscription.expr, token_var, fail_command)
+
+    if tr.guard is not None:
+        builder.line("if (!({0})) {1}", tr.guard, fail_command)
 
     builder.block_begin()
     builder.add_writer(fire_code)
