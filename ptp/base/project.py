@@ -326,11 +326,11 @@ def load_extern_type(element):
 
     raise Exception("Unkown extern type")
 
-def load_parameter(element):
+def load_parameter(element, project):
     name = utils.xml_str(element, "name")
     default = utils.xml_str(element, "default")
     description = utils.xml_str(element, "description")
-    type = parser.parse_type(utils.xml_str(element, "type"), None)
+    type = project.parse_typename(utils.xml_str(element, "type"), None)
     policy = utils.xml_str(element, "policy")
     return Parameter(name, type, default, description, policy)
 
@@ -343,7 +343,7 @@ def load_configuration(element, project):
     etypes = [ load_extern_type(e) for e in element.findall("extern-type") ]
     project.extern_types = utils.create_dict(etypes, lambda item: item.get_name())
 
-    parameters = [ load_parameter(e) for e in element.findall("parameter") ]
+    parameters = [ load_parameter(e, project) for e in element.findall("parameter") ]
     project.parameters = utils.create_dict(parameters, lambda item: item.get_name())
 
     for e in element.findall("build-option"):

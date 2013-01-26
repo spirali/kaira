@@ -378,7 +378,7 @@ class Parameter:
 
     def __init__(self):
         self.name = ""
-        self.type = "Int"
+        self.type = "int"
         self.description = ""
         self.policy = "mandatory"
         self.default = "0"
