@@ -261,9 +261,6 @@ class PlaceDrawing(DrawingBase):
         if self.trace_text:
             draw_trace_box(cr, px - 15, py - 15, self.trace_text)
 
-#*******************************************************************************
-# Repair simulation drawing
-
     def draw_top(self, cr):
         px, py = self.position
 
@@ -356,12 +353,12 @@ class PlaceDrawing(DrawingBase):
                 (px + self.size[0] + self.radius, py + self.size[1] + self.radius),
                 self.error_messages["type"])
 
-        if self.error_messages and "init" in self.error_messages:
+        if self.error_messages and "init-exprs" in self.error_messages:
             draw_error_box_after_text(
                 cr,
                 self.init_string,
                 (px + self.size[0] + self.radius, py - self.size[1] - self.radius),
-                self.error_messages["init"])
+                self.error_messages["init-exprs"])
 
 class EdgeDrawing(DrawingBase):
 

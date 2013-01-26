@@ -184,7 +184,8 @@ class Place(utils.EqByIdMixin):
             functions.append("pack")
             functions.append("unpack")
         checker.check_type(self.type, self.get_source("type"), functions)
-        source = self.get_source("type")
+
+        source = self.get_source("init-exprs")
         for expr in self.init_exprs:
             checker.check_expression(expr, [], self.type, source)
 
