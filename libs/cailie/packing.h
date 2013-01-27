@@ -5,6 +5,7 @@
 #include <string>
 #include <string.h>
 #include <ostream>
+#include <vector>
 
 class CaUnpacker {
 
@@ -53,16 +54,24 @@ template<typename T> void direct_pack(CaPacker &packer, T value) {
 	packer.pack(&value, sizeof(T));
 }
 
-inline void pack(CaPacker &packer, int value) {
+inline void pack(CaPacker &packer, const int &value) {
 	direct_pack(packer, value);
 }
 
-inline void pack(CaPacker &packer, size_t value) {
+inline void pack(CaPacker &packer, const size_t &value) {
 	direct_pack(packer, value);
 }
 
-inline void pack(CaPacker &packer, double value) {
+inline void pack(CaPacker &packer, const double &value) {
 	direct_pack(packer, value);
+}
+
+template<typename T> void pack(CaPacker &packer, const std::vector<T> &value) {
+	pack(packer, value.size());
+	typename std::vector<T>::const_iterator i;
+	for (i = value.begin(); i != value.end(); i++) {
+		pack(packer, *i);
+	}
 }
 
 inline void pack(CaPacker &packer, std::string value) {
@@ -75,7 +84,7 @@ template<typename T> T direct_unpack(CaUnpacker &unpacker) {
 	T *value = (T*)unpacker.unpack(sizeof(T));
 	return *value;
 }
-
+#include <stdio.h>
 template<typename T> T unpack(CaUnpacker &unpacker) {
 	T x;
 	unpack_to(unpacker, x);
@@ -85,5 +94,15 @@ template<typename T> T unpack(CaUnpacker &unpacker) {
 template<> int unpack<int>(CaUnpacker &unpacker);
 template<> size_t unpack<size_t>(CaUnpacker &unpacker);
 template<> std::string unpack(CaUnpacker &unpacker);
+
+template<typename T> void unpack_to(CaUnpacker &unpacker, std::vector<T> &value) {
+	size_t size = unpack<size_t>(unpacker);
+	value.reserve(size);
+	for (size_t i = 0; i < size; i++) {
+		value.push_back(unpack<T>(unpacker));
+	}
+}
+
+
 
 #endif

@@ -719,7 +719,7 @@ def write_receive_method(builder, net):
                             "add",
                             place,
                             "place_{0.id}.".format(place),
-                            "unpack<{0}>(unpacker)".format(place.type, "unpacker"))
+                            "unpack<{0} >(unpacker)".format(place.type, "unpacker"))
             write_activation(builder, "this", place.get_transitions_out())
             builder.line("break;")
             builder.indent_pop()

@@ -24,8 +24,8 @@ import base.net
 digits = "0123456789"
 operator_chars = "+-*/%=!<>&|~"
 
-lpar, rpar, dot, delim, sem, lbracket, rbracket \
-    = map(pp.Suppress, "().,;[]")
+lpar, rpar, dot, delim, sem, lbracket, rbracket, lt, bg \
+    = map(pp.Suppress, "().,;[]<>")
 
 ident = pp.Word(pp.alphas+"_:", pp.alphanums+"_:")
 expression = pp.Forward()
@@ -48,7 +48,8 @@ full_expression = (mark + expression.suppress() + mark) \
 
 expressions = pp.delimitedList(full_expression, ";")
 
-typename = ident
+typename = pp.Forward()
+typename << ident + pp.Optional(lt + typename + bg)
 
 edge_config_param = lpar + full_expression + rpar
 edge_config_item = pp.Group(ident + pp.Optional(edge_config_param, None))

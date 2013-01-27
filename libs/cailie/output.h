@@ -31,9 +31,9 @@ class CaOutput {
 };
 
 template<typename T> std::string to_string(const T &value) {
-	std::stringstream osstream;
-	osstream << value;
-	return osstream.str();
+	std::stringstream s;
+	s << value;
+	return s.str();
 }
 
 inline std::string token_name(const int &value) {
@@ -54,6 +54,23 @@ inline std::string token_name(const std::string &value) {
 
 inline std::string token_name(const bool &value) {
 	return value ? "true" : "false";
+}
+
+template<typename T> std::string token_name(const std::vector<T> &value) {
+	std::stringstream s;
+	s << "[";
+	typename std::vector<T>::const_iterator i = value.begin();
+
+	if (i != value.end()) {
+		s << token_name(*i);
+		i++;
+		for (; i != value.end(); i++) {
+			s << "," << token_name(*i);
+		}
+	}
+
+	s << "]";
+	return s.str();
 }
 
 #endif // CAILIE_OUTPUT_H
