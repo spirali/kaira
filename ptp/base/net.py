@@ -67,19 +67,29 @@ class Edge(utils.EqMixin):
             raise utils.PtpException("Invalid config item '{0}'".format(invalid_key),
                 self.get_source())
 
-
     def check_edge_in(self, checker):
-        self.check_config(("bulk",))
+        self.check_config(("bulk","guard"))
         if "bulk" in self.config:
             if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
-                raise utils.PtpException("'bulk' needs a single variable")
+                raise utils.PtpException(
+                    "'bulk' requires a single variable as main expression",
+                    self.get_source())
+        if "guard" in self.config:
+            if self.config["guard"] is None:
+                raise utils.PtpException(
+                    "'guard' requires an expression",
+                    self.get_source())
+            checker.check_expression(self.config["guard"],
+                                     self.transition.get_input_decls_with_size(),
+                                     "bool",
+                                     self.get_source())
         self.check(checker)
 
     def check_edge_out(self, checker):
         self.check_config(("bulk",))
         if "bulk" in self.config:
             if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
-                raise utils.PtpException("'bulk' needs a single variable")
+                raise utils.PtpException("'bulk' requires a single variable as main expression", self.get_source())
         self.check(checker)
 
     def get_decls(self):
@@ -197,7 +207,6 @@ class Place(utils.EqByIdMixin):
         return any(not edge.is_local() for edge in edges)
 
 
-
 class Transition(utils.EqByIdMixin):
 
     code = None
@@ -281,12 +290,25 @@ class Transition(utils.EqByIdMixin):
 
     def get_decls(self):
         decls = self.get_decls_dict().items()
-        decls.sort(key=lambda x: x[1])
+        decls.sort(key=lambda x: x[0])
         return decls
 
-    def get_input_decls(self):
+    def get_input_decls_dict(self):
         # FIXME: Return only variables on input edges
-        return self.get_decls()
+        return self.get_decls_dict()
+
+
+    def get_input_decls(self):
+        decls = self.get_input_decls_dict().items()
+        decls.sort(key=lambda x: x[0])
+        return decls
+
+    def get_input_decls_with_size(self):
+        decls_dict = self.get_input_decls_dict()
+        decls_dict["size"] = "size_t"
+        decls = decls_dict.items()
+        decls.sort(key=lambda x: x[0])
+        return decls
 
     def check(self, checker):
         for edge in self.edges_in:

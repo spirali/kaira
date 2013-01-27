@@ -514,6 +514,12 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
         builder.line("{0} &{1} = {2}->value;", decls_dict[name], name, token_var)
 
     for edge in tr.edges_in:
+        if "guard" in edge.config:
+            builder.block_begin()
+            builder.line("size_t size = {0}->place_{1.id}.size();",  n, edge.place)
+            builder.line("if (!({0})) {1}", edge.config["guard"], fail_command)
+            builder.block_end()
+
         for inscription in edge.get_token_inscriptions():
             if inscription.uid in sources_uid:
                 continue
