@@ -40,7 +40,7 @@ def write_vars_struct(builder, tr):
     class_name = "Vars_{0.id}".format(tr)
     builder.write_class_head(class_name)
 
-    decls = tr.get_decls()
+    decls = utils.decls_to_list(tr.get_decls())
     builder.write_constructor(class_name, emit_declarations(decls, True),
                            ["{0}({0})".format(name) for name, _ in decls ])
     builder.write_method_end()
@@ -255,14 +255,14 @@ def write_fire_body(builder,
             builder.line("{1} {2} = tokens->packed_values_{0.uid}",
                 edge, edge.get_type(), edge.inscriptions[0].expr)
 
-    decls = tr.get_decls_dict()
+    decls = tr.get_decls()
     for name in tr.variable_freshes:
-        builder.line("{0} {1};", decls[name], name)
+        builder.line("{0} {1}; // Fresh variable", decls[name], name)
 
     if tr.code is not None:
         if locking:
             builder.line("{0}->unlock();", net_expr)
-        decls = tr.get_decls()
+        decls = utils.decls_to_list(tr.get_decls())
         if len(decls) == 0:
             builder.line("Vars_{0.id} vars;", tr)
         else:
@@ -392,6 +392,7 @@ def write_enable_check(builder, tr):
                  tr)
     builder.block_begin()
     builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
+    builder.line("CaContext ctx(thread, net);")
     w = CppWriter()
     w.line("return true;")
     write_enable_pattern_match(builder, tr, w, "return false;")
@@ -489,8 +490,9 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
 
     # Check if there are enough tokens
     for edge in tr.edges_in:
-        builder.line("if ({0}->place_{1.id}.size() < {2}) {3}",
-            n, edge.place, edge.get_tokens_number(), fail_command)
+        if edge.get_tokens_number() is not None:
+            builder.line("if ({0}->place_{1.id}.size() < {2}) {3}",
+                n, edge.place, edge.get_tokens_number(), fail_command)
 
     for edge in tr.edges_in:
         prev_var = None
@@ -506,12 +508,13 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
                 builder.line("{0} {1}->next;", line, prev_var)
             prev_var = token_var
 
-    sources_uid = tr.variable_sources.values()
-    decls_dict = tr.get_decls_dict()
+    sources_uid = [ uid for uid in tr.variable_sources.values() if uid is not None ]
+    decls_dict = tr.get_decls()
 
     for name, uid in tr.variable_sources.items():
-        token_var = build.get_safe_id("token_{0}".format(uid))
-        builder.line("{0} &{1} = {2}->value;", decls_dict[name], name, token_var)
+        if uid is not None:
+            token_var = build.get_safe_id("token_{0}".format(uid))
+            builder.line("{0} &{1} = {2}->value;", decls_dict[name], name, token_var)
 
     for edge in tr.edges_in:
         if "guard" in edge.config:

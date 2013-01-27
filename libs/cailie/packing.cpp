@@ -32,3 +32,14 @@ template<> int unpack(CaUnpacker &unpacker)
 {
 	return direct_unpack<int>(unpacker);
 }
+
+template<> size_t unpack(CaUnpacker &unpacker)
+{
+	return direct_unpack<size_t>(unpacker);
+}
+
+template<> std::string unpack(CaUnpacker &unpacker)
+{
+	size_t size = unpack<size_t>(unpacker);
+	return std::string((char*) unpacker.unpack(size), size);
+}

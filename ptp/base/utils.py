@@ -185,3 +185,11 @@ def unions(lst, fn=None):
 
 def get_source_path(id, name):
     return "*{0}/{1}".format(id, name)
+
+def first(lst):
+    return lst[0]
+
+def decls_to_list(decls_dict):
+    decls = decls_dict.items()
+    decls.sort(key=first)
+    return decls

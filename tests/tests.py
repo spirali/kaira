@@ -18,9 +18,9 @@ class BuildTest(unittest.TestCase):
         output = "10 20\n107 207\n10 20\n257 77750 A looong string!!!!!\n10 30\n3 20003 String!!!\n"
         Project("externtypes").quick_test(output, processes=2)
 
-    def test_packing(self):
-        output = "0\n1\n2\n3\n4\n0\n1\n2\n3\n4\n5\n5\n6\n7\n8\n9\n100\n100\n"
-        Project("packing").quick_test(output, processes=3)
+    def test_bulk(self):
+        output = "1\n2\n3\n4\na\nb\nc\n"
+        Project("bulk").quick_test(output, processes=3)
 
     def test_broken1(self):
         Project("broken1", "broken").fail_ptp("*104/inscription: Expression missing\n")

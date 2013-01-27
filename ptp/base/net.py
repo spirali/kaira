@@ -79,8 +79,9 @@ class Edge(utils.EqMixin):
                 raise utils.PtpException(
                     "'guard' requires an expression",
                     self.get_source())
+            decls = self.transition.get_input_decls_with_size()
             checker.check_expression(self.config["guard"],
-                                     self.transition.get_input_decls_with_size(),
+                                     decls,
                                      "bool",
                                      self.get_source())
         self.check(checker)
@@ -107,10 +108,13 @@ class Edge(utils.EqMixin):
             for inscription in self.inscriptions:
                 if inscription.is_variable() and inscription.expr not in sources:
                     sources[inscription.expr] = inscription.uid
+        else:
+            sources[self.inscriptions[0].expr] = None
         return sources
 
     def get_tokens_number(self):
-        return len(self.inscriptions)
+        if self.is_token_edge():
+            return len(self.inscriptions)
 
     def get_token_inscriptions(self):
         if self.is_token_edge():
@@ -181,10 +185,10 @@ class Place(utils.EqByIdMixin):
         return result
 
     def get_transitions_out(self):
-        return list(set([ edge.get_transition() for edge in self.get_edges_out() ]))
+        return list(set([ edge.transition for edge in self.get_edges_out() ]))
 
     def get_transitions_in(self):
-        return list(set([ edge.get_transition() for edge in self.get_edges_in() ]))
+        return list(set([ edge.transition for edge in self.get_edges_in() ]))
 
     def get_areas(self):
         return self.net.get_areas_with_place(self)
@@ -197,12 +201,13 @@ class Place(utils.EqByIdMixin):
         checker.check_type(self.type, self.get_source("type"), functions)
 
         source = self.get_source("init-expr")
+        decls = self.net.project.get_minimal_decls()
         if self.init_type == "exprs":
             for expr in self.init_value:
-                checker.check_expression(expr, [], self.type, source)
+                checker.check_expression(expr, decls, self.type, source)
         elif self.init_type == "vector":
             checker.check_expression(self.init_value,
-                                     [],
+                                     decls,
                                      get_container_type(self.type),
                                      source)
 
@@ -271,9 +276,9 @@ class Transition(utils.EqByIdMixin):
     def get_source(self, location):
         return "*{0}/{1}".format(self.id, location)
 
-    def get_decls_dict(self):
-        decls_dict = { "ctx": "CaContext" }
+    def get_decls(self):
         from_input = []
+        decls_dict = self.net.project.get_minimal_decls()
         for edge in self.edges_in:
             for name, t in edge.get_decls():
                 if name not in decls_dict:
@@ -295,27 +300,14 @@ class Transition(utils.EqByIdMixin):
         return decls_dict
 
 
-    def get_decls(self):
-        decls = self.get_decls_dict().items()
-        decls.sort(key=lambda x: x[0])
-        return decls
-
-    def get_input_decls_dict(self):
-        # FIXME: Return only variables on input edges
-        return self.get_decls_dict()
-
-
     def get_input_decls(self):
-        decls = self.get_input_decls_dict().items()
-        decls.sort(key=lambda x: x[0])
-        return decls
+        # FIXME: Return only variables on input edges
+        return self.get_decls()
 
     def get_input_decls_with_size(self):
-        decls_dict = self.get_input_decls_dict()
+        decls_dict = self.get_input_decls()
         decls_dict["size"] = "size_t"
-        decls = decls_dict.items()
-        decls.sort(key=lambda x: x[0])
-        return decls
+        return decls_dict
 
     def check(self, checker):
         for edge in self.edges_in:
@@ -345,12 +337,13 @@ class Area(object):
 
     def check(self, checker):
         source = self.get_source("init-expr")
+        decls = self.net.project.get_minimal_decls()
         if self.init_type == "exprs":
             for expr in self.init_value:
-                checker.check_expression(expr, [], "int", source)
+                checker.check_expression(expr, decls, "int", source)
         elif self.init_type == "vector":
             checker.check_expression(self.init_value,
-                                     [],
+                                     decls,
                                      get_container_type("int"),
                                      source)
     def get_source(self, location):

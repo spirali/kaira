@@ -26,17 +26,21 @@ import build
 
 class CheckStatement(base.tester.Check):
 
-    def __init__(self, expression, decls=(), return_type="void", source=None):
+    def __init__(self, expression, decls=None, return_type="void", source=None):
         self.expression = expression
         self.decls = decls
         self.return_type = return_type
         self.source = source
 
     def write_prologue(self, writer):
+        if self.decls is not None:
+            decls = utils.decls_to_list(self.decls)
+        else:
+            decls = ()
         writer.line("{0} {1} ({2}) {{",
                     self.return_type,
                     self.new_id(),
-                    ",".join("{0} {1}".format(t, name) for name, t in self.decls))
+                    ",".join("{0} {1}".format(t, name) for name, t in decls))
 
     def write_epilogue(self, writer):
         writer.line("}}")
@@ -61,7 +65,6 @@ class TypeChecker:
 
     def add_checks(self, tester):
         var = tester.new_id()
-        decls = ((var, self.name + " &"),)
 
         source = min(self.sources)
         check = CheckStatement("{0} *{1};".format(self.name, tester.new_id()), source=source)
@@ -70,21 +73,24 @@ class TypeChecker:
 
         message = "Function '{0}' not defined for type '{1}'"
         if "token_name" in self.functions:
+            decls = { var: self.name + " &" }
             check = CheckStatement("token_name({0});".format(var),
                                    decls, source=source)
             check.own_message = message.format("token_name", self.name)
             tester.add(check)
 
         if "pack" in self.functions:
+            decls = { var: self.name + " &", "packer": "CaPacker &" }
             check = CheckStatement("pack(packer, {0});".format(var),
-                                   decls + (("packer", "CaPacker &"),),
+                                   decls,
                                    source=source)
             check.own_message = message.format("pack", self.name)
             tester.add(check)
 
         if "pack" in self.functions:
+            decls = { var: self.name + " &", "unpacker": "CaUnpacker &" }
             check = CheckStatement("return unpack<{0} >(unpacker);".format(self.name),
-                                   decls + (("unpacker", "CaUnpacker &"),),
+                                   decls,
                                    self.name,
                                    source=source)
             check.own_message = message.format("unpack", self.name)

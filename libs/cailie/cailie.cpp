@@ -378,7 +378,7 @@ std::vector<int> ca_range(int from, int upto)
 {
 	std::vector<int> v;
 	int t;
-	for (t = from; t <= upto; t++) {
+	for (t = from; t < upto; t++) {
 		v.push_back(t);
 	}
 	return v;

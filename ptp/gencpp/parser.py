@@ -55,7 +55,7 @@ edge_config_item = pp.Group(ident + pp.Optional(edge_config_param, None))
 edge_config = lbracket + pp.Group(pp.delimitedList(edge_config_item, ",")) + rbracket
 
 edge_expr = (pp.Optional(edge_config, ()) +
-             pp.Group(expressions) +
+             pp.Optional(pp.Group(expressions), ()) +
              pp.Optional(pp.Suppress("@") + full_expression, None))
 init_by_expressions = (lbracket + expressions + rbracket) \
                         .setParseAction(lambda t: ("exprs", tuple(t)))

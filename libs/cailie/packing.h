@@ -57,8 +57,18 @@ inline void pack(CaPacker &packer, int value) {
 	direct_pack(packer, value);
 }
 
+inline void pack(CaPacker &packer, size_t value) {
+	direct_pack(packer, value);
+}
+
 inline void pack(CaPacker &packer, double value) {
 	direct_pack(packer, value);
+}
+
+inline void pack(CaPacker &packer, std::string value) {
+	size_t size = value.size();
+	pack(packer, size);
+	packer.pack(value.c_str(), size);
 }
 
 template<typename T> T direct_unpack(CaUnpacker &unpacker) {
@@ -73,5 +83,7 @@ template<typename T> T unpack(CaUnpacker &unpacker) {
 }
 
 template<> int unpack<int>(CaUnpacker &unpacker);
+template<> size_t unpack<size_t>(CaUnpacker &unpacker);
+template<> std::string unpack(CaUnpacker &unpacker);
 
 #endif
