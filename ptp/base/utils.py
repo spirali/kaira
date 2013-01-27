@@ -185,5 +185,3 @@ def unions(lst, fn=None):
 
 def get_source_path(id, name):
     return "*{0}/{1}".format(id, name)
-
-

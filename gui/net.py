@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
+#    Copyright (C) 2010-2013 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #                  2012       Martin Surkovsky
 #
@@ -348,6 +348,7 @@ class NetElement(NetItem):
             if area.is_inside(self):
                 return area
 
+
 class Transition(NetElement):
 
     size = (70, 35)
@@ -652,6 +653,7 @@ class Place(NetElement):
 
         return ((px - r, py - r + isy_bearing),
                 (px + sx + r + max(is_width, pt_width), py + sy + r + descent))
+
 
 class Edge(NetItem):
 

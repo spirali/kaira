@@ -634,12 +634,15 @@ def write_init_net(builder, net):
     builder.line("CaContext ctx(thread, net);")
     builder.line("int pid = thread->get_process_id();")
     for area in net.areas:
-        builder.line("std::vector<int> area_{0.id};", area)
-        for expr in area.exprs:
-            builder.line("area_{0.id}.push_back({1});", area, expr)
+        if area.init_type == "vector":
+            builder.line("std::vector<int> area_{0.id} = {0.init_value};", area)
+        elif area.init_type == "exprs":
+            builder.line("std::vector<int> area_{0.id};", area)
+            for expr in area.init_value:
+                builder.line("area_{0.id}.push_back({1});", area, expr)
 
     for place in net.places:
-        if not (place.init_exprs or place.code):
+        if not (place.init_type or place.code):
             continue
         areas = place.get_areas()
         if areas == []:
@@ -650,12 +653,19 @@ def write_init_net(builder, net):
                           .format(area) for area in areas ]
             builder.if_begin(" && ".join(conditions))
 
-        for expr in place.init_exprs:
+        if place.init_type == "exprs":
+            for expr in place.init_value:
+                write_place_add(builder,
+                                "add",
+                                place,
+                                "net->place_{0.id}.".format(place),
+                                expr)
+        elif place.init_type == "vector":
             write_place_add(builder,
-                            "add",
+                            "add_all",
                             place,
                             "net->place_{0.id}.".format(place),
-                            expr)
+                            place.init_value)
 
         if place.code is not None:
             builder.line("std::vector<{0} > tokens;", place.type)

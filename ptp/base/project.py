@@ -219,6 +219,9 @@ class Project(object):
     def parse_expressions(self, string, source):
         return self.target_env.parse_expressions(string, source)
 
+    def parse_init_expression(self, string, source):
+        return self.target_env.parse_init_expression(string, source)
+
     def parse_expression(self, string, source, allow_empty=False):
         return self.target_env.parse_expression(string, source, allow_empty)
 
@@ -271,9 +274,9 @@ def load_place(element, project, net):
     id = utils.xml_int(element, "id")
     type_name = project.parse_typename(element.get("type"),
                                        get_source(element, "type"))
-    init_exprs = project.parse_expressions(element.get("init-expr"),
-                                           get_source(element, "init-exprs"))
-    place = Place(net, id, type_name, init_exprs)
+    init_type, init_value = project.parse_init_expression(element.get("init-expr"),
+                                                      get_source(element, "init-expr"))
+    place = Place(net, id, type_name, init_type, init_value)
     if element.find("code") is not None:
         place.code = element.find("code").text
     place.tracing = load_tracing(element)
@@ -281,10 +284,10 @@ def load_place(element, project, net):
 
 def load_area(element, project, net):
     id = utils.xml_int(element, "id")
-    exprs = project.parse_expressions(element.get("init-expr"),
-                                      get_source(element, "init-expr"))
+    init_type, init_value = project.parse_init_expression(element.get("init-expr"),
+                                                      get_source(element, "init-expr"))
     places = [ net.get_place(utils.xml_int(e, "id")) for e in element.findall("place") ]
-    return Area(net, id, exprs, places)
+    return Area(net, id, init_type, init_value, places)
 
 def load_net(element, project):
     net = Net(project, utils.xml_int(element, "id"), utils.xml_str(element, "name"))

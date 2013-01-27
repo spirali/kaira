@@ -149,11 +149,12 @@ class Place(utils.EqByIdMixin):
 
     code = None
 
-    def __init__(self, net, id, type, init_exprs):
+    def __init__(self, net, id, type, init_type, init_value):
         self.net = net
         self.id = id
         self.type = type
-        self.init_exprs = init_exprs
+        self.init_type = init_type
+        self.init_value = init_value
         self.tracing = []
 
     def get_pos_id(self):
@@ -195,9 +196,15 @@ class Place(utils.EqByIdMixin):
             functions.append("unpack")
         checker.check_type(self.type, self.get_source("type"), functions)
 
-        source = self.get_source("init-exprs")
-        for expr in self.init_exprs:
-            checker.check_expression(expr, [], self.type, source)
+        source = self.get_source("init-expr")
+        if self.init_type == "exprs":
+            for expr in self.init_value:
+                checker.check_expression(expr, [], self.type, source)
+        elif self.init_type == "vector":
+            checker.check_expression(self.init_value,
+                                     [],
+                                     get_container_type(self.type),
+                                     source)
 
     def get_source(self, location):
         return "*{0}/{1}".format(self.id, location)
@@ -265,7 +272,7 @@ class Transition(utils.EqByIdMixin):
         return "*{0}/{1}".format(self.id, location)
 
     def get_decls_dict(self):
-        decls_dict = {}
+        decls_dict = { "ctx": "CaContext" }
         from_input = []
         for edge in self.edges_in:
             for name, t in edge.get_decls():
@@ -326,19 +333,26 @@ class Transition(utils.EqByIdMixin):
 
 class Area(object):
 
-    def __init__(self, net, id, exprs, places):
+    def __init__(self, net, id, init_type, init_value, places):
         self.net = net
         self.id = id
         self.places = places
-        self.exprs = exprs
+        self.init_type = init_type
+        self.init_value = init_value
 
     def is_place_inside(self, place):
         return place in self.places
 
     def check(self, checker):
-        for expr in self.exprs:
-            checker.check_expression(expr, [], "int", self.get_source("init-exprs"))
-
+        source = self.get_source("init-expr")
+        if self.init_type == "exprs":
+            for expr in self.init_value:
+                checker.check_expression(expr, [], "int", source)
+        elif self.init_type == "vector":
+            checker.check_expression(self.init_value,
+                                     [],
+                                     get_container_type("int"),
+                                     source)
     def get_source(self, location):
         return "*{0}/{1}".format(self.id, location)
 

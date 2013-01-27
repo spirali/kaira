@@ -353,12 +353,12 @@ class PlaceDrawing(DrawingBase):
                 (px + self.size[0] + self.radius, py + self.size[1] + self.radius),
                 self.error_messages["type"])
 
-        if self.error_messages and "init-exprs" in self.error_messages:
+        if self.error_messages and "init-expr" in self.error_messages:
             draw_error_box_after_text(
                 cr,
                 self.init_string,
                 (px + self.size[0] + self.radius, py - self.size[1] - self.radius),
-                self.error_messages["init-exprs"])
+                self.error_messages["init-expr"])
 
 class EdgeDrawing(DrawingBase):
 
@@ -440,11 +440,11 @@ class AreaDrawing(DrawingBase):
         cr.show_text(self.name)
 
     def draw_top(self, cr):
-        if self.error_messages and "init-exprs" in self.error_messages:
+        if self.error_messages and "init-expr" in self.error_messages:
             px, py = self.position
             draw_error_box_after_text(cr,
                                       self.init_expr,(px, py - 5),
-                                      self.error_messages["init-exprs"])
+                                      self.error_messages["init-expr"])
 
 
 class InterfaceDrawing(DrawingBase):

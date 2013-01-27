@@ -57,6 +57,10 @@ edge_config = lbracket + pp.Group(pp.delimitedList(edge_config_item, ",")) + rbr
 edge_expr = (pp.Optional(edge_config, ()) +
              pp.Group(expressions) +
              pp.Optional(pp.Suppress("@") + full_expression, None))
+init_by_expressions = (lbracket + expressions + rbracket) \
+                        .setParseAction(lambda t: ("exprs", tuple(t)))
+init_by_vector = pp.ParseElementEnhance(full_expression).setParseAction(lambda t: ("vector", t[0]))
+init_expression = init_by_expressions | init_by_vector
 
 def parse_expression(expr, source, allow_empty):
     if len(expr.strip()) == 0:
@@ -92,6 +96,14 @@ def split_expressions(string, source):
         return []
     try:
         return expressions.parseString(string, parseAll=True)
+    except pp.ParseException, e:
+        raise utils.PtpException(e.msg, source)
+
+def parse_init_expression(string, source):
+    if string.strip() == "":
+        return (None, None)
+    try:
+        return init_expression.parseString(string, parseAll=True)[0]
     except pp.ParseException, e:
         raise utils.PtpException(e.msg, source)
 
