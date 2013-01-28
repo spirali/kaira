@@ -68,6 +68,10 @@ class Edge(utils.EqMixin):
                 self.get_source())
 
     def check_edge_in(self, checker):
+        if self.target is not None:
+            raise utils.PtpException("Input edges cannot contain '@'",
+                self.get_source())
+
         self.check_config(("bulk","guard"))
         if "bulk" in self.config:
             if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
@@ -273,7 +277,10 @@ class Transition(utils.EqByIdMixin):
     def is_local(self):
         return all((edge.is_local() for edge in self.edges_out))
 
-    def get_source(self, location):
+    def get_source(self, location=None):
+        if location is None:
+            # FIXME: To just show error somewhere, we use guard
+            location = "guard"
         return "*{0}/{1}".format(self.id, location)
 
     def get_decls(self):
@@ -310,6 +317,13 @@ class Transition(utils.EqByIdMixin):
         return decls_dict
 
     def check(self, checker):
+
+        for place, number in utils.multiset([ edge.place for edge in self.edges_in ]).items():
+            if number != 1:
+                raise utils.PtpException("There can be at most one input edge "
+                                         "between place and transition",
+                                         self.get_source())
+
         for edge in self.edges_in:
             edge.check_edge_in(checker)
 
