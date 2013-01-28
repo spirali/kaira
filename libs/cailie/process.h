@@ -43,6 +43,7 @@ struct UndeliverMessage {
 #ifdef CA_SHMEM
 class Packet {
 	public:
+	int from_process;
 	int tag;
 	void *data;
 
@@ -81,11 +82,11 @@ class Process {
 		void multisend_multicast(const std::vector<int> &targets, Net *net, int place, int tokens_count, const Packer &packer, Thread *thread);
 
 		void process_service_message(Thread *thread, ServiceMessage *smsg);
-		void process_packet(Thread *thread, int tag, void *data);
+		void process_packet(Thread *thread, int from_process, int tag, void *data);
 		int process_packets(Thread *thread);
 
 		#ifdef CA_SHMEM
-		void add_packet(int tag, void *data);
+		void add_packet(int from_process, int tag, void *data);
 		#endif
 
 		#ifdef CA_MPI
@@ -96,6 +97,11 @@ class Process {
 		void write_header(FILE *file);
 	protected:
 
+		struct EarlyMessage {
+			int from_process;
+			void *data;
+		};
+
 		Net *net;
 		int process_id;
 		int process_count;
@@ -103,7 +109,7 @@ class Process {
 		int defs_count;
 		NetDef **defs;
 		Thread *threads;
-		std::vector<void* > too_early_message;
+		std::vector<EarlyMessage> too_early_message;
 		/*memory of net's id which wasn't created, but was quit*/
 		bool net_is_quit;
 

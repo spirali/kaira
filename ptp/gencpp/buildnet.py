@@ -142,25 +142,22 @@ def write_send_token(builder,
         builder.line("lock = false;")
         builder.block_end()
 
-    def write_add(method, expr):
+    def write_add(expr, bulk):
         write_place_add(builder,
-                        method,
                         edge.place,
-                        "{0}->place_{1.id}.".format(net_expr, edge.place),
-                        expr)
+                        "{0}->".format(net_expr),
+                        expr,
+                        bulk)
         if not interface_edge:
             write_activation(builder, net_expr, edge.place.get_transitions_out())
-
-    # if edge.guard is not None:
-    #    builder.if_begin(edge.guard)
 
     if edge.is_local():
         write_lock()
         if edge.is_bulk_edge():
-            write_add("add_all", edge.inscriptions[0].expr)
+            write_add(edge.inscriptions[0].expr, True)
         else:
             for inscription in edge.get_token_inscriptions():
-                write_add("add", inscription.expr)
+                write_add(inscription.expr, False)
     else: # Remote send
         if edge.is_unicast():
             sendtype = ""
@@ -168,10 +165,10 @@ def write_send_token(builder,
             builder.if_begin("target_{0.id} == thread->get_process_id()".format(edge))
             write_lock()
             if edge.is_bulk_edge():
-                write_add("add_all", edge.inscriptions[0].expr)
+                write_add(edge.inscriptions[0].expr, True)
             else:
                 for inscription in edge.get_token_inscriptions():
-                    write_add("add", inscription.expr)
+                    write_add(inscription.expr, False)
             builder.indent_pop()
             builder.line("}} else {{")
             builder.indent_push()
@@ -224,6 +221,17 @@ def write_remove_tokens(builder, net_expr, tr):
         else:
             builder.line("{0}->place_{2.id}.remove({1});",
                 net_expr, token_var, place)
+
+    for edge in tr.edges_in:
+        place = edge.place
+        if edge.is_origin_reader():
+            if edge.is_bulk_edge():
+                builder.line("{0}->place_{1.id}_origin.clear();", net_expr, place)
+            else:
+                for inscription in edge.inscriptions:
+                    builder.line("{0}->place_{1.id}_origin.pop_front();",
+                                 net_expr, place)
+
 
 def write_fire_body(builder,
                     tr,
@@ -517,6 +525,18 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
             builder.line("{0} &{1} = {2}->value;", decls_dict[name], name, token_var)
 
     for edge in tr.edges_in:
+        if edge.is_origin_reader():
+            if edge.is_bulk_edge():
+              builder.line("std::vector<int> {0}_origins({1}->place_{2.id}_origin.begin(),"
+                           " {1}->place_{2.id}_origin.end());",
+                           edge.inscriptions[0].expr, n, edge.place)
+
+            else:
+                for i, inscription in enumerate(edge.inscriptions):
+                    builder.line("int {0}_origin = *({1}->place_{2.id}_origin.begin() + {3});",
+                                 inscription.expr, n, edge.place, i)
+
+    for edge in tr.edges_in:
         if "guard" in edge.config:
             builder.block_begin()
             builder.line("size_t size = {0}->place_{1.id}.size();",  n, edge.place)
@@ -617,7 +637,12 @@ def write_core(builder):
     for net in builder.project.nets:
         write_net_functions(builder, net)
 
-def write_place_add(builder, method, place, place_code, value_code):
+def write_place_add(builder, place, net_code, value_code, bulk=False, origin=None):
+    if not bulk:
+        method = "add"
+    else:
+        method = "add_all"
+
     if place.tracing:
         builder.if_begin("thread->get_tracelog()")
         builder.line("void (*fncs[{0}])(ca::TraceLog *, const {1} &);",
@@ -625,13 +650,18 @@ def write_place_add(builder, method, place, place_code, value_code):
                      builder.emit_type(place.type))
         for i, trace in enumerate(place.tracing):
             builder.line("fncs[{0}] = trace_{1};", i, trace.replace("fn: ", ""))
-        builder.line("{0}{1}({2}, thread->get_tracelog(), {3.id}, {4}, fncs);",
-                    place_code, method, value_code, place, len(place.tracing))
+        builder.line("{0}place_{1.id}.{2}({3}, thread->get_tracelog(), {3.id}, {4}, fncs);",
+                    net_code, place, method, value_code, place, len(place.tracing))
         builder.line("}} else {{")
-        builder.line("{0}{1}({2});", place_code, method, value_code)
+        builder.line("{0}place_{1.id}.{2}({3});", net_code, place, method, value_code)
         builder.block_end()
     else:
-        builder.line("{0}{1}({2});", place_code, method, value_code)
+        builder.line("{0}place_{1.id}.{2}({3});", net_code, place, method, value_code)
+
+    if place.need_origin():
+        if origin is None:
+            origin = "thread->get_process_id()"
+        builder.line("{0}place_{1.id}_origin.push_back({2});", net_code, place, origin)
 
 def write_init_net(builder, net):
     builder.line("ca::Context ctx(thread, net);")
@@ -658,23 +688,14 @@ def write_init_net(builder, net):
 
         if place.init_type == "exprs":
             for expr in place.init_value:
-                write_place_add(builder,
-                                "add",
-                                place,
-                                "net->place_{0.id}.".format(place),
-                                expr)
+                write_place_add(builder, place, "net->", expr)
         elif place.init_type == "vector":
-            write_place_add(builder,
-                            "add_all",
-                            place,
-                            "net->place_{0.id}.".format(place),
-                            place.init_value)
+            write_place_add(builder, place, "net->", place.init_value, bulk=True)
 
         if place.code is not None:
             builder.line("std::vector<{0} > tokens;", place.type)
             builder.line("place_user_fn_{0.id}(ctx, tokens);", place)
-            write_place_add(builder, "add_all", place,
-                            "net->place_{0.id}.".format(place), "tokens")
+            write_place_add(builder, place, "net->", "tokens", bulk=True)
         builder.block_end()
 
 def write_spawn(builder, net):
@@ -709,17 +730,17 @@ def write_reports_method(builder, net):
 
 def write_receive_method(builder, net):
     builder.write_method_start(
-        "void receive(ca::ThreadBase *thread, int place_pos, ca::Unpacker &unpacker)")
+        "void receive(ca::ThreadBase *thread, int from_process, int place_pos, ca::Unpacker &unpacker)")
     builder.line("switch(place_pos) {{")
     for place in net.places:
         if place.is_receiver():
             builder.line("case {0}:", place.get_pos_id())
             builder.indent_push()
             write_place_add(builder,
-                            "add",
                             place,
-                            "place_{0.id}.".format(place),
-                            "ca::unpack<{0} >(unpacker)".format(place.type, "unpacker"))
+                            "this->",
+                            "ca::unpack<{0} >(unpacker)".format(place.type, "unpacker"),
+                            origin="from_process")
             write_activation(builder, "this", place.get_transitions_out())
             builder.line("break;")
             builder.indent_pop()
@@ -751,6 +772,9 @@ def write_net_class(builder, net, base_class_name="ca::Net", write_class_end=Tru
     for place in net.places:
         builder.write_var_decl("place_" + str(place.id),
                                "ca::Place<{0} >".format(place.type))
+        if place.need_origin():
+            builder.write_var_decl("place_{0}_origin".format(place.id),
+                                   "std::deque<int>")
 
     write_reports_method(builder, net)
     write_receive_method(builder, net)

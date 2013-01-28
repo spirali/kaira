@@ -14,14 +14,15 @@ void ca::Process::broadcast_packet(int tag, void *data, size_t size, Thread *thr
 			continue;
 		void *d = malloc(size);
 		memcpy(d, data, size);
-		processes[t]->add_packet(tag, d);
+		processes[t]->add_packet(process_id, tag, d);
 	}
 	free(data);
 }
 
-void ca::Process::add_packet(int tag, void *data)
+void ca::Process::add_packet(int from_process, int tag, void *data)
 {
 	Packet *packet = new Packet;
+	packet->from_process = from_process;
 	packet->tag = tag;
 	packet->data = data;
 	packet->next = NULL;
@@ -68,7 +69,7 @@ void ca::Process::multisend_multicast(
 			memcpy(d, data, packer.get_size());
 		}
 		Process *p = processes[target];
-		p->add_packet(CA_TAG_TOKENS, d);
+		p->add_packet(process_id, CA_TAG_TOKENS, d);
 
 	}
 }
@@ -86,7 +87,7 @@ int ca::Process::process_packets(Thread *thread)
 		thread->process_thread_messages();
 
 		while (p) {
-			process_packet(thread, p->tag, p->data);
+			process_packet(thread, p->from_process, p->tag, p->data);
 			Packet *next = p->next;
 			delete p;
 			p = next;

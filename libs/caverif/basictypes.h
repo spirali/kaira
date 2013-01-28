@@ -10,6 +10,7 @@
 namespace cass {
 
 	struct Packet {
+		int from_process;
 		size_t size;
 		void *data;
 	};

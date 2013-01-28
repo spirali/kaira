@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2011 Stanislav Bohm
+#    Copyright (C) 2011-2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -72,7 +72,7 @@ class Edge(utils.EqMixin):
             raise utils.PtpException("Input edges cannot contain '@'",
                 self.get_source())
 
-        self.check_config(("bulk","guard"))
+        self.check_config(("bulk", "guard", "origin"))
         if "bulk" in self.config:
             if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
                 raise utils.PtpException(
@@ -99,12 +99,22 @@ class Edge(utils.EqMixin):
 
     def get_decls(self):
         if self.is_bulk_edge():
-            return [ (self.inscriptions[0].expr,
-                     self.get_type()) ]
+            var = self.inscriptions[0].expr
+            result = [ (var, self.get_type()) ]
+            if self.is_origin_reader():
+                result.append((var + "_origins", get_container_type("int")))
         else:
-            return [ (inscription.expr, self.get_place_type())
-                        for inscription in self.inscriptions
-                        if inscription.is_variable() ]
+            variables = self.get_variables()
+            result = [ (var, self.get_place_type())
+                        for var in variables ]
+            if self.is_origin_reader():
+                result += [ (var + "_origin", "int") for var in variables ]
+        return result
+
+    def get_variables(self):
+        return [ inscription.expr
+                 for inscription in self.inscriptions
+                 if inscription.is_variable() ]
 
     def get_variable_sources(self):
         sources = {}
@@ -137,6 +147,9 @@ class Edge(utils.EqMixin):
 
     def is_unicast(self):
         return True
+
+    def is_origin_reader(self):
+        return "origin" in self.config
 
 class EdgeInscription(utils.EqMixin):
 
@@ -221,6 +234,10 @@ class Place(utils.EqByIdMixin):
     def is_receiver(self):
         edges = self.get_edges_in(with_interface=True)
         return any(not edge.is_local() for edge in edges)
+
+    def need_origin(self):
+        return any(edge.is_origin_reader()
+                   for edge in self.get_edges_out())
 
 
 class Transition(utils.EqByIdMixin):

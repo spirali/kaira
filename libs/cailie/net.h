@@ -84,7 +84,7 @@ class NetDef {
 
 class NetBase {
 		public:
-			virtual void receive(ThreadBase *thread, int place, Unpacker &unpacker) = 0;
+			virtual void receive(ThreadBase *thread, int process, int place, Unpacker &unpacker) = 0;
 };
 
 class Net : public NetBase {

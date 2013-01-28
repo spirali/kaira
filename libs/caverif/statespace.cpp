@@ -143,7 +143,7 @@ void Node::generate(Core *core)
 		int tokens_count = tokens->tokens_count;
 		Thread thread(node->packets, -1, -1);
 		for (int t = 0; t < tokens_count; t++) {
-			net->receive(&thread, place_index, unpacker);
+			net->receive(&thread, packet.from_process, place_index, unpacker);
 		}
 		Node *n = core->add_node(node);
 		nexts.push_back(n);
@@ -448,6 +448,7 @@ void Thread::multisend_multicast(const std::vector<int> &targets,
 	data->tokens_count = tokens_count;
 	Packet packet;
 	packet.data = data;
+	packet.from_process = process_id;
 	packet.size = packer.get_size();
 	for (i = targets.begin(); i != targets.end(); i++) {
 		int target = *i;

@@ -7,7 +7,7 @@ using namespace ca;
 
 bool ca::Parameter::check_mode_before_set()
 {
-	if (mode == CA_PARAMETER_CONSTANT) {
+	if (mode == PARAMETER_CONSTANT) {
 		fprintf(stderr, "Parameter '%s' is constant and cannot be modifed.\n", \
 						name.c_str());
 		return false;
@@ -17,7 +17,7 @@ bool ca::Parameter::check_mode_before_set()
 
 bool ca::Parameter::check_mode_before_run()
 {
-	if (mode == CA_PARAMETER_MANDATORY) {
+	if (mode == PARAMETER_MANDATORY) {
 		fprintf(stderr, "Mandatory parameter '%s' required\n", name.c_str());
 		return false;
 	}
@@ -32,7 +32,7 @@ bool ca::ParameterInt::parse_value(const std::string &str)
 		fprintf(stderr, "Invalid parameter value\n");
 		return false;
 	}
-	mode = CA_PARAMETER_SETTED;
+	mode = PARAMETER_SETTED;
 	return true;
 }
 

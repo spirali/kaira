@@ -33,7 +33,7 @@ void Process::multisend(int target, Net *net, int place_pos, int tokens_count, c
 	#endif */
 }
 
-void Process::process_packet(Thread *thread, int tag, void *data)
+void Process::process_packet(Thread *thread, int from_process, int tag, void *data)
 {
 	if (tag == CA_TAG_SERVICE) {
 		process_service_message(thread, (ServiceMessage*) data);
@@ -43,7 +43,10 @@ void Process::process_packet(Thread *thread, int tag, void *data)
 	Tokens *tokens = (Tokens*) data;
 	if(net == NULL) {
 		CA_DLOG("Too early message on process=%d", get_process_id());
-		too_early_message.push_back(data);
+		EarlyMessage msg;
+		msg.from_process = from_process;
+		msg.data = data;
+		too_early_message.push_back(msg);
 		return;
 	}
 	Unpacker unpacker(tokens + 1);
@@ -64,7 +67,7 @@ void Process::process_packet(Thread *thread, int tag, void *data)
 	CA_DLOG("RECV net=%i index=%i process=%i thread=%i\n",
 		tokens->net_id, place_index, get_process_id(), thread->get_id());
 	for (int t = 0; t < tokens_count; t++) {
-		n->receive(thread, place_index, unpacker);
+		n->receive(thread, from_process, place_index, unpacker);
 	}
 	CA_DLOG("EOR index=%i process=%i thread=%i\n", place_index, get_process_id(), thread->get_id());
 	n->unlock();
@@ -96,9 +99,9 @@ void Process::process_service_message(Thread *thread, ServiceMessage *smsg)
 			Net *net = (Net *) spawn_net(thread, m->def_index, false);
 			net->unlock();
 			if(too_early_message.size() > 0) {
-				std::vector<void* >::const_iterator i;
+				std::vector<EarlyMessage>::const_iterator i;
 				for (i = too_early_message.begin(); i != too_early_message.end(); i++) {
-					process_packet(thread, CA_TAG_TOKENS, *i);
+					process_packet(thread, i->from_process, CA_TAG_TOKENS, i->data);
 				}
 				too_early_message.clear();
 			}
