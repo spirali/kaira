@@ -4,15 +4,17 @@
 
 #include <pthread.h>
 
-class CaProcess;
+namespace ca {
 
-class CaListener {
+class Process;
+
+class Listener {
 	public:
-		CaListener() : process_count(0), processes(NULL) {}
+		Listener() : process_count(0), processes(NULL) {}
 		void init(int port);
 		void wait_for_connection();
 		int get_port();
-		void set_processes(int process_count, CaProcess **processes) {
+		void set_processes(int process_count, Process **processes) {
 			this->process_count = process_count;
 			this->processes = processes;
 		}
@@ -23,9 +25,10 @@ class CaListener {
 	protected:
 		int listen_socket;
 		int process_count;
-		CaProcess **processes;
+		Process **processes;
 		pthread_t thread;
 		pthread_barrier_t *start_barrier;
 };
 
+}
 #endif

@@ -74,26 +74,26 @@ class TypeChecker:
         message = "Function '{0}' not defined for type '{1}'"
         if "token_name" in self.functions:
             decls = { var: self.name + " &" }
-            check = CheckStatement("token_name({0});".format(var),
+            check = CheckStatement("ca::token_name({0});".format(var),
                                    decls, source=source)
             check.own_message = message.format("token_name", self.name)
             tester.add(check)
 
         if "pack" in self.functions:
-            decls = { var: self.name + " &", "packer": "CaPacker &" }
-            check = CheckStatement("pack(packer, {0});".format(var),
+            decls = { var: self.name + " &", "packer": "ca::Packer &" }
+            check = CheckStatement("ca::pack(packer, {0});".format(var),
                                    decls,
                                    source=source)
-            check.own_message = message.format("pack", self.name)
+            check.own_message = message.format("ca::pack", self.name)
             tester.add(check)
 
         if "pack" in self.functions:
-            decls = { var: self.name + " &", "unpacker": "CaUnpacker &" }
-            check = CheckStatement("return unpack<{0} >(unpacker);".format(self.name),
+            decls = { var: self.name + " &", "unpacker": "ca::Unpacker &" }
+            check = CheckStatement("return ca::unpack<{0} >(unpacker);".format(self.name),
                                    decls,
                                    self.name,
                                    source=source)
-            check.own_message = message.format("unpack", self.name)
+            check.own_message = message.format("ca::unpack", self.name)
             tester.add(check)
 
 

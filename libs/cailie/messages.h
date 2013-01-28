@@ -5,24 +5,28 @@
 #include <pthread.h>
 #include <string>
 
-class CaThread;
-class CaNet;
+namespace ca {
 
-class CaThreadMessage {
+class Thread;
+class Net;
+
+class ThreadMessage {
 	public:
-		CaThreadMessage() : next(NULL) {}
-		virtual ~CaThreadMessage() {}
-		CaThreadMessage *next;
-		virtual void process(CaThread *thread) = 0;
+		ThreadMessage() : next(NULL) {}
+		virtual ~ThreadMessage() {}
+		ThreadMessage *next;
+		virtual void process(Thread *thread) = 0;
 };
 
-class CaThreadMessageBarriers  : public CaThreadMessage {
+class ThreadMessageBarriers  : public ThreadMessage {
 	public:
-		CaThreadMessageBarriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2) : barrier1(barrier1), barrier2(barrier2) {}
-		void process(CaThread *thread);
+		ThreadMessageBarriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2) : barrier1(barrier1), barrier2(barrier2) {}
+		void process(Thread *thread);
 	protected:
 		pthread_barrier_t *barrier1;
 		pthread_barrier_t *barrier2;
 };
+
+}
 
 #endif

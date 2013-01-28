@@ -232,7 +232,7 @@ class Project(object):
         return self.target_env.get_generator(self)
 
     def get_minimal_decls(self):
-        return { "ctx": "CaContext" }
+        return { "ctx": "ca::Context" }
 
 def get_source(element, name):
     id = utils.xml_int(element, "id")

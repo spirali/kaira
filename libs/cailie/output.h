@@ -7,9 +7,11 @@
 #include <stack>
 #include <sstream>
 
-class CaOutput {
+namespace ca {
+
+class Output {
 	public:
-		CaOutput(FILE *file);
+		Output(FILE *file);
 
 		void child(const std::string &name);
 		void back();
@@ -71,6 +73,8 @@ template<typename T> std::string token_name(const std::vector<T> &value) {
 
 	s << "]";
 	return s.str();
+}
+
 }
 
 #endif // CAILIE_OUTPUT_H

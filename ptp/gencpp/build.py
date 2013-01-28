@@ -30,7 +30,7 @@ class Builder(CppWriter):
 
         # Real class used for thread representation,
         # CaThreadBase is cast to this type
-        self.thread_class = "CaThread"
+        self.thread_class = "ca::Thread"
 
         # Generate operator== and operator!= for generated types
         # If true then all ExternTypes have to implement operator== and operator!=
@@ -43,27 +43,6 @@ class Builder(CppWriter):
 
 def get_safe_id(string):
     return "__kaira__" + string
-
-def get_to_string_function_name(project, t):
-    """
-    if t.name == "":
-        return "{0}_as_string".format(t.get_safe_name())
-    if len(t.args) == 0:
-        etype = project.get_extern_type(t.name)
-        if etype:
-            return "{0}_getstring".format(etype.name)
-    if t == t_string:
-        return "ca_string_to_string"
-    if t.name == "Array" and len(t.args) == 1:
-        return "array_{0}_as_string".format(t.args[0].get_safe_name())
-    if t == t_double:
-        return "ca_double_to_string"
-    if t == t_float:
-        return "ca_float_to_string"
-    if t == t_bool:
-        return "ca_bool_to_string"
-    return "ca_int_to_string"
-    """
 
 def get_hash_combination(codes):
     if not codes:
@@ -103,12 +82,12 @@ def write_parameters_forward(builder):
 
 def write_parameters(builder):
     for p in builder.project.get_parameters():
-        policy = "CA_PARAMETER_" + p.get_policy().upper()
+        policy = "ca::PARAMETER_" + p.get_policy().upper()
         if p.get_policy() == "mandatory":
             default = ""
         else:
             default = ", " + p.default
-        builder.line("CaParameterInt param::{0}({1}, {2}, {3}{4});",
+        builder.line("ca::ParameterInt param::{0}({1}, {2}, {3}{4});",
                      p.name,
                      const_string(p.name),
                      const_string(p.description),

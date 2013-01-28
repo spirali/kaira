@@ -12,38 +12,43 @@
 #include <assert.h>
 #include <stdarg.h>
 
-int ca_threads_count = 1;
-const char *ca_project_description_string = NULL;
-int ca_listen_port = -1;
-int ca_block_on_start = 0;
-CaNetDef **defs;
-int defs_count = 0;
-CaNet *master_net = NULL;
-CaListener *ca_listener = NULL;
-std::vector<CaParameter*> ca_parameters;
+namespace ca {
 
-size_t ca_trace_log_size = 0;
+int threads_count = 1;
+const char *project_description_string = NULL;
+int listen_port = -1;
+int block_on_start = 0;
+NetDef **defs;
+int defs_count = 0;
+Net *master_net = NULL;
+Listener *listener = NULL;
+std::vector<Parameter*> parameters;
+
+size_t trace_log_size = 0;
 
 #ifdef CA_SHMEM
-CaProcess **processes = NULL;
-int ca_process_count = 1;
-bool ca_sequential_run = false;
+Process **processes = NULL;
+int process_count = 1;
+bool sequential_run = false;
 #endif
 
 #ifdef CA_MPI
-CaProcess *process = NULL;
+Process *process = NULL;
 #endif
 
+}
 
-void ca_project_description(const char *str) {
-	ca_project_description_string = str;
+using namespace ca;
+
+void ca::project_description(const char *str) {
+	project_description_string = str;
 }
 
 static void check_parameters()
 {
 	bool exit_flag = false;
-	for (size_t t = 0; t < ca_parameters.size(); t++) {
-		if (!ca_parameters[t]->check_mode_before_run()) {
+	for (size_t t = 0; t < parameters.size(); t++) {
+		if (!parameters[t]->check_mode_before_run()) {
 			exit_flag = true;
 		}
 	}
@@ -52,17 +57,17 @@ static void check_parameters()
 	}
 }
 
-int ca_main()
+int ca::main()
 {
 	check_parameters();
 
 	#ifdef CA_MPI
-	CaServiceMessage *m = (CaServiceMessage*) malloc(sizeof(CaServiceMessage));
+	ServiceMessage *m = (ServiceMessage*) malloc(sizeof(ServiceMessage));
 	m->type = CA_SM_WAKE;
 	process->broadcast_packet(
 		CA_TAG_SERVICE,
 		m,
-		sizeof(CaServiceMessage),
+		sizeof(ServiceMessage),
 		process->get_thread(0),
 		0);
 	process->start_and_join();
@@ -72,28 +77,28 @@ int ca_main()
 
 	#ifdef CA_SHMEM
 
-	if (ca_listener != NULL) {
+	if (listener != NULL) {
         pthread_barrier_t start_barrier;
-		ca_listener->set_processes(ca_process_count, processes);
+		listener->set_processes(process_count, processes);
 
-		if (ca_block_on_start) {
+		if (block_on_start) {
 			pthread_barrier_init(&start_barrier, NULL, 2);
-			ca_listener->set_start_barrier(&start_barrier);
+			listener->set_start_barrier(&start_barrier);
 		}
 
-		ca_listener->start();
+		listener->start();
 
-		if (ca_block_on_start) {
+		if (block_on_start) {
 			pthread_barrier_wait(&start_barrier);
 			pthread_barrier_destroy(&start_barrier);
 		}
 	}
 
-	if (ca_sequential_run) {
+	if (sequential_run) {
 		bool quit = false;
 		while(!quit) {
-			for (int t = 0; t < ca_process_count; t++) {
-				CaThread *thread = processes[t]->get_thread(0);
+			for (int t = 0; t < process_count; t++) {
+				Thread *thread = processes[t]->get_thread(0);
 				thread->run_one_step();
 				if (processes[t]->quit_flag) {
 					quit = true;
@@ -102,33 +107,33 @@ int ca_main()
 			}
 		}
 	} else { // Normal run
-		for (int t = 0; t < ca_process_count; t++) {
+		for (int t = 0; t < process_count; t++) {
 			processes[t]->start();
 		}
 
-		for (int t = 0; t < ca_process_count; t++) {
+		for (int t = 0; t < process_count; t++) {
 			processes[t]->join();
 		}
 
-		for (int t = 0; t < ca_process_count; t++) {
+		for (int t = 0; t < process_count; t++) {
 			processes[t]->clear();
 		}
 	}
 
-	if (ca_listener != NULL) {
-		delete ca_listener;
-		ca_listener = NULL;
+	if (listener != NULL) {
+		delete listener;
+		listener = NULL;
 	}
 	#endif
 
 	return 0;
 }
 
-void ca_finalize()
+static void finalize()
 {
 	#ifdef CA_SHMEM
 	if (processes) {
-		for (int t = 0; t < ca_process_count; t++) {
+		for (int t = 0; t < process_count; t++) {
 			delete processes[t];
 		}
 		free(processes);
@@ -139,13 +144,13 @@ void ca_finalize()
 	int process_id;
 	MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
 	if(process_id == 0) {
-		CaServiceMessage *m =
-		(CaServiceMessage *) malloc(sizeof(CaServiceMessage));
+		ServiceMessage *m =
+		(ServiceMessage *) malloc(sizeof(ServiceMessage));
 		m->type = CA_SM_EXIT;
 		process->broadcast_packet(
 			CA_TAG_SERVICE,
 			m,
-			sizeof(CaServiceMessage),
+			sizeof(ServiceMessage),
 			process->get_thread(0),
 			0);
 	}
@@ -161,14 +166,14 @@ void ca_finalize()
 	}
 }
 
-void ca_init(int argc,
+void ca::init(int argc,
 			 char **argv,
-			 std::vector<CaParameter*> &parameters,
+			 std::vector<Parameter*> &parameters,
 			 const std::string &extra_args,
 			 void (extra_args_callback)(char, char*, void*),
 			 void *extra_args_data)
 {
-	CaTraceLog::init();
+	TraceLog::init();
 	size_t t;
 	int c;
 	struct option longopts[] = {
@@ -177,8 +182,8 @@ void ca_init(int argc,
 		{ NULL,		0,	NULL,  0}
 	};
 
-	atexit(ca_finalize);
-	ca_parameters = parameters;
+	atexit(finalize);
+	ca::parameters = parameters;
 	std::string all_args = std::string("hp:t:l:s:br:T:S") + extra_args;
 	while ((c = getopt_long (argc, argv, all_args.c_str(), longopts, NULL)) != -1)
 		switch (c) {
@@ -199,8 +204,8 @@ void ca_init(int argc,
 				exit(0);
 			}
 			case 't': {
-			      ca_threads_count = atoi(optarg);
-				  if (ca_threads_count < 1) {
+			      threads_count = atoi(optarg);
+				  if (threads_count < 1) {
 						fprintf(stderr, "Invalid number of threads\n");
 						exit(-1);
 				  }
@@ -214,8 +219,8 @@ void ca_init(int argc,
 							argv[0]);
 					exit(-1);
 					#else
-					ca_process_count = atoi(optarg);
-					if (ca_process_count < 1) {
+					process_count = atoi(optarg);
+					if (process_count < 1) {
 						fprintf(stderr, "Invalid number of processes\n");
 						exit(-1);
 					}
@@ -233,27 +238,27 @@ void ca_init(int argc,
 				}
 				*s = 0;
 				s++;
-				ca_set_parameter(parameters, str, s);
+				set_parameter(parameters, str, s);
 			} break;
 			case 's': {
 				if (!strcmp(optarg, "auto")) {
-					ca_listen_port = 0;
+					listen_port = 0;
 					break;
 				}
-				ca_listen_port = atoi(optarg);
-				if (ca_listen_port == 0) {
+				listen_port = atoi(optarg);
+				if (listen_port == 0) {
 					fprintf(stderr, "Invalid value for -s\n");
 					exit(1);
 				}
 				break;
 			}
 			case 'b': {
-				ca_block_on_start = 1;
+				block_on_start = 1;
 			} break;
 
 			case 'T': {
-				ca_trace_log_size = ca_parse_size_string(optarg);
-				if (ca_trace_log_size == 0) {
+				trace_log_size = parse_size_string(optarg);
+				if (trace_log_size == 0) {
 					fprintf(stderr, "Invalid trace log size\n");
 					exit(1);
 				}
@@ -265,7 +270,7 @@ void ca_init(int argc,
 				exit(1);
 				#endif
 				#ifdef CA_SHMEM
-				ca_sequential_run = true;
+				sequential_run = true;
 				#endif
 			} break;
 
@@ -281,7 +286,7 @@ void ca_init(int argc,
 	#ifdef CA_MPI
 	int provided;
 	int target;
-	if (ca_threads_count == 1) {
+	if (threads_count == 1) {
 		target = MPI_THREAD_SINGLE;
 	} else {
 		target = MPI_THREAD_MULTIPLE;
@@ -297,31 +302,31 @@ void ca_init(int argc,
 	#endif
 
 	#ifdef CA_SHMEM
-	if (ca_listen_port != -1) {
-		ca_listener = new CaListener();
-		ca_listener->init(ca_listen_port);
-		if (ca_listen_port == 0) {
-			printf("%i\n", ca_listener->get_port());
+	if (listen_port != -1) {
+		listener = new Listener();
+		listener->init(listen_port);
+		if (listen_port == 0) {
+			printf("%i\n", listener->get_port());
 			fflush(stdout);
 		}
-		if (ca_block_on_start) {
-			ca_listener->wait_for_connection();
+		if (block_on_start) {
+			listener->wait_for_connection();
 		}
 	}
 	#endif
 }
 
-void ca_setup(int _defs_count, CaNetDef **_defs)
+void ca::setup(int _defs_count, NetDef **_defs)
 {
 	defs_count = _defs_count;
-	defs = (CaNetDef**) malloc(sizeof(CaNetDef*) * defs_count);
-	memcpy(defs, _defs, sizeof(CaNetDef*) * defs_count);
+	defs = (NetDef**) malloc(sizeof(NetDef*) * defs_count);
+	memcpy(defs, _defs, sizeof(NetDef*) * defs_count);
 
 	#ifdef CA_MPI
 		int process_count, process_id;
 		MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
 		MPI_Comm_size(MPI_COMM_WORLD, &process_count);
-		process = new CaProcess(process_id, process_count, ca_threads_count, defs_count, defs);
+		process = new Process(process_id, process_count, threads_count, defs_count, defs);
 		if(process_id > 0){
 			while(true){
 				process->wait();
@@ -330,19 +335,19 @@ void ca_setup(int _defs_count, CaNetDef **_defs)
 	#endif
 
 	#ifdef CA_SHMEM
-	processes = (CaProcess**) malloc(sizeof(CaProcess*) * ca_process_count);
-	for (int t = 0; t < ca_process_count; t++) {
-		processes[t] = new CaProcess(t, ca_process_count, ca_threads_count, defs_count, defs);
+	processes = (Process**) malloc(sizeof(Process*) * process_count);
+	for (int t = 0; t < process_count; t++) {
+		processes[t] = new Process(t, process_count, threads_count, defs_count, defs);
 	}
 	#endif
 }
 
 
-void ca_spawn_net(int def_id)
+void ca::spawn_net(int def_id)
 {
 	#ifdef CA_SHMEM
-	for (int t = 0; t < ca_process_count; t++) {
-		CaNet *net = processes[t]->spawn_net(processes[t]->get_thread(0), def_id, false);
+	for (int t = 0; t < process_count; t++) {
+		Net *net = processes[t]->spawn_net(processes[t]->get_thread(0), def_id, false);
 		net->unlock();
 		if (t == 0) {
 			master_net = net;
@@ -351,19 +356,19 @@ void ca_spawn_net(int def_id)
 	#endif
 
 	#ifdef CA_MPI
-	CaThread *thread = process->get_thread(0);
-	CaNet *net = process->spawn_net(thread, def_id, true);
+	Thread *thread = process->get_thread(0);
+	Net *net = process->spawn_net(thread, def_id, true);
 	net->unlock();
 	master_net = net;
 	#endif
 }
 
-CaNet * ca_get_main_net()
+Net * ca::get_main_net()
 {
 	return master_net;
 }
 
-CaProcess * ca_get_first_process()
+Process * ca::get_first_process()
 {
 	#ifdef CA_MPI
 	return process;
@@ -374,26 +379,16 @@ CaProcess * ca_get_first_process()
 	#endif
 }
 
-std::vector<int> ca_range(int from, int upto)
-{
-	std::vector<int> v;
-	int t;
-	for (t = from; t < upto; t++) {
-		v.push_back(t);
-	}
-	return v;
-}
-
-void ca_write_header(FILE *out, int process_count, int threads_count)
+void ca::write_header(FILE *out, int process_count, int threads_count)
 {
 	int lines = 1;
-	for (const char *c = ca_project_description_string; (*c) != 0; c++) {
+	for (const char *c = project_description_string; (*c) != 0; c++) {
 		if ((*c) == '\n') {
 			lines++;
 		}
 	}
 
-	CaOutput output(out);
+	Output output(out);
 	output.child("header");
 	output.set("pointer-size", (int) sizeof(void*));
 	output.set("process-count", process_count);
@@ -401,11 +396,11 @@ void ca_write_header(FILE *out, int process_count, int threads_count)
 	output.set("description-lines", lines);
 	output.back();
 	fputs("\n", out);
-	fputs(ca_project_description_string, out);
+	fputs(project_description_string, out);
 	fputs("\n", out);
 }
 
-size_t ca_hash_string(const std::string &v) {
+size_t ca::hash_string(const std::string &v) {
 	std::string::const_iterator i;
 	size_t r = 37 * v.size();
     int j = 0;
@@ -415,7 +410,7 @@ size_t ca_hash_string(const std::string &v) {
 	return r;
 }
 
-size_t ca_hash(void *v, size_t size, size_t h) {
+size_t ca::hash(void *v, size_t size, size_t h) {
 	char *vv = (char *) v;
 	for (size_t t = 0; t < size; t++) {
 		h = h * 101 + vv[t];
@@ -423,10 +418,10 @@ size_t ca_hash(void *v, size_t size, size_t h) {
 	return h;
 }
 
-size_t ca_hash_double(double v) {
-	return ca_hash(&v, sizeof(double));
+size_t ca::hash_double(double v) {
+	return hash(&v, sizeof(double));
 }
 
-size_t ca_hash_float(float v) {
-	return ca_hash(&v, sizeof(float));
+size_t ca::hash_float(float v) {
+	return hash(&v, sizeof(float));
 }

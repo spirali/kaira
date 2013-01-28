@@ -1,9 +1,13 @@
 
 #include "cailie.h"
 
-extern CaProcess **processes;
+using namespace ca;
 
-void CaProcess::broadcast_packet(int tag, void *data, size_t size, CaThread *thread, int exclude)
+namespace ca {
+extern Process **processes;
+}
+
+void ca::Process::broadcast_packet(int tag, void *data, size_t size, Thread *thread, int exclude)
 {
 	for (int t = 0; t < process_count; t++) {
 		if (t == exclude)
@@ -15,9 +19,9 @@ void CaProcess::broadcast_packet(int tag, void *data, size_t size, CaThread *thr
 	free(data);
 }
 
-void CaProcess::add_packet(int tag, void *data)
+void ca::Process::add_packet(int tag, void *data)
 {
-	CaPacket *packet = new CaPacket;
+	Packet *packet = new Packet;
 	packet->tag = tag;
 	packet->data = data;
 	packet->next = NULL;
@@ -25,7 +29,7 @@ void CaProcess::add_packet(int tag, void *data)
 	if (packets == NULL) {
 		packets = packet;
 	} else {
-		CaPacket *p = packets;
+		Packet *p = packets;
 		while (p->next) {
 			p = p->next;
 		}
@@ -34,18 +38,25 @@ void CaProcess::add_packet(int tag, void *data)
 	pthread_mutex_unlock(&packet_mutex);
 }
 
-void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net, int place_index, int tokens_count, const CaPacker &packer, CaThread *thread)
+void ca::Process::multisend_multicast(
+	const std::vector<int> &targets,
+	Net *net,
+	int place_index,
+	int tokens_count,
+	const Packer &packer,
+	Thread *thread)
 {
 	std::vector<int>::const_iterator i;
-	CaTokens *data = (CaTokens*) packer.get_buffer();
+	Tokens *data = (Tokens*) packer.get_buffer();
 	data->place_index = place_index;
 	data->tokens_count = tokens_count;
 	data->msg_id = thread->get_msg_id();
 	for (i = targets.begin(); i != targets.end(); i++) {
 		int target = *i;
 		if(target < 0 || target >= process_count) {
-			fprintf(stderr, "Net sends %i token(s) to invalid process id %i (valid ids: [0 .. %i])\n",
-				tokens_count, target, process_count - 1);
+			fprintf(stderr,
+					"Net sends %i token(s) to invalid process id %i (valid ids: [0 .. %i])\n",
+					tokens_count, target, process_count - 1);
 			exit(1);
 		}
 		CA_DLOG("SEND index=%i target=%i process=%i\n", place_index, target, get_process_id());
@@ -56,17 +67,17 @@ void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net,
 			d = malloc(packer.get_size());
 			memcpy(d, data, packer.get_size());
 		}
-		CaProcess *p = processes[target];
+		Process *p = processes[target];
 		p->add_packet(CA_TAG_TOKENS, d);
 
 	}
 }
 
-int CaProcess::process_packets(CaThread *thread)
+int ca::Process::process_packets(Thread *thread)
 {
 	if (packets) {
 		pthread_mutex_lock(&packet_mutex);
-		CaPacket *p = packets;
+		Packet *p = packets;
 		packets = NULL;
 		pthread_mutex_unlock(&packet_mutex);
 
@@ -76,7 +87,7 @@ int CaProcess::process_packets(CaThread *thread)
 
 		while (p) {
 			process_packet(thread, p->tag, p->data);
-			CaPacket *next = p->next;
+			Packet *next = p->next;
 			delete p;
 			p = next;
 		}

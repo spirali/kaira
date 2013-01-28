@@ -5,17 +5,19 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-struct timespec CaTraceLog::initial_time;
+using namespace ca;
 
-void CaTraceLog::init()
+struct timespec TraceLog::initial_time;
+
+void TraceLog::init()
 {
 	if (clock_gettime(CLOCK_MONOTONIC, &initial_time)) {
-		perror("CaTraceLog::init");
+		perror("TraceLog::init");
 		exit(-1);
 	}
 }
 
-CaTraceLog::CaTraceLog(size_t size, const std::string &filename)
+TraceLog::TraceLog(size_t size, const std::string &filename)
 {
 	buffer = (char*) malloc(size);
 	pos = buffer;
@@ -23,7 +25,7 @@ CaTraceLog::CaTraceLog(size_t size, const std::string &filename)
 
 	file = fopen(filename.c_str(), "w");
 	if (file == NULL) {
-		perror("CaTraceLog::CaTraceLog");
+		perror("TraceLog::TraceLog");
 		exit(-1);
 	}
 	setbuf(file, NULL); // Unbuffered file
@@ -31,7 +33,7 @@ CaTraceLog::CaTraceLog(size_t size, const std::string &filename)
 	write_key_value("KairaThreadTrace", "1");
 	char hostname[1024];
 	if (gethostname(hostname, 1024)) {
-		perror("CaTraceLog::CaTraceLog");
+		perror("TraceLog::TraceLog");
 		exit(-1);
 	}
 	write_key_value("hostname", hostname);
@@ -42,19 +44,19 @@ CaTraceLog::CaTraceLog(size_t size, const std::string &filename)
 	write_key_value("", ""); // Terminate config section
 }
 
-CaTraceLog::~CaTraceLog()
+TraceLog::~TraceLog()
 {
 	write_buffer();
 	fclose(file);
 	free(buffer);
 }
 
-void CaTraceLog::write_time()
+void TraceLog::write_time()
 {
 	struct timespec time;
 
 	if (clock_gettime(CLOCK_MONOTONIC, &time)) {
-		perror("CaTraceLog::write_time");
+		perror("TraceLog::write_time");
 		exit(-1);
 	}
 
@@ -63,14 +65,14 @@ void CaTraceLog::write_time()
 	write_uint64(t);
 }
 
-void CaTraceLog::write_key_value(const std::string &key, const std::string &value)
+void TraceLog::write_key_value(const std::string &key, const std::string &value)
 {
 	check_size(key.size() + value.size() + 2);
 	write_string(key);
 	write_string(value);
 }
 
-void CaTraceLog::event_net_spawn(int net_id)
+void TraceLog::event_net_spawn(int net_id)
 {
 	check_size(1 + sizeof(uint64_t) + sizeof(int32_t));
 	write_char('S');
@@ -78,21 +80,21 @@ void CaTraceLog::event_net_spawn(int net_id)
 	write_int32(net_id);
 }
 
-void CaTraceLog::event_net_quit()
+void TraceLog::event_net_quit()
 {
 	check_size(1 + sizeof(uint64_t));
 	write_char('Q');
 	write_time();
 }
 
-void CaTraceLog::event_idle()
+void TraceLog::event_idle()
 {
 	check_size(1 + sizeof(uint64_t));
 	write_char('I');
 	write_time();
 }
 
-void CaTraceLog::event_transition_fired(int transition_id)
+void TraceLog::event_transition_fired(int transition_id)
 {
 	check_size(1 + sizeof(uint64_t) + sizeof(int32_t));
 	write_char('T');
@@ -100,14 +102,14 @@ void CaTraceLog::event_transition_fired(int transition_id)
 	write_int32(transition_id);
 }
 
-void CaTraceLog::event_transition_finished()
+void TraceLog::event_transition_finished()
 {
 	check_size(1 + sizeof(uint64_t));
 	write_char('F');
 	write_time();
 }
 
-void CaTraceLog::event_send_msg(int msg_id)
+void TraceLog::event_send_msg(int msg_id)
 {
 	check_size(1 + sizeof(int32_t) + sizeof(uint64_t));
 	write_char('M');
@@ -115,7 +117,7 @@ void CaTraceLog::event_send_msg(int msg_id)
 	write_int32(msg_id);
 }
 
-void CaTraceLog::event_receive(int msg_id)
+void TraceLog::event_receive(int msg_id)
 {
 	check_size(1 + sizeof(int32_t) + sizeof(uint64_t));
 	write_char('R');
@@ -123,7 +125,7 @@ void CaTraceLog::event_receive(int msg_id)
 	write_int32(msg_id);
 }
 
-void CaTraceLog::trace_token_add(int place_id, void *pointer)
+void TraceLog::trace_token_add(int place_id, void *pointer)
 {
 	check_size(1 + sizeof(uint32_t) + sizeof(void*));
 	write_char('t');
@@ -131,7 +133,7 @@ void CaTraceLog::trace_token_add(int place_id, void *pointer)
 	write_int32(place_id);
 }
 
-void CaTraceLog::trace_token_remove(int place_id, void *pointer)
+void TraceLog::trace_token_remove(int place_id, void *pointer)
 {
 	check_size(1 + sizeof(uint32_t) + sizeof(void*));
 	write_char('r');
@@ -139,28 +141,28 @@ void CaTraceLog::trace_token_remove(int place_id, void *pointer)
 	write_int32(place_id);
 }
 
-void CaTraceLog::trace_int(const int value)
+void TraceLog::trace_int(const int value)
 {
 	check_size(1 + sizeof(int32_t) );
 	write_char('i');
 	write_int32(value);
 }
 
-void CaTraceLog::trace_double(const double value)
+void TraceLog::trace_double(const double value)
 {
 	check_size(1 + sizeof(double) );
 	write_char('d');
 	write_double(value);
 }
 
-void CaTraceLog::trace_string(const std::string &str)
+void TraceLog::trace_string(const std::string &str)
 {
 	check_size(1 + str.size() + 1);
 	write_char('s');
 	write_string(str);
 }
 
-void CaTraceLog::overflow()
+void TraceLog::overflow()
 {
 	if (pos == buffer) {
 		fprintf(stderr, "Tracelog: Attempt to write too large event, set bigger size of tracelog\n");
@@ -170,7 +172,7 @@ void CaTraceLog::overflow()
 	pos = buffer;
 }
 
-void CaTraceLog::write_buffer()
+void TraceLog::write_buffer()
 {
 	fwrite(buffer, 1, pos - buffer, file);
 }

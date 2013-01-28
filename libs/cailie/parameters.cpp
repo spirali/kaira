@@ -3,7 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-bool CaParameter::check_mode_before_set()
+using namespace ca;
+
+bool ca::Parameter::check_mode_before_set()
 {
 	if (mode == CA_PARAMETER_CONSTANT) {
 		fprintf(stderr, "Parameter '%s' is constant and cannot be modifed.\n", \
@@ -13,7 +15,7 @@ bool CaParameter::check_mode_before_set()
 	return true;
 }
 
-bool CaParameter::check_mode_before_run()
+bool ca::Parameter::check_mode_before_run()
 {
 	if (mode == CA_PARAMETER_MANDATORY) {
 		fprintf(stderr, "Mandatory parameter '%s' required\n", name.c_str());
@@ -22,7 +24,7 @@ bool CaParameter::check_mode_before_run()
 	return true;
 }
 
-bool CaParameterInt::parse_value(const std::string &str)
+bool ca::ParameterInt::parse_value(const std::string &str)
 {
 	char *err = NULL;
 	value = strtol(str.c_str(), &err, 10);
@@ -34,8 +36,8 @@ bool CaParameterInt::parse_value(const std::string &str)
 	return true;
 }
 
-void ca_set_parameter(
-	std::vector<CaParameter*> &parameters,
+void ca::set_parameter(
+	std::vector<Parameter*> &parameters,
 	char *name,
 	char *value)
 {

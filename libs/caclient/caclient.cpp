@@ -106,7 +106,7 @@ void CaClient::read_data(void *buffer, size_t size)
 void CaClient::process_inital_data(void *buffer, size_t size)
 {
 	std::vector<bool> checked(functions.size(), false);
-	CaUnpacker unpacker(buffer);
+	ca::Unpacker unpacker(buffer);
 	int count = unpacker.unpack_int();
 	for (int t = 0; t < count; t++) {
 		std::string name = unpacker.unpack_string();
@@ -116,7 +116,7 @@ void CaClient::process_inital_data(void *buffer, size_t size)
 	}
 }
 
-void * CaClient::call(int function_id, CaPacker arguments)
+void * CaClient::call(int function_id, ca::Packer arguments)
 {
 	CaCallHeader *header = (CaCallHeader*) arguments.get_buffer();
 	header->fn = function_id;

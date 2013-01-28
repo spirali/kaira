@@ -8,13 +8,14 @@
 #include <stdint.h>
 #include <stdio.h>
 
+namespace ca {
 
-class CaTraceLog {
+class TraceLog {
 
 	public:
 
-		CaTraceLog(size_t size, const std::string &filename);
-		~CaTraceLog();
+		TraceLog(size_t size, const std::string &filename);
+		~TraceLog();
 
 		void event_net_spawn(int net_id);
 		void event_net_quit();
@@ -82,5 +83,7 @@ class CaTraceLog {
 		static struct timespec initial_time;
 
 };
+
+}
 
 #endif // CAILIE_TRACER_H

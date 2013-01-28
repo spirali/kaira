@@ -6,12 +6,14 @@
 
 #include "thread.h"
 
-CaThread::CaThread() : messages(NULL)
+using namespace ca;
+
+Thread::Thread() : messages(NULL)
 {
 	pthread_mutex_init(&messages_mutex, NULL);
 }
 
-CaThread::~CaThread()
+Thread::~Thread()
 {
 	pthread_mutex_destroy(&messages_mutex);
 	if (tracelog) {
@@ -19,7 +21,7 @@ CaThread::~CaThread()
 	}
 }
 
-void CaThread::add_message(CaThreadMessage *message)
+void Thread::add_message(ThreadMessage *message)
 {
 	pthread_mutex_lock(&messages_mutex);
 	message->next = messages;
@@ -27,7 +29,7 @@ void CaThread::add_message(CaThreadMessage *message)
 	pthread_mutex_unlock(&messages_mutex);
 }
 
-void CaThread::process_message(CaThreadMessage *message)
+void Thread::process_message(ThreadMessage *message)
 {
 	if (message->next) {
 		process_message(message->next);
@@ -36,10 +38,10 @@ void CaThread::process_message(CaThreadMessage *message)
 	delete message;
 }
 
-bool CaThread::process_thread_messages()
+bool Thread::process_thread_messages()
 {
 	if (messages) {
-		CaThreadMessage *m;
+		ThreadMessage *m;
 		pthread_mutex_lock(&messages_mutex);
 		m = messages;
 		messages = NULL;
@@ -52,16 +54,16 @@ bool CaThread::process_thread_messages()
 	return false;
 }
 
-void CaThread::clean_thread_messages()
+void Thread::clean_thread_messages()
 {
 	while(messages) {
-		CaThreadMessage *next = messages->next;
+		ThreadMessage *next = messages->next;
 		delete messages;
 		messages = next;
 	}
 }
 
-int CaThread::process_messages()
+int Thread::process_messages()
 {
 	int result = process_thread_messages();
 
@@ -74,18 +76,18 @@ int CaThread::process_messages()
 
 static void * thread_run(void *data)
 {
-	CaThread *thread = (CaThread*) data;
+	Thread *thread = (Thread*) data;
 	thread->run_scheduler();
 	return NULL;
 }
 
-void CaThread::start()
+void Thread::start()
 {
 	CA_DLOG("Starting thread process=%i thread=%i\n", get_process_id(), id);
 	pthread_create(&thread, NULL, thread_run, this);
 }
 
-void CaThread::join()
+void Thread::join()
 {
 	pthread_join(thread, NULL);
 	#ifdef CA_MPI
@@ -93,7 +95,7 @@ void CaThread::join()
 	#endif
 }
 
-void CaThread::quit_all()
+void Thread::quit_all()
 {
 	if (get_tracelog()) {
 		get_tracelog()->event_net_quit();
@@ -101,14 +103,14 @@ void CaThread::quit_all()
 	process->quit_all(this);
 }
 
-void CaThread::run_scheduler()
+void Thread::run_scheduler()
 {
 	process_messages();
 	bool in_idle = false;
 	while(!process->quit_flag) {
 		process_messages();
 
-		CaNet *n = process->get_net();
+		Net *n = process->get_net();
 		if (n == NULL) {
 			continue;
 		}
@@ -117,7 +119,7 @@ void CaThread::run_scheduler()
 			sched_yield();
 			continue;
 		}
-		CaTransition *tr = n->pick_active_transition();
+		Transition *tr = n->pick_active_transition();
 		if (tr == NULL) {
 			n->unlock();
 			if (!in_idle && tracelog) {
@@ -131,7 +133,7 @@ void CaThread::run_scheduler()
 		CA_DLOG("Transition tried id=%i process=%i thread=%i\n",
 				 tr->id, get_process_id(), id);
 		int res = tr->full_fire(this, n);
-		if (res == CA_NOT_ENABLED) {
+		if (res == NOT_ENABLED) {
 			CA_DLOG("Transition is dead id=%i process=%i thread=%i\n",
 					 tr->id, get_process_id(), id);
 			n->unlock();
@@ -139,14 +141,14 @@ void CaThread::run_scheduler()
 	}
 }
 
-void CaThread::run_one_step()
+void Thread::run_one_step()
 {
 	process_messages();
-	CaNet *net = process->get_net();
+	Net *net = process->get_net();
 	if (net == NULL) {
 		return;
 	}
-	CaTransition *tr = net->pick_active_transition();
+	Transition *tr = net->pick_active_transition();
 	if (tr == NULL) {
 		return;
 	}
@@ -154,12 +156,12 @@ void CaThread::run_one_step()
 	tr->full_fire(this, net);
 }
 
-CaNet * CaThread::spawn_net(int def_index)
+Net * Thread::spawn_net(int def_index)
 {
 	return process->spawn_net(this, def_index, true);
 }
 
-int CaThread::get_new_msg_id()
+int Thread::get_new_msg_id()
 {
 	if (tracelog) {
 		if (msg_id >= INT_MAX - process->get_process_count() * process->get_threads_count()) {

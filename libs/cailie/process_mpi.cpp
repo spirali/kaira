@@ -2,9 +2,11 @@
 #include "cailie.h"
 #include <mpi.h>
 
+using namespace ca;
+
 /* This code is just proof of concept and it really needs some tweaks */
 
-void CaProcess::broadcast_packet(int tag, void *data, size_t size, CaThread *thread, int exclude)
+void Process::broadcast_packet(int tag, void *data, size_t size, Thread *thread, int exclude)
 {
 	thread->get_requests()->check();
 	char *d = (char*) data;
@@ -17,13 +19,13 @@ void CaProcess::broadcast_packet(int tag, void *data, size_t size, CaThread *thr
 	}
 }
 
-void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net, int place_index, int tokens_count, const CaPacker &packer, CaThread *thread)
+void Process::multisend_multicast(const std::vector<int> &targets, Net *net, int place_index, int tokens_count, const Packer &packer, Thread *thread)
 {
 	thread->get_requests()->check();
 	char *buffer = packer.get_buffer();
 	size_t size = packer.get_size();
 	std::vector<int>::const_iterator i;
-	CaTokens *data = (CaTokens*) packer.get_buffer();
+	Tokens *data = (Tokens*) packer.get_buffer();
 	data->place_index = place_index;
 	data->tokens_count = tokens_count;
 	char *d = buffer;
@@ -43,7 +45,7 @@ void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net,
 	}
 }
 
-int CaProcess::process_packets(CaThread *thread)
+int Process::process_packets(Thread *thread)
 {
 	int flag;
 	MPI_Status status;
@@ -69,7 +71,7 @@ int CaProcess::process_packets(CaThread *thread)
 	return 0;
 }
 
-void CaProcess::wait()
+void Process::wait()
 {
 	MPI_Status status;
 	MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
