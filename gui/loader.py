@@ -25,27 +25,27 @@ import os
 
 from project import Parameter, Function
 import projectcpp
-import projectjava
 
 projects = [
     projectcpp.ProjectCpp,
     projectcpp.ProjectCppLibrary,
-    projectjava.ProjectJava
 ]
 
-def create_project(filename, extenv_name):
+def create_project(filename, target_env_name):
     for project_class in projects:
-        if project_class.get_extenv_name() == extenv_name:
+        if project_class.get_target_env_name() == target_env_name:
             return project_class(filename)
-    raise Exception("Extern environment '{0}' not found".format(extenv_name))
+    raise Exception("Extern environment '{0}' not found".format(target_env_name))
 
 def load_project(filename):
     doc = xml.parse(filename)
     return load_project_from_xml(doc.getroot(), filename)
 
 def load_project_from_xml(root, filename):
-    extenv_name = root.get("extenv", "C++")
-    project = create_project(filename, extenv_name)
+    target_env_name = root.get("target_env")
+    if target_env_name is None: # For backward compatability
+        target_env_name = root.get("extenv", "C++")
+    project = create_project(filename, target_env_name)
     if root.get("target-mode"):
         project.target_mode = root.get("target-mode")
     loader = BasicLoader(project)
@@ -146,11 +146,11 @@ def import_project_from_xml(project, root, filename):
     project.id_counter += 1
     return project
 
-def new_empty_project(directory, extenv_name):
+def new_empty_project(directory, target_env_name):
     os.mkdir(directory)
     name = os.path.basename(directory)
     project_filename = os.path.join(directory,name + ".proj")
-    project = create_project(project_filename, extenv_name)
+    project = create_project(project_filename, target_env_name)
 
     if project.is_library():
         net = Net(project, "module", name)

@@ -70,7 +70,7 @@ class Project(EventSource):
             return self.generator
         build_config = BuildConfig()
         build_config.project_name = self.get_name()
-        build_config.extenv = self.get_extenv_name()
+        build_config.target_env = self.get_target_env_name()
         build_config.tracing = False
         build_config.nets = self.nets
         self.generator = ptp.get_generator_from_xml(self.export_xml(build_config))
@@ -89,12 +89,12 @@ class Project(EventSource):
         if name == "simulation" or name == "statespace":
             # simulator_net has to be exported as first net
             first = self.simulator_net
-            build_config.extenv = self.get_extenv_for_simulator_name()
+            build_config.target_env = self.get_target_env_for_simulator_name()
         else:
             if name == "traced":
                 build_config.tracing = True
 
-            build_config.extenv = self.get_extenv_name()
+            build_config.target_env = self.get_target_env_name()
             if self.is_library:
                 # In library it does not matter who is first
                 first = None
@@ -226,7 +226,7 @@ class Project(EventSource):
 
     def as_xml(self):
         root = xml.Element("project")
-        root.set("extenv", self.get_extenv_name())
+        root.set("target_env", self.get_target_env_name())
         if self.target_mode:
             root.set("target-mode", self.target_mode)
         root.append(self._configuration_element(False))
@@ -247,7 +247,7 @@ class Project(EventSource):
     def export_xml(self, build_config):
         root = xml.Element("project")
         root.set("name", self.get_name())
-        root.set("extenv", build_config.extenv)
+        root.set("target_env", build_config.target_env)
         root.set("root-directory", self.get_directory())
 
         if self.get_target_mode():
@@ -360,7 +360,7 @@ class BuildConfig:
     directory = None
     project_name = None
     nets = None
-    extenv = None
+    target_env = None
     operation = None
 
     def get_filename(self, filename):

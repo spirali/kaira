@@ -359,7 +359,7 @@ def load_configuration(element, project):
         project.head_code = head_code.text
 
 def load_project(element, target_envs):
-    target_env = utils.xml_str(element, "extenv")
+    target_env = utils.xml_str(element, "target_env")
     if target_env not in target_envs:
         raise utils.PtpException("Unknown target environment")
 

@@ -46,7 +46,7 @@ class ProjectCppBase(Project):
         return ["*.cpp", "*.cc", "*.c"]
 
     @classmethod
-    def get_extenv_for_simulator_name(self):
+    def get_target_env_for_simulator_name(self):
         """ When we run simulator we have to build regular application even
             we are building library """
         return "C++"
@@ -63,7 +63,7 @@ class ProjectCpp(ProjectCppBase):
         }
 
     @classmethod
-    def get_extenv_name(self):
+    def get_target_env_name(self):
         return "C++"
 
     def is_library(self):
@@ -77,7 +77,7 @@ class ProjectCppLibrary(ProjectCppBase):
         self.target_mode = "lib"
 
     @classmethod
-    def get_extenv_name(self):
+    def get_target_env_name(self):
         return "C++ library"
 
     def is_library(self):

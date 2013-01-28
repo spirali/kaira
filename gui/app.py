@@ -146,8 +146,8 @@ class App:
                 project_name_changed()
         builder = gtkutils.load_ui("newproject-dialog")
         for project_class in loader.projects:
-            builder.get_object("newproject-extenv").append_text(project_class.get_extenv_name())
-        builder.get_object("newproject-extenv").set_active(0)
+            builder.get_object("newproject-target-env").append_text(project_class.get_target_env_name())
+        builder.get_object("newproject-target-env").set_active(0)
         dlg = builder.get_object("newproject-dialog")
         dlg.set_transient_for(self.window)
         builder.get_object("newproject-name").connect("changed", project_name_changed)
@@ -160,8 +160,8 @@ class App:
                 if os.path.exists(dirname):
                     self.show_error_dialog("Path '%s' already exists" % dirname)
                     return
-                extenv_name = builder.get_object("newproject-extenv").get_active_text()
-                p = self._catch_io_error(lambda: loader.new_empty_project(dirname, extenv_name))
+                target_env_name = builder.get_object("newproject-target-env").get_active_text()
+                p = self._catch_io_error(lambda: loader.new_empty_project(dirname, target_env_name))
                 if p is not None:
                     self.set_project(p)
         finally:
@@ -591,7 +591,7 @@ class App:
 
     def _project_filename_changed(self):
         self.window.set_title("Kaira - {0} ({1})" \
-            .format(self.project.get_name(), self.project.get_extenv_name()))
+            .format(self.project.get_name(), self.project.get_target_env_name()))
 
     def _run_build_program(self, name, args, directory, ok_callback, fail_callback):
         def on_exit(code):
