@@ -77,7 +77,7 @@ def write_parameters_forward(builder):
     builder.line("struct param")
     builder.block_begin()
     for p in builder.project.get_parameters():
-        builder.line("static CaParameterInt {0};", p.get_name())
+        builder.line("static ca::ParameterInt {0};", p.get_name())
     builder.write_class_end()
 
 def write_parameters(builder):
@@ -98,7 +98,7 @@ def write_types(builder):
     write_extern_types_functions(builder, True)
 
 def write_trace_user_function(builder, ufunction, type):
-    declaration = "void trace_{0}(CaTraceLog *tracelog, const {1} &value)".format(
+    declaration = "void trace_{0}(ca::TraceLog *tracelog, const {1} &value)".format(
                                                     ufunction.get_name(), type)
     returntype = builder.emit_type(ufunction.get_returntype())
     code = "\t" + returntype + " result = ufunction_" + ufunction.get_name()
@@ -112,7 +112,7 @@ def write_trace_user_function(builder, ufunction, type):
 
 def write_trace_value(builder, type):
     """
-    declaration = "void trace_value(CaTraceLog *tracelog, const {0} &value)".format(
+    declaration = "void trace_value(ca::TraceLog *tracelog, const {0} &value)".format(
                                                                         builder.emit_type(type))
     code = "\tstd::string result = {0}(value);\n".format(
             get_to_string_function_name(builder.project, type)) +\
@@ -142,7 +142,7 @@ def write_trace_user_functions(builder):
 def write_extern_types_functions(builder, definitions):
     decls = {
              "getstring" : "std::string {0.name}_getstring(const {0.rawtype} &obj)",
-             "pack" : "void {0.name}_pack(CaPacker &packer, {0.rawtype} &obj)",
+             "pack" : "void {0.name}_pack(Packer &packer, {0.rawtype} &obj)",
              "unpack" : "{0.rawtype} {0.name}_unpack(CaUnpacker &unpacker)",
              "hash" : "size_t {0.name}_hash(const {0.rawtype} &obj)",
     }

@@ -8,10 +8,10 @@
 namespace ca {
 
 enum ParameterMode {
-	CA_PARAMETER_MANDATORY,
-	CA_PARAMETER_OPTIONAL,
-	CA_PARAMETER_CONSTANT,
-	CA_PARAMETER_SETTED, // Parameter was explicitely setted
+	PARAMETER_MANDATORY,
+	PARAMETER_OPTIONAL,
+	PARAMETER_CONSTANT,
+	PARAMETER_SETTED, // Parameter was explicitely setted
 };
 
 class Parameter{
