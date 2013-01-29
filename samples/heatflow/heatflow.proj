@@ -33,16 +33,16 @@ int to_down(ca::Context &amp;ctx)
 	return (ctx.process_id() + ctx.process_count() - 1) 
 			% ctx.process_count();
 }</head-code></configuration><net id="101" name="Main" net-type="main"><edge from_item="108" id="123" inscription="[bulk, origin, guard(size == ctx.process_count())] results" inscription_x="851.0" inscription_y="233.0" to_item="112" /><edge from_item="107" id="124" inscription="param::LIMIT()" inscription_x="691.0" inscription_y="325.0" to_item="111" /><edge from_item="111" id="125" inscription="data@0" inscription_x="747.0" inscription_y="270.0" to_item="108" /><edge from_item="105" id="126" inscription="data" inscription_x="466.0" inscription_y="159.0" to_item="111"><point x="243" y="286" /><point x="242" y="177" /><point x="640" y="174" /></edge><edge from_item="104" id="129" inscription="down" inscription_x="433.0" inscription_y="298.0" to_item="110" /><edge from_item="110" id="127" inscription="c+1" inscription_x="570.0" inscription_y="354.0" to_item="107"><point x="580" y="350" /></edge><edge from_item="107" id="122" inscription="c" inscription_x="596.0" inscription_y="322.0" to_item="110" /><edge from_item="106" id="121" inscription="up" inscription_x="427.0" inscription_y="246.0" to_item="110"><point x="328" y="245" /></edge><edge from_item="110" id="119" inscription="down@to_down(ctx)" inscription_x="473.0" inscription_y="195.0" to_item="106"><point x="520" y="210" /></edge><edge bidirectional="true" from_item="105" id="118" inscription="data" inscription_x="430.0" inscription_y="271.0" to_item="110"><point x="380" y="285" /></edge><edge from_item="110" id="117" inscription="up@to_up(ctx)" inscription_x="476.0" inscription_y="345.0" to_item="104"><point x="520" y="360" /></edge><place id="104" init_string="" name="Down row" place_type="std::vector&lt;double&gt;" radius="20" sx="33" sy="0" x="279" y="359"><code>	std::vector&lt;double&gt; row(param::SIZE_X(), 0);
-	tokens.push_back(row);
+	place.add(row);
 </code></place><place id="105" init_string="" name="Local data" place_type="DoubleMatrix" radius="20" sx="33" sy="0" x="280" y="286"><code>	int id = ctx.process_id();
 	int size = ctx.process_count();
 	int position = id_to_position(param::SIZE_Y(), size, id);
 	DoubleMatrix matrix(param::SIZE_X(), id_to_size(param::SIZE_Y(), size, id));
 	set_fixed_temp(matrix, param::SIZE_Y(), position, param::TEMP());
 	matrix.swap();
-	tokens.push_back(matrix);
+	place.add(matrix);
 </code><trace>value</trace></place><place id="106" init_string="" name="Up row" place_type="std::vector&lt;double&gt;" radius="20" sx="31" sy="0" x="281" y="208"><code>	std::vector&lt;double&gt; row(param::SIZE_X(), 0);
-	tokens.push_back(row);
+	place.add(row);
 </code></place><place id="107" init_string="[0]" name="Counter" place_type="int" radius="20" sx="16" sy="0" x="635" y="375"><trace>value</trace></place><place id="108" init_string="" name="" place_type="DoubleMatrix" radius="22" sx="0" sy="0" x="838" y="285"><trace>value</trace></place><transition guard="" id="111" name="Send result" sx="70" sy="35" x="641" y="285"><trace>fire</trace></transition><transition guard="" id="112" name="Write results" sx="88" sy="48" x="838" y="185"><code>	const int size = var.results.size();
 	DoubleMatrix out(param::SIZE_X(), param::SIZE_Y());
 
