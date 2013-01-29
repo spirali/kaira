@@ -68,6 +68,9 @@ class BuildTest(unittest.TestCase):
     def test_tuples(self):
         Project("tuples").quick_test("Ok\n")
 
+    def test_origin(self):
+        Project("origin").quick_test("Ok\n", processes=3)
+
     def test_doubles(self):
         Project("doubles").quick_test("Ok\n")
 

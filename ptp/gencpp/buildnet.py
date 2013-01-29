@@ -661,7 +661,13 @@ def write_place_add(builder, place, net_code, value_code, bulk=False, origin=Non
     if place.need_origin():
         if origin is None:
             origin = "thread->get_process_id()"
-        builder.line("{0}place_{1.id}_origin.push_back({2});", net_code, place, origin)
+        if bulk:
+            builder.line("for (int i = 0; i < {0}.size(); i++)", value_code)
+            builder.block_begin()
+            builder.line("{0}place_{1.id}_origin.push_back({2});", net_code, place, origin)
+            builder.block_end()
+        else:
+            builder.line("{0}place_{1.id}_origin.push_back({2});", net_code, place, origin)
 
 def write_init_net(builder, net):
     builder.line("ca::Context ctx(thread, net);")
