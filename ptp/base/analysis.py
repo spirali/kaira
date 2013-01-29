@@ -30,14 +30,21 @@ def analyze_transition(tr):
             if name not in variable_sources:
                 variable_sources[name] = uid
 
-    tr.variable_sources = variable_sources
-
+    reuse_tokens = {}
     variable_freshes = []
 
+    used_tokens = []
+
     for edge in tr.edges_out:
-        for name, t in edge.get_decls():
-            if name not in variable_sources and name not in variable_freshes:
+        for name, uid in edge.get_variable_sources().items():
+            if name in variable_sources:
+                token_uid = variable_sources[name]
+                if edge.is_local() and token_uid not in used_tokens:
+                    reuse_tokens[uid] = token_uid
+                    used_tokens.append(token_uid)
+            elif name not in variable_freshes:
                 variable_freshes.append(name)
 
     tr.variable_sources = variable_sources
+    tr.reuse_tokens = reuse_tokens
     tr.variable_freshes = variable_freshes

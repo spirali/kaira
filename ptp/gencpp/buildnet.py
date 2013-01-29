@@ -110,7 +110,7 @@ def write_transition_user_function(builder, tr):
     builder.write_function(declaration, tr.code, ("*{0.id}/function".format(tr), 1))
 
 def write_place_user_function(builder, place):
-    declaration = "void place_user_fn_{0.id}(ca::Context &ctx, std::vector<{1} > &tokens)" \
+    declaration = "void place_user_fn_{0.id}(ca::Context &ctx, ca::TokenList<{1} > &place)" \
                         .format(place, place.type)
     builder.write_function(declaration, place.code, ("*{0.id}/init_function".format(place), 1))
 
@@ -124,7 +124,8 @@ def write_send_token(builder,
                      trace_send=False,
                      locking=True,
                      interface_edge=False,
-                     readonly_tokens=False):
+                     readonly_tokens=False,
+                     reuse_tokens=None):
 
     def write_lock():
         if not locking:
@@ -142,14 +143,18 @@ def write_send_token(builder,
         builder.line("lock = false;")
         builder.block_end()
 
-    def write_add(expr, bulk):
+    def write_add(expr, bulk=False, token=False):
         write_place_add(builder,
                         edge.place,
                         "{0}->".format(net_expr),
                         expr,
-                        bulk)
+                        bulk=bulk,
+                        token=token)
         if not interface_edge:
             write_activation(builder, net_expr, edge.place.get_transitions_out())
+
+    if reuse_tokens is None:
+        reuse_tokens = {}
 
     if edge.is_local():
         write_lock()
@@ -157,7 +162,12 @@ def write_send_token(builder,
             write_add(edge.inscriptions[0].expr, True)
         else:
             for inscription in edge.get_token_inscriptions():
-                write_add(inscription.expr, False)
+                if inscription.uid in reuse_tokens:
+                    write_add(build.get_safe_id("token_{0}" \
+                                            .format(reuse_tokens[inscription.uid])),
+                              token=True)
+                else:
+                    write_add(inscription.expr)
     else: # Remote send
         if edge.is_unicast():
             sendtype = ""
@@ -165,10 +175,10 @@ def write_send_token(builder,
             builder.if_begin("target_{0.id} == thread->get_process_id()".format(edge))
             write_lock()
             if edge.is_bulk_edge():
-                write_add(edge.inscriptions[0].expr, True)
+                write_add(edge.inscriptions[0].expr, bulk=True)
             else:
                 for inscription in edge.get_token_inscriptions():
-                    write_add(inscription.expr, False)
+                    write_add(inscription.expr)
             builder.indent_pop()
             builder.line("}} else {{")
             builder.indent_push()
@@ -259,6 +269,7 @@ def write_fire_body(builder,
                 edge, edge.get_type(), edge.inscriptions[0].expr)
 
     decls = tr.get_decls()
+
     for name in tr.variable_freshes:
         builder.line("{0} {1}; // Fresh variable", decls[name], name)
 
@@ -288,7 +299,8 @@ def write_fire_body(builder,
                          net_expr,
                          trace_send=tr.need_trace(),
                          locking=locking,
-                         readonly_tokens=readonly_tokens)
+                         readonly_tokens=readonly_tokens,
+                         reuse_tokens=tr.reuse_tokens)
     if locking:
         builder.line("if (lock) {0}->unlock();", net_expr)
 
@@ -632,9 +644,19 @@ def write_core(builder):
     for net in builder.project.nets:
         write_net_functions(builder, net)
 
-def write_place_add(builder, place, net_code, value_code, bulk=False, origin=None):
+def write_place_add(builder,
+                    place,
+                    net_code,
+                    value_code,
+                    bulk=False,
+                    token=False,
+                    set_origin=True,
+                    origin=None):
     if not bulk:
-        method = "add"
+        if token:
+            method = "add_token"
+        else:
+            method = "add"
     else:
         method = "overtake"
 
@@ -689,14 +711,17 @@ def write_init_net(builder, net):
 
         if place.init_type == "exprs":
             for expr in place.init_value:
-                write_place_add(builder, place, "net->", expr)
+                write_place_add(builder, place, "net->", expr, set_origin=False)
         elif place.init_type == "vector":
-            write_place_add(builder, place, "net->", place.init_value)
+            write_place_add(builder, place, "net->", place.init_value, set_origin=False)
 
         if place.code is not None:
-            builder.line("std::vector<{0} > tokens;", place.type)
-            builder.line("place_user_fn_{0.id}(ctx, tokens);", place)
-            write_place_add(builder, place, "net->", "tokens")
+            builder.line("place_user_fn_{0.id}(ctx, net->place_{0.id});", place)
+            if place.need_origin():
+                builder.line("for (int i = 0; i < net->place_{0.id}.size(); i++)", place)
+                builder.block_begin()
+                builder.line("net->place_{0.id}_origins.push_back(ctx.process_id());", place)
+                builder.block_end()
         builder.block_end()
 
 def write_spawn(builder, net):

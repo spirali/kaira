@@ -113,14 +113,16 @@ class Edge(utils.EqMixin):
             if self.is_origin_reader():
                 result.append((var + "_origins", get_container_type("int")))
         else:
-            variables = self.get_variables()
+            variables = self.get_token_variables()
             result = [ (var, self.get_place_type())
                         for var in variables ]
             if self.is_origin_reader():
                 result += [ (var + "_origin", "int") for var in variables ]
         return result
 
-    def get_variables(self):
+    def get_token_variables(self):
+        if self.is_bulk_edge():
+            return []
         return [ inscription.expr
                  for inscription in self.inscriptions
                  if inscription.is_variable() ]
