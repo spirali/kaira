@@ -714,6 +714,8 @@ def write_reports_method(builder, net):
         builder.line('output.child("place");')
         builder.line('output.set("id", {0.id});', place)
         builder.block_begin()
+        if place.need_origin():
+            builder.line("int i = 0;")
         builder.line('ca::Token<{1} > *t = place_{0.id}.begin();',
                      place, place.type)
         builder.if_begin("t")
@@ -721,6 +723,10 @@ def write_reports_method(builder, net):
         builder.do_begin()
         builder.line('output.child("token");')
         builder.line('output.set("value", ca::token_name(t->value));')
+        if place.need_origin():
+            builder.line('output.set("origin", ca::to_string(place_{0.id}_origin[i]));',
+                         place)
+            builder.line('i++;')
         builder.line('output.back();')
         builder.line("t = t->next;")
         builder.do_end("t != place_{0.id}.begin()".format(place))

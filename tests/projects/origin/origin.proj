@@ -15,13 +15,15 @@ int identity(int i) {
 		printf("Error");
 	}
 </code></transition><transition guard="" id="120" name="" sx="70" sy="35" x="206" y="-101"><code>	int sum = 0;
-	for (int i = 0; i &lt; var.tokens.size(); i++) {
+	ca::Token&lt;std::string&gt; *t = var.tokens.begin();
+	for (int i = 0; i &lt; var.tokens_origins.size(); i++) {
 		std::stringstream s;
 		s &lt;&lt; var.tokens_origins[i];
-		if (s.str() != var.tokens[i]) {
-			printf("Error %i %s\n", var.tokens_origins[i], var.tokens[i].c_str());
+		if (s.str() != t-&gt;value) {
+			printf("Error\n");
 		}
 		sum += var.tokens_origins[i];
+		t = var.tokens.next(t);
 	}
 	if (sum &gt; 0) {
 	  printf("Ok\n");

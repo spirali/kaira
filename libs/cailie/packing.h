@@ -51,7 +51,7 @@ template<typename T> void direct_pack(Packer &packer, T value) {
 	packer.pack_data(&value, sizeof(T));
 }
 
-void pack(Packer &packer, void *data, size_t size) {
+inline void pack(Packer &packer, void *data, size_t size) {
 	packer.pack_data(data, size);
 }
 
@@ -86,7 +86,7 @@ template<typename T> T direct_unpack(Unpacker &unpacker) {
 	return *value;
 }
 
-void* unpack(Unpacker &unpacker, size_t size) {
+inline void* unpack(Unpacker &unpacker, size_t size) {
 	return unpacker.unpack_data(size);
 }
 
