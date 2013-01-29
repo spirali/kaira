@@ -1,9 +1,10 @@
-#ifndef CAILIE_PLACE_H
-#define CAILIE_PLACE_H
+#ifndef CAILIE_TOKEN_H
+#define CAILIE_TOKEN_H
 
 #include <vector>
 #include <string>
 #include "tracelog.h"
+#include "packing.h"
 
 namespace ca {
 
@@ -37,11 +38,58 @@ template<typename T> class Token {
 		Token<T> *next;
 };
 
-template<typename T> class Place {
+template<typename T> class TokenList {
 
 	public:
-		Place() : token(NULL), tokens_count(0) {}
-		~Place() { clear(); }
+		TokenList() : token(NULL), tokens_count(0) {}
+		~TokenList() { clear(); }
+
+		TokenList(TokenList<T> &list, bool overtake) {
+			if (overtake) {
+				this->token = list.token;
+				this->tokens_count = list.tokens_count;
+				list.token = NULL;
+				list.tokens_count = 0;
+			} else {
+				copy_tokens(list);
+			}
+		}
+
+		void overtake(TokenList<T> &list) {
+			if (list.token == NULL) {
+				return;
+			}
+
+			if (token == NULL) {
+				this->token = list.token;
+				this->tokens_count = list.tokens_count;
+				list.token = NULL;
+				list.tokens_count = 0;
+				return;
+			}
+
+			Token<T> *tbegin = list.begin();
+			Token<T> *tlast = list.last();
+			Token<T> *my_tbegin = begin();
+			Token<T> *my_tlast = last();
+
+			tlast->next = my_tbegin;
+			my_tbegin->prev = tlast;
+
+			my_tlast->next = tbegin;
+			tbegin->prev = my_tlast;
+
+			tokens_count += list.tokens_count;
+			list.token = NULL;
+			list.tokens_count = 0;
+		}
+
+		void copy_tokens(TokenList<T> &list) {
+			Token<T> *t;
+			for (t = list.begin(); t != NULL; t = list.next(t)) {
+				add(t->value);
+			}
+		}
 
 		void add_token(Token<T> *t) {
 			if (token) {
@@ -88,14 +136,14 @@ template<typename T> class Place {
 			add_token(t, tracelog, place_id, n, fncs);
 		}
 
-		void add_all(const std::vector<T> &values) {
+		void add(const std::vector<T> &values) {
 			typename std::vector<T>::const_iterator i;
 			for (i = values.begin(); i != values.end(); i++) {
 				add(*i);
 			}
 		}
 
-		void add_all(const std::vector<T> &values,
+		void add(const std::vector<T> &values,
 					TraceLog *tracelog,
 					int place_id,
 					int n,
@@ -165,11 +213,37 @@ template<typename T> class Place {
 			}
 		}
 
+		void pack_tokens(Packer &packer) {
+			if (token) {
+				Token<T> *t = token;
+				do {
+					pack(packer, t->value);
+					t = t->next;
+				} while (t != token);
+			}
+		}
+
 		Token<T> * begin() const { return token; }
 		size_t size() const { return tokens_count; }
 		Token<T> * last() const { return token->prev; }
 		bool is_empty() const { return token == NULL; }
+		Token<T> * next(Token<T> *token) {
+			if (token != last()) {
+				return token->next;
+			} else {
+				return NULL;
+			}
+		}
 		T first_value() const { return token->value; }
+
+		TokenList<T> & operator= (TokenList &other)
+		{
+			if (this != &other)
+			{
+				overtake(other);
+			}
+			return *this;
+		}
 
 	protected:
 		/* This is a naive implementation, it needs benchmarks
@@ -179,4 +253,5 @@ template<typename T> class Place {
 };
 
 }
+
 #endif

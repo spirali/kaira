@@ -23,6 +23,9 @@ import analysis
 def get_container_type(typename):
     return "std::vector<{0} >".format(typename)
 
+def get_token_container_type(typename):
+    return "ca::TokenList<{0} >".format(typename)
+
 class Edge(utils.EqMixin):
 
     def __init__(self, id, transition, place, inscriptions, config, target):
@@ -44,7 +47,7 @@ class Edge(utils.EqMixin):
 
     def get_type(self):
         if self.is_bulk_edge():
-            return get_container_type(self.place.type)
+            return get_token_container_type(self.place.type)
         else:
             return self.place.type
 
@@ -52,7 +55,7 @@ class Edge(utils.EqMixin):
         if self.is_bulk_edge():
             checker.check_expression(self.inscriptions[0].expr,
                                      self.transition.get_decls(),
-                                     get_container_type(self.get_place_type()),
+                                     self.get_type(),
                                      self.get_source())
         else:
             for inscription in self.inscriptions:

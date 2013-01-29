@@ -4,7 +4,7 @@
 
 #include "net.h"
 #include "thread.h"
-#include "place.h"
+#include "token.h"
 #include <deque>
 
 namespace cass {
@@ -77,11 +77,11 @@ namespace cass {
 	};
 
 	template<typename T>
-	class Place : public ca::Place<T> {
+	class TokenList : public ca::TokenList<T> {
 		public:
-			Place() : ca::Place<T>() {}
+			TokenList() : ca::TokenList<T>() {}
 
-			Place(Place &place) : ca::Place<T>() {
+			TokenList(TokenList &place) : ca::TokenList<T>() {
 				if (place.token == NULL) {
 					return;
 				}
@@ -111,7 +111,7 @@ namespace cass {
 				return h;
 			}
 
-			bool operator==(const Place<T> &rhs) const {
+			bool operator==(const TokenList<T> &rhs) const {
 				if (rhs.tokens_count != this->tokens_count) {
 					return false;
 				}

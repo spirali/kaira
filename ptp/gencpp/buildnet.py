@@ -193,12 +193,7 @@ def write_send_token(builder,
             # TODO: Pack in one step if type is directly packable
             expr = edge.inscriptions[0].expr
             builder.line("ca::Packer packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
-            builder.line(
-                "for (std::vector<{0} >::iterator i = {1}.begin(); i != {1}.end(); i++)",
-                edge.get_place_type(), expr)
-            builder.block_begin()
-            builder.line("pack(packer, (*i));")
-            builder.block_end()
+            builder.line("{0}.pack_tokens(packer);", expr);
             builder.line("thread->multisend{0}(target_{1.id}, {3}, {2}, ({4}).size(), packer);",
                    sendtype,edge, edge.place.get_pos_id(), net_expr, expr)
         builder.block_end()
@@ -256,7 +251,7 @@ def write_fire_body(builder,
 
     if packed_tokens_from_place:
         for edge in tr.get_bulk_edges_in():
-                builder.line("{2} {3} = {0}->place_{1.id}.to_vector_and_clear();",
+                builder.line("{2} {3}({0}->place_{1.id}, true);",
                        net_expr, edge.place, edge.get_type(), edge.inscriptions[0].expr)
     else:
         for edge in tr.get_bulk_edges_in():
@@ -641,7 +636,7 @@ def write_place_add(builder, place, net_code, value_code, bulk=False, origin=Non
     if not bulk:
         method = "add"
     else:
-        method = "add_all"
+        method = "overtake"
 
     if place.tracing:
         builder.if_begin("thread->get_tracelog()")
@@ -696,12 +691,12 @@ def write_init_net(builder, net):
             for expr in place.init_value:
                 write_place_add(builder, place, "net->", expr)
         elif place.init_type == "vector":
-            write_place_add(builder, place, "net->", place.init_value, bulk=True)
+            write_place_add(builder, place, "net->", place.init_value)
 
         if place.code is not None:
             builder.line("std::vector<{0} > tokens;", place.type)
             builder.line("place_user_fn_{0.id}(ctx, tokens);", place)
-            write_place_add(builder, place, "net->", "tokens", bulk=True)
+            write_place_add(builder, place, "net->", "tokens")
         builder.block_end()
 
 def write_spawn(builder, net):
@@ -777,7 +772,7 @@ def write_net_class(builder, net, base_class_name="ca::Net", write_class_end=Tru
 
     for place in net.places:
         builder.write_var_decl("place_" + str(place.id),
-                               "ca::Place<{0} >".format(place.type))
+                               "ca::TokenList<{0} >".format(place.type))
         if place.need_origin():
             builder.write_var_decl("place_{0}_origin".format(place.id),
                                    "std::deque<int>")
