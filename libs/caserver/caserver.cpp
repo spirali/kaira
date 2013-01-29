@@ -70,11 +70,11 @@ void CaServer::register_function(const std::string &name, const std::string &def
 void CaServer::run()
 {
 	ca::Packer welcome_message(ca::PACKER_DEFAULT_SIZE, sizeof(int));
-	welcome_message.pack_int(functions.size());
+	pack(welcome_message,((int)functions.size()));
 
 	for (size_t t = 0; t < functions.size(); t++) {
-		welcome_message.pack_string(functions[t].get_name());
-		welcome_message.pack_string(functions[t].get_definition());
+		pack(welcome_message, functions[t].get_name());
+		pack(welcome_message, functions[t].get_definition());
 	}
 
 	int sz = welcome_message.get_size() - sizeof(int);

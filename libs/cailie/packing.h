@@ -14,13 +14,7 @@ class Unpacker {
 	public:
 		Unpacker() {}
 		Unpacker(void *mem) { buffer_pos = (char*) mem; }
-		void * unpack(size_t size) { void *p = buffer_pos; buffer_pos += size; return p; }
-		void unpack(void *data, size_t size) { memcpy(data, buffer_pos, size); buffer_pos += size; }
-		size_t unpack_size() { size_t *data = (size_t*)unpack(sizeof(size_t)); return *data; }
-		double unpack_double() { double *data = (double*)unpack(sizeof(double)); return *data; }
-		float unpack_float() { float *data = (float*)unpack(sizeof(float)); return *data; }
-		int unpack_int() { int *data = (int*)unpack(sizeof(int)); return *data; }
-		std::string unpack_string() { size_t s = unpack_size(); return std::string((char*) unpack(s), s); }
+		void * unpack_data(size_t size) { void *p = buffer_pos; buffer_pos += size; return p; }
 		void * peek() { return buffer_pos; }
 		void move(size_t size) { buffer_pos += size; }
 	protected:
@@ -34,12 +28,13 @@ class Packer {
 	public:
 		Packer(size_t size);
 		Packer(size_t size, size_t reserved);
-		void pack(const void *mem, size_t size) { check_size(size); memcpy(buffer_pos, mem, size); buffer_pos += size;  }
-		void pack_size(size_t data) { pack(&data, sizeof(size_t)); }
-		void pack_string(std::string str) { size_t s = str.size(); pack_size(s); pack(str.c_str(), s); }
-		void pack_int(int data) { pack(&data, sizeof(int)); }
-		void pack_float(float data) { pack(&data, sizeof(float)); }
-		void pack_double(double data) { pack(&data, sizeof(double)); }
+
+		void pack_data(const void *mem, size_t size) {
+			check_size(size);
+			memcpy(buffer_pos, mem, size);
+			buffer_pos += size;
+		}
+
 		void * peek() { return buffer_pos; }
 		void move(size_t size) { check_size(size); buffer_pos += size; }
 		size_t get_size() const { return buffer_pos - buffer; }
@@ -53,7 +48,11 @@ class Packer {
 };
 
 template<typename T> void direct_pack(Packer &packer, T value) {
-	packer.pack(&value, sizeof(T));
+	packer.pack_data(&value, sizeof(T));
+}
+
+void pack(Packer &packer, void *data, size_t size) {
+	packer.pack_data(data, size);
 }
 
 inline void pack(Packer &packer, const int &value) {
@@ -76,15 +75,19 @@ template<typename T> void pack(Packer &packer, const std::vector<T> &value) {
 	}
 }
 
-inline void pack(Packer &packer, std::string value) {
+inline void pack(Packer &packer, const std::string &value) {
 	size_t size = value.size();
 	pack(packer, size);
-	packer.pack(value.c_str(), size);
+	packer.pack_data(value.c_str(), size);
 }
 
 template<typename T> T direct_unpack(Unpacker &unpacker) {
-	T *value = (T*)unpacker.unpack(sizeof(T));
+	T *value = (T*)unpacker.unpack_data(sizeof(T));
 	return *value;
+}
+
+void* unpack(Unpacker &unpacker, size_t size) {
+	return unpacker.unpack_data(size);
 }
 
 template<typename T> T unpack(Unpacker &unpacker) {
@@ -94,6 +97,7 @@ template<typename T> T unpack(Unpacker &unpacker) {
 }
 
 template<> int unpack<int>(Unpacker &unpacker);
+template<> double unpack<double>(Unpacker &unpacker);
 template<> size_t unpack<size_t>(Unpacker &unpacker);
 template<> std::string unpack(Unpacker &unpacker);
 

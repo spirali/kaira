@@ -40,8 +40,13 @@ template<> size_t ca::unpack(Unpacker &unpacker)
 	return direct_unpack<size_t>(unpacker);
 }
 
+template<> double ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<double>(unpacker);
+}
+
 template<> std::string ca::unpack(Unpacker &unpacker)
 {
 	size_t size = unpack<size_t>(unpacker);
-	return std::string((char*) unpacker.unpack(size), size);
+	return std::string((char*) unpacker.unpack_data(size), size);
 }

@@ -123,7 +123,8 @@ class Checker:
     def run(self):
         tester = base.tester.Tester()
         tester.prepare_writer = self.prepare_writer
-        tester.args = [ "-I", os.path.join(paths.KAIRA_ROOT, paths.CAILIE_INCLUDE_DIR) ]
+        tester.args = [ "-I", os.path.join(paths.KAIRA_ROOT, paths.CAILIE_INCLUDE_DIR),
+                        "-I", self.project.root_directory ]
 
         tester.run()
 
