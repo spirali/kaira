@@ -319,7 +319,7 @@ class Transition(utils.EqByIdMixin):
                 if name not in decls_dict:
                     decls_dict[name] = t
                     from_input.append(name)
-                elif name != decls_dict[name]:
+                elif t != decls_dict[name]:
                     raise utils.PtpException(
                         "Inconsistent types for variable '{0}'".format(name),
                         edge.get_source())
@@ -328,7 +328,7 @@ class Transition(utils.EqByIdMixin):
             for name, t in edge.get_decls():
                 if name not in decls_dict:
                     decls_dict[name] = t
-                elif name != decls_dict[name] and name not in from_input:
+                elif t != decls_dict[name] and name not in from_input:
                     raise utils.PtpException(
                         "Inconsistent types for variable '{0}'".format(name),
                         edge.get_source())

@@ -11,6 +11,7 @@ namespace ca {
 template<typename T> class Token {
 
 	public:
+		Token() {}
 		Token(const T &value) : value(value) {}
 
 		void remove() {
@@ -37,6 +38,7 @@ template<typename T> class Token {
 		Token<T> *prev;
 		Token<T> *next;
 };
+
 
 template<typename T> class TokenList {
 

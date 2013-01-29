@@ -270,8 +270,20 @@ def write_fire_body(builder,
 
     decls = tr.get_decls()
 
-    for name in tr.variable_freshes:
-        builder.line("{0} {1}; // Fresh variable", decls[name], name)
+    for uid, t in tr.fresh_tokens:
+        token_var = build.get_safe_id("token_{0}".format(uid))
+        builder.line("ca::Token <{0} > *{1} = new ca::Token<{0} >;",
+                     t,
+                     token_var)
+
+
+    for name, uid in tr.variable_sources_out.items():
+        if uid is not None:
+            token_var = build.get_safe_id("token_{0}".format(uid))
+            builder.line("{0} &{1} = {2}->value;", decls[name], name, token_var)
+        else:
+            builder.line("{0} {1}; // Fresh variable", decls[name], name)
+
 
     if tr.code is not None:
         if locking:
@@ -304,6 +316,12 @@ def write_fire_body(builder,
     if locking:
         builder.line("if (lock) {0}->unlock();", net_expr)
 
+    if not readonly_tokens:
+        for edge in tr.edges_in:
+            for inscription in edge.get_token_inscriptions():
+                if inscription.uid not in tr.reuse_tokens.values():
+                    token_var = build.get_safe_id("token_{0}".format(inscription.uid))
+                    builder.line("delete {0};", token_var)
 
     """
     matches, _, _ = get_edges_mathing(builder.project, tr)
