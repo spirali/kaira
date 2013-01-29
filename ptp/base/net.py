@@ -98,6 +98,12 @@ class Edge(utils.EqMixin):
         if "bulk" in self.config:
             if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
                 raise utils.PtpException("'bulk' requires a single variable as main expression", self.get_source())
+
+        if self.target is not None:
+            checker.check_expression(self.target,
+                                     self.transition.get_decls(),
+                                     "int",
+                                     self.get_source())
         self.check(checker)
 
     def get_decls(self):
