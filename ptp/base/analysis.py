@@ -37,6 +37,11 @@ def analyze_transition(tr):
 
     for edge in tr.edges_out:
         for name, uid in edge.get_variable_sources().items():
+            if uid is None: # Bulk edge
+                if name not in variable_sources:
+                    variable_sources_out[name] = None
+                continue
+
             if name in variable_sources:
                 token_uid = variable_sources[name]
                 if edge.is_local() and token_uid not in used_tokens:

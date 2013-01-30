@@ -1,0 +1,53 @@
+<project target_env="C++"><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O3</build-option><head-code>
+class My {
+	public:
+		My() : name("-") {
+			printf("NEW DEFAULT\n", name.c_str());
+		}
+
+		My(std::string name) : name(name) {
+			printf("NEW %s\n", name.c_str());
+		}
+		
+		My(const My &amp;other) : name(other.name) {
+			printf("CPY %s\n", name.c_str());
+		}		
+	
+		~My() {
+			printf("DEL %s\n", name.c_str());
+		}
+		
+		My &amp; operator= (const My &amp;other) {
+			if (this != &amp;other) {
+				printf("OP= %s %s\n", name.c_str(), other.name.c_str());
+				name = other.name;
+			}
+		}
+		
+		const std::string &amp; get_name() const { return name; }
+	protected:
+		std::string name;
+};
+
+namespace ca {
+	std::string token_name(const My &amp;my) {
+		return "My";
+	}
+	
+	void pack(Packer &amp;packer, const My &amp;my) {
+		pack(packer, my.get_name());		
+	}
+	
+	template&lt;&gt; My unpack(Unpacker &amp;unpacker) {
+		std::string name = unpack&lt;std::string&gt;(unpacker);		
+		return My(name);
+	}	
+}</head-code></configuration><net id="101" name="Main" net-type="main"><edge from_item="102" id="105" inscription="[bulk, guard(size == 2)] x" inscription_x="-108.366257729" inscription_y="-2.00745642728" to_item="103" /><edge from_item="103" id="108" inscription="[bulk] x" inscription_x="36.7277944636" inscription_y="16.0065249938" to_item="107" /><edge from_item="107" id="110" inscription="[bulk, guard(size == 2)] x" inscription_x="166.0" inscription_y="61.0" to_item="109" /><edge from_item="103" id="116" inscription="[bulk] y" inscription_x="-53.9087265837" inscription_y="70.8040400657" to_item="115" /><edge from_item="109" id="118" inscription="[bulk] x@1" inscription_x="156.0" inscription_y="138.0" to_item="117" /><edge from_item="117" id="122" inscription="[bulk, guard(size == 2)] x" inscription_x="281" inscription_y="76" to_item="119" /><edge from_item="119" id="124" inscription="[bulk] x" inscription_x="326.0" inscription_y="136.0" to_item="123" /><edge from_item="123" id="126" inscription="[bulk, guard(size == 2)] x" inscription_x="371.0" inscription_y="207.0" to_item="125" /><place id="102" init_string="" name="" place_type="My" radius="20" sx="0" sy="0" x="-157" y="32"><code>	place.add(My("a"));
+	place.add(My("b"));	
+</code></place><place id="107" init_string="" name="" place_type="My" radius="20" sx="0" sy="0" x="97" y="32" /><place id="115" init_string="" name="" place_type="My" radius="20" sx="0" sy="0" x="-107" y="112" /><place id="117" init_string="" name="" place_type="My" radius="20" sx="0" sy="0" x="201" y="109" /><place id="123" init_string="" name="" place_type="My" radius="20" sx="0" sy="0" x="300" y="177" /><transition guard="" id="103" name="Fire 1" sx="70" sy="35" x="-29" y="31"><code>	printf("FIRE 1\n");
+	var.y.add(My("y"));
+</code></transition><transition guard="" id="109" name="Fire 2" sx="70" sy="35" x="98" y="109"><code>	printf("FIRE 2\n");
+</code></transition><transition guard="" id="119" name="Fire 3" sx="70" sy="35" x="299" y="109"><code>	printf("FIRE 3\n");
+</code></transition><transition guard="" id="125" name="Fire 4" sx="70" sy="35" x="300" y="247"><code>	printf("FIRE 4\n");		
+	ctx.quit();
+</code></transition></net></project>

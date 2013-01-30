@@ -112,6 +112,57 @@ class BuildTest(unittest.TestCase):
     def test_bigtoken(self):
         Project("bigtoken").quick_test("18000000\n", processes=5, threads=5)
 
+    def test_alloc(self):
+        result = ("NEW a\n"
+                  "CPY a\n"
+                  "DEL a\n"
+                  "NEW DEFAULT\n"
+                  "FIRE 1\n"
+                  "CPY a\n"
+                  "FIRE 2\n"
+                  "NEW c\n"
+                  "OP= a c\n"
+                  "DEL c\n"
+                  "DEL c\n"
+                  "NEW c\n"
+                  "CPY c\n"
+                  "DEL c\n"
+                  "FIRE 3\n"
+                  "CPY c\n"
+                  "DEL c\n"
+                  "FIRE 4\n"
+                  "DEL c\n"
+                  "DEL -\n"
+                  "DEL a\n")
+        Project("alloc").quick_test(result, processes=2)
+
+    def test_alloc2(self):
+        result = ("NEW a\n"
+                  "CPY a\n"
+                  "DEL a\n"
+                  "NEW b\n"
+                  "CPY b\n"
+                  "DEL b\n"
+                  "FIRE 1\n"
+                  "NEW y\n"
+                  "CPY y\n"
+                  "DEL y\n"
+                  "FIRE 2\n"
+                  "DEL a\n"
+                  "DEL b\n"
+                  "NEW a\n"
+                  "CPY a\n"
+                  "DEL a\n"
+                  "NEW b\n"
+                  "CPY b\n"
+                  "DEL b\n"
+                  "FIRE 3\n"
+                  "FIRE 4\n"
+                  "DEL a\n"
+                  "DEL b\n"
+                  "DEL y\n")
+        Project("alloc2").quick_test(result, processes=2)
+
     def test_lib_parameters(self):
         result = "1 1 1 1 \n2 1 1 1 \n4 4 1 1 \n8 8 8 1 \n16 16 16 16 \n"
         Project("parameters", "lib_parameters").quick_test_main(
