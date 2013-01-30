@@ -18,8 +18,6 @@
 #
 
 from parameters import ParametersWidget
-from externtypes import ExternTypesWidget
-from functions import FunctionsWidget
 from build import BuildOptionsWidget
 from packages import PackagesWidget
 
@@ -62,12 +60,6 @@ class ProjectConfig(gtk.Notebook):
 
         w = ParametersWidget(app.project, app.window)
         self.append_page(w, gtk.Label("Parameters"))
-
-        w = ExternTypesWidget(app.project, app)
-        self.append_page(w, gtk.Label("Extern types"))
-
-        w = FunctionsWidget(app.project, app)
-        self.append_page(w, gtk.Label("Functions"))
 
         w = BuildOptionsWidget(app.project, app)
         self.append_page(w, gtk.Label("Build"))

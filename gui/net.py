@@ -18,7 +18,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
-import math
+
 import utils
 from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml

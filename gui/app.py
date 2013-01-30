@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
+#    Copyright (C) 2010-2013 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
@@ -38,8 +38,6 @@ import simview
 import codeedit
 import process
 import settings
-import externtypes
-import functions
 import loader
 import ptp
 import runview
@@ -371,37 +369,6 @@ class App:
         self.window.add_tab(Tab(name, editor, place, mainmenu_groups=("project",)))
         editor.jump_to_position(position)
 
-
-    def extern_type_functions_edit(self, externtype, position=None):
-        if self.window.switch_to_tab_by_key(
-            externtype,
-            lambda tab: tab.widget.jump_to_position(position)):
-            return
-
-        editor = externtypes.ExternTypeEditor(self.project, externtype)
-        self.window.add_tab(Tab(externtype.get_name(),
-                                editor,
-                                externtype,
-                                mainmenu_groups=("project",)))
-        editor.jump_to_position(position)
-
-    def function_edit(self, function, lineno=None):
-        position = ("", lineno) if lineno is not None else None
-        if self.window.switch_to_tab_by_key(
-                function,
-                lambda tab: tab.widget.jump_to_position(position)):
-            return
-        try:
-            editor = functions.FunctionEditor(self.project, function)
-            self.window.add_tab(Tab(function.get_name(),
-                                    editor,
-                                    function,
-                                    mainmenu_groups=("project",)))
-            editor.jump_to_position(position)
-        except ptp.PtpException, e:
-            self.console_write("Cannot open function '{0}'\n".format(function.get_name()), "error")
-            self.console_write(str(e) + "\n", "error")
-
     def catch_ptp_exception(self, fn, show_errors=True):
         try:
             return (True, fn())
@@ -720,10 +687,6 @@ class App:
             callback = lambda: self.transition_edit(item, line_no - 2)
         elif section == "init_function":
             callback = lambda: self.place_edit(item, line_no - 2)
-        elif section == "user_function":
-            callback = lambda: self.function_edit(item, line_no - 2)
-        elif section in ("getstring", "pack", "unpack", "hash"):
-            callback = lambda: self.extern_type_functions_edit(item, (section, line_no - 2))
         elif net is not None:
             callback = lambda: self.switch_to_net(net)
         else:

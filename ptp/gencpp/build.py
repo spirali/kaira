@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2011, 2012, 2013 Stanislav Bohm
+#    Copyright (C) 2011-2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -18,7 +18,6 @@
 #
 
 
-import base.utils as utils
 from writer import CppWriter, const_string
 
 class Builder(CppWriter):
@@ -94,9 +93,6 @@ def write_parameters(builder):
                      policy,
                      default)
 
-def write_types(builder):
-    write_extern_types_functions(builder, True)
-
 def write_trace_user_function(builder, ufunction, type):
     declaration = "void trace_{0}(ca::TraceLog *tracelog, const {1} &value)".format(
                                                     ufunction.get_name(), type)
@@ -139,48 +135,6 @@ def write_trace_user_functions(builder):
         fn = builder.project.get_user_function(fn_name.replace("fn: ", ""))
         write_trace_user_function(builder, fn, builder.emit_type(type))
 
-def write_extern_types_functions(builder, definitions):
-    decls = {
-             "getstring" : "std::string {0.name}_getstring(const {0.rawtype} &obj)",
-             "pack" : "void {0.name}_pack(Packer &packer, {0.rawtype} &obj)",
-             "unpack" : "{0.rawtype} {0.name}_unpack(CaUnpacker &unpacker)",
-             "hash" : "size_t {0.name}_hash(const {0.rawtype} &obj)",
-    }
-
-    def write_fn(etype, name):
-        source = ("*{0}/{1}".format(etype.id, name), 1)
-        if etype.get_code(name) is None:
-            raise utils.PtpException(
-                    "Function '{0}' for extern type '{1.name}' has no body defined" \
-                        .format(name, etype))
-        builder.write_function(decls[name].format(etype), etype.get_code(name), source)
-
-    def declare_fn(etype, name):
-        builder.line(decls[name].format(etype) + ";")
-
-    if definitions:
-        f = write_fn
-    else:
-        f = declare_fn
-
-    for etype in builder.project.get_extern_types():
-        if definitions and not etype.has_code("getstring"):
-            builder.write_function(decls["getstring"].format(etype),
-                "return {0};".format(const_string(etype.name)))
-        else:
-            f(etype, "getstring")
-
-        if etype.get_transport_mode() == "Custom":
-            if not etype.has_code("pack") or not etype.has_code("unpack"):
-                raise utils.PtpException("Extern type has custom transport mode "
-                                         "but pack/unpack missing.")
-            f(etype, "pack")
-            f(etype, "unpack")
-
-        if etype.has_hash_function():
-            f(etype, "hash")
-
 def write_basic_definitions(builder):
     write_parameters(builder)
-    write_types(builder)
     write_trace_user_functions(builder)

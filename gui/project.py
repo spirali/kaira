@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011 Stanislav Bohm
+#    Copyright (C) 2010-2013 Stanislav Bohm
 #                  2011       Ondrej Meca
 #
 #    This file is part of Kaira.
@@ -38,10 +38,8 @@ class Project(EventSource):
         self.set_filename(file_name)
         self.nets = []
         self.parameters = []
-        self.extern_types = []
         self.simconfig = SimConfig()
         self.error_messages = {}
-        self.functions = []
         self.generator = None # PTP generator
         self.target_mode = None
         self.simulator_net = None
@@ -184,24 +182,12 @@ class Project(EventSource):
         self.changed()
 
     def get_item(self, id):
-        for function in self.functions:
-            if function.id == id:
-                return function
-        for item in self.extern_types:
-            if item.id == id:
-                return item
         for net in self.nets:
             item = net.get_item(id)
             if item is not None:
                 return item
 
     def get_net_and_item(self, id):
-        for function in self.functions:
-            if function.id == id:
-                return None, function
-        for item in self.extern_types:
-            if item.id == id:
-                return None, item
         for net in self.nets:
             item = net.get_item(id)
             if item is not None:
@@ -272,35 +258,6 @@ class Project(EventSource):
         finally:
             f.close()
 
-    def get_extern_types(self):
-        return self.extern_types
-
-    def get_functions(self):
-        return self.functions
-
-    def add_extern_type(self, obj):
-        obj.set_project(self)
-        self.extern_types.append(obj)
-        self.changed()
-
-    def remove_extern_type(self, obj):
-        self.extern_types.remove(obj)
-        self.changed()
-
-    def find_extern_type(self, typename):
-        for t in self.extern_types:
-            if t.name == typename:
-                return t
-
-    def add_function(self, obj):
-        obj.set_project(self)
-        self.functions.append(obj)
-        self.changed()
-
-    def remove_function(self, obj):
-        self.functions.remove(obj)
-        self.changed()
-
     def add_parameter(self, obj):
         obj.project = self
         self.reset_param_values()
@@ -322,13 +279,6 @@ class Project(EventSource):
         self.head_code = code
         self.changed()
 
-    def create_extern_type(self, extern_type_name):
-        if extern_type_name == "native":
-            return self.create_native_extern_type()
-        if extern_type_name == "protobuffer":
-            return ProtobufferExternType()
-        raise Exception("Unknown externtype's type")
-
     def _build_option_as_xml(self, name):
         element = xml.Element("build-option")
         element.set("name", name)
@@ -339,10 +289,6 @@ class Project(EventSource):
         e = xml.Element("configuration")
         for p in self.parameters:
             e.append(p.as_xml())
-        for t in self.extern_types:
-            e.append(t.as_xml())
-        for t in self.functions:
-            e.append(t.as_xml())
         for t in self.build_options:
             e.append(self._build_option_as_xml(t))
 
@@ -397,260 +343,4 @@ class Parameter:
         e.set("description", self.description)
         e.set("default", self.default)
         e.set("policy", self.policy)
-        return e
-
-
-class ExternTypeBase:
-
-    def __init__(self, id):
-        self.name = ""
-        self.id = id
-
-    def get_name(self):
-        return self.name
-
-    def set_name(self, name):
-        self.name = name
-
-    def as_xml(self):
-        e = xml.Element("extern-type")
-        e.set("name", self.name)
-        e.set("type", self.get_type())
-        e.set("id", str(self.id))
-        return e
-
-    def set_project(self, project):
-        self.project = project
-        if self.id is None:
-            self.id = project.new_id()
-
-
-class ProtobufferExternType(ExternTypeBase):
-
-    def __init__(self, id=None):
-        ExternTypeBase.__init__(self, id)
-        self.code = ""
-
-    def get_type(self):
-        return "protobuffer"
-
-    def get_note(self):
-        return ""
-
-    def as_xml(self):
-        e = ExternTypeBase.as_xml(self)
-        e.text = self.code
-        return e
-
-    def get_header(self):
-        return ""
-
-    def get_code(self):
-        if self.code:
-            return self.code
-        else:
-            return "\t\n"
-
-    def get_sections(self):
-        head = "message {0} {{\n".format(self.name)
-        return [ ("", head, self.get_code(), "}\n") ]
-
-    def set_sections_content(self, values):
-        self.code = values[""]
-
-
-class NativeExternType(ExternTypeBase):
-    """
-        Transport modes: "Disabled", "Direct", "Custom"
-    """
-
-    def __init__(self, id=None):
-        ExternTypeBase.__init__(self, id)
-        self.name = ""
-        self.raw_type = ""
-        self.transport_mode = "Disabled"
-        self.octave_value = False
-        self.hash_function = False
-
-        self.functions = {
-            "getstring": "",
-            "pack": "",
-            "unpack": "",
-            "to_octave_value":"",
-            "from_octave_value" : "",
-            "hash" : ""
-        }
-
-    def get_type(self):
-        return "native"
-
-    def get_note(self):
-        text = "Raw type: {0}, Transport: {1}".format(self.raw_type,
-                                                      self.transport_mode)
-        if self.octave_value:
-            text += ", Octave value"
-        if self.hash_function:
-            text += ", hash"
-        return text
-
-    def get_raw_type(self):
-        return self.raw_type
-
-    def get_transport_mode(self):
-        return self.transport_mode
-
-    def set_raw_type(self, value):
-        self.raw_type = value
-
-    def set_transport_mode(self, value):
-        self.transport_mode = value
-
-    def has_hash_function(self):
-        """ Returns True if ExternType has hash function """
-        return self.hash_function
-
-    def set_hash_function(self, value):
-        """ Controls whether ExternType has hash function  """
-        self.hash_function = value
-
-    def set_octave_value(self, value):
-        self.octave_value = value;
-
-    def is_octave_value(self):
-        return self.octave_value
-
-    def set_function_code(self, function, code):
-        self.functions[function] = code
-
-    def set_sections_content(self, values):
-        self.functions = values
-
-    def has_function(self, name):
-        return "" != self.functions[name].strip()
-
-    def get_function_code(self, name):
-        if self.has_function(name):
-            return self.functions[name]
-        return self.get_default_function_code(name)
-
-    def get_function_names(self):
-        lst = [ "getstring" ]
-        if self.transport_mode == "Custom":
-            lst.append("pack")
-            lst.append("unpack")
-        if self.octave_value:
-            lst.append("to_octave_value")
-            lst.append("from_octave_value")
-        if self.hash_function:
-            lst.append("hash")
-        return lst
-
-    def as_xml(self):
-        e = ExternTypeBase.as_xml(self)
-        e.set("raw-type", self.raw_type)
-        e.set("transport-mode", self.transport_mode)
-        e.set("octave-value", str(self.octave_value))
-        e.set("hash", str(self.hash_function))
-
-        for name in self.functions:
-            if self.has_function(name):
-                fe = xml.Element("code")
-                fe.set("name", name)
-                fe.text = self.functions[name]
-                e.append(fe)
-        return e
-
-    def get_header(self):
-        return "/*\n * Type '{0}'\n */\n\n".format(self.name)
-
-    def get_sections(self):
-        """ Returns list of sections (name, start, middle, end) for CodeEditor """
-        sections = []
-        for name in self.get_function_names():
-            start = self.get_function_declaration(name) + "\n{\n"
-            middle = self.get_function_code(name)
-            end = "}\n\n\n"
-            sections.append((name, start, middle, end))
-        return sections
-
-class Function():
-
-    project = None
-
-    def __init__(self, id=None):
-        self.name = ""
-        self.code = ""
-
-        self.return_type = ""
-        self.parameters = ""
-        self.with_context = False
-        self.id = id
-
-    def changed(self):
-        if self.project:
-            self.project.changed()
-
-    def get_name(self):
-        return self.name
-
-    def set_name(self, name):
-        self.name = name
-        self.changed()
-
-    def set_function_code(self, code):
-        if code is None:
-            code = ""
-        self.code = code
-        self.changed()
-
-    def get_function_code(self):
-        if self.has_code():
-            return self.code
-        else:
-            return "\t\n"
-
-    def has_code(self):
-        return self.code.strip() != ""
-
-    def set_project(self, project):
-        self.project = project
-        if self.id is None:
-            self.id = project.new_id()
-
-    def get_parameters(self):
-        return self.parameters
-
-    def set_parameters(self, parameters):
-        self.parameters = parameters
-        self.changed()
-
-    def get_return_type(self):
-        return self.return_type
-
-    def set_return_type(self, return_type):
-        self.return_type = return_type
-
-    def get_with_context(self):
-        return self.with_context
-
-    def set_with_context(self, value):
-        self.with_context = value
-
-    def get_function_header(self):
-        return self.project.get_generator().get_user_function_header(self.name)
-
-    def check_definition(self):
-        return self.get_function_header() is not None
-
-    def split_parameters(self):
-        return [ x.split() for x in self.parameters.split(", ") if x.strip() != ""]
-
-    def as_xml(self):
-        e = xml.Element("function")
-        e.set("id", str(self.id))
-        e.set("name", self.name)
-        e.set("return-type", self.return_type)
-        e.set("parameters", self.parameters)
-        e.set("with-context", str(self.with_context))
-        e.text = self.code
         return e

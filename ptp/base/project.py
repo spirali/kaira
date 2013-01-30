@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2011, 2012, 2013 Stanislav Bohm
+#    Copyright (C) 2011-2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -22,79 +22,6 @@ import base.utils as utils
 import xml.etree.ElementTree as xml
 from base.utils import get_source_path
 from net import Net, Area, Place, Transition, Edge
-
-class ExternType(object):
-
-    def __init__(self,
-                 id,
-                 name,
-                 rawtype,
-                 transport_mode,
-                 codes,
-                 octave_value,
-                 hash_function):
-        self.id = id
-        self.name = name
-        self.rawtype = rawtype
-        self.transport_mode = transport_mode
-        self.codes = codes
-        self.octave_value =  octave_value
-        self.hash_function = hash_function
-
-    def get_name(self):
-        return self.name
-
-    def get_rawtype(self):
-        return self.rawtype
-
-    def get_transport_mode(self):
-        return self.transport_mode
-
-    def get_code(self, name):
-        return self.codes.get(name)
-
-    def has_code(self, name):
-        return name in self.codes
-
-    def is_octave_value(self):
-        return self.octave_value
-
-    def has_hash_function(self):
-        return self.hash_function
-
-
-class UserFunction(object):
-
-    """
-        @param name str
-        @param parameters list of tuples (String, Type)
-        @param returntype Type
-        @param with_context bool
-        @param code str
-    """
-    def __init__(self, id, name, parameters, returntype, with_context, code):
-        self.id = id
-        self.name = name
-        self.parameters = parameters
-        self.returntype = returntype
-        self.with_context = with_context
-        self.code = code
-
-    def get_name(self):
-        return self.name
-
-    def get_code(self):
-        return self.code
-
-    def get_returntype(self):
-        return self.returntype
-
-    def get_parameters(self):
-        return self.parameters
-
-    def meet_declaration(self, returntype, parameter_types):
-        return self.returntype == returntype and \
-               [ t for _, t in self.parameters ] == parameter_types
 
 
 class Parameter(object):
@@ -128,8 +55,6 @@ class Project(object):
         self.target_mode = target_mode
         self.nets = []
         self.description = description
-        self.extern_types = {}
-        self.user_functions = {}
         self.parameters = {}
         self.build_options = {}
         self.head_code = ""
@@ -152,22 +77,6 @@ class Project(object):
             return ""
         else:
             return value
-
-    def get_extern_types(self):
-        return self.extern_types.values()
-
-    def get_extern_type(self, name):
-        return self.extern_types.get(name)
-
-    def get_user_functions(self):
-        return self.user_functions.values()
-
-    def get_user_function(self, name):
-        return self.user_functions.get(name)
-
-    def get_user_functions_by_declaration(self, returntype, parameter_types):
-        return [ function for function in self.user_functions.values()
-                    if function.meet_declaration(returntype, parameter_types) ]
 
     def get_parameter(self, name):
         return self.parameters.get(name)
@@ -306,31 +215,6 @@ def load_net_content(element, project, net):
         net.interface_edges_out = [ load_edge_out(e, net, None) for e in interface.findall("edge-out") ]
         net.interface_edges_in = [ load_edge_in(e, net, None) for e in interface.findall("edge-in") ]
 
-def load_extern_type(element):
-    t = utils.xml_str(element, "type")
-    name = utils.xml_str(element, "name")
-    id = utils.xml_int(element, "id")
-
-    if t == "native":
-        rawtype = utils.xml_str(element, "raw-type")
-        transport_mode = utils.xml_str(element, "transport-mode")
-        octave_value = utils.xml_bool(element, "octave-value")
-        hash_function = utils.xml_bool(element, "hash")
-        codes = dict((utils.xml_str(e, "name"), e.text)
-                      for e in element.findall("code"))
-        return ExternType(id,
-                          name,
-                          rawtype,
-                          transport_mode,
-                          codes,
-                          octave_value,
-                          hash_function)
-
-    if t == "protobuffer":
-        raise Exception("Need implementation")
-
-    raise Exception("Unkown extern type")
-
 def load_parameter(element, project):
     name = utils.xml_str(element, "name")
     default = utils.xml_str(element, "default")
@@ -345,9 +229,6 @@ def load_build_option(element, project):
     project.build_options[name] = value
 
 def load_configuration(element, project):
-    etypes = [ load_extern_type(e) for e in element.findall("extern-type") ]
-    project.extern_types = utils.create_dict(etypes, lambda item: item.get_name())
-
     parameters = [ load_parameter(e, project) for e in element.findall("parameter") ]
     project.parameters = utils.create_dict(parameters, lambda item: item.get_name())
 
