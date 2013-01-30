@@ -23,12 +23,12 @@ namespace ca {
 	}	
 }
 
-int to_up(ca::Context &amp;ctx)
+int to_down(ca::Context &amp;ctx)
 {
 	return (ctx.process_id() + 1) % ctx.process_count();
 }
 
-int to_down(ca::Context &amp;ctx)
+int to_up(ca::Context &amp;ctx)
 {
 	return (ctx.process_id() + ctx.process_count() - 1) 
 			% ctx.process_count();
