@@ -1,7 +1,0 @@
-<project><configuration><function id="115" name="floatfn" parameters="" return-type="Float" with-context="False">	return 7.23;
-</function><function id="116" name="doublefn" parameters="" return-type="Double" with-context="False">	return 3.34;
-</function><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net id="0" name="Main"><place id="102" init_string="[(1,2,3,4, &quot;aa&quot;, doublefn(), floatfn())]" place_type="(Int, Int, Int, Int, String, Double, Float)" radius="20" x="130" y="101" /><place id="104" init_string="" place_type="(String, Double, Float, Int, Int, Int, Int)" radius="20" x="404" y="103" /><transition guard="" id="103" name="" sx="70" sy="35" x="274" y="222" /><transition guard="" id="110" name="" sx="70" sy="35" x="592" y="104"><code>	if (var.a == "aa" &amp;&amp; var.b &gt; 3.0 &amp;&amp; var.b &lt; 3.4 &amp;&amp; var.c &gt; 7.0 &amp;&amp; var.c &lt; 7.3) {
-		printf("Ok\n");
-	}
-	ctx.quit();
-</code></transition><edge from_item="102" id="105" inscription="(x, y, a, b, j, k, l)" inscription_x="204" inscription_y="93" to_item="103"><point x="244" y="110" /></edge><edge from_item="103" id="106" inscription="(j, k, l, x + y, y * a, y - b, b)" inscription_x="331" inscription_y="198" to_item="104"><point x="302" y="106" /></edge><edge from_item="104" id="113" inscription="(a, b, c, 3,6,-2,4)" inscription_x="452" inscription_y="84" to_item="110" /></net></project>

@@ -30,19 +30,49 @@ void ca::Packer::free()
 	::free(buffer);
 }
 
-template<> int ca::unpack(Unpacker &unpacker)
+template<> int32_t ca::unpack(Unpacker &unpacker)
 {
-	return direct_unpack<int>(unpacker);
+	return direct_unpack<int32_t>(unpacker);
 }
 
-template<> size_t ca::unpack(Unpacker &unpacker)
+template<> int64_t ca::unpack(Unpacker &unpacker)
 {
-	return direct_unpack<size_t>(unpacker);
+	return direct_unpack<int64_t>(unpacker);
+}
+
+template<> uint32_t ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<uint32_t>(unpacker);
+}
+
+template<> uint64_t ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<uint64_t>(unpacker);
 }
 
 template<> double ca::unpack(Unpacker &unpacker)
 {
 	return direct_unpack<double>(unpacker);
+}
+
+template<> float ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<float>(unpacker);
+}
+
+template<> bool ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<bool>(unpacker);
+}
+
+template<> char ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<char>(unpacker);
+}
+
+template<> unsigned char ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<unsigned char>(unpacker);
 }
 
 template<> std::string ca::unpack(Unpacker &unpacker)

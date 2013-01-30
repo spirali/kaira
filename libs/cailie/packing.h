@@ -6,6 +6,7 @@
 #include <string.h>
 #include <ostream>
 #include <vector>
+#include <stdint.h>
 
 namespace ca {
 
@@ -55,15 +56,39 @@ inline void pack(Packer &packer, void *data, size_t size) {
 	packer.pack_data(data, size);
 }
 
-inline void pack(Packer &packer, const int &value) {
+inline void pack(Packer &packer, const char &value) {
 	direct_pack(packer, value);
 }
 
-inline void pack(Packer &packer, const size_t &value) {
+inline void pack(Packer &packer, const unsigned char &value) {
+	direct_pack(packer, value);
+}
+
+inline void pack(Packer &packer, const int32_t &value) {
+	direct_pack(packer, value);
+}
+
+inline void pack(Packer &packer, const int64_t &value) {
+	direct_pack(packer, value);
+}
+
+inline void pack(Packer &packer, const uint32_t &value) {
+	direct_pack(packer, value);
+}
+
+inline void pack(Packer &packer, const uint64_t &value) {
 	direct_pack(packer, value);
 }
 
 inline void pack(Packer &packer, const double &value) {
+	direct_pack(packer, value);
+}
+
+inline void pack(Packer &packer, const float &value) {
+	direct_pack(packer, value);
+}
+
+inline void pack(Packer &packer, const bool &value) {
 	direct_pack(packer, value);
 }
 
@@ -96,9 +121,15 @@ template<typename T> T unpack(Unpacker &unpacker) {
 	return x;
 }
 
-template<> int unpack<int>(Unpacker &unpacker);
+template<> char unpack<char>(Unpacker &unpacker);
+template<> unsigned char unpack<unsigned char>(Unpacker &unpacker);
+template<> uint32_t unpack<uint32_t>(Unpacker &unpacker);
+template<> uint64_t unpack<uint64_t>(Unpacker &unpacker);
+template<> int32_t unpack<int32_t>(Unpacker &unpacker);
+template<> int64_t unpack<int64_t>(Unpacker &unpacker);
 template<> double unpack<double>(Unpacker &unpacker);
-template<> size_t unpack<size_t>(Unpacker &unpacker);
+template<> float unpack<float>(Unpacker &unpacker);
+template<> bool unpack<bool>(Unpacker &unpacker);
 template<> std::string unpack(Unpacker &unpacker);
 
 template<typename T> void unpack_to(Unpacker &unpacker, std::vector<T> &value) {

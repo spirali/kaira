@@ -8,15 +8,11 @@ class BuildTest(unittest.TestCase):
     def test_helloworld(self):
         Project("helloworld", "helloworlds").quick_test("Hello world 12\n")
 
-    def test_helloworld2(self):
-        Project("helloworld2", "helloworlds").quick_test("Hello world 5\n")
-
     def test_strings(self):
-        Project("strings").quick_test("String\nOk\nOk\nOk\nOk\n", processes=5)
+        Project("basictypes").quick_test("", processes=2)
 
-    def test_externtypes(self):
-        output = "10 20\n107 207\n10 20\n257 77750 A looong string!!!!!\n10 30\n3 20003 String!!!\n"
-        Project("externtypes").quick_test(output, processes=2)
+    def test_pack(self):
+        Project("pack").quick_test("Ok\n", processes=2)
 
     def test_bulk(self):
         output = "1\n2\n3\n4\na\nb\nc\n"
@@ -29,12 +25,9 @@ class BuildTest(unittest.TestCase):
         Project("broken2", "broken").fail_ptp("*102/type: Type missing\n")
 
     def test_parameters(self):
-        Project("parameters").quick_test("9 7\n",
+        Project("parameters").quick_test("7 10 123\n",
                                          processes=10,
                                          params={ "first" : 10, "second" : 7 })
-
-    def test_eguards(self):
-        Project("eguards").quick_test("3\n")
 
     def test_bidirection(self):
         Project("bidirection").quick_test("11\n12\n13\n")
@@ -62,12 +55,6 @@ class BuildTest(unittest.TestCase):
 
         Project("workers_fixed", "workers").quick_test(threads=5, processes=6, result_fn = check_output, params = params, repeat=110)
 
-    def test_functions(self):
-        Project("functions").quick_test("9 9\n")
-
-    def test_tuples(self):
-        Project("tuples").quick_test("Ok\n")
-
     def test_origin(self):
         Project("origin").quick_test("Ok\n", processes=3)
 
@@ -77,9 +64,6 @@ class BuildTest(unittest.TestCase):
     def test_build(self):
         Project("build").quick_test("1: 10\n2: 20\n")
 
-    def test_getmore(self):
-        Project("getmore").quick_test("Ok 7 13\n")
-
     def test_broken_userfunction(self):
         Project("broken_userfunction", "broken").failed_make("*106/user_function:")
 
@@ -88,12 +72,6 @@ class BuildTest(unittest.TestCase):
 
     def test_multicast(self):
         Project("multicast").quick_test("1800\n", processes=6)
-
-    def test_array(self):
-        Project("array").quick_test("Ok\n")
-
-    def test_bool(self):
-        Project("bool").quick_test("Ok\n")
 
     def test_libhelloworld(self):
         result = "40 10 Hello world\n80 10 Hello world\n"\

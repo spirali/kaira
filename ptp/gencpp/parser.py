@@ -24,22 +24,24 @@ import base.net
 digits = "0123456789"
 operator_chars = "+-*/%=!<>&|~"
 
-lpar, rpar, dot, delim, sem, lbracket, rbracket, lt, bg \
-    = map(pp.Suppress, "().,;[]<>")
+lpar, rpar, dot, delim, sem, lbracket, rbracket, lt, bg, aps \
+    = map(pp.Suppress, "().,;[]<>'")
 
 ident = pp.Word(pp.alphas+"_:", pp.alphanums+"_:")
 expression = pp.Forward()
 number = pp.Word(digits) + pp.Optional(dot + pp.Word(digits))
 string = pp.dblQuotedString
+char = aps + pp.Word(pp.alphanums, exact=1) + aps
 operator = pp.Word(operator_chars)
 parens = lpar + pp.Optional(expression + pp.ZeroOrMore(delim + expression)) + rpar
 basic_expression = pp.Forward()
 basic_expression << ((number |
-                     string |
-                     ident + pp.Optional(parens) |
-                     lpar + expression + rpar)
-                        + pp.Optional(dot + basic_expression)
-                        + pp.Optional(pp.OneOrMore(operator) + basic_expression))
+                      char |
+                      string |
+                      ident + pp.Optional(parens) |
+                      lpar + expression + rpar)
+                          + pp.Optional(dot + basic_expression)
+                          + pp.Optional(pp.OneOrMore(operator) + basic_expression))
 expression << pp.Optional(operator) + basic_expression
 
 mark = pp.Empty().setParseAction(lambda loc, t: loc)
@@ -49,7 +51,9 @@ full_expression = (mark + expression.suppress() + mark) \
 expressions = pp.delimitedList(full_expression, ";")
 
 typename = pp.Forward()
-typename << ident + pp.Optional(lt + typename + bg)
+typename << (pp.ZeroOrMore(ident +
+             pp.Optional(lt + typename + bg) +
+             pp.Optional(pp.Literal("*"))))
 
 edge_config_param = lpar + full_expression + rpar
 edge_config_item = pp.Group(ident + pp.Optional(edge_config_param, None))
