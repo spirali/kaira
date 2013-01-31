@@ -68,22 +68,11 @@ class BuildTest(unittest.TestCase):
     def test_multicast(self):
         Project("multicast").quick_test("1800\n", processes=6)
 
-    def test_libhelloworld(self):
-        result = "40 10 Hello world\n80 10 Hello world\n"\
-            "160 10 Hello world\n320 10 Hello world\n640 10 Hello world\n"
-        Project("libhelloworld").quick_test_main(result)
-
-    def test_rpc(self):
-        p = Project("rpc",rpc=True)
-        p.build_main()
-        p.start_server()
-        try:
-            p.run_main("2000 31 31 9000 29700\n", repeat=3)
-        finally:
-            p.stop_server()
-
     def test_bigtoken(self):
         Project("bigtoken").quick_test("18000000\n", processes=5, threads=5)
+
+    def test_sendvar(self):
+        Project("sendvar").quick_test(processes=2)
 
     def test_alloc(self):
         result = ("NEW a\n"
@@ -136,10 +125,26 @@ class BuildTest(unittest.TestCase):
                   "DEL y\n")
         Project("alloc2").quick_test(result, processes=2)
 
+
+class LibTest(unittest.TestCase):
     def test_lib_parameters(self):
         result = "1 1 1 1 \n2 1 1 1 \n4 4 1 1 \n8 8 8 1 \n16 16 16 16 \n"
         Project("parameters", "lib_parameters").quick_test_main(
 			result,	processes=5, threads=5, params={"Size" : 4, "EXP" : 4})
+
+    def test_libhelloworld(self):
+        result = "40 10 Hello world\n80 10 Hello world\n"\
+            "160 10 Hello world\n320 10 Hello world\n640 10 Hello world\n"
+        Project("libhelloworld").quick_test_main(result)
+
+    def test_rpc(self):
+        p = Project("rpc",rpc=True)
+        p.build_main()
+        p.start_server()
+        try:
+            p.run_main("2000 31 31 9000 29700\n", repeat=3)
+        finally:
+            p.stop_server()
 
 
 class StateSpaceTest(unittest.TestCase):

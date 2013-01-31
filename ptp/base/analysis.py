@@ -56,6 +56,12 @@ def analyze_transition(tr):
             elif name not in variable_sources_out:
                 variable_sources_out[name] = None
 
+    for edge in tr.edges_out:
+        for variable in edge.get_nontoken_variables():
+            if variable not in variable_sources and \
+               variable not in variable_sources_out:
+                variable_sources_out[variable] = None
+
     tr.variable_sources = variable_sources
     tr.reuse_tokens = reuse_tokens
     tr.variable_sources_out = variable_sources_out

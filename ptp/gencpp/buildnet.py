@@ -40,7 +40,7 @@ def write_vars_struct(builder, tr):
     class_name = "Vars_{0.id}".format(tr)
     builder.write_class_head(class_name)
 
-    decls = utils.decls_to_list(tr.get_decls())
+    decls = tr.get_decls().get_list()
     builder.write_constructor(class_name, emit_declarations(decls, True),
                            ["{0}({0})".format(name) for name, _ in decls ])
     builder.write_method_end()
@@ -288,7 +288,7 @@ def write_fire_body(builder,
     if tr.code is not None:
         if locking:
             builder.line("{0}->unlock();", net_expr)
-        decls = utils.decls_to_list(tr.get_decls())
+        decls = tr.get_decls().get_list()
         if len(decls) == 0:
             builder.line("Vars_{0.id} vars;", tr)
         else:

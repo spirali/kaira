@@ -21,7 +21,7 @@ import base.utils as utils
 
 import xml.etree.ElementTree as xml
 from base.utils import get_source_path
-from net import Net, Area, Place, Transition, Edge
+from net import Net, Area, Place, Transition, Edge, Declarations
 
 
 class Parameter(object):
@@ -141,7 +141,9 @@ class Project(object):
         return self.target_env.get_generator(self)
 
     def get_minimal_decls(self):
-        return { "ctx": "ca::Context" }
+        decls = Declarations()
+        decls.set("ctx", "ca::Context");
+        return decls
 
 def get_source(element, name):
     id = utils.xml_int(element, "id")

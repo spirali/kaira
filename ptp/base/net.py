@@ -26,6 +26,46 @@ def get_container_type(typename):
 def get_token_container_type(typename):
     return "ca::TokenList<{0} >".format(typename)
 
+
+class Declarations:
+
+    def __init__(self, source=None):
+        self.types = {}
+        self.source = source
+
+    def set(self, var, t, source=None):
+        if var in self.types:
+            if self.types[var] != t:
+                if source is None:
+                    source = self.source
+                msg = "Invalid type of variable '{0}' ({1}/{2})".format(var, self.types[var], t)
+                raise utils.PtpException(msg, source)
+        else:
+            self.types[var] = t
+
+    def get_variables(self):
+        return self.types.keys()
+
+    def get_types(self):
+        return self.types.values()
+
+    def get_items(self):
+        return self.types.items()
+
+    def merge(self, decls):
+        if self.source is None:
+            self.source = decls.source
+        for var, t in decls.get_items():
+            self.set(var, t, decls.source)
+
+    def get_list(self):
+        lst = self.types.items()
+        lst.sort(key=utils.first)
+        return lst
+
+    def __getitem__(self, variable):
+        return self.types[variable]
+
 class Edge(utils.EqMixin):
 
     def __init__(self, id, transition, place, inscriptions, config, target):
@@ -86,7 +126,7 @@ class Edge(utils.EqMixin):
                 raise utils.PtpException(
                     "'guard' requires an expression",
                     self.get_source())
-            decls = self.transition.get_input_decls_with_size()
+            decls = self.transition.get_input_decls_with_size(self.get_source())
             checker.check_expression(self.config["guard"],
                                      decls,
                                      "bool",
@@ -107,25 +147,35 @@ class Edge(utils.EqMixin):
         self.check(checker)
 
     def get_decls(self):
+        decls = Declarations(self.get_source())
         if self.is_bulk_edge():
-            var = self.inscriptions[0].expr
-            result = [ (var, self.get_type()) ]
+            decls.set(self.inscriptions[0].expr, self.get_type())
             if self.is_origin_reader():
-                result.append((var + "_origins", get_container_type("int")))
+                decls.set(self.inscriptions[0].expr + "_origins",
+                          get_container_type("int"))
         else:
-            variables = self.get_token_variables()
-            result = [ (var, self.get_place_type())
-                        for var in variables ]
+            for variable in self.get_single_token_variables():
+                decls.set(variable, self.get_place_type())
             if self.is_origin_reader():
-                result += [ (var + "_origin", "int") for var in variables ]
-        return result
+                for variable in self.get_single_token_variables():
+                    decls.set(variable + "_origin", "int")
 
-    def get_token_variables(self):
+        if self.target and self.transition.net.project.is_expr_variable(self.target):
+            decls.set(self.target, "int")
+        return decls
+
+    def get_single_token_variables(self):
         if self.is_bulk_edge():
             return []
         return [ inscription.expr
                  for inscription in self.inscriptions
                  if inscription.is_variable() ]
+
+    def get_nontoken_variables(self):
+        if self.target and self.transition.net.project.is_expr_variable(self.target):
+            return [ self.target ]
+        else:
+            return []
 
     def get_variable_sources(self):
         sources = {}
@@ -312,37 +362,21 @@ class Transition(utils.EqByIdMixin):
         return "*{0}/{1}".format(self.id, location)
 
     def get_decls(self):
-        from_input = []
-        decls_dict = self.net.project.get_minimal_decls()
+        decls = self.net.project.get_minimal_decls()
         for edge in self.edges_in:
-            for name, t in edge.get_decls():
-                if name not in decls_dict:
-                    decls_dict[name] = t
-                    from_input.append(name)
-                elif t != decls_dict[name]:
-                    raise utils.PtpException(
-                        "Inconsistent types for variable '{0}'".format(name),
-                        edge.get_source())
-
+            decls.merge(edge.get_decls())
         for edge in self.edges_out:
-            for name, t in edge.get_decls():
-                if name not in decls_dict:
-                    decls_dict[name] = t
-                elif t != decls_dict[name] and name not in from_input:
-                    raise utils.PtpException(
-                        "Inconsistent types for variable '{0}'".format(name),
-                        edge.get_source())
-        return decls_dict
-
+            decls.merge(edge.get_decls())
+        return decls
 
     def get_input_decls(self):
         # FIXME: Return only variables on input edges
         return self.get_decls()
 
-    def get_input_decls_with_size(self):
-        decls_dict = self.get_input_decls()
-        decls_dict["size"] = "size_t"
-        return decls_dict
+    def get_input_decls_with_size(self, source=None):
+        decls = self.get_input_decls()
+        decls.set("size", "size_t", source)
+        return decls
 
     def check(self, checker):
 

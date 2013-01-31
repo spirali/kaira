@@ -21,6 +21,7 @@
 import base.tester
 import base.utils as utils
 import base.paths as paths
+from base.net import Declarations
 import os.path
 import build
 
@@ -34,7 +35,7 @@ class CheckStatement(base.tester.Check):
 
     def write_prologue(self, writer):
         if self.decls is not None:
-            decls = utils.decls_to_list(self.decls)
+            decls = self.decls.get_list()
         else:
             decls = ()
         writer.line("{0} {1} ({2}) {{",
@@ -73,14 +74,17 @@ class TypeChecker:
 
         message = "Function '{0}' not defined for type '{1}'"
         if "token_name" in self.functions:
-            decls = { var: self.name + " &" }
+            decls = Declarations()
+            decls.set(var, self.name + " &")
             check = CheckStatement("ca::token_name({0});".format(var),
                                    decls, source=source)
             check.own_message = message.format("token_name", self.name)
             tester.add(check)
 
         if "pack" in self.functions:
-            decls = { var: self.name + " &", "packer": "ca::Packer &" }
+            decls = Declarations()
+            decls.set(var, self.name + "&")
+            decls.set("packer", "ca::Packer &")
             check = CheckStatement("ca::pack(packer, {0});".format(var),
                                    decls,
                                    source=source)
@@ -88,15 +92,15 @@ class TypeChecker:
             tester.add(check)
 
         if "pack" in self.functions:
-            decls = { var: self.name + " &", "unpacker": "ca::Unpacker &" }
+            decls = Declarations()
+            decls.set(var, self.name + "&")
+            decls.set("unpacker", "ca::Unpacker &")
             check = CheckStatement("return ca::unpack<{0} >(unpacker);".format(self.name),
                                    decls,
                                    self.name,
                                    source=source)
             check.own_message = message.format("ca::unpack", self.name)
             tester.add(check)
-
-
 
 class Checker:
 

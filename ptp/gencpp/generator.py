@@ -49,7 +49,7 @@ class CppGenerator:
         transition = self.project.get_transition(transition_id)
         w = writer.CppWriter()
         w.line("struct Vars {{")
-        for name, t in base.utils.decls_to_list(transition.get_decls()):
+        for name, t in transition.get_decls().get_list():
             w.line("\t{0} {1};", t, name)
         w.line("}};")
         w.emptyline()
