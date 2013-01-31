@@ -72,7 +72,7 @@ def parse_expression(expr, source, allow_empty):
         if allow_empty:
             return None
         else:
-            return "Expression is empty"
+            return "Missing expression"
     try:
         return full_expression.parseString(expr, parseAll=True)[0]
     except pp.ParseException, e:
@@ -80,7 +80,7 @@ def parse_expression(expr, source, allow_empty):
 
 def check_typename(tname, source):
     if len(tname) == 0:
-        raise utils.PtpException("Type is empty", source)
+        raise utils.PtpException("Missing type", source)
     try:
         typename.parseString(tname, parseAll=True)
     except pp.ParseException, e:
@@ -113,6 +113,9 @@ def parse_init_expression(string, source):
         raise utils.PtpException(e.msg, source)
 
 def parse_edge_expression(string, source):
+    if len(string.strip()) == 0:
+        raise utils.PtpException("Missing expression", source)
+
     try:
         configs, expressions, target = edge_expr.parseString(string, parseAll=True)
     except pp.ParseException, e:

@@ -8,7 +8,7 @@ class BuildTest(unittest.TestCase):
     def test_helloworld(self):
         Project("helloworld", "helloworlds").quick_test("Hello world 12\n")
 
-    def test_strings(self):
+    def test_basictypes(self):
         Project("basictypes").quick_test("", processes=2)
 
     def test_pack(self):
@@ -19,10 +19,10 @@ class BuildTest(unittest.TestCase):
         Project("bulk").quick_test(output, processes=3)
 
     def test_broken1(self):
-        Project("broken1", "broken").fail_ptp("*104/inscription: Expression missing\n")
+        Project("broken1", "broken").fail_ptp("*104/inscription: Missing expression\n")
 
     def test_broken2(self):
-        Project("broken2", "broken").fail_ptp("*102/type: Type missing\n")
+        Project("broken2", "broken").fail_ptp("*102/type: Missing type\n")
 
     def test_parameters(self):
         Project("parameters").quick_test("7 10 123\n",
@@ -62,11 +62,8 @@ class BuildTest(unittest.TestCase):
     def test_build(self):
         Project("build").quick_test("1: 10\n2: 20\n")
 
-    def test_broken_userfunction(self):
-        Project("broken_userfunction", "broken").failed_make("*106/user_function:")
-
-    def test_broken_externtype_function(self):
-        Project("broken_externtype_function", "broken").failed_make("*106/pack:")
+    def test_broken_externtype(self):
+        Project("broken_externtype", "broken").fail_ptp("*102/type:", prefix=True)
 
     def test_multicast(self):
         Project("multicast").quick_test("1800\n", processes=6)

@@ -1,0 +1,4 @@
+<project target_env="C++"><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option><head-code>
+struct MyStruct {
+
+};</head-code></configuration><net id="0" name="Main" net-type="main"><edge from_item="102" id="104" inscription="x" inscription_x="352.0" inscription_y="175.0" to_item="103" /><place id="102" init_string="" name="" place_type="MyStruct" radius="20" sx="0" sy="0" x="346" y="124" /><transition guard="" id="103" name="" sx="70" sy="35" x="350" y="225" /></net></project>
