@@ -693,7 +693,7 @@ def write_place_add(builder,
     else:
         builder.line("{0}place_{1.id}.{2}({3});", net_code, place, method, value_code)
 
-    if place.need_origin():
+    if place.need_origin() and set_origin:
         if origin is None:
             origin = "thread->get_process_id()"
         if bulk:
@@ -738,7 +738,7 @@ def write_init_net(builder, net):
             if place.need_origin():
                 builder.line("for (int i = 0; i < net->place_{0.id}.size(); i++)", place)
                 builder.block_begin()
-                builder.line("net->place_{0.id}_origins.push_back(ctx.process_id());", place)
+                builder.line("net->place_{0.id}_origin.push_back(ctx.process_id());", place)
                 builder.block_end()
         builder.block_end()
 
