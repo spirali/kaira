@@ -39,27 +39,7 @@ template<typename T> std::string to_string(const T &value) {
 	return s.str();
 }
 
-inline std::string token_name(const int32_t &value) {
-	return to_string(value);
-}
-
-inline std::string token_name(const int64_t &value) {
-	return to_string(value);
-}
-
-inline std::string token_name(const uint32_t &value) {
-	return to_string(value);
-}
-
-inline std::string token_name(const uint64_t &value) {
-	return to_string(value);
-}
-
-inline std::string token_name(const double &value) {
-	return to_string(value);
-}
-
-inline std::string token_name(const float &value) {
+template<typename T> std::string token_name(const T &value) {
 	return to_string(value);
 }
 

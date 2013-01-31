@@ -1,0 +1,74 @@
+<project target_env="C++"><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O0 -g</build-option><head-code>
+
+struct MyStruct {
+	int x;
+	std::string a;
+	size_t s;
+	void *mem;
+};
+
+namespace ca {
+	std::string token_name(MyStruct &amp;obj) {
+		return "MyStruct";
+	}
+	
+	void pack(Packer &amp;packer, MyStruct &amp;obj) {
+		pack(packer, obj.a);
+		pack(packer, obj.s);				
+		pack(packer, obj.mem, obj.s);
+		pack(packer, obj.x);		
+	}	
+	
+	template&lt;&gt; MyStruct unpack(Unpacker &amp;unpacker) {
+		MyStruct m;
+		m.a = unpack&lt;std::string&gt;(unpacker);
+		m.s = unpack&lt;size_t&gt;(unpacker);		
+		if (m.s != 0) {
+			m.mem = malloc(m.s);
+			memcpy(m.mem, unpack(unpacker, m.s), m.s);				
+		} else {
+			m.mem = NULL;
+		}
+		m.x = unpack&lt;int&gt;(unpacker);		
+		return m;
+	}
+};</head-code></configuration><net id="101" name="Main" net-type="main"><edge from_item="102" id="105" inscription="x" inscription_x="-106.5" inscription_y="15.0" to_item="103" /><edge from_item="103" id="106" inscription="x@1" inscription_x="60.0002378036" inscription_y="15.4310361228" to_item="104" /><edge from_item="104" id="108" inscription="[bulk, guard(size==2)] xs" inscription_x="208.0" inscription_y="9.0" to_item="107" /><edge from_item="107" id="110" inscription="[bulk] xs" inscription_x="321.0" inscription_y="77.0" to_item="109" /><edge from_item="109" id="113" inscription="[bulk, guard(size==2)] xs" inscription_x="294.0" inscription_y="171.0" to_item="112" /><place id="102" init_string="" name="" place_type="MyStruct" radius="20" sx="0" sy="0" x="-178" y="25"><code>	MyStruct m,n;
+	
+	m.x = 101;
+	m.a = "ABC";
+	m.s = 100;	
+	m.mem = malloc(100);
+	char *v = (char*) m.mem;
+	for (int i = 0; i &lt; 100; i++) {
+		v[i] = i;
+	}
+		
+	n.x = 20005;
+	n.a = "012345678901234567890";
+	n.s = 0;
+	n.mem = NULL;
+	
+	place.add(m);
+	place.add(n);	
+</code></place><transition guard="" id="103" name="" sx="70" sy="35" x="-20" y="25" /><place id="104" init_string="" name="" place_type="MyStruct" radius="20" sx="0" sy="0" x="125" y="26" /><transition guard="" id="107" name="" sx="70" sy="35" x="310" y="28" /><place id="109" init_string="" name="" place_type="MyStruct" radius="20" sx="0" sy="0" x="311" y="132" /><transition guard="" id="112" name="" sx="70" sy="35" x="173" y="193"><code>	MyStruct m = var.xs.begin()-&gt;value;
+	MyStruct n = var.xs.begin()-&gt;next-&gt;value;	
+	if (m.x == 101 &amp;&amp;
+	    m.a == "ABC" &amp;&amp; 
+	    m.s == 100 &amp;&amp;
+	    n.x == 20005 &amp;&amp;
+	    n.s == 0 &amp;&amp;
+	    n.a == "012345678901234567890" &amp;&amp;
+	    n.mem == NULL ) {
+		char *v = (char*) m.mem;
+			for (int i = 0; i &lt; 100; i++) {
+				if (v[i] != i) {
+					printf("Err %i %i\n", i, v[i]);
+				}
+		}
+	    printf("Ok\n");   
+	} else {
+	    printf("Err 1\n");
+	}
+	    	
+	ctx.quit();
+</code></transition></net></project>

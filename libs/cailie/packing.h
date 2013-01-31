@@ -64,19 +64,27 @@ inline void pack(Packer &packer, const unsigned char &value) {
 	direct_pack(packer, value);
 }
 
-inline void pack(Packer &packer, const int32_t &value) {
+inline void pack(Packer &packer, const int &value) {
 	direct_pack(packer, value);
 }
 
-inline void pack(Packer &packer, const int64_t &value) {
+inline void pack(Packer &packer, const long &value) {
 	direct_pack(packer, value);
 }
 
-inline void pack(Packer &packer, const uint32_t &value) {
+inline void pack(Packer &packer, const long long &value) {
 	direct_pack(packer, value);
 }
 
-inline void pack(Packer &packer, const uint64_t &value) {
+inline void pack(Packer &packer, const unsigned int &value) {
+	direct_pack(packer, value);
+}
+
+inline void pack(Packer &packer, const unsigned long &value) {
+	direct_pack(packer, value);
+}
+
+inline void pack(Packer &packer, const unsigned long long &value) {
 	direct_pack(packer, value);
 }
 
@@ -121,15 +129,17 @@ template<typename T> T unpack(Unpacker &unpacker) {
 	return x;
 }
 
-template<> char unpack<char>(Unpacker &unpacker);
-template<> unsigned char unpack<unsigned char>(Unpacker &unpacker);
-template<> uint32_t unpack<uint32_t>(Unpacker &unpacker);
-template<> uint64_t unpack<uint64_t>(Unpacker &unpacker);
-template<> int32_t unpack<int32_t>(Unpacker &unpacker);
-template<> int64_t unpack<int64_t>(Unpacker &unpacker);
-template<> double unpack<double>(Unpacker &unpacker);
-template<> float unpack<float>(Unpacker &unpacker);
-template<> bool unpack<bool>(Unpacker &unpacker);
+template<> char unpack(Unpacker &unpacker);
+template<> int unpack(Unpacker &unpacker);
+template<> long unpack(Unpacker &unpacker);
+template<> long long unpack(Unpacker &unpacker);
+template<> unsigned char unpack(Unpacker &unpacker);
+template<> unsigned int unpack(Unpacker &unpacker);
+template<> unsigned long unpack(Unpacker &unpacker);
+template<> unsigned long long unpack(Unpacker &unpacker);
+template<> double unpack(Unpacker &unpacker);
+template<> float unpack(Unpacker &unpacker);
+template<> bool unpack(Unpacker &unpacker);
 template<> std::string unpack(Unpacker &unpacker);
 
 template<typename T> void unpack_to(Unpacker &unpacker, std::vector<T> &value) {

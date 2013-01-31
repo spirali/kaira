@@ -30,24 +30,34 @@ void ca::Packer::free()
 	::free(buffer);
 }
 
-template<> int32_t ca::unpack(Unpacker &unpacker)
+template<> int ca::unpack(Unpacker &unpacker)
 {
-	return direct_unpack<int32_t>(unpacker);
+	return direct_unpack<int>(unpacker);
 }
 
-template<> int64_t ca::unpack(Unpacker &unpacker)
+template<> long ca::unpack(Unpacker &unpacker)
 {
-	return direct_unpack<int64_t>(unpacker);
+	return direct_unpack<long>(unpacker);
 }
 
-template<> uint32_t ca::unpack(Unpacker &unpacker)
+template<> long long ca::unpack(Unpacker &unpacker)
 {
-	return direct_unpack<uint32_t>(unpacker);
+	return direct_unpack<long long>(unpacker);
 }
 
-template<> uint64_t ca::unpack(Unpacker &unpacker)
+template<> unsigned int ca::unpack(Unpacker &unpacker)
 {
-	return direct_unpack<uint64_t>(unpacker);
+	return direct_unpack<unsigned int>(unpacker);
+}
+
+template<> unsigned long ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<unsigned long>(unpacker);
+}
+
+template<> unsigned long long ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<unsigned long long>(unpacker);
 }
 
 template<> double ca::unpack(Unpacker &unpacker)
