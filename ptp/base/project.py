@@ -173,9 +173,10 @@ def load_transition(element, project, net):
     transition = Transition(net, id, guard)
     transition.edges_in = map(lambda e:
         load_edge_in(e, project, net, transition), element.findall("edge-in"))
-    transition.edges_out = map(lambda e:
+    edges_out = map(lambda e:
         load_edge_out(e, project, net, transition), element.findall("edge-out"))
-
+    transition.edges_out = [ edge for edge in edges_out if edge.is_bulk_edge() ] + \
+                           [ edge for edge in edges_out if edge.is_token_edge() ]
     if element.find("code") is not None:
         transition.code = element.find("code").text
     transition.tracing = load_tracing(element)

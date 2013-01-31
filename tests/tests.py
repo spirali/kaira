@@ -53,8 +53,6 @@ class BuildTest(unittest.TestCase):
         p.run(result_fn=check_output, processes=6, threads=3, params=params, repeat=30)
         p.run(result_fn=check_output, processes=6, threads=1, params=params, repeat=70)
 
-        Project("workers_fixed", "workers").quick_test(threads=5, processes=6, result_fn = check_output, params = params, repeat=110)
-
     def test_origin(self):
         Project("origin").quick_test("Ok\n", processes=3)
 
