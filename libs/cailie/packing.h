@@ -31,16 +31,16 @@ class Packer {
 		Packer(size_t size, size_t reserved);
 
 		void pack_data(const void *mem, size_t size) {
-			check_size(size);
+			reserve(size);
 			memcpy(buffer_pos, mem, size);
 			buffer_pos += size;
 		}
 
 		void * peek() { return buffer_pos; }
-		void move(size_t size) { check_size(size); buffer_pos += size; }
+		void move(size_t size) { reserve(size); buffer_pos += size; }
 		size_t get_size() const { return buffer_pos - buffer; }
 		char * get_buffer() const { return buffer; }
-		void check_size(size_t size);
+		void reserve(size_t size);
 		void free();
 	protected:
 		char *buffer_pos;

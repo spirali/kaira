@@ -1,32 +1,61 @@
-<project extenv="C++"><configuration><parameter default="120" description="" name="LIMIT" type="Int" /><parameter default="10" description="" name="SIZE" type="Int" /><extern-type name="BigInt" octave-value="False" raw-type="mpz_class" transport-mode="Custom" type="native"><code name="getstring">	return obj.get_str(10);
-</code><code name="getsize">	return sizeof(size_t) + (mpz_sizeinbase (obj.get_mpz_t(), 2) + 7) / 8;
-</code><code name="unpack">	size_t s;
-	mpz_t z;
-	mpz_init(z);
-	s = unpacker.unpack_size();
-	mpz_import(z, s, 1, 1, 0, 0, unpacker.peek());
-	unpacker.move(s);
-	mpz_class zc = mpz_class(z);
-	mpz_clear(z);
-	return zc;
-</code><code name="pack">	size_t s = (mpz_sizeinbase (obj.get_mpz_t(), 2) + 7) / 8;
-	packer.pack_size(s);
-	mpz_export(packer.peek(), &amp;s, 1, 1, 0, 0, obj.get_mpz_t());
-	if (s == 0) {
-		/* We have written no data, but mpz_sizeinbase is at least 1,
-		   so we have to get rid of uninitialized data
-		*/
-		memset(packer.peek(), 0, 1);
-	}
-	packer.move(s);
-</code></extern-type><function id="121" name="bigint" parameters="Int i" return-type="BigInt" with-context="False">	return mpz_class(i);
-</function><function id="122" name="bi_add" parameters="BigInt a, BigInt b" return-type="BigInt" with-context="False">	return a + b;	
-</function><function id="123" name="bi_lt" parameters="BigInt a, BigInt b" return-type="Bool" with-context="False">	return a &lt; b;	
-</function><build-option name="CC">g++</build-option><build-option name="LIBS">-lgmp</build-option><build-option name="CFLAGS">-O2</build-option><head-code>
+<project target_env="C++"><configuration><parameter default="120" description="" name="LIMIT" policy="mandatory" type="Int" /><parameter default="10" description="" name="SIZE" policy="mandatory" type="Int" /><build-option name="CC">g++</build-option><build-option name="LIBS">-lgmp</build-option><build-option name="CFLAGS">-O0 -g</build-option><head-code>
 #include &lt;gmpxx.h&gt;
-</head-code></configuration><net id="0" name="Main" net-type="main"><place id="103" init_string="[bigint(0)]" place_type="BigInt" radius="20" x="109" y="207" /><place id="104" init_string="[1..process_count() - 1]" place_type="Int" radius="20" x="185" y="252" /><place id="105" init_string="" place_type="BigInt" radius="22" x="373" y="169" /><place id="106" init_string="" place_type="BigInt" radius="20" x="272" y="357" /><transition guard="bi_lt(num, bigint(#LIMIT))" id="107" name="divide" sx="90" sy="35" x="184" y="107" /><transition guard="" id="108" name="compute" sx="70" sy="35" x="373" y="252"><code>	mpz_class t;
-	mpz_class end = var.num + 10;
-	for (t=var.num; t &lt; end; t++) {
+
+struct Job {
+	Job(const mpz_class &amp;start, const mpz_class &amp;end) : start(start), end(end) {}
+	mpz_class start;
+	mpz_class end;
+};
+
+namespace ca {
+
+	std::string token_name(const mpz_class &amp;obj) {
+		return obj.get_str(10);
+	}
+
+	void pack(Packer &amp;packer, const mpz_class &amp;obj) {
+		size_t s = (mpz_sizeinbase (obj.get_mpz_t(), 2) + 7) / 8;
+		size_t s2;
+		packer.reserve(s + sizeof(s));
+		pack(packer, s);
+		mpz_export(packer.peek(), &amp;s2, 1, 1, 0, 0, obj.get_mpz_t());
+		if (s2 == 0) {
+			/* We have written no data, but mpz_sizeinbase is at least 1,
+			   so we have to get rid of uninitialized data
+			*/
+			memset(packer.peek(), 0, 1);
+		}
+		packer.move(s);
+	}
+	
+	template&lt;&gt; mpz_class unpack(Unpacker &amp;unpacker)  {
+		size_t s = unpack&lt;size_t&gt;(unpacker);
+		mpz_t z;
+		mpz_init(z);
+		mpz_import(z, s, 1, 1, 0, 0, unpack(unpacker, s));		
+		mpz_class zc = mpz_class(z);
+		mpz_clear(z);
+		return zc;
+	}
+	
+	std::string token_name(const Job &amp;job) {
+		std::stringstream s;
+		s &lt;&lt; "Job start=" &lt;&lt; job.start.get_str(10) &lt;&lt; " end=" &lt;&lt; job.end.get_str(10);
+		return s.str();
+	}
+
+	void pack(Packer &amp;packer, const Job &amp;job) {
+		pack(packer, job.start);
+		pack(packer, job.end);		
+	}
+
+	template&lt;&gt; Job unpack(Unpacker &amp;unpacker) {
+		mpz_class start = unpack&lt;mpz_class&gt;(unpacker);
+		mpz_class end = unpack&lt;mpz_class&gt;(unpacker);		
+		return Job(start, end);
+	}
+
+}</head-code></configuration><net id="0" name="Main" net-type="main"><edge from_item="103" id="110" inscription="start" inscription_x="115.0" inscription_y="179.0" to_item="107" /><edge from_item="107" id="111" inscription="start + param::SIZE()" inscription_x="41.0" inscription_y="89.0" to_item="103"><point x="37" y="108" /></edge><edge from_item="104" id="112" inscription="worker" inscription_x="203.0" inscription_y="176.0" to_item="107" /><edge from_item="105" id="113" inscription="job" inscription_x="428.0" inscription_y="203.0" to_item="108" /><edge from_item="103" id="114" inscription="param::LIMIT()" inscription_x="30.0" inscription_y="315.0" to_item="109" /><edge from_item="104" id="115" inscription="[guard(size == ctx.process_count() - 1 ) ]" inscription_x="281.0" inscription_y="298.0" to_item="109" /><edge from_item="106" id="116" inscription="[bulk] results" inscription_x="212.0" inscription_y="344.0" to_item="109" /><edge from_item="108" id="117" inscription="ctx.process_id()@0" inscription_x="302.0" inscription_y="254.0" to_item="104" /><edge from_item="108" id="118" inscription="[bulk] results@0" inscription_x="354.0" inscription_y="345.0" to_item="106"><point x="415" y="360" /></edge><edge from_item="107" id="119" inscription="Job(start, start + mpz_class(10))@worker" inscription_x="371.0" inscription_y="87.0" to_item="105"><point x="415" y="105" /></edge><place id="103" init_string="[0]" name="" place_type="mpz_class" radius="20" sx="0" sy="0" x="45" y="254"><trace>value</trace></place><place id="104" init_string="ca::range(1, ctx.process_count())" name="" place_type="int" radius="20" sx="0" sy="0" x="185" y="250"><trace>value</trace></place><place id="105" init_string="" name="" place_type="Job" radius="22" sx="0" sy="0" x="415" y="165"><trace>value</trace></place><place id="106" init_string="" name="" place_type="mpz_class" radius="20" sx="0" sy="0" x="270" y="360"><trace>value</trace></place><transition guard="start &lt; param::LIMIT()" id="107" name="divide" sx="90" sy="35" x="184" y="107"><trace>fire</trace></transition><transition guard="" id="108" name="compute" sx="70" sy="35" x="415" y="250"><code>	for (mpz_class t=var.job.start; t &lt; var.job.end; t++) {
 		if (t &lt; 2) continue;
 		int s;
 		s = 2;
@@ -37,12 +66,13 @@
 			s++;
 		}
 		if (s*s &gt; t) {
-			var.results.push_back(t);
+			var.results.add(t);
 		}
 	}
-</code></transition><transition guard="" id="109" name="write result" sx="70" sy="35" x="133" y="360"><code>	size_t t;
-	for (t=0; t &lt; var.results.size(); t++) {
-		gmp_printf("%Zd\n", var.results[t].get_mpz_t());
+
+</code><trace>fire</trace></transition><transition guard="" id="109" name="write result" sx="70" sy="35" x="133" y="359"><code>	ca::Token&lt;mpz_class&gt; *t;
+	for (t = var.results.begin(); t != NULL; t = var.results.next(t)) {
+		printf("%s\n", t-&gt;value.get_str(10).c_str());
 	}
 	ctx.quit();
-</code></transition><edge from_item="103" id="110" inscription="num" inscription_x="146.0" inscription_y="160.0" to_item="107" /><edge from_item="107" id="111" inscription="bi_add(num, bigint(#SIZE))" inscription_x="64.0" inscription_y="88.0" to_item="103"><point x="94" y="107" /></edge><edge from_item="104" id="112" inscription="worker" inscription_x="204.0" inscription_y="178.0" to_item="107" /><edge from_item="105" id="113" inscription="num" inscription_x="398.0" inscription_y="207.0" to_item="108" /><edge from_item="103" id="114" inscription="bigint(#LIMIT)" inscription_x="95.0" inscription_y="279.0" to_item="109" /><edge from_item="104" id="115" inscription="~workers(process_count() - 1)" inscription_x="255.0" inscription_y="294.0" to_item="109" /><edge from_item="106" id="116" inscription="~results(0)" inscription_x="214.0" inscription_y="343.0" to_item="109" /><edge from_item="108" id="117" inscription="process_id()@0" inscription_x="279.0" inscription_y="257.0" to_item="104" /><edge from_item="108" id="118" inscription="~results@0" inscription_x="334.0" inscription_y="340.0" to_item="106"><point x="373" y="359" /></edge><edge from_item="107" id="119" inscription="num@worker" inscription_x="311.0" inscription_y="89.0" to_item="105"><point x="373" y="106" /></edge></net></project>
+</code><trace>fire</trace></transition></net></project>

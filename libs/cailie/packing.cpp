@@ -14,7 +14,7 @@ ca::Packer::Packer(size_t size, size_t reserved) : size(size + reserved) {
 	buffer_pos = buffer + reserved;
 }
 
-void ca::Packer::check_size(size_t data_size) {
+void ca::Packer::reserve(size_t data_size) {
 	if (buffer_pos + data_size > buffer + size) {
 		size += data_size;
 		size *= 2;
