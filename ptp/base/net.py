@@ -134,17 +134,25 @@ class Edge(utils.EqMixin):
         self.check(checker)
 
     def check_edge_out(self, checker):
-        self.check_config(("bulk",))
+        self.check_config(("bulk", "multicast"))
         if "bulk" in self.config:
             if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
-                raise utils.PtpException("'bulk' requires a single variable as main expression", self.get_source())
+                raise utils.PtpException(
+                    "'bulk' requires a single variable as main expression",
+                    self.get_source())
 
         if self.target is not None:
             checker.check_expression(self.target,
                                      self.transition.get_decls(),
-                                     "int",
+                                     self.get_target_type(),
                                      self.get_source())
         self.check(checker)
+
+    def get_target_type(self):
+        if self.is_multicast():
+            return get_container_type("int")
+        else:
+            return "int"
 
     def get_decls(self):
         decls = Declarations(self.get_source())
@@ -161,7 +169,7 @@ class Edge(utils.EqMixin):
                     decls.set(variable + "_origin", "int")
 
         if self.target and self.transition.net.project.is_expr_variable(self.target):
-            decls.set(self.target, "int")
+            decls.set(self.target, self.get_target_type())
         return decls
 
     def get_single_token_variables(self):
@@ -207,10 +215,13 @@ class Edge(utils.EqMixin):
         return not self.is_bulk_edge()
 
     def is_unicast(self):
-        return True
+        return not self.is_multicast()
 
     def is_origin_reader(self):
         return "origin" in self.config
+
+    def is_multicast(self):
+        return "multicast" in self.config
 
 class EdgeInscription(utils.EqMixin):
 

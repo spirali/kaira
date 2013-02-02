@@ -171,8 +171,7 @@ def write_send_token(builder,
     else: # Remote send
         if edge.is_unicast():
             sendtype = ""
-            builder.line("int target_{0.id} = {1};", edge, edge.target)
-            builder.if_begin("target_{0.id} == thread->get_process_id()".format(edge))
+            builder.if_begin("{0} == thread->get_process_id()".format(edge.target))
             write_lock()
             if edge.is_bulk_edge():
                 write_add(edge.inscriptions[0].expr, bulk=True)
@@ -183,7 +182,6 @@ def write_send_token(builder,
             builder.line("}} else {{")
             builder.indent_push()
         else:
-            builder.line("std::vector<int> target_{0.id} = {1};", edge, edge.target.emit(em))
             sendtype = "_multicast"
             builder.block_begin()
 
@@ -197,15 +195,19 @@ def write_send_token(builder,
             builder.line("ca::Packer packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
             for inscription in edge.get_token_inscriptions():
                 builder.line("ca::pack(packer, {0});", inscription.expr)
-            builder.line("thread->multisend{0}(target_{1.id}, {4}, {2}, {3}, packer);",
-                   sendtype, edge, edge.place.get_pos_id(), len(edge.inscriptions), net_expr)
+            builder.line("thread->multisend{0}({1}, {4}, {2}, {3}, packer);",
+                         sendtype,
+                         edge.target,
+                         edge.place.get_pos_id(),
+                         len(edge.inscriptions),
+                         net_expr)
         else: # Pack packing edge
             # TODO: Pack in one step if type is directly packable
             expr = edge.inscriptions[0].expr
             builder.line("ca::Packer packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
             builder.line("{0}.pack_tokens(packer);", expr);
-            builder.line("thread->multisend{0}(target_{1.id}, {3}, {2}, ({4}).size(), packer);",
-                   sendtype,edge, edge.place.get_pos_id(), net_expr, expr)
+            builder.line("thread->multisend{0}({1}, {3}, {2}, ({4}).size(), packer);",
+                   sendtype, edge.target, edge.place.get_pos_id(), net_expr, expr)
         builder.block_end()
 
     #if edge.guard is not None:
