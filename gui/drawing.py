@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011 Stanislav Bohm
+#    Copyright (C) 2010, 2011, 2013 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
@@ -150,10 +150,12 @@ class TransitionDrawing(DrawingBase):
     def draw_top(self, cr):
         if self.error_messages and "guard" in self.error_messages:
             px, py = self.position
-            sx, sy = utils.text_size(cr, self.guard)
-            tx = px - sx / 2
-            ty = py - self.size[1]/2 - sy/2 - 2
-            draw_error_box_after_text(cr, self.guard, (tx, ty), self.error_messages["guard"])
+            py = py - self.size[1] / 2
+            draw_error_box_after_text(cr,
+                                      self.guard,
+                                      (px, py),
+                                      self.error_messages["guard"],
+                                      centered=True)
         if self.error_messages and None in self.error_messages:
             draw_error_box(cr, self.position, self.error_messages[None])
 
@@ -399,7 +401,11 @@ class EdgeDrawing(DrawingBase):
 
     def draw_top(self, cr):
         if self.error_messages and "inscription" in self.error_messages:
-            draw_error_box_after_text(cr, self.inscription, self.inscription_position, self.error_messages["inscription"])
+            draw_error_box_after_text(cr,
+                                      self.inscription,
+                                      self.inscription_position,
+                                      self.error_messages["inscription"],
+                                      centered=True)
 
 
 class AreaDrawing(DrawingBase):
@@ -497,9 +503,11 @@ class InterfaceNodeDrawing(DrawingBase):
         cr.fill()
 
 
-def draw_error_box_after_text(cr, text, position, lines):
+def draw_error_box_after_text(cr, text, position, lines, centered=False):
     if text is not None:
         sx, sy = utils.text_size(cr, text)
+        if centered:
+            sx = sx / 2
         draw_error_box(cr, (position[0] + 5 + sx, position[1]), lines)
     else:
         draw_error_box(cr, position, lines)
@@ -507,7 +515,7 @@ def draw_error_box_after_text(cr, text, position, lines):
 def draw_error_box(cr, position, lines):
     assert len(lines) > 0
     letter_y = utils.text_size(cr,"W")[1] * 1.5
-    size_x = max([ utils.text_size(cr, line)[0] for line in lines ]) + 10
+    size_x = max([ utils.text_size(cr, line)[0] for line in lines ]) + 15
     size_y = letter_y * (len(lines) + 1)
     #size_x = max( [ s[0] for s in sizes ] ) + 10
     px, py = position
