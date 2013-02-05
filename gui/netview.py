@@ -89,8 +89,10 @@ class NetViewVisualConfig(VisualConfig):
         return True
 
     def preprocess(self, item, drawing):
-        if self.show_tracing and (item.is_transition() or item.is_place()):
+        if self.show_tracing and item.is_transition():
             drawing.trace_text = item.tracing
+        if self.show_tracing and item.is_place():
+            drawing.trace_text = [ name for name, return_type in item.tracing ]
         if item == self.mouseover_highlighted:
             drawing.set_highlight((0.6,0.6,0.8,8.0))
         if self.project.has_error_messages(item):

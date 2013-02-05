@@ -547,10 +547,11 @@ class Place(NetElement):
         if self.has_code():
             e.append(self.xml_code_element())
         if self.tracing:
-            for t in self.tracing:
-                trace = xml.Element("trace")
-                trace.text = t
-                e.append(trace)
+            for name, return_type in self.tracing:
+                element = xml.Element("trace")
+                element.set("name", name)
+                element.set("return-type", return_type)
+                e.append(element)
         return e
 
     def export_xml(self, build_config):
@@ -561,10 +562,12 @@ class Place(NetElement):
         if self.has_code():
             e.append(self.xml_code_element())
         if build_config.tracing and self.tracing:
-            for t in self.tracing:
-                trace = xml.Element("trace")
-                trace.text = t
-                e.append(trace)
+            if self.tracing:
+                for name, return_type in self.tracing:
+                    element = xml.Element("trace")
+                    element.set("name", name)
+                    element.set("return-type", return_type)
+                    e.append(element)
         return e
 
     def get_drawing(self, vconfig):
@@ -1190,6 +1193,16 @@ def load_tracing(element):
         trace.append(t.text)
     return trace
 
+def load_place_tracing(element):
+    tracing = []
+    for e in element.findall("trace"):
+        name = e.get("name", None)
+        return_type = e.get("return-type", None)
+        if name is None or return_type is None:
+            return tracing # backward compatability
+        tracing.append((name, return_type))
+    return tracing
+
 def load_place(element, net, loader):
     id = loader.get_id(element)
     place = net.add_place((xml_int(element,"x"), xml_int(element, "y")), id)
@@ -1199,7 +1212,7 @@ def load_place(element, net, loader):
     place.place_type = xml_str(element,"place_type", "")
     place.init_string = xml_str(element,"init_string", "")
     place.code = load_code(element)
-    place.tracing =  load_tracing(element)
+    place.tracing =  load_place_tracing(element)
 
 def load_transition(element, net, loader):
     id = loader.get_id(element)
