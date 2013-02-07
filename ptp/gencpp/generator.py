@@ -43,17 +43,18 @@ class CppGenerator:
         type_name = place.type
         if type_name[-1] == ">":
             type_name += " "
-        return "void place_fn(CaContext &ctx, ca::TokenList<{1}> &place)\n".format(place, type_name)
+        return "void place_fn(ca::Context &ctx, ca::TokenList<{1}> &place)\n".format(place, type_name)
 
     def get_transition_user_fn_header(self, transition_id):
         transition = self.project.get_transition(transition_id)
         w = writer.CppWriter()
         w.line("struct Vars {{")
         for name, t in transition.get_decls().get_list():
-            w.line("\t{0} {1};", t, name)
+            if name != "ctx":
+                w.line("\t{0} &{1};", t, name)
         w.line("}};")
         w.emptyline()
-        w.line("void transition_fn(CaContext &ctx, Vars &var)")
+        w.line("void transition_fn(ca::Context &ctx, Vars &var)")
         return w.get_string()
 
 
