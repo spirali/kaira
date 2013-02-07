@@ -36,22 +36,22 @@ class Context {
 		int process_count() const { return thread->get_process_count(); }
 		int threads_count() const { return thread->get_threads_count(); }
 
-		void trace_string(const std::string &str) {
+		void trace_value(const std::string &str) {
 			TraceLog *tracelog = thread->get_tracelog();
 			if (tracelog) {
-				tracelog->trace_string(str);
+				tracelog->trace_value(str);
 			}
 		}
-		void trace_int(const int value) {
+		void trace(const int value) {
 			TraceLog *tracelog = thread->get_tracelog();
 			if (tracelog) {
-				tracelog->trace_int(value);
+				tracelog->trace_value(value);
 			}
 		}
-		void trace_double(const double value) {
+		void trace(const double value) {
 			TraceLog *tracelog = thread->get_tracelog();
 			if (tracelog) {
-				tracelog->trace_double(value);
+				tracelog->trace_value(value);
 			}
 		}
 

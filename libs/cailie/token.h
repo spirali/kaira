@@ -19,21 +19,6 @@ template<typename T> class Token {
 			prev->next = next;
 		}
 
-		void trace_add_token(TraceLog *tracelog, int place_id) {
-			tracelog->trace_token_add(place_id, this);
-		}
-
-		void trace_remove_token(TraceLog *tracelog, int place_id) {
-					tracelog->trace_token_remove(place_id, this);
-		}
-
-		void trace(TraceLog *tracelog, int place_id, int n, void (*fncs[])(TraceLog *, const T&)) {
-			tracelog->trace_token_add(place_id, this);
-			for (int i = 0; i < n; i++) {
-				fncs[i](tracelog, value);
-			}
-		}
-
 		T value;
 		Token<T> *prev;
 		Token<T> *next;
@@ -93,6 +78,18 @@ template<typename T> class TokenList {
 			}
 		}
 
+		void add(const T &value) {
+			Token<T> *t = new Token<T>(value);
+			add_token(t);
+		}
+
+		void add(const std::vector<T> &values) {
+			typename std::vector<T>::const_iterator i;
+			for (i = values.begin(); i != values.end(); i++) {
+				add(*i);
+			}
+		}
+
 		void add_token(Token<T> *t) {
 			if (token) {
 				Token<T> *p = token->prev;
@@ -108,54 +105,6 @@ template<typename T> class TokenList {
 			tokens_count++;
 		}
 
-		void add_token(Token<T> *t, TraceLog *tracelog, int place_id)
-		{
-			t->trace(tracelog, place_id);
-			add_token(t);
-		}
-
-
-		void add_token(Token<T> *t, TraceLog *tracelog, int place_id, int n, void (*fncs[]) (TraceLog *, const T&))
-		{
-			t->trace(tracelog, place_id, n, fncs);
-			add_token(t);
-		}
-
-		void add(const T &value) {
-			Token<T> *t = new Token<T>(value);
-			add_token(t);
-		}
-
-		void add(const T &value, TraceLog *tracelog, int place_id)
-		{
-			Token<T> *t = new Token<T>(value);
-			add_token(t, tracelog, place_id);
-		}
-
-		void add(const T &value, TraceLog *tracelog, int place_id, int n, void (*fncs[]) (TraceLog *, const T&))
-		{
-			Token<T> *t = new Token<T>(value);
-			add_token(t, tracelog, place_id, n, fncs);
-		}
-
-		void add(const std::vector<T> &values) {
-			typename std::vector<T>::const_iterator i;
-			for (i = values.begin(); i != values.end(); i++) {
-				add(*i);
-			}
-		}
-
-		void add(const std::vector<T> &values,
-					TraceLog *tracelog,
-					int place_id,
-					int n,
-					void (*fncs[]) (TraceLog *, const T&)) {
-			typename std::vector<T>::const_iterator i;
-			for (i = values.begin(); i != values.end(); i++) {
-				add(*i, tracelog, place_id, n, fncs);
-			}
-		}
-
 		void remove(Token<T> *t)
 		{
 			if (t == token) {
@@ -165,12 +114,6 @@ template<typename T> class TokenList {
 			}
 			t->remove();
 			tokens_count--;
-		}
-
-		void remove(Token<T> *t, TraceLog *tracelog, int place_id)
-		{
-			t->trace_remove_token(tracelog, place_id);
-			remove(t);
 		}
 
 		std::vector<T> to_vector_and_clear() {
@@ -228,6 +171,15 @@ template<typename T> class TokenList {
 		Token<T> * begin() const { return token; }
 		size_t size() const { return tokens_count; }
 		Token<T> * last() const { return token->prev; }
+
+		Token<T> * last(int s) {
+			Token<T> *t = token;
+			for (int i = 0; i < s; s++) {
+				t = t->prev;
+			}
+			return t;
+		}
+
 		bool is_empty() const { return token == NULL; }
 		Token<T> * next(Token<T> *token) {
 			if (token != last()) {
@@ -248,8 +200,6 @@ template<typename T> class TokenList {
 		}
 
 	protected:
-		/* This is a naive implementation, it needs benchmarks
-			to choose correct implementation */
 		Token<T> *token;
 		int tokens_count;
 };

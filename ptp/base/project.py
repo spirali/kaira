@@ -145,6 +145,7 @@ class Project(object):
         decls.set("ctx", "ca::Context");
         return decls
 
+
 def get_source(element, name):
     id = utils.xml_int(element, "id")
     return get_source_path(id, name)
@@ -184,6 +185,12 @@ def load_transition(element, project, net):
     transition.tracing = load_tracing(element)
     return transition
 
+def load_place_tracing(element):
+    trace = []
+    for e in element.findall("trace"):
+        trace.append((e.get("name"), e.get("return_type")))
+    return trace
+
 def load_place(element, project, net):
     id = utils.xml_int(element, "id")
     type_name = project.parse_typename(element.get("type"),
@@ -193,7 +200,7 @@ def load_place(element, project, net):
     place = Place(net, id, type_name, init_type, init_value)
     if element.find("code") is not None:
         place.code = element.find("code").text
-    place.tracing = load_tracing(element)
+    place.tracing = load_place_tracing(element)
     return place
 
 def load_area(element, project, net):
@@ -272,16 +279,3 @@ def load_project(element, target_envs):
 def load_project_from_file(filename, target_envs):
     doc = xml.parse(filename)
     return load_project(doc.getroot(), target_envs)
-
-def order_input_edges(edges):
-    def depends_on(x, y):
-        return not y.expr.get_undirect_vars().isdisjoint(x.expr.get_direct_vars())
-    ordered = utils.topological_ordering(edges, depends_on)
-    if ordered is None:
-        raise Exception("Edges cannot be ordered")
-    covered = set()
-    for edge in ordered:
-        if not edge.expr.get_undirect_vars().issubset(covered):
-            raise Exception("Edges cannot be ordered")
-        covered.update(edge.expr.get_direct_vars())
-    return ordered

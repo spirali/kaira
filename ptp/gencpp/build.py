@@ -93,48 +93,5 @@ def write_parameters(builder):
                      policy,
                      default)
 
-def write_trace_user_function(builder, ufunction, type):
-    declaration = "void trace_{0}(ca::TraceLog *tracelog, const {1} &value)".format(
-                                                    ufunction.get_name(), type)
-    returntype = builder.emit_type(ufunction.get_returntype())
-    code = "\t" + returntype + " result = ufunction_" + ufunction.get_name()
-    n = len(ufunction.get_parameters())
-    if n == 1:
-        code += "(value);\n"
-    else:
-        code += "(" + ", ".join(["value.t{0}".format(i) for i in xrange(n)]) + ");\n"
-    code += "\ttracelog->trace_{0}(result);\n".format(ufunction.get_returntype().name.lower())
-    builder.write_function(declaration, code)
-
-def write_trace_value(builder, type):
-    """
-    declaration = "void trace_value(ca::TraceLog *tracelog, const {0} &value)".format(
-                                                                        builder.emit_type(type))
-    code = "\tstd::string result = {0}(value);\n".format(
-            get_to_string_function_name(builder.project, type)) +\
-            "\ttracelog->trace_string(result);\n"
-    builder.write_function(declaration, code)
-    """
-
-def write_trace_user_functions(builder):
-    traces = []
-    value_traces = []
-    for net in builder.project.nets:
-        for place in net.places:
-            for fn_name in place.tracing:
-                if fn_name == "value":
-                    if not place.type in value_traces:
-                        value_traces.append(place.type)
-                    continue
-                if not (fn_name, place.type) in traces:
-                    traces.append((fn_name, place.type))
-
-    for type in value_traces:
-        write_trace_value(builder, type)
-    for fn_name, type in traces:
-        fn = builder.project.get_user_function(fn_name.replace("fn: ", ""))
-        write_trace_user_function(builder, fn, builder.emit_type(type))
-
 def write_basic_definitions(builder):
     write_parameters(builder)
-    write_trace_user_functions(builder)

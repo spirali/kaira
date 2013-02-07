@@ -244,8 +244,8 @@ class Net:
             if not "fire" in i.tracing:
                 i.tracing.insert(0, "fire")
         for i in self.places():
-            if not "value" in i.tracing:
-                i.tracing.insert(0, "value")
+            if not ("token_name", "string") in i.tracing:
+                i.tracing.insert(0, ("token_name", "string"))
 
 
 class NetItem(object):

@@ -352,10 +352,10 @@ class Transition(utils.EqByIdMixin):
         return set([ edge.place for edge in self.edges_in ])
 
     def get_output_places(self):
-        return set([ edge.place for edge in self.edges_in ])
+        return set([ edge.place for edge in self.edges_out ])
 
     def get_places(self):
-        return self.get_input_places() & self.get_output_places()
+        return self.get_input_places() | self.get_output_places()
 
     def is_any_place_traced(self):
         return any(place.tracing for place in self.get_places())

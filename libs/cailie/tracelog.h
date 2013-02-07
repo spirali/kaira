@@ -28,9 +28,9 @@ class TraceLog {
 		void trace_token_add(int place_id, void *pointer);
 		void trace_token_remove(int place_id, void *pointer);
 
-		void trace_int(const int value);
-		void trace_double(const double value);
-		void trace_string(const std::string &str);
+		void trace_value(const int value);
+		void trace_value(const double value);
+		void trace_value(const std::string &str);
 
 		static void init();
 		static void write_head(const std::string &name);
