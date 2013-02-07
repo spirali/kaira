@@ -129,8 +129,6 @@ class TransitionDrawing(DrawingBase):
                 x += tx + 12
                 cr.set_source_rgb(0, 0, 0)
                 cr.show_text(text)
-        if self.trace_text:
-            draw_trace_box(cr, px - sx / 2 - 5, py - sy / 2 - 5, self.trace_text)
 
         if self.with_values:
             cr.move_to(px + sx/2 - 20, py - sy/2)
@@ -148,8 +146,13 @@ class TransitionDrawing(DrawingBase):
             cr.show_text("T")
 
     def draw_top(self, cr):
+        px, py = self.position
+        sx, sy = self.size
+
+        if self.trace_text:
+            draw_trace_box(cr, px - sx / 2 - 5, py - sy / 2 - 5, self.trace_text)
+
         if self.error_messages and "guard" in self.error_messages:
-            px, py = self.position
             py = py - self.size[1] / 2
             draw_error_box_after_text(cr,
                                       self.guard,
@@ -260,8 +263,6 @@ class PlaceDrawing(DrawingBase):
             cr.set_source_rgb(0,0,0)
             cr.move_to(px + x, py + sy + self.radius)
             cr.show_text(self.place_type)
-        if self.trace_text:
-            draw_trace_box(cr, px - 15, py - 15, self.trace_text)
 
     def draw_top(self, cr):
         px, py = self.position
@@ -348,6 +349,9 @@ class PlaceDrawing(DrawingBase):
                 cr.move_to(text_x, text_y)
                 cr.show_text(t)
 
+        if self.trace_text:
+            draw_trace_box(cr, px - 15, py - 15, self.trace_text)
+
         if self.error_messages and "type" in self.error_messages:
             draw_error_box_after_text(
                 cr,
@@ -375,7 +379,6 @@ class EdgeDrawing(DrawingBase):
         self.item = item
 
     def draw(self, cr):
-
         if self.highlight:
             cr.set_line_width(6.5)
             cr.set_source_rgba(*self.highlight)

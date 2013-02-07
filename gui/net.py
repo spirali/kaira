@@ -534,6 +534,13 @@ class Place(NetElement):
     def is_place(self):
         return True
 
+    def tracing_to_xml(self, element):
+        for name, return_type in self.tracing:
+            e = xml.Element("trace")
+            e.set("name", name)
+            e.set("return-type", return_type)
+            element.append(e)
+
     def as_xml(self):
         e = self.create_xml_element("place")
         e.set("x", str(self.position[0]))
@@ -546,12 +553,7 @@ class Place(NetElement):
         e.set("init_string", self.init_string)
         if self.has_code():
             e.append(self.xml_code_element())
-        if self.tracing:
-            for name, return_type in self.tracing:
-                element = xml.Element("trace")
-                element.set("name", name)
-                element.set("return-type", return_type)
-                e.append(element)
+        self.tracing_to_xml(e)
         return e
 
     def export_xml(self, build_config):
@@ -562,12 +564,7 @@ class Place(NetElement):
         if self.has_code():
             e.append(self.xml_code_element())
         if build_config.tracing and self.tracing:
-            if self.tracing:
-                for name, return_type in self.tracing:
-                    element = xml.Element("trace")
-                    element.set("name", name)
-                    element.set("return-type", return_type)
-                    e.append(element)
+            self.tracing_to_xml(e)
         return e
 
     def get_drawing(self, vconfig):

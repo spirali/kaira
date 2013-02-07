@@ -123,8 +123,8 @@ class NetTool:
                 self.netview.undolist.add(undoredo.RemoveAction(self.net, item))
             self.deselect_item()
 
-        def set_tracing(obj, value, check):
-            if check:
+        def set_tracing(obj, value, add):
+            if add:
                 obj.tracing.append(value)
             else:
                 obj.tracing.remove(value)
@@ -156,6 +156,10 @@ class NetTool:
             if self.selected_item.is_place():
                 trace_menu = [ ("Add function",
                                 lambda w: tracingfn_callback(self.selected_item)) ]
+                token_name = ("token_name", "string")
+                if token_name not in self.selected_item.tracing:
+                    trace_menu.append(("Add function 'token_name'",
+                                       lambda w: set_tracing(self.selected_item, token_name, True)))
 
                 trace_fns = self.selected_item.tracing
                 if trace_fns:
