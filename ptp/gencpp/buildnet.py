@@ -520,7 +520,7 @@ def write_trace_token(builder, place, token_code, remove=False):
     else:
         builder.line("tracelog->trace_token_add({0.id}, {1});", place, token_code)
         for name, return_type in place.tracing:
-            builder.line("tracelog->trace_value({0}->value);", token_code)
+            builder.line("tracelog->trace_value({1}({0}->value));", token_code, name)
 
 def write_trace_token_list(builder, place, token_list, remove=False, begin=None):
     if begin is None:

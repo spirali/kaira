@@ -66,6 +66,7 @@ class Declarations:
     def __getitem__(self, variable):
         return self.types[variable]
 
+
 class Edge(utils.EqMixin):
 
     def __init__(self, id, transition, place, inscriptions, config, target):
@@ -223,6 +224,7 @@ class Edge(utils.EqMixin):
     def is_multicast(self):
         return "multicast" in self.config
 
+
 class EdgeInscription(utils.EqMixin):
 
     edge = None
@@ -299,6 +301,15 @@ class Place(utils.EqByIdMixin):
                                      decls,
                                      get_container_type(self.type),
                                      source)
+
+        for name, return_type in self.tracing:
+            decls = Declarations(source)
+            decls.set("a", self.type)
+            checker.check_expression("{0}(a)".format(name),
+                                     decls,
+                                     return_type,
+                                     self.get_source("type"),
+                                     "Invalid trace function '{0}'".format(name))
 
     def get_source(self, location):
         return "*{0}/{1}".format(self.id, location)

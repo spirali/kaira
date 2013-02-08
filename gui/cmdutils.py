@@ -24,9 +24,13 @@ sys.path.append(paths.PTP_DIR)
 import loader
 import os
 
-def export(filename, directory):
+def export(filename, directory, trace):
     p = loader.load_project(filename)
-    build_config = p.get_build_config("release")
+    if trace:
+        target = "traced"
+    else:
+        target = "release"
+    build_config = p.get_build_config(target)
     if directory is not None:
         build_config.directory = directory
     else:
@@ -37,9 +41,10 @@ def main():
     parser = argparse.ArgumentParser(description='Kaira gui command line controller')
     parser.add_argument('--export', metavar='filename', type=str)
     parser.add_argument('--output', metavar='directory', type=str)
+    parser.add_argument("--trace", action='store_true')
     args = parser.parse_args()
     if args.export:
-        export(args.export, args.output)
+        export(args.export, args.output, args.trace)
         return
 
 if __name__ == "__main__":

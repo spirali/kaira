@@ -116,8 +116,8 @@ class Checker:
         else:
             self.types[typename].update(TypeChecker(typename, source, functions))
 
-    def check_expression(self, expr, decls, return_type, source):
-        self.expressions.append((expr, decls, return_type, source))
+    def check_expression(self, expr, decls, return_type, source, message=None):
+        self.expressions.append((expr, decls, return_type, source, message))
 
     def prepare_writer(self, filename):
         builder = build.Builder(self.project, filename)
@@ -138,11 +138,16 @@ class Checker:
         for t in self.types.values():
             t.add_checks(tester)
 
-        for expr, decls, return_type, source in self.expressions:
+        for expr, decls, return_type, source, message in self.expressions:
             check = CheckStatement(expr + ";", decls, source=source)
+            if message:
+                check.own_message = message
             tester.add(check)
             check = CheckStatement("return (" + expr + ");", decls, return_type, source)
-            check.own_message = "Invalid type of expression"
+            if message:
+                check.own_message = message
+            else:
+                check.own_message = "Invalid type of expression"
             tester.add(check)
 
         check = tester.run()

@@ -69,7 +69,7 @@ class Project:
 
     server = None
 
-    def __init__(self, name, directory_name=None, mpi=False, rpc=False):
+    def __init__(self, name, directory_name=None, mpi=False, rpc=False, trace=False):
         self.name = name
         if directory_name is None:
             self.directory_name = name
@@ -78,6 +78,7 @@ class Project:
 
         self.mpi = mpi
         self.rpc = rpc
+        self.trace = trace
 
         self.clean()
 
@@ -108,7 +109,10 @@ class Project:
                    cwd=self.get_directory()).run()
 
     def export(self):
-        RunProgram("python", [ CMDUTILS, "--export", self.get_filename() ]).run()
+        args = [ CMDUTILS, "--export", self.get_filename() ]
+        if self.trace:
+            args.append("--trace")
+        RunProgram("python", args).run()
 
     def run_ptp(self, operation=None):
         if operation is None:

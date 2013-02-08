@@ -24,6 +24,10 @@ class BuildTest(unittest.TestCase):
     def test_broken2(self):
         Project("broken2", "broken").fail_ptp("*102/type: Missing type\n")
 
+    def test_broken_tracefn(self):
+        Project("broken_tracefn", "broken", trace=True).fail_ptp(
+            "*102/type: Invalid trace function 'int_as_string'\n")
+
     def test_parameters(self):
         Project("parameters").quick_test("7 10 123\n",
                                          processes=10,

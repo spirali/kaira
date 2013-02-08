@@ -188,7 +188,7 @@ def load_transition(element, project, net):
 def load_place_tracing(element):
     trace = []
     for e in element.findall("trace"):
-        trace.append((e.get("name"), e.get("return_type")))
+        trace.append((e.get("name"), e.get("return-type")))
     return trace
 
 def load_place(element, project, net):
