@@ -129,6 +129,11 @@ class BuildTest(unittest.TestCase):
                   "DEL y\n")
         Project("alloc2").quick_test(result, processes=2)
 
+    def test_tracelog(self):
+        p = Project("tracelog", trace=True)
+        p.quick_test(processes=2, extra_args=["-T100K"])
+        p.check_tracelog("15\n")
+
 
 class LibTest(unittest.TestCase):
     def test_lib_parameters(self):

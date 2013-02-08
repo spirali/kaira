@@ -243,9 +243,10 @@ class Net:
         for i in self.transitions():
             if not "fire" in i.tracing:
                 i.tracing.insert(0, "fire")
+        token_name = ("ca::token_name", "std::string")
         for i in self.places():
-            if not ("token_name", "string") in i.tracing:
-                i.tracing.insert(0, ("token_name", "string"))
+            if token_name not in i.tracing:
+                i.tracing.insert(0,  token_name)
 
 
 class NetItem(object):

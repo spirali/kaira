@@ -156,9 +156,9 @@ class NetTool:
             if self.selected_item.is_place():
                 trace_menu = [ ("Add function",
                                 lambda w: tracingfn_callback(self.selected_item)) ]
-                token_name = ("token_name", "string")
+                token_name = ("ca::token_name", "std::string")
                 if token_name not in self.selected_item.tracing:
-                    trace_menu.append(("Add function 'token_name'",
+                    trace_menu.append(("Add function 'ca::token_name'",
                                        lambda w: set_tracing(self.selected_item, token_name, True)))
 
                 trace_fns = self.selected_item.tracing

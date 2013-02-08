@@ -193,6 +193,11 @@ class Project:
         self.build()
         self.run(result, **kw)
 
+    def check_tracelog(self, output):
+        filename = os.path.join(self.get_directory(), "trace.kth")
+        args = [ CMDUTILS, "--tracelog", filename ]
+        RunProgram("python", args).run(output)
+
     def statespace(self, analyses=None, **kw):
         self.build("statespace")
         if analyses:

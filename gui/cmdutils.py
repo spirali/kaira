@@ -23,6 +23,7 @@ import paths
 sys.path.append(paths.PTP_DIR)
 import loader
 import os
+import tracelog
 
 def export(filename, directory, trace):
     p = loader.load_project(filename)
@@ -37,15 +38,22 @@ def export(filename, directory, trace):
         build_config.directory = os.path.dirname(filename)
     p.export(build_config)
 
+def check_tracelog(filename):
+    t = tracelog.TraceLog(filename)
+    print t.get_runinstances_count()
+
 def main():
     parser = argparse.ArgumentParser(description='Kaira gui command line controller')
     parser.add_argument('--export', metavar='filename', type=str)
     parser.add_argument('--output', metavar='directory', type=str)
     parser.add_argument("--trace", action='store_true')
+    parser.add_argument('--tracelog', metavar='filename', type=str)
     args = parser.parse_args()
     if args.export:
         export(args.export, args.output, args.trace)
         return
+    if args.tracelog:
+        check_tracelog(args.tracelog)
 
 if __name__ == "__main__":
     main()
