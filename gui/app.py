@@ -46,7 +46,7 @@ import report
 import statespace
 import utils
 
-VERSION_STRING = '0.5'
+VERSION_STRING = '0.6'
 
 class App:
     """
