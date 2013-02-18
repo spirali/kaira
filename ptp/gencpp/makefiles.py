@@ -18,7 +18,7 @@
 #
 
 import base.utils
-import paths
+import base.paths as paths
 import os.path
 
 def create_makefile_config():

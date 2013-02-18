@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2011, 2012 Stanislav Bohm
+#    Copyright (C) 2011-2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -18,94 +18,11 @@
 #
 
 import base.utils as utils
-import base.parser as parser
-from base.expressions import Env, ExprCall, ExprVar, ExprInt
 
 import xml.etree.ElementTree as xml
-from base.utils import PtpException, get_source_path
-from net import Net, Area, Place, Transition, EdgeIn, EdgeInPacking, EdgeOut
+from base.utils import get_source_path
+from net import Net, Area, Place, Transition, Edge, Declarations
 
-class ExternType(object):
-
-    def __init__(self,
-                 id,
-                 name,
-                 rawtype,
-                 transport_mode,
-                 codes,
-                 octave_value,
-                 hash_function):
-        self.id = id
-        self.name = name
-        self.rawtype = rawtype
-        self.transport_mode = transport_mode
-        self.codes = codes
-        self.octave_value =  octave_value
-        self.hash_function = hash_function
-
-    def get_name(self):
-        return self.name
-
-    def get_rawtype(self):
-        return self.rawtype
-
-    def get_transport_mode(self):
-        return self.transport_mode
-
-    def get_code(self, name):
-        return self.codes.get(name)
-
-    def has_code(self, name):
-        return name in self.codes
-
-    def is_octave_value(self):
-        return self.octave_value
-
-    def has_hash_function(self):
-        return self.hash_function
-
-
-class UserFunction(object):
-
-    """
-        @param name str
-        @param parameters list of tuples (String, Type)
-        @param returntype Type
-        @param with_context bool
-        @param code str
-    """
-    def __init__(self, id, name, parameters, returntype, with_context, code):
-        self.id = id
-        self.name = name
-        self.parameters = parameters
-        self.returntype = returntype
-        self.with_context = with_context
-        self.code = code
-
-    def get_name(self):
-        return self.name
-
-    def get_code(self):
-        return self.code
-
-    def get_returntype(self):
-        return self.returntype
-
-    def get_parameters(self):
-        return self.parameters
-
-    def get_all_types(self):
-        ts = [ t for _, t in self.parameters ]
-        ts.append(self.returntype)
-        return set(ts)
-
-    def check(self, project):
-        for t in self.get_all_types():
-            t.check(project)
-
-    def meet_declaration(self, returntype, parameter_types):
-        return self.returntype == returntype and \
-               [ t for _, t in self.parameters ] == parameter_types
 
 class Parameter(object):
 
@@ -131,15 +48,13 @@ class Parameter(object):
 
 class Project(object):
 
-    def __init__(self, name, root_directory, extenv, target_mode, description):
+    def __init__(self, name, root_directory, target_env, target_mode, description):
         self.name = name
         self.root_directory = root_directory
-        self.extenv = extenv
+        self.target_env = target_env
         self.target_mode = target_mode
         self.nets = []
         self.description = description
-        self.extern_types = {}
-        self.user_functions = {}
         self.parameters = {}
         self.build_options = {}
         self.head_code = ""
@@ -156,45 +71,12 @@ class Project(object):
     def get_modules(self):
         return [ net for net in self.nets if net.is_module() ]
 
-    def get_env(self):
-        env = Env()
-        for ufunction in self.get_user_functions():
-            params = [ t for _, t in ufunction.get_parameters() ]
-            env.add_function(ufunction.get_name(), ufunction.get_returntype(), params)
-        for param in self.get_parameters():
-            env.add_parameter(param.get_name(), param.get_type())
-        return env
-
     def get_build_option(self, name):
         value = self.build_options.get(name)
         if value is None:
             return ""
         else:
             return value
-
-    def get_extenv(self):
-        return self.extenv
-
-    def get_all_types(self):
-        ts = set().union( *[ net.get_all_types() for net in self.nets ] )
-        ts.update(*[ ufunction.get_all_types() for ufunction in self.get_user_functions() ])
-        return ts
-
-    def get_extern_types(self):
-        return self.extern_types.values()
-
-    def get_extern_type(self, name):
-        return self.extern_types.get(name)
-
-    def get_user_functions(self):
-        return self.user_functions.values()
-
-    def get_user_function(self, name):
-        return self.user_functions.get(name)
-
-    def get_user_functions_by_declaration(self, returntype, parameter_types):
-        return [ function for function in self.user_functions.values()
-                    if function.meet_declaration(returntype, parameter_types) ]
 
     def get_parameter(self, name):
         return self.parameters.get(name)
@@ -227,48 +109,57 @@ class Project(object):
     def get_head_code(self):
         return self.head_code
 
-    def inject_types(self):
-        for net in self.nets:
-            net.inject_types()
-
     def check(self):
+        checker = self.target_env.get_checker(self)
         for net in self.nets:
-            net.check()
-        for t in self.get_all_types():
-            t.check(self)
+            net.check(checker)
+        checker.run()
 
     def analyze(self):
         for net in self.nets:
             net.analyze()
+
+    def is_expr_variable(self, expr):
+        return self.target_env.is_expr_variable(expr)
+
+    def parse_typename(self, string, source):
+        return self.target_env.parse_typename(string, source)
+
+    def parse_expressions(self, string, source):
+        return self.target_env.parse_expressions(string, source)
+
+    def parse_init_expression(self, string, source):
+        return self.target_env.parse_init_expression(string, source)
+
+    def parse_expression(self, string, source, allow_empty=False):
+        return self.target_env.parse_expression(string, source, allow_empty)
+
+    def parse_edge_expression(self, string, source):
+        return self.target_env.parse_edge_expression(string, source)
+
+    def get_generator(self):
+        return self.target_env.get_generator(self)
+
+    def get_minimal_decls(self):
+        decls = Declarations()
+        decls.set("ctx", "ca::Context");
+        return decls
 
 
 def get_source(element, name):
     id = utils.xml_int(element, "id")
     return get_source_path(id, name)
 
-def load_edge_in(element, net, transition):
+def load_edge_in(element, project, net, transition):
     id = utils.xml_int(element, "id")
     place_id = utils.xml_int(element, "place-id")
-    source = get_source(element, "inscription")
-    mode, expr = parser.parse_input_inscription(utils.xml_str(element, "expr"), source)
-    if mode == 'normal':
-        return EdgeIn(id, net.get_place(place_id), transition, expr)
-    else:
-        if isinstance(expr, ExprCall) and len(expr.args) == 1:
-            limit = expr.args[0]
-        elif isinstance(expr, ExprVar):
-            limit = ExprInt(0)
-            limit.set_source(source)
-        else:
-            raise PtpException("Invalid syntax for input packing expression", source)
-        return EdgeInPacking(id, net.get_place(place_id), transition, expr.name, limit)
+    config, expressions, target = project.parse_edge_expression(
+        element.get("expr"), get_source(element, "inscription"))
+    return Edge(id, transition, net.get_place(place_id), expressions, config, target)
 
-def load_edge_out(element, net, transition):
-    id = utils.xml_int(element, "id")
-    place_id = utils.xml_int(element, "place-id")
-    mode, expr, send, guard = parser.parse_output_inscription(utils.xml_str(element, "expr"), get_source(element, "inscription"))
-    sendmode, target = send
-    return EdgeOut(id, net.get_place(place_id), transition, expr, mode, sendmode, target, guard)
+def load_edge_out(element, project, net, transition):
+    # Loading edge-in and edge-out are now same
+    return load_edge_in(element, project, net, transition)
 
 def load_tracing(element):
     trace = []
@@ -279,41 +170,54 @@ def load_tracing(element):
 def load_transition(element, project, net):
     id = utils.xml_int(element, "id")
 
-    guard = parser.parse_expression_or_empty(utils.xml_str(element, "guard"), get_source(element, "guard"))
+    guard = project.parse_expression(element.get("guard"),
+                                     get_source(element, "guard"),
+                                     allow_empty=True)
     transition = Transition(net, id, guard)
-    transition.edges_in = map(lambda e: load_edge_in(e, net, transition), element.findall("edge-in"))
-    transition.edges_out = map(lambda e: load_edge_out(e, net, transition), element.findall("edge-out"))
-
+    transition.edges_in = map(lambda e:
+        load_edge_in(e, project, net, transition), element.findall("edge-in"))
+    edges_out = map(lambda e:
+        load_edge_out(e, project, net, transition), element.findall("edge-out"))
+    transition.edges_out = [ edge for edge in edges_out if edge.is_bulk_edge() ] + \
+                           [ edge for edge in edges_out if edge.is_token_edge() ]
     if element.find("code") is not None:
         transition.code = element.find("code").text
     transition.tracing = load_tracing(element)
     return transition
 
-def load_place(element, net):
-    id = utils.xml_int(element, "id")
-    type = parser.parse_type(utils.xml_str(element, "type"), get_source(element, "type"))
-    init_expr = parser.parse_expression_or_empty(utils.xml_str(element, "init-expr"), get_source(element, "init"))
+def load_place_tracing(element):
+    trace = []
+    for e in element.findall("trace"):
+        trace.append((e.get("name"), e.get("return-type")))
+    return trace
 
-    place = Place(net, id, type, init_expr)
+def load_place(element, project, net):
+    id = utils.xml_int(element, "id")
+    type_name = project.parse_typename(element.get("type"),
+                                       get_source(element, "type"))
+    init_type, init_value = project.parse_init_expression(element.get("init-expr"),
+                                                      get_source(element, "init-expr"))
+    place = Place(net, id, type_name, init_type, init_value)
     if element.find("code") is not None:
         place.code = element.find("code").text
-    place.tracing = load_tracing(element)
+    place.tracing = load_place_tracing(element)
     return place
 
-def load_area(element, net):
+def load_area(element, project, net):
     id = utils.xml_int(element, "id")
-    expr = parser.parse_expression(utils.xml_str(element, "init-expr"), get_source(element, "instances"))
+    init_type, init_value = project.parse_init_expression(element.get("init-expr"),
+                                                      get_source(element, "init-expr"))
     places = [ net.get_place(utils.xml_int(e, "id")) for e in element.findall("place") ]
-    return Area(net, id, expr, places)
+    return Area(net, id, init_type, init_value, places)
 
 def load_net(element, project):
     net = Net(project, utils.xml_int(element, "id"), utils.xml_str(element, "name"))
     return net
 
 def load_net_content(element, project, net):
-    net.places = [ load_place(e, net) for e in element.findall("place") ]
+    net.places = [ load_place(e, project, net) for e in element.findall("place") ]
     net.transitions = [ load_transition(e, project, net) for e in element.findall("transition") ]
-    net.areas = [ load_area(e, net) for e in element.findall("area") ]
+    net.areas = [ load_area(e, project, net) for e in element.findall("area") ]
 
     interface = element.find("interface")
     if interface is not None:
@@ -321,48 +225,11 @@ def load_net_content(element, project, net):
         net.interface_edges_out = [ load_edge_out(e, net, None) for e in interface.findall("edge-out") ]
         net.interface_edges_in = [ load_edge_in(e, net, None) for e in interface.findall("edge-in") ]
 
-def load_extern_type(element):
-    t = utils.xml_str(element, "type")
-    name = utils.xml_str(element, "name")
-    id = utils.xml_int(element, "id")
-
-    if t == "native":
-        rawtype = utils.xml_str(element, "raw-type")
-        transport_mode = utils.xml_str(element, "transport-mode")
-        octave_value = utils.xml_bool(element, "octave-value")
-        hash_function = utils.xml_bool(element, "hash")
-        codes = dict((utils.xml_str(e, "name"), e.text)
-                      for e in element.findall("code"))
-        return ExternType(id,
-                          name,
-                          rawtype,
-                          transport_mode,
-                          codes,
-                          octave_value,
-                          hash_function)
-
-    if t == "protobuffer":
-        raise Exception("Need implementation")
-
-    raise Exception("Unkown extern type")
-
-def load_user_function(element):
-    id = utils.xml_int(element, "id")
-    name = utils.xml_str(element, "name")
-    with_context = utils.xml_bool(element, "with-context")
-    parameters = parser.parse_parameters_declaration(utils.xml_str(element, "parameters"), None)
-    returntype = parser.parse_type(utils.xml_str(element, "return-type"), None)
-    if element.text is None:
-        code = "\n"
-    else:
-        code = element.text
-    return UserFunction(id, name, parameters, returntype, with_context, code)
-
-def load_parameter(element):
+def load_parameter(element, project):
     name = utils.xml_str(element, "name")
     default = utils.xml_str(element, "default")
     description = utils.xml_str(element, "description")
-    type = parser.parse_type(utils.xml_str(element, "type"), None)
+    type = project.parse_typename(utils.xml_str(element, "type"), None)
     policy = utils.xml_str(element, "policy")
     return Parameter(name, type, default, description, policy)
 
@@ -372,13 +239,7 @@ def load_build_option(element, project):
     project.build_options[name] = value
 
 def load_configuration(element, project):
-    etypes = [ load_extern_type(e) for e in element.findall("extern-type") ]
-    project.extern_types = utils.create_dict(etypes, lambda item: item.get_name())
-
-    ufunctions = [ load_user_function(e) for e in element.findall("function") ]
-    project.user_functions = utils.create_dict(ufunctions, lambda item: item.get_name())
-
-    parameters = [ load_parameter(e) for e in element.findall("parameter") ]
+    parameters = [ load_parameter(e, project) for e in element.findall("parameter") ]
     project.parameters = utils.create_dict(parameters, lambda item: item.get_name())
 
     for e in element.findall("build-option"):
@@ -388,13 +249,21 @@ def load_configuration(element, project):
     if head_code is not None:
         project.head_code = head_code.text
 
-def load_project(element):
+def load_project(element, target_envs):
+    target_env = utils.xml_str(element, "target_env")
+    if target_env not in target_envs:
+        raise utils.PtpException("Unknown target environment")
+
     description = element.find("description").text
     name = utils.xml_str(element, "name")
-    extenv = utils.xml_str(element, "extenv")
     target_mode = utils.xml_str(element, "target-mode", "default")
     root_directory = utils.xml_str(element, "root-directory")
-    p = Project(name, root_directory, extenv, target_mode, description)
+
+    p = Project(name,
+                root_directory,
+                target_envs[target_env],
+                target_mode,
+                description)
 
     load_configuration(element.find("configuration"), p)
 
@@ -403,24 +272,10 @@ def load_project(element):
     for e, net in nets:
         load_net_content(e, p, net)
 
-    p.inject_types()
     p.check()
     p.analyze()
     return p
 
-def load_project_from_file(filename):
+def load_project_from_file(filename, target_envs):
     doc = xml.parse(filename)
-    return load_project(doc.getroot())
-
-def order_input_edges(edges):
-    def depends_on(x, y):
-        return not y.expr.get_undirect_vars().isdisjoint(x.expr.get_direct_vars())
-    ordered = utils.topological_ordering(edges, depends_on)
-    if ordered is None:
-        raise Exception("Edges cannot be ordered")
-    covered = set()
-    for edge in ordered:
-        if not edge.expr.get_undirect_vars().issubset(covered):
-            raise Exception("Edges cannot be ordered")
-        covered.update(edge.expr.get_direct_vars())
-    return ordered
+    return load_project(doc.getroot(), target_envs)

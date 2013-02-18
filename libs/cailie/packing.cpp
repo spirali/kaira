@@ -2,17 +2,19 @@
 #include "packing.h"
 #include <stdlib.h>
 
-CaPacker::CaPacker(size_t size) : size(size) {
+using namespace ca;
+
+ca::Packer::Packer(size_t size) : size(size) {
 	buffer = (char*) malloc (size);
 	buffer_pos = buffer;
 }
 
-CaPacker::CaPacker(size_t size, size_t reserved) : size(size + reserved) {
+ca::Packer::Packer(size_t size, size_t reserved) : size(size + reserved) {
 	buffer = (char*) malloc (size + reserved);
 	buffer_pos = buffer + reserved;
 }
 
-void CaPacker::check_size(size_t data_size) {
+void ca::Packer::reserve(size_t data_size) {
 	if (buffer_pos + data_size > buffer + size) {
 		size += data_size;
 		size *= 2;
@@ -23,7 +25,68 @@ void CaPacker::check_size(size_t data_size) {
 	}
 }
 
-void CaPacker::free()
+void ca::Packer::free()
 {
 	::free(buffer);
+}
+
+template<> int ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<int>(unpacker);
+}
+
+template<> long ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<long>(unpacker);
+}
+
+template<> long long ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<long long>(unpacker);
+}
+
+template<> unsigned int ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<unsigned int>(unpacker);
+}
+
+template<> unsigned long ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<unsigned long>(unpacker);
+}
+
+template<> unsigned long long ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<unsigned long long>(unpacker);
+}
+
+template<> double ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<double>(unpacker);
+}
+
+template<> float ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<float>(unpacker);
+}
+
+template<> bool ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<bool>(unpacker);
+}
+
+template<> char ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<char>(unpacker);
+}
+
+template<> unsigned char ca::unpack(Unpacker &unpacker)
+{
+	return direct_unpack<unsigned char>(unpacker);
+}
+
+template<> std::string ca::unpack(Unpacker &unpacker)
+{
+	size_t size = unpack<size_t>(unpacker);
+	return std::string((char*) unpacker.unpack_data(size), size);
 }

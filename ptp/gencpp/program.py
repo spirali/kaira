@@ -25,13 +25,12 @@ def write_main(builder):
     builder.line("int main(int argc, char **argv)")
     builder.block_begin()
     buildnet.write_main_setup(builder)
-    builder.line("ca_spawn_net(0);");
-    builder.line("ca_main();");
+    builder.line("ca::spawn_net(0);");
+    builder.line("ca::main();");
     builder.line("return 0;")
     builder.block_end()
 
 def write_standalone_program(builder):
     build.write_header(builder)
-    build.write_types_declaration(builder)
     buildnet.write_core(builder)
     write_main(builder)

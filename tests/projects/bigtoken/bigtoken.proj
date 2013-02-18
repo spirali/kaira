@@ -1,13 +1,14 @@
-<project extenv="C++"><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net id="101" name="Main" net-type="main"><place id="102" init_string="" place_type="Array(Int)" radius="20" x="212" y="124"><code>std::vector&lt;int&gt; v;
+<project target_env="C++"><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net id="101" name="Main" net-type="main"><edge from_item="102" id="105" inscription="x" inscription_x="225.0" inscription_y="159.0" to_item="103" /><edge from_item="103" id="106" inscription="x@1" inscription_x="290.0" inscription_y="186.0" to_item="104" /><edge from_item="104" id="108" inscription="x;y" inscription_x="366.0" inscription_y="161.0" to_item="107" /><place id="102" init_string="" name="" place_type="std::vector&lt;int&gt;" radius="20" sx="0" sy="0" x="212" y="124"><code>std::vector&lt;int&gt; v;
 	for (int t = 0; t &lt; 400000; t++) {
 		v.push_back(t % 100);
 	}
-	tokens.push_back(v);	
+	place.add(v);	
 	std::vector&lt;int&gt; v2;
 	for (int t = 0; t &lt; 400000; t++) {
 		v2.push_back(t % 10);
 	}
-	tokens.push_back(v2);</code></place><transition guard="" id="103" name="" sx="70" sy="35" x="213" y="206" /><place id="104" init_string="" place_type="Array(Int)" radius="20" x="353" y="206" /><edge from_item="102" id="105" inscription="x" inscription_x="225.001902821" inscription_y="159.647649547" to_item="103" /><edge from_item="103" id="106" inscription="x@1" inscription_x="290.0" inscription_y="186.0" to_item="104" /><transition guard="" id="107" name="" sx="70" sy="35" x="356" y="117"><code>int t;
+	place.add(v2);
+</code></place><place id="104" init_string="" name="" place_type="std::vector&lt;int&gt;" radius="20" sx="0" sy="0" x="353" y="206" /><transition guard="" id="103" name="" sx="70" sy="35" x="213" y="206" /><transition guard="" id="107" name="" sx="70" sy="35" x="356" y="117"><code>int t;
 	int sum1 = 0;
 	int sum2 = 0;
 	for (t = 0; t &lt; var.x.size(); t++) {
@@ -17,4 +18,4 @@
 	int sum = sum2 - sum1;
 	sum = sum &gt; 0?sum:-sum;
 	printf("%i\n", sum);
-	ctx.quit();</code></transition><edge from_item="104" id="108" inscription="x;y" inscription_x="366.0" inscription_y="161.0" to_item="107" /></net></project>
+	ctx.quit();</code></transition></net></project>

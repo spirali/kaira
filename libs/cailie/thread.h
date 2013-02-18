@@ -4,30 +4,33 @@
 
 #include "process.h"
 #include "tracelog.h"
+#include "messages.h"
 #include <limits.h>
 
-class CaThreadBase {
+namespace ca {
+
+class ThreadBase {
 	public:
-		CaThreadBase() : tracelog(NULL) {}
+		ThreadBase() : tracelog(NULL) {}
 
 		int get_id() { return id; }
-		virtual ~CaThreadBase() {}
+		virtual ~ThreadBase() {}
 
 		virtual void quit_all() = 0;
 		virtual int get_process_count() const = 0;
 		virtual int get_threads_count() const = 0;
 		virtual int get_process_id() const = 0;
 
-		CaTraceLog* get_tracelog() { return tracelog; }
+		TraceLog* get_tracelog() { return tracelog; }
 	protected:
 		int id;
-		CaTraceLog *tracelog;
+		TraceLog *tracelog;
 };
 
-class CaThread : public CaThreadBase {
+class Thread : public ThreadBase {
 	public:
-		CaThread();
-		~CaThread();
+		Thread();
+		~Thread();
 		void start();
 		void join();
 		void run_scheduler();
@@ -38,55 +41,57 @@ class CaThread : public CaThreadBase {
 		int get_threads_count() const { return process->get_threads_count(); }
 
 		#ifdef CA_MPI
-		CaMpiRequests * get_requests() { return &requests; }
+		MpiRequests * get_requests() { return &requests; }
 		#endif
 
-		void add_message(CaThreadMessage *message);
+		void add_message(ThreadMessage *message);
 		bool process_thread_messages();
 		int process_messages();
 		void clean_thread_messages();
-		void process_message(CaThreadMessage *message);
+		void process_message(ThreadMessage *message);
 		void quit_all();
 
-		void send(int target, CaNet *net, int place, const CaPacker &packer) {
+		void send(int target, Net *net, int place, const Packer &packer) {
 			process->multisend(target, net, place, 1, packer, this);
 		}
-		void multisend(int target, CaNet *net, int place, int tokens_count, const CaPacker &packer) {
+		void multisend(int target, Net *net, int place, int tokens_count, const Packer &packer) {
 			process->multisend(target, net, place, tokens_count, packer, this);
 		}
-		void send_multicast(const std::vector<int> &targets, CaNet *net, int place, const CaPacker &packer) {
+		void send_multicast(const std::vector<int> &targets, Net *net, int place, const Packer &packer) {
 			process->multisend_multicast(targets, net, place, 1, packer, this);
 		}
-		void multisend_multicast(const std::vector<int> &targets, CaNet *net,
-			int place, int tokens_count, const CaPacker &packer)
+		void multisend_multicast(const std::vector<int> &targets, Net *net,
+			int place, int tokens_count, const Packer &packer)
 		{
 			process->multisend_multicast(targets, net, place, tokens_count, packer, this);
 		}
-		CaProcess * get_process() const { return process; }
+		Process * get_process() const { return process; }
 
-		CaNet * spawn_net(int def_index);
+		Net * spawn_net(int def_index);
 
-		void set_process(CaProcess *process, int id) {
+		void set_process(Process *process, int id) {
 			this->process = process;
 			this->id = id;
 		}
 
-		void set_tracelog(CaTraceLog *tracelog, int id) { this->tracelog = tracelog; this->msg_id = id; }
+		void set_tracelog(TraceLog *tracelog, int id) { this->tracelog = tracelog; this->msg_id = id; }
 		int get_msg_id() { return msg_id; };
 		int get_new_msg_id();
 
 
 	protected:
-		CaProcess *process;
+		Process *process;
 		pthread_t thread;
 		pthread_mutex_t messages_mutex;
-		CaThreadMessage *messages;
+		ThreadMessage *messages;
 
 		#ifdef CA_MPI
-		CaMpiRequests requests;
+		MpiRequests requests;
 		#endif
 
 		int msg_id;
 };
+
+}
 
 #endif

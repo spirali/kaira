@@ -1,45 +1,15 @@
 
 #include "output.h"
 #include <stdio.h>
-#include <sstream>
 #include <assert.h>
 
-std::string ca_int_to_string(const int &i)
-{
-	std::stringstream osstream;
-	osstream << i;
-	return osstream.str();
-}
+using namespace ca;
 
-std::string ca_float_to_string(const float &f)
-{
-	std::stringstream osstream;
-	osstream << f;
-	return osstream.str();
-}
-
-std::string ca_double_to_string(const double &d)
-{
-	std::stringstream osstream;
-	osstream << d;
-	return osstream.str();
-}
-
-std::string ca_bool_to_string(const bool &b)
-{
-	return b ? "true" : "false";
-}
-
-std::string ca_string_to_string(const std::string &s)
-{
-	return s;
-}
-
-CaOutput::CaOutput(FILE *file) : file(file), open_tag(false)
+Output::Output(FILE *file) : file(file), open_tag(false)
 {
 }
 
-void CaOutput::child(const std::string & name)
+void Output::child(const std::string & name)
 {
 	if (open_tag) {
 		fprintf(file, ">");
@@ -49,7 +19,7 @@ void CaOutput::child(const std::string & name)
 	open_tag = true;
 }
 
-void CaOutput::back()
+void Output::back()
 {
 	if (open_tag) {
 		open_tag = false;
@@ -77,7 +47,7 @@ static void sanitize_string(std::string &s)
 	find_and_replace(s, '>', "&gt;");
 }
 
-void CaOutput::set(const std::string & name, const std::string & value)
+void Output::set(const std::string & name, const std::string & value)
 {
 	std::string v = value;
 	sanitize_string(v);
@@ -88,7 +58,7 @@ void CaOutput::set(const std::string & name, const std::string & value)
 	_set(name, v);
 }
 
-void CaOutput::text(const std::string &text)
+void Output::text(const std::string &text)
 {
 	if (open_tag) {
 		fprintf(file, ">");
@@ -99,12 +69,12 @@ void CaOutput::text(const std::string &text)
 	fputs(v.c_str(), file);
 }
 
-void CaOutput::_set(const std::string & name, const std::string & value)
+void Output::_set(const std::string & name, const std::string & value)
 {
 	fprintf(file, " %s='%s'", name.c_str(), value.c_str());
 }
 
-void CaOutput::set(const std::string & name, const bool value)
+void Output::set(const std::string & name, const bool value)
 {
 	if (value) {
 		_set(name, "true");
@@ -113,12 +83,12 @@ void CaOutput::set(const std::string & name, const bool value)
 	}
 }
 
-void CaOutput::set(const std::string & name, const int value)
+void Output::set(const std::string & name, const int value)
 {
 	fprintf(file, " %s='%i'", name.c_str(), value);
 }
 
-void CaOutput::set(const std::string & name, const size_t value)
+void Output::set(const std::string & name, const size_t value)
 {
 	fprintf(file, " %s='%llu'", name.c_str(), (unsigned long long) value);
 }

@@ -2,26 +2,19 @@
 import sys
 import base.project as project
 from base.utils import PtpException
-from gencpp.generator import CppProgramGenerator, CppLibGenerator
+import gencpp.targetenv
 import traceback
 import argparse
 
 debug_mode = False
 
-generators = {
-    "C++" : CppProgramGenerator,
-    "C++ library" : CppLibGenerator
+target_envs = {
+    "C++" : gencpp.targetenv.CppProgram(),
+    "C++ library" : gencpp.targetenv.CppLib()
 }
 
-def get_generator(project):
-    g = generators.get(project.get_extenv())
-    if g is None:
-        raise PtpException("Unknown extenv '{0}'".format(project.get_extenv()))
-    else:
-        return g(project)
-
 def get_generator_from_xml(element):
-    return get_generator(project.load_project(element))
+    return project.load_project(element, target_envs).get_generator()
 
 def main():
     parser = argparse.ArgumentParser(description="PTP - ProjectToProgram compiler")
@@ -47,8 +40,8 @@ def main():
         global debug_mode
         debug_mode = True
 
-    p = project.load_project_from_file(args.project)
-    generator = get_generator(p)
+    p = project.load_project_from_file(args.project, target_envs)
+    generator = p.get_generator()
 
     if args.output is None:
         output_directory = "."

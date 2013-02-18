@@ -23,29 +23,29 @@ import xml.etree.ElementTree as xml
 import utils
 import os
 
-from project import Parameter, Function
+from project import Parameter
 import projectcpp
-import projectjava
 
 projects = [
     projectcpp.ProjectCpp,
     projectcpp.ProjectCppLibrary,
-    projectjava.ProjectJava
 ]
 
-def create_project(filename, extenv_name):
+def create_project(filename, target_env_name):
     for project_class in projects:
-        if project_class.get_extenv_name() == extenv_name:
+        if project_class.get_target_env_name() == target_env_name:
             return project_class(filename)
-    raise Exception("Extern environment '{0}' not found".format(extenv_name))
+    raise Exception("Target environment '{0}' not found".format(target_env_name))
 
 def load_project(filename):
     doc = xml.parse(filename)
     return load_project_from_xml(doc.getroot(), filename)
 
 def load_project_from_xml(root, filename):
-    extenv_name = root.get("extenv", "C++")
-    project = create_project(filename, extenv_name)
+    target_env_name = root.get("target_env")
+    if target_env_name is None: # For backward compatability
+        target_env_name = root.get("extenv", "C++")
+    project = create_project(filename, target_env_name)
     if root.get("target-mode"):
         project.target_mode = root.get("target-mode")
     loader = BasicLoader(project)
@@ -61,12 +61,6 @@ def load_project_from_xml(root, filename):
 
     project.id_counter += 1
 
-    # For backward compatability
-    # fix ids
-    for et in project.extern_types:
-        if et.id == -1:
-            et.id = project.new_id()
-
     return project
 
 def load_parameter(element, project):
@@ -79,38 +73,6 @@ def load_parameter(element, project):
     p.changed()
     project.add_parameter(p)
 
-def load_extern_type(element, project, loader):
-    # Default value is "native" for backward compatability
-    t = utils.xml_str(element, "type", "native")
-    p = project.create_extern_type(t)
-    if element.get("id"):
-        p.id = loader.get_id(element)
-    else:
-        p.id = -1 # For backward compatability, id are fixed after load
-    p.set_name(utils.xml_str(element, "name"))
-
-    if t == "native":
-        p.set_raw_type(utils.xml_str(element, "raw-type"))
-        p.set_transport_mode(utils.xml_str(element, "transport-mode"))
-        p.set_octave_value(utils.xml_bool(element, "octave-value", False))
-        p.set_hash_function(utils.xml_bool(element, "hash", False))
-        for e in element.findall("code"):
-            name = utils.xml_str(e, "name")
-            p.set_function_code(name, e.text)
-    elif t == "protobuffer":
-        p.code = element.text
-    project.add_extern_type(p)
-
-def load_function(element, project, loader):
-    id = loader.get_id(element)
-    f = Function(id)
-    f.set_name(utils.xml_str(element, "name"))
-    f.set_return_type(utils.xml_str(element, "return-type"))
-    f.set_parameters(utils.xml_str(element, "parameters"))
-    f.set_with_context(utils.xml_bool(element, "with-context", False))
-    f.set_function_code(element.text)
-    project.add_function(f)
-
 def load_build_option(element, project):
     name = utils.xml_str(element, "name")
     value = element.text
@@ -121,13 +83,8 @@ def load_build_option(element, project):
 def load_configuration(element, project, loader):
     for e in element.findall("parameter"):
         load_parameter(e, project)
-    for e in element.findall("extern-type"):
-        load_extern_type(e, project, loader)
     for e in element.findall("build-option"):
         load_build_option(e, project)
-    for e in element.findall("function"):
-        load_function(e, project, loader)
-
     if element.find("head-code") is not None:
         project.set_head_code(element.find("head-code").text)
 
@@ -146,11 +103,11 @@ def import_project_from_xml(project, root, filename):
     project.id_counter += 1
     return project
 
-def new_empty_project(directory, extenv_name):
+def new_empty_project(directory, target_env_name):
     os.mkdir(directory)
     name = os.path.basename(directory)
     project_filename = os.path.join(directory,name + ".proj")
-    project = create_project(project_filename, extenv_name)
+    project = create_project(project_filename, target_env_name)
 
     if project.is_library():
         net = Net(project, "module", name)

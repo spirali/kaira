@@ -5,22 +5,24 @@
 #include <string>
 #include <vector>
 
-enum CaParameterMode {
-	CA_PARAMETER_MANDATORY,
-	CA_PARAMETER_OPTIONAL,
-	CA_PARAMETER_CONSTANT,
-	CA_PARAMETER_SETTED, // Parameter was explicitely setted
+namespace ca {
+
+enum ParameterMode {
+	PARAMETER_MANDATORY,
+	PARAMETER_OPTIONAL,
+	PARAMETER_CONSTANT,
+	PARAMETER_SETTED, // Parameter was explicitely setted
 };
 
-class CaParameter{
+class Parameter{
 
 	public:
-		CaParameter(const std::string &name,
+		Parameter(const std::string &name,
 					const std::string &description,
-					CaParameterMode mode)
+					ParameterMode mode)
 						: name(name), description(description), mode(mode)
 						{}
-		virtual ~CaParameter() {};
+		virtual ~Parameter() {};
 		virtual bool parse_value(const std::string &str) = 0;
 		bool check_mode_before_set();
 		bool check_mode_before_run();
@@ -30,17 +32,17 @@ class CaParameter{
 	protected:
 		std::string name;
 		std::string description;
-		CaParameterMode mode;
+		ParameterMode mode;
 };
 
-class CaParameterInt : public CaParameter{
+class ParameterInt : public Parameter{
 	public:
-		CaParameterInt(
+		ParameterInt(
 			const std::string &name,
 			const std::string &description,
-			CaParameterMode mode,
+			ParameterMode mode,
 			int default_value = 0) :
-				CaParameter(name, description, mode), value(default_value)
+				Parameter(name, description, mode), value(default_value)
 			{}
 		bool parse_value(const std::string &str);
 		int operator()() const { return value; }
@@ -49,9 +51,11 @@ class CaParameterInt : public CaParameter{
 		int value;
 };
 
-void ca_set_parameter(
-	std::vector<CaParameter*> &parameters,
+void set_parameter(
+	std::vector<Parameter*> &parameters,
 	char *name,
 	char *value);
+
+}
 
 #endif // CAILIE_PARAMETERS_H

@@ -4,17 +4,18 @@
 
 #include "net.h"
 #include "thread.h"
-#include "place.h"
+#include "token.h"
 #include <deque>
 
 namespace cass {
 
 	struct Packet {
+		int from_process;
 		size_t size;
 		void *data;
 	};
 
-	class Net : public CaNetBase
+	class Net : public ca::NetBase
 	{
 		public:
 			virtual Net *copy() = 0;
@@ -25,7 +26,7 @@ namespace cass {
 
 	typedef bool (NetEqFn)(Net *, Net*);
 
-	class Thread : public CaThreadBase {
+	class Thread : public ca::ThreadBase {
 		public:
 			Thread(std::deque<Packet> *packets, int process_id, int thread_id)
 				: packets(packets),
@@ -44,29 +45,29 @@ namespace cass {
 			}
 
 			void send(int target,
-					  CaNetBase *net,
+					  ca::NetBase *net,
                       int place_index,
-                      const CaPacker &packer) {
+                      const ca::Packer &packer) {
 				multisend(target, net, place_index, 1, packer);
 			}
 			void multisend(int target,
-						   CaNetBase *net,
+						   ca::NetBase *net,
 						   int place_index,
 						   int tokens_count,
-                           const CaPacker &packer) {
+                           const ca::Packer &packer) {
 				std::vector<int> a(1);
 				a[0] = target;
 				multisend_multicast(a, net, place_index, tokens_count, packer);
 			}
 
 			void send_multicast(const std::vector<int> &targets,
-							    CaNetBase *net,
+							    ca::NetBase *net,
                                 int place_index,
-                                const CaPacker &packer) {
+                                const ca::Packer &packer) {
 				multisend_multicast(targets, net, place_index, 1, packer);
 			}
-			void multisend_multicast(const std::vector<int> &targets, CaNetBase *net,
-				int place_index, int tokens_count, const CaPacker &packer);
+			void multisend_multicast(const std::vector<int> &targets, ca::NetBase *net,
+				int place_index, int tokens_count, const ca::Packer &packer);
 			bool get_quit_flag() { return quit; }
 		protected:
 			std::deque<Packet> *packets;
@@ -76,15 +77,15 @@ namespace cass {
 	};
 
 	template<typename T>
-	class Place : public CaPlace<T> {
+	class TokenList : public ca::TokenList<T> {
 		public:
-			Place() : CaPlace<T>() {}
+			TokenList() : ca::TokenList<T>() {}
 
-			Place(Place &place) : CaPlace<T>() {
+			TokenList(TokenList &place) : ca::TokenList<T>() {
 				if (place.token == NULL) {
 					return;
 				}
-				CaToken<T> *t = place.token;
+				ca::Token<T> *t = place.token;
 				do {
 					this->add(t->value);
 					t = t->next;
@@ -96,7 +97,7 @@ namespace cass {
 				if (this->token == NULL) {
 					return 0;
 				}
-				CaToken<T> *t = this->token;
+				ca::Token<T> *t = this->token;
 				size_t h = 0;
 				do {
 					h += hash_fn(t->value);
@@ -110,15 +111,15 @@ namespace cass {
 				return h;
 			}
 
-			bool operator==(const Place<T> &rhs) const {
+			bool operator==(const TokenList<T> &rhs) const {
 				if (rhs.tokens_count != this->tokens_count) {
 					return false;
 				}
 				if (this->tokens_count == 0) {
 					return true;
 				}
-				CaToken<T> *t1 = this->token;
-				CaToken<T> *t2 = rhs.token;
+				ca::Token<T> *t1 = this->token;
+				ca::Token<T> *t2 = rhs.token;
 				do {
 					if (t1->value != t2->value) {
 						return false;

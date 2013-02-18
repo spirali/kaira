@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
+#    Copyright (C) 2010-2013 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
@@ -38,8 +38,6 @@ import simview
 import codeedit
 import process
 import settings
-import externtypes
-import functions
 import loader
 import ptp
 import runview
@@ -146,8 +144,8 @@ class App:
                 project_name_changed()
         builder = gtkutils.load_ui("newproject-dialog")
         for project_class in loader.projects:
-            builder.get_object("newproject-extenv").append_text(project_class.get_extenv_name())
-        builder.get_object("newproject-extenv").set_active(0)
+            builder.get_object("newproject-target-env").append_text(project_class.get_target_env_name())
+        builder.get_object("newproject-target-env").set_active(0)
         dlg = builder.get_object("newproject-dialog")
         dlg.set_transient_for(self.window)
         builder.get_object("newproject-name").connect("changed", project_name_changed)
@@ -160,8 +158,8 @@ class App:
                 if os.path.exists(dirname):
                     self.show_error_dialog("Path '%s' already exists" % dirname)
                     return
-                extenv_name = builder.get_object("newproject-extenv").get_active_text()
-                p = self._catch_io_error(lambda: loader.new_empty_project(dirname, extenv_name))
+                target_env_name = builder.get_object("newproject-target-env").get_active_text()
+                p = self._catch_io_error(lambda: loader.new_empty_project(dirname, target_env_name))
                 if p is not None:
                     self.set_project(p)
         finally:
@@ -371,37 +369,6 @@ class App:
         self.window.add_tab(Tab(name, editor, place, mainmenu_groups=("project",)))
         editor.jump_to_position(position)
 
-
-    def extern_type_functions_edit(self, externtype, position=None):
-        if self.window.switch_to_tab_by_key(
-            externtype,
-            lambda tab: tab.widget.jump_to_position(position)):
-            return
-
-        editor = externtypes.ExternTypeEditor(self.project, externtype)
-        self.window.add_tab(Tab(externtype.get_name(),
-                                editor,
-                                externtype,
-                                mainmenu_groups=("project",)))
-        editor.jump_to_position(position)
-
-    def function_edit(self, function, lineno=None):
-        position = ("", lineno) if lineno is not None else None
-        if self.window.switch_to_tab_by_key(
-                function,
-                lambda tab: tab.widget.jump_to_position(position)):
-            return
-        try:
-            editor = functions.FunctionEditor(self.project, function)
-            self.window.add_tab(Tab(function.get_name(),
-                                    editor,
-                                    function,
-                                    mainmenu_groups=("project",)))
-            editor.jump_to_position(position)
-        except ptp.PtpException, e:
-            self.console_write("Cannot open function '{0}'\n".format(function.get_name()), "error")
-            self.console_write(str(e) + "\n", "error")
-
     def catch_ptp_exception(self, fn, show_errors=True):
         try:
             return (True, fn())
@@ -591,7 +558,7 @@ class App:
 
     def _project_filename_changed(self):
         self.window.set_title("Kaira - {0} ({1})" \
-            .format(self.project.get_name(), self.project.get_extenv_name()))
+            .format(self.project.get_name(), self.project.get_target_env_name()))
 
     def _run_build_program(self, name, args, directory, ok_callback, fail_callback):
         def on_exit(code):
@@ -654,16 +621,21 @@ class App:
                     fail_callback()
 
         def on_line(line, stream):
-            #self.console_write(line)
+            if debug:
+                self.console_write(line)
             stdout.append(line)
             return True
         if not self.export_project(proj, build_config):
             return
+
+
+        debug = self.settings.getboolean("main", "ptp-debug")
         p = process.Process(paths.PTP_BIN, on_line, on_exit)
         p.cwd = proj.get_directory()
 
         args = []
-        if self.settings.getboolean("main", "ptp-debug"):
+
+        if debug:
             args.append("--debug")
 
         if build_config.directory is not None:
@@ -683,6 +655,7 @@ class App:
         location = match.group("location")
         message = match.group("message")
 
+        net = None
         if match.group("id_int") is not None:
             net, item = self.project.get_net_and_item(int(match.group("id_int")))
             if item is None:
@@ -714,10 +687,6 @@ class App:
             callback = lambda: self.transition_edit(item, line_no - 2)
         elif section == "init_function":
             callback = lambda: self.place_edit(item, line_no - 2)
-        elif section == "user_function":
-            callback = lambda: self.function_edit(item, line_no - 2)
-        elif section in ("getstring", "pack", "unpack", "hash"):
-            callback = lambda: self.extern_type_functions_edit(item, (section, line_no - 2))
         elif net is not None:
             callback = lambda: self.switch_to_net(net)
         else:

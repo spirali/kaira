@@ -19,12 +19,11 @@
 
 class PtpException(Exception):
 
-    def __init__(self, message, source = None):
-        if source is None:
-            text = message
-        else:
-            text = source + ": " + message
-        Exception.__init__(self, text)
+    def __init__(self, message, source=None):
+        if source is not None:
+            message = source + ": " + message
+        Exception.__init__(self, message)
+
 
 class EqMixin(object):
 
@@ -34,6 +33,7 @@ class EqMixin(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
 
 class EqByIdMixin(object):
 
@@ -118,6 +118,11 @@ def create_dict(lst, key):
         d[key(item)] = item
     return d
 
+def key_not_in_list(dictionary, lst):
+    for key in dictionary:
+        if key not in lst:
+            return key
+
 id_counter = 1000
 def get_unique_id():
     global id_counter
@@ -180,5 +185,8 @@ def unions(lst, fn=None):
 
 def get_source_path(id, name):
     return "*{0}/{1}".format(id, name)
+
+def first(lst):
+    return lst[0]
 
 

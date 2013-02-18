@@ -14,8 +14,9 @@
 #include <netinet/in.h>
 #include <unistd.h>
 
+using namespace ca;
 
-static int ca_init_listen_socket(int port)
+static int init_listen_socket(int port)
 {
 	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sock == -1) {
@@ -41,7 +42,7 @@ static int ca_init_listen_socket(int port)
 	return sock;
 }
 
-int CaListener::get_port()
+int Listener::get_port()
 {
 	// If -s was "auto" then print port number at stdout
 	struct sockaddr_in sockname;
@@ -53,37 +54,37 @@ int CaListener::get_port()
 	return ntohs(sockname.sin_port);
 }
 
-void CaListener::init(int port)
+void Listener::init(int port)
 {
-	listen_socket = ca_init_listen_socket(port);
+	listen_socket = init_listen_socket(port);
 }
 
 void * listener_thread(void *data)
 {
-	CaListener *listener = (CaListener*) data;
+	Listener *listener = (Listener*) data;
 	listener->main();
 	return NULL;
 }
 
-void CaListener::start()
+void Listener::start()
 {
 	pthread_create(&thread, NULL, listener_thread, this);
 }
 
 
-void CaListener::wait_for_connection()
+void Listener::wait_for_connection()
 {
 	fd_set s;
 	FD_ZERO(&s);
 	FD_SET(listen_socket,&s);
 	int r = select(listen_socket + 1, &s, NULL, NULL, NULL);
 	if (r < 0) {
-		perror("CaListener::wait_for_connection");
+		perror("Listener::wait_for_connection");
 		exit(-1);
 	}
 }
 
-void CaListener::main()
+void Listener::main()
 {
 	for(;;) {
 		int client = accept(listen_socket, NULL, NULL);
@@ -124,7 +125,7 @@ void CaListener::main()
 		/* Wait for all process */
 		pthread_barrier_wait(&barrier1);
 		/* Because there is always at least one thread we can use thread 0 as source of list of networks */
-		ca_write_header(comm_out, process_count, threads_count);
+		write_header(comm_out, process_count, threads_count);
 		process_commands(comm_in, comm_out);
 		pthread_barrier_wait(&barrier2);
 
@@ -135,7 +136,7 @@ void CaListener::main()
 }
 
 #define LINE_LENGTH_LIMIT 4096
-void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
+void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 {
 	char line[LINE_LENGTH_LIMIT];
 	for(;;) {
@@ -184,7 +185,7 @@ void CaListener::process_commands(FILE *comm_in, FILE *comm_out)
 				fprintf(comm_out, "There is no such process\n");
 				continue;
 			}
-			CaProcess *p = processes[process_id];
+			Process *p = processes[process_id];
 			p->fire_transition(transition_id);
 			fprintf(comm_out, "Ok\n");
 			bool again;

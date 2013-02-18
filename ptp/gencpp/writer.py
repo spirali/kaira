@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm
+#    Copyright (C) 2012, 2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -20,12 +20,33 @@
 from base.writer import Writer
 import os
 
-def emit_declarations(emitter, decls, reference = False):
+def emit_declarations(decls, reference=False):
     if reference:
         r = "&"
     else:
         r = ""
-    return ",".join(("{0} {2}{1}".format(emitter.emit_type(t), name, r) for name, t in decls))
+    return ",".join(("{0} {2}{1}".format(t, name, r) for name, t in decls))
+
+def const_string(value):
+    def escape(char):
+        if char == "\n":
+            return "\\n"
+        if char == "\r":
+            return "\\r"
+        if char == "\t":
+            return "\\t"
+        if char == "\\":
+            return "\\\\"
+        if char == '"':
+            return '\\"'
+        return char
+    return '"{0}"'.format("".join((escape(char) for char in value)))
+
+def const_boolean(value):
+    if value:
+        return "true"
+    else:
+        return "false"
 
 
 class CppWriter(Writer):
@@ -90,9 +111,12 @@ class CppWriter(Writer):
         self.write_method_start(decl)
 
     def line_directive(self, filename, lineno):
-        self.line('#line {0} "{1}"', lineno, filename)
+        if filename is None:
+            self.line('#line {0} __BASE_FILE__', lineno)
+        else:
+            self.line('#line {0} "{1}"', lineno, filename)
 
-    def write_function(self, declaration, code, file_lineno = None):
+    def write_function(self, declaration, code, file_lineno=None):
         if file_lineno:
             filename, lineno = file_lineno
             self.line_directive(filename, lineno)
@@ -101,8 +125,5 @@ class CppWriter(Writer):
         self.raw_text(code)
         self.line("}}")
         if file_lineno:
-            self.line_directive(os.path.basename(self.filename),
-                                                 self.get_next_line_number())
-
-    def emit_declarations(self, decls, reference = False):
-        return emit_declarations(self.emitter, decls, reference)
+            self.line_directive(None,
+                                self.get_next_line_number() + 1)

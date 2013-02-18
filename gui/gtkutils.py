@@ -24,7 +24,7 @@ import paths
 def escape_menu_name(name):
     return name.replace("_", " ")
 
-def build_menu(description):
+def build_menu(description, use_underline=True):
     menu = gtk.Menu()
     for name, action in description:
         if name == "-":
@@ -35,16 +35,16 @@ def build_menu(description):
             item = gtk.CheckMenuItem(name)
             item.set_active(check)
         else:
-            item = gtk.MenuItem(name)
+            item = gtk.MenuItem(name, use_underline)
         if isinstance(action, list):
-            item.set_submenu(build_menu(action))
+            item.set_submenu(build_menu(action, use_underline))
         else:
             item.connect("activate", action)
         menu.append(item)
     return menu
 
 def show_context_menu(menu_actions, event):
-    menu = build_menu(menu_actions)
+    menu = build_menu(menu_actions, False)
     menu.show_all()
     menu.popup(None, None, None, event.button, event.get_time())
 

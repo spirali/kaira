@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011 Stanislav Bohm
+#    Copyright (C) 2010, 2011, 2013 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
@@ -129,8 +129,6 @@ class TransitionDrawing(DrawingBase):
                 x += tx + 12
                 cr.set_source_rgb(0, 0, 0)
                 cr.show_text(text)
-        if self.trace_text:
-            draw_trace_box(cr, px - sx / 2 - 5, py - sy / 2 - 5, self.trace_text)
 
         if self.with_values:
             cr.move_to(px + sx/2 - 20, py - sy/2)
@@ -148,12 +146,19 @@ class TransitionDrawing(DrawingBase):
             cr.show_text("T")
 
     def draw_top(self, cr):
+        px, py = self.position
+        sx, sy = self.size
+
+        if self.trace_text:
+            draw_trace_box(cr, px - sx / 2 - 5, py - sy / 2 - 5, self.trace_text)
+
         if self.error_messages and "guard" in self.error_messages:
-            px, py = self.position
-            sx, sy = utils.text_size(cr, self.guard)
-            tx = px - sx / 2
-            ty = py - self.size[1]/2 - sy/2 - 2
-            draw_error_box_after_text(cr, self.guard, (tx, ty), self.error_messages["guard"])
+            py = py - self.size[1] / 2
+            draw_error_box_after_text(cr,
+                                      self.guard,
+                                      (px, py),
+                                      self.error_messages["guard"],
+                                      centered=True)
         if self.error_messages and None in self.error_messages:
             draw_error_box(cr, self.position, self.error_messages[None])
 
@@ -258,11 +263,6 @@ class PlaceDrawing(DrawingBase):
             cr.set_source_rgb(0,0,0)
             cr.move_to(px + x, py + sy + self.radius)
             cr.show_text(self.place_type)
-        if self.trace_text:
-            draw_trace_box(cr, px - 15, py - 15, self.trace_text)
-
-#*******************************************************************************
-# Repair simulation drawing
 
     def draw_top(self, cr):
         px, py = self.position
@@ -349,6 +349,9 @@ class PlaceDrawing(DrawingBase):
                 cr.move_to(text_x, text_y)
                 cr.show_text(t)
 
+        if self.trace_text:
+            draw_trace_box(cr, px - 15, py - 15, self.trace_text)
+
         if self.error_messages and "type" in self.error_messages:
             draw_error_box_after_text(
                 cr,
@@ -356,12 +359,12 @@ class PlaceDrawing(DrawingBase):
                 (px + self.size[0] + self.radius, py + self.size[1] + self.radius),
                 self.error_messages["type"])
 
-        if self.error_messages and "init" in self.error_messages:
+        if self.error_messages and "init-expr" in self.error_messages:
             draw_error_box_after_text(
                 cr,
                 self.init_string,
                 (px + self.size[0] + self.radius, py - self.size[1] - self.radius),
-                self.error_messages["init"])
+                self.error_messages["init-expr"])
 
 class EdgeDrawing(DrawingBase):
 
@@ -376,7 +379,6 @@ class EdgeDrawing(DrawingBase):
         self.item = item
 
     def draw(self, cr):
-
         if self.highlight:
             cr.set_line_width(6.5)
             cr.set_source_rgba(*self.highlight)
@@ -402,7 +404,11 @@ class EdgeDrawing(DrawingBase):
 
     def draw_top(self, cr):
         if self.error_messages and "inscription" in self.error_messages:
-            draw_error_box_after_text(cr, self.inscription, self.inscription_position, self.error_messages["inscription"])
+            draw_error_box_after_text(cr,
+                                      self.inscription,
+                                      self.inscription_position,
+                                      self.error_messages["inscription"],
+                                      centered=True)
 
 
 class AreaDrawing(DrawingBase):
@@ -443,9 +449,11 @@ class AreaDrawing(DrawingBase):
         cr.show_text(self.name)
 
     def draw_top(self, cr):
-        if self.error_messages and "instances" in self.error_messages:
+        if self.error_messages and "init-expr" in self.error_messages:
             px, py = self.position
-            draw_error_box_after_text(cr, self.init_expr,(px, py - 5), self.error_messages["instances"])
+            draw_error_box_after_text(cr,
+                                      self.init_expr,(px, py - 5),
+                                      self.error_messages["init-expr"])
 
 
 class InterfaceDrawing(DrawingBase):
@@ -498,9 +506,11 @@ class InterfaceNodeDrawing(DrawingBase):
         cr.fill()
 
 
-def draw_error_box_after_text(cr, text, position, lines):
+def draw_error_box_after_text(cr, text, position, lines, centered=False):
     if text is not None:
         sx, sy = utils.text_size(cr, text)
+        if centered:
+            sx = sx / 2
         draw_error_box(cr, (position[0] + 5 + sx, position[1]), lines)
     else:
         draw_error_box(cr, position, lines)
@@ -508,7 +518,7 @@ def draw_error_box_after_text(cr, text, position, lines):
 def draw_error_box(cr, position, lines):
     assert len(lines) > 0
     letter_y = utils.text_size(cr,"W")[1] * 1.5
-    size_x = max([ utils.text_size(cr, line)[0] for line in lines ]) + 10
+    size_x = max([ utils.text_size(cr, line)[0] for line in lines ]) + 15
     size_y = letter_y * (len(lines) + 1)
     #size_x = max( [ s[0] for s in sizes ] ) + 10
     px, py = position

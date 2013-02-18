@@ -5,10 +5,14 @@
 #include <string>
 #include <vector>
 #include <stack>
+#include <sstream>
+#include <stdint.h>
 
-class CaOutput {
+namespace ca {
+
+class Output {
 	public:
-		CaOutput(FILE *file);
+		Output(FILE *file);
 
 		void child(const std::string &name);
 		void back();
@@ -29,10 +33,41 @@ class CaOutput {
 		bool open_tag;
 };
 
-std::string ca_int_to_string(const int &i);
-std::string ca_double_to_string(const double &d);
-std::string ca_float_to_string(const float &f);
-std::string ca_bool_to_string(const bool &b);
-std::string ca_string_to_string(const std::string &s);
+template<typename T> std::string to_string(const T &value) {
+	std::stringstream s;
+	s << value;
+	return s.str();
+}
+
+template<typename T> std::string token_name(const T &value) {
+	return to_string(value);
+}
+
+inline std::string token_name(const std::string &value) {
+	return value;
+}
+
+inline std::string token_name(const bool &value) {
+	return value ? "true" : "false";
+}
+
+template<typename T> std::string token_name(const std::vector<T> &value) {
+	std::stringstream s;
+	s << "[";
+	typename std::vector<T>::const_iterator i = value.begin();
+
+	if (i != value.end()) {
+		s << token_name(*i);
+		i++;
+		for (; i != value.end(); i++) {
+			s << "," << token_name(*i);
+		}
+	}
+
+	s << "]";
+	return s.str();
+}
+
+}
 
 #endif // CAILIE_OUTPUT_H

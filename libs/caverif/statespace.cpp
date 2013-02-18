@@ -2,10 +2,10 @@
 #include "statespace.h"
 #include <vector>
 
-extern CaNetDef **defs;
+extern ca::NetDef **defs;
 extern int defs_count;
-extern int ca_process_count;
-extern char *ca_project_description_string;
+extern int process_count;
+extern char *project_description_string;
 
 using namespace cass;
 
@@ -29,19 +29,19 @@ static void args_callback(char c, char *optarg, void *data)
 	}
 }
 
-void cass::init(int argc, char **argv, std::vector<CaParameter*> &parameters)
+void cass::init(int argc, char **argv, std::vector<ca::Parameter*> &parameters)
 {
 	char s[1024];
 	strncpy(s, argv[0], 1024);
 	project_name = basename(s); // basename can modify its argument
-	ca_init(argc, argv, parameters, "V:", args_callback);
+	init(argc, argv, parameters, "V:", args_callback);
 }
 
-Node::Node(CaNetDef *net_def) : flag(NULL)
+Node::Node(ca::NetDef *net_def) : flag(NULL)
 {
-	nets = new Net*[ca_process_count];
-	packets = new std::deque<Packet>[ca_process_count];
-	for (int i = 0; i < ca_process_count; i++) {
+	nets = new Net*[process_count];
+	packets = new std::deque<Packet>[process_count];
+	for (int i = 0; i < process_count; i++) {
 		Thread thread(packets, i, 0);
 		nets[i] = (Net*) net_def->spawn(&thread);
 	}
@@ -49,16 +49,16 @@ Node::Node(CaNetDef *net_def) : flag(NULL)
 
 Node::Node() : flag(NULL)
 {
-	nets = new Net*[ca_process_count];
-	packets = new std::deque<Packet>[ca_process_count];
+	nets = new Net*[process_count];
+	packets = new std::deque<Packet>[process_count];
 }
 
 Node::Node(const std::vector<TransitionActivation> & activations, std::deque<Packet> *packets)
 	: activations(activations), flag(NULL)
 {
-	nets = new Net*[ca_process_count];
-	this->packets = new std::deque<Packet>[ca_process_count];
-	for (int t = 0; t < ca_process_count; t++) {
+	nets = new Net*[process_count];
+	this->packets = new std::deque<Packet>[process_count];
+	for (int t = 0; t < process_count; t++) {
 		this->packets[t] = packets[t];
 	}
 }
@@ -82,13 +82,13 @@ void Node::generate(Core *core)
 		return;
 	}
 
-	CaNetDef *def = core->get_net_def();
-	const std::vector<CaTransitionDef*> &transitions =
+	ca::NetDef *def = core->get_net_def();
+	const std::vector<ca::TransitionDef*> &transitions =
 		def->get_transition_defs();
 	int transitions_count = def->get_transitions_count();
 
 	/* Fire transitions */
-	for (int p = 0; p < ca_process_count; p++) {
+	for (int p = 0; p < process_count; p++) {
 		Node *node = NULL;
 		for (int i = 0; i < transitions_count; i++) {
 			if (node == NULL) {
@@ -129,21 +129,21 @@ void Node::generate(Core *core)
 	}
 
 	/* Receive packets */
-	for (int p = 0; p < ca_process_count; p++) {
+	for (int p = 0; p < process_count; p++) {
 		if (packets[p].empty()) {
 			continue;
 		}
 		Node *node = copy_state();
 		Packet packet = node->packets[p].front();
 		node->packets[p].pop_front();
-		CaTokens *tokens = (CaTokens *) packet.data;
-		CaUnpacker unpacker(tokens + 1);
+		ca::Tokens *tokens = (ca::Tokens *) packet.data;
+		ca::Unpacker unpacker(tokens + 1);
 		Net *net = node->nets[p];
 		int place_index = tokens->place_index;
 		int tokens_count = tokens->tokens_count;
 		Thread thread(node->packets, -1, -1);
 		for (int t = 0; t < tokens_count; t++) {
-			net->receive(&thread, place_index, unpacker);
+			net->receive(&thread, packet.from_process, place_index, unpacker);
 		}
 		Node *n = core->add_node(node);
 		nexts.push_back(n);
@@ -153,7 +153,7 @@ void Node::generate(Core *core)
 Node* Node::copy_state()
 {
 	Node *node = new Node(activations, packets);
-	for (int i = 0; i < ca_process_count; i++) {
+	for (int i = 0; i < process_count; i++) {
 		node->nets[i] = nets[i]->copy();
 	}
 	return node;
@@ -196,13 +196,13 @@ size_t Node::state_hash() const
 		h ^= v;
 	}
 
-	for (int t = 0; t < ca_process_count; t++) {
+	for (int t = 0; t < process_count; t++) {
 		h += nets[t]->hash();
 		h += h << 10;
 		h ^= h >> 6;
 		std::deque<Packet>::const_iterator i;
 		for (i = packets[t].begin(); i != packets[t].end(); i++) {
-			h = ca_hash(i->data, i->size, h);
+			h = ca::hash(i->data, i->size, h);
 		}
 	}
 
@@ -215,7 +215,7 @@ bool Node::state_equals(const Node &node) const
 	if (activations.size() != node.activations.size()) {
 		return false;
 	}
-	for (int i = 0; i < ca_process_count; i++) {
+	for (int i = 0; i < process_count; i++) {
 		if (packets[i].size() != node.packets[i].size()) {
 			return false;
 		}
@@ -237,7 +237,7 @@ bool Node::state_equals(const Node &node) const
 			return false;
 	}
 
-	for (int i = 0; i < ca_process_count; i++) {
+	for (int i = 0; i < process_count; i++) {
 		std::deque<Packet>::const_iterator p1 = packets[i].begin();
 		std::deque<Packet>::const_iterator p2 = node.packets[i].begin();
         for (; p1 != packets[i].end(); p1++, p2++) {
@@ -247,7 +247,7 @@ bool Node::state_equals(const Node &node) const
 		}
 	}
 
-	for (int i = 0; i < ca_process_count; i++) {
+	for (int i = 0; i < process_count; i++) {
 		if (!nets[i]->is_equal(*node.nets[i]))
 			return false;
 	}
@@ -332,7 +332,7 @@ void Core::postprocess()
 	}
 
 	FILE *f = fopen((project_name + ".kreport").c_str(), "w");
-	CaOutput report(f);
+	ca::Output report(f);
 	report.child("report");
 	report.set("version", 1);
 
@@ -349,14 +349,14 @@ void Core::postprocess()
 	}
 
 	report.child("description");
-	report.text(ca_project_description_string);
+	report.text(project_description_string);
 	report.back();
 
 	report.back();
 	fclose(f);
 }
 
-void Core::run_analysis_quit(CaOutput &report)
+void Core::run_analysis_quit(ca::Output &report)
 {
 	size_t quit_states = 0;
 	size_t dead_ends = 0;
@@ -433,28 +433,29 @@ Node * Core::get_node(Node *node) const
 
 int Thread::get_process_count() const
 {
-	return ca_process_count;
+	return process_count;
 }
 
 void Thread::multisend_multicast(const std::vector<int> &targets,
-								 CaNetBase *net,
+								 ca::NetBase *net,
 								 int place_index,
 								 int tokens_count,
-								 const CaPacker &packer)
+								 const ca::Packer &packer)
 {
 	std::vector<int>::const_iterator i;
-	CaTokens *data = (CaTokens*) packer.get_buffer();
+	ca::Tokens *data = (ca::Tokens*) packer.get_buffer();
 	data->place_index = place_index;
 	data->tokens_count = tokens_count;
 	Packet packet;
 	packet.data = data;
+	packet.from_process = process_id;
 	packet.size = packer.get_size();
 	for (i = targets.begin(); i != targets.end(); i++) {
 		int target = *i;
-		if(target < 0 || target >= ca_process_count) {
+		if(target < 0 || target >= process_count) {
 			fprintf(stderr,
 					"Net sends %i token(s) to invalid process id %i (valid ids: [0 .. %i])\n",
-					tokens_count, target, ca_process_count - 1);
+					tokens_count, target, process_count - 1);
 			exit(1);
 		}
 		packets[target].push_back(packet);

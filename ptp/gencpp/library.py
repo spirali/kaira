@@ -19,10 +19,8 @@
 
 
 import base.utils as utils
-from base.expressions import ExprVar
 import build
 import buildnet
-import emitter
 import writer
 
 def write_library_functions(builder):
@@ -39,7 +37,6 @@ def write_parameters_setters(builder):
         builder.block_begin()
         builder.line("param::{0}.__set_value(value);", p.get_name())
         builder.block_end()
-
 
 def write_library(builder, header_filename):
     builder.line("#include \"{0}\"", header_filename)

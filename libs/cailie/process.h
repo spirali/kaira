@@ -12,46 +12,49 @@
 #include "mpi_requests.h"
 #endif
 
-#define CA_RESERVED_PREFIX sizeof(CaTokens)
-
 #define CA_TAG_TOKENS 0
 #define CA_TAG_SERVICE 1
 
-enum CaServiceMessageType { CA_SM_QUIT, CA_SM_NET_CREATE, CA_SM_WAKE , CA_SM_EXIT };
-class CaProcess;
-class CaThread;
-struct CaServiceMessage {
-	CaServiceMessageType type;
+namespace ca {
+
+enum ServiceMessageType { CA_SM_QUIT, CA_SM_NET_CREATE, CA_SM_WAKE , CA_SM_EXIT };
+class Process;
+class Thread;
+struct ServiceMessage {
+	ServiceMessageType type;
 };
 
-struct CaServiceMessageNetCreate : CaServiceMessage {
+struct ServiceMessageNetCreate : ServiceMessage {
 	int def_index;
 };
 
-struct CaTokens {
+struct Tokens {
 	int place_index;
 	int tokens_count;
 	int msg_id;
 };
 
-struct CaUndeliverMessage {
+const size_t RESERVED_PREFIX = sizeof(Tokens);
+
+struct UndeliverMessage {
 	void *data;
 };
 
 #ifdef CA_SHMEM
-class CaPacket {
+class Packet {
 	public:
+	int from_process;
 	int tag;
 	void *data;
 
-	CaPacket *next;
+	Packet *next;
 };
 #endif
 
-class CaProcess {
+class Process {
 	public:
-		CaProcess(int process_id, int process_count, int threads_count, int defs_count, CaNetDef **defs);
-		virtual ~CaProcess();
+		Process(int process_id, int process_count, int threads_count, int defs_count, NetDef **defs);
+		virtual ~Process();
 		void start();
 		void join();
 		void start_and_join();
@@ -64,51 +67,58 @@ class CaProcess {
 		void write_reports(FILE *out) const;
 		void fire_transition(int transition_id);
 
-		void quit_all(CaThread *thread);
+		void quit_all(Thread *thread);
 		void quit();
 
-		CaNet * get_net() { return net; }
+		Net * get_net() { return net; }
 
-		CaNet * spawn_net(CaThread *thread, int def_index, bool globally);
+		Net * spawn_net(Thread *thread, int def_index, bool globally);
 
-		CaThread *get_thread(int id);
+		Thread *get_thread(int id);
 
 		bool quit_flag;
 
-		void multisend(int target, CaNet * net, int place, int tokens_count, const CaPacker &packer, CaThread *thread);
-		void multisend_multicast(const std::vector<int> &targets, CaNet *net, int place, int tokens_count, const CaPacker &packer, CaThread *thread);
+		void multisend(int target, Net * net, int place, int tokens_count, const Packer &packer, Thread *thread);
+		void multisend_multicast(const std::vector<int> &targets, Net *net, int place, int tokens_count, const Packer &packer, Thread *thread);
 
-		void process_service_message(CaThread *thread, CaServiceMessage *smsg);
-		void process_packet(CaThread *thread, int tag, void *data);
-		int process_packets(CaThread *thread);
+		void process_service_message(Thread *thread, ServiceMessage *smsg);
+		void process_packet(Thread *thread, int from_process, int tag, void *data);
+		int process_packets(Thread *thread);
 
 		#ifdef CA_SHMEM
-		void add_packet(int tag, void *data);
+		void add_packet(int from_process, int tag, void *data);
 		#endif
 
 		#ifdef CA_MPI
 		void wait();
 		#endif
 
-		void broadcast_packet(int tag, void *data, size_t size, CaThread *thread, int exclude = -1);
+		void broadcast_packet(int tag, void *data, size_t size, Thread *thread, int exclude = -1);
 		void write_header(FILE *file);
 	protected:
 
-		CaNet *net;
+		struct EarlyMessage {
+			int from_process;
+			void *data;
+		};
+
+		Net *net;
 		int process_id;
 		int process_count;
 		int threads_count;
 		int defs_count;
-		CaNetDef **defs;
-		CaThread *threads;
-		std::vector<void* > too_early_message;
+		NetDef **defs;
+		Thread *threads;
+		std::vector<EarlyMessage> too_early_message;
 		/*memory of net's id which wasn't created, but was quit*/
 		bool net_is_quit;
 
 		#ifdef CA_SHMEM
 		pthread_mutex_t packet_mutex;
-		CaPacket *packets;
+		Packet *packets;
 		#endif
 };
+
+}
 
 #endif

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "utils.h"
 
-size_t ca_parse_size_string(const std::string &str)
+size_t ca::parse_size_string(const std::string &str)
 {
 	char *end;
 	size_t value = strtol(str.c_str(), &end, 10);

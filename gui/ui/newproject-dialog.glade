@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <requires lib="gtk+" version="2.16"/>
+  <!-- interface-naming-policy toplevel-contextual -->
   <object class="GtkListStore" id="languages">
     <columns>
       <!-- column-name gchararray -->
@@ -14,12 +15,12 @@
     <property name="type_hint">normal</property>
     <property name="skip_taskbar_hint">True</property>
     <child internal-child="vbox">
-      <object class="GtkBox" id="dialog-vbox5">
+      <object class="GtkVBox" id="dialog-vbox5">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="spacing">2</property>
         <child internal-child="action_area">
-          <object class="GtkButtonBox" id="dialog-action_area5">
+          <object class="GtkHButtonBox" id="dialog-action_area5">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="layout_style">end</property>
@@ -114,6 +115,10 @@
                 <property name="can_focus">True</property>
                 <property name="invisible_char">●</property>
                 <property name="activates_default">True</property>
+                <property name="primary_icon_activatable">False</property>
+                <property name="secondary_icon_activatable">False</property>
+                <property name="primary_icon_sensitive">True</property>
+                <property name="secondary_icon_sensitive">True</property>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -128,6 +133,10 @@
                 <property name="invisible_char">●</property>
                 <property name="activates_default">True</property>
                 <property name="width_chars">40</property>
+                <property name="primary_icon_activatable">False</property>
+                <property name="secondary_icon_activatable">False</property>
+                <property name="primary_icon_sensitive">True</property>
+                <property name="secondary_icon_sensitive">True</property>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -152,7 +161,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkComboBox" id="newproject-extenv">
+              <object class="GtkComboBox" id="newproject-target-env">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="model">languages</property>

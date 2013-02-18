@@ -2,9 +2,11 @@
 #include "cailie.h"
 #include <mpi.h>
 
+using namespace ca;
+
 /* This code is just proof of concept and it really needs some tweaks */
 
-void CaProcess::broadcast_packet(int tag, void *data, size_t size, CaThread *thread, int exclude)
+void Process::broadcast_packet(int tag, void *data, size_t size, Thread *thread, int exclude)
 {
 	thread->get_requests()->check();
 	char *d = (char*) data;
@@ -17,13 +19,13 @@ void CaProcess::broadcast_packet(int tag, void *data, size_t size, CaThread *thr
 	}
 }
 
-void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net, int place_index, int tokens_count, const CaPacker &packer, CaThread *thread)
+void Process::multisend_multicast(const std::vector<int> &targets, Net *net, int place_index, int tokens_count, const Packer &packer, Thread *thread)
 {
 	thread->get_requests()->check();
 	char *buffer = packer.get_buffer();
 	size_t size = packer.get_size();
 	std::vector<int>::const_iterator i;
-	CaTokens *data = (CaTokens*) packer.get_buffer();
+	Tokens *data = (Tokens*) packer.get_buffer();
 	data->place_index = place_index;
 	data->tokens_count = tokens_count;
 	char *d = buffer;
@@ -43,7 +45,7 @@ void CaProcess::multisend_multicast(const std::vector<int> &targets, CaNet *net,
 	}
 }
 
-int CaProcess::process_packets(CaThread *thread)
+int Process::process_packets(Thread *thread)
 {
 	int flag;
 	MPI_Status status;
@@ -58,7 +60,7 @@ int CaProcess::process_packets(CaThread *thread)
 			/* Now we have to be sure that all thread messages
 			   are processed and we know about all nets */
 			thread->process_thread_messages();
-			process_packet(thread, status.MPI_TAG, buffer);
+			process_packet(thread, status.MPI_SOURCE, status.MPI_TAG, buffer);
 
 			MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
 			if (!flag)
@@ -69,7 +71,7 @@ int CaProcess::process_packets(CaThread *thread)
 	return 0;
 }
 
-void CaProcess::wait()
+void Process::wait()
 {
 	MPI_Status status;
 	MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
@@ -79,5 +81,5 @@ void CaProcess::wait()
 	char *buffer = (char*) malloc(msg_size); // FIXME: alloca for small packets
 	MPI_Recv(buffer, msg_size, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 	this->get_thread(0)->process_thread_messages();
-	process_packet(this->get_thread(0), status.MPI_TAG, buffer);
+	process_packet(this->get_thread(0), status.MPI_SOURCE, status.MPI_TAG, buffer);
 }

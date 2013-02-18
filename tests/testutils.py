@@ -40,7 +40,7 @@ class RunProgram:
             stderr=subprocess.PIPE, cwd = self.cwd, env = self.env)
         return self.result(pr, expected_output)
 
-    def fail(self, expected_stdout = None, expected_stderr = None, expected_stderr_prefix = None):
+    def fail(self, expected_stdout=None, expected_stderr=None, prefix=False):
         pr = subprocess.Popen([self.filename] + self.parameters,
                               stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE,
@@ -48,23 +48,28 @@ class RunProgram:
         output,errs = pr.communicate()
         if pr.returncode == 0:
             self.error("Expected fail, but return code is zero")
-        self.check_output(expected_stdout, output)
-        self.check_output(expected_stderr, errs)
-        self.check_output(expected_stderr_prefix, errs, lambda e, o: o.startswith(e))
+        if prefix:
+            fn = lambda e, o: o.startswith(e)
+        else:
+            fn = None
+        self.check_output(expected_stdout, output, fn)
+        self.check_output(expected_stderr, errs, fn)
 
-    def check_output(self, expected, output, f = lambda a, b: a == b):
+    def check_output(self, expected, output, f=None):
+        if f is None:
+            f = lambda a, b: a == b
         if expected is not None and not f(expected, output):
 			self.error("Excepted >>{0}<<, got >>{1}<<".format(expected, output))
 
     def error(self, text):
-        raise Exception("Program '%s/%s': %s" % (self.filename, self.parameters, text))
+        raise Exception("Program '{0}/{1}': {2}".format(self.filename, self.parameters, text))
 
 
 class Project:
 
     server = None
 
-    def __init__(self, name, directory_name=None, mpi=False, rpc=False):
+    def __init__(self, name, directory_name=None, mpi=False, rpc=False, trace=False):
         self.name = name
         if directory_name is None:
             self.directory_name = name
@@ -73,6 +78,7 @@ class Project:
 
         self.mpi = mpi
         self.rpc = rpc
+        self.trace = trace
 
         self.clean()
 
@@ -103,24 +109,28 @@ class Project:
                    cwd=self.get_directory()).run()
 
     def export(self):
-        RunProgram("python", [ CMDUTILS, "--export", self.get_filename() ]).run()
+        args = [ CMDUTILS, "--export", self.get_filename() ]
+        if self.trace:
+            args.append("--trace")
+        RunProgram("python", args).run()
 
     def run_ptp(self, operation=None):
         if operation is None:
             operation = "build"
         RunProgram(PTP_BIN, [ operation, self.get_xml_filename(), "--output", self.get_directory() ]).run()
 
-    def fail_ptp(self, output):
+    def fail_ptp(self, output, prefix=False):
         self.export()
-        RunProgram(PTP_BIN, ["build",
+        program = RunProgram(PTP_BIN, ["build",
                              self.get_xml_filename(),
                              "--output",
-                             self.get_directory()]).fail(output)
+                             self.get_directory()])
+        program.fail(output, prefix=prefix)
 
-    def failed_make(self, output, args = []):
+    def fail_make(self, output, args = []):
         self.export()
         self.run_ptp()
-        RunProgram("make", args, cwd = self.get_directory()).fail(expected_stderr_prefix = output)
+        RunProgram("make", args, cwd = self.get_directory()).fail(expected_stderr_prefix=output)
 
     def failed_run_main(self, result, **kw):
         self.run(result, executable = self.get_main(), fail = True, **kw)
@@ -182,6 +192,11 @@ class Project:
     def quick_test(self, result=None, **kw):
         self.build()
         self.run(result, **kw)
+
+    def check_tracelog(self, output):
+        filename = os.path.join(self.get_directory(), "trace.kth")
+        args = [ CMDUTILS, "--tracelog", filename ]
+        RunProgram("python", args).run(output)
 
     def statespace(self, analyses=None, **kw):
         self.build("statespace")

@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
+#    Copyright (C) 2010-2013 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #                  2012       Martin Surkovsky
 #
@@ -18,7 +18,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
-import math
+
 import utils
 from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
@@ -202,21 +202,17 @@ class Net:
         self.items.remove(item)
         self.changed()
 
-    def edges_from(self, item, postprocess = False):
+    def edges_from(self, item, postprocess=False):
         edges = [ i for i in self.items if i.is_edge() and i.from_item == item ]
         if postprocess:
             edges += [ i.make_complement() for i in self.edges_to(item) if i.is_bidirectional() ]
-            return sum([ edge.postprocess() for edge in edges ], [])
-        else:
-            return edges
+        return edges
 
-    def edges_to(self, item, postprocess = False):
+    def edges_to(self, item, postprocess=False):
         edges = [ i for i in self.items if i.is_edge() and i.to_item == item ]
         if postprocess:
             edges += [ i.make_complement() for i in self.edges_from(item) if i.is_bidirectional() ]
-            return sum( [ edge.postprocess() for edge in edges ], [])
-        else:
-            return edges
+        return edges
 
     def edges_of(self, item):
         return [ i for i in self.items
@@ -247,9 +243,10 @@ class Net:
         for i in self.transitions():
             if not "fire" in i.tracing:
                 i.tracing.insert(0, "fire")
+        token_name = ("ca::token_name", "std::string")
         for i in self.places():
-            if not "value" in i.tracing:
-                i.tracing.insert(0, "value")
+            if token_name not in i.tracing:
+                i.tracing.insert(0,  token_name)
 
 
 class NetItem(object):
@@ -329,10 +326,10 @@ class NetElement(NetItem):
     def edges(self):
         return self.net.edges_of(self)
 
-    def edges_from(self, postprocess = False):
+    def edges_from(self, postprocess=False):
         return self.net.edges_from(self, postprocess)
 
-    def edges_to(self, postprocess = False):
+    def edges_to(self, postprocess=False):
         return self.net.edges_to(self, postprocess)
 
     def delete(self):
@@ -351,6 +348,7 @@ class NetElement(NetItem):
         for area in self.net.areas():
             if area.is_inside(self):
                 return area
+
 
 class Transition(NetElement):
 
@@ -537,6 +535,13 @@ class Place(NetElement):
     def is_place(self):
         return True
 
+    def tracing_to_xml(self, element):
+        for name, return_type in self.tracing:
+            e = xml.Element("trace")
+            e.set("name", name)
+            e.set("return-type", return_type)
+            element.append(e)
+
     def as_xml(self):
         e = self.create_xml_element("place")
         e.set("x", str(self.position[0]))
@@ -549,11 +554,7 @@ class Place(NetElement):
         e.set("init_string", self.init_string)
         if self.has_code():
             e.append(self.xml_code_element())
-        if self.tracing:
-            for t in self.tracing:
-                trace = xml.Element("trace")
-                trace.text = t
-                e.append(trace)
+        self.tracing_to_xml(e)
         return e
 
     def export_xml(self, build_config):
@@ -564,10 +565,7 @@ class Place(NetElement):
         if self.has_code():
             e.append(self.xml_code_element())
         if build_config.tracing and self.tracing:
-            for t in self.tracing:
-                trace = xml.Element("trace")
-                trace.text = t
-                e.append(trace)
+            self.tracing_to_xml(e)
         return e
 
     def get_drawing(self, vconfig):
@@ -657,6 +655,7 @@ class Place(NetElement):
         return ((px - r, py - r + isy_bearing),
                 (px + sx + r + max(is_width, pt_width), py + sy + r + descent))
 
+
 class Edge(NetItem):
 
     bidirectional = False
@@ -742,17 +741,6 @@ class Edge(NetItem):
         c = self.simple_copy()
         c.switch_direction()
         return c
-
-    def postprocess(self):
-        if self.inscription.strip() == "":
-            return [self]
-        edges = []
-        for inscription in self.inscription.split(";"):
-            if inscription.strip() != "":
-                c = self.simple_copy()
-                c.inscription = inscription
-                edges.append(c)
-        return edges
 
     def get_end_points(self):
         if self.points:
@@ -1203,6 +1191,16 @@ def load_tracing(element):
         trace.append(t.text)
     return trace
 
+def load_place_tracing(element):
+    tracing = []
+    for e in element.findall("trace"):
+        name = e.get("name", None)
+        return_type = e.get("return-type", None)
+        if name is None or return_type is None:
+            return tracing # backward compatability
+        tracing.append((name, return_type))
+    return tracing
+
 def load_place(element, net, loader):
     id = loader.get_id(element)
     place = net.add_place((xml_int(element,"x"), xml_int(element, "y")), id)
@@ -1212,7 +1210,7 @@ def load_place(element, net, loader):
     place.place_type = xml_str(element,"place_type", "")
     place.init_string = xml_str(element,"init_string", "")
     place.code = load_code(element)
-    place.tracing =  load_tracing(element)
+    place.tracing =  load_place_tracing(element)
 
 def load_transition(element, net, loader):
     id = loader.get_id(element)

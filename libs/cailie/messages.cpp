@@ -7,8 +7,9 @@
 #include "messages.h"
 #include "thread.h"
 
+using namespace ca;
 
-void CaThreadMessageBarriers::process(CaThread *thread)
+void ThreadMessageBarriers::process(Thread *thread)
 {
 	pthread_barrier_wait(barrier1);
 	pthread_barrier_wait(barrier2);

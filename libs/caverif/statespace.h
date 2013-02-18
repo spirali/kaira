@@ -12,7 +12,7 @@ namespace cass {
 	class Core;
 
 	struct TransitionActivation {
-			CaTransitionDef *transition_def;
+			ca::TransitionDef *transition_def;
 			int thread_id;
 			int process_id;
 			void *data;
@@ -27,7 +27,7 @@ namespace cass {
 	class Node {
 		public:
 			Node();
-			Node(CaNetDef *net_def);
+			Node(ca::NetDef *net_def);
 			Node(const std::vector<TransitionActivation> &activations,
 				 std::deque<Packet> *packets);
 			~Node();
@@ -78,9 +78,9 @@ namespace cass {
 			void postprocess();
 			void write_dot_file(const std::string &filename);
 			Node * add_node(Node *node);
-			CaNetDef * get_net_def() { return net_def; }
+			ca::NetDef * get_net_def() { return net_def; }
 		protected:
-			void run_analysis_quit(CaOutput &report);
+			void run_analysis_quit(ca::Output &report);
 
 			bool is_known_node(Node *node) const;
 			Node *get_node(Node *node) const;
@@ -89,9 +89,9 @@ namespace cass {
 									NodeStateHash,
 									NodeStateEq> nodes;
 			Node *initial_node;
-			CaNetDef * net_def;
+			ca::NetDef * net_def;
 	};
 
-	void init(int argc, char **argv, std::vector<CaParameter*> &parameters);
+	void init(int argc, char **argv, std::vector<ca::Parameter*> &parameters);
 }
 #endif // CAVERIF_STATESPACE_H

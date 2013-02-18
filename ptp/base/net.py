@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2011 Stanislav Bohm
+#    Copyright (C) 2011-2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -18,145 +18,239 @@
 #
 
 import utils as utils
-from base.expressions import ExprVar
-from base.neltypes import derive_context
-from base.neltypes import t_bool, t_array, t_int, t_double, t_string
 import analysis
 
-class EdgeBase(utils.EqMixin):
+def get_container_type(typename):
+    return "std::vector<{0} >".format(typename)
 
-    """
-        Edge has attribute uid because id (provided by gui) is not necessary unique.
-        It occurs in net with (graphical) edge with inscription "x;y", then gui creates
-        two edges with same id
-    """
-    def __init__(self, id, place, transition):
+def get_token_container_type(typename):
+    return "ca::TokenList<{0} >".format(typename)
+
+
+class Declarations:
+
+    def __init__(self, source=None):
+        self.types = {}
+        self.source = source
+
+    def set(self, var, t, source=None):
+        if var in self.types:
+            if self.types[var] != t:
+                if source is None:
+                    source = self.source
+                msg = "Invalid type of variable '{0}' ({1}/{2})".format(var, self.types[var], t)
+                raise utils.PtpException(msg, source)
+        else:
+            self.types[var] = t
+
+    def get_variables(self):
+        return self.types.keys()
+
+    def get_types(self):
+        return self.types.values()
+
+    def get_items(self):
+        return self.types.items()
+
+    def merge(self, decls):
+        if self.source is None:
+            self.source = decls.source
+        for var, t in decls.get_items():
+            self.set(var, t, decls.source)
+
+    def get_list(self):
+        lst = self.types.items()
+        lst.sort(key=utils.first)
+        return lst
+
+    def __getitem__(self, variable):
+        return self.types[variable]
+
+
+class Edge(utils.EqMixin):
+
+    def __init__(self, id, transition, place, inscriptions, config, target):
         self.id = id
         self.uid = utils.get_unique_id()
         self.place = place
         self.transition = transition
+        for inscription in inscriptions:
+            inscription.edge = self
+        self.inscriptions = inscriptions
+        self.config = config
+        self.target = target
 
-    def get_place(self):
-        return self.place
+    def get_source(self):
+        return "*{0}/inscription".format(self.id)
 
     def get_place_type(self):
         return self.place.type
 
-    def get_transition(self):
-        return self.transition
+    def get_type(self):
+        if self.is_bulk_edge():
+            return get_token_container_type(self.place.type)
+        else:
+            return self.place.type
 
-class EdgeIn(EdgeBase):
+    def check(self, checker):
+        if self.is_bulk_edge():
+            checker.check_expression(self.inscriptions[0].expr,
+                                     self.transition.get_decls(),
+                                     self.get_type(),
+                                     self.get_source())
+        else:
+            for inscription in self.inscriptions:
+                checker.check_expression(inscription.expr,
+                                         self.transition.get_decls(),
+                                         self.get_place_type(),
+                                         self.get_source())
 
-    # setup by analysis
-    token_reused = False
+    def check_config(self, valid_keys):
+        invalid_key = utils.key_not_in_list(self.config, valid_keys)
+        if invalid_key is not None:
+            raise utils.PtpException("Invalid config item '{0}'".format(invalid_key),
+                self.get_source())
 
-    def __init__(self, id, place, transition, expr):
-        EdgeBase.__init__(self, id, place, transition)
-        self.expr = expr
+    def check_edge_in(self, checker):
+        if self.target is not None:
+            raise utils.PtpException("Input edges cannot contain '@'",
+                self.get_source())
 
-    def get_equations(self):
-        return [ (self.expr, self.get_place_type()) ]
+        self.check_config(("bulk", "guard", "origin"))
+        if "bulk" in self.config:
+            if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
+                raise utils.PtpException(
+                    "'bulk' requires a single variable as main expression",
+                    self.get_source())
+        if "guard" in self.config:
+            if self.config["guard"] is None:
+                raise utils.PtpException(
+                    "'guard' requires an expression",
+                    self.get_source())
+            decls = self.transition.get_input_decls_with_size(self.get_source())
+            checker.check_expression(self.config["guard"],
+                                     decls,
+                                     "bool",
+                                     self.get_source())
+        self.check(checker)
 
-    def inject_types(self, env, context):
-        self.expr.inject_types(env, context)
+    def check_edge_out(self, checker):
+        self.check_config(("bulk", "multicast"))
+        if "bulk" in self.config:
+            if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
+                raise utils.PtpException(
+                    "'bulk' requires a single variable as main expression",
+                    self.get_source())
 
-    def is_normal(self):
-        return True
+        if self.target is not None:
+            checker.check_expression(self.target,
+                                     self.transition.get_decls(),
+                                     self.get_target_type(),
+                                     self.get_source())
+        self.check(checker)
 
-    def is_packing(self):
-        return False
+    def get_target_type(self):
+        if self.is_multicast():
+            return get_container_type("int")
+        else:
+            return "int"
 
-    def get_free_vars(self):
-        return self.expr.get_free_vars()
+    def get_decls(self):
+        decls = Declarations(self.get_source())
+        if self.is_bulk_edge():
+            decls.set(self.inscriptions[0].expr, self.get_type())
+            if self.is_origin_reader():
+                decls.set(self.inscriptions[0].expr + "_origins",
+                          get_container_type("int"))
+        else:
+            for variable in self.get_single_token_variables():
+                decls.set(variable, self.get_place_type())
+            if self.is_origin_reader():
+                for variable in self.get_single_token_variables():
+                    decls.set(variable + "_origin", "int")
 
-class EdgeInPacking(EdgeBase):
+        if self.target and self.transition.net.project.is_expr_variable(self.target):
+            decls.set(self.target, self.get_target_type())
+        return decls
 
-    def __init__(self, id, place, transition, varname, limit):
-        EdgeBase.__init__(self, id, place, transition)
-        self.varname = varname
-        self.limit = limit
+    def get_single_token_variables(self):
+        if self.is_bulk_edge():
+            return []
+        return [ inscription.expr
+                 for inscription in self.inscriptions
+                 if inscription.is_variable() ]
 
-    def get_equations(self):
-        source = utils.get_source_path(self.id, "inscription")
-        return [ (ExprVar(self.varname, source), t_array(self.get_place_type())),
-                (self.limit, t_int.copy(source)) ]
+    def get_nontoken_variables(self):
+        if self.target and self.transition.net.project.is_expr_variable(self.target):
+            return [ self.target ]
+        else:
+            return []
 
-    def inject_types(self, env, context):
-        self.limit.inject_types(env, context)
+    def get_variable_sources(self):
+        sources = {}
+        if self.is_token_edge():
+            for inscription in self.inscriptions:
+                if inscription.is_variable() and inscription.expr not in sources:
+                    sources[inscription.expr] = inscription.uid
+        else:
+            sources[self.inscriptions[0].expr] = None
+        return sources
 
-    def is_normal(self):
-        return False
+    def get_tokens_number(self):
+        if self.is_token_edge():
+            return len(self.inscriptions)
 
-    def is_packing(self):
-        return True
-
-    def get_free_vars(self):
-        return set([self.varname])
-
-class EdgeOut(EdgeBase):
-
-    # setup by analysis
-    token_source = None # EdgeIn or None
-
-    def __init__(self, id, place, transition, expr, mode, sendmode, target, guard):
-        EdgeBase.__init__(self, id, place, transition)
-        self.expr = expr
-        self.mode = mode # 'normal' | 'packing'
-        self.sendmode = sendmode # 'unicast' | 'multicast' | 'local'
-        self.target = target
-        self.guard = guard
-
-    def is_normal(self):
-        return self.mode == 'normal'
-
-    def is_packing(self):
-        return self.mode == 'packing'
+    def get_token_inscriptions(self):
+        if self.is_token_edge():
+            return self.inscriptions
+        else:
+            return []
 
     def is_local(self):
-        return self.sendmode == 'local'
+        return self.target is None
+
+    def is_bulk_edge(self):
+        return "bulk" in self.config
+
+    def is_token_edge(self):
+        return not self.is_bulk_edge()
 
     def is_unicast(self):
-        return self.sendmode == 'unicast'
+        return not self.is_multicast()
+
+    def is_origin_reader(self):
+        return "origin" in self.config
 
     def is_multicast(self):
-        return self.sendmode == 'multicast'
+        return "multicast" in self.config
 
-    def get_equations(self):
-        if self.is_normal():
-            eq = [ (self.expr, self.get_place_type()) ]
-        else:
-            eq = [ (self.expr, t_array(self.get_place_type())) ]
-        if self.is_unicast():
-            eq.append((self.target, t_int))
-        if self.is_multicast():
-            eq.append((self.target, t_array(t_int)))
-        if self.guard:
-            eq.append((self.guard, t_bool))
-        return eq
 
-    def inject_types(self, env, context):
-        self.expr.inject_types(env, context)
-        if self.target:
-            self.target.inject_types(env, context)
-        if self.guard:
-            self.guard.inject_types(env, context)
+class EdgeInscription(utils.EqMixin):
+
+    edge = None
+
+    def __init__(self, expr):
+        self.expr = expr
+        self.uid = utils.get_unique_id()
+
+    def get_type(self):
+        return self.edge.get_place_type()
+
+    def is_variable(self):
+        return self.edge.transition.net.project.is_expr_variable(self.expr)
+
 
 class Place(utils.EqByIdMixin):
 
     code = None
 
-    def __init__(self, net, id, type, init_expression):
+    def __init__(self, net, id, type, init_type, init_value):
         self.net = net
         self.id = id
         self.type = type
-        self.init_expression = init_expression
+        self.init_type = init_type
+        self.init_value = init_value
         self.tracing = []
-
-    def inject_types(self):
-        if self.init_expression is not None:
-            inject_types_for_empty_context(self.net.project.get_env(),
-                                           self.init_expression,
-                                           t_array(self.type))
 
     def get_pos_id(self):
         return self.net.places.index(self)
@@ -165,11 +259,11 @@ class Place(utils.EqByIdMixin):
         result = []
         for tr in self.net.transitions:
             for edge in tr.edges_out:
-                if edge.get_place() == self:
+                if edge.place == self:
                     result.append(edge)
         if with_interface:
             for edge in self.net.get_interface_edges_out():
-                if edge.get_place() == self:
+                if edge.place == self:
                     result.append(edge)
         return result
 
@@ -177,42 +271,61 @@ class Place(utils.EqByIdMixin):
         result = []
         for tr in self.net.transitions:
             for edge in tr.edges_in:
-                if edge.get_place() == self:
+                if edge.place == self:
                     result.append(edge)
         return result
 
     def get_transitions_out(self):
-        return list(set([ edge.get_transition() for edge in self.get_edges_out() ]))
+        return list(set([ edge.transition for edge in self.get_edges_out() ]))
 
     def get_transitions_in(self):
-        return list(set([ edge.get_transition() for edge in self.get_edges_in() ]))
+        return list(set([ edge.transition for edge in self.get_edges_in() ]))
 
     def get_areas(self):
         return self.net.get_areas_with_place(self)
 
-    def get_functions_for_tracing(self, project):
-        p = [ self.type ]
-        if self.type.name == "":
-            q = list(self.type.args)
-            return (project.get_user_functions_by_declaration(t_int, p) +
-               project.get_user_functions_by_declaration(t_double, p) +
-               project.get_user_functions_by_declaration(t_string, p) +
-               project.get_user_functions_by_declaration(t_int, q) +
-               project.get_user_functions_by_declaration(t_double, q) +
-               project.get_user_functions_by_declaration(t_string, q))
+    def check(self, checker):
+        functions = [ "token_name" ]
+        if self.is_receiver():
+            functions.append("pack")
+            functions.append("unpack")
+        checker.check_type(self.type, self.get_source("type"), functions)
 
-        return (project.get_user_functions_by_declaration(t_int, p) +
-               project.get_user_functions_by_declaration(t_double, p) +
-               project.get_user_functions_by_declaration(t_string, p))
+        source = self.get_source("init-expr")
+        decls = self.net.project.get_minimal_decls()
+        if self.init_type == "exprs":
+            for expr in self.init_value:
+                checker.check_expression(expr, decls, self.type, source)
+        elif self.init_type == "vector":
+            checker.check_expression(self.init_value,
+                                     decls,
+                                     get_container_type(self.type),
+                                     source)
+
+        for name, return_type in self.tracing:
+            decls = Declarations(source)
+            decls.set("a", self.type)
+            checker.check_expression("{0}(a)".format(name),
+                                     decls,
+                                     return_type,
+                                     self.get_source("type"),
+                                     "Invalid trace function '{0}'".format(name))
+
+    def get_source(self, location):
+        return "*{0}/{1}".format(self.id, location)
+
+    def is_receiver(self):
+        edges = self.get_edges_in(with_interface=True)
+        return any(not edge.is_local() for edge in edges)
+
+    def need_origin(self):
+        return any(edge.is_origin_reader()
+                   for edge in self.get_edges_out())
 
 
 class Transition(utils.EqByIdMixin):
 
     code = None
-
-    # After analysis it is dictionary variable_name -> EdgeIn
-    # It returns edge (= token) where variable should be gather
-    var_edge = None
 
     def __init__(self, net, id, guard):
         self.net = net
@@ -221,6 +334,20 @@ class Transition(utils.EqByIdMixin):
         self.edges_in = []
         self.edges_out = []
         self.tracing = []
+        self.var_exprs = None
+        self.match_exprs = None
+
+    def get_token_inscriptions_in(self):
+        return sum([ edge.get_token_inscriptions() for edge in self.edges_in ], [])
+
+    def get_token_inscriptions_out(self):
+        return sum([ edge.get_token_inscriptions() for edge in self.edges_out ], [])
+
+    def get_bulk_edges_in(self):
+        return [ edge for edge in self.edges_in if edge.is_bulk_edge() ]
+
+    def get_bulk_edges_out(self):
+        return [ edge for edge in self.edges_out if edge.is_bulk_edge() ]
 
     def need_trace(self):
         if self.is_any_place_traced():
@@ -229,59 +356,20 @@ class Transition(utils.EqByIdMixin):
             return True
         return len(self.tracing) > 0
 
-    def get_normal_edges_out(self):
-        return [ edge for edge in self.edges_out if edge.is_normal() ]
-
-    def get_packing_edges_out(self):
-        return [ edge for edge in self.edges_out if edge.is_packing() ]
-
-    def get_normal_edges_in(self):
-        return [ edge for edge in self.edges_in if edge.is_normal() ]
-
-    def get_packing_edges_in(self):
-        return [ edge for edge in self.edges_in if edge.is_packing() ]
-
-    def get_context(self):
-        return derive_context(self.net.project.get_env(), self.get_equations())
-
     def get_all_edges(self):
         return self.edges_in + self.edges_out
-
-    def get_basic_input_edges(self):
-        return self.edges_in
 
     def get_input_places(self):
         return set([ edge.place for edge in self.edges_in ])
 
     def get_output_places(self):
-        return set([ edge.place for edge in self.edges_in ])
+        return set([ edge.place for edge in self.edges_out ])
 
     def get_places(self):
-        return self.get_input_places() & self.get_output_places()
+        return self.get_input_places() | self.get_output_places()
 
     def is_any_place_traced(self):
         return any(place.tracing for place in self.get_places())
-
-    def get_equations(self):
-        result = []
-        for e in self.get_all_edges():
-            result += e.get_equations()
-        if self.guard:
-            result.append((self.guard, t_bool))
-        return result
-
-    def get_types(self):
-        return set([ t for _, t in self.get_equations() ])
-
-    def inject_types(self):
-        env = self.net.project.get_env()
-        eq = []
-        for e in self.get_all_edges():
-            eq += e.get_equations()
-        context = derive_context(env, eq)
-
-        for e in self.get_all_edges():
-            e.inject_types(env, context)
 
     def get_pos_id(self):
         return self.net.transitions.index(self)
@@ -289,29 +377,76 @@ class Transition(utils.EqByIdMixin):
     def is_local(self):
         return all((edge.is_local() for edge in self.edges_out))
 
-    def get_source(self):
-        return "*{0}".format(self.id)
+    def get_source(self, location=None):
+        if location is None:
+            # FIXME: To just show error somewhere, we use guard
+            location = "guard"
+        return "*{0}/{1}".format(self.id, location)
+
+    def get_decls(self):
+        decls = self.net.project.get_minimal_decls()
+        for edge in self.edges_in:
+            decls.merge(edge.get_decls())
+        for edge in self.edges_out:
+            decls.merge(edge.get_decls())
+        return decls
+
+    def get_input_decls(self):
+        # FIXME: Return only variables on input edges
+        return self.get_decls()
+
+    def get_input_decls_with_size(self, source=None):
+        decls = self.get_input_decls()
+        decls.set("size", "size_t", source)
+        return decls
+
+    def check(self, checker):
+
+        for place, number in utils.multiset([ edge.place for edge in self.edges_in ]).items():
+            if number != 1:
+                raise utils.PtpException("There can be at most one input edge "
+                                         "between place and transition",
+                                         self.get_source())
+
+        for edge in self.edges_in:
+            edge.check_edge_in(checker)
+
+        for edge in self.edges_out:
+            edge.check_edge_out(checker)
+
+        if self.guard:
+            checker.check_expression(self.guard,
+                                     self.get_input_decls(),
+                                     "bool",
+                                     self.get_source("guard"))
+
 
 class Area(object):
 
-    def __init__(self, net, id, expr, places):
+    def __init__(self, net, id, init_type, init_value, places):
         self.net = net
         self.id = id
         self.places = places
-        self.expr = expr
-
-    def inject_types(self):
-        inject_types_for_empty_context(self.net.project.get_env(), self.expr, t_array(t_int))
+        self.init_type = init_type
+        self.init_value = init_value
 
     def is_place_inside(self, place):
         return place in self.places
 
-def inject_types_for_empty_context(env, expr, t):
-    eq = [ (expr, t) ]
-    context = derive_context(env, eq)
-    if context != {}:
-        raise Exception("Variables occurs in initial expression")
-    expr.inject_types(env, context)
+    def check(self, checker):
+        source = self.get_source("init-expr")
+        decls = self.net.project.get_minimal_decls()
+        if self.init_type == "exprs":
+            for expr in self.init_value:
+                checker.check_expression(expr, decls, "int", source)
+        elif self.init_type == "vector":
+            checker.check_expression(self.init_value,
+                                     decls,
+                                     get_container_type("int"),
+                                     source)
+    def get_source(self, location):
+        return "*{0}/{1}".format(self.id, location)
+
 
 class Net(object):
 
@@ -352,15 +487,6 @@ class Net(object):
             if transition.id == id:
                 return transition
 
-    def get_all_types(self):
-        result = set()
-        for place in self.places:
-            result.add(place.type)
-        for tr in self.transitions:
-            for t in tr.get_types():
-                result.update(t.get_subtypes())
-        return result
-
     def get_index(self):
         return self.project.nets.index(self)
 
@@ -372,33 +498,11 @@ class Net(object):
                     return index
                 index += 1
 
-    def inject_types(self):
-        for place in self.places:
-            place.inject_types()
-        for tr in self.transitions:
-            tr.inject_types()
-        for area in self.areas:
-            area.inject_types()
-        self.inject_types_interface()
-
-    def get_interface_context(self):
-        eq = []
-        env = self.project.get_env()
-        for e in self.interface_edges_out + self.interface_edges_in:
-            eq += e.get_equations()
-        return derive_context(env, eq)
-
     def get_module_input_vars(self):
         return set().union(*[ e.expr.get_free_vars() for e in self.interface_edges_out ])
 
     def get_module_output_vars(self):
         return set().union(* [ e.get_free_vars() for e in self.interface_edges_in ])
-
-    def inject_types_interface(self):
-        context = self.get_interface_context()
-        env = self.project.get_env()
-        for e in self.interface_edges_in + self.interface_edges_out:
-            e.inject_types(env, context)
 
     def get_areas_with_place(self, place):
         return [ area for area in self.areas if area.is_place_inside(place) ]
@@ -406,12 +510,15 @@ class Net(object):
     def is_local(self):
         return all((tr.is_local() for tr in self.transitions))
 
-    def check(self):
-        """ Check consistency of net, raise exception if something is wrong,
-            inject_types exptected before calling check"""
+    def check(self, checker):
+        for place in self.places:
+            place.check(checker)
 
-        for t in self.get_all_types():
-            t.check(self.project)
+        for transition in self.transitions:
+            transition.check(checker)
+
+        for area in self.areas:
+            area.check(checker)
 
     def analyze(self):
         for tr in self.transitions:

@@ -36,6 +36,9 @@ def parameters_dialog(parameter, mainwindow):
         default = builder.get_object("default")
         default.set_text(parameter.default)
 
+        typename = builder.get_object("type")
+        typename.set_text(parameter.type)
+
         policy_mandatory = builder.get_object("policy_mandatory")
         policy_optional = builder.get_object("policy_optional")
         policy_constant = builder.get_object("policy_constant")
@@ -57,6 +60,7 @@ def parameters_dialog(parameter, mainwindow):
             parameter.name = name.get_text()
             parameter.description = desc.get_text()
             parameter.default = default.get_text()
+            parameter.type = typename.get_text()
 
             if policy_mandatory.get_active():
                 parameter.policy = "mandatory"

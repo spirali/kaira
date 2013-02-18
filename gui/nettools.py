@@ -24,6 +24,7 @@
 import utils
 import gtkutils
 import undoredo
+import tracing
 
 ## @brief The base class for editing operations over network
 #
@@ -122,12 +123,9 @@ class NetTool:
                 self.netview.undolist.add(undoredo.RemoveAction(self.net, item))
             self.deselect_item()
 
-        def set_tracing(obj, value, check):
-            if check:
-                if value == "value":
-                    obj.tracing.insert(0, value)
-                else:
-                    obj.tracing.append(value)
+        def set_tracing(obj, value, add):
+            if add:
+                obj.tracing.append(value)
             else:
                 obj.tracing.remove(value)
             self.netview.redraw()
@@ -135,50 +133,46 @@ class NetTool:
         def callback(selected_item, value, check):
             return lambda w: set_tracing(selected_item, value, check)
 
+        def tracingfn_callback(item):
+            result = tracing.tracefn_dialog(self.netview.app.window, "", "int")
+            if result is not None:
+                item.tracing.append(result)
+
         if self.selected_item in self.net.pick_items(position):
             menu_actions = None
 
             # Transition
             if self.selected_item.is_transition():
-                trace = []
-                if "fire" not in self.selected_item.tracing:
-                    trace = [("fire", (False, callback(self.selected_item, "fire", True)))]
-                else:
-                    trace = [("fire", (True, callback(self.selected_item, "fire", False)))]
+                fire = "fire" in self.selected_item.tracing
+                trace_menu = [("fire", (fire, callback(self.selected_item, "fire", not fire)))]
                 menu_actions = [
                     ("Delete", delete_event),
                     ("Edit code",
                         lambda w: self.netview.transition_edit_callback(self.selected_item)),
-                    ("Tracing", trace)
+                    ("Tracing", trace_menu)
                 ]
 
             # Place
             if self.selected_item.is_place():
-                trace = []
-                if "value" not in self.selected_item.tracing:
-                    trace = [("value", (False, callback(self.selected_item, "value", True)))]
-                else:
-                    trace = [("value", (True, callback(self.selected_item, "value", False)))]
-                trace_fn = []
+                trace_menu = [ ("Add function",
+                                lambda w: tracingfn_callback(self.selected_item)) ]
+                token_name = ("ca::token_name", "std::string")
+                if token_name not in self.selected_item.tracing:
+                    trace_menu.append(("Add function 'ca::token_name'",
+                                       lambda w: set_tracing(self.selected_item, token_name, True)))
 
-                ok, functions = self.netview.app.catch_ptp_exception(
-                    lambda: self.net.project.get_suitable_functions_for_place_tracing(
-                                self.selected_item),
-                    show_errors=False)
-
-                if ok:
-                    for fn in functions:
-                        check = "fn: " + fn in self.selected_item.tracing
-                        trace_fn.append((fn, (check, callback(self.selected_item,
-                                                              "fn: " + fn,
-                                                              not check))))
-                    trace.append(("add function", trace_fn))
+                trace_fns = self.selected_item.tracing
+                if trace_fns:
+                    trace_menu.append(("-", None))
+                    for name, t in trace_fns:
+                        trace_menu.append(("Remove tracing function '{0}'".format(name, t),
+                                           callback(self.selected_item, (name, t), False)))
 
                 menu_actions = [
                     ("Delete", delete_event),
                     ("Edit init code",
-                    lambda w: self.netview.place_edit_callback(self.selected_item)),
-                    ("Tracing", trace)
+                        lambda w: self.netview.place_edit_callback(self.selected_item)),
+                    ("Tracing", trace_menu)
                 ]
 
             # Edge

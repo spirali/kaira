@@ -1,3 +1,21 @@
+#
+#    Copyright (C) 2013 Stanislav Bohm
+#
+#    This file is part of Kaira.
+#
+#    Kaira is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Kaira is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 import utils
 
@@ -5,42 +23,46 @@ def all_free_variables(edges):
     return utils.unions(edges, lambda edge: edge.get_free_vars())
 
 def analyze_transition(tr):
+    variable_sources = {}
 
-    # Get rid of packing edges or with taget or with guard
-    edges_out = [ edge for edge in tr.edges_out
-                    if edge.is_normal() and edge.is_local() and edge.guard is None ]
+    for edge in tr.edges_in:
+        for name, uid in edge.get_variable_sources().items():
+            if name not in variable_sources:
+                variable_sources[name] = uid
 
-    edges_in = [ edge for edge in tr.edges_in
-                    if edge.is_normal() ]
+    reuse_tokens = {}
+    fresh_tokens = []
+    used_tokens = []
+    variable_sources_out = {}
 
-    var_edge = {}
+    for edge in tr.edges_out:
+        for name, uid in edge.get_variable_sources().items():
+            if uid is None: # Bulk edge
+                if name not in variable_sources:
+                    variable_sources_out[name] = None
+                continue
 
-    bounded = set()
-    var_edge = {}
+            if name in variable_sources:
+                token_uid = variable_sources[name]
+                if edge.is_local() and token_uid not in used_tokens:
+                    reuse_tokens[uid] = token_uid
+                    used_tokens.append(token_uid)
+            elif edge.is_local() and variable_sources_out.get(name) is None:
+                # Edge is local and variable sources is not defined or
+                # it is None (it means fresh variable, without tokens)
+                fresh_tokens.append((uid, edge.get_place_type()))
+                variable_sources_out[name] = uid
+                reuse_tokens[uid] = uid
+            elif name not in variable_sources_out:
+                variable_sources_out[name] = None
 
-    for edge in edges_in:
-        if not edge.expr.is_direct_expression():
-            continue
+    for edge in tr.edges_out:
+        for variable in edge.get_nontoken_variables():
+            if variable not in variable_sources and \
+               variable not in variable_sources_out:
+                variable_sources_out[variable] = None
 
-        edge_out = utils.find_first(edges_out, lambda e: e.expr == edge.expr)
-        if edge_out is None:
-            continue
-
-        v = edge.expr.get_free_vars()
-        if v.intersection(bounded): # Any variable cannot be bounded yet
-            continue
-        bounded.update(v)
-
-        for var in v:
-            var_edge[var] = edge
-
-        edge_out.token_source = edge
-        edge.token_reused = True
-
-    for var in all_free_variables(edges_in).difference(bounded):
-        for edge in edges_in:
-            if var in edge.expr.get_direct_vars():
-                var_edge[var] = edge
-                break
-
-    tr.var_edge = var_edge
+    tr.variable_sources = variable_sources
+    tr.reuse_tokens = reuse_tokens
+    tr.variable_sources_out = variable_sources_out
+    tr.fresh_tokens = fresh_tokens

@@ -13,10 +13,11 @@
 #include <stdarg.h>
 #include <algorithm>
 
-#include "place.h"
+#include "token.h"
 #include "thread.h"
 #include "net.h"
 #include "parameters.h"
+#include "usertools.h"
 
 #define CA_DLOG(...)
 
@@ -24,117 +25,69 @@
 //#undef CA_DLOG
 //#define CA_DLOG(...) printf(__VA_ARGS__)
 
-class CaContext {
+namespace ca {
+
+class Context {
 	public:
-		CaContext(CaThreadBase *thread, CaNetBase *net) : thread(thread), net(net) {}
+		Context(ThreadBase *thread, NetBase *net) : thread(thread), net(net) {}
 
 		void quit() { thread->quit_all(); }
 		int process_id() const { return thread->get_process_id(); }
 		int process_count() const { return thread->get_process_count(); }
 		int threads_count() const { return thread->get_threads_count(); }
 
-		void trace_string(const std::string &str) {
-			CaTraceLog *tracelog = thread->get_tracelog();
+		void trace_value(const std::string &str) {
+			TraceLog *tracelog = thread->get_tracelog();
 			if (tracelog) {
-				tracelog->trace_string(str);
+				tracelog->trace_value(str);
 			}
 		}
-		void trace_int(const int value) {
-			CaTraceLog *tracelog = thread->get_tracelog();
+		void trace(const int value) {
+			TraceLog *tracelog = thread->get_tracelog();
 			if (tracelog) {
-				tracelog->trace_int(value);
+				tracelog->trace_value(value);
 			}
 		}
-		void trace_double(const double value) {
-			CaTraceLog *tracelog = thread->get_tracelog();
+		void trace(const double value) {
+			TraceLog *tracelog = thread->get_tracelog();
 			if (tracelog) {
-				tracelog->trace_double(value);
+				tracelog->trace_value(value);
 			}
 		}
 
 	protected:
-		CaThreadBase *thread;
-		CaNetBase *net;
+		ThreadBase *thread;
+		NetBase *net;
 };
 
 /* Main functions */
-void ca_init(
+void init(
 	int argc,
 	char **argv,
-	std::vector<CaParameter*> &parameters,
+	std::vector<Parameter*> &parameters,
 	const std::string& extra_args = "",
 	void extra_args_callback(char, char*, void*) = NULL,
 	void *extra_args_data = NULL);
 
-void ca_setup(int defs_count, CaNetDef **defs);
-void ca_spawn_net(int def_id);
-int ca_main();
-void ca_project_description(const char *str);
+void setup(int defs_count, NetDef **defs);
+void spawn_net(int def_id);
+int main();
+void project_description(const char *str);
 
-/* In SHMEM returns first net of process[0], can be called only between ca_spawn_toplevel_net and ca_main */
-CaNet *ca_get_main_net();
-/* This method is used by module to send tokens to another process. Can be called after ca_spawn_toplevel_net*/
-CaProcess * ca_get_first_process();
+/* In SHMEM returns first net of process[0], can be called only between spawn_toplevel_net and main */
+Net *get_main_net();
+/* This method is used by module to send tokens to another process. n be called after spawn_toplevel_net*/
+Process * get_first_process();
 
-void ca_write_header(FILE *out, int process_count, int threads_count);
+void write_header(FILE *out, int process_count, int threads_count);
 
-template <typename T>
-class ca_array
-{
-	public:
-	ca_array(const T& val) {
-		vec.push_back(val);
-	}
+size_t hash(void *v, size_t size, size_t h=0);
+inline size_t hash_bool(const bool &v) { return (size_t) v; }
+inline size_t hash_int(const int &v) { return (size_t) v; }
+size_t hash_double(const double v);
+size_t hash_float(const float v);
+size_t hash_string(const std::string &v);
 
-	ca_array& operator()(T val)
-	{
-		vec.push_back(val);
-		return *this;
-	}
-
-	std::vector<T> end()
-	{
-		return vec;
-	}
-	private:
-	std::vector<T> vec;
-};
-
-std::vector<int> ca_range(int from, int upto);
-
-template <typename T> std::vector<T> ca_repeat(int count, std::vector<T> vector)
-{
-	size_t l = count * vector.size();
-	std::vector<T> out(l);
-	for (size_t t = 0; t < l; t++) {
-		out[t] = vector[t % vector.size()];
-	}
-	return out;
 }
-
-template <typename T> std::vector<T> ca_array_diff(std::vector<T> vector1, std::vector<T> vector2)
-{
-	std::vector<T> v;
-	for (typename std::vector<T>::iterator i = vector1.begin(); i != vector1.end(); i++) {
-		if (std::find (vector2.begin(), vector2.end(), *i) == vector2.end()) {
-			v.push_back(*i);
-		}
-	}
-	return v;
-}
-
-template <typename T> std::vector<T> ca_array_join(std::vector<T> vector1, std::vector<T> vector2)
-{
-	std::vector<T> v = vector1;
-	v.insert(v.end(), vector2.begin(), vector2.end());
-	return v;
-}
-
-size_t ca_hash(void *v, size_t size, size_t h=0);
-inline size_t ca_hash_bool(const bool &v) { return (size_t) v; }
-inline size_t ca_hash_int(const int &v) { return (size_t) v; }
-size_t ca_hash_double(const double v);
-size_t ca_hash_float(const float v);
-size_t ca_hash_string(const std::string &v);
 
 #endif

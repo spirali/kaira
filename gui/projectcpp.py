@@ -1,4 +1,4 @@
-#    Copyright (C) 2011, 2012 Stanislav Bohm
+#    Copyright (C) 2011-2013 Stanislav Bohm
 #    Copyright (C) 2011 Ondrej Meca
 #
 #    This file is part of Kaira.
@@ -17,7 +17,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from project import Project, NativeExternType
+from project import Project
 
 class ProjectCppBase(Project):
 
@@ -28,9 +28,6 @@ class ProjectCppBase(Project):
             "CFLAGS" : "-O2",
             "LIBS" : ""
         }
-
-    def create_native_extern_type(self):
-        return ExternTypeCpp()
 
     def get_syntax_highlight_key(self):
         """return language for GtkSourceView"""
@@ -46,7 +43,7 @@ class ProjectCppBase(Project):
         return ["*.cpp", "*.cc", "*.c"]
 
     @classmethod
-    def get_extenv_for_simulator_name(self):
+    def get_target_env_for_simulator_name(self):
         """ When we run simulator we have to build regular application even
             we are building library """
         return "C++"
@@ -63,7 +60,7 @@ class ProjectCpp(ProjectCppBase):
         }
 
     @classmethod
-    def get_extenv_name(self):
+    def get_target_env_name(self):
         return "C++"
 
     def is_library(self):
@@ -77,31 +74,10 @@ class ProjectCppLibrary(ProjectCppBase):
         self.target_mode = "lib"
 
     @classmethod
-    def get_extenv_name(self):
+    def get_target_env_name(self):
         return "C++ library"
 
     def is_library(self):
         return True
 
 
-class ExternTypeCpp(NativeExternType):
-
-    def get_default_function_code(self, name):
-        if name == "getstring":
-            return "\treturn \"" + self.name + "\";\n"
-        else:
-            return "\t// Need implementation\n"
-
-    def get_function_declaration(self, name):
-        if name == "getstring":
-            return "std::string getstring(const {0} &obj)".format(self.raw_type)
-        elif name == "pack":
-            return "void pack(CaPacker &packer, const {0} &obj)".format(self.raw_type)
-        elif name == "unpack":
-            return self.raw_type + " unpack(CaUnpacker &unpacker)"
-        elif name == "to_octave_value":
-            return "octave_value to_octave_value(const {0} &obj)".format(self.raw_type)
-        elif name == "from_octave_value":
-            return self.raw_type + " from_octave_value(const octave_value &obj)"
-        elif name == "hash":
-            return "size_t hash(const {0} &obj)".format(self.raw_type)

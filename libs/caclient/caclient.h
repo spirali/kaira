@@ -22,7 +22,7 @@ class CaClient {
 		void register_function(const std::string &name,
 			const std::string &definition,
 			int *id);
-		void * call(int function_id, CaPacker arguments);
+		void * call(int function_id, ca::Packer arguments);
 	protected:
 		void read_data(void *buffer, size_t size);
 		void process_inital_data(void *buffer, size_t size);
