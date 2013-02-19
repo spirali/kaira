@@ -45,7 +45,7 @@ def tracefn_dialog(mainwindow, fn_name, return_type):
         if dlg.run() == gtk.RESPONSE_OK:
             if return_int.get_active():
                 return_type = "int"
-            elif return_int.get_active():
+            elif return_double.get_active():
                 return_type = "double"
             else:
                 return_type = "std::string"
