@@ -28,7 +28,7 @@ load_bigtable <- function(filename, sep=",") {
     return(bigt)
 }
 
-remove_outliers <- function(x, na.rm=TRUE, ...) {
+remove_outliers_1 <- function(x, na.rm=TRUE, ...) {
     qnt <- quantile(x, probs=c(0.25, 0.75), na.rm=na.rm, ...)
     H <- 1.5 * IQR(x, na.rm=na.rm)
     y <- x
@@ -37,7 +37,7 @@ remove_outliers <- function(x, na.rm=TRUE, ...) {
     return(y)
 }
 
-remove_outliers <- function(bigtable, column, na.rm=TRUE, ...) {
+remove_outliers_2 <- function(bigtable, column, na.rm=TRUE, ...) {
     qnt <- quantile(bigtable[[column]], probs=c(0.25, 0.75), na.rm=na.rm, ...)
     H <- 1.5 * IQR(bigtable[[column]], na.rm=na.rm)
 
@@ -56,7 +56,7 @@ transition_executing_time <- function(
 
     entry <- bigtable[[th_send_time]][condition]
     if (rm_outliers) {
-        entry <- remove_outliers(entry)
+        entry <- remove_outliers_1(entry)
     }
     return(entry)
 }
@@ -68,7 +68,7 @@ tet_projection_through_processes <- function(
     p <- vector(mode="list", length=nprocesses)
     for (i in 1:nprocesses) {
         id_process <- i - 1
-        p[[i]] <- transition_time_executing(
+        p[[i]] <- transition_executing_time(
             bigtable, id_process, id_transition, rm_outliers)
     }
     return(p)
@@ -105,8 +105,8 @@ time_vs_time_length <- function(bigtable, id_process, id_transition=NULL, rm_out
     time_lengths <- bigtable[[th_send_time]][condition]
 
     if (rm_outliers) {
-        times <- remove_outliers(times)
-        time_lengths <- remove_outliers(time_lengths)
+        times <- remove_outliers_1(times)
+        time_lengths <- remove_outliers_1(time_lengths)
     }
 
     return(list(times=times, time_lengths=time_lengths))
