@@ -510,12 +510,13 @@ class EventPointer:
 
 class EventInformation:
 
-    def __init__(self, name, time, process, thread, transition, time_length):
+    def __init__(self, name, time, process, thread, transition, transition_value, time_length):
         self.name = name
         self.time = time
         self.process = process
         self.thread =  thread
         self.transition = transition
+        self.transition_value = transition_value
         self.time_length = time_length
 
     def get_name(self):
@@ -533,6 +534,9 @@ class EventInformation:
     def get_transition(self):
         return self.transition
 
+    def get_transition_value(self):
+        return self.transition_value
+
     def get_time_length(self):
         return self.time_length
 
@@ -546,6 +550,7 @@ class DataCollectingRunInstance(RunInstance):
         self.transitions_data = {} # [transition_id] -> [ (start_time, lenght) ]
         self.tokens_data = {} # [process_id][place_id] -> int
         self.group_nets = {}
+        self.last_transition_fired = {}
         self.last_time = 0
         self.last_event_info = None
         self.idles = {}
@@ -560,13 +565,12 @@ class DataCollectingRunInstance(RunInstance):
                          'process'         : [],
                          'thread'          : [],
                          'transition_id'   : [],
+                         'transition_value'   : [],
                          'time_send'       : [],
                          'place_id'        : [],
                          'token_value'     : []}
 
-    def add_entry(self, action, previous_action, time,
-            snd_process, snd_thread, process, thread,
-            transition, time_length, place_id, token_value):
+    def add_entry(self, action, previous_action, time, snd_process, snd_thread, process, thread, transition, transition_value, time_length, place_id, token_value):
         self.bigtable['action'].append(action)
         self.bigtable['previous_action'].append(previous_action)
         self.bigtable['time_start'].append(time)
@@ -575,6 +579,7 @@ class DataCollectingRunInstance(RunInstance):
         self.bigtable['process'].append(process)
         self.bigtable['thread'].append(thread)
         self.bigtable['transition_id'].append(transition)
+        self.bigtable['transition_value'].append(transition_value)
         self.bigtable['time_send'].append(time_length)
         self.bigtable['place_id'].append(place_id)
         self.bigtable['token_value'].append(token_value)
@@ -588,7 +593,7 @@ class DataCollectingRunInstance(RunInstance):
                 idle_start_time,
                 process_id, thread_id,
                 process_id, thread_id,
-                "", time - idle_start_time, "", "")
+                "", "", time - idle_start_time, "", "")
             return (idle_start_time, time - idle_start_time)
         return None
 
@@ -601,13 +606,12 @@ class DataCollectingRunInstance(RunInstance):
         process     = self.bigtable['process'][idx]
         thread      = self.bigtable['thread'][idx]
         transition  = self.bigtable['transition_id'][idx]
+        tr_value    = self.bigtable['transition_value'][idx]
         time_length = self.bigtable['time_send'][idx]
         place_id    = self.bigtable['place_id'][idx]
         token_value = self.bigtable['token_value'][idx]
 
-        return (action, previous_action, time,
-                snd_process, snd_thread, process, thread,
-                transition, time_length, place_id, token_value)
+        return (action, previous_action, time, snd_process, snd_thread, process, thread, transition, tr_value, time_length, place_id, token_value)
 
     def add_transition_data(self, process_id, thread_id, transition_id, value):
         if transition_id not in self.transitions_data:
@@ -638,8 +642,19 @@ class DataCollectingRunInstance(RunInstance):
             self.idles_data[process_id * self.threads_count + thread_id].append(idle_value)
 
         self.last_time = time
+        if not values:
+            transition_value = None
+        else:
+            tr_vals_count = len(values)
+            transition_value = "{0}:".format(tr_vals_count)
+            for i in range(0, tr_vals_count-1):
+                transition_value += "{0};".format(values[i])
+            transition_value += str(values[tr_vals_count-1])
+
+        self.last_transition_fired[process_id * self.threads_count + thread_id] = transition_value
+
         self.last_event_info = EventInformation(
-            "_transition_fired", time, process_id, thread_id, transition_id, 0)
+            "_transition_fired", time, process_id, thread_id, transition_id, transition_value, 0)
 
     def transition_finished(self, process_id, thread_id, time):
         time_start = self.activites[process_id * self.threads_count + thread_id].time
@@ -651,32 +666,32 @@ class DataCollectingRunInstance(RunInstance):
             self.threads_data[activity.process_id * self.threads_count + activity.thread_id].append(value)
             self.add_transition_data(process_id, thread_id, activity.transition.id, value)
 
+            transition_values = self.last_transition_fired.pop(process_id * self.threads_count + thread_id, None)
             self.add_entry(
-                "transition_executed", self.last_event_info.get_name(), time_start,
-                process_id, thread_id, process_id, thread_id,
-                activity.transition.id, (time - time_start), "", "")
+                "transition_executed", self.last_event_info.get_name(), time_start, process_id, thread_id, process_id, thread_id,
+                activity.transition.id, transition_values, (time - time_start), "", "")
             self.last_event_info = EventInformation(
                 "_transition_finished", time, process_id, thread_id,
-                activity.transition.id, (time-time_start))
+                activity.transition.id, transition_values, (time-time_start))
 
     def event_spawn(self, process_id, thread_id, time, net_id):
         RunInstance.event_spawn(self, process_id, thread_id, time, net_id)
         self.last_time = time
         self.last_event_info = EventInformation(
-            "_event_spawn", time, process_id, thread_id, "", "")
+            "_event_spawn", time, process_id, thread_id, "", "", "")
 
     def event_quit(self, process_id, thread_id, time):
         RunInstance.event_quit(self, process_id, thread_id, time)
         self.last_time = time
         self.last_event_info = EventInformation(
-            "_event_quit", time, process_id, thread_id, "", "")
+            "_event_quit", time, process_id, thread_id, "", "", "")
 
     def event_send(self, process_id, thread_id, time, msg_id):
         RunInstance.event_send(self, process_id, thread_id, time, msg_id)
         self.last_time = time
         self.sender_info[msg_id] = (process_id, thread_id)
         self.last_event_info = EventInformation(
-            "_event_send", time, process_id, thread_id, "", "")
+            "_event_send", time, process_id, thread_id, "", "", "")
 
     def event_receive(self, process_id, thread_id, time, msg_id):
         send_time = RunInstance.event_receive(self, process_id, thread_id, time, msg_id)
@@ -691,11 +706,11 @@ class DataCollectingRunInstance(RunInstance):
             time - send_time,
             snd_process, snd_thread,
             process_id, thread_id,
-            "", send_time, "", "")
+            "", "", send_time, "", "")
 
 
         self.last_event_info = EventInformation(
-            "_event_send", time, process_id, thread_id, "", send_time)
+            "_event_send", time, process_id, thread_id, "", "", send_time)
         return send_time
 
     def event_idle(self, process_id, thread_id, time):
@@ -714,12 +729,12 @@ class DataCollectingRunInstance(RunInstance):
         process = self.last_event_info.get_process()
         thread = self.last_event_info.get_thread()
         transition = self.last_event_info.get_transition()
+        transition_value = self.last_event_info.get_transition_value()
 
         val = token_value[0] if token_value is not None else ""
         self.add_entry(
-            "add_token", previous_action, time,
-            process, thread, process, thread, transition,
-            send_time, place_id, val)
+            "add_token", previous_action, time, process, thread, process, thread,
+            transition, transition_value, send_time, place_id, val)
 
     def remove_token(self, place_id, token_pointer):
         RunInstance.remove_token(self, place_id, token_pointer)
@@ -732,12 +747,12 @@ class DataCollectingRunInstance(RunInstance):
         process = self.last_event_info.get_process()
         thread = self.last_event_info.get_thread()
         transition = self.last_event_info.get_transition()
+        transition_value = self.last_event_info.get_transition_value()
         time_length = self.last_event_info.get_time_length()
 
         self.add_entry(
-            "remove_token", previous_action, time,
-            process, thread, process, thread, transition,
-            time_length, place_id, "")
+            "remove_token", previous_action, time, process, thread, process, thread,
+            transition, transition_value, time_length, place_id, "")
 
     def get_transitions_utilization_gthreads(self):
 
@@ -809,14 +824,8 @@ class DataCollectingRunInstance(RunInstance):
         for i in range(length):
             ent = self.get_entry(i)
             if ent is not None:
-                action, previous_action, time, \
-                snd_process, snd_thread, process, thread, \
-                transition, time_length, place_id, token_value = ent
+                action, previous_action, time, snd_process, snd_thread, process, thread, transition, transition_value, time_length, place_id, token_value = ent
 
-                f.write("\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\"," +
-                        "\"{6}\",\"{7}\",\"{8}\",\"{9}\",\"{10}\"\n".format(
-                            action, previous_action, time,
-                            snd_process, snd_thread, process,
-                            thread, transition, time_length,
-                            place_id, token_value))
+                f.write("\"{0}\",\"{1}\",\"{2}\",\"{3}\",\"{4}\",\"{5}\",\"{6}\",\"{7}\",\"{8}\",\"{9}\",\"{10}\",\"{11}\"\n".format(
+                    action, previous_action, time, snd_process, snd_thread, process, thread, transition, transition_value, time_length, place_id, token_value))
         f.close()
