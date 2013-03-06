@@ -177,19 +177,19 @@ class StateSpaceTest(unittest.TestCase):
         result = self.get_result(report, "Quit analysis", "Number of quit states")
         self.assertEquals(result.get("value"), "4")
         self.assertEquals(result.get("status"), "ok")
-        result = self.get_result(report, "Quit analysis", "Number of dead-ends")
+        result = self.get_result(report, "Quit analysis", "Number of deadlock states")
         self.assertEquals(result.get("value"), "0")
         self.assertEquals(result.get("status"), "ok")
 
     def test_statespace2(self):
         report = Project("statespace2").statespace(["quit"], processes=4)
         result = self.get_result(report, "Overall statistics", "Number of states")
-        self.assertEquals(result.get("value"), "268")
+        self.assertEquals(result.get("value"), "309")
         result = self.get_result(report, "Quit analysis", "Number of quit states")
-        self.assertEquals(result.get("value"), "15")
+        self.assertEquals(result.get("value"), "16")
         self.assertEquals(result.get("status"), "ok")
-        result = self.get_result(report, "Quit analysis", "Number of dead-ends")
-        self.assertEquals(result.get("value"), "1")
+        result = self.get_result(report, "Quit analysis", "Number of deadlock states")
+        self.assertEquals(result.get("value"), "5")
         self.assertEquals(result.get("status"), "fail")
 
 

@@ -45,8 +45,8 @@ class Packet {
 	public:
 	int from_process;
 	int tag;
+	int size;
 	void *data;
-
 	Packet *next;
 };
 #endif
@@ -86,7 +86,7 @@ class Process {
 		int process_packets(Thread *thread);
 
 		#ifdef CA_SHMEM
-		void add_packet(int from_process, int tag, void *data);
+		void add_packet(int from_process, int tag, void *data, size_t size);
 		#endif
 
 		#ifdef CA_MPI

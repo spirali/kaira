@@ -204,6 +204,11 @@ template<typename T> class TokenList {
 		int tokens_count;
 };
 
+template<typename T> void pack(ca::Packer &packer, TokenList<T> &list) {
+	pack(packer, list.size());
+	list.pack_tokens(packer);
+}
+
 }
 
 #endif

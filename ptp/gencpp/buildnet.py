@@ -82,10 +82,8 @@ def write_transition_forward(builder, tr):
     builder.line("void fire_phase2(ca::ThreadBase *thread, ca::NetBase *net, void *data);")
     builder.line("void cleanup_binding(void *data);")
     builder.line("bool is_enable(ca::ThreadBase *thread, ca::NetBase *net);")
-    if builder.generate_operator_eq:
-        builder.line("bool binding_equality(void *data1, void *data2);")
-    if builder.generate_hash:
-        builder.line("size_t binding_hash(void *data);")
+    if builder.generate_all_pack:
+        builder.line("void pack_binding(ca::Packer &packer, void *data);")
     builder.write_class_end()
     builder.line("static Transition_{0.id} transition_{0.id};", tr)
     builder.emptyline();
@@ -100,10 +98,8 @@ def write_transition_functions(builder,
     write_fire_phase2(builder, tr)
     write_cleanup_binding(builder, tr)
     write_enable_check(builder, tr)
-    if builder.generate_operator_eq:
-        write_binding_equality(builder, tr)
-    if builder.generate_hash:
-        write_binding_hash(builder, tr)
+    if builder.generate_all_pack:
+        write_pack_binding(builder, tr)
 
 def write_transition_user_function(builder, tr):
     declaration = "void transition_user_fn_{0.id}(ca::Context &ctx, Vars_{0.id} &var)".format(tr)
@@ -358,23 +354,29 @@ def write_enable_check(builder, tr):
 def write_fire_phase1(builder, tr):
     builder.line("void *Transition_{0.id}::fire_phase1(ca::ThreadBase *t, ca::NetBase *net)", tr)
     builder.block_begin()
-    """
+
     builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
+
+    # ---- Prepare builder --- #
     w = build.Builder(builder.project)
     if tr.need_trace():
         builder.line("ca::TraceLog *tracelog = thread->get_tracelog();")
-    write_remove_tokens(w, tr)
+    write_remove_tokens(w, build.get_safe_id("n"), tr)
     w.line("Tokens_{0.id} *tokens = new Tokens_{0.id}();", tr)
-    for edge in tr.get_normal_edges_in():
-        w.line("tokens->token_{0.uid} = token_{0.uid};", edge);
+    for inscription in tr.get_token_inscriptions_in():
+        token_var = build.get_safe_id("token_{0.uid}".format(inscription))
+        w.line("tokens->token_{1.uid} = {0};", token_var, inscription);
 
+    """
     for edge in tr.get_packing_edges_in():
         w.line("tokens->packed_values_{0.uid} = n->place_{1.id}.to_vector_and_clear();",
                edge, edge.get_place())
+    """
     w.line("return tokens;")
+    # --- End of prepare --- #
 
     write_enable_pattern_match(builder, tr, w, "return NULL;")
-    """
+
     builder.line("return NULL;")
     builder.block_end()
 
@@ -383,15 +385,18 @@ def write_fire_phase2(builder, tr):
                     "(ca::ThreadBase *t, ca::NetBase *net, void *data)",
                  tr)
     builder.block_begin()
-    """
+
     builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
     builder.line("ca::Context ctx(thread, net);")
     n = build.get_safe_id("n")
     builder.line("{1} *{0} = ({1}*) net;", n, get_net_class_name(tr.net))
     builder.line("Tokens_{0.id} *tokens = (Tokens_{0.id}*) data;", tr)
-    for edge in tr.get_normal_edges_in():
-        builder.line("ca::Token<{0} > *token_{1.uid} = tokens->token_{1.uid};",
-            edge.get_place_type(), edge);
+
+    decls_dict = tr.get_decls()
+
+    for name, uid in tr.variable_sources.items():
+        if uid is not None:
+            builder.line("{0} &{1} = tokens->token_{2}->value;", decls_dict[name], name, uid)
 
     write_fire_body(builder,
                     tr,
@@ -399,7 +404,6 @@ def write_fire_phase2(builder, tr):
                     remove_tokens=False,
                     readonly_tokens=True,
                     packed_tokens_from_place=False)
-    """
     builder.block_end()
 
 def write_cleanup_binding(builder, tr):
@@ -412,32 +416,14 @@ def write_cleanup_binding(builder, tr):
     builder.line("delete tokens;");
     builder.block_end()
 
-def write_binding_equality(builder, tr):
-    builder.line("bool Transition_{0.id}::binding_equality(void *data1, void *data2)", tr)
-    builder.block_begin()
-    builder.line("Tokens_{0.id} *tokens1 = (Tokens_{0.id}*) data1;", tr)
-    builder.line("Tokens_{0.id} *tokens2 = (Tokens_{0.id}*) data2;", tr)
-    conditions = [ "(tokens1->token_{0.uid}->value == tokens2->token_{0.uid}->value)"
-                        .format(edge)
-                   for edge in tr.get_normal_edges_in() ]
-    conditions += [ "(tokens1->packed_values_{0.uid} == tokens2->packed_values_{0.uid})"
-                        .format(edge)
-                   for edge in tr.get_packing_edges_in() ]
-    if conditions:
-        builder.line("return {0};", "&&".join(conditions))
-    else:
-        builder.line("return true;")
-    builder.block_end()
-
-def write_binding_hash(builder, tr):
-    builder.line("size_t Transition_{0.id}::binding_hash(void *data)", tr)
+def write_pack_binding(builder, tr):
+    builder.line("void Transition_{0.id}::pack_binding(ca::Packer &packer, void *data)", tr)
     builder.block_begin()
     builder.line("Tokens_{0.id} *tokens = (Tokens_{0.id}*) data;", tr)
-    types_codes = [ (edge.get_place_type(), "tokens->token_{0.uid}->value".format(edge))
-                    for edge in tr.get_normal_edges_in() ]
-    types_codes += [ (t_array(edge.get_place_type()), "tokens->packed_values_{0.uid}".format(edge))
-                     for edge in tr.get_packing_edges_in() ]
-    builder.line("return {0};", build.get_hash_codes(builder.project, types_codes))
+
+    for inscription in tr.get_token_inscriptions_in():
+        builder.line("ca::pack(packer, tokens->token_{0}->value);", inscription.uid);
+
     builder.block_end()
 
 def write_enable_pattern_match(builder, tr, fire_code, fail_command):

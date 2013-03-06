@@ -40,46 +40,39 @@ def write_net_class(builder, net):
     builder.write_constructor(class_name,"",[ "cass::Net()" ])
     builder.write_method_end()
 
+
     place_decls = [ ("place_" + str(place.id),
-                     "cass::Place<{0} >".format(builder.emit_type(place.type)))
+                     "cass::TokenList<{0} >".format(place.type))
                     for place in net.places ]
 
+    """
     # Copy constructor
     builder.write_constructor(class_name,
                               "{0} &net".format(class_name),
                               [ "cass::Net()" ] +
                                   [ "{0}(net.{0})".format(name) for name, t in place_decls ])
     builder.write_method_end()
+    """
 
     buildnet.write_receive_method(builder, net)
 
     for name, t in place_decls:
         builder.write_var_decl(name, t)
 
+def write_pack_method(builder, net):
+    builder.write_method_start("void pack(ca::Packer &packer)")
+    for place in net.places:
+         builder.line("ca::pack(packer, place_{0.id});", place)
+    builder.write_method_end()
+
 def write_net_class_extension(builder, net):
     class_name = buildnet.get_net_class_name(net)
-    builder.write_method_start("bool is_equal(const cass::Net &rhs) const")
-    if net.places:
-        builder.line("{0} *net = ({0}*) &rhs;", class_name);
-        conditions = []
-        for place in net.places:
-            conditions.append("(place_{0.id} == net->place_{0.id})".format(place))
-        builder.line("return {0};", " && ".join(conditions))
-    else:
-        builder.line("return true;")
-    builder.write_method_end()
+
+    write_pack_method(builder, net)
 
     builder.write_method_start("cass::Net * copy()")
     builder.line("{0} *net = new {0}(*this);", class_name)
     builder.line("return net;")
-    builder.write_method_end()
-
-    builder.write_method_start("size_t hash()")
-    codes = [ "place_{0.id}.hash({1})".format(place,
-                                              build.get_hash_function_name(builder.project,
-                                                                           place.type))
-              for place in net.places ]
-    builder.line("return {0};", build.get_hash_combination(codes))
     builder.write_method_end()
 
 def write_main(builder):
@@ -94,17 +87,15 @@ def write_main(builder):
 
 def write_statespace_program(builder):
     builder.thread_class = "cass::Thread"
-    builder.generate_operator_eq = True
-    builder.generate_hash = True
+    builder.generate_all_pack = True
 
     build.write_header(builder)
     builder.line("#include <caverif.h>")
-    build.write_types_declaration(builder)
     write_core(builder)
     write_main(builder)
 
 def write_spawn(builder, net):
-    builder.line("CaNetBase * spawn_{0.id}(CaThreadBase *thread, CaNetDef *def) {{", net)
+    builder.line("ca::NetBase * spawn_{0.id}(ca::ThreadBase *thread, ca::NetDef *def) {{", net)
     builder.indent_push()
     builder.line("{0} *net = new {0}();", buildnet.get_net_class_name(net))
     buildnet.write_init_net(builder, net)

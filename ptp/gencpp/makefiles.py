@@ -82,6 +82,7 @@ def write_statespace_makefile(project, directory):
     config["include"].append(kaira_path(paths.CAVERIF_INCLUDE_DIR))
     config["libdir"].append(kaira_path(paths.CAVERIF_LIB_DIR))
     config["libs"].append("caverif")
+    config["libs"].append("mhash")
 
     makefile = prepare_makefile(project, config, directory)
 

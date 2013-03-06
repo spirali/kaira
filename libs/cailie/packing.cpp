@@ -1,6 +1,7 @@
 
 #include "packing.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 using namespace ca;
 
@@ -28,6 +29,17 @@ void ca::Packer::reserve(size_t data_size) {
 void ca::Packer::free()
 {
 	::free(buffer);
+}
+
+void ca::Packer::write_to_file(const char *filename)
+{
+	FILE *f = fopen(filename, "w");
+	if (f == NULL) {
+		perror("ca::Packer::write_to_file");
+		exit(-1);
+	}
+	fwrite(buffer, buffer_pos - buffer, 1, f);
+	fclose(f);
 }
 
 template<> int ca::unpack(Unpacker &unpacker)

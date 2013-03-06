@@ -14,17 +14,18 @@ void ca::Process::broadcast_packet(int tag, void *data, size_t size, Thread *thr
 			continue;
 		void *d = malloc(size);
 		memcpy(d, data, size);
-		processes[t]->add_packet(process_id, tag, d);
+		processes[t]->add_packet(process_id, tag, d, size);
 	}
 	free(data);
 }
 
-void ca::Process::add_packet(int from_process, int tag, void *data)
+void ca::Process::add_packet(int from_process, int tag, void *data, size_t size)
 {
 	Packet *packet = new Packet;
 	packet->from_process = from_process;
 	packet->tag = tag;
 	packet->data = data;
+	packet->size = size;
 	packet->next = NULL;
 	pthread_mutex_lock(&packet_mutex);
 	if (packets == NULL) {
@@ -52,6 +53,7 @@ void ca::Process::multisend_multicast(
 	data->place_index = place_index;
 	data->tokens_count = tokens_count;
 	data->msg_id = thread->get_msg_id();
+	size_t size = packer.get_size();
 	for (i = targets.begin(); i != targets.end(); i++) {
 		int target = *i;
 		if(target < 0 || target >= process_count) {
@@ -65,12 +67,11 @@ void ca::Process::multisend_multicast(
 		if ((i + 1) == targets.end()) {
 			d = data;
 		} else {
-			d = malloc(packer.get_size());
-			memcpy(d, data, packer.get_size());
+			d = malloc(size);
+			memcpy(d, data, size);
 		}
 		Process *p = processes[target];
-		p->add_packet(process_id, CA_TAG_TOKENS, d);
-
+		p->add_packet(process_id, CA_TAG_TOKENS, d, size);
 	}
 }
 

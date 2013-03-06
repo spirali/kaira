@@ -31,13 +31,8 @@ class Builder(CppWriter):
         # CaThreadBase is cast to this type
         self.thread_class = "ca::Thread"
 
-        # Generate operator== and operator!= for generated types
-        # If true then all ExternTypes have to implement operator== and operator!=
-        self.generate_operator_eq = False
-
-        # Generate hash functions for generated types
-        # If true then all ExternTypes have to implement get_hash
-        self.generate_hash = False
+        # Generate packing function for all structures
+        self.generate_all_pack = False
 
 
 def get_safe_id(string):

@@ -1,11 +1,16 @@
 
 #include "statespace.h"
+#include <string.h>
 #include <vector>
+#include <algorithm>
+#include <alloca.h>
 
-extern ca::NetDef **defs;
-extern int defs_count;
-extern int process_count;
-extern char *project_description_string;
+namespace ca {
+	extern ca::NetDef **defs;
+	extern int defs_count;
+	extern int process_count;
+	extern char *project_description_string;
+}
 
 using namespace cass;
 
@@ -29,6 +34,19 @@ static void args_callback(char c, char *optarg, void *data)
 	}
 }
 
+const char hex_chars[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+
+static void hashdigest_to_string(hashid hash_id, HashDigest hash, char *out)
+{
+	int size = mhash_get_block_size(hash_id);
+	for (int i = 0; i < size; i++) {
+		char byte = ((char*) hash)[i];
+		out[i*2] = hex_chars[(byte & 0xF0) >> 4];
+		out[i*2+1] = hex_chars[byte & 0x0F];
+	}
+	out[size*2] = 0;
+}
+
 void cass::init(int argc, char **argv, std::vector<ca::Parameter*> &parameters)
 {
 	char s[1024];
@@ -37,37 +55,36 @@ void cass::init(int argc, char **argv, std::vector<ca::Parameter*> &parameters)
 	init(argc, argv, parameters, "V:", args_callback);
 }
 
-Node::Node(ca::NetDef *net_def) : flag(NULL)
+State::State(ca::NetDef *net_def) : flag(NULL)
 {
-	nets = new Net*[process_count];
-	packets = new std::deque<Packet>[process_count];
-	for (int i = 0; i < process_count; i++) {
+	nets = new Net*[ca::process_count];
+	packets = new std::deque<Packet>[ca::process_count * ca::process_count];
+	for (int i = 0; i < ca::process_count; i++) {
 		Thread thread(packets, i, 0);
 		nets[i] = (Net*) net_def->spawn(&thread);
 	}
 }
 
-Node::Node() : flag(NULL)
+State::State() : flag(NULL)
 {
-	nets = new Net*[process_count];
-	packets = new std::deque<Packet>[process_count];
+	nets = new Net*[ca::process_count];
+	packets = new std::deque<Packet>[ca::process_count * ca::process_count];
 }
 
-Node::Node(const std::vector<TransitionActivation> & activations, std::deque<Packet> *packets)
+State::State(const std::vector<TransitionActivation> & activations, std::deque<Packet> *packets)
 	: activations(activations), flag(NULL)
 {
-	nets = new Net*[process_count];
-	this->packets = new std::deque<Packet>[process_count];
-	for (int t = 0; t < process_count; t++) {
+	nets = new Net*[ca::process_count];
+	this->packets = new std::deque<Packet>[ca::process_count * ca::process_count];
+	for (int t = 0; t < ca::process_count * ca::process_count; t++) {
 		this->packets[t] = packets[t];
 	}
 }
 
-Node::~Node()
+State::~State()
 {
 	delete [] nets;
 	delete [] packets;
-
 	NodeFlag *f = flag;
 	while (f) {
 		NodeFlag *next = f->next;
@@ -76,91 +93,99 @@ Node::~Node()
 	}
 }
 
-void Node::generate(Core *core)
+State * State::copy()
 {
-	if (get_flag("quit")) {
-		return;
+	State *state = new State(activations, packets);
+	for (int i = 0; i < ca::process_count; i++) {
+		state->nets[i] = nets[i]->copy();
 	}
+	return state;
+}
 
-	ca::NetDef *def = core->get_net_def();
-	const std::vector<ca::TransitionDef*> &transitions =
-		def->get_transition_defs();
-	int transitions_count = def->get_transitions_count();
-
-	/* Fire transitions */
-	for (int p = 0; p < process_count; p++) {
-		Node *node = NULL;
-		for (int i = 0; i < transitions_count; i++) {
-			if (node == NULL) {
-				node = copy_state();
-			}
-			Net *net = node->nets[p];
-			Thread thread(node->packets, p, 1);
-			void *data = transitions[i]->fire_phase1(&thread, net);
-			if (data) {
-				TransitionActivation activation;
-				activation.data = data;
-				activation.transition_def = transitions[i];
-				activation.process_id = p;
-				activation.thread_id = 0;
-				node->activations.push_back(activation);
-				Node *n = core->add_node(node);
-				nexts.push_back(n);
-				node = NULL;
-			}
-		}
+void State::pack_state(ca::Packer &packer)
+{
+	pack_activations(packer);
+	pack_packets(packer);
+	for (int t = 0; t < ca::process_count; t++) {
+		nets[t]->pack(packer);
 	}
+}
 
-	/* Finish transitions */
+void State::hash_activations(MHASH hash_thread)
+{
+	size_t size = activations.size();
+	mhash(hash_thread, &size, sizeof(size_t));
+	std::sort(activations.begin(), activations.end(), ActivationCompare());
 	std::vector<TransitionActivation>::iterator i;
-	int p = 0;
-	for (i = activations.begin(); i != activations.end(); i++, p++)
-	{
-		Node *node = copy_state();
-		node->activations.erase(node->activations.begin() + p);
-		Net *net = node->nets[i->process_id];
-		Thread thread(node->packets, i->process_id, i->thread_id);
-		i->transition_def->fire_phase2(&thread, net, i->data);
-		if (thread.get_quit_flag()) {
-			node->add_flag("quit", "");
-		}
-		Node *n = core->add_node(node);
-		nexts.push_back(n);
-	}
-
-	/* Receive packets */
-	for (int p = 0; p < process_count; p++) {
-		if (packets[p].empty()) {
-			continue;
-		}
-		Node *node = copy_state();
-		Packet packet = node->packets[p].front();
-		node->packets[p].pop_front();
-		ca::Tokens *tokens = (ca::Tokens *) packet.data;
-		ca::Unpacker unpacker(tokens + 1);
-		Net *net = node->nets[p];
-		int place_index = tokens->place_index;
-		int tokens_count = tokens->tokens_count;
-		Thread thread(node->packets, -1, -1);
-		for (int t = 0; t < tokens_count; t++) {
-			net->receive(&thread, packet.from_process, place_index, unpacker);
-		}
-		Node *n = core->add_node(node);
-		nexts.push_back(n);
+	for (i = activations.begin(); i != activations.end(); i++) {
+		int id = i->transition_def->get_id();
+		mhash(hash_thread, &id, sizeof(int));
+		mhash(hash_thread, &i->process_id, sizeof(i->process_id));
+		mhash(hash_thread, &i->thread_id, sizeof(i->thread_id));
+		mhash(hash_thread, i->packed_binding, i->packed_binding_size);
 	}
 }
 
-Node* Node::copy_state()
+void State::hash_packets(MHASH hash_thread)
 {
-	Node *node = new Node(activations, packets);
-	for (int i = 0; i < process_count; i++) {
-		node->nets[i] = nets[i]->copy();
+	for (int pq = 0; pq < ca::process_count * ca::process_count; pq++)
+	{
+		size_t size = packets[pq].size();
+		mhash(hash_thread, &size, sizeof(size_t));
+		for (int p = 0; p < packets[pq].size(); p++) {
+			mhash(hash_thread, &packets[pq][p].size, sizeof(packets[pq][p].size));
+			mhash(hash_thread, packets[pq][p].data, packets[pq][p].size);
+		}
 	}
-	return node;
 }
 
+void State::pack_packets(ca::Packer &packer)
+{
+	for (int pq = 0; pq < ca::process_count * ca::process_count; pq++)
+	{
+		size_t size = packets[pq].size();
+		pack(packer, size);
+		for (int p = 0; p < packets[pq].size(); p++) {
+			pack(packer, packets[pq][p].size);
+			pack(packer, packets[pq][p].data, packets[pq][p].size);
+		}
+	}
+}
 
-void Node::add_flag(const std::string &name, const std::string &value)
+void State::pack_activations(ca::Packer &packer)
+{
+	size_t size = activations.size();
+	pack(packer, size);
+	std::sort(activations.begin(), activations.end(), ActivationCompare());
+	std::vector<TransitionActivation>::iterator i;
+	for (i = activations.begin(); i != activations.end(); i++) {
+		int id = i->transition_def->get_id();
+		pack(packer, id);
+		pack(packer, i->process_id);
+		pack(packer, i->thread_id);
+		pack(packer, i->packed_binding, i->packed_binding_size);
+	}
+}
+
+HashDigest State::compute_hash(hashid hash_id)
+{
+	MHASH hash_thread = mhash_init(hash_id);
+	if (hash_thread == MHASH_FAILED) {
+		fprintf(stderr, "Hash failed\n");
+		exit(1);
+	}
+	hash_activations(hash_thread);
+	hash_packets(hash_thread);
+	ca::Packer packer;
+	for (int t = 0; t < ca::process_count; t++) {
+		packer.reset();
+		nets[t]->pack(packer);
+		mhash(hash_thread, packer.get_buffer(), packer.get_size());
+	}
+	return mhash_end(hash_thread);
+}
+
+void State::add_flag(const std::string &name, const std::string &value)
 {
 	NodeFlag *f = new NodeFlag;
 	f->name = name;
@@ -169,8 +194,7 @@ void Node::add_flag(const std::string &name, const std::string &value)
 	flag = f;
 }
 
-
-NodeFlag *Node::get_flag(const std::string &name)
+NodeFlag *State::get_flag(const std::string &name)
 {
 	NodeFlag *f = flag;
 	while(f) {
@@ -182,97 +206,107 @@ NodeFlag *Node::get_flag(const std::string &name)
 	return NULL;
 }
 
-size_t Node::state_hash() const
+Node::Node(HashDigest hash, State *state) : hash(hash), state(state)
 {
-	size_t h = activations.size();
-	std::vector<TransitionActivation>::const_iterator i;
 
-	/* For activations we have to use commutative hashing ! */
-	for (i = activations.begin(); i != activations.end(); i++)
+}
+
+Node::~Node()
+{
+	free(hash);
+}
+
+void Node::generate(Core *core)
+{
+	if (state->get_flag("quit")) {
+		return;
+	}
+
+	ca::NetDef *def = core->get_net_def();
+	const std::vector<ca::TransitionDef*> &transitions =
+		def->get_transition_defs();
+	int transitions_count = def->get_transitions_count();
+
+	State *s = NULL;
+	/* Fire transitions */
+	for (int p = 0; p < ca::process_count; p++) {
+		for (int i = 0; i < transitions_count; i++) {
+			if (s == NULL) {
+				s = state->copy();
+			}
+			Net *net = s->nets[p];
+			Thread thread(s->packets, p, 1);
+			void *binding = transitions[i]->fire_phase1(&thread, net);
+			if (binding) {
+				TransitionActivation activation;
+				activation.binding = binding;
+
+				activation.transition_def = transitions[i];
+				activation.process_id = p;
+				activation.thread_id = 0;
+
+				ca::Packer packer;
+				transitions[i]->pack_binding(packer, binding);
+				activation.packed_binding = packer.get_buffer();
+				activation.packed_binding_size = packer.get_size();
+				s->activations.push_back(activation);
+				Node *n = core->add_state(s);
+				nexts.push_back(n);
+				s = NULL;
+			}
+		}
+	}
+
+	/* Finish transitions */
+	std::vector<TransitionActivation>::iterator i;
+	int p = 0;
+	for (i = state->activations.begin(); i != state->activations.end(); i++, p++)
 	{
-		size_t v = (size_t) i->transition_def;
-		v += (i->process_id << 16) + i->thread_id;
-		v ^= i->transition_def->binding_hash(i->data);
-		h ^= v;
-	}
-
-	for (int t = 0; t < process_count; t++) {
-		h += nets[t]->hash();
-		h += h << 10;
-		h ^= h >> 6;
-		std::deque<Packet>::const_iterator i;
-		for (i = packets[t].begin(); i != packets[t].end(); i++) {
-			h = ca::hash(i->data, i->size, h);
+		if (s == NULL) {
+			s = state->copy();
 		}
+		s->activations.erase(s->activations.begin() + p);
+		Net *net = s->nets[i->process_id];
+		Thread thread(s->packets, i->process_id, i->thread_id);
+		i->transition_def->fire_phase2(&thread, net, i->binding);
+		if (thread.get_quit_flag()) {
+			s->add_flag("quit", "");
+		}
+		Node *n = core->add_state(s);
+		nexts.push_back(n);
+		s = NULL;
 	}
 
-	// TODO: hash from flags
-	return h;
+	/* Receive packets */
+	for (int pq = 0; pq < ca::process_count * ca::process_count; pq++) {
+		int target = pq / ca::process_count;
+		if (state->packets[pq].empty()) {
+			continue;
+		}
+		if (s == NULL) {
+			s = state->copy();
+		}
+		Packet packet = s->packets[pq].front();
+		s->packets[pq].pop_front();
+		ca::Tokens *tokens = (ca::Tokens *) packet.data;
+		ca::Unpacker unpacker(tokens + 1);
+		Net *net = s->nets[target];
+		int place_index = tokens->place_index;
+		int tokens_count = tokens->tokens_count;
+		Thread thread(s->packets, -1, -1);
+		for (int t = 0; t < tokens_count; t++) {
+			net->receive(&thread, packet.from_process, place_index, unpacker);
+		}
+		Node *n = core->add_state(s);
+		nexts.push_back(n);
+		s = NULL;
+	}
+	if (s != NULL) {
+		delete s;
+	}
 }
 
-bool Node::state_equals(const Node &node) const
-{
-	if (activations.size() != node.activations.size()) {
-		return false;
-	}
-	for (int i = 0; i < process_count; i++) {
-		if (packets[i].size() != node.packets[i].size()) {
-			return false;
-		}
-	}
-
-	std::vector<TransitionActivation>::const_iterator i1;
-	std::vector<TransitionActivation>::const_iterator i2;
-	for (i1 = node.activations.begin(); i1 != node.activations.end(); i1++) {
-		for (i2 = activations.begin(); i2 != activations.end(); i2++) {
-			if (i1->transition_def == i2->transition_def &&
-				i1->process_id == i2->process_id &&
-				i1->thread_id == i2->thread_id &&
-				i1->transition_def->binding_equality(i1->data, i2->data))
-			{
-				break;
-			}
-		}
-		if (i2 == activations.end())
-			return false;
-	}
-
-	for (int i = 0; i < process_count; i++) {
-		std::deque<Packet>::const_iterator p1 = packets[i].begin();
-		std::deque<Packet>::const_iterator p2 = node.packets[i].begin();
-        for (; p1 != packets[i].end(); p1++, p2++) {
-			if (p1->size != p2->size || memcmp(p1->data, p2->data, p1->size)) {
-				return false;
-			}
-		}
-	}
-
-	for (int i = 0; i < process_count; i++) {
-		if (!nets[i]->is_equal(*node.nets[i]))
-			return false;
-	}
-
-	NodeFlag *f1 = flag;
-	NodeFlag *f2 = node.flag;
-	while (f1 != NULL && f2 != NULL) {
-		if (f1->name != f2->name) {
-			return false;
-		}
-		if (f1->value != f2->value) {
-			return false;
-		}
-		f1 = f1->next;
-		f2 = f2->next;
-	}
-
-	if (f1 != f2) {
-		return false;
-	}
-
-	return true;
-}
-
-Core::Core() : initial_node(NULL)
+Core::Core() : initial_node(NULL), nodes(10000, HashDigestHash(MHASH_MD5), HashDigestEq(MHASH_MD5))
 {
 }
 
@@ -282,9 +316,9 @@ Core::~Core()
 
 void Core::generate()
 {
-	net_def = defs[0]; // Take first definition
-	initial_node = new Node(net_def);
-	add_node(initial_node);
+	net_def = ca::defs[0]; // Take first definition
+	State *initial_state = new State(net_def);
+	initial_node = add_state(initial_state);
 	int count = 0;
 	do {
 		count++;
@@ -300,21 +334,37 @@ void Core::generate()
 void Core::write_dot_file(const std::string &filename)
 {
 	FILE *f = fopen(filename.c_str(), "w");
-
+	char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
 	fprintf(f, "digraph X {\n");
-	google::sparse_hash_set<Node*,
-							NodeStateHash,
-							NodeStateEq>::const_iterator it;
+	NodeMap::const_iterator it;
 	for (it = nodes.begin(); it != nodes.end(); it++)
 	{
-		Node *node = *it;
+		Node *node = it->second;
 		const std::vector<Node*> &nexts = node->get_nexts();
 		if (node == initial_node) {
-			fprintf(f, "S%p [style=filled, label=%i]\n",
-				node, (int) node->get_activations().size());
+			fprintf(f, "S%p [style=filled, label=init]\n",
+				node);
 		} else {
-			fprintf(f, "S%p [label=%i]\n",
-				node, (int) node->get_activations().size());
+			hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
+
+			/*
+			ca::Packer packer;
+			node->get_state()->pack_state(packer);
+			char xtmp[1000];
+			snprintf(xtmp, 1000, "hashes/%s", hashstr);
+			packer.write_to_file(xtmp);
+			*/
+
+			hashstr[5] = 0;
+			int packets_count = 0;
+			for (int i = 0; i < ca::process_count * ca::process_count; i++) {
+				packets_count += node->get_state()->get_packets()[i].size();
+			}
+			fprintf(f, "S%p [label=\"%s|%li|%i\"]\n",
+				node,
+				hashstr,
+				node->get_state()->get_activations().size(),
+				packets_count);
 		}
 		for (size_t i = 0; i < nexts.size(); i++) {
 			fprintf(f, "S%p -> S%p\n", node, nexts[i]);
@@ -349,7 +399,7 @@ void Core::postprocess()
 	}
 
 	report.child("description");
-	report.text(project_description_string);
+	report.text(ca::project_description_string);
 	report.back();
 
 	report.back();
@@ -359,18 +409,16 @@ void Core::postprocess()
 void Core::run_analysis_quit(ca::Output &report)
 {
 	size_t quit_states = 0;
-	size_t dead_ends = 0;
+	size_t deadlocks = 0;
 
-	google::sparse_hash_set<Node*,
-							NodeStateHash,
-							NodeStateEq>::const_iterator it;
+	NodeMap::const_iterator it;
 	for (it = nodes.begin(); it != nodes.end(); it++)
 	{
-		Node *node = *it;
-		if (node->get_flag("quit")) {
+		Node *node = it->second;
+		if (node->get_state()->get_flag("quit")) {
 			quit_states++;
 		} else if (node->get_nexts().size() == 0) {
-			dead_ends++;
+			deadlocks++;
 		}
 	}
 	report.child("analysis");
@@ -388,11 +436,11 @@ void Core::run_analysis_quit(ca::Output &report)
 	report.back();
 
 	report.child("result");
-	report.set("name", "Number of dead-ends");
-	report.set("value", dead_ends);
-	if (dead_ends != 0) {
+	report.set("name", "Number of deadlock states");
+	report.set("value", deadlocks);
+	if (deadlocks != 0) {
 		report.set("status", "fail");
-		report.set("text", "There are dead-ends");
+		report.set("text", "There are deadlocks");
 	} else {
 		report.set("status", "ok");
 	}
@@ -401,16 +449,20 @@ void Core::run_analysis_quit(ca::Output &report)
 	report.back();
 }
 
-Node * Core::add_node(Node *node)
+Node * Core::add_state(State *state)
 {
-	Node *n = get_node(node);
-	if (n == NULL) {
-		nodes.insert(node);
+	HashDigest hash = state->compute_hash(MHASH_MD5);
+
+	Node *node = get_node(hash);
+	if (node == NULL) {
+		node = new Node(hash, state);
+		nodes[hash] = node;
 		not_processed.push(node);
 		return node;
 	} else {
-		delete node;
-		return n;
+		free(hash);
+		delete state;
+		return node;
 	}
 }
 
@@ -419,21 +471,18 @@ bool Core::is_known_node(Node *node) const
 	return nodes.find(node) != nodes.end();
 }
 
-Node * Core::get_node(Node *node) const
+Node * Core::get_node(HashDigest digest) const
 {
-	google::sparse_hash_set<Node*,
-							NodeStateHash,
-							NodeStateEq>::const_iterator it;
-	it = nodes.find(node);
+	NodeMap::const_iterator it = nodes.find(digest);
 	if (it == nodes.end())
 		return NULL;
 	else
-		return *it;
+		return it->second;
 }
 
 int Thread::get_process_count() const
 {
-	return process_count;
+	return ca::process_count;
 }
 
 void Thread::multisend_multicast(const std::vector<int> &targets,
@@ -452,12 +501,12 @@ void Thread::multisend_multicast(const std::vector<int> &targets,
 	packet.size = packer.get_size();
 	for (i = targets.begin(); i != targets.end(); i++) {
 		int target = *i;
-		if(target < 0 || target >= process_count) {
+		if(target < 0 || target >= ca::process_count) {
 			fprintf(stderr,
 					"Net sends %i token(s) to invalid process id %i (valid ids: [0 .. %i])\n",
-					tokens_count, target, process_count - 1);
+					tokens_count, target, ca::process_count - 1);
 			exit(1);
 		}
-		packets[target].push_back(packet);
+		packets[target * ca::process_count + process_id].push_back(packet);
 	}
 }

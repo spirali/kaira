@@ -23,17 +23,17 @@ def all_free_variables(edges):
     return utils.unions(edges, lambda edge: edge.get_free_vars())
 
 def analyze_transition(tr):
-    variable_sources = {}
+    variable_sources = {} # string -> uid
+    reuse_tokens = {} # uid -> uid
+    fresh_tokens = [] # (uid, type)
+    used_tokens = []  # [uid]
+    variable_sources_out = {} # string -> uid
+
 
     for edge in tr.edges_in:
         for name, uid in edge.get_variable_sources().items():
             if name not in variable_sources:
                 variable_sources[name] = uid
-
-    reuse_tokens = {}
-    fresh_tokens = []
-    used_tokens = []
-    variable_sources_out = {}
 
     for edge in tr.edges_out:
         for name, uid in edge.get_variable_sources().items():

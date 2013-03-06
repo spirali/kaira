@@ -5,6 +5,7 @@
 #include <queue>
 #include <stdio.h>
 #include "output.h"
+#include "packing.h"
 
 namespace ca {
 
@@ -31,8 +32,7 @@ class TransitionDef {
 		virtual void fire_phase2(ThreadBase *thread, NetBase *net, void *data) = 0;
 		virtual void cleanup_binding(void *data) = 0;
 		virtual bool is_enable(ThreadBase *thread, NetBase *net) = 0;
-		virtual bool binding_equality(void *data1, void *data2) { return true; }
-		virtual size_t binding_hash(void *data) { return 1; }
+		virtual void pack_binding(Packer &pack, void *data) {}
 };
 
 class Transition {
@@ -121,6 +121,7 @@ class Net : public NetBase {
 			all threads remove its reference */
 		void set_manual_delete() { flags |= CA_NET_MANUAL_DELETE; }
 		bool get_manual_delete() { return flags & CA_NET_MANUAL_DELETE; }
+
 	protected:
 		std::queue<Transition*> actives;
 		int running_transitions;

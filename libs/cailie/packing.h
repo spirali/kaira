@@ -27,7 +27,7 @@ const size_t PACKER_DEFAULT_SIZE = 4000;
 class Packer {
 
 	public:
-		Packer(size_t size);
+		Packer(size_t size = PACKER_DEFAULT_SIZE);
 		Packer(size_t size, size_t reserved);
 
 		void pack_data(const void *mem, size_t size) {
@@ -42,6 +42,8 @@ class Packer {
 		char * get_buffer() const { return buffer; }
 		void reserve(size_t size);
 		void free();
+		void write_to_file(const char *filename);
+		void reset() { buffer_pos = buffer; }
 	protected:
 		char *buffer_pos;
 		size_t size;
