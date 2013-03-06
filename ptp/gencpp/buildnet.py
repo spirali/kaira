@@ -60,11 +60,9 @@ def write_tokens_struct(builder, tr):
         builder.line("ca::Token<{0} > *token_{1};",
             inscription.get_type(), inscription.uid)
 
-    """
-    for edge in tr.get_packing_edges_in():
-        builder.line("std::vector<{0} > packed_values_{1.uid};",
+    for edge in tr.get_bulk_edges_in():
+        builder.line("ca::TokenList<{0} > tokens_{1.uid};",
             edge.get_place_type(), edge)
-    """
 
     builder.write_class_end()
 
@@ -265,9 +263,9 @@ def write_fire_body(builder,
                 builder.line("{2} {3}({0}->place_{1.id}, true);",
                        net_expr, place, edge.get_type(), edge.inscriptions[0].expr)
     else:
-        for edge in tr.get_bulk_edges_in():
-            builder.line("{1} {2} = tokens->packed_values_{0.uid}",
-                edge, edge.get_type(), edge.inscriptions[0].expr)
+       for edge in tr.get_bulk_edges_in():
+           builder.line("{2} {3}(tokens->tokens_{0.uid}, false);",
+               edge, edge.place, edge.get_type(), edge.inscriptions[0].expr)
 
     decls = tr.get_decls()
 
@@ -305,6 +303,10 @@ def write_fire_body(builder,
     elif locking:
         builder.line("bool lock = true;")
 
+    if readonly_tokens:
+        reuse_tokens = None
+    else:
+        reuse_tokens = tr.reuse_tokens;
 
     for edge in tr.edges_out:
         write_send_token(builder,
@@ -313,7 +315,7 @@ def write_fire_body(builder,
                          trace_send=tr.need_trace(),
                          locking=locking,
                          readonly_tokens=readonly_tokens,
-                         reuse_tokens=tr.reuse_tokens)
+                         reuse_tokens=reuse_tokens)
     if locking:
         builder.line("if (lock) {0}->unlock();", net_expr)
 
@@ -356,6 +358,7 @@ def write_fire_phase1(builder, tr):
     builder.block_begin()
 
     builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
+    builder.line("ca::Context ctx(thread, net);")
 
     # ---- Prepare builder --- #
     w = build.Builder(builder.project)
@@ -367,11 +370,10 @@ def write_fire_phase1(builder, tr):
         token_var = build.get_safe_id("token_{0.uid}".format(inscription))
         w.line("tokens->token_{1.uid} = {0};", token_var, inscription);
 
-    """
-    for edge in tr.get_packing_edges_in():
-        w.line("tokens->packed_values_{0.uid} = n->place_{1.id}.to_vector_and_clear();",
-               edge, edge.get_place())
-    """
+    for edge in tr.get_bulk_edges_in():
+        w.line("tokens->tokens_{0.uid}.overtake({2}->place_{1.id});",
+               edge, edge.place, build.get_safe_id("n"))
+
     w.line("return tokens;")
     # --- End of prepare --- #
 
@@ -423,6 +425,9 @@ def write_pack_binding(builder, tr):
 
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::pack(packer, tokens->token_{0}->value);", inscription.uid);
+
+    for edge in tr.get_bulk_edges_in():
+        builder.line("ca::pack(packer, tokens->tokens_{0.uid});", edge);
 
     builder.block_end()
 

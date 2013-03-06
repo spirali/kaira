@@ -316,6 +316,8 @@ Core::~Core()
 
 void Core::generate()
 {
+	ca::check_parameters();
+
 	net_def = ca::defs[0]; // Take first definition
 	State *initial_state = new State(net_def);
 	initial_node = add_state(initial_state);

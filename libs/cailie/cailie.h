@@ -72,6 +72,7 @@ void init(
 void setup(int defs_count, NetDef **defs);
 void spawn_net(int def_id);
 int main();
+void check_parameters();
 void project_description(const char *str);
 
 /* In SHMEM returns first net of process[0], can be called only between spawn_toplevel_net and main */
@@ -80,13 +81,6 @@ Net *get_main_net();
 Process * get_first_process();
 
 void write_header(FILE *out, int process_count, int threads_count);
-
-size_t hash(void *v, size_t size, size_t h=0);
-inline size_t hash_bool(const bool &v) { return (size_t) v; }
-inline size_t hash_int(const int &v) { return (size_t) v; }
-size_t hash_double(const double v);
-size_t hash_float(const float v);
-size_t hash_string(const std::string &v);
 
 }
 

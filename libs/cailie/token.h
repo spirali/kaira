@@ -38,6 +38,8 @@ template<typename T> class TokenList {
 				list.token = NULL;
 				list.tokens_count = 0;
 			} else {
+				token = NULL;
+				tokens_count = 0;
 				copy_tokens(list);
 			}
 		}

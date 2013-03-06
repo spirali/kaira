@@ -44,7 +44,7 @@ void ca::project_description(const char *str) {
 	project_description_string = str;
 }
 
-static void check_parameters()
+void ca::check_parameters()
 {
 	bool exit_flag = false;
 	for (size_t t = 0; t < parameters.size(); t++) {
@@ -398,30 +398,4 @@ void ca::write_header(FILE *out, int process_count, int threads_count)
 	fputs("\n", out);
 	fputs(project_description_string, out);
 	fputs("\n", out);
-}
-
-size_t ca::hash_string(const std::string &v) {
-	std::string::const_iterator i;
-	size_t r = 37 * v.size();
-    int j = 0;
-	for (i = v.begin(); i != v.end() && j < 256; i++, j++) {
-		r = r * 101 + (*i);
-	}
-	return r;
-}
-
-size_t ca::hash(void *v, size_t size, size_t h) {
-	char *vv = (char *) v;
-	for (size_t t = 0; t < size; t++) {
-		h = h * 101 + vv[t];
-	}
-	return h;
-}
-
-size_t ca::hash_double(double v) {
-	return hash(&v, sizeof(double));
-}
-
-size_t ca::hash_float(float v) {
-	return hash(&v, sizeof(float));
 }
