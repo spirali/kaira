@@ -362,10 +362,10 @@ void Core::write_dot_file(const std::string &filename)
 			for (int i = 0; i < ca::process_count * ca::process_count; i++) {
 				packets_count += node->get_state()->get_packets()[i].size();
 			}
-			fprintf(f, "S%p [label=\"%s|%li|%i\"]\n",
+			fprintf(f, "S%p [label=\"%s|%i|%i\"]\n",
 				node,
 				hashstr,
-				node->get_state()->get_activations().size(),
+				(int) node->get_state()->get_activations().size(),
 				packets_count);
 		}
 		for (size_t i = 0; i < nexts.size(); i++) {
