@@ -401,7 +401,7 @@ def write_fire_phase2(builder, tr):
 
     for name, uid in tr.variable_sources.items():
         if uid is not None:
-            builder.line("{0} &{1} = $tokens->token_{2}->value;", decls_dict[name], name, uid)
+            builder.line("{0} {1} = $tokens->token_{2}->value;", decls_dict[name], name, uid)
 
     for inscription in tr.get_token_inscriptions_in():
         if inscription.is_origin_reader():
