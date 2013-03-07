@@ -184,7 +184,7 @@ class StateSpaceTest(unittest.TestCase):
     def test_statespace2(self):
         report = Project("statespace2").statespace(["quit"], processes=4)
         result = self.get_result(report, "Overall statistics", "Number of states")
-        self.assertEquals(result.get("value"), "309")
+        self.assertEquals(result.get("value"), "311")
         result = self.get_result(report, "Quit analysis", "Number of quit states")
         self.assertEquals(result.get("value"), "16")
         self.assertEquals(result.get("status"), "ok")

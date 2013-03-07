@@ -31,6 +31,12 @@ template<typename T> class TokenList {
 		TokenList() : token(NULL), tokens_count(0) {}
 		~TokenList() { clear(); }
 
+		TokenList(TokenList<T> &list) {
+			token = NULL;
+			tokens_count = 0;
+			copy_tokens(list);
+		}
+
 		TokenList(TokenList<T> &list, bool overtake) {
 			if (overtake) {
 				this->token = list.token;
@@ -164,7 +170,6 @@ template<typename T> class TokenList {
 			if (token) {
 				Token<T> *t = token;
 				do {
-					printf("Packing token %p %p... \n", t, t->next);
 					pack(packer, t->value);
 					t = t->next;
 				} while (t != token);
