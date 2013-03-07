@@ -15,6 +15,11 @@ def options(ctx):
                    default=False,
                    help="do not build MPI")
 
+    ctx.add_option("--disable-verif",
+                   action="store_true",
+                   default=False,
+                   help="do not build verification subsystem")
+
     ctx.load("compiler_cxx")
 
 def configure(ctx):
@@ -26,8 +31,19 @@ def configure(ctx):
     if not ctx.env.CXXFLAGS:
         ctx.env.append_value("CXXFLAGS", "-O2")
         ctx.env.append_value("CXXFLAGS", "-g")
-    ctx.env.CAVERIF = \
-        ctx.check_cxx(header_name="google/sparse_hash_set", mandatory=False)
+
+    if not ctx.options.disable_verif:
+        verif =  ctx.check_cxx(header_name="google/sparse_hash_map",
+                               mandatory=False)
+        verif = verif and ctx.check_cxx(header_name="mhash.h",
+                                        lib="mhash",
+                                        mandatory=False)
+        if not verif:
+            ctx.fatal("Dependacy for verification subsystem is missing.\n"
+                      "For build without this subsystem use --disable-verif")
+        ctx.env.HAVE_VERIF = True
+    else:
+        ctx.env.HAVE_VERIF = False
 
     if not ctx.options.disable_mpi:
         if ctx.options.icc:
@@ -53,11 +69,6 @@ def configure(ctx):
 
     ctx.setenv("")
     ctx.env.HAVE_MPI = mpi
-
-    if not ctx.env.CAVERIF:
-        Logs.pprint("CYAN",
-                    "Verification subsystem is disabled, because "
-                    "the library google-sparsehash was not found.")
 
     if not mpi and not ctx.options.disable_mpi:
         Logs.pprint("CYAN",

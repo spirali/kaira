@@ -3,7 +3,7 @@ source_files = (
 )
 
 def build(ctx):
-    if not ctx.env.CAVERIF:
+    if not ctx.env.HAVE_VERIF:
         return
     ctx.stlib(source=source_files,
               target="caverif",
