@@ -33,31 +33,12 @@ def write_core(builder):
         write_net_functions(builder, net)
 
 def write_net_class(builder, net):
-    class_name = buildnet.get_net_class_name(net)
-    builder.write_class_head(class_name, "cass::Net")
-
-    # Defualt constructor
-    builder.write_constructor(class_name,"",[ "cass::Net()" ])
-    builder.write_method_end()
-
-
-    place_decls = [ ("place_" + str(place.id),
-                     "cass::TokenList<{0} >".format(place.type))
-                    for place in net.places ]
-
-    """
-    # Copy constructor
-    builder.write_constructor(class_name,
-                              "{0} &net".format(class_name),
-                              [ "cass::Net()" ] +
-                                  [ "{0}(net.{0})".format(name) for name, t in place_decls ])
-    builder.write_method_end()
-    """
-
-    buildnet.write_receive_method(builder, net)
-
-    for name, t in place_decls:
-        builder.write_var_decl(name, t)
+    buildnet.write_net_class(builder,
+                             net,
+                             namespace="cass",
+                             write_constructor=False,
+                             write_class_end=False)
+    return
 
 def write_pack_method(builder, net):
     builder.write_method_start("void pack(ca::Packer &packer)")

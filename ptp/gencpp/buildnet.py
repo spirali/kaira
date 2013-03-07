@@ -59,10 +59,14 @@ def write_tokens_struct(builder, tr):
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::Token<{0} > *token_{1};",
             inscription.get_type(), inscription.uid)
+        if inscription.is_origin_reader():
+            builder.line("int origin_{0};", inscription.uid)
 
     for edge in tr.get_bulk_edges_in():
         builder.line("ca::TokenList<{0} > tokens_{1.uid};",
             edge.get_place_type(), edge)
+        if edge.is_origin_reader():
+            builder.line("std::vector<int> origins_{0.uid};", edge)
 
     builder.write_class_end()
 
@@ -369,10 +373,17 @@ def write_fire_phase1(builder, tr):
     for inscription in tr.get_token_inscriptions_in():
         token_var = build.get_safe_id("token_{0.uid}".format(inscription))
         w.line("tokens->token_{1.uid} = {0};", token_var, inscription);
+        if inscription.is_origin_reader():
+            w.line("tokens->origin_{0.uid} = {0.expr}_origin;", inscription)
 
     for edge in tr.get_bulk_edges_in():
         w.line("tokens->tokens_{0.uid}.overtake({2}->place_{1.id});",
                edge, edge.place, build.get_safe_id("n"))
+
+    for edge in tr.get_bulk_edges_in():
+        if edge.is_origin_reader():
+            w.line("tokens->origins_{0.uid} = {1.expr}_origins;",
+                edge, edge.inscriptions[0])
 
     w.line("return tokens;")
     # --- End of prepare --- #
@@ -400,6 +411,15 @@ def write_fire_phase2(builder, tr):
         if uid is not None:
             builder.line("{0} &{1} = tokens->token_{2}->value;", decls_dict[name], name, uid)
 
+    for inscription in tr.get_token_inscriptions_in():
+        if inscription.is_origin_reader():
+            builder.line("int {0.expr}_origin = tokens->origin_{0.uid};", inscription)
+
+    for edge in tr.get_bulk_edges_in():
+        if edge.is_origin_reader():
+            builder.line("std::vector<int> {1.expr}_origins = tokens->origins_{0.uid};",
+                edge, edge.inscriptions[0])
+
     write_fire_body(builder,
                     tr,
                     locking=False,
@@ -425,9 +445,14 @@ def write_pack_binding(builder, tr):
 
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::pack(packer, tokens->token_{0}->value);", inscription.uid);
+        if inscription.is_origin_reader():
+            builder.line("ca::pack(packer, tokens->origin_{0});", inscription.uid);
 
     for edge in tr.get_bulk_edges_in():
         builder.line("ca::pack(packer, tokens->tokens_{0.uid});", edge);
+        if edge.is_origin_reader():
+            builder.line("ca::pack(packer, tokens->origins_{0.uid});", edge);
+
 
     builder.block_end()
 
@@ -542,6 +567,18 @@ def write_place_add(builder,
     else:
         method = "overtake"
 
+    if place.need_origin() and set_origin:
+        if origin is None:
+            origin = "thread->get_process_id()"
+        if bulk:
+            builder.line("for (int i = 0; i < {0}.size(); i++)", value_code)
+            builder.block_begin()
+            builder.line("{0}place_{1.id}_origin.push_back({2});", net_code, place, origin)
+            builder.block_end()
+        else:
+            builder.line("{0}place_{1.id}_origin.push_back({2});", net_code, place, origin)
+
+
     if trace and place.tracing and bulk:
         builder.if_begin("thread->get_tracelog()")
         builder.line("ca::TraceLog *tracelog = thread->get_tracelog();")
@@ -557,16 +594,6 @@ def write_place_add(builder,
         write_trace_token(builder, place, "token")
         builder.block_end()
 
-    if place.need_origin() and set_origin:
-        if origin is None:
-            origin = "thread->get_process_id()"
-        if bulk:
-            builder.line("for (int i = 0; i < {0}.size(); i++)", value_code)
-            builder.block_begin()
-            builder.line("{0}place_{1.id}_origin.push_back({2});", net_code, place, origin)
-            builder.block_end()
-        else:
-            builder.line("{0}place_{1.id}_origin.push_back({2});", net_code, place, origin)
 
 def write_init_net(builder, net):
     builder.line("ca::Context ctx(thread, net);")
@@ -679,16 +706,22 @@ def write_net_functions_forward(builder, net):
 def get_net_class_name(net):
     return "Net_" + str(net.id)
 
-def write_net_class(builder, net, base_class_name="ca::Net", write_class_end=True):
-    builder.write_class_head(get_net_class_name(net), base_class_name)
+def write_net_class(builder,
+                    net,
+                    namespace="ca",
+                    write_constructor=True,
+                    write_class_end=True):
+
+    builder.write_class_head(get_net_class_name(net), namespace + "::Net")
 
     decls = [("def", "ca::NetDef *"),
              ("thread", "ca::Thread *")]
 
-    builder.write_constructor(get_net_class_name(net),
-                              emit_declarations(decls),
-                              ["{0}(def, thread)".format(base_class_name)])
-    builder.write_method_end()
+    if write_constructor:
+        builder.write_constructor(get_net_class_name(net),
+                                  emit_declarations(decls),
+                                  ["{0}::Net(def, thread)".format(namespace)])
+        builder.write_method_end()
 
     for place in net.places:
         builder.write_var_decl("place_" + str(place.id),

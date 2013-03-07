@@ -237,8 +237,15 @@ class EdgeInscription(utils.EqMixin):
         return self.edge.get_place_type()
 
     def is_variable(self):
-        return self.edge.transition.net.project.is_expr_variable(self.expr)
+        return (self.edge.transition.net.project.is_expr_variable(self.expr) and
+                not self.expr.endswith("_origin") and
+                not self.expr.endswith("_origins"))
 
+    def get_place(self):
+        return self.edge.place
+
+    def is_origin_reader(self):
+        return self.edge.is_origin_reader() and self.is_variable()
 
 class Place(utils.EqByIdMixin):
 
