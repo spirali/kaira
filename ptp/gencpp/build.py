@@ -35,9 +35,6 @@ class Builder(CppWriter):
         self.generate_all_pack = False
 
 
-def get_safe_id(string):
-    return "__kaira__" + string
-
 def get_hash_combination(codes):
     if not codes:
         return "113"

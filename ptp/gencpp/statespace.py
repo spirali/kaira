@@ -76,11 +76,11 @@ def write_statespace_program(builder):
     write_main(builder)
 
 def write_spawn(builder, net):
-    builder.line("ca::NetBase * spawn_{0.id}(ca::ThreadBase *thread, ca::NetDef *def) {{", net)
+    builder.line("ca::NetBase * spawn_{0.id}(ca::ThreadBase *$thread, ca::NetDef *$def) {{", net)
     builder.indent_push()
-    builder.line("{0} *net = new {0}();", buildnet.get_net_class_name(net))
+    builder.line("{0} *$net = new {0}();", buildnet.get_net_class_name(net))
     buildnet.write_init_net(builder, net)
-    builder.line("return net;")
+    builder.line("return $net;")
     builder.block_end()
 
 def write_net_functions(builder, net):

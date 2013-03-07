@@ -18,7 +18,6 @@
 #
 
 from base.writer import Writer
-import os
 
 def emit_declarations(decls, reference=False):
     if reference:
@@ -48,6 +47,22 @@ def const_boolean(value):
     else:
         return "false"
 
+def replace_dolar(string, text):
+    result = []
+    l = len(string)
+    i = 0
+    while i < l:
+        c = string[i]
+        if c == "$":
+            if i + 1 < l and string[i + 1] == c:
+                i += 1
+                result.append(c)
+            else:
+                result.append(text)
+        else:
+            result.append(c)
+        i += 1
+    return "".join(result)
 
 class CppWriter(Writer):
 
@@ -59,8 +74,8 @@ class CppWriter(Writer):
         self.indent_pop()
         self.line("}}")
 
-    def if_begin(self, expr):
-        self.line("if ({0}) {{", expr)
+    def if_begin(self, expr, *args, **kw):
+        self.line("if ({0}) {{", self.expand(expr, *args, **kw))
         self.indent_push()
 
     def while_begin(self, expr):
@@ -127,3 +142,13 @@ class CppWriter(Writer):
         if file_lineno:
             self.line_directive(None,
                                 self.get_next_line_number() + 1)
+
+    def expand(self, string, *args):
+        if "$" in string:
+            string = replace_dolar(string, "__kaira__")
+        return string.format(*args)
+
+    def line(self, string, *args, **kw):
+        if "$" in string:
+            string = replace_dolar(string, "__kaira__")
+        Writer.line(self, string, *args, **kw)

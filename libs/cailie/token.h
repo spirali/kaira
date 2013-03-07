@@ -164,6 +164,7 @@ template<typename T> class TokenList {
 			if (token) {
 				Token<T> *t = token;
 				do {
+					printf("Packing token %p %p... \n", t, t->next);
 					pack(packer, t->value);
 					t = t->next;
 				} while (t != token);

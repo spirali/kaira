@@ -128,17 +128,17 @@ def write_send_token(builder,
     def write_lock():
         if not locking:
             return
-        builder.if_begin("!lock")
+        builder.if_begin("!$lock")
         builder.line("{0}->lock();", net_expr)
-        builder.line("lock = true;")
+        builder.line("$lock = true;")
         builder.block_end()
 
     def write_unlock():
         if not locking:
             return
-        builder.if_begin("lock")
+        builder.if_begin("$lock")
         builder.line("{0}->unlock();", net_expr)
-        builder.line("lock = false;")
+        builder.line("$lock = false;")
         builder.block_end()
 
     def write_add(expr, bulk=False, token=False):
@@ -161,15 +161,16 @@ def write_send_token(builder,
         else:
             for inscription in edge.get_token_inscriptions():
                 if inscription.uid in reuse_tokens:
-                    write_add(build.get_safe_id("token_{0}" \
-                                            .format(reuse_tokens[inscription.uid])),
+                    write_add(builder.expand("$token_{0}",
+                                            reuse_tokens[inscription.uid]),
                               token=True)
                 else:
                     write_add(inscription.expr)
     else: # Remote send
         if edge.is_unicast():
             sendtype = ""
-            builder.if_begin("{0} == thread->get_process_id()".format(edge.target))
+            builder.if_begin(builder.expand("{0} == $thread->get_process_id()",
+                                            edge.target))
             write_lock()
             if edge.is_bulk_edge():
                 write_add(edge.inscriptions[0].expr, bulk=True)
@@ -185,15 +186,15 @@ def write_send_token(builder,
 
         write_unlock()
         if trace_send:
-            builder.if_begin("tracelog")
-            builder.line("tracelog->event_send_msg(thread->get_new_msg_id());")
+            builder.if_begin("$tracelog")
+            builder.line("$tracelog->event_send_msg($thread->get_new_msg_id());")
             builder.block_end()
 
         if edge.is_token_edge(): # Pack normal edge
-            builder.line("ca::Packer packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
+            builder.line("ca::Packer $packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
             for inscription in edge.get_token_inscriptions():
-                builder.line("ca::pack(packer, {0});", inscription.expr)
-            builder.line("thread->multisend{0}({1}, {4}, {2}, {3}, packer);",
+                builder.line("ca::pack($packer, {0});", inscription.expr)
+            builder.line("$thread->multisend{0}({1}, {4}, {2}, {3}, $packer);",
                          sendtype,
                          edge.target,
                          edge.place.get_pos_id(),
@@ -202,21 +203,21 @@ def write_send_token(builder,
         else: # Pack packing edge
             # TODO: Pack in one step if type is directly packable
             expr = edge.inscriptions[0].expr
-            builder.line("ca::Packer packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
-            builder.line("{0}.pack_tokens(packer);", expr);
-            builder.line("thread->multisend{0}({1}, {3}, {2}, ({4}).size(), packer);",
+            builder.line("ca::Packer $packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
+            builder.line("{0}.pack_tokens($packer);", expr);
+            builder.line("$thread->multisend{0}({1}, {3}, {2}, ({4}).size(), $packer);",
                    sendtype, edge.target, edge.place.get_pos_id(), net_expr, expr)
         builder.block_end()
 
 def write_remove_tokens(builder, net_expr, tr):
     builder.block_begin()
     if tr.is_any_place_traced():
-        builder.line("ca::TraceLog *tracelog = thread->get_tracelog();")
+        builder.line("ca::TraceLog *$tracelog = $thread->get_tracelog();")
     for inscription in tr.get_token_inscriptions_in():
-        token_var = build.get_safe_id("token_{0.uid}".format(inscription))
+        token_var = builder.expand("$token_{0.uid}", inscription)
         place = inscription.edge.place
         if place.tracing:
-            builder.if_begin("tracelog")
+            builder.if_begin("$tracelog")
             write_trace_token(builder, place, token_var, remove=True)
             builder.block_end()
         builder.line("{0}->place_{2.id}.remove({1});",
@@ -226,7 +227,6 @@ def write_remove_tokens(builder, net_expr, tr):
         place = edge.place
         if edge.is_origin_reader():
             if edge.is_bulk_edge():
-
                 builder.line("{0}->place_{1.id}_origin.clear();", net_expr, place)
             else:
                 for inscription in edge.inscriptions:
@@ -240,57 +240,52 @@ def write_fire_body(builder,
                     readonly_tokens=False,
                     packed_tokens_from_place=True):
 
-    net_expr = build.get_safe_id("n")
-
     if tr.need_trace():
-        builder.line("ca::TraceLog *tracelog = thread->get_tracelog();")
-        builder.if_begin("tracelog")
-        builder.line("tracelog->event_transition_fired({0.id});", tr)
+        builder.line("ca::TraceLog *$tracelog = $thread->get_tracelog();")
+        builder.if_begin("$tracelog")
+        builder.line("$tracelog->event_transition_fired({0.id});", tr)
         builder.block_end()
 
     if remove_tokens:
-        write_remove_tokens(builder, build.get_safe_id("n"), tr)
+        write_remove_tokens(builder, builder.expand("$n"), tr)
 
-    builder.line("{0}->activate_transition_by_pos_id({1});",
-        net_expr, tr.get_pos_id())
+    builder.line("$n->activate_transition_by_pos_id({0});", tr.get_pos_id())
 
     if packed_tokens_from_place:
         for edge in tr.get_bulk_edges_in():
                 place = edge.place
                 if place.tracing:
-                    builder.if_begin("tracelog")
+                    builder.if_begin("$tracelog")
                     write_trace_token_list(builder,
                                            place,
-                                           "{0}->place_{1.id}".format(net_expr, place),
+                                           builder.expand("$n->place_{0.id}", place),
                                            remove=True)
                     builder.block_end()
-                builder.line("{2} {3}({0}->place_{1.id}, true);",
-                       net_expr, place, edge.get_type(), edge.inscriptions[0].expr)
+                builder.line("{1} {2}($n->place_{0.id}, true);",
+                    place, edge.get_type(), edge.inscriptions[0].expr)
     else:
        for edge in tr.get_bulk_edges_in():
-           builder.line("{2} {3}(tokens->tokens_{0.uid}, false);",
+           builder.line("{2} {3}($tokens->tokens_{0.uid}, false);",
                edge, edge.place, edge.get_type(), edge.inscriptions[0].expr)
 
     decls = tr.get_decls()
 
     for uid, t in tr.fresh_tokens:
-        token_var = build.get_safe_id("token_{0}".format(uid))
-        builder.line("ca::Token <{0} > *{1} = new ca::Token<{0} >;",
+        builder.line("ca::Token <{0} > *$token_{1} = new ca::Token<{0} >;",
                      t,
-                     token_var)
+                     uid)
 
 
     for name, uid in tr.variable_sources_out.items():
         if uid is not None:
-            token_var = build.get_safe_id("token_{0}".format(uid))
-            builder.line("{0} &{1} = {2}->value;", decls[name], name, token_var)
+            builder.line("{0} &{1} = $token_{2}->value;", decls[name], name, uid)
         else:
             builder.line("{0} {1}; // Fresh variable", decls[name], name)
 
 
     if tr.code is not None:
         if locking:
-            builder.line("{0}->unlock();", net_expr)
+            builder.line("$n->unlock();")
         decls = tr.get_decls().get_list()
         if len(decls) == 0:
             builder.line("Vars_{0.id} vars;", tr)
@@ -299,13 +294,13 @@ def write_fire_body(builder,
                 tr, ",".join([ name for name, t in decls ]))
         builder.line("transition_user_fn_{0.id}(ctx, vars);", tr)
         if locking:
-            builder.line("bool lock = false;")
+            builder.line("bool $lock = false;")
         if tr.need_trace():
-            builder.if_begin("tracelog")
-            builder.line("tracelog->event_transition_finished();")
+            builder.if_begin("$tracelog")
+            builder.line("$tracelog->event_transition_finished();")
             builder.block_end()
     elif locking:
-        builder.line("bool lock = true;")
+        builder.line("bool $lock = true;")
 
     if readonly_tokens:
         reuse_tokens = None
@@ -315,27 +310,26 @@ def write_fire_body(builder,
     for edge in tr.edges_out:
         write_send_token(builder,
                          edge,
-                         net_expr,
+                         builder.expand("$n"),
                          trace_send=tr.need_trace(),
                          locking=locking,
                          readonly_tokens=readonly_tokens,
                          reuse_tokens=reuse_tokens)
     if locking:
-        builder.line("if (lock) {0}->unlock();", net_expr)
+        builder.line("if ($lock) $n->unlock();")
 
     if not readonly_tokens:
         for edge in tr.edges_in:
             for inscription in edge.get_token_inscriptions():
                 if inscription.uid not in tr.reuse_tokens.values():
-                    token_var = build.get_safe_id("token_{0}".format(inscription.uid))
-                    builder.line("delete {0};", token_var)
+                    builder.line("delete $token_{0.uid};", inscription)
 
 def write_full_fire(builder, tr, locking=True):
-    builder.line("ca::FireResult Transition_{0.id}::full_fire(ca::ThreadBase *t, ca::NetBase *net)",
+    builder.line("ca::FireResult Transition_{0.id}::full_fire(ca::ThreadBase *$t, ca::NetBase *$net)",
                  tr)
     builder.block_begin()
-    builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
-    builder.line("ca::Context ctx(thread, net);")
+    builder.line("{0} *$thread = ({0}*) $t;", builder.thread_class)
+    builder.line("ca::Context ctx($thread, $net);")
 
     w = build.Builder(builder.project)
     write_fire_body(w, tr, locking=locking)
@@ -346,11 +340,11 @@ def write_full_fire(builder, tr, locking=True):
     builder.block_end()
 
 def write_enable_check(builder, tr):
-    builder.line("bool Transition_{0.id}::is_enable(ca::ThreadBase *t, ca::NetBase *net)",
+    builder.line("bool Transition_{0.id}::is_enable(ca::ThreadBase *$t, ca::NetBase *$net)",
                  tr)
     builder.block_begin()
-    builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
-    builder.line("ca::Context ctx(thread, net);")
+    builder.line("{0} *$thread = ({0}*) $t;", builder.thread_class)
+    builder.line("ca::Context ctx($thread, $net);")
     w = CppWriter()
     w.line("return true;")
     write_enable_pattern_match(builder, tr, w, "return false;")
@@ -358,34 +352,33 @@ def write_enable_check(builder, tr):
     builder.block_end()
 
 def write_fire_phase1(builder, tr):
-    builder.line("void *Transition_{0.id}::fire_phase1(ca::ThreadBase *t, ca::NetBase *net)", tr)
+    builder.line("void *Transition_{0.id}::fire_phase1(ca::ThreadBase *$t, ca::NetBase *$net)", tr)
     builder.block_begin()
 
-    builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
-    builder.line("ca::Context ctx(thread, net);")
+    builder.line("{0} *$thread = ({0}*) $t;", builder.thread_class)
+    builder.line("ca::Context ctx($thread, $net);")
 
     # ---- Prepare builder --- #
     w = build.Builder(builder.project)
     if tr.need_trace():
-        builder.line("ca::TraceLog *tracelog = thread->get_tracelog();")
-    write_remove_tokens(w, build.get_safe_id("n"), tr)
-    w.line("Tokens_{0.id} *tokens = new Tokens_{0.id}();", tr)
+        builder.line("ca::TraceLog *$tracelog = $thread->get_tracelog();")
+    write_remove_tokens(w, builder.expand("$n"), tr)
+    w.line("Tokens_{0.id} *$tokens = new Tokens_{0.id}();", tr)
     for inscription in tr.get_token_inscriptions_in():
-        token_var = build.get_safe_id("token_{0.uid}".format(inscription))
-        w.line("tokens->token_{1.uid} = {0};", token_var, inscription);
+        w.line("$tokens->token_{0.uid} = $token_{0.uid};", inscription);
         if inscription.is_origin_reader():
-            w.line("tokens->origin_{0.uid} = {0.expr}_origin;", inscription)
+            w.line("$tokens->origin_{0.uid} = {0.expr}_origin;", inscription)
 
     for edge in tr.get_bulk_edges_in():
-        w.line("tokens->tokens_{0.uid}.overtake({2}->place_{1.id});",
-               edge, edge.place, build.get_safe_id("n"))
+        w.line("$tokens->tokens_{0.uid}.overtake($n->place_{1.id});",
+               edge, edge.place)
 
     for edge in tr.get_bulk_edges_in():
         if edge.is_origin_reader():
-            w.line("tokens->origins_{0.uid} = {1.expr}_origins;",
+            w.line("$tokens->origins_{0.uid} = {1.expr}_origins;",
                 edge, edge.inscriptions[0])
 
-    w.line("return tokens;")
+    w.line("return $tokens;")
     # --- End of prepare --- #
 
     write_enable_pattern_match(builder, tr, w, "return NULL;")
@@ -395,29 +388,28 @@ def write_fire_phase1(builder, tr):
 
 def write_fire_phase2(builder, tr):
     builder.line("void Transition_{0.id}::fire_phase2"
-                    "(ca::ThreadBase *t, ca::NetBase *net, void *data)",
+                    "(ca::ThreadBase *$t, ca::NetBase *$net, void *$data)",
                  tr)
     builder.block_begin()
 
-    builder.line("{0} *thread = ({0}*) t;", builder.thread_class)
-    builder.line("ca::Context ctx(thread, net);")
-    n = build.get_safe_id("n")
-    builder.line("{1} *{0} = ({1}*) net;", n, get_net_class_name(tr.net))
-    builder.line("Tokens_{0.id} *tokens = (Tokens_{0.id}*) data;", tr)
+    builder.line("{0} *$thread = ({0}*) $t;", builder.thread_class)
+    builder.line("ca::Context ctx($thread, $net);")
+    builder.line("{0} *$n = ({0}*) $net;", get_net_class_name(tr.net))
+    builder.line("Tokens_{0.id} *$tokens = (Tokens_{0.id}*) $data;", tr)
 
     decls_dict = tr.get_decls()
 
     for name, uid in tr.variable_sources.items():
         if uid is not None:
-            builder.line("{0} &{1} = tokens->token_{2}->value;", decls_dict[name], name, uid)
+            builder.line("{0} &{1} = $tokens->token_{2}->value;", decls_dict[name], name, uid)
 
     for inscription in tr.get_token_inscriptions_in():
         if inscription.is_origin_reader():
-            builder.line("int {0.expr}_origin = tokens->origin_{0.uid};", inscription)
+            builder.line("int {0.expr}_origin = $tokens->origin_{0.uid};", inscription)
 
     for edge in tr.get_bulk_edges_in():
         if edge.is_origin_reader():
-            builder.line("std::vector<int> {1.expr}_origins = tokens->origins_{0.uid};",
+            builder.line("std::vector<int> {1.expr}_origins = $tokens->origins_{0.uid};",
                 edge, edge.inscriptions[0])
 
     write_fire_body(builder,
@@ -457,62 +449,61 @@ def write_pack_binding(builder, tr):
     builder.block_end()
 
 def write_enable_pattern_match(builder, tr, fire_code, fail_command):
-    n, var = map(build.get_safe_id, [ "n", "var" ])
-    builder.line("{0} *{1} = ({0}*) net;", get_net_class_name(tr.net), n)
+    builder.line("{0} *$n = ({0}*) $net;", get_net_class_name(tr.net))
 
     # Check if there are enough tokens
     for edge in tr.edges_in:
         if edge.get_tokens_number() is not None:
-            builder.line("if ({0}->place_{1.id}.size() < {2}) {3}",
-                n, edge.place, edge.get_tokens_number(), fail_command)
+            builder.line("if ($n->place_{0.id}.size() < {1}) {2}",
+                edge.place, edge.get_tokens_number(), fail_command)
 
     for edge in tr.edges_in:
-        prev_var = None
+        prev_uid = None
         for inscription in edge.get_token_inscriptions():
-            token_var = build.get_safe_id("token_{0}".format(inscription.uid))
             builder.line("// Edge id={0.id} uid={1.uid} expr={1.expr}",
                 edge, inscription)
-            line = "ca::Token < {0} > *{1} = ".format(edge.get_place_type(), token_var)
-            if prev_var is None:
-                builder.line("{0} {1}->place_{2.id}.begin();",
-                            line, n, edge.place)
+            line = builder.expand("ca::Token < {0} > *$token_{1.uid} = ",
+                        edge.get_place_type(),
+                        inscription)
+            if prev_uid is None:
+                builder.line("{0} $n->place_{1.id}.begin();",
+                            line, edge.place)
             else:
-                builder.line("{0} {1}->next;", line, prev_var)
-            prev_var = token_var
+                builder.line("{0} $token_{1}->next;", line, prev_uid)
+            prev_uid = inscription.uid
 
     sources_uid = [ uid for uid in tr.variable_sources.values() if uid is not None ]
     decls_dict = tr.get_decls()
 
     for name, uid in tr.variable_sources.items():
         if uid is not None:
-            token_var = build.get_safe_id("token_{0}".format(uid))
-            builder.line("{0} &{1} = {2}->value;", decls_dict[name], name, token_var)
+            builder.line("{0} &{1} = $token_{2}->value;", decls_dict[name], name, uid)
 
     for edge in tr.edges_in:
         if edge.is_origin_reader():
             if edge.is_bulk_edge():
-              builder.line("std::vector<int> {0}_origins({1}->place_{2.id}_origin.begin(),"
-                           " {1}->place_{2.id}_origin.end());",
-                           edge.inscriptions[0].expr, n, edge.place)
+              builder.line("std::vector<int> {0}_origins($n->place_{1.id}_origin.begin(),"
+                           " $n->place_{1.id}_origin.end());",
+                           edge.inscriptions[0].expr, edge.place)
 
             else:
                 for i, inscription in enumerate(edge.inscriptions):
-                    builder.line("int {0}_origin = *({1}->place_{2.id}_origin.begin() + {3});",
-                                 inscription.expr, n, edge.place, i)
+                    builder.line("int {0}_origin = *($n->place_{1.id}_origin.begin() + {2});",
+                                 inscription.expr, edge.place, i)
 
     for edge in tr.edges_in:
         if "guard" in edge.config:
             builder.block_begin()
-            builder.line("size_t size = {0}->place_{1.id}.size();",  n, edge.place)
+            builder.line("size_t size = $n->place_{0.id}.size();", edge.place)
             builder.line("if (!({0})) {1}", edge.config["guard"], fail_command)
             builder.block_end()
 
         for inscription in edge.get_token_inscriptions():
             if inscription.uid in sources_uid:
                 continue
-            token_var = build.get_safe_id("token_{0}".format(inscription.uid))
-            builder.line("if ({1}->value != ({0})) {2}",
-                inscription.expr, token_var, fail_command)
+
+            builder.line("if ($token_{2.uid}->value != ({0})) {1}",
+                inscription.expr, fail_command, inscription)
 
     if tr.guard is not None:
         builder.line("if (!({0})) {1}", tr.guard, fail_command)
@@ -532,11 +523,11 @@ def write_core(builder):
 
 def write_trace_token(builder, place, token_code, remove=False):
     if remove:
-        builder.line("tracelog->trace_token_remove({0.id}, {1});", place, token_code)
+        builder.line("$tracelog->trace_token_remove({0.id}, {1});", place, token_code)
     else:
-        builder.line("tracelog->trace_token_add({0.id}, {1});", place, token_code)
+        builder.line("$tracelog->trace_token_add({0.id}, {1});", place, token_code)
         for name, return_type in place.tracing:
-            builder.line("tracelog->trace_value({1}({0}->value));", token_code, name)
+            builder.line("$tracelog->trace_value({1}({0}->value));", token_code, name)
 
 def write_trace_token_list(builder, place, token_list, remove=False, begin=None):
     if begin is None:
@@ -569,7 +560,7 @@ def write_place_add(builder,
 
     if place.need_origin() and set_origin:
         if origin is None:
-            origin = "thread->get_process_id()"
+            origin = builder.expand("$thread->get_process_id()")
         if bulk:
             builder.line("for (int i = 0; i < {0}.size(); i++)", value_code)
             builder.block_begin()
@@ -580,73 +571,84 @@ def write_place_add(builder,
 
 
     if trace and place.tracing and bulk:
-        builder.if_begin("thread->get_tracelog()")
-        builder.line("ca::TraceLog *tracelog = thread->get_tracelog();")
+        builder.if_begin("$thread->get_tracelog()")
+        builder.line("ca::TraceLog *tracelog = $thread->get_tracelog();")
         write_trace_token_list(builder, place, value_code)
         builder.block_end()
 
     builder.line("{0}place_{1.id}.{2}({3});", net_code, place, method, value_code)
 
     if trace and place.tracing and not bulk:
-        builder.if_begin("thread->get_tracelog()")
-        builder.line("ca::TraceLog *tracelog = thread->get_tracelog();")
-        builder.line("ca::Token<{1.type} > *token = {0}place_{1.id}.last();", net_code, place)
-        write_trace_token(builder, place, "token")
+        builder.if_begin("$thread->get_tracelog()")
+        builder.line("ca::TraceLog *$tracelog = $thread->get_tracelog();")
+        builder.line("ca::Token<{1.type} > *$token = {0}place_{1.id}.last();", net_code, place)
+        write_trace_token(builder, place, builder.expand("$token"))
         builder.block_end()
 
 
 def write_init_net(builder, net):
-    builder.line("ca::Context ctx(thread, net);")
-    builder.line("int pid = thread->get_process_id();")
+    builder.line("ca::Context ctx($thread, $net);")
+    builder.line("int $pid = $thread->get_process_id();")
     for area in net.areas:
         if area.init_type == "vector":
-            builder.line("std::vector<int> area_{0.id} = {0.init_value};", area)
+            builder.line("std::vector<int> $area_{0.id} = {0.init_value};", area)
         elif area.init_type == "exprs":
-            builder.line("std::vector<int> area_{0.id};", area)
+            builder.line("std::vector<int> $area_{0.id};", area)
             for expr in area.init_value:
-                builder.line("area_{0.id}.push_back({1});", area, expr)
+                builder.line("$area_{0.id}.push_back({1});", area, expr)
 
     for place in net.places:
         if not (place.init_type or place.code):
             continue
         areas = place.get_areas()
         if areas == []:
-            builder.if_begin("pid == 0")
+            builder.if_begin("$pid == 0")
         else:
-            conditions = [ "std::find(area_{0.id}.begin(), area_{0.id}.end(), pid) !="
-                           " area_{0.id}.end()"
-                          .format(area) for area in areas ]
+            conditions = [ builder.expand("std::find($area_{0.id}.begin(), $area_{0.id}.end(), $pid) !="
+                           " $area_{0.id}.end()", area) for area in areas ]
             builder.if_begin(" && ".join(conditions))
 
         if place.init_type == "exprs":
             for expr in place.init_value:
-                write_place_add(builder, place, "net->", expr, set_origin=False, trace=False)
+                write_place_add(builder,
+                                place,
+                                builder.expand("$net->"),
+                                expr,
+                                set_origin=False,
+                                trace=False)
         elif place.init_type == "vector":
-            write_place_add(builder, place, "net->", place.init_value, set_origin=False, trace=False)
+            write_place_add(builder,
+                            place,
+                            builder.expand("$net->"),
+                            place.init_value,
+                            set_origin=False,
+                            trace=False)
 
         if place.code is not None:
-            builder.line("place_user_fn_{0.id}(ctx, net->place_{0.id});", place)
+            builder.line("place_user_fn_{0.id}(ctx, $net->place_{0.id});", place)
 
         if place.tracing:
-            builder.if_begin("thread->get_tracelog()")
-            builder.line("ca::TraceLog *tracelog = thread->get_tracelog();")
-            write_trace_token_list(builder, place, "net->place_{0.id}".format(place))
+            builder.if_begin("$thread->get_tracelog()")
+            builder.line("ca::TraceLog *$tracelog = $thread->get_tracelog();")
+            write_trace_token_list(builder,
+                                   place,
+                                   builder.expand("$net->place_{0.id}", place))
             builder.block_end()
 
         if place.need_origin():
-            builder.line("for (int i = 0; i < net->place_{0.id}.size(); i++)", place)
+            builder.line("for (int i = 0; i < $net->place_{0.id}.size(); i++)", place)
             builder.block_begin()
-            builder.line("net->place_{0.id}_origin.push_back(ctx.process_id());", place)
+            builder.line("$net->place_{0.id}_origin.push_back(ctx.process_id());", place)
             builder.block_end()
         builder.block_end()
 
 def write_spawn(builder, net):
-    builder.line("ca::NetBase * spawn_{0.id}(ca::ThreadBase *thread, ca::NetDef *def) {{", net)
+    builder.line("ca::NetBase * spawn_{0.id}(ca::ThreadBase *$thread, ca::NetDef *$def) {{", net)
     builder.indent_push()
-    builder.line("{0} *net = new {0}(def, ({1}*) thread);", get_net_class_name(net),
+    builder.line("{0} *$net = new {0}($def, ({1}*) $thread);", get_net_class_name(net),
                                                             builder.thread_class)
     write_init_net(builder, net)
-    builder.line("return net;")
+    builder.line("return $net;")
     builder.block_end()
 
 def write_reports_method(builder, net):
@@ -678,7 +680,7 @@ def write_reports_method(builder, net):
 
 def write_receive_method(builder, net):
     builder.write_method_start(
-        "void receive(ca::ThreadBase *thread, int from_process, int place_pos, ca::Unpacker &unpacker)")
+        "void receive(ca::ThreadBase *$thread, int from_process, int place_pos, ca::Unpacker &unpacker)")
     builder.line("switch(place_pos) {{")
     for place in net.places:
         if place.is_receiver():

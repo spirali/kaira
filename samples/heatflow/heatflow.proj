@@ -41,9 +41,9 @@ int to_up(ca::Context &amp;ctx)
 	set_fixed_temp(matrix, param::SIZE_Y(), position, param::TEMP());
 	matrix.swap();
 	place.add(matrix);
-</code><trace>value</trace></place><place id="106" init_string="" name="Up row" place_type="std::vector&lt;double&gt;" radius="20" sx="31" sy="0" x="281" y="208"><code>	std::vector&lt;double&gt; row(param::SIZE_X(), 0);
+</code></place><place id="106" init_string="" name="Up row" place_type="std::vector&lt;double&gt;" radius="20" sx="31" sy="0" x="281" y="208"><code>	std::vector&lt;double&gt; row(param::SIZE_X(), 0);
 	place.add(row);
-</code></place><place id="107" init_string="[0]" name="Counter" place_type="int" radius="20" sx="16" sy="0" x="635" y="375"><trace>value</trace></place><place id="108" init_string="" name="" place_type="DoubleMatrix" radius="22" sx="0" sy="0" x="838" y="285"><trace>value</trace></place><transition guard="" id="111" name="Send result" sx="70" sy="35" x="641" y="285"><trace>fire</trace></transition><transition guard="" id="112" name="Write results" sx="88" sy="48" x="838" y="185"><code>	const int size = var.results.size();
+</code></place><place id="107" init_string="[0]" name="Counter" place_type="int" radius="20" sx="16" sy="0" x="635" y="375" /><place id="108" init_string="" name="" place_type="DoubleMatrix" radius="22" sx="0" sy="0" x="838" y="285" /><transition guard="" id="111" name="Send result" sx="70" sy="35" x="641" y="285"><trace>fire</trace></transition><transition guard="" id="112" name="Write results" sx="88" sy="48" x="838" y="185"><code>	const int size = var.results.size();
 	DoubleMatrix out(param::SIZE_X(), param::SIZE_Y());
 
 	ca::Token&lt;DoubleMatrix&gt; *t = var.results.begin();
