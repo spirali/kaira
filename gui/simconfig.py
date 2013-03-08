@@ -39,7 +39,7 @@ class SimConfigDialog(gtk.Dialog):
     """
 
     def __init__(self, parent, project):
-        gtk.Dialog.__init__(self, "Simulaction configuration", parent)
+        gtk.Dialog.__init__(self, "Parameters configuration", parent)
         self.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
         self.ok_button = self.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
         self.ok_button.set_sensitive(False)
@@ -57,8 +57,13 @@ class SimConfigDialog(gtk.Dialog):
         self.table_index = 1
         parameters = [ parameter for parameter in project.get_parameters()
                                  if parameter.is_editable() ]
+        values = project.get_simconfig().parameters_values
         for i, p in enumerate(parameters):
-            self._add_parameter(i + 1, p)
+            if values:
+                value = values.get(p.name)
+            else:
+                value = None
+            self._add_parameter(i + 1, p, value)
 
         self.table.show_all()
         self._entry_changed(None)
@@ -69,8 +74,10 @@ class SimConfigDialog(gtk.Dialog):
         for e in self.entries:
             result[e] = self.entries[e].get_text()
         simconfig.set_param_values(result)
-        p = int(self.processes_entry.get_text())
-        simconfig.set_process_count(p)
+
+        if self.processes_entry:
+            p = int(self.processes_entry.get_text())
+            simconfig.set_process_count(p)
 
     def _add_entry(self, table_index, name, default_value):
         label = gtk.Label()
@@ -83,14 +90,19 @@ class SimConfigDialog(gtk.Dialog):
         entry.set_activates_default(True)
         return entry
 
-    def _add_parameter(self, table_index, param):
+    def _add_parameter(self, table_index, param, value):
         name = "{0} ({1})".format(param.name, param.type)
-        self.entries[param.name] = self._add_entry(table_index, name, param.default)
+        if value is None:
+            value = param.default
+        self.entries[param.name] = self._add_entry(table_index, name, value)
 
     def _entry_changed(self, w):
-        params_ok = all([ entry.get_text().strip() for entry in self.entries.values() ])
-        try:
-            v = int(self.processes_entry.get_text())
-        except:
-            v = 0
-        self.ok_button.set_sensitive(params_ok and v > 0)
+        ok = all([ entry.get_text().strip() for entry in self.entries.values() ])
+
+        if self.processes_entry:
+            try:
+                v = int(self.processes_entry.get_text())
+            except:
+                v = 0
+            ok = ok and v > 0
+        self.ok_button.set_sensitive(ok)

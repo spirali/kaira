@@ -116,6 +116,14 @@ class StatespaceConfig(gtk.VBox):
             parameters = [ "-r{0}".format(self.processes.get_value_as_int()),
                            "--threads={0}".format(self.threads.get_value_as_int()) ]
 
+            simconfig = self.app.project.get_simconfig()
+            if simconfig.parameters_values is None:
+                if not self.app.open_simconfig_dialog():
+                    return
+
+            parameters += [ "-p{0}={1}".format(k, v)
+                            for (k, v) in simconfig.parameters_values.items() ]
+
             if self.create_dot.get_active():
                 parameters.append("-Vdot")
 
@@ -140,4 +148,3 @@ class StatespaceConfig(gtk.VBox):
             self.process = None
         self.stop_button.set_sensitive(False)
         self.start_button.set_sensitive(True)
-
