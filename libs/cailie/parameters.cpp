@@ -36,6 +36,25 @@ bool ca::ParameterInt::parse_value(const std::string &str)
 	return true;
 }
 
+bool ca::ParameterDouble::parse_value(const std::string &str)
+{
+	char *err = NULL;
+	value = strtod(str.c_str(), &err);
+	if (*err != '\0') {
+		fprintf(stderr, "Invalid parameter value\n");
+		return false;
+	}
+	mode = PARAMETER_SETTED;
+	return true;
+}
+
+bool ca::ParameterString::parse_value(const std::string &str)
+{
+    value = str;
+	mode = PARAMETER_SETTED;
+	return true;
+}
+
 void ca::set_parameter(
 	std::vector<Parameter*> &parameters,
 	char *name,
