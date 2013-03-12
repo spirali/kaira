@@ -129,7 +129,7 @@ class Checker:
         tester.prepare_writer = self.prepare_writer
         tester.args = [ "-I", os.path.join(paths.KAIRA_ROOT, paths.CAILIE_INCLUDE_DIR),
                         "-I", self.project.root_directory ]
-
+        tester.args += self.project.get_build_option("CFLAGS").split()
         tester.run()
 
         if tester.stderr:
