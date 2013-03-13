@@ -19,6 +19,7 @@
 
 
 from writer import CppWriter, const_string
+import base.utils as utils
 
 class Builder(CppWriter):
 
@@ -68,7 +69,12 @@ def write_parameters_forward(builder):
     builder.line("struct param")
     builder.block_begin()
     for p in builder.project.get_parameters():
-        builder.line("static ca::ParameterInt {0};", p.get_name())
+        if p.get_type() == "int":
+            builder.line("static ca::ParameterInt {0};", p.get_name())
+        elif p.get_type() == "double":
+            builder.line("static ca::ParameterDouble {0};", p.get_name())
+        elif p.get_type() == "string":
+            builder.line("static ca::ParameterString {0};", p.get_name())
     builder.write_class_end()
 
 def write_parameters(builder):
@@ -78,12 +84,31 @@ def write_parameters(builder):
             default = ""
         else:
             default = ", " + p.default
-        builder.line("ca::ParameterInt param::{0}({1}, {2}, {3}{4});",
-                     p.name,
-                     const_string(p.name),
-                     const_string(p.description),
-                     policy,
-                     default)
+        if p.get_type() == "int":
+            builder.line("ca::ParameterInt param::{0}({1}, {2}, {3}{4});",
+                         p.name,
+                         const_string(p.name),
+                         const_string(p.description),
+                         policy,
+                         default)
+        elif p.get_type() == "double":
+            builder.line("ca::ParameterDouble param::{0}({1}, {2}, {3}{4});",
+                         p.name,
+                         const_string(p.name),
+                         const_string(p.description),
+                         policy,
+                         default)
+        elif p.get_type() == "std::string":
+            builder.line("ca::ParameterString param::{0}({1}, {2}, {3}{4});",
+                         p.name,
+                         const_string(p.name),
+                         const_string(p.description),
+                         policy,
+                         default)
+        else:
+            utils.PtpException("Invalid type '{0}' for parameter '{1}'".format(
+                                    p.get_type(), p.name))
+
 
 def write_basic_definitions(builder):
     write_parameters(builder)
