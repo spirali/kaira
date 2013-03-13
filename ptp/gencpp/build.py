@@ -19,6 +19,7 @@
 
 
 from writer import CppWriter, const_string
+import base.utils as utils
 
 class Builder(CppWriter):
 
@@ -97,13 +98,17 @@ def write_parameters(builder):
                          const_string(p.description),
                          policy,
                          default)
-        elif p.get_type() == "string":
+        elif p.get_type() == "std::string":
             builder.line("ca::ParameterString param::{0}({1}, {2}, {3}{4});",
                          p.name,
                          const_string(p.name),
                          const_string(p.description),
                          policy,
                          default)
+        else:
+            utils.PtpException("Invalid type '{0}' for parameter '{1}'".format(
+                                    p.get_type(), p.name))
+
 
 def write_basic_definitions(builder):
     write_parameters(builder)
