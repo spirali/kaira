@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm
+#    Copyright (C) 2012-2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -64,6 +64,11 @@ class RunInstance:
     def pre_event(self):
         """ This method is called by tracelog before each event_* """
         self.clear_removed_and_new_tokens()
+
+    def reset_last_event_info(self):
+        self.last_event = None
+        self.last_event_activity = None
+        self.last_event_instance = None
 
     def event_spawn(self, process_id, thread_id, time, net_id):
         self.net = self.project.find_net(net_id)
@@ -166,9 +171,15 @@ class RunInstance:
                         size += p.size
                     text += " ({0}, {1})".format(len(ps) - 1, size)
                 if packets[0].edge_id != edge_id:
+                    top = False
                     text += " *"
-                results.append(text)
+                else:
+                    top = True
+                results.append((process_id, i, top, text))
         return results
+
+    def get_packets_count(self, origin_id, target_id):
+        return len(self.packets[target_id * self.process_count + origin_id])
 
 
 class ThreadActivity:
@@ -354,5 +365,9 @@ class Perspective(utils.EqMixin):
                 else:
                     break
                 text = "{0.process_id}/{0.thread_id}".format(activity)
-                result.append((text, color))
+                result.append((text, color, (p, t, transition)))
         return result
+
+    def get_process_ids(self):
+       return [ net_instance.process_id
+                for net_instance in self.net_instances.values() ]

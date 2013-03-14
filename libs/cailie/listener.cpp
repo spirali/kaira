@@ -71,7 +71,6 @@ void Listener::start()
 	pthread_create(&thread, NULL, listener_thread, this);
 }
 
-
 void Listener::wait_for_connection()
 {
 	fd_set s;
@@ -126,13 +125,31 @@ void Listener::main()
 		pthread_barrier_wait(&barrier1);
 		/* Because there is always at least one thread we can use thread 0 as source of list of networks */
 		write_header(comm_out, process_count, threads_count);
+
+		prepare_state();
 		process_commands(comm_in, comm_out);
+		cleanup_state();
 		pthread_barrier_wait(&barrier2);
 
 		pthread_barrier_destroy(&barrier1);
 		pthread_barrier_destroy(&barrier2);
 		close(client);
 	}
+}
+
+static bool check_prefix(const char *s, const char *prefix)
+{
+	while (*s == *prefix) {
+		if (*s == 0) {
+			return true;
+		}
+		s++;
+		prefix++;
+	}
+	if (*prefix == 0) {
+		return true;
+	}
+	return false;
 }
 
 #define LINE_LENGTH_LIMIT 4096
@@ -149,7 +166,6 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 		// remove \r and \n from the end
 		size_t t = strlen(s) - 1;
 		while(t > 0 && (s[t] == '\n' || s[t] == '\r')) { s[t] = 0; t--; }
-
 		if (!strcmp(line, "QUIT")) {
 			exit(0);
 			return;
@@ -160,24 +176,21 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 		}
 
 		if (!strcmp(line, "REPORTS")) {
-			fprintf(comm_out, "<processes net-id='%i'>",
-				processes[0]->get_net()->get_def_id());
-			for (int t = 0; t < process_count; t++) {
-				processes[t]->write_reports(comm_out);
-			}
-			fprintf(comm_out, "</processes>\n");
+			state->write_reports(comm_out);
+			fprintf(comm_out, "\n");
 			fflush(stdout);
 			continue;
 		}
 
-		if (strcmp(line, "FIRE") > 0) {
+		if (check_prefix(line, "FIRE")) {
 			if (processes[0]->quit_flag) {
 				fprintf(comm_out, "Process is terminated\n");
 				continue;
 			}
 			int transition_id;
 			int process_id;
-			if (2 != sscanf(line, "FIRE %i %i", &transition_id, &process_id)) {
+			int phases;
+			if (3 != sscanf(line, "FIRE %i %i %i", &transition_id, &process_id, &phases)) {
 				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
@@ -185,20 +198,79 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 				fprintf(comm_out, "There is no such process\n");
 				continue;
 			}
-			Process *p = processes[process_id];
-			p->fire_transition(transition_id);
+			TransitionDef *transition_def = state->get_net_def()->get_transition_def(transition_id);
+			if (transition_def == NULL) {
+				fprintf(comm_out, "Invalid transition\n");
+				continue;
+			}
+			if (phases == 1) {
+				state->fire_transition_phase1(process_id, transition_def);
+			} else {
+				state->fire_transition_full(process_id, transition_def);
+			}
 			fprintf(comm_out, "Ok\n");
-			bool again;
-			do {
-				again = false;
-				for (int s = 0; s < p->get_process_count(); s++) {
-					for (int t = 0; t < p->get_threads_count(); t++) {
-						again = again | processes[s]->get_thread(t)->process_messages();
-					}
-				}
-			} while (again);
 			continue;
 		}
+
+		if (check_prefix(line, "FINISH")) {
+			if (processes[0]->quit_flag) {
+				fprintf(comm_out, "Process is terminated\n");
+				continue;
+			}
+			int transition_id;
+			int process_id;
+			int thread_id;
+			if (3 != sscanf(line, "FINISH %i %i %i", &transition_id, &process_id, &thread_id)) {
+				fprintf(comm_out, "Invalid parameters\n");
+				continue;
+			}
+			state->finish_transition(transition_id, process_id, thread_id);
+			fprintf(comm_out, "Ok\n");
+			continue;
+		}
+
+		if (check_prefix(line, "RECEIVE") > 0) {
+			int process_id;
+			int origin_id;
+			if (2 != sscanf(line, "RECEIVE %i %i", &process_id, &origin_id)) {
+				fprintf(comm_out, "XInvalid parameters\n");
+				continue;
+			}
+			state->receive(process_id, origin_id);
+			fprintf(comm_out, "Ok\n");
+			continue;
+		}
+
 		fprintf(comm_out, "Unknown command\n");
 	}
 }
+
+void Listener::prepare_state()
+{
+	// Process all pending messages
+	bool again;
+	do {
+		again = false;
+		for (int s = 0; s < process_count; s++) {
+			for (int t = 0; t < processes[s]->get_threads_count(); t++) {
+				again = again | processes[s]->get_thread(t)->process_messages();
+			}
+		}
+	} while (again);
+
+	Net **nets = new Net*[process_count];
+
+	for (int i = 0; i < process_count; i++) {
+		nets[i] = processes[i]->get_net();
+	}
+	state = new State(nets[0]->get_def(), nets);
+	delete [] nets;
+}
+
+void Listener::cleanup_state()
+{
+	// TODO: Process all pending activations and packets
+	delete state;
+}
+
+

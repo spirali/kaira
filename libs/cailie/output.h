@@ -18,6 +18,7 @@ class Output {
 		void back();
 		void set(const std::string &name, const int i);
 		void set(const std::string &name, const size_t i);
+		void set(const std::string &name, void *p);
 		void set(const std::string &name, const std::string &s);
 		void set(const std::string &name, const char *s) {
 			set(name, std::string(s));

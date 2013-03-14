@@ -3,6 +3,7 @@
 #define CAILIE_LISTENER_H
 
 #include <pthread.h>
+#include "state.h"
 
 namespace ca {
 
@@ -23,11 +24,16 @@ class Listener {
 		void main();
 		void process_commands(FILE *comm_in, FILE *comm_out);
 	protected:
+
+		void prepare_state();
+		void cleanup_state();
+
 		int listen_socket;
 		int process_count;
 		Process **processes;
 		pthread_t thread;
 		pthread_barrier_t *start_barrier;
+		State *state;
 };
 
 }

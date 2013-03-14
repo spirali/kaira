@@ -291,11 +291,11 @@ void Node::generate(Core *core)
 		ca::Tokens *tokens = (ca::Tokens *) packet.data;
 		ca::Unpacker unpacker(tokens + 1);
 		Net *net = s->nets[target];
-		int place_index = tokens->place_index;
+		int edge_id = tokens->edge_id;
 		int tokens_count = tokens->tokens_count;
 		Thread thread(s->packets, -1, -1);
 		for (int t = 0; t < tokens_count; t++) {
-			net->receive(&thread, packet.from_process, place_index, unpacker);
+			net->receive(&thread, packet.from_process, edge_id, unpacker);
 		}
 		Node *n = core->add_state(s);
 		nexts.push_back(n);
@@ -487,15 +487,15 @@ int Thread::get_process_count() const
 	return ca::process_count;
 }
 
-void Thread::multisend_multicast(const std::vector<int> &targets,
-								 ca::NetBase *net,
-								 int place_index,
-								 int tokens_count,
-								 const ca::Packer &packer)
+void Thread::send_multicast(const std::vector<int> &targets,
+					    	ca::NetBase *net,
+							int edge_id,
+							int tokens_count,
+							const ca::Packer &packer)
 {
 	std::vector<int>::const_iterator i;
 	ca::Tokens *data = (ca::Tokens*) packer.get_buffer();
-	data->place_index = place_index;
+	data->edge_id = edge_id;
 	data->tokens_count = tokens_count;
 	Packet packet;
 	packet.data = data;

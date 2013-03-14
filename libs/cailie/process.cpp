@@ -7,7 +7,6 @@
 #include <sstream>
 
 
-
 namespace ca {
 extern size_t trace_log_size;
 extern char * project_description_string;
@@ -15,22 +14,11 @@ extern char * project_description_string;
 
 using namespace ca;
 
-void Process::multisend(int target, Net *net, int place_pos, int tokens_count, const Packer &packer, Thread *thread)
+void Process::send(int target, Net *net, int edge_id, int tokens_count, const Packer &packer, Thread *thread)
 {
 	std::vector<int> a(1);
 	a[0] = target;
-	multisend_multicast(a, net, place_pos, tokens_count, packer, thread);
-	/*
-	#ifdef CA_MPI
-		Packet *packet = (Packet*) packer.get_buffer();
-		packet->unit_id = unit_id;
-		packet->place_pos = place_pos;
-		eacket->tokens_count = tokens_count;
-		path.copy_to_mem(packet + 1);
-		MPI_Request *request = requests.new_request(buffer);
-		MPI_Isend(packet, packer.get_size(), MPI_CHAR, path.owner_id(process, unit_id), CA_MPI_TAG_TOKENS, MPI_COMM_WORLD, request);
-	#else
-	#endif */
+	send_multicast(a, net, edge_id, tokens_count, packer, thread);
 }
 
 bool Process::process_packet(Thread *thread, int from_process, int tag, void *data)
@@ -62,14 +50,14 @@ bool Process::process_packet(Thread *thread, int from_process, int tag, void *da
 		return false;
 	}
 	n->lock();
-	int place_index = tokens->place_index;
+	int edge_id = tokens->edge_id;
 	int tokens_count = tokens->tokens_count;
 	CA_DLOG("RECV net=%i index=%i process=%i thread=%i\n",
-		tokens->net_id, place_index, get_process_id(), thread->get_id());
+		tokens->net_id, edge_id, get_process_id(), thread->get_id());
 	for (int t = 0; t < tokens_count; t++) {
-		n->receive(thread, from_process, place_index, unpacker);
+		n->receive(thread, from_process, edge_id, unpacker);
 	}
-	CA_DLOG("EOR index=%i process=%i thread=%i\n", place_index, get_process_id(), thread->get_id());
+	CA_DLOG("EOR index=%i process=%i thread=%i\n", edge_id, get_process_id(), thread->get_id());
 	n->unlock();
 	free(data);
 	return true;
@@ -272,23 +260,3 @@ void Process::quit()
 {
 	quit_flag = true;
 }
-
-void Process::write_reports(FILE *out) const
-{
-	Output output(out);
-	output.child("process");
-	output.set("id", process_id);
-	output.set("running", !quit_flag);
-
-	net->write_reports(&threads[0], output);
-	output.back();
-}
-
-// Designed for calling during simulation
-void Process::fire_transition(int transition_id)
-{
-	net->fire_transition(&threads[0], transition_id);
-}
-
-
-

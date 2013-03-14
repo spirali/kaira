@@ -92,9 +92,10 @@ class CanvasItem:
     create_context_menu = None
     delegate_selection = None
 
-    def __init__(self, owner, kind):
+    def __init__(self, owner, kind, placement):
         self.owner = owner
         self.kind = kind
+        self.placement = placement
 
     def get_group(self):
         if self.group is None:
@@ -129,10 +130,9 @@ class ElementBox(CanvasItem):
     name = ""
 
     def __init__(self, owner, kind, placement, size, radius):
-        CanvasItem.__init__(self, owner, kind)
+        CanvasItem.__init__(self, owner, kind, placement)
         self.size = size
         self.radius = radius
-        self.placement = placement
 
     def draw(self, cr):
         px, py = self.get_position()
@@ -222,10 +222,6 @@ class TraceBox(CanvasItem):
     trace_text = None
     z_level = 5
 
-    def __init__(self, owner, kind, placement):
-        CanvasItem.__init__(self, owner, kind)
-        self.placement = placement
-
     def draw(self, cr):
         if self.trace_text:
             px, py = self.get_position()
@@ -238,7 +234,7 @@ class ArrowLine(CanvasItem):
     z_level = 2
 
     def __init__(self, owner, kind, get_points):
-        CanvasItem.__init__(self, owner, kind)
+        CanvasItem.__init__(self, owner, kind, None)
         self.get_points = get_points
 
     def draw(self, cr):
@@ -272,10 +268,6 @@ class Point(CanvasItem):
     action = "move"
     color = None
 
-    def __init__(self, owner, kind, placement):
-        CanvasItem.__init__(self, owner, kind)
-        self.placement = placement
-
     def is_at_position(self, position):
         return utils.point_distance(position, self.get_position()) <= self.radius
 
@@ -288,6 +280,7 @@ class Point(CanvasItem):
             cr.set_source_rgb(*self.color)
             cr.arc(px, py, self.radius, 0, 2 * math.pi)
             cr.fill()
+
 
 class Text(CanvasItem):
 
@@ -302,8 +295,7 @@ class Text(CanvasItem):
     color = (0.0, 0.0, 0.0)
 
     def __init__(self, owner, kind, placement, text=""):
-        CanvasItem.__init__(self, owner, kind)
-        self.placement = placement
+        CanvasItem.__init__(self, owner, kind, placement)
         self.text = text
 
     def is_at_position(self, position):
@@ -353,7 +345,7 @@ class Area(CanvasItem):
     z_level = -1
 
     def __init__(self, owner, kind, point1, point2):
-        CanvasItem.__init__(self, owner, kind)
+        CanvasItem.__init__(self, owner, kind, None)
         self.point1 = point1
         self.point2 = point2
 
@@ -395,8 +387,7 @@ class TokenBox(CanvasItem):
     action = "move"
 
     def __init__(self, owner, kind, placement):
-        CanvasItem.__init__(self, owner, kind)
-        self.placement = placement
+        CanvasItem.__init__(self, owner, kind, placement)
         self.tokens = []
         self.new_tokens = []
         self.removed_tokens = []
@@ -478,24 +469,70 @@ class TokenBox(CanvasItem):
         drawing.draw_centered_text(cr, px, py, self.tokens_count)
 
 
+class TransitionActivation(CanvasItem):
+
+    z_level = 16
+    size = (34, 14)
+
+    def __init__(self, owner, kind, placement, text, color):
+        CanvasItem.__init__(self, owner, kind, placement)
+        self.text = text
+        self.color = color
+
+    def draw(self, cr):
+        x, y = self.get_position()
+        sx, sy = self.size
+        cr.move_to(x - 2, y + sy/2)
+        cr.rel_line_to(sx, 0)
+        cr.rel_line_to(-4, -sy/2)
+        cr.rel_line_to(4, -sy/2)
+        cr.rel_line_to(-sx, 0)
+        cr.rel_line_to(-4, sy/2)
+        cr.rel_line_to(4, sy/2)
+        cr.set_source_rgba(*self.color)
+        cr.fill()
+        cr.set_source_rgb(0, 0, 0)
+        drawing.draw_centered_text(cr, x + sx/2-4, y, self.text)
+
+    def is_at_position(self, position):
+        return utils.position_inside_rect(position, self.get_position(), self.size, 3)
+
+
 class TransitionActivations(Point):
 
     z_level = 16
+    space_x = 3
+    space_y = 3
 
     def __init__(self, owner, kind, placement):
         Point.__init__(self, owner, kind, placement)
 
     def is_at_position(self, position):
-        if self.values:
-            return Point.is_at_position(self, position)
-        else:
-            return False
+        return Point.is_at_position(self, position)
+
+    def create_activations(self, values):
+        results = []
+        position = self.get_position()
+        start = utils.vector_add(position, (12, 0))
+        position = start
+        count = 0
+        for text, color, data in values:
+            activation = TransitionActivation(data,
+                                              "activation",
+                                              self.get_relative_placement(position),
+                                              text,
+                                              color)
+            results.append(activation)
+            position = utils.vector_add(position, (self.space_x + activation.size[0], 0))
+            count += 1
+            if count == 6:
+                count = 0
+                start = utils.vector_add(start, (0, self.space_y + activation.size[1]))
+                position = start
+        return results
 
     def draw(self, cr):
-        if not self.values:
-            return
         px, py = self.get_position()
-
 
         w_size = utils.text_size(cr, "W")[1]
         cr.set_source_rgba(0.4, 0.4, 0.4,0.8)
@@ -506,7 +543,7 @@ class TransitionActivations(Point):
         cr.rel_line_to(-8, 0)
         cr.rel_line_to(0, -2 * w_size)
         cr.fill()
-
+        """
         x = px + 10
         y = py
         count = 0
@@ -529,7 +566,7 @@ class TransitionActivations(Point):
             if count == 6:
                 count = 0
                 y += 2 * w_size
-                x = px + 10
+                x = px + 10"""
 
 
 class Box(Point):
@@ -564,7 +601,6 @@ class Box(Point):
             return utils.position_inside_rect(position, self.get_position(), self.size)
         else:
             return False
-
 
 
 def shorten_token_name(name):

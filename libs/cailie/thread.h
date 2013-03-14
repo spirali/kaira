@@ -22,6 +22,11 @@ class ThreadBase {
 		virtual int get_process_id() const = 0;
 
 		TraceLog* get_tracelog() { return tracelog; }
+
+		virtual void send(int target, NetBase *net, int edge_id, int tokens_count, const Packer &packer) = 0;
+		virtual void send_multicast(const std::vector<int> &targets, NetBase *net,
+			int edge_id, int tokens_count, const Packer &packer) = 0;
+
 	protected:
 		int id;
 		TraceLog *tracelog;
@@ -51,19 +56,15 @@ class Thread : public ThreadBase {
 		void process_message(ThreadMessage *message);
 		void quit_all();
 
-		void send(int target, Net *net, int place, const Packer &packer) {
-			process->multisend(target, net, place, 1, packer, this);
+		void send(int target, NetBase *net, int edge_id, int tokens_count, const Packer &packer) {
+			// Thread can be run only over standard nets so we can safely cast
+			process->send(target, (Net*) net, edge_id, tokens_count, packer, this);
 		}
-		void multisend(int target, Net *net, int place, int tokens_count, const Packer &packer) {
-			process->multisend(target, net, place, tokens_count, packer, this);
-		}
-		void send_multicast(const std::vector<int> &targets, Net *net, int place, const Packer &packer) {
-			process->multisend_multicast(targets, net, place, 1, packer, this);
-		}
-		void multisend_multicast(const std::vector<int> &targets, Net *net,
-			int place, int tokens_count, const Packer &packer)
+		void send_multicast(const std::vector<int> &targets, NetBase *net,
+			int edge_id, int tokens_count, const Packer &packer)
 		{
-			process->multisend_multicast(targets, net, place, tokens_count, packer, this);
+			// Thread can be run only over standard nets so we can safely cast
+			process->send_multicast(targets, (Net*) net, edge_id, tokens_count, packer, this);
 		}
 		Process * get_process() const { return process; }
 

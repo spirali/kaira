@@ -19,14 +19,20 @@ void Process::broadcast_packet(int tag, void *data, size_t size, Thread *thread,
 	}
 }
 
-void Process::multisend_multicast(const std::vector<int> &targets, Net *net, int place_index, int tokens_count, const Packer &packer, Thread *thread)
+void Process::send_multicast(
+	const std::vector<int> &targets,
+	Net *net,
+	int edge_id,
+	int tokens_count,
+	const Packer &packer,
+	Thread *thread)
 {
 	thread->get_requests()->check();
 	char *buffer = packer.get_buffer();
 	size_t size = packer.get_size();
 	std::vector<int>::const_iterator i;
 	Tokens *data = (Tokens*) packer.get_buffer();
-	data->place_index = place_index;
+	data->edge_id = edge_id;
 	data->tokens_count = tokens_count;
 	char *d = buffer;
 	for (i = targets.begin(); i != targets.end(); i++) {

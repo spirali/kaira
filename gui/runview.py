@@ -68,8 +68,10 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
                 activations = citems.TransitionActivations(
                     None, "activations", citems.AbsPlacement(position))
                 self.activations[transition.id] = activations
-            activations.values = self.perspective.get_activations_values(transition)
-            result.append(activations)
+            values = self.perspective.get_activations_values(transition)
+            if values:
+                result.append(activations)
+                result += activations.create_activations(values)
         return result
 
     def get_token_items(self):
@@ -100,6 +102,8 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
 
         result = []
         color = (0.8, 0.3, 0.1, 0.85)
+        color_active = (1, 1, 1)
+        color_inactive = (0.8, 0.8, 0.8)
         for edge in self.perspective.runinstance.net.edges_out():
             packets = self.perspective.get_packets_info(edge.id)
             packet_box = self.packet_boxes.get(edge.id)
@@ -116,8 +120,8 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
 
                 self.packet_boxes[edge.id] = packet_box
             result.append(packet_box)
-            packet_box.texts = packets
-            for i, text in enumerate(packets):
+            packet_box.texts = [ p[3] for p in packets ]
+            for i, (process_id, origin_id, top, text) in enumerate(packets):
                 position = utils.vector_add(packet_box.get_position(),
                                             (10, 13 * i))
                 t = citems.Text(
@@ -125,7 +129,12 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
                     "packet",
                     packet_box.get_relative_placement(position),
                     text)
-                t.color = (1, 1, 1)
+                if top:
+                    t.color = color_active
+                    t.packet_data = (process_id, origin_id)
+                else:
+                    t.color = color_inactive
+                    t.packet_data = None
                 t.padding_y = 4
                 t.z_level = 15
                 t.action = None

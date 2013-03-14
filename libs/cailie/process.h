@@ -8,6 +8,8 @@
 #include "messages.h"
 #include "net.h"
 #include "packing.h"
+#include "packet.h"
+
 #ifdef CA_MPI
 #include "mpi_requests.h"
 #endif
@@ -29,7 +31,7 @@ struct ServiceMessageNetCreate : ServiceMessage {
 };
 
 struct Tokens {
-	int place_index;
+	int edge_id;
 	int tokens_count;
 };
 
@@ -40,13 +42,9 @@ struct UndeliverMessage {
 };
 
 #ifdef CA_SHMEM
-class Packet {
-	public:
-	int from_process;
+struct ShmemPacket : public Packet {
 	int tag;
-	int size;
-	void *data;
-	Packet *next;
+	ShmemPacket *next;
 };
 #endif
 
@@ -63,8 +61,6 @@ class Process {
 		int get_threads_count() const { return threads_count; }
 		int get_process_count() const { return process_count; }
 		int get_process_id() const { return process_id; }
-		void write_reports(FILE *out) const;
-		void fire_transition(int transition_id);
 
 		void quit_all(Thread *thread);
 		void quit();
@@ -77,8 +73,10 @@ class Process {
 
 		bool quit_flag;
 
-		void multisend(int target, Net * net, int place, int tokens_count, const Packer &packer, Thread *thread);
-		void multisend_multicast(const std::vector<int> &targets, Net *net, int place, int tokens_count, const Packer &packer, Thread *thread);
+		void send(int target, Net * net, int edge_id, int tokens_count,
+			const Packer &packer, Thread *thread);
+		void send_multicast(const std::vector<int> &targets, Net *net, int edge_id,
+			int tokens_count, const Packer &packer, Thread *thread);
 
 		void process_service_message(Thread *thread, ServiceMessage *smsg);
 		bool process_packet(Thread *thread, int from_process, int tag, void *data);
@@ -114,7 +112,7 @@ class Process {
 
 		#ifdef CA_SHMEM
 		pthread_mutex_t packet_mutex;
-		Packet *packets;
+		ShmemPacket *packets;
 		#endif
 };
 

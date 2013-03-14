@@ -46,9 +46,14 @@ NetBase * NetDef::spawn(ThreadBase *thread)
 	return spawn_fn(thread, this);
 }
 
+void NetBase::write_reports(ThreadBase *thread, Output &output)
+{
+	write_reports_content(thread, output);
+}
+
 Net::Net(NetDef *def, Thread *thread) :
-	running_transitions(0),
 	def(def),
+	running_transitions(0),
 	data(NULL),
 	flags(0)
 {
@@ -81,20 +86,6 @@ void Net::activate_all_transitions()
 void Net::activate_transition_by_pos_id(int pos_id)
 {
 	activate_transition(&transitions[pos_id]);
-}
-
-void Net::write_reports(Thread *thread, Output &output)
-{
-	write_reports_content(thread, output);
-	int t;
-	for (t = 0; t < def->get_transitions_count(); t++) {
-		if (transitions[t].is_enable(thread, this)) {
-			output.child("enabled");
-			output.set("id", transitions[t].get_id());
-			output.back();
-		}
-	}
-
 }
 
 Transition * Net::pick_active_transition()
