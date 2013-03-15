@@ -22,7 +22,7 @@
 import gtk
 import gtkutils
 import mainwindow
-from canvas import NetCanvas
+from canvas import Canvas
 import charts
 import utils
 
@@ -244,7 +244,7 @@ class NetInstanceView(gtk.HPaned):
         self._refresh_perspectives(runinstance.get_perspectives())
 
     def _create_canvas(self, vconfig):
-        c = NetCanvas(None, None, vconfig, zoom = 1)
+        c = Canvas(None, None, vconfig, zoom = 1)
         c.set_callback("button_down", self._button_down)
         c.show()
         return c

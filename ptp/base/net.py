@@ -298,7 +298,7 @@ class Place(utils.EqByIdMixin):
             functions.append("unpack")
         checker.check_type(self.type, self.get_source("type"), functions)
 
-        source = self.get_source("init-expr")
+        source = self.get_source("init")
         decls = self.net.project.get_minimal_decls()
         if self.init_type == "exprs":
             for expr in self.init_value:
@@ -441,7 +441,7 @@ class Area(object):
         return place in self.places
 
     def check(self, checker):
-        source = self.get_source("init-expr")
+        source = self.get_source("init")
         decls = self.net.project.get_minimal_decls()
         if self.init_type == "exprs":
             for expr in self.init_value:

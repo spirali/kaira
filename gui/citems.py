@@ -1,0 +1,365 @@
+#
+#    Copyright (C) 2013 Stanislav Bohm
+#
+#    This file is part of Kaira.
+#
+#    Kaira is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Kaira is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+import drawing
+import utils
+
+
+class AbsPlacement:
+
+    def __init__(self, position):
+        self.position = position
+
+    def get_position(self):
+        return self.position
+
+    def set_position(self, value):
+        self.position = value
+
+
+class RelativePlacement:
+
+    def __init__(self, parent_placement, position):
+        self.parent_placement = parent_placement
+        self.set_position(position)
+
+    def get_position(self):
+        return utils.vector_add(self.parent_placement.get_position(), self.position)
+
+    def set_position(self, position):
+        self.position = utils.vector_diff(position,
+                                          self.parent_placement.get_position())
+
+
+class MultilineRelativePlacement:
+
+    # multiline - object with method getPoints()
+    def __init__(self, multiline, position):
+        self.multiline = multiline
+        self.set_position(position)
+
+    def compute_point_on_multiline(self, points):
+        if self.point_index < len(points) - 1:
+            return utils.interpolate(points[self.point_index],
+                                    points[self.point_index + 1],
+                                    self.line_param)
+        else:
+            return points[-1]
+
+
+    def set_position(self, position):
+        points = self.multiline.get_points()
+        if position is None:
+            self.point_index = (len(points) - 1) / 2
+            self.line_param = 0.5
+            self.offset = (0.0, 0.0)
+        else:
+            self.point_index, self.line_param = \
+                utils.nearest_point_of_multiline(points, position)
+            self.offset = utils.make_vector(self.compute_point_on_multiline(points),
+                                            position)
+
+    def get_position(self):
+        points = self.multiline.get_points()
+        return utils.vector_add(self.compute_point_on_multiline(points),
+                                self.offset)
+
+
+class CanvasItem:
+    z_level = 0
+    highlight = None
+    action = None
+    owner = None
+    group = None
+    inactive = False
+    placement = None
+    create_context_menu = None
+    delegate_selection = None
+
+    def __init__(self, owner, kind):
+        self.owner = owner
+        self.kind = kind
+
+    def get_group(self):
+        if self.group is None:
+            return [self]
+        else:
+            return self.group
+
+    def is_at_position(self, position):
+        return False
+
+    def draw(self, cr):
+        pass
+
+    def get_bounding_box(self):
+        return None
+
+    def get_position(self):
+        return self.placement.get_position()
+
+    def set_position(self, position):
+        self.placement.set_position(position)
+
+    def get_relative_placement(self, position):
+        return RelativePlacement(self.placement, position)
+
+
+class ElementBox(CanvasItem):
+
+    doubleborder = True
+    text = ""
+    action = "move"
+    name = ""
+    group_leader = True
+
+    def __init__(self, owner, kind, placement, size, radius):
+        CanvasItem.__init__(self, owner, kind)
+        self.size = size
+        self.radius = radius
+        self.placement = placement
+
+    def draw(self, cr):
+        px, py = self.get_position()
+        sx, sy = self.size
+        drawing.draw_round_rectangle(cr, px, py, sx, sy, self.radius)
+
+        if self.inactive:
+            color = (0.5, 0.5, 0.5)
+        else:
+            color = (0, 0, 0)
+
+        cr.set_source_rgb(1, 1, 1)
+        cr.fill()
+
+
+        if self.highlight:
+            drawing.draw_round_rectangle(cr, px, py, sx, sy, self.radius)
+            cr.set_line_width(6.5)
+            cr.set_source_rgba(*self.highlight)
+            cr.stroke()
+
+        drawing.draw_round_rectangle(cr, px, py, sx, sy, self.radius)
+        cr.set_line_width(1.5)
+        cr.set_source_rgb(*color)
+        cr.stroke()
+
+        if self.doubleborder:
+            if self.radius > 3:
+                drawing.draw_round_rectangle(cr, px, py, sx, sy, self.radius - 3.5)
+            else:
+                drawing.draw_round_rectangle(cr, px + 4, py + 4, sx - 8, sy - 8, self.radius)
+            cr.stroke()
+
+
+        drawing.draw_centered_text(cr, px + sx / 2, py + sy / 2, self.name)
+
+    def is_at_position(self, position):
+        return utils.is_in_round_rectangle(
+            self.get_position(), self.size, self.radius, position, 10)
+
+    def get_border_point(self, outer_point):
+        e = 0.01
+        r = self.radius
+        px, py = self.get_position()
+        ox, oy = outer_point
+        sx, sy = self.size
+        cx, cy = px + sx/2, py + sy/2
+        ux, uy = cx - ox, cy - oy
+
+        t = []
+        v = utils.line_intersec_get_t((ox, oy), (ux, uy), (px-e, py-r), (sx+e, 0.0))
+        if v is not None:
+            t.append(v)
+        v = utils.line_intersec_get_t((ox, oy), (ux, uy), (px-e, py+sy+r), (sx+e, 0.0))
+        if v is not None:
+            t.append(v)
+        v = utils.line_intersec_get_t((ox, oy), (ux, uy), (px-r, py-e), (0.0, sy+e))
+        if v is not None:
+            t.append(v)
+        v = utils.line_intersec_get_t((ox, oy), (ux, uy), (px+sx+r, py-e), (0.0, sy+e))
+        if v is not None:
+            t.append(v)
+
+        v = utils.circle_collision((ox, oy), (ux, uy), (px, py), r)
+        if v is not None:
+            t.append(v[2])
+        v = utils.circle_collision((ox, oy), (ux, uy), (px+sx, py), r)
+        if v is not None:
+            t.append(v[2])
+        v = utils.circle_collision((ox, oy), (ux, uy), (px,    py+sy), r)
+        if v is not None:
+            t.append(v[2])
+        v = utils.circle_collision((ox, oy), (ux, uy), (px+sx, py+sy), r)
+        if v is not None:
+            t.append(v[2])
+        t = [ i for i in t if i is not None ] # Remove None
+        if t:
+            p = min(t)
+        else:
+            p = 0
+        return (ox + ux*p, oy + uy*p)
+
+    def get_bounding_box(self):
+        return (self.get_position(), utils.vector_add(self.get_position(), self.size))
+
+
+class ArrowLine(CanvasItem):
+
+    bidirectional = False
+    z_level = 2
+
+    def __init__(self, owner, kind, get_points):
+        CanvasItem.__init__(self, owner, kind)
+        self.get_points = get_points
+
+    def draw(self, cr):
+       points = self.get_points()
+       if self.highlight:
+            cr.set_line_width(6.5)
+            cr.set_source_rgba(*self.highlight)
+            drawing.draw_polyline_nice_corners(cr, points, 0.5, 12, self.bidirectional, True)
+
+       cr.set_line_width(1.5)
+       if self.inactive:
+           cr.set_source_rgb(0.5,0.5,0.5)
+       else:
+           cr.set_source_rgb(0.0,0.0,0.0)
+       drawing.draw_polyline_nice_corners(cr, points, 0.5, 12, self.bidirectional, True)
+
+    def is_at_position(self, position):
+        for a, b in utils.pairs_generator(self.get_points()):
+            if utils.is_near_line_segment(a, b, position, 5):
+                return True
+        return False
+
+    def get_relative_placement(self, position):
+        return MultilineRelativePlacement(self, position)
+
+
+class Point(CanvasItem):
+
+    z_level = 10
+    radius = 10
+    action = "move"
+
+    def __init__(self, owner, kind, placement):
+        CanvasItem.__init__(self, owner, kind)
+        self.placement = placement
+
+    def is_at_position(self, position):
+        return utils.point_distance(position, self.get_position()) <= self.radius
+
+    def get_bounding_box(self):
+        return (self.get_position(), self.get_position())
+
+
+class Text(CanvasItem):
+
+    z_level = 3
+    action = "move"
+    size = (0, 0)
+    background = None
+    border = False
+
+    def __init__(self, owner, kind, placement, text=""):
+        CanvasItem.__init__(self, owner, kind)
+        self.placement = placement
+        self.text = text
+
+    def is_at_position(self, position):
+        px, py = position
+        x, y = self.get_position()
+        return (x < px and y < py and
+                x + self.size[0] > px and y + self.size[1] > py)
+
+    def draw(self, cr):
+        self.size = utils.text_size(cr, self.text)
+        if self.text:
+           px, py = self.get_position()
+
+           color = self.background
+           if self.highlight:
+               color = self.highlight
+           if color:
+                cr.set_source_rgba(*color)
+                cr.rectangle(px - 3, py - 3, self.size[0] + 10, self.size[1] + 6)
+                cr.fill()
+
+           if self.inactive:
+               cr.set_source_rgb(0.5,0.5,0.5)
+           else:
+               cr.set_source_rgb(0.0,0.0,0.0)
+
+           if self.border:
+                cr.rectangle(px - 3, py - 3, self.size[0] + 10, self.size[1] + 6)
+                cr.stroke()
+
+           cr.move_to(px, py + self.size[1])
+           cr.show_text(self.text)
+
+    def get_bounding_box(self):
+        return (self.get_position(), self.get_position())
+
+
+class Area(CanvasItem):
+
+    z_level = -1
+
+    def __init__(self, owner, kind, point1, point2):
+        CanvasItem.__init__(self, owner, kind)
+        self.point1 = point1
+        self.point2 = point2
+
+    def draw(self, cr):
+        x1, y1 = self.point1.get_position()
+        x2, y2 = self.point2.get_position()
+        sx = x2 - x1
+        sy = y2 - y1
+
+        cr.set_source_rgb(0.6,0.7,0.9)
+        cr.rectangle(x1, y1, sx, sy)
+        cr.fill()
+
+        if self.highlight:
+            cr.set_line_width(6.5)
+            cr.set_source_rgba(*self.highlight)
+            cr.rectangle(x1, y1, sx, sy)
+            cr.stroke()
+
+        cr.set_line_width(0.5)
+        if self.inactive:
+            cr.set_source_rgb(0.5,0.5,0.5)
+        else:
+            cr.set_source_rgb(0,0,0)
+        cr.rectangle(x1, y1, sx, sy)
+        cr.stroke()
+
+    def is_at_position(self, position):
+        p1 = self.point1.get_position()
+        p2 = self.point2.get_position()
+        return utils.position_on_rect(position, p1, utils.vector_diff(p2, p1), 5)
+
+
+def make_group(items):
+    group = list(items)
+    for item in items:
+        if item.group is not None:
+            item.group.remove(item)
+        item.group = group

@@ -22,8 +22,7 @@
 import utils
 from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
-from sys import maxint
-import undoredo
+import citems
 
 class Net:
 
@@ -39,8 +38,8 @@ class Net:
         self.name = name
         self.items = []
         self.change_callback = lambda n: None
+        self.change_item_callback = lambda n, i: None
         self.interface_box = None
-        self.undolist = undoredo.UndoList()
 
     def get_name(self):
         return self.name
@@ -67,10 +66,6 @@ class Net:
         self.items.sort(key = lambda i: i.z_level, reverse = True)
         self.changed()
 
-    def remove_item(self, item):
-        self.items.remove(item)
-        self.changed()
-
     def set_name(self, name):
         self.name = name
         self.changed()
@@ -80,6 +75,10 @@ class Net:
 
     def changed(self):
         self.change_callback(self)
+
+    def changed_item(self, item):
+        self.change_item_callback(self, item)
+
 
     def draw(self, cr, vconfig):
         drawings = [ item.get_drawing(vconfig) for item in self.items ]
@@ -186,18 +185,6 @@ class Net:
     def contains(self, item):
         return item in self.items
 
-    def pick_items(self, position):
-        return [ item for item in self.items if item.is_at_position(position) ]
-
-    def get_item_at_position(self, position, filter_fn = None):
-        for item in filter(filter_fn, self.items):
-            if item.is_at_position(position):
-                return item
-        return None
-
-    def get_transition_at_position(self, position):
-        return self.get_item_at_position(position, lambda i: i.is_transition())
-
     def delete_item(self, item):
         self.items.remove(item)
         self.changed()
@@ -205,48 +192,20 @@ class Net:
     def edges_from(self, item, postprocess=False):
         edges = [ i for i in self.items if i.is_edge() and i.from_item == item ]
         if postprocess:
-            edges += [ i.make_complement() for i in self.edges_to(item) if i.is_bidirectional() ]
+            edges += [ i.make_complement()
+                       for i in self.edges_to(item) if i.is_bidirectional() ]
         return edges
 
     def edges_to(self, item, postprocess=False):
         edges = [ i for i in self.items if i.is_edge() and i.to_item == item ]
         if postprocess:
-            edges += [ i.make_complement() for i in self.edges_from(item) if i.is_bidirectional() ]
+            edges += [ i.make_complement()
+                       for i in self.edges_from(item) if i.is_bidirectional() ]
         return edges
 
     def edges_of(self, item):
         return [ i for i in self.items
                  if i.is_edge() and (i.to_item == item or i.from_item == item) ]
-
-    def corners(self, cr):
-        """ Returns bounding box as left-top and right-bottom points """
-        if not self.items:
-             return ((0,0), (100,100))
-
-        t = maxint
-        l = maxint
-        r = 0
-        b = 0
-        for i in self.items:
-            (il, it), (ir, ib) = i.corners(cr)
-            t = min(t, it)
-            l = min(l, il)
-            r = max(r, ir)
-            b = max(b, ib)
-        return ((l,t), (r,b))
-
-    def trace_nothing(self):
-        for i in self.transitions() + self.places():
-            i.tracing = []
-
-    def trace_everything(self):
-        for i in self.transitions():
-            if not "fire" in i.tracing:
-                i.tracing.insert(0, "fire")
-        token_name = ("ca::token_name", "std::string")
-        for i in self.places():
-            if token_name not in i.tracing:
-                i.tracing.insert(0,  token_name)
 
 
 class NetItem(object):
@@ -261,7 +220,7 @@ class NetItem(object):
         return self.id
 
     def changed(self):
-        self.net.changed()
+        self.net.changed_item(self)
 
     def is_place(self):
         return False
@@ -296,6 +255,33 @@ class NetItem(object):
     def get_text_entries(self):
         return []
 
+    def get_canvas_items_dict(self):
+        result = {}
+        for i in self.get_canvas_items():
+            result[i.kind] = i
+        return result
+
+    def get_error_items(self):
+        result = []
+        messages = self.net.project.get_error_messages(self)
+        if not messages:
+            return result
+        items = self.get_canvas_items_dict()
+        for name in messages:
+            item = items.get(name)
+            if item:
+                position = utils.vector_add(item.get_position(), item.size)
+                position = utils.vector_add(position, (10, 0))
+                placement = item.get_relative_placement(position)
+                error_item = citems.Text(None, "error", placement)
+                error_item.delegate_selection = item
+                error_item.background = (255, 0, 0)
+                error_item.border = True
+                error_item.z_level = 20
+                error_item.text = messages[name][0]
+                result.append(error_item)
+        return result
+
 
 class NetElement(NetItem):
 
@@ -303,7 +289,13 @@ class NetElement(NetItem):
 
     def __init__(self, net, id, position):
         NetItem.__init__(self, net, id)
-        self.position = position
+
+        self.box = citems.ElementBox(
+            self,
+            "box",
+            citems.AbsPlacement(position),
+            self.size,
+            self.radius)
         self.tracing = []
 
     def has_code(self):
@@ -314,13 +306,7 @@ class NetElement(NetItem):
 
     def set_code(self, code):
         self.code = code
-        self.changed()
-
-    def get_position(self):
-        return self.position
-
-    def set_position(self, position):
-        self.position = position
+        self.box.doubleborder = self.has_code()
         self.changed()
 
     def edges(self):
@@ -353,28 +339,29 @@ class NetElement(NetItem):
 class Transition(NetElement):
 
     size = (70, 35)
-    name = ""
-    guard = ""
+    radius = 0
+
+    def __init__(self, net, id, position):
+        NetElement.__init__(self, net, id, position)
+
+        p = (position[0], position[1] - 20)
+        self.guard = citems.Text(self, "guard", self.box.get_relative_placement(p))
+
+    def get_canvas_items(self):
+        return [ self.box, self.guard ]
 
     def get_name(self):
-        return self.name
+        return self.box.name
 
     def set_name(self, name):
-        self.name = name
+        self.box.name = name
         self.changed()
 
     def get_guard(self):
-        return self.guard
+        return self.guard.text
 
     def set_guard(self, guard):
-        self.guard = guard
-        self.changed()
-
-    def get_size(self):
-        return self.size
-
-    def resize(self, point):
-        self.size = (point[0] * 2, point[1] * 2)
+        self.guard.text = guard
         self.changed()
 
     def is_transition(self):
@@ -385,12 +372,13 @@ class Transition(NetElement):
 
     def as_xml(self):
         e = self.create_xml_element("transition")
-        e.set("name", self.name)
-        e.set("guard", self.guard)
-        e.set("x", str(self.position[0]))
-        e.set("y", str(self.position[1]))
-        e.set("sx", str(self.size[0]))
-        e.set("sy", str(self.size[1]))
+        e.set("name", self.box.name)
+        position = self.box.get_position()
+        e.set("x", str(position[0]))
+        e.set("y", str(position[1]))
+        e.set("sx", str(self.box.size[0]))
+        e.set("sy", str(self.box.size[1]))
+        e.append(canvastext_to_xml(self.guard, "guard"))
         if self.has_code():
             e.append(self.xml_code_element())
         if self.tracing:
@@ -402,8 +390,8 @@ class Transition(NetElement):
 
     def export_xml(self, build_config):
         e = self.create_xml_element("transition")
-        e.set("name", self.name)
-        e.set("guard", self.guard)
+        e.set("name", self.box.name)
+        e.set("guard", self.guard.text)
         if self.has_code():
             e.append(self.xml_code_element())
 
@@ -419,91 +407,29 @@ class Transition(NetElement):
                 e.append(trace)
         return e
 
-    def get_drawing(self, vconfig):
-        return vconfig.transition_drawing(self)
-
-    def is_at_position(self, position):
-        px, py = position
-        mx, my = self.position
-        sx, sy = self.size
-        sx /= 2
-        sy /= 2
-        return px >= mx - sx - 5 and py >= my - sy - 5 and px < mx + sx + 5 and py < my + sy + 5
-
-    def get_action(self, position, factory):
-        px, py = position
-        mx, my = self.position
-        sx, sy = self.size
-        sx /= 2
-        sy /= 2
-
-        if px >= mx + sx - 5 and py >= my + sy - 5 and px < mx + sx + 5 and py < my + sy + 5:
-            return factory.get_resize_action(self, position, self.resize)
-
-        if px >= mx - sx - 5 and py >= my - sy - 5 and px < mx + sx + 5 and py < my + sy + 5:
-            return factory.get_move_action(self.get_position(), self.set_position, position)
-
-    def get_border_point(self, outer_point):
-        px, py = self.position
-        ox, oy = outer_point
-        sx, sy = self.size
-        sx /= 2
-        sy /= 2
-
-        if py - sy > oy:
-            y = py - sy
-        elif py + sy > oy:
-            y = py
-        else:
-            y = py + sy
-
-        if px - sx > ox:
-            x = px - sx
-        elif px + sx > ox:
-            x = px
-        else:
-            x = px + sx
-        return (x, y)
-
     def get_text_entries(self):
         return [ ("Name", self.get_name, self.set_name),
                 ("Guard", self.get_guard, self.set_guard) ]
 
-    def corners(self, cr):
-        px, py = self.position
-        sx, sy = self.size
-        # prefix 't' means 'text'
-        (tx_bearing, ty_bearing,
-         twidth, theight,
-         tx_advance, ty_advance) = cr.text_extents(self.get_guard())
-        if twidth == 0 and theight == 0:
-            return ((px - sx/2, py - sy/2), (px + sx/2, py + sy/2))
-        else:
-            tx = px - twidth/2
-            ty = py - sy/2 - theight/2 - 2 + ty_bearing # ty_bearing is negative
-            return ((min(px - sx/2, tx),          min(py - sy/2, ty)),
-                    (max(px + sx/2, tx + twidth), max(py + sy/2, ty + theight)))
-
-
-    def get_packing_input_places(self):
-        """ Fast function for tracelog replay """
-        result = []
-        for i in self.net.items:
-            if i.is_edge() and i.inscription.startswith("~"):
-                if i.to_item == self:
-                    result.append(i.from_item)
-                elif i.is_bidirectional() and i.from_item == self:
-                    result.append(i.to_item)
-        return result
-
 
 class Place(NetElement):
+
     radius = 20
     size = (0, 0)
 
-    name = ""
-    place_type = ""
-    init_string = ""
+    def __init__(self, net, id, position):
+        NetElement.__init__(self, net, id, position)
+
+        p = (position[0] + self.radius * 0.85, position[1] + self.radius * 0.85)
+        self.place_type = citems.Text(self, "type", self.box.get_relative_placement(p))
+
+        p = (position[0] + self.radius * 0.85, position[1] - self.radius * 1.5)
+        self.init = citems.Text(self, "init", self.box.get_relative_placement(p))
+
+    def get_canvas_items(self):
+        return [ self.box,
+                 self.place_type,
+                 self.init ]
 
     def get_radius(self):
         return self.radius
@@ -512,25 +438,25 @@ class Place(NetElement):
         return self.size
 
     def get_name(self):
-        return self.name
+        return self.box.name
 
     def set_name(self, name):
-        self.name = name
+        self.box.name = name
         self.changed()
 
     def get_init_string(self):
-        return self.init_string
+        return self.init.text
 
     def set_place_type(self, place_type):
-        self.place_type = place_type
+        self.place_type.text = place_type
         self.changed()
 
     def set_init_string(self, init_string):
-        self.init_string = init_string
+        self.init.text = init_string
         self.changed()
 
     def get_place_type(self):
-        return self.place_type
+        return self.place_type.text
 
     def is_place(self):
         return True
@@ -544,14 +470,15 @@ class Place(NetElement):
 
     def as_xml(self):
         e = self.create_xml_element("place")
-        e.set("x", str(self.position[0]))
-        e.set("y", str(self.position[1]))
-        e.set("name", str(self.name))
-        e.set("radius", str(self.radius))
-        e.set("sx", str(self.size[0]))
-        e.set("sy", str(self.size[1]))
-        e.set("place_type", self.place_type)
-        e.set("init_string", self.init_string)
+        position = self.box.get_position()
+        e.set("x", str(position[0]))
+        e.set("y", str(position[1]))
+        e.set("name", str(self.box.name))
+        e.set("radius", str(self.box.radius))
+        e.set("sx", str(self.box.size[0]))
+        e.set("sy", str(self.box.size[1]))
+        e.append(canvastext_to_xml(self.place_type, "place-type"))
+        e.append(canvastext_to_xml(self.init, "init"))
         if self.has_code():
             e.append(self.xml_code_element())
         self.tracing_to_xml(e)
@@ -559,119 +486,36 @@ class Place(NetElement):
 
     def export_xml(self, build_config):
         e = self.create_xml_element("place")
-        e.set("name", self.name)
-        e.set("type", self.place_type)
-        e.set("init-expr", self.init_string)
+        e.set("name", self.box.name)
+        e.set("type", self.place_type.text)
+        e.set("init-expr", self.init.text)
         if self.has_code():
             e.append(self.xml_code_element())
         if build_config.tracing and self.tracing:
             self.tracing_to_xml(e)
         return e
 
-    def get_drawing(self, vconfig):
-        return vconfig.place_drawing(self)
-
-    def resize(self, point):
-        sx = max(point[0]-self.radius, 0)
-        sy = max(point[1]-self.radius, 0)
-        self.size = (sx, sy)
-        self.changed()
-
-    def get_border_point(self, outer_point):
-        e = 0.01
-        r = self.radius
-        px, py = self.position
-        ox, oy = outer_point
-        sx, sy = self.size
-        cx, cy = px + sx/2, py + sy/2
-        ux, uy = cx - ox, cy - oy
-
-        results = []
-        t = [None] * 4
-        t[0] = utils.line_intersec_get_t((ox, oy), (ux, uy), (px-e,      py-r),    (sx+e, 0.0))
-        t[1] = utils.line_intersec_get_t((ox, oy), (ux, uy), (px-e,      py+sy+r), (sx+e, 0.0))
-        t[2] = utils.line_intersec_get_t((ox, oy), (ux, uy), (px-r,      py-e),    (0.0, sy+e))
-        t[3] = utils.line_intersec_get_t((ox, oy), (ux, uy), (px+sx+r,   py-e),    (0.0, sy+e))
-
-        min_idx = utils.index_of_minimal_value(t)
-        if min_idx is not None:
-            results.append(t[min_idx])
-
-        t[0] = utils.circle_collision((ox, oy), (ux, uy), (px,    py),    r)
-        t[1] = utils.circle_collision((ox, oy), (ux, uy), (px+sx, py),    r)
-        t[2] = utils.circle_collision((ox, oy), (ux, uy), (px,    py+sy), r)
-        t[3] = utils.circle_collision((ox, oy), (ux, uy), (px+sx, py+sy), r)
-
-        for i in range(0,4):
-            if t[i] is not None:
-                col_x, col_y, c = t[i]
-                results.append(c)
-
-        if not results:
-            return (cx, cy)
-
-        c = min(results)
-        return (ox + ux*c, oy + uy*c)
-
-    def is_at_position(self, position):
-        return utils.is_in_round_rectangle(
-            self.position, self.size, self.radius, position, 10)
-
-    def get_action(self, position, factory):
-        bp = self.get_border_point(position)
-        dist = utils.point_distance(position, bp)
-        inside = utils.is_in_round_rectangle(
-            self.position, self.size, self.radius, position, 0)
-        if not inside and dist < 5:
-            return factory.get_resize_action(self, position, self.resize)
-
-        if self.is_at_position(position):
-            return factory.get_move_action(self.get_position(), self.set_position, position)
-
     def get_text_entries(self):
         return [ ("Type", self.get_place_type, self.set_place_type),
                 ("Init", self.get_init_string, self.set_init_string),
                 ("Name", self.get_name, self.set_name)]
 
-    def corners(self, cr):
-        px, py = self.position
-        sx, sy = self.size
-        r = self.radius
-        if self.init_string == "" and self.place_type == "":
-            return ((px-r, py-r), (px + sx + r, py + sy + r))
-        else:
-            # 'is' = 'init_string'
-            (isx_bearing, isy_bearing,
-             is_width, is_height,
-             isx_advance, isy_advance) = cr.text_extents(self.init_string)
-
-            # 'pt' = 'place_type'
-            (ptx_bearing, pty_bearing,
-             pt_width, pt_height,
-             ptx_advance, pty_advance) = cr.text_extents(self.place_type)
-
-            (ascent, descent, height, max_x_advance, max_y_advance) = cr.font_extents()
-
-        return ((px - r, py - r + isy_bearing),
-                (px + sx + r + max(is_width, pt_width), py + sy + r + descent))
-
 
 class Edge(NetItem):
 
-    bidirectional = False
     z_level = 1
 
     def __init__(self, net, id, from_item, to_item, points):
         NetItem.__init__(self, net, id)
         self.from_item = from_item
         self.to_item = to_item
-        self.points = points
-        self.inscription = ""
-        self.inscription_position = None
-        self.inscription_size = (0,0) # real value obtained by dirty hack in EdgeDrawing
-        self.inscription_point = len(self.get_all_points()) / 2 - 1
-        self.inscription_param = 0.5
-        self.offset = (0,10)
+        self.points = [ citems.Point(self, "point", citems.AbsPlacement(p))
+                        for p in points ]
+        self.line = citems.ArrowLine(self, "line", self.get_all_points)
+        self.inscription = citems.Text(self,
+                                       "inscription",
+                                       self.line.get_relative_placement(None),
+                                       "")
 
     def simple_copy(self):
         """ Copy of edge that preserves topological properties:
@@ -680,60 +524,39 @@ class Edge(NetItem):
         e.inscription = self.inscription
         return e
 
-    ## Add new point on to an edge.
-    #  @param point Point which should be added.
-    def add_point(self, point):
+    def get_canvas_items(self):
+        return [ self.line, self.inscription ] + self.points
+
+    def add_point(self, position):
+        inscription_position = self.inscription.get_position()
         for i, (a, b) in enumerate(utils.pairs_generator(self.get_all_points())):
-            if utils.is_near_line_segment(a, b, point, 5):
+            if utils.is_near_line_segment(a, b, position, 5):
+                point = citems.Point(self, "point", citems.AbsPlacement(position))
+                point.owner = self
                 self.points.insert(i, point)
-        self.changed()
+                break
+        self.inscription.set_position(inscription_position)
+        self.net.changed() # Canvas items changed, so self.changed() is not sufficient
 
-    ## Remove point from an edge.
-    #  @param point Point which should be removed.
-    def remove_point_near_position(self, position):
-        index = self.nearest_edge_point_index(position, 7)
-        if index is not None:
-            del self.points[index]
-            self.changed()
-
-    ## Find index of nearest point an the edge but at most at max_distance.
-    #  returns None if all points are too distant
-    #  @param point Point which position should be found.
-    def nearest_edge_point_index(self, point, max_distance = None):
-        if not self.points:
-            return None
-        distances = [ utils.point_distance(p, point) for p in self.points ]
-        i = utils.index_of_minimal_value(distances)
-        if max_distance is None or distances[i] <= max_distance:
-            return i
-        else:
-            return None
+    def remove_point(self, item):
+        inscription_position = self.inscription.get_position()
+        self.points.remove(item)
+        self.inscription.set_position(inscription_position)
+        self.net.changed() # Canvas items changed, so self.changed() is not sufficient
 
     def get_inscription(self):
-        return self.inscription
+        return self.inscription.text
 
     def set_inscription(self, inscription):
-        self.inscription = inscription
+        self.inscription.text = inscription
         self.changed()
 
     def is_bidirectional(self):
-        return self.bidirectional
+        return self.line.bidirectional
 
     def toggle_bidirectional(self):
-        self.bidirectional = not self.bidirectional
+        self.line.bidirectional = not self.line.bidirectional
         self.changed()
-
-    def set_inscription_position(self, position):
-        points = self.get_all_points()
-        self.inscription_point, self.inscription_param = \
-            utils.nearest_point_of_multiline(points, position)
-        self.offset = utils.vector_diff(self.compute_insciption_point() , position)
-        self.inscription_position = position
-        self.changed()
-
-    def get_inscription_position(self):
-        self.inscription_position = utils.vector_diff(self.compute_insciption_point(), self.offset)
-        return self.inscription_position
 
     def make_complement(self):
         """ This function returns exact copy of the edge with changed directions,
@@ -744,121 +567,60 @@ class Edge(NetItem):
 
     def get_end_points(self):
         if self.points:
-            p1 = self.points[0]
-            p2 = self.points[-1]
+            p1 = self.points[0].get_position()
+            p2 = self.points[-1].get_position()
         else:
-            p1 = self.to_item.position
-            p2 = self.from_item.position
-        return (self.from_item.get_border_point(p1), self.to_item.get_border_point(p2))
+            p1 = utils.vector_add_t(
+                self.to_item.box.get_position(), self.to_item.size, 0.5)
+            p2 = utils.vector_add_t(
+                self.from_item.box.get_position(), self.from_item.size, 0.5)
+        return (self.from_item.box.get_border_point(p1),
+                self.to_item.box.get_border_point(p2))
 
     def compute_insciption_point(self):
         points = self.get_all_points()
         if self.inscription_point < len(points) - 1:
-            vec = utils.make_vector(points[self.inscription_point],
-                                    points[self.inscription_point + 1])
-            vec = utils.vector_mul_scalar(vec, self.inscription_param)
+            return utils.interpolate(points[self.inscription_point],
+                                     points[self.inscription_point + 1],
+                                     self.inscription_param)
         else:
-            vec = (0, 0)
-        return utils.vector_add(vec, points[self.inscription_point])
+            return self.points[self.inscription_point]
 
     def is_edge(self):
         return True
 
     def switch_direction(self):
+        inscription_position = self.inscription.get_position()
         i = self.from_item
         self.from_item = self.to_item
         self.to_item = i
         self.points.reverse()
+        self.inscription.set_position(inscription_position)
         self.changed()
 
     def as_xml(self):
         e = self.create_xml_element("edge")
         e.set("from_item", str(self.from_item.id))
         e.set("to_item", str(self.to_item.id))
-        if self.bidirectional:
+        if self.line.bidirectional:
             e.set("bidirectional", "true")
-        if self.inscription:
-            e.set("inscription", self.inscription)
-            e.set("inscription_x", str(self.inscription_position[0]))
-            e.set("inscription_y", str(self.inscription_position[1]))
-        for px, py in self.points:
+
+        e.append(canvastext_to_xml(self.inscription, "inscription"))
+
+        for point in self.points:
             pe = xml.Element("point")
-            pe.set("x", str(px))
-            pe.set("y", str(py))
+            position = point.get_position()
+            pe.set("x", str(position[0]))
+            pe.set("y", str(position[1]))
             e.append(pe)
         return e
 
-    def get_drawing(self, vconfig):
-        return vconfig.edge_drawing(self)
-
     def get_all_points(self):
         sp, ep = self.get_end_points()
-        return [sp] + self.points + [ep]
-
-    def is_at_position(self, position):
-        if self.inscription_position and \
-           utils.position_inside_rect(position,
-                                      utils.vector_diff(self.inscription_position,
-                                                        (self.inscription_size[0]/2, 0)),
-                                      self.inscription_size, 4):
-            return True
-
-        if self.nearest_edge_point_index(position, 7) is not None:
-            return True
-
-        for a, b in utils.pairs_generator(self.get_all_points()):
-            if utils.is_near_line_segment(a, b, position, 5):
-                return True
-        return False
-
-    def get_action(self, position, factory):
-        def set_point(i, p):
-            self.points[i] = p
-            self.changed()
-
-        if self.inscription_position and \
-           utils.position_inside_rect(position,
-                                      utils.vector_diff(self.inscription_position,
-                                                        (self.inscription_size[0]/2, 0)),
-                                      self.inscription_size, 4):
-            return factory.get_move_action(self.get_inscription_position(),
-                                           self.set_inscription_position, position)
-
-        i = self.nearest_edge_point_index(position, 7)
-        if i is not None:
-            return factory.get_move_action(self.points[i], lambda x: set_point(i, x), position)
-        return factory.get_empty_action()
+        return [sp] + [ p.get_position() for p in self.points ] + [ep]
 
     def get_text_entries(self):
         return [ ("Inscription", self.get_inscription, self.set_inscription) ]
-
-    def corners(self, cr):
-        l = maxint
-        t = maxint
-        r = 0
-        b = 0
-        for x, y in self.points:
-            l = min(l, x)
-            t = min(t, y)
-            r = max(r, x)
-            b = max(b, y)
-        if self.inscription == "":
-            return ((l,t), (r,b))
-        else:
-            point = self.inscription_position
-            # 'i' = 'inscription'
-            (ix_bearing, iy_bearing,
-             iwidth, iheight,
-             ix_advance, iy_advance) = cr.text_extents(self.inscription)
-            (ascent, descent, height, max_x_advance, max_y_advance) = cr.font_extents()
-
-            ix = point[0] - iwidth/2
-            iy = point[1] + iheight
-            return ((min(l, ix),          min(t, iy + iy_bearing)),
-                    (max(r, ix + iwidth), max(b, iy + descent)))
-
-    def is_packing_edge(self):
-        return self.inscription and self.inscription[0] == "~"
 
     def create_xml_export_element(self, name):
         e = xml.Element(name)
@@ -867,7 +629,7 @@ class Edge(NetItem):
             e.set("place-id", str(self.from_item.get_id()))
         else:
             e.set("place-id", str(self.to_item.get_id()))
-        e.set("expr", self.inscription)
+        e.set("expr", self.inscription.text)
         return e
 
 
@@ -875,107 +637,42 @@ class RectItem(NetItem):
 
     def __init__(self, net, id, position, size):
         NetItem.__init__(self, net, id)
-        self.position = position
-        self.size = size
+        self.point1 = citems.Point(self, "point1", citems.AbsPlacement(position))
+        self.point1.action = "resize_ltop"
+        self.point2 = citems.Point(self, "point2", citems.AbsPlacement(
+            utils.vector_add(position, size)))
+        self.point2.owner = self
+        self.point2.action = "resize_rbottom"
 
     def get_size(self):
-        return self.size
-
-    def set_size(self, size):
-        self.size = size
-        self.changed()
-
-    def resize_rbottom(self, original_pos, original_size, rel_change):
-        self.size = utils.vector_add(original_size, rel_change)
-        self.changed()
-
-    def resize_ltop(self, original_pos, original_size, rel_change):
-        self.size = utils.vector_diff(original_size, rel_change)
-        self.position = utils.vector_add(original_pos, rel_change)
-        self.changed()
-
-    def resize_lbottom(self, original_pos, original_size, rel_change):
-        self.size = utils.vector_add(original_size, (-rel_change[0], rel_change[1]))
-        self.position = utils.vector_add(original_pos, (rel_change[0], 0))
-        self.changed()
-
-    def resize_rtop(self, original_pos, original_size, rel_change):
-        self.size = utils.vector_add(original_size, (rel_change[0], -rel_change[1]))
-        self.position = utils.vector_add(original_pos, (0, rel_change[1]))
-        self.changed()
-
-    def get_position(self):
-        return self.position
-
-    def set_position(self, position):
-        self.position = position
-        self.changed()
+        return utils.make_vector(self.point1.get_position(), self.point2.get_position())
 
     def is_inside(self, item):
-        return utils.position_inside_rect(item.position, self.position, self.size)
-
-    def corners(self, cr):
-        return (self.position, utils.vector_add(self.position, self.size))
-
-    def is_at_position(self, position):
-        return utils.position_on_rect(position, self.position, self.size, 5)
-
-    def get_action(self, position, factory):
-        def get_position_and_size():
-            return self.position, self.size
-        def set_position_and_size(position_and_size):
-            self.position = position_and_size[0]
-            self.size = position_and_size[1]
-            self.changed()
-
-        def make_action(f, cursor):
-            return factory.get_custom_move_action(
-                position,
-                lambda r: f(original_pos, original_size, r),
-                set_position_and_size,
-                get_position_and_size,
-                cursor)
-        px, py = position
-        mx, my = self.position
-        sx, sy = self.size
-
-        original_size = self.size
-        original_pos = self.position
-        if px >= mx + sx - 10 and py >= my + sy - 10 and px < mx + sx + 5 and py < my + sy + 5:
-            return make_action(self.resize_rbottom, "resize_rbottom")
-
-        if px >= mx - 10 and py >= my - 10 and px < mx + 5 and py < my + 5:
-            return make_action(self.resize_ltop, "resize_ltop")
-
-        if px >= mx - 10 and py >= my + sy - 10 and px < mx + 5 and py < my + sy + 5:
-            return make_action(self.resize_lbottom, "resize_lbottom")
-
-        if px >= mx + sx - 10 and py >= my - 10 and px < mx + sx + 5 and py < my + 5:
-            return make_action(self.resize_rtop, "resize_rtop")
+        return utils.position_inside_rect(
+            item.box.get_position(),
+            self.point1.get_position(),
+            self.get_size())
 
 
 class NetArea(RectItem):
 
-    name = ""
-    init_expr = ""
-    z_level = -1
+    def __init__(self, net, id, position, size):
+        RectItem.__init__(self, net, id, position, size)
+        self.area = citems.Area(self, "area", self.point1, self.point2)
+
+        position = utils.vector_add(self.point1.get_position(), (0, -15))
+        self.init = citems.Text(self, "init", self.point1.get_relative_placement(position))
+
+    def get_canvas_items(self):
+        return [ self.point1, self.point2,
+                 self.init, self.area ]
 
     def set_init_expr(self, init_expr):
-        self.init_expr = init_expr
+        self.init.text = init_expr
         self.changed()
 
     def get_init_expr(self):
-        return self.init_expr
-
-    def set_name(self, name):
-        self.name = name
-        self.changed()
-
-    def get_name(self):
-        return self.name
-
-    def get_drawing(self, vconfig):
-        return vconfig.area_drawing(self)
+        return self.init.text
 
     def get_text_entries(self):
         return [ ("Init", self.get_init_expr, self.set_init_expr),
@@ -986,18 +683,19 @@ class NetArea(RectItem):
 
     def as_xml(self):
         e = self.create_xml_element("area")
-        e.set("init-expr", self.init_expr)
-        e.set("name", self.name)
-        e.set("x", str(self.position[0]))
-        e.set("y", str(self.position[1]))
-        e.set("sx", str(self.size[0]))
-        e.set("sy", str(self.size[1]))
+        position = self.point1.get_position()
+        size = self.get_size()
+        e.set("x", str(position[0]))
+        e.set("y", str(position[1]))
+        e.set("sx", str(size[0]))
+        e.set("sy", str(size[1]))
+        e.append(canvastext_to_xml(self.init, "init"))
         return e
 
     def export_xml(self):
         e = self.create_xml_element("area")
-        e.set("init-expr", self.init_expr)
-        e.set("name", self.name)
+        e.set("init-expr", self.init.text)
+        e.set("name", "")
         items = [ item for item in self.net.places() if self.is_inside(item) ]
         for item in items:
             element = xml.Element("place")
@@ -1012,67 +710,13 @@ class NetArea(RectItem):
         return [ transition for transition in self.net.transitions()
                  if self.is_inside(transition) ]
 
-    def corners(self, cr):
-        if self.name == "" and self.init_expr == "":
-            return super(NetArea, self).corners(cr)
-        else:
-            ((l,t), (r,b)) = super(NetArea, self).corners(cr)
-            # 'n' = 'name'
-            (nx_bearing, ny_bearing,
-             nwidth, nheight,
-             nx_advance, ny_advance) = cr.text_extents(self.name)
-            # 'ie' = 'init_expr'
-            (iex_bearing, iey_bearing,
-             iewidth, ieheight,
-             iex_advance, iey_advance) = cr.text_extents(self.init_expr)
-
-            return ((min(l, r - nwidth),  t + min(ny_bearing, iey_bearing) - 5),
-                    (max(r, l + iewidth), b))
-
 
 class InterfaceBox(RectItem):
 
     z_level = -2
 
-    def get_drawing(self, vconfig):
-        return vconfig.interface_drawing(self)
-
-    def resize_ltop(self, original_pos, original_size, rel_change):
-        orig = self.position
-        RectItem.resize_ltop(self, original_pos, original_size, rel_change)
-        self.search_and_set_nodes(orig, self.position)
-
-    def resize_lbottom(self, original_pos, original_size, rel_change):
-        orig = (self.position[0], self.position[1] + self.size[1])
-        RectItem.resize_lbottom(self, original_pos, original_size, rel_change)
-        self.search_and_set_nodes(orig, (self.position[0], self.position[1] + self.size[1]))
-
-    def resize_rtop(self, original_pos, original_size, rel_change):
-        orig = (self.position[0] + self.size[0], self.position[1])
-        RectItem.resize_rtop(self, original_pos, original_size, rel_change)
-        self.search_and_set_nodes(orig, (self.position[0] + self.size[0], self.position[1]))
-
-    def resize_rbottom(self, original_pos, original_size, rel_change):
-        orig = utils.vector_add(self.position, self.size)
-        RectItem.resize_rbottom(self, original_pos, original_size, rel_change)
-        self.search_and_set_nodes(orig, utils.vector_add(self.position, self.size))
-
-    def search_and_set_nodes(self, old, new):
-        for item in filter(lambda i: i.position[0] == old[0], self.net.inodes()):
-            item.position = (new[0], item.position[1])
-            item.changed()
-        for item in filter(lambda i: i.position[1] == old[1], self.net.inodes()):
-            item.position = (item.position[0], new[1])
-            item.changed()
-
     def is_interfacebox(self):
         return True
-
-    def corners(self, cr):
-        px, py = self.position
-        sx, sy = self.size
-        # line stroke is 6 (= +-3)
-        return ((px - 3, py - 3), (px + sx + 3, py + sy + 3))
 
     def as_xml(self):
         e = self.create_xml_element("interface-box")
@@ -1098,31 +742,6 @@ class InterfaceNode(NetElement):
         NetItem.__init__(self, net, id)
         self.set_position(position)
 
-    def get_drawing(self, vconfig):
-        return vconfig.interfacenode_drawing(self)
-
-    def set_position(self, position):
-        px, py = self.net.interface_box.get_position()
-        sx, sy = self.net.interface_box.get_size()
-
-        nx = max(px, min(position[0], px + sx))
-        ny = max(py, min(position[1], py + sy))
-
-        pos = [
-            (abs(px - position[0]), (px, ny)),
-            (abs(py - position[1]), (nx, py)),
-            (abs(px + sx - position[0]), (px + sx, ny)),
-            (abs(py + sy - position[1]), (nx, py + sy)),
-        ]
-        self.position = min(pos, key=lambda x: x[0])[1]
-        self.changed()
-
-    def get_action(self, position, factory):
-        return factory.get_move_action(self.position, self.set_position, position)
-
-    def is_at_position(self, position):
-        return utils.point_distance(self.position, position) < 6
-
     def is_inode(self):
         return True
 
@@ -1138,10 +757,6 @@ class InterfaceNode(NetElement):
 
     def is_interfacenode(self):
         return True
-
-    def corners(self, cr):
-        px, py = self.get_position()
-        return ((px - 6, py - 6), (px + 6, py + 6))
 
 
 class BasicLoader:
@@ -1179,6 +794,23 @@ class NewIdLoader:
         return self.idtable[id]
 
 
+def canvastext_to_xml(obj, name):
+    element = xml.Element(name)
+    position = obj.get_position()
+    element.set("x", str(position[0]))
+    element.set("y", str(position[1]))
+    element.text = obj.text
+    return element
+
+def canvastext_from_xml(element, obj):
+    position = (utils.xml_int(element, "x"),
+                utils.xml_int(element, "y"))
+    obj.set_position(position)
+    if element.text is None:
+        obj.text = ""
+    else:
+        obj.text = element.text
+
 def load_code(element):
     if element.find("code") is not None:
         return element.find("code").text
@@ -1204,12 +836,20 @@ def load_place_tracing(element):
 def load_place(element, net, loader):
     id = loader.get_id(element)
     place = net.add_place((xml_int(element,"x"), xml_int(element, "y")), id)
-    place.name = xml_str(element, "name", "")
-    place.radius = xml_int(element,"radius")
-    place.size = (xml_int(element,"sx", 0), xml_int(element,"sy", 0))
-    place.place_type = xml_str(element,"place_type", "")
-    place.init_string = xml_str(element,"init_string", "")
-    place.code = load_code(element)
+    place.box.name = xml_str(element, "name", "")
+    place.box.radius = xml_int(element,"radius")
+    place.box.size = (xml_int(element,"sx", 0), xml_int(element,"sy", 0))
+
+    if element.find("place-type") is not None:
+        canvastext_from_xml(element.find("place-type"), place.place_type)
+    else:
+        place.place_type.text = element.get("place_type", "") # Backward compatability
+
+    if element.find("init") is not None:
+        canvastext_from_xml(element.find("init"), place.init)
+    else:
+        place.init.text = element.get("init_string", "") # Backward compatability
+    place.set_code(load_code(element))
     place.tracing =  load_place_tracing(element)
 
 def load_transition(element, net, loader):
@@ -1217,10 +857,13 @@ def load_transition(element, net, loader):
     transition = net.add_transition((xml_int(element,"x"), xml_int(element, "y")), id)
     sx = xml_int(element,"sx")
     sy = xml_int(element,"sy")
-    transition.size = (sx, sy)
-    transition.name = xml_str(element,"name", "")
-    transition.guard = xml_str(element,"guard", "")
-    transition.code = load_code(element)
+    transition.box.size = (sx, sy)
+    transition.box.name = xml_str(element,"name", "")
+    if element.find("guard") is not None:
+        canvastext_from_xml(element.find("guard"), transition.guard)
+    else:
+        transition.guard.text = element.get("guard", "") # Backward compatability
+    transition.set_code(load_code(element))
     transition.tracing = load_tracing(element)
 
 def load_edge(element, net, loader):
@@ -1231,17 +874,13 @@ def load_edge(element, net, loader):
     assert titem is not None
     points = [ (xml_int(e, "x"), xml_int(e,"y")) for e in element.findall("point") ]
     edge = net.add_edge(fitem, titem, points, id)
-    edge.bidirectional = utils.xml_bool(element, "bidirectional", False)
+    edge.line.bidirectional = utils.xml_bool(element, "bidirectional", False)
 
-    if element.get("inscription") is not None:
-        edge.inscription = xml_str(element, "inscription")
-        ix = xml_int(element, "inscription_x")
-        iy = xml_int(element, "inscription_y")
-        edge.inscription_position = (ix, iy)
-        edge.inscription_point, edge.inscription_param = \
-            utils.nearest_point_of_multiline(edge.get_all_points(), edge.inscription_position)
-        edge.offset = utils.vector_diff(edge.compute_insciption_point(),
-                                        edge.inscription_position)
+    if element.find("inscription") is not None:
+        canvastext_from_xml(element.find("inscription"), edge.inscription)
+    else: # Backward compitabality
+        if element.get("inscription") is not None:
+            edge.inscription.text = xml_str(element, "inscription")
 
 def load_area(element, net, loader):
     id = loader.get_id(element)
@@ -1250,8 +889,10 @@ def load_area(element, net, loader):
     px = xml_int(element, "x")
     py = xml_int(element, "y")
     area = net.add_area((px, py), (sx, sy), id)
-    area.init_expr = xml_str(element,"init-expr", "")
-    area.name = xml_str(element, "name", "")
+    if element.find("init") is not None:
+        canvastext_from_xml(element.find("init"), area.init)
+    else:
+        area.init = xml_str(element,"init-expr", "")
 
 def load_interface_box(element, net, loader):
     id = loader.get_id(element)

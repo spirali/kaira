@@ -19,8 +19,6 @@
 
 import utils
 from copy import copy
-from drawing import VisualConfig
-import runview
 
 class RunInstance:
 
@@ -234,40 +232,6 @@ class NetInstance:
         netinstance.enabled_transitions = copy(self.enabled_transitions)
         return netinstance
 
-
-class NetInstanceVisualConfig(VisualConfig):
-
-    def __init__(self,
-                 transition_executions,
-                 transitions_with_values,
-                 enabled_transitions,
-                 tokens,
-                 new_tokens,
-                 remove_tokens):
-        # transition_id -> [ text_labels ]
-        self.transition_executions = transition_executions
-        self.tokens = tokens
-        self.new_tokens = new_tokens
-        self.removed_tokens = remove_tokens
-        self.enabled_transitions = enabled_transitions
-        self.transitions_with_values = transitions_with_values
-
-    def transition_drawing(self, item):
-        drawing = VisualConfig.transition_drawing(self, item)
-        executions = self.transition_executions.get(item.id)
-        drawing.executions = executions
-        if item.id in self.enabled_transitions:
-            drawing.highlight = (0, 1, 0)
-        if item.id in self.transitions_with_values:
-            drawing.with_values = True
-        return drawing
-
-    def place_drawing(self, item):
-        drawing = VisualConfig.place_drawing(self, item)
-        drawing.set_tokens(self.tokens[item.id],
-                           self.new_tokens[item.id],
-                           self.removed_tokens[item.id])
-        return drawing
 
 
 class Perspective(utils.EqMixin):

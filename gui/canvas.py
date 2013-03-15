@@ -19,33 +19,37 @@
 
 import gtk
 from events import EventSource
-from drawing import VisualConfig
 
-class NetCanvas(gtk.DrawingArea, EventSource):
+class Canvas(gtk.DrawingArea, EventSource):
     """
         Widget that draws a network, configurated by instance of class VisualConfig
         Events: button_down, button_up, mouse_move
     """
-    def __init__(self, net, draw_cb, vconfig = None, zoom = 1.0):
+    def __init__(self, config, draw_cb, zoom = 1.0):
         gtk.DrawingArea.__init__(self);
         EventSource.__init__(self)
-        self.net = net
         self.zoom = zoom
         self.viewport = None
 
-        if vconfig is None:
-            vconfig = VisualConfig()
-        self.vconfig = vconfig
+        self.set_config(config)
+
         self.draw_cb = draw_cb
-        self.set_events(gtk.gdk.BUTTON_PRESS_MASK | gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.POINTER_MOTION_MASK)
+        self.set_events(
+            gtk.gdk.BUTTON_PRESS_MASK |
+            gtk.gdk.BUTTON_RELEASE_MASK |
+            gtk.gdk.POINTER_MOTION_MASK |
+            gtk.gdk.LEAVE_NOTIFY_MASK)
+
         self.connect("expose_event", self._expose)
         self.connect("button_press_event", self._button_down)
         self.connect("button_release_event", self._button_up)
         self.connect("motion_notify_event", self._mouse_move)
+        self.connect("leave-notify-event", self._mouse_leave)
 
-    def set_net(self, net):
-        self.net = net
-        self.set_viewport_to_net_center()
+    def set_config(self, config):
+        if config:
+            config.canvas = self
+        self.config = config
         self.redraw()
 
     def set_viewport_to_net_center(self):
@@ -57,12 +61,6 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 
     def get_viewport(self):
         return self.viewport
-
-    def set_vconfig(self, vconfig):
-        if vconfig is None:
-            vconfig = VisualConfig()
-        self.vconfig = vconfig
-        self.redraw()
 
     def redraw(self):
         self.queue_draw()
@@ -77,6 +75,9 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 
     def get_zoom(self):
         return self.zoom
+
+    def set_cursor(self, cursor):
+        self.window.set_cursor(cursor)
 
     def _expose(self, w, event):
         cr = self.window.cairo_create()
@@ -93,9 +94,8 @@ class NetCanvas(gtk.DrawingArea, EventSource):
 
         # If viewport is None then set viewport to the center of net
         if self.viewport is None:
-            if self.net is not None:
-                ((l,t), (r,b)) = self.net.corners(cr)
-                self.viewport = (l + (r - l) / 2, t + (b - t) / 2)
+            if self.config is not None:
+                self.viewport = self.config.get_default_viewport()
             else:
                 self.viewport = (0, 0)
 
@@ -104,19 +104,26 @@ class NetCanvas(gtk.DrawingArea, EventSource):
         cr.scale(self.zoom, self.zoom)
         cr.translate(-self.viewport[0], -self.viewport[1])
 
-        if self.net:
-            self.net.draw(cr, self.vconfig)
-        if self.draw_cb:
-            self.draw_cb(cr, width, height)
+        if self.config:
+            self.config.draw(cr)
 
     def _mouse_to_canvas(self, event):
         return self.cr.device_to_user(event.x, event.y)
 
     def _button_down(self, w, event):
-        self.emit_event("button_down", event, self._mouse_to_canvas(event))
+        if event.button == 1:
+            self.config.on_mouse_left_down(event, self._mouse_to_canvas(event))
+        elif event.button == 3:
+            self.config.on_mouse_right_down(event, self._mouse_to_canvas(event))
 
     def _button_up(self, w, event):
-        self.emit_event("button_up", event, self._mouse_to_canvas(event))
+        if event.button == 1:
+            self.config.on_mouse_left_up(event, self._mouse_to_canvas(event))
+        elif event.button == 3:
+            self.config.on_mouse_right_up(event, self._mouse_to_canvas(event))
 
     def _mouse_move(self, w, event):
-        self.emit_event("mouse_move", event, self._mouse_to_canvas(event))
+        self.config.on_mouse_move(event, self._mouse_to_canvas(event))
+
+    def _mouse_leave(self, w, event):
+        self.config.on_mouse_leave(event)

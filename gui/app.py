@@ -55,7 +55,7 @@ class App:
     """
     def __init__(self, args):
         self.window = MainWindow(self)
-        self.window.set_size_request(500,450)
+        self.window.set_size_request(650,650)
         self.nv = None
         self._open_welcome_tab()
         self.grid_size = 1
