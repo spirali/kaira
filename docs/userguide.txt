@@ -2,41 +2,30 @@
 Kaira: User Guide
 =================
 
-Introduction
+Kaira is ...
+
+
+Installation
 ------------
 
-Semantics
----------
 
-Net Language (NeL)
-------------------
+Hello world
+-----------
 
-Operators
-~~~~~~~~~
 
-Priorities of operators
-^^^^^^^^^^^^^^^^^^^^^^^
 
-Priority 1 ::
- `*, /, %`
-Priority 2 ::
- `+, -, ++, --`
-Priority 3 ::
- `==, !=, <=, >=, <, >`
-Priority 4 ::
- `&&, ||`
+Basic principles
+----------------
 
-Tracelogging
-------------
 
-State space analysis
---------------------
 
-More about generating programs
-------------------------------
+Simulation
+----------
 
-Targets
-~~~~~~~
+
+
+Generating applications
+-----------------------
 
 Kaira generates the following application from a project:
 
@@ -44,6 +33,30 @@ release ::
 traced ::
 statespace ::
 simulation :: Only for the internal usage by simulator, it is not inteded to be manually run by the user.
+
+
+Binding types
+-------------
+
+
+
+Tracing
+-------
+
+
+
+State space analysis
+--------------------
+
+
+
+Libraries
+---------
+
+
+
+Appendix
+--------
 
 Arguments of generated programs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
