@@ -18,22 +18,17 @@
 #
 
 import gtk
-from events import EventSource
 
-class Canvas(gtk.DrawingArea, EventSource):
-    """
-        Widget that draws a network, configurated by instance of class VisualConfig
-        Events: button_down, button_up, mouse_move
-    """
-    def __init__(self, config, draw_cb, zoom = 1.0):
+
+class Canvas(gtk.DrawingArea):
+
+    def __init__(self, config, zoom = 1.0):
         gtk.DrawingArea.__init__(self);
-        EventSource.__init__(self)
         self.zoom = zoom
         self.viewport = None
 
         self.set_config(config)
 
-        self.draw_cb = draw_cb
         self.set_events(
             gtk.gdk.BUTTON_PRESS_MASK |
             gtk.gdk.BUTTON_RELEASE_MASK |

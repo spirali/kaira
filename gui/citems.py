@@ -19,6 +19,7 @@
 
 import drawing
 import utils
+import math
 
 
 class AbsPlacement:
@@ -355,6 +356,95 @@ class Area(CanvasItem):
         p1 = self.point1.get_position()
         p2 = self.point2.get_position()
         return utils.position_on_rect(position, p1, utils.vector_diff(p2, p1), 5)
+
+
+def shorten_token_name(name):
+    if len(name) > 25:
+        return name[:18] + " ... ({0} chars)".format(len(name))
+    else:
+        return name
+
+class TokenBox(CanvasItem):
+
+    z_level = 15
+
+    max_shown_tokens = 10
+
+    def __init__(self, owner, kind, placement):
+        CanvasItem.__init__(self, owner, kind)
+        self.placement = placement
+        self.tokens = []
+        self.new_tokens = []
+        self.removed_tokens = []
+        self.tokens_count = ""
+
+    def set_tokens(self, tokens, new_tokens, removed_tokens):
+        self.tokens_count = str(len(tokens) + len(new_tokens))
+        if len(tokens) > self.max_shown_tokens:
+            self.tokens = map(shorten_token_name, tokens[:self.max_shown_tokens])
+            self.tokens.append("...")
+        else:
+            self.tokens = map(shorten_token_name, tokens)
+
+        self.new_tokens = map(shorten_token_name, new_tokens)
+        self.removed_tokens = map(shorten_token_name, removed_tokens)
+
+    def draw(self, cr):
+        w_size = utils.text_size(cr, "W")[1] + 6
+
+        all =  self.tokens + self.new_tokens + self.removed_tokens
+        if not all:
+            return
+
+        px, py = self.get_position()
+        text_width = max(utils.text_size(cr, t)[0] for t in all) + 5
+
+        top = py - (len(self.tokens) +
+                    len(self.new_tokens) +
+                    len(self.removed_tokens)) * w_size / 2 - 2
+        y = top
+
+        if self.removed_tokens:
+            cr.set_source_rgba(0.2, 0.2, 0.2, 0.6)
+            cr.rectangle(px + 10, y + 4, text_width + 6, w_size * len(self.removed_tokens))
+            cr.fill()
+            y += w_size * len(self.removed_tokens)
+
+        if self.tokens:
+            cr.set_source_rgba(0.2, 0.45, 0, 0.5)
+            cr.rectangle(px + 10, y + 4, text_width + 6, w_size * len(self.tokens))
+            cr.fill()
+            y += w_size * len(self.tokens)
+
+        if self.tokens:
+            cr.set_source_rgba(0.2,0.6,0,0.5)
+            cr.rectangle(px + 10, y + 4, text_width + 6, w_size * len(self.new_tokens))
+            cr.fill()
+            y += w_size * len(self.new_tokens)
+
+        y = top
+        cr.set_source_rgb(1.0,1.0,1.0)
+        for t in all:
+            y += w_size
+            cr.move_to(px + 15, y)
+            cr.show_text(t)
+
+        if self.new_tokens:
+            cr.set_source_rgb(0.2,0.6,0)
+        else:
+            cr.set_source_rgb(0.2,0.45,0)
+
+
+        cr.arc(px, py, 8, 0, 2 * math.pi)
+        cr.fill()
+
+        cr.set_line_width(0.5)
+        cr.arc(px, py, 8, 0, 2 * math.pi)
+        cr.set_source_rgb(0,0,0)
+        cr.stroke()
+
+        drawing.draw_centered_text(cr, px, py, self.tokens_count)
+
 
 
 def make_group(items):

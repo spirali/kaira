@@ -68,7 +68,7 @@ class NetView(gtk.VBox):
         self.netlist = NetList(project, self)
         self.netlist.set_size_request(100, 100)
         paned.pack1(self.netlist, False, True)
-        self.canvas = self._net_canvas()
+        self.canvas = Canvas(None)
         paned.pack2(self.canvas, True, True)
         paned.show_all()
 
@@ -241,18 +241,6 @@ class NetView(gtk.VBox):
         vbox.show_all()
 
         return vbox
-
-    def _net_canvas(self):
-        c = Canvas(None, self._draw)
-        c.set_callback("button_down", self._button_down)
-        c.set_callback("button_up", self._button_up)
-        c.set_callback("mouse_move", self._mouse_move)
-        c.show()
-        return c
-
-    def _draw(self, cr, w, h):
-        if self.tool:
-            self.tool.draw(cr)
 
     def _editarea(self):
         vbox = gtk.VBox()

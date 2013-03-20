@@ -233,7 +233,6 @@ class NetInstance:
         return netinstance
 
 
-
 class Perspective(utils.EqMixin):
 
     def __init__(self, name, runinstance, net_instances):
@@ -289,6 +288,16 @@ class Perspective(utils.EqMixin):
                     values.append(run_on + "; ".join(map(str, activity.values)) + ";")
 
         return values
+
+    def get_enabled_transitions(self):
+        enabled = set()
+        enabled.update(*[ net_instance.enabled_transitions
+                          for net_instance in self.net_instances.values()
+                          if net_instance.enabled_transitions is not None ])
+        return enabled
+
+    def is_transition_enabled(self, transition):
+        return transition.id in self.get_enabled_transitions()
 
     def get_visual_config(self):
         if self.runinstance.net is None:

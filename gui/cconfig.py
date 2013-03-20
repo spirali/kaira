@@ -169,6 +169,10 @@ class CanvasConfig:
         self.set_highlight()
 
     def on_mouse_left_up(self, event, position):
+        item = self.get_item_at_position(position)
+        if item:
+            self.on_item_click(item, position)
+
         if not self.selection:
             return
 
@@ -176,7 +180,6 @@ class CanvasConfig:
         self.drag_items = None
         self.drag_mouse_origin = None
 
-        item = self.get_item_at_position(position)
         if item and (not self.selected_items or item not in self.selected_items):
             self.select_item(item)
 
@@ -200,6 +203,9 @@ class CanvasConfig:
         self.on_mouse_move(event, position)
 
     def on_mouse_leave(self, event):
+        pass
+
+    def on_item_click(self, item, position):
         pass
 
 

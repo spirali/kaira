@@ -21,7 +21,7 @@
 import gtk
 import gtkutils
 import mainwindow
-from runview import NetInstanceView
+from runview import NetInstanceView, NetInstanceCanvasConfig
 
 class SimViewTab(mainwindow.Tab):
     def __init__(self, app, simulation, tabname="Simulation", mainmenu_groups=()):
@@ -34,13 +34,35 @@ class SimViewTab(mainwindow.Tab):
         self.simulation.shutdown()
 
 
+class SimCanvasConfig(NetInstanceCanvasConfig):
+
+    def on_item_click(self, item, position):
+        if item.kind == "box" and item.owner.is_transition():
+               self.view.fire_transition(item.owner)
+        else:
+            NetInstanceCanvasConfig.on_item_click(self, item, position)
+
+    def set_highlight(self):
+        NetInstanceCanvasConfig.set_highlight(self)
+        enabled = self.perspective.get_enabled_transitions()
+        for transition in self.net.transitions():
+            if transition.id in enabled:
+               transition.box.highlight = (0, 255, 0, 0.85)
+
+
+
 class SimView(NetInstanceView):
+
+    config_class = SimCanvasConfig
 
     def __init__(self, app, simulation):
         NetInstanceView.__init__(self, app)
         self.simulation = simulation
         self.set_runinstance(self.simulation.runinstance)
         simulation.set_callback("changed", self._simulation_changed)
+
+    def create_config(self):
+        return SimCanvasConfig(self)
 
     def _simulation_changed(self):
         self.set_runinstance(self.simulation.runinstance)
@@ -58,7 +80,6 @@ class SimView(NetInstanceView):
             return
         process_id = self.simulation.random.choice(ids)
         self.simulation.fire_transition(transition.id, process_id)
-
 
 def connect_dialog(mainwindow):
     builder = gtkutils.load_ui("connect-dialog")
