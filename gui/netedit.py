@@ -29,6 +29,7 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
     def __init__(self, neteditor):
         cconfig.NetCanvasConfig.__init__(self)
         self.neteditor = neteditor
+        self.show_tracing = False
 
     def configure(self):
         cconfig.NetCanvasConfig.configure(self)
@@ -39,6 +40,16 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
         if self.net:
             for i in self.net.items:
                 items += i.get_error_items()
+
+            if self.show_tracing:
+                for item in self.net.places() + self.net.transitions():
+                     if item.tracing:
+                        size = item.box.size
+                        position = utils.vector_add_t(item.box.get_position(), size, 0.5)
+                        i = citems.TraceBox(
+                            None, "tracebox", citems.AbsPlacement(position))
+                        i.trace_text = item.get_trace_texts()
+                        items.append(i)
         return items
 
     def configure_item(self, item):
@@ -263,6 +274,8 @@ def contextmenu_place(config, item, position):
         result = tracing.tracefn_dialog(config.neteditor.app.window, "", "int")
         if result is not None:
             place.tracing.append(result)
+        config.configure()
+
 
     def callback(place, value, check):
             return lambda w: set_tracing(config, place, value, check)
@@ -325,4 +338,4 @@ def set_tracing(config, obj, value, add):
         obj.tracing.append(value)
     else:
         obj.tracing.remove(value)
-    config.canvas.redraw()
+    config.configure()

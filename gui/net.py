@@ -388,6 +388,9 @@ class Transition(NetElement):
                 e.append(trace)
         return e
 
+    def get_trace_texts(self):
+        return self.tracing
+
     def export_xml(self, build_config):
         e = self.create_xml_element("transition")
         e.set("name", self.box.name)
@@ -434,9 +437,6 @@ class Place(NetElement):
     def get_radius(self):
         return self.radius
 
-    def get_size(self):
-        return self.size
-
     def get_name(self):
         return self.box.name
 
@@ -460,6 +460,13 @@ class Place(NetElement):
 
     def is_place(self):
         return True
+
+    def get_trace_texts(self):
+        result = []
+        for name, t in self.tracing:
+            result.append(name)
+            result.append("({0})".format(t))
+        return result
 
     def tracing_to_xml(self, element):
         for name, return_type in self.tracing:

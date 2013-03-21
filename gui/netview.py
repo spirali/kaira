@@ -86,6 +86,8 @@ class NetView(gtk.VBox):
         return self.netlist.selected_object()
 
     def set_show_tracing(self, value):
+        self.canvas.config.show_tracing = value
+        self.canvas.config.configure()
         self.redraw()
 
     def switch_to_net(self, net, select_in_netlist = True):

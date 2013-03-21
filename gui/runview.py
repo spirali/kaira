@@ -57,7 +57,7 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
         for place in places:
             token_box = self.token_boxes.get(place.id)
             if token_box is None:
-                sx, sy = place.get_size()
+                sx, sy = place.box.size
                 position = utils.vector_add(place.box.get_position(),
                                             (sx + 20, sy / 2))
                 token_box = citems.TokenBox(None, "tokenbox", citems.AbsPlacement(position))

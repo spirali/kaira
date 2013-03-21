@@ -167,8 +167,6 @@ class ElementBox(CanvasItem):
             else:
                 drawing.draw_round_rectangle(cr, px + 4, py + 4, sx - 8, sy - 8, self.radius)
             cr.stroke()
-
-
         drawing.draw_centered_text(cr, px + sx / 2, py + sy / 2, self.name)
 
     def is_at_position(self, position):
@@ -219,6 +217,21 @@ class ElementBox(CanvasItem):
 
     def get_bounding_box(self):
         return (self.get_position(), utils.vector_add(self.get_position(), self.size))
+
+
+class TraceBox(CanvasItem):
+
+    trace_text = None
+    z_level = 5
+
+    def __init__(self, owner, kind, placement):
+        CanvasItem.__init__(self, owner, kind)
+        self.placement = placement
+
+    def draw(self, cr):
+        if self.trace_text:
+            px, py = self.get_position()
+            drawing.draw_trace_box(cr, px, py, self.trace_text)
 
 
 class ArrowLine(CanvasItem):
@@ -358,11 +371,6 @@ class Area(CanvasItem):
         return utils.position_on_rect(position, p1, utils.vector_diff(p2, p1), 5)
 
 
-def shorten_token_name(name):
-    if len(name) > 25:
-        return name[:18] + " ... ({0} chars)".format(len(name))
-    else:
-        return name
 
 class TokenBox(CanvasItem):
 
@@ -446,6 +454,11 @@ class TokenBox(CanvasItem):
         drawing.draw_centered_text(cr, px, py, self.tokens_count)
 
 
+def shorten_token_name(name):
+    if len(name) > 25:
+        return name[:18] + " ... ({0} chars)".format(len(name))
+    else:
+        return name
 
 def make_group(items):
     group = list(items)
