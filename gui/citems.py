@@ -377,6 +377,7 @@ class TokenBox(CanvasItem):
     z_level = 15
 
     max_shown_tokens = 10
+    action = "move"
 
     def __init__(self, owner, kind, placement):
         CanvasItem.__init__(self, owner, kind)
@@ -385,6 +386,8 @@ class TokenBox(CanvasItem):
         self.new_tokens = []
         self.removed_tokens = []
         self.tokens_count = ""
+        self.size = None
+        self.visual_position = None
 
     def set_tokens(self, tokens, new_tokens, removed_tokens):
         self.tokens_count = str(len(tokens) + len(new_tokens))
@@ -397,6 +400,12 @@ class TokenBox(CanvasItem):
         self.new_tokens = map(shorten_token_name, new_tokens)
         self.removed_tokens = map(shorten_token_name, removed_tokens)
 
+    def is_at_position(self, position):
+        if self.visual_position:
+            return utils.position_inside_rect(position, self.visual_position, self.size)
+        else:
+            return False
+
     def draw(self, cr):
         w_size = utils.text_size(cr, "W")[1] + 6
 
@@ -407,11 +416,11 @@ class TokenBox(CanvasItem):
         px, py = self.get_position()
         text_width = max(utils.text_size(cr, t)[0] for t in all) + 5
 
-        top = py - (len(self.tokens) +
-                    len(self.new_tokens) +
-                    len(self.removed_tokens)) * w_size / 2 - 2
+        size_y = len(all) * w_size
+        self.size = (text_width, size_y)
+        self.visual_position = (px + 10, py - size_y / 2)
+        top = py - size_y / 2 + 2
         y = top
-
         if self.removed_tokens:
             cr.set_source_rgba(0.2, 0.2, 0.2, 0.6)
             cr.rectangle(px + 10, y + 4, text_width + 6, w_size * len(self.removed_tokens))

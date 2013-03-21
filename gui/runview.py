@@ -48,6 +48,8 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
 
     def collect_items(self):
         items = cconfig.NetCanvasConfig.collect_items(self)
+        for item in items:
+            item.action = None
         items += self.get_token_items()
         return items
 

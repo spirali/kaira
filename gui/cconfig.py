@@ -115,9 +115,6 @@ class CanvasConfig:
                 utils.vector_add(self.canvas.get_viewport(), change))
             return
 
-        if not self.selection:
-            return
-
         if self.drag_items:
             change = utils.make_vector(self.drag_mouse_origin, position)
             for i, item in enumerate(self.drag_items):
@@ -128,18 +125,18 @@ class CanvasConfig:
 
         item = self.get_item_at_position(position)
         if item:
-            self.mouseover_items = item.get_group()
             self.canvas.set_cursor(get_cursor(item.action))
-            self.set_highlight()
+            if self.selection:
+                self.mouseover_items = item.get_group()
+                self.set_highlight()
         elif self.mouseover_items:
-            self.mouseover_items = []
             self.canvas.set_cursor(None)
+            self.mouseover_items = []
             self.set_highlight()
+        else:
+            self.canvas.set_cursor(None)
 
     def on_mouse_left_down(self, event, position):
-        if not self.selection:
-            return
-
         item = self.get_item_at_position(position)
         if item:
             if item.action is not None:
@@ -173,12 +170,12 @@ class CanvasConfig:
         if item:
             self.on_item_click(item, position)
 
-        if not self.selection:
-            return
-
         self.drag_items_origin = None
         self.drag_items = None
         self.drag_mouse_origin = None
+
+        if not self.selection:
+            return
 
         if item and (not self.selected_items or item not in self.selected_items):
             self.select_item(item)

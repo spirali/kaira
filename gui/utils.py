@@ -76,11 +76,14 @@ def position_and_size_from_points(point1, point2):
 
     return ((ax, ay), (bx - ax, by - ay))
 
-def position_inside_rect(position, rect_position, size, tolerance = 0):
+def position_inside_rect(position, rect_position, size, tolerance=0):
     px, py = position
     rx, ry = rect_position
     sx, sy = size
-    return px >= rx - tolerance and py >= ry - tolerance and px < rx + sx + tolerance and py < ry + sy + tolerance
+    return (px >= rx - tolerance and
+            py >= ry - tolerance and
+            px < rx + sx + tolerance and
+            py < ry + sy + tolerance)
 
 def position_on_rect(position, rect_position, size, tolerance = 0):
     if not position_inside_rect(position, rect_position, size, tolerance):
