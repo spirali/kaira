@@ -72,6 +72,10 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
 
 class SelectionCanvasConfig(NetEditCanvasConfig):
 
+    resize_item = None
+    initial_size = None
+    initial_mouse = None
+
     def on_items_selected(self):
         if self.selected_items:
             owners = [ i.owner for i in self.selected_items if i.owner ]
@@ -86,6 +90,29 @@ class SelectionCanvasConfig(NetEditCanvasConfig):
         NetEditCanvasConfig.configure(self)
         self.on_items_selected()
 
+    def on_mouse_move(self, event, position):
+        if self.resize_item:
+            change = utils.make_vector(self.initial_mouse, position)
+            change = utils.snap_to_grid(change, self.grid_size)
+            new_size = utils.vector_add(self.initial_size, change)
+            utils.vector_at_least(new_size, 0, 0)
+            self.resize_item.size = new_size
+            self.canvas.redraw()
+        else:
+            NetEditCanvasConfig.on_mouse_move(self, event, position)
+
+    def on_mouse_left_down(self, event, position):
+        if self.resize_item:
+            self.resize_item = None
+        else:
+            NetEditCanvasConfig.on_mouse_left_down(self, event, position)
+
+    def on_mouse_right_down(self, event, position):
+        if self.resize_item:
+            self.resize_item.size = self.initial_size
+            self.resize_item = None
+        else:
+            NetEditCanvasConfig.on_mouse_right_down(self, event, position)
 
 class NewElementCanvasConfig(NetEditCanvasConfig):
 
@@ -277,6 +304,11 @@ def delete_item(config, item):
     item.delete()
     config.select_item(None)
 
+def resize_item(config, item, position):
+    config.resize_item = item
+    config.initial_size = item.size
+    config.initial_mouse = position
+
 def contextmenu_place(config, item, position):
     place = item.owner
 
@@ -305,10 +337,12 @@ def contextmenu_place(config, item, position):
                                callback(place, (name, t), False)))
 
     return [
-        ("Delete", lambda w: delete_item(config, place)),
+        ("Resize", lambda w: resize_item(config, item, position)),
         ("Edit init code",
             lambda w: config.neteditor.place_edit_callback(place)),
-        ("Tracing", trace_menu)
+        ("Tracing", trace_menu),
+        ("-", None),
+        ("Delete", lambda w: delete_item(config, place)),
     ]
 
 def contextmenu_transition(config, item, position):
@@ -317,10 +351,12 @@ def contextmenu_transition(config, item, position):
     trace_menu = [("fire",
                    (fire, lambda w: set_tracing(config, transition, "fire", not fire)))]
     return [
-        ("Delete", lambda w: delete_item(config, transition)),
+        ("Resize", lambda w: resize_item(config, item, position)),
         ("Edit code",
             lambda w: config.neteditor.transition_edit_callback(transition)),
-        ("Tracing", trace_menu)
+        ("Tracing", trace_menu),
+        ("-", None),
+        ("Delete", lambda w: delete_item(config, transition)),
     ]
 
 def contextmenu_edge(config, item, position):

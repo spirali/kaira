@@ -48,6 +48,12 @@ def vector_mul_scalar(vector, scalar):
 def vector_add_scalar(vector, scalar):
     return (vector[0] + scalar, vector[1] + scalar)
 
+def vector_at_least(vector, x, y):
+    if vector[0] >= x and vector[1] >= y:
+        return vector
+    else:
+        return (max(x, vector[0]), max(y, vector[1]))
+
 def interpolate(point1, point2, param):
     x1, y1 = point1
     x2, y2 = point2

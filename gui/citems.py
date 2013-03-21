@@ -128,7 +128,6 @@ class ElementBox(CanvasItem):
     text = ""
     action = "move"
     name = ""
-    group_leader = True
 
     def __init__(self, owner, kind, placement, size, radius):
         CanvasItem.__init__(self, owner, kind)
@@ -272,6 +271,7 @@ class Point(CanvasItem):
     z_level = 10
     radius = 10
     action = "move"
+    color = None
 
     def __init__(self, owner, kind, placement):
         CanvasItem.__init__(self, owner, kind)
@@ -282,6 +282,13 @@ class Point(CanvasItem):
 
     def get_bounding_box(self):
         return (self.get_position(), self.get_position())
+
+    def draw(self, cr):
+        if self.color:
+            px, py = self.get_position()
+            cr.set_source_rgb(*self.color)
+            cr.arc(px, py, self.radius, 0, 2 * math.pi)
+            cr.fill()
 
 
 class Text(CanvasItem):

@@ -149,8 +149,7 @@ class CanvasConfig:
             else: # Click on non-selected item
                 pass
         else:
-            self.selected_items = ()
-            self.on_items_selected()
+            self.select_item(None)
         self.set_highlight()
 
     def select_item(self, item):
