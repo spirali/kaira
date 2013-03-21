@@ -124,7 +124,7 @@ class CanvasItem:
 
 class ElementBox(CanvasItem):
 
-    doubleborder = True
+    doubleborder = False
     text = ""
     action = "move"
     name = ""

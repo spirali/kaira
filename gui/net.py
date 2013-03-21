@@ -682,8 +682,7 @@ class NetArea(RectItem):
         return self.init.text
 
     def get_text_entries(self):
-        return [ ("Init", self.get_init_expr, self.set_init_expr),
-                ("Name", self.get_name, self.set_name) ]
+        return [ ("Init", self.get_init_expr, self.set_init_expr) ]
 
     def is_area(self):
         return True
