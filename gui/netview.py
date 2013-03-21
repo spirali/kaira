@@ -79,9 +79,6 @@ class NetView(gtk.VBox):
         self.connect("key_press_event", self._key_press)
         self.switch_to_net(self.get_net(), False)
 
-    def get_grid_size(self):
-        return self.app.get_grid_size()
-
     def get_net(self):
         return self.netlist.selected_object()
 

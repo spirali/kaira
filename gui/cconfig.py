@@ -50,6 +50,7 @@ class CanvasConfig:
     select_color = (0.86,0.86,0.0,1.0)
 
     selection = True
+    grid_size = 1
 
     def __init__(self):
         self.items = []
@@ -119,6 +120,7 @@ class CanvasConfig:
             change = utils.make_vector(self.drag_mouse_origin, position)
             for i, item in enumerate(self.drag_items):
                 new_position = utils.vector_add(self.drag_items_origin[i], change)
+                new_position = utils.snap_to_grid(new_position, self.grid_size)
                 item.set_position(new_position)
             self.canvas.redraw()
             return

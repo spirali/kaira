@@ -121,6 +121,8 @@ def text_size(cr, text, min_h=0, min_w=0):
     return max(min_w, extends[2]), max(min_h, -extends[1])
 
 def snap_to_grid(point, grid_size):
+    if grid_size == 1:
+        return point
     px, py = point
     return (int(px / grid_size) * grid_size, int(py / grid_size) * grid_size)
 

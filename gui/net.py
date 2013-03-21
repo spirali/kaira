@@ -338,7 +338,7 @@ class NetElement(NetItem):
 
 class Transition(NetElement):
 
-    size = (70, 35)
+    size = (70, 36)
     radius = 0
 
     def __init__(self, net, id, position):

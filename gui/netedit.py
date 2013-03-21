@@ -31,6 +31,10 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
         self.neteditor = neteditor
         self.show_tracing = False
 
+    @property
+    def grid_size(self):
+        return self.neteditor.app.get_grid_size()
+
     def configure(self):
         cconfig.NetCanvasConfig.configure(self)
         self.neteditor.set_entry_types([])
@@ -100,9 +104,11 @@ class NewElementCanvasConfig(NetEditCanvasConfig):
     def draw(self, cr):
         NetEditCanvasConfig.draw(self, cr)
         if self.mouse_position:
-            position = self.get_position(self.mouse_position)
+            position = utils.snap_to_grid(self.get_position(self.mouse_position), self.grid_size)
             placement = citems.AbsPlacement(position)
-            box = citems.ElementBox(placement,
+            box = citems.ElementBox(None,
+                                    "",
+                                    placement,
                                     self.element.size,
                                     self.element.radius)
             box.draw(cr)
@@ -121,6 +127,7 @@ class NewTransitionCanvasConfig(NewElementCanvasConfig):
     element = net.Transition
 
     def on_mouse_left_down(self, event, position):
+        position = utils.snap_to_grid(position, self.grid_size)
         item = self.net.add_transition(self.get_position(position))
         self.neteditor.set_tool("selection", set_button=True)
         self.canvas.config.select_item(item.box)
@@ -131,6 +138,7 @@ class NewPlaceCanvasConfig(NewElementCanvasConfig):
     element = net.Place
 
     def on_mouse_left_down(self, event, position):
+        position = utils.snap_to_grid(position, self.grid_size)
         item = self.net.add_place(self.get_position(position))
         self.neteditor.set_tool("selection", set_button=True)
         self.canvas.config.select_item(item.box)
@@ -181,7 +189,8 @@ class NewEdgeCanvasConfig(NetEditCanvasConfig):
                 self.neteditor.set_tool("selection", set_button=True)
                 self.canvas.config.select_item(edge.line)
         else:
-             self.points.append(position)
+            position = utils.snap_to_grid(position, self.grid_size)
+            self.points.append(position)
 
     def on_mouse_right_down(self, event, position):
         if self.from_element:
@@ -201,7 +210,8 @@ class NewEdgeCanvasConfig(NetEditCanvasConfig):
         NetEditCanvasConfig.draw(self, cr)
         if self.from_element:
             p = self.points[:]
-            p.append(self.mouse_position)
+            position = utils.snap_to_grid(self.mouse_position, self.grid_size)
+            p.append(position)
             p.insert(0, self.from_element.get_border_point(p[0]))
             cr.set_source_rgb(0, 0, 0)
             drawing.draw_polyline_nice_corners(
