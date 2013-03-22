@@ -95,7 +95,7 @@ class SelectionCanvasConfig(NetEditCanvasConfig):
             change = utils.make_vector(self.initial_mouse, position)
             change = utils.snap_to_grid(change, self.grid_size)
             new_size = utils.vector_add(self.initial_size, change)
-            utils.vector_at_least(new_size, 0, 0)
+            new_size = utils.vector_at_least(new_size, 0, 0)
             self.resize_item.size = new_size
             self.canvas.redraw()
         else:
