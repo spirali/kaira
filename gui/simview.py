@@ -56,13 +56,10 @@ class SimView(NetInstanceView):
     config_class = SimCanvasConfig
 
     def __init__(self, app, simulation):
-        NetInstanceView.__init__(self, app)
+        NetInstanceView.__init__(self, app, SimCanvasConfig(self))
         self.simulation = simulation
         self.set_runinstance(self.simulation.runinstance)
         simulation.set_callback("changed", self._simulation_changed)
-
-    def create_config(self):
-        return SimCanvasConfig(self)
 
     def _simulation_changed(self):
         self.set_runinstance(self.simulation.runinstance)

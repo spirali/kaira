@@ -207,6 +207,19 @@ class Net:
         return [ i for i in self.items
                  if i.is_edge() and (i.to_item == item or i.from_item == item) ]
 
+    def trace_nothing(self):
+        for i in self.transitions() + self.places():
+            i.tracing = []
+
+    def trace_everything(self):
+        for i in self.transitions():
+            if not "fire" in i.tracing:
+                i.tracing.insert(0, "fire")
+        token_name = ("ca::token_name", "std::string")
+        for i in self.places():
+            if token_name not in i.tracing:
+                i.tracing.insert(0,  token_name)
+
 
 class NetItem(object):
 

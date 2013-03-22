@@ -47,8 +47,8 @@ class Canvas(gtk.DrawingArea):
         self.config = config
         self.redraw()
 
-    def set_viewport_to_net_center(self):
-        self.viewport = None
+    def reset_viewport(self):
+        self.set_viewport(None)
 
     def set_viewport(self, viewport):
         self.viewport = viewport

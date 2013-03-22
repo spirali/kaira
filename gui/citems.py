@@ -378,7 +378,6 @@ class Area(CanvasItem):
         return utils.position_on_rect(position, p1, utils.vector_diff(p2, p1), 5)
 
 
-
 class TokenBox(CanvasItem):
 
     z_level = 15
@@ -429,19 +428,19 @@ class TokenBox(CanvasItem):
         top = py - size_y / 2 + 2
         y = top
         if self.removed_tokens:
-            cr.set_source_rgba(0.2, 0.2, 0.2, 0.6)
+            cr.set_source_rgba(0.2, 0.2, 0.2, 0.7)
             cr.rectangle(px + 10, y + 4, text_width + 6, w_size * len(self.removed_tokens))
             cr.fill()
             y += w_size * len(self.removed_tokens)
 
         if self.tokens:
-            cr.set_source_rgba(0.2, 0.45, 0, 0.5)
+            cr.set_source_rgba(0.2, 0.45, 0, 0.7)
             cr.rectangle(px + 10, y + 4, text_width + 6, w_size * len(self.tokens))
             cr.fill()
             y += w_size * len(self.tokens)
 
-        if self.tokens:
-            cr.set_source_rgba(0.2,0.6,0,0.5)
+        if self.new_tokens:
+            cr.set_source_rgba(0.2,0.7,0,0.7)
             cr.rectangle(px + 10, y + 4, text_width + 6, w_size * len(self.new_tokens))
             cr.fill()
             y += w_size * len(self.new_tokens)

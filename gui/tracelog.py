@@ -770,11 +770,10 @@ class DataCollectingRunInstance(RunInstance):
                         process_data.append(d)
                 values.append(process_data)
                 names.append(
-                    "{0.name} {1.name}@{2}".format(net, item, process_id))
+                    "{0.name} {1}@{2}".format(net, item.get_name(), process_id))
         return names, values
 
     def get_transitions_utilization(self):
-        transition_ids = self.transitions_data.keys()
         values = []
         names = []
 
@@ -784,9 +783,8 @@ class DataCollectingRunInstance(RunInstance):
                     net, item = self.project.get_net_and_item(transition_id)
                     index = process_id * self.threads_count + thread_id
                     values.append(transition_data[index])
-                    names.append("{0.name} {1.name}@{2}`{3}".format(
-                        net, item, process_id, thread_id))
-
+                    names.append("{0.name} {1}@{2}`{3}".format(
+                        net, item.get_name(), process_id, thread_id))
         return names, values
 
     def get_tokens_counts(self):
@@ -807,7 +805,7 @@ class DataCollectingRunInstance(RunInstance):
         values = []
         for transition_id, transition_data in self.transitions_data.items():
             net, item = self.project.get_net_and_item(transition_id)
-            names.append("{0.name}({0.id}) {1.name}".format(net, item))
+            names.append("{0.name}({0.id}) {1}".format(net, item.get_name()))
             sum = 0
             for process_id in xrange(self.process_count):
                 for thread_id in xrange(self.threads_count):

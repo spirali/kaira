@@ -110,8 +110,6 @@ class RunInstance:
         transition = self.net.item_by_id(transition_id)
         self.last_event_activity = \
             TransitionExecution(time, process_id, thread_id, transition, values)
-        for place in transition.get_packing_input_places():
-            self.last_event_instance.remove_all_tokens(place.id)
         if transition.has_code():
             index = process_id * self.threads_count + thread_id
             self.activites[index] = self.last_event_activity
@@ -256,7 +254,7 @@ class Perspective(utils.EqMixin):
             if t is not None:
                 for token_pointer, token_value, token_time in t:
                     if token_time:
-                        tokens.append("{0}@{1} --> {2}".format(
+                        tokens.append("{0}@{1} ({2})".format(
                             token_value,
                             net_instance.process_id,
                             utils.time_to_string(token_time, seconds=True)))
@@ -283,7 +281,7 @@ class Perspective(utils.EqMixin):
             activity = runinstance.activites[i]
             if isinstance(activity, TransitionExecution) \
                 and activity.transition.id == transition.id:
-                    run_on = "{0}/{1} --> ".format(i // runinstance.threads_count,
+                    run_on = "{0}/{1} -> ".format(i // runinstance.threads_count,
                                                    i % runinstance.threads_count)
                     values.append(run_on + "; ".join(map(str, activity.values)) + ";")
 

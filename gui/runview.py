@@ -50,7 +50,8 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
         items = cconfig.NetCanvasConfig.collect_items(self)
         for item in items:
             item.action = None
-        items += self.get_token_items()
+        if self.net is not None:
+            items += self.get_token_items()
         return items
 
     def get_token_items(self):
@@ -77,14 +78,14 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
             if item.owner.is_transition():
                 self.view.open_transition_tab(item.owner)
 
-
 class RunView(gtk.VBox):
 
     def __init__(self, app, tracelog):
         gtk.VBox.__init__(self)
         self.tracelog = tracelog
 
-        self.netinstance_view = NetInstanceView(app)
+        self.netinstance_view = NetInstanceView(app, None)
+        self.netinstance_view.set_config(NetInstanceCanvasConfig(self.netinstance_view))
         self.netinstance_view.set_runinstance(self.tracelog.first_runinstance)
 
         self.views = [
@@ -273,14 +274,18 @@ class RunView(gtk.VBox):
 
 class NetInstanceView(gtk.HPaned):
 
-    def __init__(self, app):
+    def __init__(self, app, config=None):
         gtk.HPaned.__init__(self)
         self.app = app
         self.pack1(self._perspectives(), False)
-        self.config = self.create_config()
+        self.config = config
         self.canvas = Canvas(self.config, zoom=1)
         self.pack2(self.canvas, True)
         self.show_all()
+
+    def set_config(self, config):
+        self.config = config
+        self.canvas.set_config(config)
 
     def redraw(self):
         self.canvas.redraw()
