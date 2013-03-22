@@ -36,7 +36,8 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
         cconfig.NetCanvasConfig.__init__(self)
         self.perspective = None
         self.view = view
-        self.token_boxes = {}
+        self.token_boxes = {} # Canvas items for tokens by place.id
+        self.activations = {} # Canvas items for activations by transition.id
 
     def set_perspective(self, perspective):
         self.perspective = perspective
@@ -52,7 +53,22 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
             item.action = None
         if self.net is not None:
             items += self.get_token_items()
+            items += self.get_activation_items()
         return items
+
+    def get_activation_items(self):
+        result = []
+        for transition in self.perspective.runinstance.net.transitions():
+            activations = self.activations.get(transition.id)
+            if activations is None:
+                position = utils.vector_add(
+                    transition.box.get_position(), (0, transition.box.size[1] + 10))
+                activations = citems.TransitionActivations(
+                    None, "activations", citems.AbsPlacement(position))
+                self.activations[transition.id] = activations
+            activations.values = self.perspective.get_activations_values(transition)
+            result.append(activations)
+        return result
 
     def get_token_items(self):
         places = self.perspective.runinstance.net.places()

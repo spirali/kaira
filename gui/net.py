@@ -79,15 +79,6 @@ class Net:
     def changed_item(self, item):
         self.change_item_callback(self, item)
 
-
-    def draw(self, cr, vconfig):
-        drawings = [ item.get_drawing(vconfig) for item in self.items ]
-        drawings.reverse()
-        for drawing in drawings:
-            drawing.draw(cr)
-        for drawing in drawings:
-            drawing.draw_top(cr)
-
     def add_place(self, position, id = None):
         place = Place(self, id, position)
         self.add_item(place)
@@ -911,7 +902,7 @@ def load_area(element, net, loader):
     if element.find("init") is not None:
         canvastext_from_xml(element.find("init"), area.init)
     else:
-        area.init = xml_str(element,"init-expr", "")
+        area.init.text = xml_str(element,"init-expr", "")
 
 def load_interface_box(element, net, loader):
     id = loader.get_id(element)

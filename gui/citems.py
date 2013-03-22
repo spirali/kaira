@@ -469,6 +469,59 @@ class TokenBox(CanvasItem):
         drawing.draw_centered_text(cr, px, py, self.tokens_count)
 
 
+class TransitionActivations(Point):
+
+    z_level = 16
+
+    def __init__(self, owner, kind, placement):
+        Point.__init__(self, owner, kind, placement)
+
+    def is_at_position(self, position):
+        if self.values:
+            return Point.is_at_position(self, position)
+        else:
+            return False
+
+    def draw(self, cr):
+        if not self.values:
+            return
+        px, py = self.get_position()
+
+
+        w_size = utils.text_size(cr, "W")[1]
+        cr.set_source_rgba(0.4, 0.4, 0.4,0.8)
+        cr.move_to(px - 3, py - w_size)
+        cr.rel_line_to(8, 0)
+        cr.rel_line_to(-3, w_size)
+        cr.rel_line_to(3, w_size)
+        cr.rel_line_to(-8, 0)
+        cr.rel_line_to(0, -2 * w_size)
+        cr.fill()
+
+        x = px + 10
+        y = py
+        count = 0
+        for text, color in self.values:
+            tx, ty = utils.text_size(cr, text)
+            cr.move_to(x - 2, y + w_size)
+            cr.rel_line_to(tx + 10, 0)
+            cr.rel_line_to(-4, -w_size)
+            cr.rel_line_to(4, -w_size)
+            cr.rel_line_to(-tx - 10, 0)
+            cr.rel_line_to(-4, w_size)
+            cr.rel_line_to(4, w_size)
+            cr.set_source_rgba(*color)
+            cr.fill()
+            cr.move_to(x, y + w_size/2)
+            x += tx + 12
+            cr.set_source_rgb(0, 0, 0)
+            cr.show_text(text)
+            count += 1
+            if count == 6:
+                count = 0
+                y += 2 * w_size
+                x = px + 10
+
 def shorten_token_name(name):
     if len(name) > 25:
         return name[:18] + " ... ({0} chars)".format(len(name))
