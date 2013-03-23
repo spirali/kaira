@@ -218,7 +218,7 @@ class NetCanvasConfig(CanvasConfig):
 
     net = None
 
-    def set_net(self, net, viewport):
+    def set_net(self, net, viewport=None):
         if net != self.net:
             self.net = net
             if viewport is None:
