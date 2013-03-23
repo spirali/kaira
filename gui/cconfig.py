@@ -218,10 +218,13 @@ class NetCanvasConfig(CanvasConfig):
 
     net = None
 
-    def set_net(self, net):
+    def set_net(self, net, viewport):
         if net != self.net:
             self.net = net
-            self.canvas.reset_viewport()
+            if viewport is None:
+                self.canvas.reset_viewport()
+            else:
+                self.canvas.set_viewport(viewport)
             self.configure()
 
     def configure(self):

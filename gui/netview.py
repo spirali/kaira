@@ -91,13 +91,15 @@ class NetView(gtk.VBox):
         self.redraw()
 
     def switch_to_net(self, net, select_in_netlist = True):
-        net.change_item_callback = lambda n, i: self.redraw()
+        self.net = net
+        self.canvas.config.set_net(net, None)
+        if net is None:
+            self.undo_manager = None
+            return
 
+        net.change_item_callback = lambda n, i: self.redraw()
         if select_in_netlist:
             self.netlist.select_object(net)
-
-        self.net = net
-        self.canvas.config.set_net(net)
         self.undo_manager = net.undo_manager
 
     def set_tool(self, name, set_button=False):
@@ -115,7 +117,7 @@ class NetView(gtk.VBox):
             self.canvas.set_config(netedit.NewAreaCanvasConfig(self))
         else:
             raise Exception("Invalid tool")
-        self.canvas.config.set_net(self.net)
+        self.canvas.config.set_net(self.net, self.canvas.viewport)
 
     def add_undo_action(self, action):
         self.undo_manager.add_action(action)
