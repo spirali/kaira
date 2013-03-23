@@ -203,6 +203,7 @@ class Net:
     def trace_nothing(self):
         for i in self.transitions() + self.places():
             i.tracing = []
+        self.changed()
 
     def trace_everything(self):
         for i in self.transitions():
@@ -212,6 +213,7 @@ class Net:
         for i in self.places():
             if token_name not in i.tracing:
                 i.tracing.insert(0,  token_name)
+        self.changed()
 
 
 class NetItem(object):

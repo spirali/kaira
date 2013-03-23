@@ -453,14 +453,12 @@ class NetList(ObjectTree):
         if isinstance(obj, str):
             return
         obj.trace_nothing()
-        self.netview.redraw()
 
     def _trace_everything(self, w):
         obj = self.selected_object()
         if isinstance(obj, str):
             return
         obj.trace_everything()
-        self.netview.redraw()
 
     def object_as_row(self, obj):
         if isinstance(obj, str):
