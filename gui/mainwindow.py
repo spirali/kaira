@@ -165,12 +165,12 @@ class MainWindow(gtk.Window):
         item.set_active(True)
         menu.append(item)
 
-        item = gtk.RadioMenuItem(item, "Small grid (5x5)")
-        item.connect("activate", lambda w: self.app.set_grid_size(5))
+        item = gtk.RadioMenuItem(item, "Small grid (6x6)")
+        item.connect("activate", lambda w: self.app.set_grid_size(6))
         menu.append(item)
 
-        item = gtk.RadioMenuItem(item, "Big grid (25x25)")
-        item.connect("activate", lambda w: self.app.set_grid_size(25))
+        item = gtk.RadioMenuItem(item, "Big grid (16x16)")
+        item.connect("activate", lambda w: self.app.set_grid_size(16))
         menu.append(item)
 
         menu.append(gtk.SeparatorMenuItem())

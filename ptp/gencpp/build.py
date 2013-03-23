@@ -76,8 +76,8 @@ def write_parameters_forward(builder):
         elif p.get_type() == "std::string":
             builder.line("static ca::ParameterString {0};", p.get_name())
         else:
-            utils.PtpException("Invalid type '{0}' for parameter '{1}'".format(
-                                    p.get_type(), p.name))
+            raise utils.PtpException("Invalid type '{0}' for parameter '{1}'".format(
+                                     p.get_type(), p.name))
     builder.write_class_end()
 
 def write_parameters(builder):

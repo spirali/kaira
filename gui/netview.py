@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010-2013 Stanislav Bohm
 #                  2012 Martin Kozubek
 #                  2012 Lukas Tomaszek
 #
@@ -20,37 +20,16 @@
 #
 
 import gtk
-import nettools
 import paths
 import os
-from canvas import NetCanvas
-from drawing import VisualConfig
+from canvas import Canvas
 from objectlist import ObjectTree
 from net import Net
 import cairo
 import gtkutils
 import glib
-import undoredo
-
-action_cursor = {
-    "none" : None,
-    "move" : gtk.gdk.FLEUR,
-    "resize_rbottom" : gtk.gdk.BOTTOM_RIGHT_CORNER,
-    "resize_lbottom" : gtk.gdk.BOTTOM_LEFT_CORNER,
-    "resize_rtop" : gtk.gdk.TOP_RIGHT_CORNER,
-    "resize_ltop" : gtk.gdk.TOP_LEFT_CORNER,
-    "select" : gtk.gdk.CROSSHAIR,
-    "scroll" : gtk.gdk.HAND2,
-}
-
-def get_cursor(name):
-    if name is None:
-        return None
-    stock = action_cursor[name]
-    if stock:
-        return gtk.gdk.Cursor(stock)
-    else:
-        return None
+import netedit
+import undo
 
 def netname_dialog(net, mainwindow):
     builder = gtkutils.load_ui("netname-dialog")
@@ -67,40 +46,6 @@ def netname_dialog(net, mainwindow):
     finally:
         dlg.destroy()
 
-class NetViewVisualConfig(VisualConfig):
-
-    def __init__(self, project):
-        self.selected = None
-        self.project = project
-        self.mouseover_highlighted = None
-        self.show_tracing = False
-
-    def highlight(self, item):
-        self.selected = item
-
-    def highlight_off(self):
-        self.selected = None
-
-    def set_mouseover_highlight(self, item):
-        """ Return True if need redraw """
-        if item == self.mouseover_highlighted:
-            return False
-        self.mouseover_highlighted = item
-        return True
-
-    def preprocess(self, item, drawing):
-        if self.show_tracing and item.is_transition():
-            drawing.trace_text = item.tracing
-        if self.show_tracing and item.is_place():
-            drawing.trace_text = [ name for name, return_type in item.tracing ]
-        if item == self.mouseover_highlighted:
-            drawing.set_highlight((0.6,0.6,0.8,8.0))
-        if self.project.has_error_messages(item):
-            drawing.set_highlight((1.0, 0.0, 0.0, 0.5))
-            drawing.set_error_messages(self.project.get_error_messages(item))
-        if item == self.selected:
-            drawing.set_highlight((0.86,0.86,0.0,1.0))
-        return drawing
 
 class NetView(gtk.VBox):
 
@@ -108,15 +53,13 @@ class NetView(gtk.VBox):
         gtk.VBox.__init__(self)
         self.project = project
         self.app = app
-        self.tool = None
-        self.undolist = None
-        self.undolist_changed = None
+        self.net = None
         self.last_active_entry_text = None
         self.last_active_entry_get = None
         self.last_active_entry_set = None
         self.entry_types = []
+        self.undo_manager = None
         self.set_size_request(500,400)
-
 
         self.pack_start(self._controls(), False)
         self.pack_start(self._editarea(), False)
@@ -127,64 +70,66 @@ class NetView(gtk.VBox):
         self.netlist = NetList(project, self)
         self.netlist.set_size_request(100, 100)
         paned.pack1(self.netlist, False, True)
-        self.canvas = self._net_canvas()
+        self.canvas = Canvas(None)
         paned.pack2(self.canvas, True, True)
         paned.show_all()
 
         self.netlist.hide()
         self.transition_edit_callback = None
         self.place_edit_callback = None
-        self.set_tool(nettools.SelectTool(self))
+        self.set_tool("selection")
         self.connect("key_press_event", self._key_press)
-
         self.switch_to_net(self.get_net(), False)
-
-    def get_grid_size(self):
-        return self.app.get_grid_size()
-
-    def set_tool(self, tool):
-        if self.tool:
-            self.tool.stop()
-        self.tool = tool
-
-        if tool:
-            tool.start()
-            self.focus_entry()
+        self.on_undomanager_changed()
 
     def get_net(self):
         return self.netlist.selected_object()
 
     def set_show_tracing(self, value):
-        self.vconfig.show_tracing = value
+        self.canvas.config.show_tracing = value
+        self.canvas.config.configure()
         self.redraw()
 
     def switch_to_net(self, net, select_in_netlist = True):
+        self.net = net
+        self.canvas.config.set_net(net, None)
+        if net is None:
+            self.undo_manager = None
+            return
+
+        net.change_item_callback = lambda n, i: self.redraw()
         if select_in_netlist:
             self.netlist.select_object(net)
+        self.undo_manager = net.undo_manager
 
-        if self.undolist_changed is not None:
-            self.undolist_changed.remove()
-            self.undolist_changed = None
-
-        if net is not None:
-            self.undolist = net.undolist
-            self.undolist_changed = self.undolist.set_callback(
-                                         "changed",
-                                         self.on_undolist_changed)
-            self.on_undolist_changed()
+    def set_tool(self, name, set_button=False):
+        if name == "selection":
+            self.canvas.set_config(netedit.SelectionCanvasConfig(self))
+            if set_button:
+                self.button_selection.set_active(True)
+        elif name == "transition":
+            self.canvas.set_config(netedit.NewTransitionCanvasConfig(self))
+        elif name == "place":
+            self.canvas.set_config(netedit.NewPlaceCanvasConfig(self))
+        elif name == "edge":
+            self.canvas.set_config(netedit.NewEdgeCanvasConfig(self))
+        elif name == "area":
+            self.canvas.set_config(netedit.NewAreaCanvasConfig(self))
         else:
-            self.undolist = None
+            raise Exception("Invalid tool")
+        self.canvas.config.set_net(self.net, self.canvas.viewport)
 
-        self.tool.set_net(net)
-        self.canvas.set_net(net)
+    def add_undo_action(self, action):
+        self.undo_manager.add_action(action)
+        self.on_undomanager_changed()
 
-    def on_undolist_changed(self):
-        if self.undolist is None:
+    def on_undomanager_changed(self):
+        if self.undo_manager is None:
             self.button_undo.set_sensitive(False)
             self.button_redo.set_sensitive(False)
         else:
-            self.button_undo.set_sensitive(self.undolist.has_undo())
-            self.button_redo.set_sensitive(self.undolist.has_redo())
+            self.button_undo.set_sensitive(self.undo_manager.has_undo())
+            self.button_redo.set_sensitive(self.undo_manager.has_redo())
 
     def get_zoom(self):
         return self.canvas.get_zoom()
@@ -201,30 +146,9 @@ class NetView(gtk.VBox):
     def redraw(self):
         self.canvas.redraw()
 
-    def set_cursor(self,action_name):
-        if self.canvas.window:
-            self.canvas.window.set_cursor(get_cursor(action_name))
-
     def net_changed(self):
+        self.canvas.config.configure()
         self.redraw()
-        if self.tool:
-            self.tool.net_changed()
-
-    def highlight(self, item):
-        self.vconfig.highlight(item)
-        self.redraw()
-
-    def highlight_off(self):
-        self.vconfig.highlight_off()
-        self.redraw()
-
-    def mouseover_highlight(self, item):
-        if self.vconfig.set_mouseover_highlight(item):
-            self.redraw()
-
-    def mouseover_highlight_off(self):
-        if self.vconfig.set_mouseover_highlight(None):
-            self.redraw()
 
     def netlist_show(self, v):
         if v:
@@ -233,12 +157,16 @@ class NetView(gtk.VBox):
             self.netlist.hide()
 
     def undo(self):
-        if self.undolist.has_undo():
-            self.undolist.undo()
+        if self.undo_manager.has_undo():
+            self.undo_manager.perform_undo()
+            self.on_undomanager_changed()
+            self.net.changed()
 
     def redo(self):
-        if self.undolist.has_redo():
-            self.undolist.redo()
+        if self.undo_manager.has_redo():
+            self.undo_manager.perform_redo()
+            self.on_undomanager_changed()
+            self.net.changed()
 
     def _controls(self):
         icon_arrow = gtk.image_new_from_file(
@@ -280,23 +208,24 @@ class NetView(gtk.VBox):
         toolbar.add(gtk.SeparatorToolItem())
 
         button1 = gtk.RadioToolButton(None,None)
-        button1.connect("toggled", lambda w: self.set_tool(nettools.SelectTool(self)))
+        button1.connect("toggled", lambda w: self.set_tool("selection"))
         button1.set_icon_widget(icon_arrow)
+        self.button_selection = button1
 
         button2 = gtk.RadioToolButton(button1,None)
-        button2.connect("toggled", lambda w: self.set_tool(nettools.TransitionTool(self)))
+        button2.connect("toggled", lambda w: self.set_tool("transition"))
         button2.set_icon_widget(icon_transition)
 
         button3 = gtk.RadioToolButton(button1,None)
-        button3.connect("toggled", lambda w: self.set_tool(nettools.PlaceTool(self)))
+        button3.connect("toggled", lambda w: self.set_tool("place"))
         button3.set_icon_widget(icon_place)
 
         button4 = gtk.RadioToolButton(button1,None)
-        button4.connect("toggled", lambda w: self.set_tool(nettools.EdgeTool(self)))
+        button4.connect("toggled", lambda w: self.set_tool("edge"))
         button4.set_icon_widget(icon_arc)
 
         button5 = gtk.RadioToolButton(button1,None)
-        button5.connect("toggled", lambda w: self.set_tool(nettools.AreaTool(self)))
+        button5.connect("toggled", lambda w: self.set_tool("area"))
         button5.set_icon_widget(icon_area)
 
         toolbar.add(button1)
@@ -323,19 +252,6 @@ class NetView(gtk.VBox):
         vbox.show_all()
 
         return vbox
-
-    def _net_canvas(self):
-        self.vconfig = NetViewVisualConfig(self.project)
-        c = NetCanvas(None, self._draw, self.vconfig)
-        c.set_callback("button_down", self._button_down)
-        c.set_callback("button_up", self._button_up)
-        c.set_callback("mouse_move", self._mouse_move)
-        c.show()
-        return c
-
-    def _draw(self, cr, w, h):
-        if self.tool:
-            self.tool.draw(cr)
 
     def _editarea(self):
         vbox = gtk.VBox()
@@ -405,20 +321,19 @@ class NetView(gtk.VBox):
     def _entry_changed(self, w):
         if self.entry_types and self.entry_switch.get_active_text():
             name, get, set = self.active_entry_type()
-            set(self.entry.get_text())
+            text = self.entry.get_text()
+            original = get()
+            if text == original:
+                return
+            self.add_undo_action(undo.ActionSet(get,
+                                                set,
+                                                original,
+                                                suppress_similar=True))
+            set(text)
 
     def _entry_switch_changed(self, w):
         if self.entry_types and self.entry_switch.get_active_text():
-            if self.last_active_entry_get:
-                if self.last_active_entry_get() != self.last_active_entry_text:
-                    undo_action = undoredo.SetValueAction(self.last_active_entry_set,
-                                                          self.last_active_entry_text,
-                                                          self.last_active_entry_get())
-                    self.undolist.add(undo_action)
             name, get, set = self.active_entry_type()
-            self.last_active_entry_get = get
-            self.last_active_entry_set = set
-            self.last_active_entry_text = get()
             self.entry.set_text(get())
             self.entry.select_region(0, -1)
 
@@ -538,14 +453,12 @@ class NetList(ObjectTree):
         if isinstance(obj, str):
             return
         obj.trace_nothing()
-        self.netview.redraw()
 
     def _trace_everything(self, w):
         obj = self.selected_object()
         if isinstance(obj, str):
             return
         obj.trace_everything()
-        self.netview.redraw()
 
     def object_as_row(self, obj):
         if isinstance(obj, str):

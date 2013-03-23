@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm,
+#    Copyright (C) 2012-2013 Stanislav Bohm,
 #                       Martin Surkovsky
 #
 #    This file is part of Kaira.
@@ -22,10 +22,77 @@
 import gtk
 import gtkutils
 import mainwindow
-from canvas import NetCanvas
+from canvas import Canvas
 import charts
 import utils
+import cconfig
+import citems
 
+class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
+
+    selection = False
+
+    def __init__(self, view):
+        cconfig.NetCanvasConfig.__init__(self)
+        self.perspective = None
+        self.view = view
+        self.token_boxes = {} # Canvas items for tokens by place.id
+        self.activations = {} # Canvas items for activations by transition.id
+
+    def set_perspective(self, perspective):
+        self.perspective = perspective
+        self.set_net(self.perspective.runinstance.net)
+        self.configure()
+
+    def configure_item(self, item):
+        cconfig.NetCanvasConfig.configure_item(self, item)
+
+    def collect_items(self):
+        items = cconfig.NetCanvasConfig.collect_items(self)
+        for item in items:
+            item.action = None
+        if self.net is not None:
+            items += self.get_token_items()
+            items += self.get_activation_items()
+        return items
+
+    def get_activation_items(self):
+        result = []
+        for transition in self.perspective.runinstance.net.transitions():
+            activations = self.activations.get(transition.id)
+            if activations is None:
+                position = utils.vector_add(
+                    transition.box.get_position(), (0, transition.box.size[1] + 10))
+                activations = citems.TransitionActivations(
+                    None, "activations", citems.AbsPlacement(position))
+                self.activations[transition.id] = activations
+            activations.values = self.perspective.get_activations_values(transition)
+            result.append(activations)
+        return result
+
+    def get_token_items(self):
+        places = self.perspective.runinstance.net.places()
+        result = []
+        for place in places:
+            token_box = self.token_boxes.get(place.id)
+            if token_box is None:
+                sx, sy = place.box.size
+                position = utils.vector_add(place.box.get_position(),
+                                            (sx + 20, sy / 2))
+                token_box = citems.TokenBox(None, "tokenbox", citems.AbsPlacement(position))
+                self.token_boxes[place.id] = token_box
+            token_box.set_tokens(self.perspective.get_tokens(place),
+                                 self.perspective.get_new_tokens(place),
+                                 self.perspective.get_removed_tokens(place))
+            result.append(token_box)
+        return result
+
+    def on_item_click(self, item, position):
+        if item.kind == "box":
+            if item.owner.is_place():
+                self.view.open_tokens_tab(item.owner)
+            if item.owner.is_transition():
+                self.view.open_transition_tab(item.owner)
 
 class RunView(gtk.VBox):
 
@@ -33,7 +100,8 @@ class RunView(gtk.VBox):
         gtk.VBox.__init__(self)
         self.tracelog = tracelog
 
-        self.netinstance_view = NetInstanceView(app)
+        self.netinstance_view = NetInstanceView(app, None)
+        self.netinstance_view.set_config(NetInstanceCanvasConfig(self.netinstance_view))
         self.netinstance_view.set_runinstance(self.tracelog.first_runinstance)
 
         self.views = [
@@ -219,18 +287,21 @@ class RunView(gtk.VBox):
                 "Processes",
                 "Sum of times")
 
+
 class NetInstanceView(gtk.HPaned):
 
-    def __init__(self, app):
+    def __init__(self, app, config=None):
         gtk.HPaned.__init__(self)
         self.app = app
         self.pack1(self._perspectives(), False)
-        self.canvas_sc = gtk.ScrolledWindow()
-        self.canvas = self._create_canvas(None)
-        self.canvas_sc.add_with_viewport(self.canvas)
-
-        self.pack2(self.canvas_sc, True)
+        self.config = config
+        self.canvas = Canvas(self.config, zoom=1)
+        self.pack2(self.canvas, True)
         self.show_all()
+
+    def set_config(self, config):
+        self.config = config
+        self.canvas.set_config(config)
 
     def redraw(self):
         self.canvas.redraw()
@@ -240,14 +311,7 @@ class NetInstanceView(gtk.HPaned):
 
     def set_runinstance(self, runinstance):
         self.runinstance = runinstance
-        self.canvas.set_net(runinstance.net)
         self._refresh_perspectives(runinstance.get_perspectives())
-
-    def _create_canvas(self, vconfig):
-        c = NetCanvas(None, None, vconfig, zoom = 1)
-        c.set_callback("button_down", self._button_down)
-        c.show()
-        return c
 
     def _refresh_perspectives(self, perspectives):
         p = self.get_perspective()
@@ -275,24 +339,10 @@ class NetInstanceView(gtk.HPaned):
     def _perspectives_changed(self, w):
         perspective = self.get_perspective()
         if perspective is not None:
-            self.canvas.set_vconfig(perspective.get_visual_config())
+            self.config.set_perspective(perspective)
         else:
-            self.canvas.set_vconfig(None)
+            self.config.set_perspective(None)
         self.redraw()
-
-    def _button_down(self, event, pos):
-        if self.runinstance.net is None:
-            return
-        item = self.runinstance.net.get_item_at_position(pos)
-        if item is None:
-            return
-        self.on_item_click(item)
-
-    def on_item_click(self, item):
-        if item.is_place():
-            self.open_tokens_tab(item)
-        elif item.is_transition():
-            self.open_transition_tab(item)
 
     def open_tokens_tab(self, place):
         text_buffer = gtk.TextBuffer()

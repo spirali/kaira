@@ -19,8 +19,6 @@
 
 import utils
 from copy import copy
-from drawing import VisualConfig
-import runview
 
 class RunInstance:
 
@@ -112,8 +110,6 @@ class RunInstance:
         transition = self.net.item_by_id(transition_id)
         self.last_event_activity = \
             TransitionExecution(time, process_id, thread_id, transition, values)
-        for place in transition.get_packing_input_places():
-            self.last_event_instance.remove_all_tokens(place.id)
         if transition.has_code():
             index = process_id * self.threads_count + thread_id
             self.activites[index] = self.last_event_activity
@@ -235,41 +231,6 @@ class NetInstance:
         return netinstance
 
 
-class NetInstanceVisualConfig(VisualConfig):
-
-    def __init__(self,
-                 transition_executions,
-                 transitions_with_values,
-                 enabled_transitions,
-                 tokens,
-                 new_tokens,
-                 remove_tokens):
-        # transition_id -> [ text_labels ]
-        self.transition_executions = transition_executions
-        self.tokens = tokens
-        self.new_tokens = new_tokens
-        self.removed_tokens = remove_tokens
-        self.enabled_transitions = enabled_transitions
-        self.transitions_with_values = transitions_with_values
-
-    def transition_drawing(self, item):
-        drawing = VisualConfig.transition_drawing(self, item)
-        executions = self.transition_executions.get(item.id)
-        drawing.executions = executions
-        if item.id in self.enabled_transitions:
-            drawing.highlight = (0, 1, 0)
-        if item.id in self.transitions_with_values:
-            drawing.with_values = True
-        return drawing
-
-    def place_drawing(self, item):
-        drawing = VisualConfig.place_drawing(self, item)
-        drawing.set_tokens(self.tokens[item.id],
-                           self.new_tokens[item.id],
-                           self.removed_tokens[item.id])
-        return drawing
-
-
 class Perspective(utils.EqMixin):
 
     def __init__(self, name, runinstance, net_instances):
@@ -293,7 +254,7 @@ class Perspective(utils.EqMixin):
             if t is not None:
                 for token_pointer, token_value, token_time in t:
                     if token_time:
-                        tokens.append("{0}@{1} --> {2}".format(
+                        tokens.append("{0}@{1} ({2})".format(
                             token_value,
                             net_instance.process_id,
                             utils.time_to_string(token_time, seconds=True)))
@@ -320,72 +281,46 @@ class Perspective(utils.EqMixin):
             activity = runinstance.activites[i]
             if isinstance(activity, TransitionExecution) \
                 and activity.transition.id == transition.id:
-                    run_on = "{0}/{1} --> ".format(i // runinstance.threads_count,
+                    run_on = "{0}/{1} -> ".format(i // runinstance.threads_count,
                                                    i % runinstance.threads_count)
                     values.append(run_on + "; ".join(map(str, activity.values)) + ";")
 
         return values
 
-    def get_visual_config(self):
-        if self.runinstance.net is None:
-            return VisualConfig()
-        activies_by_transitions = {}
-        for tr in self.runinstance.net.transitions():
-            activies_by_transitions[tr.id] = []
-
-        runinstance = self.runinstance
-        transitions_with_values = []
-        for i in range(runinstance.threads_count * runinstance.process_count):
-            activity = runinstance.activites[i]
-            if isinstance(activity, TransitionExecution):
-                if activity.transition.id in activies_by_transitions:
-                    if isinstance(runinstance.last_event_activity, TransitionExecution) \
-                        and runinstance.last_event_activity.quit:
-
-                        color = (0.5, 0.5, 0.5, 0.8)
-                        activies_by_transitions[activity.transition.id].append((activity, color))
-
-                    if activity != runinstance.last_event_activity:
-                        color = (1.0, 1.0, 0, 0.8)
-                        activies_by_transitions[activity.transition.id].append((activity, color))
-
-                if activity.values:
-                    transitions_with_values.append(activity.transition.id)
-
-        if (runinstance.last_event == "fired" or runinstance.last_event == "finish") \
-            and runinstance.last_event_activity.transition.id \
-                in activies_by_transitions:
-            color = (0, 1, 0, 0.8) if runinstance.last_event == "fired" else (1, 0, 0, 0.8)
-            activies_by_transitions[runinstance.last_event_activity.transition.id].append(
-                (runinstance.last_event_activity, color))
-
-        transition_executions = {}
-        for transition_id, lst in activies_by_transitions.items():
-            lst.sort(key=lambda pair: pair[0].time) # Sort by time
-            transition_executions[transition_id] = [
-                ("{0.process_id}/{0.thread_id}".format(activity), color)
-                for activity, color in lst ]
-
-        tokens = {}
-        for place in self.runinstance.net.places():
-            tokens[place.id] = self.get_tokens(place)
-
-        new_tokens = {}
-        for place in self.runinstance.net.places():
-            new_tokens[place.id] = self.get_new_tokens(place)
-
-        removed_tokens = {}
-        for place in self.runinstance.net.places():
-            removed_tokens[place.id] = self.get_removed_tokens(place)
-
+    def get_enabled_transitions(self):
         enabled = set()
         enabled.update(*[ net_instance.enabled_transitions
                           for net_instance in self.net_instances.values()
                           if net_instance.enabled_transitions is not None ])
+        return enabled
 
-        return NetInstanceVisualConfig(transition_executions,
-                                       transitions_with_values,
-                                       enabled,
-                                       tokens,
-                                       new_tokens,
-                                       removed_tokens)
+    def is_transition_enabled(self, transition):
+        return transition.id in self.get_enabled_transitions()
+
+
+    def get_activations_values(self, transition):
+        runinstance = self.runinstance
+        result = []
+        for p in range(runinstance.process_count):
+            for t in range(runinstance.threads_count):
+                activity = runinstance.activites[ p * runinstance.threads_count + t ]
+                if (runinstance.last_event_activity and
+                    runinstance.last_event_activity.transition == transition and
+                    runinstance.last_event_activity.process_id == p and
+                    runinstance.last_event_activity.thread_id == t):
+                        if runinstance.last_event == "fired":
+                            color = (0, 1, 0, 0.8)
+                        elif runinstance.last_event_activity.quit:
+                            color = (0.45, 0.45, 0.45, 0.8)
+                        else:
+                            color = (1, 0, 0, 0.8)
+                        activity = runinstance.last_event_activity
+
+                elif isinstance(activity, TransitionExecution) and \
+                     activity.transition == transition:
+                    color = (1.0, 1.0, 0, 0.8)
+                else:
+                    break
+                text = "{0.process_id}/{0.thread_id}".format(activity)
+                result.append((text, color))
+        return result

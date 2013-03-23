@@ -36,6 +36,9 @@ def middle_point(point1, point2):
 def vector_add(vector1, vector2):
     return (vector1[0] + vector2[0], vector1[1] + vector2[1])
 
+def vector_add_t(vector1, vector2, t):
+    return (vector1[0] + vector2[0] * t, vector1[1] + vector2[1] * t)
+
 def vector_diff(vector1, vector2):
     return (vector1[0] - vector2[0], vector1[1] - vector2[1])
 
@@ -44,6 +47,19 @@ def vector_mul_scalar(vector, scalar):
 
 def vector_add_scalar(vector, scalar):
     return (vector[0] + scalar, vector[1] + scalar)
+
+def vector_at_least(vector, x, y):
+    if vector[0] >= x and vector[1] >= y:
+        return vector
+    else:
+        return (max(x, vector[0]), max(y, vector[1]))
+
+def interpolate(point1, point2, param):
+    x1, y1 = point1
+    x2, y2 = point2
+
+    return ((x2 - x1) * param + x1,
+            (y2 - y1) * param + y1)
 
 def vector_len(vec):
     vx, vy = vec
@@ -66,11 +82,14 @@ def position_and_size_from_points(point1, point2):
 
     return ((ax, ay), (bx - ax, by - ay))
 
-def position_inside_rect(position, rect_position, size, tolerance = 0):
+def position_inside_rect(position, rect_position, size, tolerance=0):
     px, py = position
     rx, ry = rect_position
     sx, sy = size
-    return px >= rx - tolerance and py >= ry - tolerance and px < rx + sx + tolerance and py < ry + sy + tolerance
+    return (px >= rx - tolerance and
+            py >= ry - tolerance and
+            px < rx + sx + tolerance and
+            py < ry + sy + tolerance)
 
 def position_on_rect(position, rect_position, size, tolerance = 0):
     if not position_inside_rect(position, rect_position, size, tolerance):
@@ -97,67 +116,6 @@ def join_dicts(dict1, dict2, merge_fun = None):
         x[key] = value
     return x
 
-def draw_arrow(cr, dir_vector, arrow_degrees, arrow_len):
-    dx, dy = dir_vector
-    angle = math.atan2 (dx, dy) + math.pi;
-    x1 = arrow_len * math.sin(angle - arrow_degrees);
-    y1 = arrow_len * math.cos(angle - arrow_degrees);
-    x2 = arrow_len * math.sin(angle + arrow_degrees);
-    y2 = arrow_len * math.cos(angle + arrow_degrees);
-    cr.rel_line_to(x1, y1)
-    cr.rel_line_to(x2 - x1, y2 - y1)
-    cr.rel_line_to(-x2, -y2)
-    cr.fill()
-
-def draw_polyline_arrow(cr, points, arrow_degrees, arrow_len):
-
-    sx, sy = points[-2]
-    ex, ey = points[-1]
-
-    angle = math.atan2 (ey-sy, ex - sx) + math.pi;
-    x1 = ex + arrow_len * math.cos(angle - arrow_degrees);
-    y1 = ey + arrow_len * math.sin(angle - arrow_degrees);
-    x2 = ex + arrow_len * math.cos(angle + arrow_degrees);
-    y2 = ey + arrow_len * math.sin(angle + arrow_degrees);
-
-    cr.move_to(points[0][0],points[0][1])
-    for (px, py) in points:
-        cr.line_to(px, py)
-    cr.stroke()
-
-    cr.line_to(x1, y1)
-    cr.line_to(x2, y2)
-    cr.line_to(ex, ey)
-    cr.fill()
-
-def draw_polyline_nice_corners(cr, points, arrow_degrees, arrow_len, arrow_start = False, arrow_end = False):
-    ex, ey = points[-1]
-    prev = points[0]
-
-    if arrow_start:
-        cr.move_to(prev[0],prev[1])
-        draw_arrow(cr, make_vector(points[1], points[0]), arrow_degrees, arrow_len)
-
-    cr.move_to(prev[0],prev[1])
-    for i in xrange(1, len(points) - 1):
-        a = make_vector(points[i-1], points[i])
-        b = make_vector(points[i], points[i + 1])
-        la = vector_len(a)
-        lb = vector_len(b)
-        if la < 0.01 or lb < 0.01:
-            continue
-        v = vector_mul_scalar(normalize_vector(a), min(la, 20.0))
-        w = vector_mul_scalar(normalize_vector(b), min(lb, 20.0))
-        t = vector_diff(points[i], v)
-        cr.line_to(t[0], t[1])
-        cr.rel_curve_to(v[0], v[1], v[0], v[1], v[0] + w[0], v[1] + w[1])
-    cr.line_to(ex,ey)
-    cr.stroke()
-
-    if arrow_end:
-        cr.move_to(ex, ey)
-        draw_arrow(cr, make_vector(points[-2], points[-1]), arrow_degrees, arrow_len)
-
 def pairs_generator(lst):
     for x in xrange(len(lst) - 1):
         yield (lst[x], lst[x+1])
@@ -169,6 +127,8 @@ def text_size(cr, text, min_h=0, min_w=0):
     return max(min_w, extends[2]), max(min_h, -extends[1])
 
 def snap_to_grid(point, grid_size):
+    if grid_size == 1:
+        return point
     px, py = point
     return (int(px / grid_size) * grid_size, int(py / grid_size) * grid_size)
 
@@ -399,6 +359,19 @@ def is_in_round_rectangle(position, size, r, point, tolerance=5):
                 return False
     else:
         return False
+
+def merge_bounding_boxes(box1, box2):
+    if box1 is None:
+        return box2
+    if box2 is None:
+        return box1
+    a1, a2 = box1
+    b1, b2 = box2
+    c1 = (min(a1[0], b1[0]),
+          min(a1[1], b1[1]))
+    c2 = (max(a2[0], b2[0]),
+          max(a2[1], b2[1]))
+    return (c1, c2)
 
 class EqMixin(object):
 
