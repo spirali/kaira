@@ -171,6 +171,10 @@ class CanvasConfig:
         if item:
             self.on_item_click(item, position)
 
+        if self.drag_items and self.drag_mouse_origin != position:
+            for i, p in zip(self.drag_items, self.drag_items_origin):
+                self.on_item_move(i, p)
+
         self.drag_items_origin = None
         self.drag_items = None
         self.drag_mouse_origin = None
@@ -204,6 +208,9 @@ class CanvasConfig:
         pass
 
     def on_item_click(self, item, position):
+        pass
+
+    def on_item_move(self, item, original_position):
         pass
 
 

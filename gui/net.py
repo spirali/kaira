@@ -23,6 +23,7 @@ import utils
 from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
 import citems
+import undo
 
 class Net:
 
@@ -40,6 +41,7 @@ class Net:
         self.change_callback = lambda n: None
         self.change_item_callback = lambda n, i: None
         self.interface_box = None
+        self.undo_manager = undo.UndoManager()
 
     def get_name(self):
         return self.name

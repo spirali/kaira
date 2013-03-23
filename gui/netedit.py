@@ -23,6 +23,7 @@ import citems
 import net
 import utils
 import tracing
+import undo
 
 class NetEditCanvasConfig(cconfig.NetCanvasConfig):
 
@@ -69,6 +70,9 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
         if item.owner.is_area():
             item.create_context_menu = contextmenu_delete
 
+    def on_item_move(self, item, original_position):
+        self.neteditor.add_undo_action(
+            undo.ActionSet(item.get_position, item.set_position, original_position))
 
 class SelectionCanvasConfig(NetEditCanvasConfig):
 
@@ -103,6 +107,8 @@ class SelectionCanvasConfig(NetEditCanvasConfig):
 
     def on_mouse_left_down(self, event, position):
         if self.resize_item:
+            self.neteditor.add_undo_action(
+                undo.ActionSetAttr(self.resize_item, "size", self.initial_size))
             self.resize_item = None
         else:
             NetEditCanvasConfig.on_mouse_left_down(self, event, position)
@@ -131,7 +137,9 @@ class NewElementCanvasConfig(NetEditCanvasConfig):
     def draw(self, cr):
         NetEditCanvasConfig.draw(self, cr)
         if self.mouse_position:
-            position = utils.snap_to_grid(self.get_position(self.mouse_position), self.grid_size)
+            position = utils.snap_to_grid(
+                self.get_position(self.mouse_position),
+                self.grid_size)
             placement = citems.AbsPlacement(position)
             box = citems.ElementBox(None,
                                     "",
@@ -158,6 +166,7 @@ class NewTransitionCanvasConfig(NewElementCanvasConfig):
         item = self.net.add_transition(self.get_position(position))
         self.neteditor.set_tool("selection", set_button=True)
         self.canvas.config.select_item(item.box)
+        self.neteditor.add_undo_action(UndoAddNetItemAction(self.net, item))
 
 
 class NewPlaceCanvasConfig(NewElementCanvasConfig):
@@ -297,11 +306,31 @@ class NewAreaCanvasConfig(NetEditCanvasConfig):
             cr.rectangle(px, py, sx, sy)
             cr.stroke()
 
+class UndoAddNetItemAction(undo.ActionBase):
+
+    def __init__(self, net, item):
+        self.net = net
+        self.item = item
+
+    def perform(self):
+        self.net.delete_item(self.item)
+        return UndoRemoveNetItemAction(self.net, self.item)
+
+class UndoRemoveNetItemAction(undo.ActionBase):
+
+    def __init__(self, net, item):
+        self.net = net
+        self.item = item
+
+    def perform(self):
+        self.net.add_item(self.item)
+        return UndoAddNetItemAction(self.net, self.item)
+
 
 def delete_item(config, item):
-    #for item in self.selected_item.delete():
-    #    self.netview.undolist.add(undoredo.RemoveAction(self.net, item))
-    item.delete()
+    actions = [ UndoRemoveNetItemAction(config.net, deleted)
+                for deleted in item.delete() ]
+    config.neteditor.add_undo_action(undo.GroupAction(actions))
     config.select_item(None)
 
 def resize_item(config, item, position):

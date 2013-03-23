@@ -522,6 +522,7 @@ class TransitionActivations(Point):
                 y += 2 * w_size
                 x = px + 10
 
+
 def shorten_token_name(name):
     if len(name) > 25:
         return name[:18] + " ... ({0} chars)".format(len(name))

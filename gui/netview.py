@@ -29,6 +29,7 @@ import cairo
 import gtkutils
 import glib
 import netedit
+import undo
 
 def netname_dialog(net, mainwindow):
     builder = gtkutils.load_ui("netname-dialog")
@@ -57,6 +58,7 @@ class NetView(gtk.VBox):
         self.last_active_entry_get = None
         self.last_active_entry_set = None
         self.entry_types = []
+        self.undo_manager = None
         self.set_size_request(500,400)
 
         self.pack_start(self._controls(), False)
@@ -78,6 +80,7 @@ class NetView(gtk.VBox):
         self.set_tool("selection")
         self.connect("key_press_event", self._key_press)
         self.switch_to_net(self.get_net(), False)
+        self.on_undomanager_changed()
 
     def get_net(self):
         return self.netlist.selected_object()
@@ -95,6 +98,7 @@ class NetView(gtk.VBox):
 
         self.net = net
         self.canvas.config.set_net(net)
+        self.undo_manager = net.undo_manager
 
     def set_tool(self, name, set_button=False):
         if name == "selection":
@@ -113,13 +117,17 @@ class NetView(gtk.VBox):
             raise Exception("Invalid tool")
         self.canvas.config.set_net(self.net)
 
-    def on_undolist_changed(self):
-        if self.undolist is None:
+    def add_undo_action(self, action):
+        self.undo_manager.add_action(action)
+        self.on_undomanager_changed()
+
+    def on_undomanager_changed(self):
+        if self.undo_manager is None:
             self.button_undo.set_sensitive(False)
             self.button_redo.set_sensitive(False)
         else:
-            self.button_undo.set_sensitive(self.undolist.has_undo())
-            self.button_redo.set_sensitive(self.undolist.has_redo())
+            self.button_undo.set_sensitive(self.undo_manager.has_undo())
+            self.button_redo.set_sensitive(self.undo_manager.has_redo())
 
     def get_zoom(self):
         return self.canvas.get_zoom()
@@ -147,12 +155,16 @@ class NetView(gtk.VBox):
             self.netlist.hide()
 
     def undo(self):
-        if self.undolist.has_undo():
-            self.undolist.undo()
+        if self.undo_manager.has_undo():
+            self.undo_manager.perform_undo()
+            self.on_undomanager_changed()
+            self.net.changed()
 
     def redo(self):
-        if self.undolist.has_redo():
-            self.undolist.redo()
+        if self.undo_manager.has_redo():
+            self.undo_manager.perform_redo()
+            self.on_undomanager_changed()
+            self.net.changed()
 
     def _controls(self):
         icon_arrow = gtk.image_new_from_file(
@@ -184,12 +196,10 @@ class NetView(gtk.VBox):
         self.button_undo = gtk.ToolButton()
         self.button_undo.connect("clicked", lambda w: self.undo())
         self.button_undo.set_stock_id(gtk.STOCK_UNDO)
-        self.button_undo.set_sensitive(False)
 
         self.button_redo = gtk.ToolButton()
         self.button_redo.connect("clicked", lambda w: self.redo())
         self.button_redo.set_stock_id(gtk.STOCK_REDO)
-        self.button_redo.set_sensitive(False)
 
         toolbar.add(self.button_undo)
         toolbar.add(self.button_redo)
@@ -309,7 +319,15 @@ class NetView(gtk.VBox):
     def _entry_changed(self, w):
         if self.entry_types and self.entry_switch.get_active_text():
             name, get, set = self.active_entry_type()
-            set(self.entry.get_text())
+            text = self.entry.get_text()
+            original = get()
+            if text == original:
+                return
+            self.add_undo_action(undo.ActionSet(get,
+                                                set,
+                                                original,
+                                                suppress_similar=True))
+            set(text)
 
     def _entry_switch_changed(self, w):
         if self.entry_types and self.entry_switch.get_active_text():
