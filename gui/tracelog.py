@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm,
+#    Copyright (C) 2012-2013 Stanislav Bohm,
 #                       Martin Surkovsky
 #
 #    This file is part of Kaira.
@@ -216,12 +216,13 @@ class TraceLog:
 
         return names, values
 
+
 class Trace:
 
     struct_basic = struct.Struct("<Q")
     struct_transition_fired = struct.Struct("<Qi")
     struct_spawn = struct.Struct("<Qi")
-    struct_send = struct.Struct("<Qi")
+    struct_send = struct.Struct("<QQii")
     struct_receive = struct.Struct("<Qi")
 
     struct_token_4 = struct.Struct("<Li")
@@ -252,9 +253,8 @@ class Trace:
             return 0
 
     def is_next_event_visible(self):
-        """ Return name of event as 5-character string """
         t = self.data[self.pointer]
-        return t != "I" and t != "M"
+        return t != "I" and t != "M" and t != "N"
 
     def get_next_event_name(self):
         """ Return name of event as 5-character string """
@@ -265,6 +265,8 @@ class Trace:
             return "Fin  "
         elif t == "M":
             return "Send "
+        elif t == "N":
+            return "MSend"
         elif t == "R":
             return "Recv "
         elif t == "S":
@@ -320,9 +322,9 @@ class Trace:
                 self.pointer += 1
                 value = self._read_cstring()
                 values.append(value)
-            elif t == "M": # We want to skip SEND event in tracelog
+            elif t == "M":
                 self.pointer += 1
-                self._process_event_send_msg(runinstance)
+                self._process_event_send(runinstance)
             else:
                 if place_id is not None and token_pointer is not None:
                     runinstance.add_token(place_id, token_pointer, values, send_time)
@@ -338,9 +340,9 @@ class Trace:
                 self.pointer += 1
                 token_pointer, place_id = self._read_struct_token()
                 runinstance.remove_token(place_id, token_pointer)
-            elif t == "M": # We want to skip SEND event in tracelog
+            elif t == "M":
                 self.pointer += 1
-                self._process_event_send_msg(runinstance)
+                self._process_event_send(runinstance)
             else:
                 break
 
@@ -379,10 +381,11 @@ class Trace:
         self.pointer += self.struct_receive.size
         return values
 
-    def _read_struct_send_msg(self):
-        values = self.struct_send.unpack_from(self.data, self.pointer)
+    def _read_struct_send(self):
+        time, size, edge_id, count = self.struct_send.unpack_from(self.data, self.pointer)
         self.pointer += self.struct_send.size
-        return values
+        values = [ self._read_struct_int() for i in xrange(count) ]
+        return (time, size, edge_id, values)
 
     def _read_struct_spawn(self):
         values = self.struct_spawn.unpack_from(self.data, self.pointer)
@@ -393,6 +396,15 @@ class Trace:
         values = self.struct_basic.unpack_from(self.data, self.pointer)
         self.pointer += self.struct_basic.size
         return values
+
+    def _process_end(self, runinstance):
+        t = self.data[self.pointer]
+        if t != "X":
+            return
+        self.pointer += 1
+        values = self.struct_basic.unpack_from(self.data, self.pointer)
+        self.pointer += self.struct_basic.size
+        runinstance.event_end(self.process_id, self.thread_id, values[0] + self.time_offset)
 
     def _process_event_transition_fired(self, runinstance):
         time, transition_id = self._read_struct_transition_fired()
@@ -408,6 +420,7 @@ class Trace:
         self.process_tokens_remove(runinstance)
         self.pointer = pointer2
         self.process_tokens_add(runinstance)
+        self._process_end(runinstance)
 
     def _process_event_transition_finished(self, runinstance):
         time = self._read_struct_transition_finished()[0]
@@ -415,13 +428,17 @@ class Trace:
                                         self.thread_id,
                                         time + self.time_offset)
         self.process_tokens_add(runinstance)
+        self._process_end(runinstance)
 
-    def _process_event_send_msg(self, runinstance):
-        time, msg_id = self._read_struct_send_msg()
-        runinstance.event_send(self.process_id,
-                               self.thread_id,
-                               time + self.time_offset,
-                               msg_id)
+    def _process_event_send(self, runinstance):
+        time, size, edge_id, target_ids = self._read_struct_send()
+        for target_id in target_ids:
+            runinstance.event_send(self.process_id,
+                                   self.thread_id,
+                                   time + self.time_offset,
+                                   target_id,
+                                   size,
+                                   edge_id)
 
     def _process_event_spawn(self, runinstance):
         time, net_id = self._read_struct_spawn()
@@ -439,11 +456,11 @@ class Trace:
         self.process_tokens_add(runinstance)
 
     def _process_event_receive(self, runinstance):
-        time, msg_id = self._read_struct_receive()
+        time, origin_id = self._read_struct_receive()
         send_time = runinstance.event_receive(self.process_id,
                                               self.thread_id,
                                               time + self.time_offset,
-                                              msg_id)
+                                              origin_id)
         self.process_tokens_add(runinstance, send_time)
 
     def _process_event_idle(self, runinstance):
@@ -508,6 +525,7 @@ class EventPointer:
     def execute(self, runinstance):
         self.tr
 
+
 class EventInformation:
 
     def __init__(self, name, time, process, thread, transition, transition_value, time_length):
@@ -539,6 +557,7 @@ class EventInformation:
 
     def get_time_length(self):
         return self.time_length
+
 
 class DataCollectingRunInstance(RunInstance):
 
@@ -686,27 +705,26 @@ class DataCollectingRunInstance(RunInstance):
         self.last_event_info = EventInformation(
             "_event_quit", time, process_id, thread_id, "", "", "")
 
-    def event_send(self, process_id, thread_id, time, msg_id):
-        RunInstance.event_send(self, process_id, thread_id, time, msg_id)
+    def event_send(self, process_id, thread_id, time, target_id, size, edge_id):
+        RunInstance.event_send(self, process_id, thread_id, time, target_id, size, edge_id)
         self.last_time = time
-        self.sender_info[msg_id] = (process_id, thread_id)
         self.last_event_info = EventInformation(
             "_event_send", time, process_id, thread_id, "", "", "")
 
-    def event_receive(self, process_id, thread_id, time, msg_id):
-        send_time = RunInstance.event_receive(self, process_id, thread_id, time, msg_id)
+    def event_receive(self, process_id, thread_id, time, origin_id):
+        send_time = RunInstance.event_receive(self, process_id, thread_id, time, origin_id)
         idle_value = self.store_idle(process_id, thread_id, time)
         if idle_value is not None:
             self.idles_data[process_id * self.threads_count + thread_id].append(idle_value)
 
         self.last_time = time
-        (snd_process, snd_thread) = self.sender_info.pop(msg_id, (-1, -1))
+        """
         self.add_entry(
             "send_receive", self.last_event_info.get_name(),
             time - send_time,
             snd_process, snd_thread,
             process_id, thread_id,
-            "", "", send_time, "", "")
+            "", "", send_time, "", "")"""
 
 
         self.last_event_info = EventInformation(

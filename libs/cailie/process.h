@@ -31,7 +31,6 @@ struct ServiceMessageNetCreate : ServiceMessage {
 struct Tokens {
 	int place_index;
 	int tokens_count;
-	int msg_id;
 };
 
 const size_t RESERVED_PREFIX = sizeof(Tokens);

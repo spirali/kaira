@@ -102,27 +102,49 @@ void TraceLog::event_transition_fired(int transition_id)
 	write_int32(transition_id);
 }
 
-void TraceLog::event_transition_finished()
+void TraceLog::event_transition_finished_begin()
 {
 	check_size(1 + sizeof(uint64_t));
 	write_char('F');
 	write_time();
 }
 
-void TraceLog::event_send_msg(int msg_id)
+void TraceLog::event_end()
 {
-	check_size(1 + sizeof(int32_t) + sizeof(uint64_t));
-	write_char('M');
+	check_size(1 + sizeof(uint64_t));
+	write_char('X');
 	write_time();
-	write_int32(msg_id);
 }
 
-void TraceLog::event_receive(int msg_id)
+void TraceLog::event_send(int target, size_t size, int edge_id)
+{
+	check_size(1 + sizeof(int32_t) * 3 + sizeof(uint64_t) * 2);
+	write_char('M');
+	write_time();
+	write_uint64(size);
+	write_int32(edge_id);
+	write_int32(1);
+	write_int32(target);
+}
+
+void TraceLog::event_send(const std::vector<int> &targets, size_t size, int edge_id)
+{
+	check_size(1 + (sizeof(int32_t) * (targets.size() + 2)) + sizeof(uint64_t) * 2);
+	write_char('M');
+	write_time();
+	write_int32(edge_id);
+	write_int32(targets.size());
+	for (int i = 0; i < targets.size(); i++) {
+		write_int32(targets[i]);
+	}
+}
+
+void TraceLog::event_receive(int from_process)
 {
 	check_size(1 + sizeof(int32_t) + sizeof(uint64_t));
 	write_char('R');
 	write_time();
-	write_int32(msg_id);
+	write_int32(from_process);
 }
 
 void TraceLog::trace_token_add(int place_id, void *pointer)

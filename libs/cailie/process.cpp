@@ -53,7 +53,7 @@ void Process::process_packet(Thread *thread, int from_process, int tag, void *da
 	Net *n = net;
 	TraceLog *tracelog = thread->get_tracelog();
 	if (tracelog) {
-		tracelog->event_receive(tokens->msg_id);
+		tracelog->event_receive(from_process);
 	}
 	if (n == NULL) {
 		CA_DLOG("Net not found process=%i thread=%i\n",

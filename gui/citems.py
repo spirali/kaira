@@ -16,7 +16,6 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
-
 import drawing
 import utils
 import math
@@ -290,7 +289,6 @@ class Point(CanvasItem):
             cr.arc(px, py, self.radius, 0, 2 * math.pi)
             cr.fill()
 
-
 class Text(CanvasItem):
 
     z_level = 3
@@ -298,6 +296,10 @@ class Text(CanvasItem):
     size = (0, 0)
     background = None
     border = False
+    padding_x = 6
+    padding_y = 2
+    radius = None
+    color = (0.0, 0.0, 0.0)
 
     def __init__(self, owner, kind, placement, text=""):
         CanvasItem.__init__(self, owner, kind)
@@ -311,29 +313,36 @@ class Text(CanvasItem):
                 x + self.size[0] > px and y + self.size[1] > py)
 
     def draw(self, cr):
-        self.size = utils.text_size(cr, self.text)
-        if self.text:
-           px, py = self.get_position()
+        self.size = utils.vector_add(
+            utils.text_size(cr, self.text),
+            (self.padding_x * 2, self.padding_y * 2))
 
-           color = self.background
-           if self.highlight:
+        if self.text:
+            px, py = self.get_position()
+
+            color = self.background
+            if self.highlight:
                color = self.highlight
-           if color:
+            if color:
                 cr.set_source_rgba(*color)
-                cr.rectangle(px - 3, py - 3, self.size[0] + 10, self.size[1] + 6)
+                if self.radius:
+                    drawing.rounded_rectangle(
+                        cr, px, py, self.size[0], self.size[1], self.radius)
+                else:
+                    cr.rectangle(px, py, self.size[0], self.size[1])
                 cr.fill()
 
-           if self.inactive:
+            if self.inactive:
                cr.set_source_rgb(0.5,0.5,0.5)
-           else:
-               cr.set_source_rgb(0.0,0.0,0.0)
+            else:
+               cr.set_source_rgb(*self.color)
 
-           if self.border:
-                cr.rectangle(px - 3, py - 3, self.size[0] + 10, self.size[1] + 6)
+            if self.border:
+                cr.rectangle(px, py, self.size[0], self.size[1])
                 cr.stroke()
 
-           cr.move_to(px, py + self.size[1])
-           cr.show_text(self.text)
+            drawing.draw_centered_text(
+                cr, px + self.size[0] / 2, py + self.size[1] / 2, self.text)
 
     def get_bounding_box(self):
         return (self.get_position(), self.get_position())
@@ -521,6 +530,41 @@ class TransitionActivations(Point):
                 count = 0
                 y += 2 * w_size
                 x = px + 10
+
+
+class Box(Point):
+
+    z_level = 14
+    background = None
+    size = None
+    size_fn = None
+    radius = None
+    action = "move"
+
+    def draw(self, cr):
+        px, py = self.get_position()
+
+        if self.size_fn:
+            self.size = self.size_fn(self, cr)
+
+        if self.size is None:
+            return
+
+        if self.background:
+            cr.set_source_rgba(*self.background)
+            if self.radius:
+                drawing.rounded_rectangle(
+                    cr, px, py, self.size[0], self.size[1], self.radius)
+            else:
+                cr.rectangle(px, py, self.size[0], self.size[1])
+            cr.fill()
+
+    def is_at_position(self, position):
+        if self.size:
+            return utils.position_inside_rect(position, self.get_position(), self.size)
+        else:
+            return False
+
 
 
 def shorten_token_name(name):

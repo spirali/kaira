@@ -74,6 +74,7 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
         self.neteditor.add_undo_action(
             undo.ActionSet(item.get_position, item.set_position, original_position))
 
+
 class SelectionCanvasConfig(NetEditCanvasConfig):
 
     resize_item = None
@@ -119,6 +120,7 @@ class SelectionCanvasConfig(NetEditCanvasConfig):
             self.resize_item = None
         else:
             NetEditCanvasConfig.on_mouse_right_down(self, event, position)
+
 
 class NewElementCanvasConfig(NetEditCanvasConfig):
 
@@ -306,6 +308,7 @@ class NewAreaCanvasConfig(NetEditCanvasConfig):
             cr.rectangle(px, py, sx, sy)
             cr.stroke()
 
+
 class UndoAddNetItemAction(undo.ActionBase):
 
     def __init__(self, net, item):
@@ -315,6 +318,7 @@ class UndoAddNetItemAction(undo.ActionBase):
     def perform(self):
         self.net.delete_item(self.item)
         return UndoRemoveNetItemAction(self.net, self.item)
+
 
 class UndoRemoveNetItemAction(undo.ActionBase):
 

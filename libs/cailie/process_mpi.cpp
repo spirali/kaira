@@ -29,7 +29,6 @@ void Process::multisend_multicast(const std::vector<int> &targets, Net *net, int
 	data->place_index = place_index;
 	data->tokens_count = tokens_count;
 	char *d = buffer;
-	data->msg_id = thread->get_msg_id();
 	for (i = targets.begin(); i != targets.end(); i++) {
 		int target = *i;
 		if(target < 0 || target >= process_count) {

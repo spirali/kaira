@@ -20,6 +20,15 @@
 import utils
 from copy import copy
 
+
+class Packet:
+
+    def __init__(self, time, size, edge_id):
+        self.time = time
+        self.size = size
+        self.edge_id = edge_id
+
+
 class RunInstance:
 
     def __init__(self, project, process_count, threads_count):
@@ -32,7 +41,7 @@ class RunInstance:
         self.last_event = None # "fired" / "finished" / None
         self.last_event_activity = None
         self.last_event_instance = None
-        self.send_msg = [ [] for i in xrange(self.process_count * self.threads_count)]
+        self.packets = [ [] for i in xrange(self.process_count * self.process_count)]
 
     def add_token(self, place_id, token_pointer, token_value, send_time=None):
         self.last_event_instance.add_token(place_id, token_pointer, token_value, send_time)
@@ -83,26 +92,24 @@ class RunInstance:
         self.last_event = "idle"
         self.last_event_process = process_id
         self.last_event_thread = thread_id
-        index = process_id * self.threads_count + thread_id
         self.last_event_activity = None
         self.last_event_instance = self.net_instances[process_id]
 
-    def event_send(self, process_id, thread_id, time, msg_id):
-        self.send_msg[process_id * self.threads_count + thread_id].append((msg_id, time))
+    def event_send(self, process_id, thread_id, time, target_id, size, edge_id):
+        packet = Packet(time, size, edge_id)
+        self.packets[target_id * self.process_count + process_id].append(packet)
 
-    def event_receive(self, process_id, thread_id, time, msg_id):
+    def event_end(self, process_id, thread_id, time):
+        pass
+
+    def event_receive(self, process_id, thread_id, time, origin_id):
         self.last_event = "receive"
-        source = msg_id % (self.process_count * self.threads_count)
-        send_time = 0
-        for i, (id, t) in enumerate(self.send_msg[source]):
-            if id == msg_id:
-                send_time = time - t
-                self.send_msg[source].pop(i)
-                break
-
+        packets = self.packets[process_id * self.process_count + origin_id]
+        packet = packets[0]
+        del packets[0]
         self.last_event_instance = self.net_instances[process_id]
         self.set_activity(process_id, thread_id, None)
-        return send_time
+        return time - packet.time
 
     def transition_fired(self, process_id, thread_id, time, transition_id, values):
         self.last_event = "fired"
@@ -143,6 +150,25 @@ class RunInstance:
                 Perspective(str(i),
                 self, { i : self.net_instances[i] } ))
         return perspectives
+
+    def get_packets_info(self, edge_id, process_id):
+        results = []
+        for i in xrange(self.process_count):
+            packets = self.packets[process_id * self.process_count + i]
+            ps = [ p for p in packets if p.edge_id == edge_id ]
+            if ps:
+                itr = iter(ps)
+                first = next(itr)
+                text = "{0} -> {1} | {2}".format(i, process_id, first.size)
+                if len(ps) > 1:
+                    size = 0
+                    for p in itr:
+                        size += p.size
+                    text += " ({0}, {1})".format(len(ps) - 1, size)
+                if packets[0].edge_id != edge_id:
+                    text += " *"
+                results.append(text)
+        return results
 
 
 class ThreadActivity:
@@ -261,6 +287,12 @@ class Perspective(utils.EqMixin):
                     else:
                         tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
         return tokens
+
+    def get_packets_info(self, edge_id):
+        results = []
+        for net_instance in self.net_instances.values():
+            results += self.runinstance.get_packets_info(edge_id, net_instance.process_id)
+        return results
 
     def get_removed_tokens(self, place):
         tokens = []

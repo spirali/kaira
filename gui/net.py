@@ -200,6 +200,10 @@ class Net:
         return [ i for i in self.items
                  if i.is_edge() and (i.to_item == item or i.from_item == item) ]
 
+    def edges_out(self):
+        return [ i for i in self.items
+                 if i.is_edge() and (i.from_item.is_transition() or i.is_bidirectional()) ]
+
     def trace_nothing(self):
         for i in self.transitions() + self.places():
             i.tracing = []

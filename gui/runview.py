@@ -38,6 +38,7 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
         self.view = view
         self.token_boxes = {} # Canvas items for tokens by place.id
         self.activations = {} # Canvas items for activations by transition.id
+        self.packet_boxes = {} # Canvas items for packet by edge.id
 
     def set_perspective(self, perspective):
         self.perspective = perspective
@@ -54,6 +55,7 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
         if self.net is not None:
             items += self.get_token_items()
             items += self.get_activation_items()
+            items += self.get_packet_items()
         return items
 
     def get_activation_items(self):
@@ -87,12 +89,56 @@ class NetInstanceCanvasConfig(cconfig.NetCanvasConfig):
             result.append(token_box)
         return result
 
+    def get_packet_items(self):
+        def get_size(self, cr):
+            if not self.texts:
+                return
+            tx = max(utils.text_size(cr, t)[0] for t in self.texts)
+            tx += 20
+            ty = 13 * len(self.texts) + 4
+            return (tx, ty)
+
+        result = []
+        color = (0.8, 0.3, 0.1, 0.85)
+        for edge in self.perspective.runinstance.net.edges_out():
+            packets = self.perspective.get_packets_info(edge.id)
+            packet_box = self.packet_boxes.get(edge.id)
+            if packet_box is None:
+                position = utils.vector_add(edge.inscription.get_position(),
+                                            (0, 15))
+                placement = citems.AbsPlacement(position)
+                packet_box = citems.Box(None,
+                                        "packetbox",
+                                        placement)
+                packet_box.size_fn = get_size
+                packet_box.background = color
+                packet_box.radius = 5
+
+                self.packet_boxes[edge.id] = packet_box
+            result.append(packet_box)
+            packet_box.texts = packets
+            for i, text in enumerate(packets):
+                position = utils.vector_add(packet_box.get_position(),
+                                            (10, 13 * i))
+                t = citems.Text(
+                    None,
+                    "packet",
+                    packet_box.get_relative_placement(position),
+                    text)
+                t.color = (1, 1, 1)
+                t.padding_y = 4
+                t.z_level = 15
+                t.action = None
+                result.append(t)
+        return result
+
     def on_item_click(self, item, position):
         if item.kind == "box":
             if item.owner.is_place():
                 self.view.open_tokens_tab(item.owner)
             if item.owner.is_transition():
                 self.view.open_transition_tab(item.owner)
+
 
 class RunView(gtk.VBox):
 

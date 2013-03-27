@@ -3,6 +3,7 @@
 #define CAILIE_TRACER_H
 
 #include <string>
+#include <vector>
 #include <time.h>
 #include <string.h>
 #include <stdint.h>
@@ -20,8 +21,10 @@ class TraceLog {
 		void event_net_spawn(int net_id);
 		void event_net_quit();
 		void event_transition_fired(int transition_id);
-		void event_transition_finished();
-		void event_send_msg(int msg_id);
+		void event_transition_finished_begin();
+		void event_end();
+		void event_send(int target, size_t size, int edge_id);
+		void event_send(const std::vector<int> &target, size_t size, int edge_id);
 		void event_receive(int msg_id);
 		void event_idle();
 

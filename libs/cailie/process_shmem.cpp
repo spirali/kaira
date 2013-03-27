@@ -52,7 +52,6 @@ void ca::Process::multisend_multicast(
 	Tokens *data = (Tokens*) packer.get_buffer();
 	data->place_index = place_index;
 	data->tokens_count = tokens_count;
-	data->msg_id = thread->get_msg_id();
 	size_t size = packer.get_size();
 	for (i = targets.begin(); i != targets.end(); i++) {
 		int target = *i;
