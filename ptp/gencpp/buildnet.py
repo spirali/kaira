@@ -179,39 +179,41 @@ def write_send_token(builder,
                     write_add(inscription.expr)
             builder.indent_pop()
             builder.line("}} else {{")
+            builder.line("int $target = {0};", edge.target)
+            target = builder.expand("$target")
             builder.indent_push()
         else:
             sendtype = "_multicast"
+            target = edge.target
             builder.block_begin()
-
         write_unlock()
+        if trace_send:
+            builder.if_begin("$tracelog")
+            builder.line("$tracelog->event_send_part1();", target, edge)
+            builder.block_end()
+
         if edge.is_token_edge(): # Pack token edge
-            builder.line("int $target = {0};", edge.target)
             builder.line("ca::Packer $packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
             for inscription in edge.get_token_inscriptions():
                 builder.line("ca::pack($packer, {0});", inscription.expr)
-            if trace_send:
-                builder.if_begin("$tracelog")
-                builder.line("$tracelog->event_send($target, $packer.get_size(), {0.id});", edge)
-                builder.block_end()
-            builder.line("$thread->multisend{0}($target, {3}, {1}, {2}, $packer);",
+            builder.line("$thread->multisend{0}({4}, {3}, {1}, {2}, $packer);",
                          sendtype,
                          edge.place.get_pos_id(),
                          len(edge.inscriptions),
-                         net_expr)
-        else: # Bulk edge
+                         net_expr,
+                         target)
 
+        else: # Bulk edge
             # TODO: Pack in one step if type is directly packable
             expr = edge.inscriptions[0].expr
             builder.line("ca::Packer $packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
             builder.line("{0}.pack_tokens($packer);", expr);
-            if trace_send:
-                builder.if_begin("$tracelog")
-                builder.line("$tracelog->event_send({0.target}, $packer.get_size(), {0.id});", edge)
-                builder.block_end()
             builder.line("$thread->multisend{0}({1}, {3}, {2}, ({4}).size(), $packer);",
-                   sendtype, edge.target, edge.place.get_pos_id(), net_expr, expr)
-
+                   sendtype, target, edge.place.get_pos_id(), net_expr, expr)
+        if trace_send:
+            builder.if_begin("$tracelog")
+            builder.line("$tracelog->event_send_part2({0}, $packer.get_size(), {1.id});", target, edge)
+            builder.block_end()
         builder.block_end()
 
 def write_remove_tokens(builder, net_expr, tr):

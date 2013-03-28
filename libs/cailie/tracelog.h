@@ -23,8 +23,9 @@ class TraceLog {
 		void event_transition_fired(int transition_id);
 		void event_transition_finished_begin();
 		void event_end();
-		void event_send(int target, size_t size, int edge_id);
-		void event_send(const std::vector<int> &target, size_t size, int edge_id);
+		void event_send_part1();
+		void event_send_part2(int target, size_t size, int edge_id);
+		void event_send_part2(const std::vector<int> &target, size_t size, int edge_id);
 		void event_receive(int msg_id);
 		void event_idle();
 

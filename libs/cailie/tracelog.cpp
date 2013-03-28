@@ -116,22 +116,26 @@ void TraceLog::event_end()
 	write_time();
 }
 
-void TraceLog::event_send(int target, size_t size, int edge_id)
+void TraceLog::event_send_part1()
 {
-	check_size(1 + sizeof(int32_t) * 3 + sizeof(uint64_t) * 2);
+	check_size(1 + sizeof(uint64_t));
 	write_char('M');
 	write_time();
+}
+
+void TraceLog::event_send_part2(int target, size_t size, int edge_id)
+{
+	check_size(sizeof(int32_t) * 3 + sizeof(uint64_t));
 	write_uint64(size);
 	write_int32(edge_id);
 	write_int32(1);
 	write_int32(target);
 }
 
-void TraceLog::event_send(const std::vector<int> &targets, size_t size, int edge_id)
+void TraceLog::event_send_part2(const std::vector<int> &targets, size_t size, int edge_id)
 {
-	check_size(1 + (sizeof(int32_t) * (targets.size() + 2)) + sizeof(uint64_t) * 2);
-	write_char('M');
-	write_time();
+	check_size((sizeof(int32_t) * (targets.size() + 2)) + sizeof(uint64_t));
+	write_uint64(size);
 	write_int32(edge_id);
 	write_int32(targets.size());
 	for (int i = 0; i < targets.size(); i++) {
