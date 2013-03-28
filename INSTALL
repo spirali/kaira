@@ -1,4 +1,1 @@
-
-Run the following commands:
-$ ./waf configure
-$ ./waf
+See doc/userguide.txt
