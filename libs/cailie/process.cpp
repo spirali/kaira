@@ -33,12 +33,12 @@ void Process::multisend(int target, Net *net, int place_pos, int tokens_count, c
 	#endif */
 }
 
-void Process::process_packet(Thread *thread, int from_process, int tag, void *data)
+bool Process::process_packet(Thread *thread, int from_process, int tag, void *data)
 {
 	if (tag == CA_TAG_SERVICE) {
 		process_service_message(thread, (ServiceMessage*) data);
 		free(data);
-		return;
+		return false;
 	}
 	Tokens *tokens = (Tokens*) data;
 	if(net == NULL) {
@@ -47,7 +47,7 @@ void Process::process_packet(Thread *thread, int from_process, int tag, void *da
 		msg.from_process = from_process;
 		msg.data = data;
 		too_early_message.push_back(msg);
-		return;
+		return false;
 	}
 	Unpacker unpacker(tokens + 1);
 	Net *n = net;
@@ -59,7 +59,7 @@ void Process::process_packet(Thread *thread, int from_process, int tag, void *da
 		CA_DLOG("Net not found process=%i thread=%i\n",
 			get_process_id(), thread->get_id());
 		// Net is already stopped therefore we can throw tokens away
-		return;
+		return false;
 	}
 	n->lock();
 	int place_index = tokens->place_index;
@@ -72,6 +72,7 @@ void Process::process_packet(Thread *thread, int from_process, int tag, void *da
 	CA_DLOG("EOR index=%i process=%i thread=%i\n", place_index, get_process_id(), thread->get_id());
 	n->unlock();
 	free(data);
+	return true;
 }
 
 void Process::process_service_message(Thread *thread, ServiceMessage *smsg)
@@ -102,6 +103,12 @@ void Process::process_service_message(Thread *thread, ServiceMessage *smsg)
 				std::vector<EarlyMessage>::const_iterator i;
 				for (i = too_early_message.begin(); i != too_early_message.end(); i++) {
 					process_packet(thread, i->from_process, CA_TAG_TOKENS, i->data);
+				}
+				if (too_early_message.size() > 0) {
+					TraceLog *tracelog = thread->get_tracelog();
+					if (tracelog) {
+						tracelog->event_end();
+					}
 				}
 				too_early_message.clear();
 			}

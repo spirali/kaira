@@ -85,12 +85,16 @@ int ca::Process::process_packets(Thread *thread)
 		/* Now we have to be sure that all thread messages
            are processed and we know about all nets */
 		thread->process_thread_messages();
-
+		bool net_changed = false;
 		while (p) {
-			process_packet(thread, p->from_process, p->tag, p->data);
+			net_changed |= process_packet(thread, p->from_process, p->tag, p->data);
 			Packet *next = p->next;
 			delete p;
 			p = next;
+		}
+		TraceLog *tracelog = thread->get_tracelog();
+		if (net_changed && tracelog) {
+			tracelog->event_end();
 		}
 		return 1;
 	}

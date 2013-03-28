@@ -81,7 +81,7 @@ class Process {
 		void multisend_multicast(const std::vector<int> &targets, Net *net, int place, int tokens_count, const Packer &packer, Thread *thread);
 
 		void process_service_message(Thread *thread, ServiceMessage *smsg);
-		void process_packet(Thread *thread, int from_process, int tag, void *data);
+		bool process_packet(Thread *thread, int from_process, int tag, void *data);
 		int process_packets(Thread *thread);
 
 		#ifdef CA_SHMEM

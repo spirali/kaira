@@ -51,6 +51,7 @@ int Process::process_packets(Thread *thread)
 	MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
 
 	if (flag) {
+		bool net_changed = false;
 		for(;;) {
 			int msg_size;
 			MPI_Get_count(&status, MPI_CHAR, &msg_size);
@@ -59,11 +60,15 @@ int Process::process_packets(Thread *thread)
 			/* Now we have to be sure that all thread messages
 			   are processed and we know about all nets */
 			thread->process_thread_messages();
-			process_packet(thread, status.MPI_SOURCE, status.MPI_TAG, buffer);
+			net_changed |= process_packet(thread, status.MPI_SOURCE, status.MPI_TAG, buffer);
 
 			MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
 			if (!flag)
 				break;
+		}
+		TraceLog *tracelog = thread->get_tracelog();
+		if (net_changed && tracelog) {
+			tracelog->event_end();
 		}
 		return 1;
 	}

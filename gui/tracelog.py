@@ -290,8 +290,6 @@ class Trace:
             return self._process_event_spawn(runinstance)
         elif t == "I":
             return self._process_event_idle(runinstance)
-        elif t == "H" or t == "Q": # "H" for backward compatability
-            return self._process_event_quit(runinstance)
         else:
             raise Exception("Invalid event type '{0}/{1}'".format(t, ord(t)))
 
@@ -419,6 +417,7 @@ class Trace:
                                      values)
         self.process_tokens_remove(runinstance)
         self.pointer = pointer2
+        self._process_event_quit(runinstance)
         self.process_tokens_add(runinstance)
         self._process_end(runinstance)
 
@@ -427,6 +426,7 @@ class Trace:
         runinstance.transition_finished(self.process_id,
                                         self.thread_id,
                                         time + self.time_offset)
+        self._process_event_quit(runinstance)
         self.process_tokens_add(runinstance)
         self._process_end(runinstance)
 
@@ -449,11 +449,14 @@ class Trace:
         self.process_tokens_add(runinstance)
 
     def _process_event_quit(self, runinstance):
+        t = self.data[self.pointer]
+        if t != "Q":
+            return
+        self.pointer += 1
         time = self._read_struct_quit()[0]
         runinstance.event_quit(self.process_id,
                                self.thread_id,
                                time + self.time_offset)
-        self.process_tokens_add(runinstance)
 
     def _process_event_receive(self, runinstance):
         time, origin_id = self._read_struct_receive()
@@ -462,6 +465,7 @@ class Trace:
                                               time + self.time_offset,
                                               origin_id)
         self.process_tokens_add(runinstance, send_time)
+        self._process_end(runinstance)
 
     def _process_event_idle(self, runinstance):
         time = self._read_struct_quit()[0]
