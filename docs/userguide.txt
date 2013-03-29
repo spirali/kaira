@@ -94,6 +94,9 @@ It's all. To check that Kaira works, you can start it by
 ./start.sh
 -------------------------------------------------------------------------------
 
+More about configuration
+^^^^^^^^^^^^^^^^^^^^^^^^
+
 In the configuration step, additional parameters can be specified.
 The basic ones are:
 
@@ -104,7 +107,7 @@ The basic ones are:
 - '--icc' -- Intel's C++ complier is used to build Kaira instead of GCC.
 
 For example, when we want to build Kaira without the support of MPI
-and without generating documentation, commands are following:
+and without generating documentation:
 
 -------------------------------------------------------------------------------
 ./waf configure --disable-mpi --disable-doc  # Configuration step

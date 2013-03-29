@@ -2,7 +2,7 @@
 from waflib import Logs
 
 APPNAME = "Kaira"
-VERSION = "0.5"
+VERSION = "0.6"
 
 def options(ctx):
     ctx.add_option("--icc",
@@ -19,6 +19,11 @@ def options(ctx):
                    action="store_true",
                    default=False,
                    help="do not build verification subsystem")
+
+    ctx.add_option("--disable-doc",
+                   action="store_true",
+                   default=False,
+                   help="do not build HTML documentation")
 
     ctx.load("compiler_cxx")
 
@@ -44,6 +49,9 @@ def configure(ctx):
         ctx.env.HAVE_VERIF = True
     else:
         ctx.env.HAVE_VERIF = False
+
+    if not ctx.options.disable_doc:
+        ctx.find_program("asciidoc", var="ASCIIDOC")
 
     if not ctx.options.disable_mpi:
         if ctx.options.icc:
@@ -81,3 +89,4 @@ def build(ctx):
     ctx.recurse("libs/caserver")
     ctx.recurse("libs/caclient")
     ctx.recurse("libs/caverif")
+    ctx.recurse("docs")
