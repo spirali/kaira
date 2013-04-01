@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
+#    Copyright (C) 2010-2013 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
@@ -21,9 +21,10 @@
 import gtk
 import gtkutils
 import mainwindow
-from runview import NetInstanceView, NetInstanceCanvasConfig
+from netview import NetView, NetViewCanvasConfig
 
 class SimViewTab(mainwindow.Tab):
+
     def __init__(self, app, simulation, tabname="Simulation", mainmenu_groups=()):
         self.simulation = simulation
         simview = SimView(app, simulation)
@@ -34,7 +35,7 @@ class SimViewTab(mainwindow.Tab):
         self.simulation.shutdown()
 
 
-class SimCanvasConfig(NetInstanceCanvasConfig):
+class SimCanvasConfig(NetViewCanvasConfig):
 
     simulation = None
     simview = None
@@ -48,12 +49,13 @@ class SimCanvasConfig(NetInstanceCanvasConfig):
                 callback = lambda: self.simulation.receive_all()
             else:
                 callback = None
-            self.simulation.finish_transition(transition.id, process_id, thread_id, callback)
+            self.simulation.finish_transition(
+                transition.id, process_id, thread_id, callback)
         elif item.kind == "packet" and item.packet_data is not None:
             process_id, origin_id = item.packet_data
             self.simulation.receive(process_id, origin_id)
         else:
-            NetInstanceCanvasConfig.on_item_click(self, item, position)
+            NetViewCanvasConfig.on_item_click(self, item, position)
 
     def fire_transition(self, transition):
         perspective = self.view.get_perspective()
@@ -73,7 +75,7 @@ class SimCanvasConfig(NetInstanceCanvasConfig):
                                         callback)
 
     def set_highlight(self):
-        NetInstanceCanvasConfig.set_highlight(self)
+        NetViewCanvasConfig.set_highlight(self)
         enabled = self.perspective.get_enabled_transitions()
         for transition in self.net.transitions():
             if transition.id in enabled:
@@ -89,7 +91,7 @@ class SimView(gtk.VBox):
 
         self.pack_start(self._toolbar(), False, False)
 
-        self.netview = NetInstanceView(app, None)
+        self.netview = NetView(app, None)
         self.config = SimCanvasConfig(self.netview)
         self.config.simulation = simulation
         self.config.simview = self
@@ -135,7 +137,8 @@ class SimView(gtk.VBox):
         toolbar.add(button)
 
         button = gtk.ToggleToolButton(None)
-        button.set_tooltip_text("Automatically call 'Receive all packets' after any transition action")
+        button.set_tooltip_text(
+            "Automatically call 'Receive all packets' after any transition action")
         button.set_stock_id(gtk.STOCK_EXECUTE)
         toolbar.add(button)
         self.button_auto_receive = button
