@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
+#    Copyright (C) 2010-2013 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
@@ -21,9 +21,10 @@
 import gtk
 import gtkutils
 import mainwindow
-from runview import NetInstanceView, NetInstanceCanvasConfig
+from netview import NetView, NetViewCanvasConfig
 
 class SimViewTab(mainwindow.Tab):
+
     def __init__(self, app, simulation, tabname="Simulation", mainmenu_groups=()):
         self.simulation = simulation
         simview = SimView(app, simulation)
@@ -34,49 +35,115 @@ class SimViewTab(mainwindow.Tab):
         self.simulation.shutdown()
 
 
-class SimCanvasConfig(NetInstanceCanvasConfig):
+class SimCanvasConfig(NetViewCanvasConfig):
+
+    simulation = None
+    simview = None
 
     def on_item_click(self, item, position):
         if item.kind == "box" and item.owner.is_transition():
-               self.view.fire_transition(item.owner)
+            self.fire_transition(item.owner)
+        elif item.kind == "activation":
+            process_id, thread_id, transition = item.owner
+            if self.simview.button_auto_receive.get_active():
+                callback = lambda: self.simulation.receive_all()
+            else:
+                callback = None
+            self.simulation.finish_transition(
+                transition.id, process_id, thread_id, callback)
+        elif item.kind == "packet" and item.packet_data is not None:
+            process_id, origin_id = item.packet_data
+            self.simulation.receive(process_id, origin_id)
         else:
-            NetInstanceCanvasConfig.on_item_click(self, item, position)
+            NetViewCanvasConfig.on_item_click(self, item, position)
+
+    def fire_transition(self, transition):
+        perspective = self.view.get_perspective()
+        ids = [ i.process_id for i in perspective.net_instances.values()
+                if i.enabled_transitions is not None and transition.id
+                in i.enabled_transitions ]
+        if not ids:
+            return
+        process_id = self.simulation.random.choice(ids)
+        if self.simview.button_auto_receive.get_active():
+            callback = lambda: self.simulation.receive_all()
+        else:
+            callback = None
+        self.simulation.fire_transition(transition.id,
+                                        process_id,
+                                        self.simview.get_fire_phases(),
+                                        callback)
 
     def set_highlight(self):
-        NetInstanceCanvasConfig.set_highlight(self)
+        NetViewCanvasConfig.set_highlight(self)
         enabled = self.perspective.get_enabled_transitions()
         for transition in self.net.transitions():
             if transition.id in enabled:
                transition.box.highlight = (0, 255, 0, 0.85)
 
 
-
-class SimView(NetInstanceView):
-
-    config_class = SimCanvasConfig
+class SimView(gtk.VBox):
 
     def __init__(self, app, simulation):
-        NetInstanceView.__init__(self, app, SimCanvasConfig(self))
+        gtk.VBox.__init__(self)
+        self.app = app
         self.simulation = simulation
-        self.set_runinstance(self.simulation.runinstance)
+
+        self.pack_start(self._toolbar(), False, False)
+
+        self.netview = NetView(app, None)
+        self.config = SimCanvasConfig(self.netview)
+        self.config.simulation = simulation
+        self.config.simview = self
+        self.netview.set_config(self.config)
+        self.pack_start(self.netview, True, True)
+
+        self.netview.set_runinstance(self.simulation.runinstance)
         simulation.set_callback("changed", self._simulation_changed)
+        self.show_all()
+
+    def get_fire_phases(self):
+        if self.button_run_phase1.get_active():
+            return 1
+        else:
+            return 2
 
     def _simulation_changed(self):
-        self.set_runinstance(self.simulation.runinstance)
+        self.netview.set_runinstance(self.simulation.runinstance)
 
-    def on_item_click(self, item):
-        NetInstanceView.on_item_click(self, item)
-        if item.is_transition():
-            self.fire_transition(item)
+    def _toolbar(self):
+        toolbar = gtk.Toolbar()
 
-    def fire_transition(self, transition):
-        perspective = self.get_perspective()
-        ids = [ i.process_id for i in perspective.net_instances.values()
-                if i.enabled_transitions is not None and transition.id in i.enabled_transitions ]
-        if not ids:
-            return
-        process_id = self.simulation.random.choice(ids)
-        self.simulation.fire_transition(transition.id, process_id)
+        button = gtk.RadioToolButton(None)
+        button.set_tooltip_text("Start transition")
+        button.set_stock_id(gtk.STOCK_GO_FORWARD)
+        toolbar.add(button)
+        self.button_run_phase1 = button
+
+        button = gtk.RadioToolButton(self.button_run_phase1, None)
+        button.set_tooltip_text("Start & finish transition")
+        button.set_stock_id(gtk.STOCK_GOTO_LAST)
+        toolbar.add(button)
+        self.button_run_phase12 = button
+
+        toolbar.add(gtk.SeparatorToolItem())
+
+        button = gtk.ToolButton(None)
+        button.set_tooltip_text("Receive all packets")
+        button.set_stock_id(gtk.STOCK_GOTO_BOTTOM)
+        button.connect("clicked",
+                        lambda w: self.simulation.receive_all(
+                            self.netview.get_perspective().get_process_ids()))
+        toolbar.add(button)
+
+        button = gtk.ToggleToolButton(None)
+        button.set_tooltip_text(
+            "Automatically call 'Receive all packets' after any transition action")
+        button.set_stock_id(gtk.STOCK_EXECUTE)
+        toolbar.add(button)
+        self.button_auto_receive = button
+        return toolbar
+
 
 def connect_dialog(mainwindow):
     builder = gtkutils.load_ui("connect-dialog")

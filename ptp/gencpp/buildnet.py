@@ -78,7 +78,11 @@ def write_transition_forward(builder, tr):
 
     class_name = "Transition_{0.id}".format(tr)
     builder.write_class_head(class_name, "ca::TransitionDef")
-    builder.line("int get_id() {{ return {0.id}; }}", tr)
+    builder.write_constructor(class_name,
+                              "",
+                              [ "ca::TransitionDef({0}, {1})".format(
+                                    tr.id, const_boolean(not tr.has_code())) ])
+    builder.write_method_end()
     builder.line("ca::FireResult full_fire(ca::ThreadBase *thread, ca::NetBase *net);")
     builder.line("void* fire_phase1(ca::ThreadBase *thread, ca::NetBase *net);")
     builder.line("void fire_phase2(ca::ThreadBase *thread, ca::NetBase *net, void *data);")
@@ -87,7 +91,8 @@ def write_transition_forward(builder, tr):
     if builder.generate_all_pack:
         builder.line("void pack_binding(ca::Packer &packer, void *data);")
     builder.write_class_end()
-    builder.line("static Transition_{0.id} transition_{0.id};", tr)
+    builder.line("static Transition_{0.id} transition_{0.id};",
+        tr, const_boolean(not tr.has_code()))
     builder.emptyline();
 
 def write_transition_functions(builder,
@@ -196,9 +201,9 @@ def write_send_token(builder,
             builder.line("ca::Packer $packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
             for inscription in edge.get_token_inscriptions():
                 builder.line("ca::pack($packer, {0});", inscription.expr)
-            builder.line("$thread->multisend{0}({4}, {3}, {1}, {2}, $packer);",
+            builder.line("$thread->send{0}({4}, {3}, {1}, {2}, $packer);",
                          sendtype,
-                         edge.place.get_pos_id(),
+                         edge.id,
                          len(edge.inscriptions),
                          net_expr,
                          target)
@@ -208,8 +213,8 @@ def write_send_token(builder,
             expr = edge.inscriptions[0].expr
             builder.line("ca::Packer $packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
             builder.line("{0}.pack_tokens($packer);", expr);
-            builder.line("$thread->multisend{0}({1}, {3}, {2}, ({4}).size(), $packer);",
-                   sendtype, target, edge.place.get_pos_id(), net_expr, expr)
+            builder.line("$thread->send{0}({1}, {3}, {2}, ({4}).size(), $packer);",
+                   sendtype, target, edge.id, net_expr, expr)
         if trace_send:
             builder.if_begin("$tracelog")
             builder.line("$tracelog->event_send_part2({0}, $packer.get_size(), {1.id});", target, edge)
@@ -257,7 +262,6 @@ def write_fire_body(builder,
         write_remove_tokens(builder, builder.expand("$n"), tr)
 
     builder.line("$n->activate_transition_by_pos_id({0});", tr.get_pos_id())
-
     if packed_tokens_from_place:
         for edge in tr.get_bulk_edges_in():
                 place = edge.place
@@ -336,12 +340,10 @@ def write_fire_body(builder,
         builder.line("$tracelog->event_end();")
         builder.block_end()
 
-
 def write_full_fire(builder, tr, locking=True):
-    builder.line("ca::FireResult Transition_{0.id}::full_fire(ca::ThreadBase *$t, ca::NetBase *$net)",
+    builder.line("ca::FireResult Transition_{0.id}::full_fire(ca::ThreadBase *$thread, ca::NetBase *$net)",
                  tr)
     builder.block_begin()
-    builder.line("{0} *$thread = ({0}*) $t;", builder.thread_class)
     builder.line("ca::Context ctx($thread, $net);")
 
     w = build.Builder(builder.project)
@@ -353,10 +355,9 @@ def write_full_fire(builder, tr, locking=True):
     builder.block_end()
 
 def write_enable_check(builder, tr):
-    builder.line("bool Transition_{0.id}::is_enable(ca::ThreadBase *$t, ca::NetBase *$net)",
+    builder.line("bool Transition_{0.id}::is_enable(ca::ThreadBase *$thread, ca::NetBase *$net)",
                  tr)
     builder.block_begin()
-    builder.line("{0} *$thread = ({0}*) $t;", builder.thread_class)
     builder.line("ca::Context ctx($thread, $net);")
     w = CppWriter()
     w.line("return true;")
@@ -365,10 +366,8 @@ def write_enable_check(builder, tr):
     builder.block_end()
 
 def write_fire_phase1(builder, tr):
-    builder.line("void *Transition_{0.id}::fire_phase1(ca::ThreadBase *$t, ca::NetBase *$net)", tr)
+    builder.line("void *Transition_{0.id}::fire_phase1(ca::ThreadBase *$thread, ca::NetBase *$net)", tr)
     builder.block_begin()
-
-    builder.line("{0} *$thread = ({0}*) $t;", builder.thread_class)
     builder.line("ca::Context ctx($thread, $net);")
 
     # ---- Prepare builder --- #
@@ -401,11 +400,10 @@ def write_fire_phase1(builder, tr):
 
 def write_fire_phase2(builder, tr):
     builder.line("void Transition_{0.id}::fire_phase2"
-                    "(ca::ThreadBase *$t, ca::NetBase *$net, void *$data)",
+                    "(ca::ThreadBase *$thread, ca::NetBase *$net, void *$data)",
                  tr)
     builder.block_begin()
 
-    builder.line("{0} *$thread = ({0}*) $t;", builder.thread_class)
     builder.line("ca::Context ctx($thread, $net);")
     builder.line("{0} *$n = ({0}*) $net;", get_net_class_name(tr.net))
     builder.line("Tokens_{0.id} *$tokens = (Tokens_{0.id}*) $data;", tr)
@@ -414,7 +412,8 @@ def write_fire_phase2(builder, tr):
 
     for name, uid in tr.variable_sources.items():
         if uid is not None:
-            builder.line("{0} {1} = $tokens->token_{2}->value;", decls_dict[name], name, uid)
+            builder.line(
+                "{0} {1} = $tokens->token_{2}->value;", decls_dict[name], name, uid)
 
     for inscription in tr.get_token_inscriptions_in():
         if inscription.is_origin_reader():
@@ -598,7 +597,6 @@ def write_place_add(builder,
         write_trace_token(builder, place, builder.expand("$token"))
         builder.block_end()
 
-
 def write_init_net(builder, net):
     builder.line("ca::Context ctx($thread, $net);")
     builder.line("int $pid = $thread->get_process_id();")
@@ -665,7 +663,7 @@ def write_spawn(builder, net):
     builder.block_end()
 
 def write_reports_method(builder, net):
-    builder.write_method_start("void write_reports_content(ca::Thread *thread, ca::Output &output)")
+    builder.write_method_start("void write_reports_content(ca::ThreadBase *thread, ca::Output &output)")
     for place in net.places:
         builder.line('output.child("place");')
         builder.line('output.set("id", {0.id});', place)
@@ -695,16 +693,16 @@ def write_receive_method(builder, net):
     builder.write_method_start(
         "void receive(ca::ThreadBase *$thread, int from_process, int place_pos, ca::Unpacker &unpacker)")
     builder.line("switch(place_pos) {{")
-    for place in net.places:
-        if place.is_receiver():
-            builder.line("case {0}:", place.get_pos_id())
+    for edge in net.get_edges_out():
+        if not edge.is_local():
+            builder.line("case {0}:", edge.id)
             builder.indent_push()
             write_place_add(builder,
-                            place,
+                            edge.place,
                             "this->",
-                            "ca::unpack<{0} >(unpacker)".format(place.type, "unpacker"),
+                            "ca::unpack<{0} >(unpacker)".format(edge.place.type, "unpacker"),
                             origin="from_process")
-            write_activation(builder, "this", place.get_transitions_out())
+            write_activation(builder, "this", edge.place.get_transitions_out())
             builder.line("break;")
             builder.indent_pop()
     builder.line("}}")

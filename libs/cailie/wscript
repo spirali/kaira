@@ -11,7 +11,8 @@ source_files =  (
     "tracelog.cpp",
     "utils.cpp",
     "parameters.cpp",
-    "usertools.cpp"
+    "usertools.cpp",
+    "state.cpp",
 )
 
 def build(ctx):

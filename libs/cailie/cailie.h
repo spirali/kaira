@@ -82,6 +82,8 @@ Process * get_first_process();
 
 void write_header(FILE *out, int process_count, int threads_count);
 
+extern int process_count;
+extern int threads_count;
 }
 
 #endif

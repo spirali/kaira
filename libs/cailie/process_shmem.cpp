@@ -21,7 +21,7 @@ void ca::Process::broadcast_packet(int tag, void *data, size_t size, Thread *thr
 
 void ca::Process::add_packet(int from_process, int tag, void *data, size_t size)
 {
-	Packet *packet = new Packet;
+	ShmemPacket *packet = new ShmemPacket;
 	packet->from_process = from_process;
 	packet->tag = tag;
 	packet->data = data;
@@ -31,7 +31,7 @@ void ca::Process::add_packet(int from_process, int tag, void *data, size_t size)
 	if (packets == NULL) {
 		packets = packet;
 	} else {
-		Packet *p = packets;
+		ShmemPacket *p = packets;
 		while (p->next) {
 			p = p->next;
 		}
@@ -40,28 +40,28 @@ void ca::Process::add_packet(int from_process, int tag, void *data, size_t size)
 	pthread_mutex_unlock(&packet_mutex);
 }
 
-void ca::Process::multisend_multicast(
+void ca::Process::send_multicast(
 	const std::vector<int> &targets,
 	Net *net,
-	int place_index,
+	int edge_id,
 	int tokens_count,
 	const Packer &packer,
 	Thread *thread)
 {
 	std::vector<int>::const_iterator i;
 	Tokens *data = (Tokens*) packer.get_buffer();
-	data->place_index = place_index;
+	data->edge_id = edge_id;
 	data->tokens_count = tokens_count;
 	size_t size = packer.get_size();
 	for (i = targets.begin(); i != targets.end(); i++) {
 		int target = *i;
 		if(target < 0 || target >= process_count) {
 			fprintf(stderr,
-					"Net sends %i token(s) to invalid process id %i (valid ids: [0 .. %i])\n",
-					tokens_count, target, process_count - 1);
+					"Process %i sends %i token(s) to invalid process id %i (valid ids: [0 .. %i])\n",
+					thread->get_process_id(), tokens_count, target, process_count-1);
 			exit(1);
 		}
-		CA_DLOG("SEND index=%i target=%i process=%i\n", place_index, target, get_process_id());
+		CA_DLOG("SEND index=%i target=%i process=%i\n", edge_id, target, get_process_id());
 		void *d;
 		if ((i + 1) == targets.end()) {
 			d = data;
@@ -78,7 +78,7 @@ int ca::Process::process_packets(Thread *thread)
 {
 	if (packets) {
 		pthread_mutex_lock(&packet_mutex);
-		Packet *p = packets;
+		ShmemPacket *p = packets;
 		packets = NULL;
 		pthread_mutex_unlock(&packet_mutex);
 
@@ -88,7 +88,7 @@ int ca::Process::process_packets(Thread *thread)
 		bool net_changed = false;
 		while (p) {
 			net_changed |= process_packet(thread, p->from_process, p->tag, p->data);
-			Packet *next = p->next;
+			ShmemPacket *next = p->next;
 			delete p;
 			p = next;
 		}

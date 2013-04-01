@@ -29,7 +29,7 @@ import ConfigParser
 
 import gtkutils
 from mainwindow import MainWindow, Tab, SaveTab
-from netview import NetView
+import neteditor
 from simconfig import SimConfigDialog
 from projectconfig import ProjectConfig
 from simulation import Simulation
@@ -56,7 +56,7 @@ class App:
     def __init__(self, args):
         self.window = MainWindow(self)
         self.window.set_size_request(650,650)
-        self.nv = None
+        self.neteditor = None
         self._open_welcome_tab()
         self.grid_size = 1
         self.settings = self.load_settings()
@@ -119,18 +119,18 @@ class App:
 
     def init_tabs(self):
         self.window.close_all_tabs()
-        self.nv = NetView(self, self.project)
-        self.nv.transition_edit_callback = self.transition_edit
-        self.nv.place_edit_callback = self.place_edit
+        self.neteditor = neteditor.NetEditor(self, self.project)
+        self.neteditor.transition_edit_callback = self.transition_edit
+        self.neteditor.place_edit_callback = self.place_edit
         self.window.add_tab(Tab("Nets",
-                                self.nv,
+                                self.neteditor,
                                 "nets",
                                 mainmenu_groups=("project", "undo"),
                                 has_close_button=False))
 
     def switch_to_net(self, net):
         self.window.switch_to_tab_by_key("nets")
-        self.nv.switch_to_net(net)
+        self.neteditor.switch_to_net(net)
 
     def new_project(self):
         def project_name_changed(w = None):
@@ -554,7 +554,7 @@ class App:
             self.project.set_error_messages(error_messages)
 
     def _project_changed(self):
-        self.nv.net_changed()
+        self.neteditor.net_changed()
 
     def _project_filename_changed(self):
         self.window.set_title("Kaira - {0} ({1})" \

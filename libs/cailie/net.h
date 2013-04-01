@@ -25,14 +25,19 @@ typedef NetBase * (SpawnFn)(ThreadBase *, NetDef *);
 
 class TransitionDef {
 	public:
+		TransitionDef(int id, bool immediate) : id(id), immediate(immediate) {}
 		virtual ~TransitionDef() {}
-		virtual int get_id() = 0;
+		int get_id() { return id; }
+		int is_immediate() { return immediate; }
 		virtual FireResult full_fire(ThreadBase *thread, NetBase *net) = 0;
-		virtual void *fire_phase1(ThreadBase *thread, NetBase *net) = 0;
+		virtual void* fire_phase1(ThreadBase *thread, NetBase *net) = 0;
 		virtual void fire_phase2(ThreadBase *thread, NetBase *net, void *data) = 0;
 		virtual void cleanup_binding(void *data) = 0;
 		virtual bool is_enable(ThreadBase *thread, NetBase *net) = 0;
 		virtual void pack_binding(Packer &pack, void *data) {}
+	protected:
+		int id;
+		bool immediate;
 };
 
 class Transition {
@@ -85,6 +90,9 @@ class NetDef {
 class NetBase {
 		public:
 			virtual void receive(ThreadBase *thread, int process, int place, Unpacker &unpacker) = 0;
+			void write_reports(ThreadBase *thread, Output &output);
+		protected:
+			virtual void write_reports_content(ThreadBase *thread, Output &output) = 0;
 };
 
 class Net : public NetBase {
@@ -102,9 +110,10 @@ class Net : public NetBase {
 		bool try_lock() { return mutex?pthread_mutex_trylock(mutex) == 0:true; }
 		void unlock() { if (mutex) pthread_mutex_unlock(mutex); }
 
-		void write_reports(Thread *thread, Output &output);
-		virtual void write_reports_content(Thread *thread, Output &output) = 0;
 		int fire_transition(Thread *thread, int transition_id);
+
+
+		virtual NetDef *get_def() { return def; }
 
 		Transition * pick_active_transition();
 		bool has_active_transition() { return !actives.empty(); }
@@ -123,9 +132,9 @@ class Net : public NetBase {
 		bool get_manual_delete() { return flags & CA_NET_MANUAL_DELETE; }
 
 	protected:
+		NetDef *def;
 		std::queue<Transition*> actives;
 		int running_transitions;
-		NetDef *def;
 		pthread_mutex_t *mutex;
 		Transition *transitions;
 

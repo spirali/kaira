@@ -23,8 +23,6 @@ namespace cass {
 			void activate_transition_by_pos_id(int pos_id) {}
 	};
 
-	typedef bool (NetEqFn)(Net *, Net*);
-
 	class Thread : public ca::ThreadBase {
 		public:
 			Thread(std::deque<Packet> *packets, int process_id, int thread_id)
@@ -44,29 +42,17 @@ namespace cass {
 			}
 
 			void send(int target,
-					  ca::NetBase *net,
-                      int place_index,
-                      const ca::Packer &packer) {
-				multisend(target, net, place_index, 1, packer);
-			}
-			void multisend(int target,
 						   ca::NetBase *net,
-						   int place_index,
+						   int edge_id,
 						   int tokens_count,
                            const ca::Packer &packer) {
 				std::vector<int> a(1);
 				a[0] = target;
-				multisend_multicast(a, net, place_index, tokens_count, packer);
+				send_multicast(a, net, edge_id, tokens_count, packer);
 			}
 
-			void send_multicast(const std::vector<int> &targets,
-							    ca::NetBase *net,
-                                int place_index,
-                                const ca::Packer &packer) {
-				multisend_multicast(targets, net, place_index, 1, packer);
-			}
-			void multisend_multicast(const std::vector<int> &targets, ca::NetBase *net,
-				int place_index, int tokens_count, const ca::Packer &packer);
+			void send_multicast(const std::vector<int> &targets, ca::NetBase *net,
+				int edge_id, int tokens_count, const ca::Packer &packer);
 			bool get_quit_flag() { return quit; }
 		protected:
 			std::deque<Packet> *packets;
