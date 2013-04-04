@@ -90,6 +90,7 @@ class NetDef {
 class NetBase {
 		public:
 			virtual void receive(ThreadBase *thread, int process, int place, Unpacker &unpacker) = 0;
+			virtual NetBase *copy() = 0;
 			void write_reports(ThreadBase *thread, Output &output);
 		protected:
 			virtual void write_reports_content(ThreadBase *thread, Output &output) = 0;
@@ -111,7 +112,6 @@ class Net : public NetBase {
 		void unlock() { if (mutex) pthread_mutex_unlock(mutex); }
 
 		int fire_transition(Thread *thread, int transition_id);
-
 
 		virtual NetDef *get_def() { return def; }
 

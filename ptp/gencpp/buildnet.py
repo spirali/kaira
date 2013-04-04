@@ -725,16 +725,22 @@ def write_net_class(builder,
                     write_constructor=True,
                     write_class_end=True):
 
-    builder.write_class_head(get_net_class_name(net), namespace + "::Net")
+    class_name = get_net_class_name(net)
+    builder.write_class_head(class_name, namespace + "::Net")
 
     decls = [("def", "ca::NetDef *"),
              ("thread", "ca::Thread *")]
 
     if write_constructor:
-        builder.write_constructor(get_net_class_name(net),
+        builder.write_constructor(class_name,
                                   emit_declarations(decls),
                                   ["{0}::Net(def, thread)".format(namespace)])
         builder.write_method_end()
+
+    builder.write_method_start("ca::NetBase * copy()")
+    builder.line("{0} *net = new {0}(*this);", class_name)
+    builder.line("return net;")
+    builder.write_method_end()
 
     for place in net.places:
         builder.write_var_decl("place_" + str(place.id),

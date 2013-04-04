@@ -7,31 +7,42 @@
 #include <mhash.h>
 #include "cailie.h"
 #include "basictypes.h"
+#include "state.h"
 
 #include <set>
 
 namespace cass {
 
 	class Core;
-
 	typedef void* HashDigest;
 
-	struct TransitionActivation {
-			ca::TransitionDef *transition_def;
-			int process_id;
-			int thread_id;
-			void *binding;
+	struct Activation : public ca::Activation
+	{
+		Activation(
+			ca::TransitionDef *transition_def,
+			int process_id,
+			int thread_id,
+			void *binding)
+			: ca::Activation(transition_def, process_id, thread_id, binding) {
+				ca::Packer packer;
+				transition_def->pack_binding(packer, binding);
+				packed_binding = packer.get_buffer();
+				packed_binding_size = packer.get_size();
+			}
 			size_t packed_binding_size;
 			void *packed_binding;
 	};
 
-	struct ActivationCompare {
-	  bool operator() (const TransitionActivation &t1, const TransitionActivation &t2) {
+	struct ActivationCompare
+	{
+	  bool operator() (const Activation &t1, const Activation &t2) {
 			if (t1.transition_def->get_id() == t2.transition_def->get_id()) {
 				if (t1.process_id == t2.process_id) {
 					if (t1.thread_id == t2.thread_id) {
 						if (t1.packed_binding_size == t2.packed_binding_size) {
-							return memcmp(t1.packed_binding, t2.packed_binding, t1.packed_binding_size) < 0;
+							return memcmp(t1.packed_binding,
+										  t2.packed_binding,
+                                          t1.packed_binding_size) < 0;
 						} else {
 							return t1.packed_binding_size < t2.packed_binding_size;
 						}
@@ -47,44 +58,21 @@ namespace cass {
 	  }
 	};
 
-	struct NodeFlag {
-		std::string name;
-		std::string value;
-		NodeFlag *next;
-	};
-
-	class State {
+	class State  : public ca::StateBase<Net, Activation, Packet>
+	{
 		public:
-			State();
-			State(ca::NetDef *net_def);
-			State(const std::vector<TransitionActivation> &activations,
-				 std::deque<Packet> *packets);
-			~State();
-
-			State * copy();
-
-			const std::vector<TransitionActivation> & get_activations() {
-				return activations;
-			};
-			std::deque<Packet> * get_packets() { return packets; }
-
+			State(ca::NetDef *net_def) : StateBase(net_def) {}
+			State(State &state) : StateBase(state) {}
 			void pack_state(ca::Packer &packer);
 			HashDigest compute_hash(hashid hash_id);
 			void hash_activations(MHASH hash_thread);
 			void hash_packets(MHASH hash_thread);
 			void pack_activations(ca::Packer &packer);
 			void pack_packets(ca::Packer &packer);
-
-			void add_flag(const std::string &name, const std::string &value);
-			NodeFlag *get_flag(const std::string &name);
-
-			Net **nets;
-			std::deque<Packet> *packets;
-			std::vector<TransitionActivation> activations;
-			NodeFlag *flag;
 	};
 
-	class Node  {
+	class Node
+	{
 		public:
 			Node(HashDigest hash, State *state);
 			~Node();
@@ -99,7 +87,8 @@ namespace cass {
 			std::vector<Node*> nexts;
 	};
 
-	struct HashDigestHash {
+	struct HashDigestHash
+	{
 		HashDigestHash(hashid hash_id) : size(mhash_get_block_size(hash_id)) {}
 
 		size_t operator()(HashDigest hash) const {
@@ -109,7 +98,8 @@ namespace cass {
 		size_t size;
 	};
 
-	struct HashDigestEq {
+	struct HashDigestEq
+	{
 		HashDigestEq(hashid hash_id) : size(mhash_get_block_size(hash_id)) {}
 
 		bool operator()(HashDigest hash1, HashDigest hash2) const {
@@ -117,7 +107,9 @@ namespace cass {
 		}
 		size_t size;
 	};
-	typedef google::sparse_hash_map<HashDigest, Node*, HashDigestHash, HashDigestEq> NodeMap;
+
+	typedef google::sparse_hash_map<HashDigest, Node*, HashDigestHash, HashDigestEq>
+		NodeMap;
 
 	class Core
 	{
@@ -135,10 +127,6 @@ namespace cass {
 			bool is_known_node(Node *node) const;
 			Node *get_node(HashDigest digest) const;
 			std::stack<Node*> not_processed;
-			//std::set<void*,
-			/*google::sparse_hash_set<void*,
-									HashHash,
-									HashEq> hashes;*/
 			NodeMap nodes;
 			Node *initial_node;
 			ca::NetDef *net_def;

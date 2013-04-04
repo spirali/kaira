@@ -47,14 +47,7 @@ def write_pack_method(builder, net):
     builder.write_method_end()
 
 def write_net_class_extension(builder, net):
-    class_name = buildnet.get_net_class_name(net)
-
     write_pack_method(builder, net)
-
-    builder.write_method_start("cass::Net * copy()")
-    builder.line("{0} *net = new {0}(*this);", class_name)
-    builder.line("return net;")
-    builder.write_method_end()
 
 def write_main(builder):
     builder.line("int main(int argc, char **argv)")

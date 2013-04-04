@@ -258,13 +258,13 @@ void Listener::prepare_state()
 		}
 	} while (again);
 
-	Net **nets = new Net*[process_count];
+	std::vector<Net*> nets;
+	nets.reserve(process_count);
 
 	for (int i = 0; i < process_count; i++) {
-		nets[i] = processes[i]->get_net();
+		nets.push_back(processes[i]->get_net());
 	}
-	state = new State(nets[0]->get_def(), nets);
-	delete [] nets;
+	state = new State(processes[0]->get_net()->get_def(), nets);
 }
 
 void Listener::cleanup_state()
