@@ -196,7 +196,7 @@ def load_place(element, project, net):
     type_name = project.parse_typename(element.get("type"),
                                        get_source(element, "type"))
     init_type, init_value = project.parse_init_expression(element.get("init-expr"),
-                                                      get_source(element, "init-expr"))
+                                                      get_source(element, "init"))
     place = Place(net, id, type_name, init_type, init_value)
     if element.find("code") is not None:
         place.code = element.find("code").text
@@ -206,7 +206,7 @@ def load_place(element, project, net):
 def load_area(element, project, net):
     id = utils.xml_int(element, "id")
     init_type, init_value = project.parse_init_expression(element.get("init-expr"),
-                                                      get_source(element, "init-expr"))
+                                                      get_source(element, "init"))
     places = [ net.get_place(utils.xml_int(e, "id")) for e in element.findall("place") ]
     return Area(net, id, init_type, init_value, places)
 
