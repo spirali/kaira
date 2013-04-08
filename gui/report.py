@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm
+#    Copyright (C) 2012-2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -18,29 +18,42 @@
 #
 
 import gtk
+import textview
 import xml.etree.ElementTree as xml
+import mainwindow
 
 class ReportWidget(gtk.ScrolledWindow):
 
-    def __init__(self, report):
+    def __init__(self, app, report):
         gtk.ScrolledWindow.__init__(self)
+        self.app = app
         self.report = report
-        textview = gtk.TextView()
-        textview.set_editable(False)
-        self.add(textview)
-        self.buffer = textview.get_buffer()
+        self.textview = textview.TextViewWithLinks()
+        self.add(self.textview)
         self.show_all()
 
-        self.buffer.create_tag("normal")
-        self.buffer.create_tag("h1", scale=2)
-        self.buffer.create_tag("h2", scale=1.2, weight=700)
-        self.buffer.create_tag("success", foreground="green", weight=700)
-        self.buffer.create_tag("fail", foreground="red", weight=700)
-
+        self.textview.create_tag("h1", scale=2)
+        self.textview.create_tag("h2", scale=1.2, weight=700)
+        self.textview.create_tag("success", foreground="green", weight=700)
+        self.textview.create_tag("fail", foreground="red", weight=700)
         self.report.write(self)
 
-    def write(self, text, tag_name="normal"):
-        self.buffer.insert_with_tags_by_name(self.buffer.get_end_iter(), text, tag_name)
+    def write(self, *args, **kw):
+        self.textview.write(*args, **kw)
+
+    def write_link(self, *args, **kw):
+        self.textview.write_link(*args, **kw)
+
+    def open_textview(self, text, label):
+        text_buffer = gtk.TextBuffer()
+        text_buffer.insert(text_buffer.get_end_iter(), text)
+        text_area = gtk.TextView()
+        text_area.set_buffer(text_buffer)
+        text_area.set_editable(False)
+        sw = gtk.ScrolledWindow()
+        sw.add(text_area)
+        sw.show_all()
+        self.app.window.add_tab(mainwindow.Tab(label, sw))
 
 class Report:
 
@@ -76,4 +89,9 @@ class Report:
             widget.write("]")
         if element.get("text"):
             widget.write("   {0}".format(element.get("text")), t)
+        states = element.find("states")
+        if states is not None:
+            widget.write("   ")
+            widget.write_link("Show states",
+                              lambda: widget.open_textview(states.text, "States"))
         widget.write("\n")

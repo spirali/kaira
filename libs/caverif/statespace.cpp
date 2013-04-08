@@ -15,7 +15,7 @@ namespace ca {
 using namespace cass;
 
 static bool write_dot = false;
-static bool analyse_quit = false;
+static bool analyse_deadlock = false;
 static std::string project_name;
 
 static void args_callback(char c, char *optarg, void *data)
@@ -25,8 +25,8 @@ static void args_callback(char c, char *optarg, void *data)
 			write_dot = true;
 			return;
 		}
-		if (!strcmp(optarg, "quit")) {
-			analyse_quit = true;
+		if (!strcmp(optarg, "deadlock")) {
+			analyse_deadlock = true;
 			return;
 		}
 		fprintf(stderr, "Invalid argument in -V\n");
@@ -47,6 +47,13 @@ static void hashdigest_to_string(hashid hash_id, HashDigest hash, char *out)
 		out[i*2+1] = hex_chars[byte & 0x0F];
 	}
 	out[size*2] = 0;
+}
+
+static std::string hashdigest_to_string(hashid hash_id, HashDigest hash)
+{
+	char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
+	hashdigest_to_string(hash_id, hash, hashstr);
+	return hashstr;
 }
 
 void cass::init(int argc, char **argv, std::vector<ca::Parameter*> &parameters)
@@ -291,8 +298,8 @@ void Core::postprocess()
 	report.back();
 	report.back();
 
-	if (analyse_quit) {
-		run_analysis_quit(report);
+	if (analyse_deadlock) {
+		run_analysis_deadlock(report);
 	}
 
 	report.child("description");
@@ -303,34 +310,22 @@ void Core::postprocess()
 	fclose(f);
 }
 
-void Core::run_analysis_quit(ca::Output &report)
+void Core::run_analysis_deadlock(ca::Output &report)
 {
-	size_t quit_states = 0;
 	size_t deadlocks = 0;
+	Node* deadlock_node;
 
 	NodeMap::const_iterator it;
 	for (it = nodes.begin(); it != nodes.end(); it++)
 	{
 		Node *node = it->second;
-		if (node->get_state()->get_quit_flag()) {
-			quit_states++;
-		} else if (node->get_nexts().size() == 0) {
+		if (node->get_nexts().size() == 0) {
 			deadlocks++;
+			deadlock_node = node;
 		}
 	}
 	report.child("analysis");
 	report.set("name", "Quit analysis");
-
-	report.child("result");
-	report.set("name", "Number of quit states");
-	report.set("value", quit_states);
-	if (quit_states == 0) {
-		report.set("status", "fail");
-		report.set("text", "There is no quit-state");
-	} else {
-		report.set("status", "ok");
-	}
-	report.back();
 
 	report.child("result");
 	report.set("name", "Number of deadlock states");
@@ -338,6 +333,9 @@ void Core::run_analysis_quit(ca::Output &report)
 	if (deadlocks != 0) {
 		report.set("status", "fail");
 		report.set("text", "There are deadlocks");
+		report.child("states");
+		report.text(hashdigest_to_string(MHASH_MD5, deadlock_node->get_hash()));
+		report.back();
 	} else {
 		report.set("status", "ok");
 	}

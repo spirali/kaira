@@ -19,6 +19,7 @@
 #
 
 import gtk
+import textview
 import pango
 
 class MainWindow(gtk.Window):
@@ -257,68 +258,27 @@ class Console(gtk.ScrolledWindow):
 
     def __init__(self):
         gtk.ScrolledWindow.__init__(self)
-        self.id_counter = 0
-        self.link_callbacks = {}
         self.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_ALWAYS)
         self.set_shadow_type(gtk.SHADOW_IN)
-        self.textview = gtk.TextView()
-        self.textview.set_editable(False)
-        self.textview.connect("button-press-event", self._button_down)
-        self.textview.connect("motion_notify_event", self._mouse_move)
+        self.textview = textview.TextViewWithLinks()
         font_desc = pango.FontDescription('monospace')
         if font_desc:
             self.textview.modify_font(font_desc)
-        self.buffer = self.textview.get_buffer()
-        self.buffer.create_tag("normal")
-        self.buffer.create_tag("output", foreground="blue")
-        self.buffer.create_tag("success", foreground="darkgreen")
-        self.buffer.create_tag("error", foreground="red")
-
-        # Do not use tag "link" directly in method write, use always method "write_link"
-        self.link_tag = self.buffer.create_tag("link", underline=True)
-        self.link_hidden_tag = self.buffer.create_tag("link_hidden", invisible = True)
+        self.textview.create_tag("output", foreground="blue")
+        self.textview.create_tag("success", foreground="darkgreen")
+        self.textview.create_tag("error", foreground="red")
         self.add(self.textview)
 
-    def reset(self):
-        self.buffer.set_text("")
-        self.id_counter = 0
-        self.link_callbacks = {}
-
     def write(self, text, tag_name="normal"):
-        self.buffer.insert_with_tags_by_name(self.buffer.get_end_iter(), text, tag_name)
-        mark = self.buffer.get_mark("insert")
+        self.textview.write(text, tag_name)
+        mark = self.textview.buffer.get_mark("insert")
         self.textview.scroll_to_mark(mark,0.0)
 
     def write_link(self, text, callback):
-        new_id = str(self.id_counter)
-        self.link_callbacks[new_id] = callback
-        self.id_counter += 1
-        self.write(text, "link")
-        self.write(new_id, "link_hidden")
+        self.textview.write_link(text, callback)
 
-    def _iter_at_position(self, px, py):
-        px, py = self.textview.window_to_buffer_coords(gtk.TEXT_WINDOW_WIDGET, int(px), int(py))
-        return self.textview.get_iter_at_location(px, py)
-
-    def _button_down(self, w, event):
-        i = self._iter_at_position(event.x, event.y)
-        if i.has_tag(self.link_tag):
-            i.forward_to_tag_toggle(self.link_tag)
-            j = i.copy()
-            j.forward_to_tag_toggle(self.link_hidden_tag)
-            self.link_callbacks[self.buffer.get_text(i, j, True)]()
-            return True
-        else:
-            return False
-
-    def _mouse_move(self, w, event):
-        i = self._iter_at_position(event.x, event.y)
-        if i.has_tag(self.link_tag):
-            cursor = gtk.gdk.Cursor(gtk.gdk.FLEUR)
-        else:
-            cursor = None
-        w = self.textview.get_window(gtk.TEXT_WINDOW_TEXT)
-        w.set_cursor(cursor)
+    def reset(self):
+        self.textview.reset()
 
 
 class Tab:

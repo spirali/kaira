@@ -226,12 +226,10 @@ class NetView(gtk.HPaned):
 
         sw = gtk.ScrolledWindow()
         sw.add(text_area)
-        vbox = gtk.VBox()
-        vbox.pack_start(sw)
-        vbox.show_all()
+        sw.show_all()
 
         label = "Tokens of " + place.get_name()
-        self.app.window.add_tab(mainwindow.Tab(label, vbox))
+        self.app.window.add_tab(mainwindow.Tab(label, sw))
 
     def open_transition_tab(self, transition):
         values = self.get_perspective().get_transition_trace_values(transition)
@@ -244,12 +242,10 @@ class NetView(gtk.HPaned):
 
             sw = gtk.ScrolledWindow()
             sw.add(text_area)
-            vbox = gtk.VBox()
-            vbox.pack_start(sw)
-            vbox.show_all()
+            sw.show_all()
 
             if transition.get_name() == "":
                 label = "Traced values in T" + str(transition.get_id())
             else:
                 label = "Traced values in " + transition.get_name()
-            self.app.window.add_tab(mainwindow.Tab(label, vbox))
+            self.app.window.add_tab(mainwindow.Tab(label, sw))

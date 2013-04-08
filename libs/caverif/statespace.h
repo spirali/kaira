@@ -122,7 +122,7 @@ namespace cass {
 			Node * add_state(State *state);
 			ca::NetDef * get_net_def() { return net_def; }
 		protected:
-			void run_analysis_quit(ca::Output &report);
+			void run_analysis_deadlock(ca::Output &report);
 
 			bool is_known_node(Node *node) const;
 			Node *get_node(HashDigest digest) const;

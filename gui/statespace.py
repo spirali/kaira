@@ -61,9 +61,9 @@ class StatespaceConfig(gtk.VBox):
         vbox = gtk.VBox()
         frame.add(vbox)
 
-        self.analyze_quit = gtk.CheckButton("'Quit' analysis")
-        vbox.pack_start(self.analyze_quit, False, False)
-        self.analyze_quit.set_active(True)
+        self.analyze_deadlock = gtk.CheckButton("Deadlock analysis")
+        vbox.pack_start(self.analyze_deadlock, False, False)
+        self.analyze_deadlock.set_active(True)
 
         self.analyze_cycles = gtk.CheckButton("Detect computation cycles")
         vbox.pack_start(self.analyze_cycles, False, False)
@@ -127,8 +127,8 @@ class StatespaceConfig(gtk.VBox):
             if self.create_dot.get_active():
                 parameters.append("-Vdot")
 
-            if self.analyze_quit.get_active():
-                parameters.append("-Vquit")
+            if self.analyze_deadlock.get_active():
+                parameters.append("-Vdeadlock")
             p.start(parameters)
             self.process = p
             self.stop_button.set_sensitive(True)

@@ -240,7 +240,7 @@ class App:
             if filename is None:
                 return
         r = self._catch_io_error(lambda: report.Report(filename))
-        self.window.add_tab(Tab("Report", report.ReportWidget(r)))
+        self.window.add_tab(Tab("Report", report.ReportWidget(self, r)))
 
     def save_project(self):
         if self.project.get_filename() is None:
