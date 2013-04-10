@@ -135,13 +135,23 @@ class Edge(utils.EqMixin):
         self.check(checker)
 
     def check_edge_out(self, checker):
-        self.check_config(("bulk", "multicast"))
+        self.check_config(("bulk", "multicast", "if"))
         if "bulk" in self.config:
             if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
                 raise utils.PtpException(
                     "'bulk' requires a single variable as main expression",
                     self.get_source())
 
+        if "if" in self.config:
+            if self.config["if"] is None:
+                raise utils.PtpException(
+                    "'if' requires an expression",
+                    self.get_source())
+            decls = self.transition.get_input_decls_with_size(self.get_source())
+            checker.check_expression(self.config["if"],
+                                     decls,
+                                     "bool",
+                                     self.get_source())
         if self.target is not None:
             checker.check_expression(self.target,
                                      self.transition.get_decls(),
@@ -246,6 +256,7 @@ class EdgeInscription(utils.EqMixin):
 
     def is_origin_reader(self):
         return self.edge.is_origin_reader() and self.is_variable()
+
 
 class Place(utils.EqByIdMixin):
 

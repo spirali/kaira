@@ -29,13 +29,23 @@ def analyze_transition(tr):
     used_tokens = []  # [uid]
     variable_sources_out = {} # string -> uid
 
+    def edge_out_weight(edge):
+        # Unconditional edges has higher priority
+        if edge.config.get("if"):
+            return 1
+        else:
+            return 0
 
     for edge in tr.edges_in:
         for name, uid in edge.get_variable_sources().items():
             if name not in variable_sources:
                 variable_sources[name] = uid
 
-    for edge in tr.edges_out:
+    edges_out = tr.edges_out[:]
+    # Sort by weights
+    edges_out.sort(key=edge_out_weight)
+
+    for edge in edges_out:
         for name, uid in edge.get_variable_sources().items():
             if uid is None: # Bulk edge
                 if name not in variable_sources:
@@ -56,7 +66,7 @@ def analyze_transition(tr):
             elif name not in variable_sources_out:
                 variable_sources_out[name] = None
 
-    for edge in tr.edges_out:
+    for edge in edges_out:
         for variable in edge.get_nontoken_variables():
             if variable not in variable_sources and \
                variable not in variable_sources_out:

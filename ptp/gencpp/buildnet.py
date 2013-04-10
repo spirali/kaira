@@ -159,6 +159,11 @@ def write_send_token(builder,
     if reuse_tokens is None:
         reuse_tokens = {}
 
+    if_condition = edge.config.get("if")
+
+    if if_condition:
+        builder.if_begin(if_condition)
+
     if edge.is_local():
         write_lock()
         if edge.is_bulk_edge():
@@ -191,7 +196,7 @@ def write_send_token(builder,
             sendtype = "_multicast"
             target = edge.target
             builder.block_begin()
-        write_unlock()
+
         if trace_send:
             builder.if_begin("$tracelog")
             builder.line("$tracelog->event_send_part1();", target, edge)
@@ -217,9 +222,18 @@ def write_send_token(builder,
                    sendtype, target, edge.id, net_expr, expr)
         if trace_send:
             builder.if_begin("$tracelog")
-            builder.line("$tracelog->event_send_part2({0}, $packer.get_size(), {1.id});", target, edge)
+            builder.line("$tracelog->event_send_part2({0}, $packer.get_size(), {1.id});",
+                target, edge)
             builder.block_end()
         builder.block_end()
+
+    if if_condition:
+        builder.line("}} else {{")
+        for inscription in edge.get_token_inscriptions():
+            if inscription.uid in reuse_tokens:
+               builder.line("delete $token_{0};", reuse_tokens[inscription.uid])
+        builder.block_end()
+
 
 def write_remove_tokens(builder, net_expr, tr):
     builder.block_begin()
