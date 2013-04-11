@@ -269,13 +269,23 @@ class Console(gtk.ScrolledWindow):
         self.textview.create_tag("error", foreground="red")
         self.add(self.textview)
 
+    def scroll_to_end(self):
+        i = self.textview.buffer.get_end_iter()
+        # We move also with selection_bound otherwise click into console causes
+        # causes unwanted selections
+        mark = self.textview.buffer.get_selection_bound()
+        self.textview.buffer.move_mark(mark, i)
+        mark = self.textview.buffer.get_insert()
+        self.textview.buffer.move_mark(mark, i)
+        self.textview.scroll_to_mark(mark, 0)
+
     def write(self, text, tag_name="normal"):
         self.textview.write(text, tag_name)
-        mark = self.textview.buffer.get_mark("insert")
-        self.textview.scroll_to_mark(mark,0.0)
+        self.scroll_to_end()
 
     def write_link(self, text, callback):
         self.textview.write_link(text, callback)
+        self.scroll_to_end()
 
     def reset(self):
         self.textview.reset()
