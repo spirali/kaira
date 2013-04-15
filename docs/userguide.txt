@@ -125,10 +125,64 @@ Hello world
 
 
 
-Basic principles
-----------------
+Syntax
+------
 
+...
 
+Edge
+~~~~
+
+There are two types of edges: 'Input edge' (from a place to a transition) and
+'Output edge' (from a transition to a place).
+Semantics for them is described in the next sections. But arcs of both types have associated expressions
+with the same structure. An edge expression consists of three parts: 'configurations', 'token-expressions' and 'target'. The syntax in EBNF is the following:
+
+--------------------------
+edge-exp ::= [ `[', <configurations>, `]' ], [ <token-expressions> ], [ `@', <target> ] ;
+configurations ::= { <configuration> } ;
+configuration ::= identifier, [ `(', CPP-EXP, `)' ] ;
+token-expressions ::= CPP-EXPR, { `;', CPP-EXPR } ;
+target ::= CPP-EXPR
+identifier ::= { letter or underscope } ;
+--------------------------
+
+Examples of valid edge expressions:
+
+--------------------------
+x + 1
+10;30;40@x*2
+[bulk] y
+[if(x>2), multicast] x1; x2@where
+--------------------------
+
+Input edges
+~~~~~~~~~~~
+
+An 'input edge' is an edge from a place to a transition. Basic properties are:
+
+  - There can be at most one arc between each place and transition
+  - 'target' is not allowed
+  - allowed configurations: 'bulk', 'guard(CPP-EXPR)', 'origin'
+  - 'token-expressions' or 'configurations' has to be nonempty
+
+The most common case is an edge without configurations, hence there are only token-expressions.
+
+--------------------------
+expr1; expr2; ... exprN
+--------------------------
+
+In this case the the transition of the arc can be fired under binding *B* only if there is at least *N* tokens in the place of the and first token in the place's queue is equal to +eval(expr1, B)+, the second token is equal to +eval(expr2, B)+, ... .
+
+Output edges
+~~~~~~~~~~~~
+
+An 'output edge' is an edge from a place to a transition. Basic properties are:
+
+  - There can be an arbitrary number of edges between each place and transition
+  - 'target' is allowed
+  - allowed configurations: 'bulk', 'if(CPP-EXPR)', 'multicast'
+  - 'token-expressions' has to be nonempty.
 
 Simulation
 ----------
