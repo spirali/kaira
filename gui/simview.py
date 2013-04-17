@@ -100,6 +100,9 @@ class SimView(gtk.VBox):
 
         self.netview.set_runinstance(self.simulation.runinstance)
         simulation.set_callback("changed", self._simulation_changed)
+
+        self.button_run_phase12.set_active(True)
+        self.button_auto_receive.set_active(True)
         self.show_all()
 
     def get_fire_phases(self):
