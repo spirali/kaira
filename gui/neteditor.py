@@ -342,7 +342,7 @@ class NetList(ObjectTree):
 
     def __init__(self, project, neteditor):
         defs = [("_", object), ("Network|markup", str)]
-        ObjectTree.__init__(self, defs, has_context_menu = True)
+        ObjectTree.__init__(self, defs, has_context_menu=True)
         self.hide_headers()
         self.project = project
         self.neteditor = neteditor

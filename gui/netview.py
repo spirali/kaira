@@ -149,10 +149,19 @@ class NetViewCanvasConfig(cconfig.NetCanvasConfig):
 
 class NetView(gtk.HPaned):
 
-    def __init__(self, app, config=None):
+    def __init__(self, app, config=None, other_tabs=None):
         gtk.HPaned.__init__(self)
         self.app = app
-        self.pack1(self._perspectives(), False)
+        if other_tabs:
+            notebook = gtk.Notebook()
+
+            notebook.append_page(self._perspectives(), gtk.Label("Views"))
+            for name, widget in other_tabs:
+                notebook.append_page(widget, gtk.Label(name))
+            self.perspectives.hide_headers()
+            self.pack1(notebook)
+        else:
+            self.pack1(self._perspectives(), False)
         self.config = config
         self.canvas = Canvas(self.config, zoom=1)
         self.pack2(self.canvas, True)

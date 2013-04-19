@@ -23,6 +23,7 @@ import random
 from loader import load_project_from_xml
 from events import EventSource
 from runinstance import RunInstance
+import controlseq
 
 import utils
 
@@ -38,29 +39,38 @@ class Simulation(EventSource):
     project = None
     process_count = None
     quit_on_shutdown = False
+    init_control_sequence = None
 
     def __init__(self):
         EventSource.__init__(self)
         self.random = random.Random()
         self.running = True
         self.runinstance = None
+        self.sequence = controlseq.ControlSequence()
 
     def connect(self, host, port):
+        def inited():
+            self.emit_event("inited")
+            if self.init_control_sequence:
+                self.run_sequence(self.init_control_sequence)
+
         def connected(stream):
             self.controller = controller
             self.read_header(stream)
-            self.query_reports(lambda: self.emit_event("inited"))
-        connection = process.Connection(host, port, exit_callback = self.controller_exit, connect_callback = connected)
+            self.query_reports(inited)
+        connection = process.Connection(
+            host,
+            port,
+            exit_callback=self.controller_exit,
+            connect_callback=connected)
         controller = process.CommandWrapper(connection)
         controller.start()
 
     def controller_exit(self, message):
         if message:
             self.emit_event("error", message + "\n")
-
         if self.controller:
             self.emit_event("error", "Traced process terminated\n")
-
         self.controller = None
 
     def shutdown(self):
@@ -137,10 +147,32 @@ class Simulation(EventSource):
         else:
             return True
 
+    def run_sequence(self, sequence):
+        transitions = {}
+        for t in self.runinstance.net.transitions():
+            transitions[t.get_name()] = t
+
+        def fire(process_id, thread_id, transition):
+            t = transitions.get(transition)
+            if t is None:
+                 raise SimulationException("Transition not found")
+            self.fire_transition(t.id, process_id, 1, query_reports=False)
+
+        def finish(process_id, thread_id):
+            self.finish_transition(process_id, thread_id, query_reports=False)
+
+        def receive(process_id, thread_id, from_process):
+            self.receive(process_id, from_process, query_reports=False)
+
+        sequence.execute(fire, finish, receive)
+        self.query_reports()
+
     def receive(self, process_id, origin_id, query_reports=True):
         if self.controller:
             command = "RECEIVE {0} {1}".format(process_id, origin_id)
-            self.controller.run_command_expect_ok(command)
+            self.controller.run_command_expect_ok(
+                command,
+                lambda: self.sequence.add_receive(process_id, 0, origin_id))
             if query_reports:
                 self.query_reports()
 
@@ -155,14 +187,25 @@ class Simulation(EventSource):
                     self.receive(i, j, query_reports=False)
         self.query_reports()
 
-    def fire_transition(self, transition_id, process_id, phases, callback=None):
+    def fire_transition(self, transition_id, process_id, phases, callback=None, query_reports=True):
+        transition = self.project.get_item(transition_id)
+
+        def fire_callback():
+            self.sequence.add_fire(process_id, 0, transition.get_name())
+            if transition.has_code() and phases == 2:
+                self.sequence.add_finish(process_id, 0)
+
         if self.controller and self.check_running():
             command = "FIRE {0} {1} {2}".format(transition_id, process_id, phases)
-            self.controller.run_command_expect_ok(command)
-            self.query_reports(callback)
+            self.controller.run_command_expect_ok(command, fire_callback)
+            if query_reports:
+                self.query_reports(callback)
 
-    def finish_transition(self, transition_id, process_id, thread_id, callback=None):
+    def finish_transition(self, process_id, thread_id, callback=None, query_reports=True):
         if self.controller and self.check_running():
-            command = "FINISH {0} {1} {2}".format(transition_id, process_id, thread_id)
-            self.controller.run_command_expect_ok(command)
-            self.query_reports(callback)
+            command = "FINISH {0} {1}".format(process_id, thread_id)
+            self.controller.run_command_expect_ok(
+                command,
+                lambda: self.sequence.add_finish(process_id, thread_id))
+            if query_reports:
+                self.query_reports(callback)

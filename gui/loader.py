@@ -25,6 +25,7 @@ import os
 
 from project import Parameter
 import projectcpp
+import controlseq
 
 projects = [
     projectcpp.ProjectCpp,
@@ -53,7 +54,8 @@ def load_project_from_xml(root, filename):
         load_configuration(root.find("configuration"), project, loader)
     for e in root.findall("net"):
         project.add_net(load_net(e, project, loader))
-
+    for e in root.findall("sequence"):
+        project.sequences.append(controlseq.ControlSequence(element=e))
     if project.get_main_net() is not None:
         project.simulator_net = project.get_main_net()
     elif project.get_tests():
