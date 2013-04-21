@@ -44,8 +44,11 @@ def draw_round_rectangle(cr, px, py, sx, sy, radius):
     cr.close_path()
 
 def draw_centered_text(cr, px, py, text):
+    draw_align_text(cr, px, py, text, 0.5, 0.5)
+
+def draw_align_text(cr, px, py, text, align_x, align_y):
     tx, ty = utils.text_size(cr, text)
-    cr.move_to(px - tx / 2, py + ty / 2)
+    cr.move_to(px - tx * align_x, py + ty * align_y)
     cr.show_text(text)
 
 def draw_arrow(cr, dir_vector, arrow_degrees, arrow_len):

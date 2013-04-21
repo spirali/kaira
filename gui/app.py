@@ -227,7 +227,8 @@ class App:
 
     def load_tracelog(self, filename=None):
         if filename is None:
-            filename = self.run_file_dialog("Open tracelog", "open", "Tracelog header", "*.kth")
+            filename = self.run_file_dialog(
+                "Open tracelog", "open", "Tracelog header", "*.kth")
             if filename is None:
                 return
         t = self._catch_io_error(lambda: TraceLog(filename))

@@ -116,12 +116,11 @@ class Net : public NetBase {
 		virtual NetDef *get_def() { return def; }
 
 		Transition * pick_active_transition();
-		bool has_active_transition() { return !actives.empty(); }
-
-		void activate_transition(Transition *tr);
 
 		void activate_all_transitions();
-		void activate_transition_by_pos_id(int pos_id);
+		void activate_transition_by_pos_id(int pos_id) {
+			transitions[pos_id].set_active(true);
+		}
 
 		bool is_something_enabled(Thread *thread);
 
@@ -133,7 +132,6 @@ class Net : public NetBase {
 
 	protected:
 		NetDef *def;
-		std::queue<Transition*> actives;
 		int running_transitions;
 		pthread_mutex_t *mutex;
 		Transition *transitions;

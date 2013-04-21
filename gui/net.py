@@ -281,17 +281,20 @@ class NetItem(object):
         items = self.get_canvas_items_dict()
         for name in messages:
             item = items.get(name)
-            if item:
-                position = utils.vector_add(item.get_position(), item.size)
-                position = utils.vector_add(position, (10, 0))
-                placement = item.get_relative_placement(position)
-                error_item = citems.Text(None, "error", placement)
-                error_item.delegate_selection = item
-                error_item.background = (255, 0, 0)
-                error_item.border = True
-                error_item.z_level = 20
-                error_item.text = messages[name][0]
-                result.append(error_item)
+            if item is None:
+                # Key was not found, take first item
+                # For transition/place it is expected that "box" is returned
+                item = self.get_canvas_items()[0]
+            position = utils.vector_add(item.get_position(), item.size)
+            position = utils.vector_add(position, (10, 0))
+            placement = item.get_relative_placement(position)
+            error_item = citems.Text(None, "error", placement)
+            error_item.delegate_selection = item
+            error_item.background = (255, 0, 0)
+            error_item.border = True
+            error_item.z_level = 20
+            error_item.text = messages[name][0]
+            result.append(error_item)
         return result
 
 
@@ -355,9 +358,18 @@ class Transition(NetElement):
 
     def __init__(self, net, id, position):
         NetElement.__init__(self, net, id, position)
-
         p = (position[0], position[1] - 20)
         self.guard = citems.Text(self, "guard", self.box.get_relative_placement(p))
+
+    def get_priority(self):
+        return self.box.corner_text
+
+    def set_priority(self, priority):
+        self.box.corner_text = priority
+        self.changed()
+
+    def get_priroty(self):
+        return self.box.corner_text
 
     def get_canvas_items(self):
         return [ self.box, self.guard ]
@@ -385,6 +397,7 @@ class Transition(NetElement):
     def as_xml(self):
         e = self.create_xml_element("transition")
         e.set("name", self.box.name)
+        e.set("priority", self.get_priority())
         position = self.box.get_position()
         e.set("x", str(position[0]))
         e.set("y", str(position[1]))
@@ -407,6 +420,8 @@ class Transition(NetElement):
         e = self.create_xml_element("transition")
         e.set("name", self.box.name)
         e.set("guard", self.guard.text)
+        e.set("priority", self.get_priority())
+
         if self.has_code():
             e.append(self.xml_code_element())
 
@@ -424,7 +439,8 @@ class Transition(NetElement):
 
     def get_text_entries(self):
         return [ ("Name", self.get_name, self.set_name),
-                ("Guard", self.get_guard, self.set_guard) ]
+                 ("Guard", self.get_guard, self.set_guard),
+                 ("Priority", self.get_priroty, self.set_priority) ]
 
 
 class Place(NetElement):
@@ -883,6 +899,7 @@ def load_transition(element, net, loader):
         transition.guard.text = element.get("guard", "") # Backward compatability
     transition.set_code(load_code(element))
     transition.tracing = load_tracing(element)
+    transition.set_priority(element.get("priority", ""))
 
 def load_edge(element, net, loader):
     id = loader.get_id(element)

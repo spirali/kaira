@@ -20,6 +20,7 @@
 
 import math
 import os
+import re
 
 def empty_fn(*args, **kwords):
 	pass
@@ -372,6 +373,10 @@ def merge_bounding_boxes(box1, box2):
     c2 = (max(a2[0], b2[0]),
           max(a2[1], b2[1]))
     return (c1, c2)
+
+integer_parser = re.compile("\d+")
+def is_integer(value):
+    return bool(integer_parser.match(value))
 
 class EqMixin(object):
 

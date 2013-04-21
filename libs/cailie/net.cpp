@@ -79,23 +79,18 @@ Net::~Net()
 void Net::activate_all_transitions()
 {
 	for (int t = 0; t < def->get_transitions_count(); t++) {
-		activate_transition(&transitions[t]);
+		transitions[t].set_active(true);
 	}
-}
-
-void Net::activate_transition_by_pos_id(int pos_id)
-{
-	activate_transition(&transitions[pos_id]);
 }
 
 Transition * Net::pick_active_transition()
 {
-	if (actives.empty()) {
-		return NULL;
+	for (int t = 0; t < def->get_transitions_count(); t++) {
+		if (transitions[t].is_active()) {
+			return &transitions[t];
+		}
 	}
-	Transition *tr = actives.front();
-	actives.pop();
-	return tr;
+	return NULL;
 }
 
 int Net::fire_transition(Thread *thread, int transition_id)
@@ -121,14 +116,4 @@ bool Net::is_something_enabled(Thread *thread)
 		}
 	}
 	return false;
-}
-
-void Net::activate_transition(Transition *tr)
-{
-			if (tr->is_active()) {
-				return;
-			}
-			CA_DLOG("Transition activated id=%i\n", tr->id);
-			tr->set_active(true);
-			actives.push(tr);
 }

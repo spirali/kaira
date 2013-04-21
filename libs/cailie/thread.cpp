@@ -109,7 +109,6 @@ void Thread::run_scheduler()
 	bool in_idle = false;
 	while(!process->quit_flag) {
 		process_messages();
-
 		Net *n = process->get_net();
 		if (n == NULL) {
 			continue;
@@ -129,13 +128,13 @@ void Thread::run_scheduler()
 			continue;
 		}
 	    in_idle = false;
-		tr->set_active(false);
 		CA_DLOG("Transition tried id=%i process=%i thread=%i\n",
 				 tr->id, get_process_id(), id);
 		int res = tr->full_fire(this, n);
 		if (res == NOT_ENABLED) {
-			CA_DLOG("Transition is dead id=%i process=%i thread=%i\n",
+			CA_DLOG("Transition is not enabled id=%i process=%i thread=%i\n",
 					 tr->id, get_process_id(), id);
+			tr->set_active(false);
 			n->unlock();
 		}
 	}

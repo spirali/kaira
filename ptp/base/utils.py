@@ -17,6 +17,8 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import re
+
 class PtpException(Exception):
 
     def __init__(self, message, source=None):
@@ -189,4 +191,6 @@ def get_source_path(id, name):
 def first(lst):
     return lst[0]
 
-
+integer_parser = re.compile("[-+]?\d+")
+def is_integer(value):
+    return bool(integer_parser.match(value))

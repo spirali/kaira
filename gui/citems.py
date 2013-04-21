@@ -128,6 +128,7 @@ class ElementBox(CanvasItem):
     text = ""
     action = "move"
     name = ""
+    corner_text = ""
 
     def __init__(self, owner, kind, placement, size, radius):
         CanvasItem.__init__(self, owner, kind, placement)
@@ -155,7 +156,7 @@ class ElementBox(CanvasItem):
             cr.stroke()
 
         drawing.draw_round_rectangle(cr, px, py, sx, sy, self.radius)
-        cr.set_line_width(1.5)
+        cr.set_line_width(1.2)
         cr.set_source_rgb(*color)
         cr.stroke()
 
@@ -163,9 +164,15 @@ class ElementBox(CanvasItem):
             if self.radius > 3:
                 drawing.draw_round_rectangle(cr, px, py, sx, sy, self.radius - 3.5)
             else:
-                drawing.draw_round_rectangle(cr, px + 4, py + 4, sx - 8, sy - 8, self.radius)
+                drawing.draw_round_rectangle(cr, px + 3, py + 3, sx - 6, sy - 6, self.radius)
             cr.stroke()
         drawing.draw_centered_text(cr, px + sx / 2, py + sy / 2, self.name)
+        if self.corner_text:
+            shift = 6 if self.doubleborder else 3
+            cr.save()
+            cr.set_font_size(8)
+            drawing.draw_align_text(cr, px + sx - shift, py + shift, self.corner_text, 1, 1)
+            cr.restore()
 
     def is_at_position(self, position):
         return utils.is_in_round_rectangle(

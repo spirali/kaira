@@ -183,6 +183,15 @@ def load_transition(element, project, net):
     if element.find("code") is not None:
         transition.code = element.find("code").text
     transition.tracing = load_tracing(element)
+
+    priority = element.get("priority").strip()
+    if priority == "":
+        transition.priority = 0
+    elif utils.is_integer(priority):
+        transition.priority = int(priority)
+    else:
+        raise utils.PtpException("Priority has to be integer or empty",
+                                 get_source(element, "priority"))
     return transition
 
 def load_place_tracing(element):
@@ -216,14 +225,18 @@ def load_net(element, project):
 
 def load_net_content(element, project, net):
     net.places = [ load_place(e, project, net) for e in element.findall("place") ]
-    net.transitions = [ load_transition(e, project, net) for e in element.findall("transition") ]
+    net.transitions = [ load_transition(e, project, net)
+                        for e in element.findall("transition") ]
+    net.transitions.sort(key=lambda t: t.priority, reverse=True)
     net.areas = [ load_area(e, project, net) for e in element.findall("area") ]
 
     interface = element.find("interface")
     if interface is not None:
         net.module_flag = True
-        net.interface_edges_out = [ load_edge_out(e, net, None) for e in interface.findall("edge-out") ]
-        net.interface_edges_in = [ load_edge_in(e, net, None) for e in interface.findall("edge-in") ]
+        net.interface_edges_out = [ load_edge_out(e, net, None)
+                                    for e in interface.findall("edge-out") ]
+        net.interface_edges_in = [ load_edge_in(e, net, None)
+                                   for e in interface.findall("edge-in") ]
 
 def load_parameter(element, project):
     name = utils.xml_str(element, "name")

@@ -36,15 +36,8 @@ class BuildTest(unittest.TestCase):
     def test_bidirection(self):
         Project("bidirection").quick_test("11\n12\n13\n")
 
-    def test_scheduler(self):
-        def check(output):
-            d = { "First" : 0, "Second" : 0 }
-            for line in output.split("\n"):
-                if line:
-                    d[line] += 1
-            self.assertTrue(d["First"] > 220)
-            self.assertTrue(d["Second"] > 220)
-        Project("scheduler").quick_test(result_fn=check, processes=10)
+    def test_priorities(self):
+        Project("priorities").quitck_test("C\nB\nB\nB\nB\nB\nB\nB\nB\nB\nB\n")
 
     def test_workers(self):
         def check_output(output):
