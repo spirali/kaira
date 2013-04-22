@@ -3,6 +3,8 @@
 #define CAILIE_LISTENER_H
 
 #include <pthread.h>
+#include <string>
+#include <vector>
 #include "state.h"
 
 namespace ca {
@@ -34,6 +36,7 @@ class Listener {
 		pthread_t thread;
 		pthread_barrier_t *start_barrier;
 		State *state;
+		std::vector<std::string> sequence;
 };
 
 }

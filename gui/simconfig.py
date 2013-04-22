@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2011 Stanislav Bohm
+#    Copyright (C) 2011, 2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -18,11 +18,13 @@
 #
 
 import gtk
+import gtkutils
 
 class SimConfig:
 
-    process_count = 2
+    process_count = 4
     parameters_values = None
+    sequence = None
 
     def reset_param_values(self):
         self.parameters_values = None
@@ -33,6 +35,7 @@ class SimConfig:
     def set_process_count(self, value):
         self.process_count = value
 
+
 class SimConfigDialog(gtk.Dialog):
     """
         This dialog is used when the simulation needs to know values of parameters
@@ -40,6 +43,7 @@ class SimConfigDialog(gtk.Dialog):
 
     def __init__(self, parent, project):
         gtk.Dialog.__init__(self, "Parameters configuration", parent)
+        self.table_index = 1
         self.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
         self.ok_button = self.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
         self.ok_button.set_sensitive(False)
@@ -51,19 +55,25 @@ class SimConfigDialog(gtk.Dialog):
         self.entries = {}
         self.vbox.pack_start(self.table)
 
-        self.processes_entry = self._add_entry(0,
-                                               "<b>Processes</b>",
+        self.processes_entry = self._add_entry("<b>Processes</b>",
                                                str(project.simconfig.process_count))
-        self.table_index = 1
         parameters = [ parameter for parameter in project.get_parameters()
                                  if parameter.is_editable() ]
-        values = project.get_simconfig().parameters_values
-        for i, p in enumerate(parameters):
-            if values:
-                value = values.get(p.name)
-            else:
-                value = None
-            self._add_parameter(i + 1, p, value)
+        if parameters:
+            self._add_separator()
+            values = project.get_simconfig().parameters_values
+            for i, p in enumerate(parameters):
+                if values:
+                    value = values.get(p.name)
+                else:
+                    value = None
+                self._add_parameter(p, value)
+
+        self._add_separator()
+        sequences = [ (None, "<None>") ] + [ (s, s.name) for s in project.sequences ]
+        self.sequences_box = gtkutils.SimpleComboBox(sequences)
+        self.sequences_box.set_object(project.get_simconfig().sequence)
+        self._add_widget("Sequence", self.sequences_box)
 
         self.table.show_all()
         self._entry_changed(None)
@@ -74,27 +84,37 @@ class SimConfigDialog(gtk.Dialog):
         for e in self.entries:
             result[e] = self.entries[e].get_text()
         simconfig.set_param_values(result)
+        simconfig.sequence = self.sequences_box.get_object()
 
         if self.processes_entry:
             p = int(self.processes_entry.get_text())
             simconfig.set_process_count(p)
 
-    def _add_entry(self, table_index, name, default_value):
-        label = gtk.Label()
-        label.set_markup(name)
-        self.table.attach(label, 0, 1, table_index, table_index + 1)
+    def _add_separator(self):
+        self.table.attach(gtk.HSeparator(), 0, 2, self.table_index, self.table_index + 1)
+        self.table_index += 1
+
+    def _add_widget(self, name, widget):
+        if name is not None:
+            label = gtk.Label()
+            label.set_markup(name)
+            self.table.attach(label, 0, 1, self.table_index, self.table_index + 1)
+        self.table.attach(widget, 1, 2, self.table_index, self.table_index + 1)
+        self.table_index += 1
+
+    def _add_entry(self, name, default_value):
         entry = gtk.Entry()
-        self.table.attach(entry, 1, 2, table_index, table_index + 1)
+        self._add_widget(name, entry)
         entry.set_text(default_value)
         entry.connect("changed", self._entry_changed)
         entry.set_activates_default(True)
         return entry
 
-    def _add_parameter(self, table_index, param, value):
+    def _add_parameter(self, param, value):
         name = "{0} ({1})".format(param.name, param.type)
         if value is None:
             value = param.default
-        self.entries[param.name] = self._add_entry(table_index, name, value)
+        self.entries[param.name] = self._add_entry(name, value)
 
     def _entry_changed(self, w):
         ok = all([ entry.get_text().strip() for entry in self.entries.values() ])

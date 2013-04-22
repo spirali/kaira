@@ -45,6 +45,8 @@ import codetests
 import report
 import statespace
 import utils
+import controlseq
+from copy import copy
 
 VERSION_STRING = '0.6'
 
@@ -330,6 +332,14 @@ class App:
                                     "codetests",
                                     mainmenu_groups=()))
 
+    def edit_control_sequences(self):
+        if self.window.switch_to_tab_by_key("sequences"):
+            return
+        widget = controlseq.SequenceListWidget(self.project)
+        self.window.add_tab(Tab(
+            "Sequences", widget, "sequences",
+            mainmenu_groups=("project",), call_close=True))
+
     def transition_edit(self, transition, lineno=None):
         position = ("", lineno) if lineno is not None else None
 
@@ -436,7 +446,7 @@ class App:
             return None, None
         return sprocess, port
 
-    def simulation_start(self, valgrind = False):
+    def simulation_start(self, valgrind=False):
         def project_builded():
             sprocess, port = self.run_simulated_program(
                 build_config.get_executable_filename(),
@@ -446,6 +456,7 @@ class App:
             if sprocess is None:
                 return
             simulation = self.new_simulation()
+            simulation.init_control_sequence = simconfig.sequence
             simulation.quit_on_shutdown = True
             simulation.set_callback(
                 "inited",

@@ -189,6 +189,7 @@ class MainWindow(gtk.Window):
         menu.append(gtk.SeparatorMenuItem())
         add("Edit _project details", self.app.project_config, "project")
         add("Edit _head code", self.app.edit_head, "project")
+        add("Edit control se_qencies", self.app.edit_control_sequences, "project")
         add("Edit _tests", self.app.edit_code_tests, "project")
         menu.append(gtk.SeparatorMenuItem())
         add("Edit _settings", self.app.edit_settings)
@@ -300,12 +301,14 @@ class Tab:
                  widget,
                  key=None,
                  mainmenu_groups=(),
-                 has_close_button=True):
+                 has_close_button=True,
+                 call_close=False):
         self.name = name
         self.widget = widget
         self.key = key
         self.mainmenu_groups = mainmenu_groups
         self.close_button = has_close_button
+        self.call_close = call_close
 
     def get_widget(self):
         return self.widget
@@ -320,6 +323,8 @@ class Tab:
         return self.close_button
 
     def close(self):
+        if self.call_close:
+            self.widget.close()
         self.window.close_tab(self)
 
     def project_save(self):

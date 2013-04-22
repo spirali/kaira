@@ -1,7 +1,8 @@
 
 def build(ctx):
-    ctx(rule="${ASCIIDOC} "
-             "-b html5 -a toc2 -a theme=volnitsky "
-             "-o ${TGT} ${SRC[0].abspath()}",
-        source="userguide.txt",
-        target="userguide.html")
+    if ctx.env.HAVE_DOC:
+        ctx(rule="${ASCIIDOC} "
+                 "-b html5 -a toc2 -a theme=volnitsky "
+                 "-o ${TGT} ${SRC[0].abspath()}",
+            source="userguide.txt",
+            target="userguide.html")

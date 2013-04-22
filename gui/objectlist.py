@@ -22,7 +22,7 @@ import gtk
 
 class ObjectContainer(gtk.VBox):
 
-    def __init__(self, container, buttons = None, has_context_menu = False):
+    def __init__(self, container, buttons=None, has_context_menu=False):
         gtk.VBox.__init__(self)
 
         if buttons:
@@ -31,7 +31,7 @@ class ObjectContainer(gtk.VBox):
 
             for (name, stock, callback) in buttons:
                 if name is None:
-                    button = gtk.Button(stock = stock)
+                    button = gtk.Button(stock=stock)
                 else:
                     button = gtk.Button(name)
                 button.connect("clicked", self._callback(callback))
@@ -55,7 +55,7 @@ class ObjectContainer(gtk.VBox):
         self.show_all()
 
     def hide_headers(self):
-        self.container.view.set_headers_visible(False)
+        self.container.hide_headers()
 
     def _callback(self, callback):
         return lambda w: callback(self.container.get_selection(0))
@@ -67,9 +67,12 @@ class ObjectContainer(gtk.VBox):
         i = self.container.find(obj, 0)
         if i is not None:
             self.container.select_iter(i)
+        else:
+            self.select_first()
 
     def select_first(self):
-        self.container.select_first()
+        if not self.container.select_first():
+            self.cursor_changed(None)
 
     def get_and_remove_selected(self):
         return self.container.get_and_remove_selection(0)

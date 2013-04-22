@@ -52,6 +52,7 @@ def configure(ctx):
 
     if not ctx.options.disable_doc:
         ctx.find_program("asciidoc", var="ASCIIDOC")
+    ctx.env.HAVE_DOC = not ctx.options.disable_doc
 
     if not ctx.options.disable_mpi:
         if ctx.options.icc:

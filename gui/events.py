@@ -25,7 +25,7 @@ class EventCallback:
         self.callback = callback
 
     def remove(self):
-        self.source.remove(self.event_name, self.callback)
+        self.source.remove_callback(self.event_name, self.callback)
 
 class EventCallbacksList:
 
@@ -57,7 +57,7 @@ class EventSource:
     def event_emitter(self, event_name):
         return lambda *x: self.emit_event(event_name, *x)
 
-    def remove(self, event_name, callback):
+    def remove_callback(self, event_name, callback):
         self.__callbacks[event_name].remove(callback)
         if not self.__callbacks[event_name]:
             del self.__callbacks[event_name]

@@ -237,18 +237,18 @@ namespace ca {
 				finish_transition(activations.begin() + i);
 			}
 
-			void finish_transition(int transition_id, int process_id, int thread_id)
+			bool finish_transition(int process_id, int thread_id)
 			{
 				int t;
 				typename Activations::iterator i;
 				for (i = activations.begin(); i != activations.end(); i++) {
 					if (i->process_id == process_id &&
-						i->thread_id == i->thread_id &&
-						i->transition_def->get_id() == transition_id) {
+						i->thread_id == i->thread_id) {
 							finish_transition(i);
-							return;
+							return true;
 						}
 				}
+				return false;
 			}
 
 			NetDef* get_net_def() { return net_def; }

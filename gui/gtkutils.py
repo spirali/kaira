@@ -78,12 +78,36 @@ def radio_buttons(items, select_key, box, callback):
         if key == select_key:
             button.set_active(True)
 
+class SimpleComboBox(gtk.ComboBox):
+
+    def __init__(self, values):
+        store = gtk.ListStore(object, str)
+        gtk.ComboBox.__init__(self, store)
+        self.values = values
+        for v in values:
+            store.append(v)
+        cell = gtk.CellRendererText()
+        self.pack_start(cell, True)
+        self.add_attribute(cell, 'text', 1)
+        if v:
+            self.set_active(0)
+
+    def get_object(self):
+        return self.values[self.get_active()][0]
+
+    def set_object(self, obj):
+        for i, (o, name) in enumerate(self.values):
+            if o == obj:
+                self.set_active(i)
+                return
+
 class SimpleListBase(gtk.ScrolledWindow):
 
     def __init__(self, columns, store_class):
         """ Columns list of tuples: (name, type) """
         gtk.ScrolledWindow.__init__(self)
         self.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        self.set_shadow_type(gtk.SHADOW_ETCHED_OUT)
 
         self.store = store_class(*[ c[1] for c in columns ])
         self.view = gtk.TreeView(self.store)
@@ -160,10 +184,17 @@ class SimpleListBase(gtk.ScrolledWindow):
         i = self.store.get_iter_first()
         if i is not None:
             self.select_iter(i)
+            return True
+        else:
+            return False
 
     def fill(self, rows):
         for row in rows:
             self.append(row)
+
+    def hide_headers(self):
+        self.view.set_headers_visible(False)
+
 
 class SimpleList(SimpleListBase):
 

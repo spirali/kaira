@@ -42,6 +42,15 @@ static int init_listen_socket(int port)
 	return sock;
 }
 
+void write_status(FILE *out, bool status)
+{
+	if (status) {
+		fprintf(out, "Ok\n");
+	} else {
+		fprintf(out, "No\n");
+	}
+}
+
 int Listener::get_port()
 {
 	// If -s was "auto" then print port number at stdout
@@ -203,12 +212,13 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 				fprintf(comm_out, "Invalid transition\n");
 				continue;
 			}
+			bool result;
 			if (phases == 1) {
-				state->fire_transition_phase1(process_id, transition_def);
+				result = state->fire_transition_phase1(process_id, transition_def);
 			} else {
-				state->fire_transition_full(process_id, transition_def);
+				result = state->fire_transition_full(process_id, transition_def);
 			}
-			fprintf(comm_out, "Ok\n");
+			write_status(comm_out, result);
 			continue;
 		}
 
@@ -217,15 +227,14 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 				fprintf(comm_out, "Process is terminated\n");
 				continue;
 			}
-			int transition_id;
 			int process_id;
 			int thread_id;
-			if (3 != sscanf(line, "FINISH %i %i %i", &transition_id, &process_id, &thread_id)) {
+			if (2 != sscanf(line, "FINISH %i %i", &process_id, &thread_id)) {
 				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
-			state->finish_transition(transition_id, process_id, thread_id);
-			fprintf(comm_out, "Ok\n");
+			bool result = state->finish_transition(process_id, thread_id);
+			write_status(comm_out, result);
 			continue;
 		}
 
@@ -233,11 +242,11 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 			int process_id;
 			int origin_id;
 			if (2 != sscanf(line, "RECEIVE %i %i", &process_id, &origin_id)) {
-				fprintf(comm_out, "XInvalid parameters\n");
+				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
-			state->receive(process_id, origin_id);
-			fprintf(comm_out, "Ok\n");
+			bool result = state->receive(process_id, origin_id);
+			write_status(comm_out, result);
 			continue;
 		}
 

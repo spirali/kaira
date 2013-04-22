@@ -28,7 +28,10 @@ from simconfig import SimConfig
 
 class Project(EventSource):
     """
-        Events: changed, netlist_changed filename_changed
+        Events: changed,
+                netlist_changed,
+                filename_changed,
+                sequences_changed
     """
 
     def __init__(self, file_name):
@@ -38,6 +41,7 @@ class Project(EventSource):
         self.set_filename(file_name)
         self.nets = []
         self.parameters = []
+        self.sequences = []
         self.simconfig = SimConfig()
         self.error_messages = {}
         self.generator = None # PTP generator
@@ -129,6 +133,14 @@ class Project(EventSource):
         net.set_change_callback(self._net_changed)
         self.emit_event("netlist_changed")
 
+    def add_sequence(self, sequence):
+        self.sequences.append(sequence)
+        self.emit_event("sequences_changed")
+
+    def remove_sequence(self, sequence):
+        self.sequences.remove(sequence)
+        self.emit_event("sequences_changed")
+
     def find_net(self, id):
         for net in self.nets:
             if net.id == id:
@@ -218,6 +230,8 @@ class Project(EventSource):
         root.append(self._configuration_element(False))
         for net in self.nets:
             root.append(net.as_xml())
+        for sequence in self.sequences:
+            root.append(sequence.as_xml())
         return root
 
     def save(self):

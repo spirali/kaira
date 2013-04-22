@@ -21,6 +21,8 @@
 import gtk
 import gtkutils
 import mainwindow
+import controlseq
+from copy import copy
 from netview import NetView, NetViewCanvasConfig
 
 class SimViewTab(mainwindow.Tab):
@@ -49,8 +51,7 @@ class SimCanvasConfig(NetViewCanvasConfig):
                 callback = lambda: self.simulation.receive_all()
             else:
                 callback = None
-            self.simulation.finish_transition(
-                transition.id, process_id, thread_id, callback)
+            self.simulation.finish_transition(process_id, thread_id, callback)
         elif item.kind == "packet" and item.packet_data is not None:
             process_id, origin_id = item.packet_data
             self.simulation.receive(process_id, origin_id)
@@ -90,8 +91,7 @@ class SimView(gtk.VBox):
         self.simulation = simulation
 
         self.pack_start(self._toolbar(), False, False)
-
-        self.netview = NetView(app, None)
+        self.netview = NetView(app, None, other_tabs=(("History", self._history()),))
         self.config = SimCanvasConfig(self.netview)
         self.config.simulation = simulation
         self.config.simview = self
@@ -100,6 +100,9 @@ class SimView(gtk.VBox):
 
         self.netview.set_runinstance(self.simulation.runinstance)
         simulation.set_callback("changed", self._simulation_changed)
+
+        self.button_run_phase12.set_active(True)
+        self.button_auto_receive.set_active(True)
         self.show_all()
 
     def get_fire_phases(self):
@@ -107,6 +110,29 @@ class SimView(gtk.VBox):
             return 1
         else:
             return 2
+
+    def save_sequence(self):
+        if self.app.project is None:
+            self.app.show_error_dialog("Project is not opened")
+            return
+        if self.simulation.sequence.name is None:
+            self.simulation.sequence.name = "Sequence"
+        if controlseq.sequence_dialog(self.simulation.sequence, self.app.window):
+            self.app.project.add_sequence(self.simulation.sequence.copy())
+
+    def _history(self):
+        box = gtk.VBox()
+
+        self.sequence_view = controlseq.SequenceView()
+        self.sequence_view.set_size_request(130, 100)
+        self.simulation.sequence.view = self.sequence_view
+        box.pack_start(self.sequence_view, True, True)
+
+        button = gtk.Button("Save sequence")
+        button.connect("clicked", lambda w: self.save_sequence())
+        box.pack_start(button, False, False)
+
+        return box
 
     def _simulation_changed(self):
         self.netview.set_runinstance(self.simulation.runinstance)
