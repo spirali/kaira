@@ -156,8 +156,14 @@ namespace ca {
 					if (get_idle_thread(i) != -1) {
 						const std::vector<TransitionDef*>& transitions = \
 							net_def->get_transition_defs();
+						bool enabled = false;
 						for (int t = 0; t < transitions.size(); t++) {
+							if (enabled && transitions[t - 1]->get_priority() !=
+									transitions[t]->get_priority()) {
+								break;
+							}
 							if (transitions[t]->is_enable(&thread, nets[i])) {
+								enabled = true;
 								output.child("enabled");
 								output.set("id", transitions[t]->get_id());
 								output.back();

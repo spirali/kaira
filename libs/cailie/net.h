@@ -25,10 +25,11 @@ typedef NetBase * (SpawnFn)(ThreadBase *, NetDef *);
 
 class TransitionDef {
 	public:
-		TransitionDef(int id, bool immediate) : id(id), immediate(immediate) {}
+		TransitionDef(int id, bool immediate, int priority) : id(id), immediate(immediate), priority(priority) {}
 		virtual ~TransitionDef() {}
 		int get_id() { return id; }
 		int is_immediate() { return immediate; }
+		int get_priority() { return priority; }
 		virtual FireResult full_fire(ThreadBase *thread, NetBase *net) = 0;
 		virtual void* fire_phase1(ThreadBase *thread, NetBase *net) = 0;
 		virtual void fire_phase2(ThreadBase *thread, NetBase *net, void *data) = 0;
@@ -38,6 +39,7 @@ class TransitionDef {
 	protected:
 		int id;
 		bool immediate;
+		int priority;
 };
 
 class Transition {
@@ -48,6 +50,7 @@ class Transition {
 		bool is_active() { return active; }
 		void set_active(bool value) { active = value; }
 		int get_id() { return def->get_id(); }
+		int get_priority() { return def->get_priority(); }
 
 		int full_fire(ThreadBase *thread, NetBase *net) {
 			return def->full_fire(thread, net);

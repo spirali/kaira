@@ -80,8 +80,10 @@ def write_transition_forward(builder, tr):
     builder.write_class_head(class_name, "ca::TransitionDef")
     builder.write_constructor(class_name,
                               "",
-                              [ "ca::TransitionDef({0}, {1})".format(
-                                    tr.id, const_boolean(not tr.has_code())) ])
+                              [ "ca::TransitionDef({0}, {1}, {2})".format(
+                                    tr.id,
+                                    const_boolean(not tr.has_code()),
+                                    tr.priority) ])
     builder.write_method_end()
     builder.line("ca::FireResult full_fire(ca::ThreadBase *thread, ca::NetBase *net);")
     builder.line("void* fire_phase1(ca::ThreadBase *thread, ca::NetBase *net);")
