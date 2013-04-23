@@ -69,6 +69,12 @@ template<typename T> std::string token_name(const std::vector<T> &value) {
 	return s.str();
 }
 
+template<typename T1, typename T2> std::string token_name(const std::pair<T1, T2> &value) {
+	std::stringstream s;
+	s << "<" << token_name(value.first) << "," << token_name(value.second) << ">";
+	return s.str();
+}
+
 }
 
 #endif // CAILIE_OUTPUT_H

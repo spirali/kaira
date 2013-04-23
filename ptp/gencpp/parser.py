@@ -27,18 +27,24 @@ operator_chars = "+-*/%=!<>&|~"
 lpar, rpar, dot, delim, sem, lbracket, rbracket, lt, bg, aps \
     = map(pp.Suppress, "().,;[]<>'")
 
-ident = pp.Word(pp.alphas+"_:", pp.alphanums+"_:")
+def list_of(parser, delim, begin, end):
+    return begin + pp.Optional(parser + pp.ZeroOrMore(delim + parser)) + end
+
 expression = pp.Forward()
+typename = pp.Forward()
+
+ident = pp.Word(pp.alphas+"_:", pp.alphanums+"_:")
 number = pp.Word(digits) + pp.Optional(dot + pp.Word(digits))
 string = pp.dblQuotedString
 char = aps + pp.Word(pp.alphanums, exact=1) + aps
 operator = pp.Word(operator_chars)
-parens = lpar + pp.Optional(expression + pp.ZeroOrMore(delim + expression)) + rpar
+parens = list_of(expression, delim, lpar, rpar)
+template = list_of(typename, delim, lt, bg)
 basic_expression = pp.Forward()
 basic_expression << ((number |
                       char |
                       string |
-                      ident + pp.Optional(parens) |
+                      ident + pp.Optional(template) + pp.Optional(parens) |
                       lpar + expression + rpar)
                           + pp.Optional(dot + basic_expression)
                           + pp.Optional(pp.OneOrMore(operator) + basic_expression))
@@ -50,9 +56,8 @@ full_expression = (mark + expression.suppress() + mark) \
 
 expressions = pp.delimitedList(full_expression, ";")
 
-typename = pp.Forward()
 typename << (pp.ZeroOrMore(ident +
-             pp.Optional(lt + typename + bg) +
+             pp.Optional(template) +
              pp.Optional(pp.Literal("*"))))
 
 edge_config_param = lpar + full_expression + rpar

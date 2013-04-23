@@ -110,6 +110,11 @@ template<typename T> void pack(Packer &packer, const std::vector<T> &value) {
 	}
 }
 
+template<typename T1, typename T2> void pack(Packer &packer, const std::pair<T1, T2> &value) {
+	pack(packer, value.first);
+	pack(packer, value.second);
+}
+
 inline void pack(Packer &packer, const std::string &value) {
 	size_t size = value.size();
 	pack(packer, size);
@@ -150,6 +155,11 @@ template<typename T> void unpack_to(Unpacker &unpacker, std::vector<T> &value) {
 	for (size_t i = 0; i < size; i++) {
 		value.push_back(unpack<T>(unpacker));
 	}
+}
+
+template<typename T1, typename T2> void unpack_to(Unpacker &unpacker, std::pair<T1, T2> &value) {
+	value.first = unpack<T1>(unpacker);
+	value.second = unpack<T2>(unpacker);
 }
 
 }
