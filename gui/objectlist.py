@@ -71,8 +71,7 @@ class ObjectContainer(gtk.VBox):
             self.select_first()
 
     def select_first(self):
-        if not self.container.select_first():
-            self.cursor_changed(None)
+        self.container.select_first()
 
     def get_and_remove_selected(self):
         return self.container.get_and_remove_selection(0)
@@ -94,6 +93,7 @@ class ObjectContainer(gtk.VBox):
             self.select_object(obj)
         else:
             self.select_first()
+        self.cursor_changed(self.container.get_selection(0))
 
     def clear(self):
         self.container.clear()

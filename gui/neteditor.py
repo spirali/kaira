@@ -60,6 +60,7 @@ class NetEditor(gtk.VBox):
         self.entry_types = []
         self.undo_manager = None
         self.set_size_request(500,400)
+        self.canvas = None
 
         self.pack_start(self._controls(), False)
         self.pack_start(self._editarea(), False)
@@ -92,7 +93,8 @@ class NetEditor(gtk.VBox):
 
     def switch_to_net(self, net, select_in_netlist = True):
         self.net = net
-        self.canvas.config.set_net(net, None)
+        if self.canvas: # Bootstrap problem
+            self.canvas.config.set_net(net, None)
         if net is None:
             self.undo_manager = None
             return
