@@ -223,6 +223,7 @@ class MainWindow(gtk.Window):
 
         add("Open tracelo_g", self.app.load_tracelog)
         add("E_xport tracelog table", self.app.export_tracelog_table, "tracelog")
+        add("Export control se_quence", self.app.export_tracelog_sequence, "tracelog")
 
         menu = gtk.Menu()
         item = gtk.MenuItem("_Analysis")

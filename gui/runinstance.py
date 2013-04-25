@@ -38,7 +38,7 @@ class RunInstance:
         self.net = None
         self.net_instances = {}
         self.activites = [None] * (self.process_count * self.threads_count)
-        self.last_event = None # "fired" / "finished" / None
+        self.last_event = None # "fire" / "finished" / "receive" / None
         self.last_event_activity = None
         self.last_event_instance = None
         self.packets = [ [] for i in xrange(self.process_count * self.process_count)]
@@ -109,19 +109,25 @@ class RunInstance:
 
     def event_receive(self, process_id, thread_id, time, origin_id):
         self.last_event = "receive"
+        self.last_event_process = process_id
+        self.last_event_thread = thread_id
         packets = self.packets[process_id * self.process_count + origin_id]
         packet = packets[0]
         del packets[0]
         self.last_event_instance = self.net_instances[process_id]
-        self.set_activity(process_id, thread_id, None)
+        self.set_activity(process_id,
+                          thread_id,
+                          Receive(time, process_id, thread_id, origin_id))
         return time - packet.time
 
     def transition_fired(self, process_id, thread_id, time, transition_id, values):
-        self.last_event = "fired"
+        self.last_event = "fire"
         self.last_event_instance = self.net_instances[process_id]
+        self.last_event_process = process_id
+        self.last_event_thread = thread_id
         transition = self.net.item_by_id(transition_id)
         self.last_event_activity = \
-            TransitionExecution(time, process_id, thread_id, transition, values)
+            TransitionFire(time, process_id, thread_id, transition, values)
         if transition.has_code():
             index = process_id * self.threads_count + thread_id
             self.activites[index] = self.last_event_activity
@@ -190,13 +196,24 @@ class ThreadActivity:
         self.thread_id = thread_id
 
 
-class TransitionExecution(ThreadActivity):
+class TransitionFire(ThreadActivity):
+
+    name = "fire"
+    quit = False
 
     def __init__(self, time, process_id, thread_id, transition, values):
         ThreadActivity.__init__(self, time, process_id, thread_id)
         self.transition = transition
         self.values = values
-        self.quit = False
+
+
+class Receive(ThreadActivity):
+
+    name = "receive"
+
+    def __init__(self, time, process_id, thread_id, origin_id):
+        ThreadActivity.__init__(self, time, process_id, thread_id)
+        self.origin_id = origin_id
 
 
 class NetInstance:
@@ -322,7 +339,7 @@ class Perspective(utils.EqMixin):
         runinstance = self.runinstance
         for i in range(runinstance.threads_count * runinstance.process_count):
             activity = runinstance.activites[i]
-            if isinstance(activity, TransitionExecution) \
+            if isinstance(activity, TransitionFire) \
                 and activity.transition.id == transition.id:
                     run_on = "{0}/{1} -> ".format(i // runinstance.threads_count,
                                                    i % runinstance.threads_count)
@@ -348,10 +365,11 @@ class Perspective(utils.EqMixin):
             for t in range(runinstance.threads_count):
                 activity = runinstance.activites[ p * runinstance.threads_count + t ]
                 if (runinstance.last_event_activity and
+                    runinstance.last_event_activity.name == "fire" and
                     runinstance.last_event_activity.transition == transition and
                     runinstance.last_event_activity.process_id == p and
                     runinstance.last_event_activity.thread_id == t):
-                        if runinstance.last_event == "fired":
+                        if runinstance.last_event == "fire":
                             color = (0, 1, 0, 0.8)
                         elif runinstance.last_event_activity.quit:
                             color = (0.45, 0.45, 0.45, 0.8)
@@ -359,7 +377,7 @@ class Perspective(utils.EqMixin):
                             color = (1, 0, 0, 0.8)
                         activity = runinstance.last_event_activity
 
-                elif isinstance(activity, TransitionExecution) and \
+                elif isinstance(activity, TransitionFire) and \
                      activity.transition == transition:
                     color = (1.0, 1.0, 0, 0.8)
                 else:

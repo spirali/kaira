@@ -111,15 +111,6 @@ class SimView(gtk.VBox):
         else:
             return 2
 
-    def save_sequence(self):
-        if self.app.project is None:
-            self.app.show_error_dialog("Project is not opened")
-            return
-        if self.simulation.sequence.name is None:
-            self.simulation.sequence.name = "Sequence"
-        if controlseq.sequence_dialog(self.simulation.sequence, self.app.window):
-            self.app.project.add_sequence(self.simulation.sequence.copy())
-
     def _history(self):
         box = gtk.VBox()
 
@@ -129,7 +120,9 @@ class SimView(gtk.VBox):
         box.pack_start(self.sequence_view, True, True)
 
         button = gtk.Button("Save sequence")
-        button.connect("clicked", lambda w: self.save_sequence())
+        button.connect("clicked",
+                       lambda w: self.app.save_sequence_into_project(
+                            self.simulation.sequence.copy()))
         box.pack_start(button, False, False)
 
         return box

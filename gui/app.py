@@ -59,6 +59,7 @@ class App:
         self.window = MainWindow(self)
         self.window.set_size_request(650,650)
         self.neteditor = None
+        self.project = None
         self._open_welcome_tab()
         self.grid_size = 1
         self.settings = self.load_settings()
@@ -66,16 +67,16 @@ class App:
             "\*(?P<location>((?P<id_int>\d+)/(?P<section>[^:]*)|(?P<id_string>[^:]+))"
             "(:(?P<line>\d+))?):(?P<message>.*)")
 
-        if args:
-            if os.path.isfile(args[0]):
-                if args[0].endswith(".kth"):
-                    self.load_tracelog(args[0])
-                elif args[0].endswith(".kreport"):
-                    self.load_report(args[0])
+        for arg in args:
+            if os.path.isfile(arg):
+                if arg.endswith(".kth"):
+                    self.load_tracelog(arg)
+                elif arg.endswith(".kreport"):
+                    self.load_report(arg)
                 else:
-                    self.set_project(loader.load_project(args[0]))
+                    self.set_project(loader.load_project(arg))
             else:
-                self.console_write("File '%s' not found\n" % args[0], "error")
+                self.console_write("File '{0}' not found\n".format(arg), "error")
 
     def get_settings_filename(self):
         return os.path.expanduser("~/.config/kaira/kaira.conf")
@@ -174,6 +175,20 @@ class App:
         tab = self.window.get_current_tab()
         tab.widget.export_tracelog_table(filename)
         self.console_write("Tracelog table '{0}' exported.\n".format(filename), "success")
+
+    def save_sequence_into_project(self, sequence):
+        if self.project is None:
+            self.show_error_dialog("No project is opened.")
+            return
+        if sequence.name is None:
+            sequence.name = "Sequence"
+        if controlseq.sequence_dialog(sequence, self.window):
+            self.project.add_sequence(sequence)
+
+    def export_tracelog_sequence(self):
+        tab = self.window.get_current_tab()
+        sequence = tab.widget.export_sequence()
+        self.save_sequence_into_project(sequence)
 
     def run_file_dialog(self, title, mode, filter_name=None, pattern=None):
         if mode == "open":

@@ -100,6 +100,9 @@ class RunView(gtk.VBox):
     def export_tracelog_table(self, filename):
         self.tracelog.bigtable.export(filename)
 
+    def export_sequence(self):
+        return self.tracelog.export_sequence(self.get_event_index())
+
     def _view_change(self, w):
         text = w.get_active_text()
         for name, item in self.views:

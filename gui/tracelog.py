@@ -23,6 +23,7 @@ import utils
 import loader
 import struct
 import os
+import controlseq
 
 from runinstance import RunInstance
 
@@ -95,6 +96,28 @@ class TraceLog:
     def get_max_time(self):
         return self.get_event_time(len(self.timeline))
 
+    def export_sequence(self, index):
+        time = utils.time_to_string(self.get_event_time(index))
+        name = "Tracelog upto {0}".format(time)
+        sequence = controlseq.ControlSequence(name)
+        ri = self.first_runinstance.copy()
+        for i in xrange(index):
+            event_pointer = self.timeline[i]
+            trace = self.traces[event_pointer.trace_id]
+            trace.pointer = event_pointer.pointer
+            trace.process_event(ri)
+            if ri.last_event == "fire":
+                sequence.add_fire(ri.last_event_process,
+                                  ri.last_event_thread,
+                                  ri.last_event_activity.transition.get_name())
+            elif ri.last_event == "finish":
+                sequence.add_finish(ri.last_event_process, ri.last_event_thread)
+            elif ri.last_event == "receive":
+                sequence.add_receive(ri.last_event_process,
+                                     ri.last_event_thread,
+                                     ri.last_event_activity.origin_id)
+        return sequence
+
     def _read_header(self):
         with open(self.filename, "r") as f:
             header = xml.fromstring(f.readline())
@@ -113,7 +136,7 @@ class TraceLog:
             trace = Trace(f.read(), process_id, thread_id, self.pointer_size)
             self.traces[process_id * self.threads_count + thread_id] = trace
 
-    def  get_index_from_time(self,  time):
+    def get_index_from_time(self,  time):
         last  =  len(self.timeline)  -  1
         first  =  0
         while  1:
@@ -260,7 +283,7 @@ class Trace:
         """ Return name of event as 5-character string """
         t = self.data[self.pointer]
         if t == "T":
-            return "Fired"
+            return "Fire "
         elif t == "F":
             return "Fin  "
         elif t == "M":
