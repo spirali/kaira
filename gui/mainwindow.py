@@ -98,9 +98,10 @@ class MainWindow(gtk.Window):
         self.notebook.remove_page(num)
         self.tablist.remove(tab)
 
-    def close_all_tabs(self):
+    def close_all_tabs(self, groups=None):
         for tab in self.tablist[:]:
-            tab.close()
+            if not groups or set(tab.mainmenu_groups).intersection(set(groups)):
+                tab.close()
 
     def get_current_tab(self):
         widget = self.notebook.get_nth_page(self.notebook.get_current_page())

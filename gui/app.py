@@ -121,7 +121,7 @@ class App:
         self._project_filename_changed()
 
     def init_tabs(self):
-        self.window.close_all_tabs()
+        self.window.close_all_tabs(("project", "welcome"))
         self.neteditor = neteditor.NetEditor(self, self.project)
         self.neteditor.transition_edit_callback = self.transition_edit
         self.neteditor.place_edit_callback = self.place_edit
@@ -730,7 +730,10 @@ class App:
                     .format(VERSION_STRING)
         label.set_markup(line)
         label.set_justify(gtk.JUSTIFY_CENTER)
-        self.window.add_tab(Tab("Welcome", label, has_close_button=False))
+        self.window.add_tab(Tab("Welcome",
+                                label,
+                                has_close_button=False,
+                                mainmenu_groups=("welcome",)))
 
     def import_project(self):
         filename = self.run_file_dialog("Import project", "open", "Project", "*.proj")
