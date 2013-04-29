@@ -302,15 +302,15 @@ class NetElement(NetItem):
 
     code = ""
 
-    def __init__(self, net, id, position):
+    def __init__(self, net, id, position, size, radius):
         NetItem.__init__(self, net, id)
 
         self.box = citems.ElementBox(
             self,
             "box",
             citems.AbsPlacement(position),
-            self.size,
-            self.radius)
+            size,
+            radius)
         self.tracing = []
 
     def has_code(self):
@@ -353,11 +353,8 @@ class NetElement(NetItem):
 
 class Transition(NetElement):
 
-    size = (70, 36)
-    radius = 0
-
     def __init__(self, net, id, position):
-        NetElement.__init__(self, net, id, position)
+        NetElement.__init__(self, net, id, position, (70, 36), 0)
         p = (position[0], position[1] - 20)
         self.guard = citems.Text(self, "guard", self.box.get_relative_placement(p))
 
@@ -445,16 +442,13 @@ class Transition(NetElement):
 
 class Place(NetElement):
 
-    radius = 20
-    size = (0, 0)
-
     def __init__(self, net, id, position):
-        NetElement.__init__(self, net, id, position)
+        NetElement.__init__(self, net, id, position, (0,0), 20)
 
-        p = (position[0] + self.radius * 0.85, position[1] + self.radius * 0.85)
+        p = (position[0] + self.box.radius * 0.85, position[1] + self.box.radius * 0.85)
         self.place_type = citems.Text(self, "type", self.box.get_relative_placement(p))
 
-        p = (position[0] + self.radius * 0.85, position[1] - self.radius * 1.5)
+        p = (position[0] + self.box.radius * 0.85, position[1] - self.box.radius * 1.5)
         self.init = citems.Text(self, "init", self.box.get_relative_placement(p))
 
     def get_canvas_items(self):
@@ -606,9 +600,9 @@ class Edge(NetItem):
             p2 = self.points[-1].get_position()
         else:
             p1 = utils.vector_add_t(
-                self.to_item.box.get_position(), self.to_item.size, 0.5)
+                self.to_item.box.get_position(), self.to_item.box.size, 0.5)
             p2 = utils.vector_add_t(
-                self.from_item.box.get_position(), self.from_item.size, 0.5)
+                self.from_item.box.get_position(), self.from_item.box.size, 0.5)
         return (self.from_item.box.get_border_point(p1),
                 self.to_item.box.get_border_point(p2))
 

@@ -186,7 +186,6 @@ class ElementBox(CanvasItem):
         sx, sy = self.size
         cx, cy = px + sx/2, py + sy/2
         ux, uy = cx - ox, cy - oy
-
         t = []
         v = utils.line_intersec_get_t((ox, oy), (ux, uy), (px-e, py-r), (sx+e, 0.0))
         if v is not None:
@@ -200,20 +199,18 @@ class ElementBox(CanvasItem):
         v = utils.line_intersec_get_t((ox, oy), (ux, uy), (px+sx+r, py-e), (0.0, sy+e))
         if v is not None:
             t.append(v)
-
         v = utils.circle_collision((ox, oy), (ux, uy), (px, py), r)
-        if v is not None:
+        if v is not None and v[2] is not None:
             t.append(v[2])
         v = utils.circle_collision((ox, oy), (ux, uy), (px+sx, py), r)
-        if v is not None:
+        if v is not None and v[2] is not None:
             t.append(v[2])
         v = utils.circle_collision((ox, oy), (ux, uy), (px,    py+sy), r)
-        if v is not None:
+        if v is not None and v[2] is not None:
             t.append(v[2])
         v = utils.circle_collision((ox, oy), (ux, uy), (px+sx, py+sy), r)
-        if v is not None:
+        if v is not None and v[2] is not None:
             t.append(v[2])
-        t = [ i for i in t if i is not None ] # Remove None
         if t:
             p = min(t)
         else:
