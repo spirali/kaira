@@ -151,6 +151,7 @@ class NewElementCanvasConfig(NetEditCanvasConfig):
             box.draw(cr)
 
     def on_mouse_move(self, event, position):
+        NetEditCanvasConfig.on_mouse_move(self, event, position)
         self.mouse_position = position
         self.canvas.redraw()
 
@@ -234,7 +235,7 @@ class NewEdgeCanvasConfig(NetEditCanvasConfig):
         if self.from_element:
             self.from_element = None
             self.points = None
-            self.reset_inactives()
+            self.configure()
             self.canvas.redraw()
         else:
             NetEditCanvasConfig.on_mouse_right_down(self, event, position)
@@ -291,6 +292,7 @@ class NewAreaCanvasConfig(NetEditCanvasConfig):
 
 
     def on_mouse_move(self, event, position):
+        NetEditCanvasConfig.on_mouse_move(self, event, position)
         if self.start_position:
             self.mouse_position = position
             self.canvas.redraw()
