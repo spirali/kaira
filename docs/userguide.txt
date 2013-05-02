@@ -86,27 +86,6 @@ Libraries 'sparsehash' and 'mhash' are used by the verification subsystem.
 'asciidoc' is used to build HTML documentation.
 
 
-.Installing packages in Debian based distributions
-*****************************************************************************
-
-We are going to install all necessary packages including optional.
-We have chosen MPICH2 as MPI implementation.
-
-------------------------------------------------------------------------------
-apt-get install python-gtksourceview2 python-pyparsing g++ python-matplotlib
-
-# MPI implementation
-apt-get install mpich2
-
-# Libraries for verification subsystem
-apt-get install sparsehash libmhash-dev
-
-# Documentation
-apt-get install asciidoc
-------------------------------------------------------------------------------
-
-******************************************************************************
-
 Building
 ~~~~~~~~
 
@@ -158,6 +137,7 @@ The first program
 
 ...
 
+
 Syntax and semantics
 --------------------
 
@@ -181,8 +161,32 @@ Init areas::
 Places
 ~~~~~~
 
-...
+The places serves as memory spaces for program. Values stored in places are
+called 'tokens'. Places works as queues so they remember order of tokens with
+First-In-First-Out access.
+(In this aspect, our model diverges from Colored Petri nets, where tokens are
+stored in the forms as multisets).
 
+Each place has the following properties:
+
+Name::
+    An arbitrary string that servets to describe the place with no actual
+    meaning.
+Type::
+    Any C\++ type. Standard types (like 'int', 'std::vector') can be used
+    directly; all supported types are listed in
+    <<Types,Supported standard types>>. How to use user defined types is
+    covered in Section Integration of C\++.
+Init::
+    An expression that initializes the place. In other words, it sets tokens in
+    the place at the beginning of the program. It can be empty or can have
+    the following two forms:
+      - C++ expression of type 'std::vector<T>' where 'T' is the type of the
+        place.
+      - The list of C\++ expressions of the place's type. It has to
+        starts with character '[' and ends with ']'. Each C++ expression has to
+        be separated by ';'. Example: when the type of the place is 'double'
+        we can use the expression as follows: '[1.0; 1.5; 2.8]'
 
 Transitions
 ~~~~~~~~~~~
@@ -292,6 +296,30 @@ Libraries
 
 Appendix
 --------
+
+[[Types]]
+Supported standard types
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following types are natively supported by Kaira, so the user does not have
+to write own 'token_name', 'pack' and 'unpack' functions.
+
+  - bool
+  - char
+  - unsigned char
+  - int
+  - unsigned int
+  - long
+  - unsigned long
+  - long long
+  - unsigned long long
+  - double
+  - float
+  - std::string
+  - std::vector<T>
+  - std::pair<T1, T2>
+  - void* (Only numerical value of pointer is packed/unpacked)
+
 
 Arguments of generated programs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
