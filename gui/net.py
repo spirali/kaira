@@ -302,15 +302,15 @@ class NetElement(NetItem):
 
     code = ""
 
-    def __init__(self, net, id, position, size, radius):
+    def __init__(self, net, id, position):
         NetItem.__init__(self, net, id)
 
         self.box = citems.ElementBox(
             self,
             "box",
             citems.AbsPlacement(position),
-            size,
-            radius)
+            self.default_size,
+            self.default_radius)
         self.tracing = []
 
     def has_code(self):
@@ -353,8 +353,11 @@ class NetElement(NetItem):
 
 class Transition(NetElement):
 
+    default_size = (70, 36)
+    default_radius = 0
+
     def __init__(self, net, id, position):
-        NetElement.__init__(self, net, id, position, (70, 36), 0)
+        NetElement.__init__(self, net, id, position)
         p = (position[0], position[1] - 20)
         self.guard = citems.Text(self, "guard", self.box.get_relative_placement(p))
 
@@ -442,8 +445,11 @@ class Transition(NetElement):
 
 class Place(NetElement):
 
+    default_size = (0, 0)
+    default_radius = 20
+
     def __init__(self, net, id, position):
-        NetElement.__init__(self, net, id, position, (0,0), 20)
+        NetElement.__init__(self, net, id, position)
 
         p = (position[0] + self.box.radius * 0.85, position[1] + self.box.radius * 0.85)
         self.place_type = citems.Text(self, "type", self.box.get_relative_placement(p))

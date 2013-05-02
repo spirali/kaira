@@ -133,7 +133,7 @@ class NewElementCanvasConfig(NetEditCanvasConfig):
     def get_position(self, position):
         return utils.interpolate(
             position,
-            utils.vector_add(position, self.element.size),
+            utils.vector_add(position, self.element.default_size),
             -0.5)
 
     def draw(self, cr):
@@ -146,8 +146,8 @@ class NewElementCanvasConfig(NetEditCanvasConfig):
             box = citems.ElementBox(None,
                                     "",
                                     placement,
-                                    self.element.size,
-                                    self.element.radius)
+                                    self.element.default_size,
+                                    self.element.default_radius)
             box.draw(cr)
 
     def on_mouse_move(self, event, position):
