@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm
+#    Copyright (C) 2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -17,21 +17,20 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import os
 
-KAIRA_PTP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KAIRA_ROOT = os.path.dirname(KAIRA_PTP)
+import buildnet
+import build
 
-CAILIE_INCLUDE_DIR = "libs/cailie"
-CAILIE_LIB_DIR = "build/libs/cailie"
+def write_main(builder):
+    builder.line("int main(int argc, char **argv)")
+    builder.block_begin()
+    buildnet.write_main_setup(builder)
+    builder.line("casr::main();");
+    builder.line("return 0;")
+    builder.block_end()
 
-CASERVER_INCLUDE_DIR = "libs/caserver"
-CASERVER_LIB_DIR = "build/libs/caserver"
-CACLIENT_INCLUDE_DIR = "libs/caclient"
-CACLIENT_LIB_DIR = "build/libs/caclient"
-
-CAVERIF_INCLUDE_DIR = "libs/caverif"
-CAVERIF_LIB_DIR = "build/libs/caverif"
-
-CASIMRUN_INCLUDE_DIR = "libs/casimrun"
-CASIMRUN_LIB_DIR = "build/libs/casimrun"
+def write_simrun_program(builder):
+    build.write_header(builder)
+    builder.line("#include <simrun.h>")
+    buildnet.write_core(builder)
+    write_main(builder)

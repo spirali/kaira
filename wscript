@@ -94,10 +94,10 @@ def configure(ctx):
                     "MPI support is disabled, because "
                     "no MPI implementation was found.")
 
-
 def build(ctx):
     ctx.recurse("libs/cailie")
     ctx.recurse("libs/caserver")
     ctx.recurse("libs/caclient")
     ctx.recurse("libs/caverif")
+    ctx.recurse("libs/casimrun")
     ctx.recurse("docs")

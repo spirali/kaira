@@ -58,7 +58,7 @@ namespace cass {
 	  }
 	};
 
-	class State  : public ca::StateBase<Net, Activation, Packet>
+	class State  : public ca::StateBase<Net, Activation, ca::Packet>
 	{
 		public:
 			State(ca::NetDef *net_def) : StateBase(net_def) {}

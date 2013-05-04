@@ -85,6 +85,8 @@ class Project(EventSource):
 
         if name == "statespace":
             build_config.operation = "statespace"
+        elif name == "simrun":
+            build_config.operation = "simrun"
         else:
             build_config.operation = "build"
 

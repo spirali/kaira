@@ -191,7 +191,7 @@ void Node::generate(Core *core)
 		if (s == NULL) {
 			s = new State(*state);
 		}
-		s->finish_transition(i);
+		s->finish_transition_ro_binding(i);
 		Node *n = core->add_state(s);
 		nexts.push_back(n);
 		s = NULL;

@@ -1,0 +1,9 @@
+source_files = (
+    "simrun.cpp",
+)
+
+def build(ctx):
+    ctx.stlib(source=source_files,
+              target="casimrun",
+              includes="../cailie",
+              name="casimrun")

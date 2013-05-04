@@ -75,7 +75,6 @@ namespace ca {
 							data->edge_id = edge_id;
 							data->tokens_count = tokens_count;
 							Packet packet;
-							packet.data = data;
 							packet.from_process = process_id;
 							packet.size = packer.get_size();
 							for (i = targets.begin(); i != targets.end(); i++) {
@@ -86,6 +85,12 @@ namespace ca {
 											"process id %i (valid ids: [0 .. %i])\n",
 											tokens_count, target, ca::process_count - 1);
 									exit(1);
+								}
+								if (i + 1 == targets.end()) {
+									packet.data = data;
+								} else {
+									packet.data = malloc(packer.get_size());
+									memcpy(packet.data, data, packer.get_size());
 								}
 								state->add_packet(process_id, target, packet);
 							}
@@ -232,9 +237,22 @@ namespace ca {
 				activations.erase(i);
 			}
 
+			void finish_transition_ro_binding(typename std::vector<ActivationT>::iterator i)
+			{
+				StateThread thread(this, i->process_id, i->thread_id);
+				i->transition_def->fire_phase2_ro_binding(
+					&thread, nets[i->process_id], i->binding);
+				activations.erase(i);
+			}
+
 			void finish_transition(int i)
 			{
 				finish_transition(activations.begin() + i);
+			}
+
+			void finish_transition_ro_binding(int i)
+			{
+				finish_transition_ro_binding(activations.begin() + i);
 			}
 
 			bool finish_transition(int process_id, int thread_id)
@@ -290,6 +308,7 @@ namespace ca {
 				for (int t = 0; t < tokens_count; t++) {
 					net->receive(&thread, packet.from_process, edge_id, unpacker);
 				}
+				free(packet.data);
 				return true;
 			}
 
