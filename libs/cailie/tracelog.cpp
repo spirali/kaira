@@ -1,29 +1,36 @@
 
 #include "tracelog.h"
 #include "output.h"
+#include "cailie.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 using namespace ca;
 
 struct timespec TraceLog::initial_time;
 
-void TraceLog::init()
-{
-	if (clock_gettime(CLOCK_MONOTONIC, &initial_time)) {
-		perror("TraceLog::init");
-		exit(-1);
-	}
-}
-
-TraceLog::TraceLog(size_t size, const std::string &filename)
+TraceLog::TraceLog(int process_id, int thread_id, size_t size)
 {
 	buffer = (char*) malloc(size);
+	// TODO: Alloc test
+
 	pos = buffer;
 	end = buffer + size;
 
-	file = fopen(filename.c_str(), "w");
+	if (process_id == 0) {
+		FILE *f = fopen("trace.kth", "w");
+		if (f == NULL) {
+			perror("trace.kth");
+			exit(-1);
+		}
+		ca::write_header(f, process_count, threads_count);
+		fclose(f);
+	}
+
+	std::stringstream filename;
+	filename << "trace-" << process_id << "-" << thread_id << ".ktt";
+
+	file = fopen(filename.str().c_str(), "w");
 	if (file == NULL) {
 		perror("TraceLog::TraceLog");
 		exit(-1);
@@ -49,20 +56,6 @@ TraceLog::~TraceLog()
 	write_buffer();
 	fclose(file);
 	free(buffer);
-}
-
-void TraceLog::write_time()
-{
-	struct timespec time;
-
-	if (clock_gettime(CLOCK_MONOTONIC, &time)) {
-		perror("TraceLog::write_time");
-		exit(-1);
-	}
-
-	uint64_t t = ((uint64_t) (time.tv_sec - initial_time.tv_sec)) * 1000000000;
-	t += time.tv_nsec - initial_time.tv_nsec;
-	write_uint64(t);
 }
 
 void TraceLog::write_key_value(const std::string &key, const std::string &value)
@@ -201,4 +194,12 @@ void TraceLog::overflow()
 void TraceLog::write_buffer()
 {
 	fwrite(buffer, 1, pos - buffer, file);
+}
+
+void RealTimeTraceLog::init()
+{
+	if (clock_gettime(CLOCK_MONOTONIC, &initial_time)) {
+		perror("TraceLog::init");
+		exit(-1);
+	}
 }

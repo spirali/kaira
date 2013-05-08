@@ -35,7 +35,6 @@ namespace ca {
 	extern int process_count;
 	extern int threads_count;
 
-
 	template<typename NetT, typename ActivationT, typename PacketT>
 	class StateBase {
 		public:
@@ -44,10 +43,10 @@ namespace ca {
 					StateThread(StateBase *state,
 								int process_id,
 								int thread_id)
-						: state(state),
-						  process_id(process_id),
-						  thread_id(thread_id)
-						  {}
+						: ThreadBase(thread_id,
+									 state->get_tracelog(process_id, thread_id)),
+						  state(state),
+						  process_id(process_id) {}
 					void quit_all() { state->set_quit_flag(); }
 					int get_process_count() const { return process_count; }
 					int get_threads_count() const { return 1; }
@@ -74,7 +73,7 @@ namespace ca {
 							ca::Tokens *data = (ca::Tokens*) packer.get_buffer();
 							data->edge_id = edge_id;
 							data->tokens_count = tokens_count;
-							Packet packet;
+							PacketT packet;
 							packet.from_process = process_id;
 							packet.size = packer.get_size();
 							for (i = targets.begin(); i != targets.end(); i++) {
@@ -92,6 +91,7 @@ namespace ca {
 									packet.data = malloc(packer.get_size());
 									memcpy(packet.data, data, packer.get_size());
 								}
+								state->packet_preprocess(process_id, target, packet);
 								state->add_packet(process_id, target, packet);
 							}
 
@@ -100,18 +100,24 @@ namespace ca {
 				protected:
 					StateBase<NetT, ActivationT, PacketT> *state;
 					int process_id;
-					int thread_id;
 			};
 
 			typedef std::deque<PacketT> PacketQueue;
 			typedef std::vector<ActivationT> Activations;
 
-			StateBase(NetDef *net_def) :
-				nets(process_count), net_def(net_def), quit(false)
+			StateBase() :
+				nets(process_count), net_def(NULL), quit(false)
 			{
-				packets = new std::deque<Packet>[ca::process_count * ca::process_count];
+				packets = new std::deque<PacketT>[ca::process_count * ca::process_count];
+			}
+
+			void spawn(NetDef *net_def) {
+				this->net_def = net_def;
 				for (int i = 0; i < ca::process_count; i++) {
 					StateThread thread(this, i, 0);
+					if (thread.get_tracelog()) {
+						thread.get_tracelog()->event_net_spawn(net_def->get_id());
+					}
 					nets[i] = static_cast<NetT*>(net_def->spawn(&thread));
 				}
 			}
@@ -131,7 +137,7 @@ namespace ca {
 				for (int i = 0; i < ca::process_count; i++) {
 					nets[i] = static_cast<NetT*> (state.nets[i]->copy());
 				}
-				packets = new std::deque<Packet>[ca::process_count * ca::process_count];
+				packets = new std::deque<PacketT>[ca::process_count * ca::process_count];
 				for (int i = 0; i < ca::process_count * ca::process_count; i++) {
 					packets[i] = state.packets[i];
 				}
@@ -288,9 +294,12 @@ namespace ca {
 				return -1;
 			}
 
-			void add_packet(int origin_id, int target_id, const Packet &packet) {
+			void add_packet(int origin_id, int target_id, const PacketT &packet) {
 				packets[target_id * ca::process_count + origin_id].push_back(packet);
 			}
+
+			// Pre-process packet before send
+			virtual void packet_preprocess(int origin_id, int target_id, PacketT &packet) {}
 
 			bool receive(int process_id, int origin_id) {
 				PacketQueue &pq = packets[process_id * ca::process_count + origin_id];
@@ -305,6 +314,10 @@ namespace ca {
 				int edge_id = tokens->edge_id;
 				int tokens_count = tokens->tokens_count;
 				StateThread thread(this, process_id, 0);
+				TraceLog *tracelog = thread.get_tracelog();
+				if (tracelog) {
+					tracelog->event_receive(origin_id);
+				}
 				for (int t = 0; t < tokens_count; t++) {
 					net->receive(&thread, packet.from_process, edge_id, unpacker);
 				}
@@ -318,7 +331,11 @@ namespace ca {
 
 			void set_quit_flag() { quit = true; }
 			bool get_quit_flag() { return quit; }
+
 		protected:
+			virtual TraceLog* get_tracelog(int process_id, int thread_id) {
+				return NULL;
+			}
 			std::vector<NetT*> nets;
 			NetDef *net_def;
 			PacketQueue *packets;

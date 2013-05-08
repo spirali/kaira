@@ -434,7 +434,7 @@ def write_fire_phase2(builder, tr, readonly_binding=False):
     builder.line("Tokens_{0.id} *$tokens = (Tokens_{0.id}*) $data;", tr)
 
     for inscription in tr.get_token_inscriptions_in():
-        builder.line("ca::Token<{0}> *$token_{1.uid} = $tokens->token_{1.uid};",
+        builder.line("ca::Token<{0} > *$token_{1.uid} = $tokens->token_{1.uid};",
             inscription.get_type(), inscription);
 
     decls_dict = tr.get_decls()
@@ -792,7 +792,7 @@ def write_net_functions(builder, net):
     for tr in net.transitions:
         write_transition_functions(builder, tr)
 
-def write_main_setup(builder, init_function="ca::init"):
+def write_main_setup(builder, init_function="ca::init", start_process=True):
     builder.line("ca::project_description({0});",
         const_string(builder.project.description))
     builder.line("std::vector<ca::Parameter*> parameters;")
@@ -808,4 +808,5 @@ def write_main_setup(builder, init_function="ca::init"):
 
     defs = [ "def_{0.id}".format(net) for net in builder.project.nets ]
     builder.line("ca::NetDef *defs[] = {{{0}}};", ",".join(defs))
-    builder.line("ca::setup({0}, defs);", len(defs));
+    builder.line("ca::setup({0}, defs, {1});",
+        len(defs), const_boolean(start_process));

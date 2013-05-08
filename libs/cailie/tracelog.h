@@ -8,15 +8,20 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <limits.h>
 
 namespace ca {
+
+typedef uint64_t IntTime;
+const IntTime MAX_INT_TIME = ~((IntTime)0);
 
 class TraceLog {
 
 	public:
 
-		TraceLog(size_t size, const std::string &filename);
-		~TraceLog();
+		TraceLog(int process_id, int thread_id, size_t size);
+		virtual ~TraceLog();
 
 		void event_net_spawn(int net_id);
 		void event_net_quit();
@@ -36,8 +41,23 @@ class TraceLog {
 		void trace_value(const double value);
 		void trace_value(const std::string &str);
 
-		static void init();
 		static void write_head(const std::string &name);
+
+		static IntTime get_current_time()
+		{
+			struct timespec time;
+
+			if (clock_gettime(CLOCK_MONOTONIC, &time)) {
+				perror("TraceLog::get_current_time");
+				exit(-1);
+			}
+
+			uint64_t t = ((uint64_t) (time.tv_sec - initial_time.tv_sec)) * 1000000000;
+			t += time.tv_nsec - initial_time.tv_nsec;
+			return t;
+		}
+
+
 	protected:
 
 		void check_size(size_t size) { if (pos + size >= end) { overflow(); } }
@@ -72,22 +92,31 @@ class TraceLog {
 		}
 
 		void write_key_value(const std::string &key, const std::string &value);
-
 		void write_buffer();
-
-		void write_time();
 		void overflow();
+
+		virtual void write_time() = 0;
 
 		char * buffer;
 		char * pos;
 		char * end;
-
 		FILE * file;
 
 		static struct timespec initial_time;
+};
 
+class RealTimeTraceLog : public TraceLog
+{
+	public:
+		RealTimeTraceLog(int process_id, int thread_id, size_t size) :
+			TraceLog(process_id, thread_id, size) {}
+		static void init();
+	protected:
+		void write_time() { write_uint64(get_current_time()); }
 };
 
 }
+
+
 
 #endif // CAILIE_TRACER_H

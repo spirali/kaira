@@ -8,7 +8,7 @@
 
 
 namespace ca {
-extern size_t trace_log_size;
+extern size_t tracelog_size;
 extern char * project_description_string;
 }
 
@@ -163,22 +163,11 @@ Process::Process(
 		threads[t].set_process(this, t);
 	}
 
-	if (trace_log_size > 0) {
-
-		if (process_id == 0) {
-			FILE *f = fopen("trace.kth", "w");
-			if (f == NULL) {
-				perror("trace.kth");
-				exit(-1);
-			}
-			ca::write_header(f, process_count, threads_count);
-			fclose(f);
-		}
-
+	if (tracelog_size > 0) {
 		for (int t = 0; t < threads_count; t++) {
-			std::stringstream s;
-			s << "trace-" << process_id << "-" << t << ".ktt";
-			threads[t].set_tracelog(new TraceLog(trace_log_size, s.str()), process_id * threads_count + t);
+			threads[t].set_tracelog(
+				new RealTimeTraceLog(process_id, t, tracelog_size),
+				process_id * threads_count + t);
 		}
 	}
 

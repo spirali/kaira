@@ -314,7 +314,8 @@ class Trace:
         elif t == "I":
             return self._process_event_idle(runinstance)
         else:
-            raise Exception("Invalid event type '{0}/{1}'".format(t, ord(t)))
+            raise Exception("Invalid event type '{0}/{1}' (pointer={2}, process={3})"
+                                .format(t, ord(t), hex(self.pointer), self.process_id))
 
     def is_pointer_at_end(self):
         return self.pointer >= len(self.data)

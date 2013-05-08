@@ -24,7 +24,7 @@ import build
 def write_main(builder):
     builder.line("int main(int argc, char **argv)")
     builder.block_begin()
-    buildnet.write_main_setup(builder)
+    buildnet.write_main_setup(builder, start_process=False)
     builder.line("casr::main();");
     builder.line("return 0;")
     builder.block_end()

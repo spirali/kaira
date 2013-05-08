@@ -24,7 +24,7 @@ Net *master_net = NULL;
 Listener *listener = NULL;
 std::vector<Parameter*> parameters;
 
-size_t trace_log_size = 0;
+size_t tracelog_size = 0;
 
 #ifdef CA_SHMEM
 Process **processes = NULL;
@@ -173,7 +173,7 @@ void ca::init(int argc,
 			 void (extra_args_callback)(char, char*, void*),
 			 void *extra_args_data)
 {
-	TraceLog::init();
+	RealTimeTraceLog::init();
 	size_t t;
 	int c;
 	struct option longopts[] = {
@@ -257,8 +257,8 @@ void ca::init(int argc,
 			} break;
 
 			case 'T': {
-				trace_log_size = parse_size_string(optarg);
-				if (trace_log_size == 0) {
+				tracelog_size = parse_size_string(optarg);
+				if (tracelog_size == 0) {
 					fprintf(stderr, "Invalid trace log size\n");
 					exit(1);
 				}
@@ -316,30 +316,32 @@ void ca::init(int argc,
 	#endif
 }
 
-void ca::setup(int _defs_count, NetDef **_defs)
+void ca::setup(int _defs_count, NetDef **_defs, bool start_process)
 {
 	defs_count = _defs_count;
 	defs = (NetDef**) malloc(sizeof(NetDef*) * defs_count);
 	memcpy(defs, _defs, sizeof(NetDef*) * defs_count);
 
-	#ifdef CA_MPI
-		int process_count, process_id;
-		MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
-		MPI_Comm_size(MPI_COMM_WORLD, &process_count);
-		process = new Process(process_id, process_count, threads_count, defs_count, defs);
-		if(process_id > 0){
-			while(true){
-				process->wait();
+	if (start_process) {
+		#ifdef CA_MPI
+			int process_count, process_id;
+			MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
+			MPI_Comm_size(MPI_COMM_WORLD, &process_count);
+			process = new Process(process_id, process_count, threads_count, defs_count, defs);
+			if(process_id > 0){
+				while(true){
+					process->wait();
+				}
 			}
-		}
-	#endif
+		#endif
 
-	#ifdef CA_SHMEM
-	processes = (Process**) malloc(sizeof(Process*) * process_count);
-	for (int t = 0; t < process_count; t++) {
-		processes[t] = new Process(t, process_count, threads_count, defs_count, defs);
+		#ifdef CA_SHMEM
+		processes = (Process**) malloc(sizeof(Process*) * process_count);
+		for (int t = 0; t < process_count; t++) {
+			processes[t] = new Process(t, process_count, threads_count, defs_count, defs);
+		}
+		#endif
 	}
-	#endif
 }
 
 

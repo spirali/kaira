@@ -53,7 +53,7 @@ def write_main(builder):
     builder.line("int main(int argc, char **argv)")
     builder.block_begin()
     builder.line("cass::Core core;")
-    buildnet.write_main_setup(builder, "cass::init")
+    buildnet.write_main_setup(builder, "cass::init", start_process=False)
     builder.line("core.generate();")
     builder.line("core.postprocess();")
     builder.line("return 0;")

@@ -95,7 +95,7 @@ class Project(EventSource):
             first = self.simulator_net
             build_config.target_env = self.get_target_env_for_simulator_name()
         else:
-            if name == "traced":
+            if name == "traced" or name == "simrun":
                 build_config.tracing = True
 
             build_config.target_env = self.get_target_env_name()
