@@ -249,8 +249,10 @@ class App:
             if filename is None:
                 return
         t = self._catch_io_error(lambda: TraceLog(filename))
-        rv = runview.RunView(self, t)
-        self.window.add_tab(Tab("Tracelog", rv, mainmenu_groups=("tracelog",)))
+#        rv = runview.RunView(self, t)
+#        self.window.add_tab(Tab("Tracelog", rv, mainmenu_groups=("tracelog",)))
+        tv = runview.TraceView(self, t)
+        self.window.add_tab(Tab("Tracelog", tv, mainmenu_groups=("tracelog",)))
 
     def load_report(self, filename=None):
         if filename is None:

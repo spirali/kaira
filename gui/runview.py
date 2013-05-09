@@ -24,6 +24,70 @@ import charts
 import utils
 import netview
 
+class TraceView(gtk.VBox):
+
+    def __init__(self, app, tracelog):
+        gtk.VBox.__init__(self)
+
+        self.tracelog = tracelog
+        self.app = app
+
+        self.pack_start(self._toolbar(), False, False)
+        self.pack_start(self._columns(), True, True)
+
+    def _toolbar(self):
+
+        toolbar = gtk.HBox(False)
+
+        button = gtk.Button("Load")
+        toolbar.pack_start(button, False, False)
+
+        button = gtk.Button("Store")
+        toolbar.pack_start(button, False, False)
+        toolbar.show_all()
+
+        return toolbar
+
+    def _columns(self):
+        columns = gtk.HBox(False)
+
+        # column inputs
+        frame = gtk.Frame()
+        frame.set_label("Inputs")
+
+        a = []
+        for i in range(30):
+            btn_load_tracelog = gtk.Button("Load tracelog {0}".format(i))
+            a.append(btn_load_tracelog)
+        c_inputs = self._generate_column(a)
+        frame.add(c_inputs)
+        columns.pack_start(frame)
+
+        # column actions
+        frame = gtk.Frame()
+        frame.set_label("Actions/Filteres")
+        c_actions = self._generate_column()
+        frame.add(c_actions)
+        columns.pack_start(frame)
+
+        # column outputs
+        frame = gtk.Frame()
+        frame.set_label("Outputs")
+        c_outputs = self._generate_column()
+        frame.add(c_outputs)
+        columns.pack_start(frame)
+
+        columns.show_all()
+        return columns
+
+    def _generate_column(self, items=[]):
+        scw = gtk.ScrolledWindow()
+        column = gtk.VBox(False)
+        for item in items:
+            column.pack_start(item)
+        scw.add_with_viewport(column)
+        return scw
+
 class RunView(gtk.VBox):
 
     def __init__(self, app, tracelog):
