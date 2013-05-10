@@ -25,6 +25,10 @@ def options(ctx):
                    default=False,
                    help="do not build HTML documentation")
 
+    ctx.add_option("--compiler-prefix",
+                    action="store",
+                    default="")
+
     ctx.load("compiler_cxx")
 
 def configure(ctx):
@@ -32,6 +36,10 @@ def configure(ctx):
         ctx.load("icpc")
     else:
         ctx.load("g++")
+
+    compiler_prefix = ctx.options.compiler_prefix.split()
+    if compiler_prefix:
+        ctx.env.prepend_value("CXX", compiler_prefix)
 
     if not ctx.env.CXXFLAGS:
         ctx.env.append_value("CXXFLAGS", "-O2")
@@ -65,14 +73,16 @@ def configure(ctx):
         # -------------- MPI ENV ----------------
         ctx.setenv("mpi", ctx.env.derive())
         if ctx.env.MPICXX:
-            ctx.env.CXX=ctx.env.MPICXX
+            ctx.env.CXX = [ ctx.env.MPICXX ]
             mpi=True
         elif ctx.env.MPICC:
-            ctx.env.CXX=ctx.env.MPICC
+            ctx.env.CXX = [ ctx.env.MPICC ]
             ctx.env.append_value("STLIB", "-lstdc++")
             mpi=True
         else:
             mpi=False
+        if compiler_prefix:
+            ctx.env.prepend_value("CXX", compiler_prefix)
     else:
         mpi = False
 
