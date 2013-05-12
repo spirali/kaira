@@ -46,7 +46,6 @@ import report
 import statespace
 import utils
 import controlseq
-from copy import copy
 
 VERSION_STRING = '0.6'
 
@@ -128,7 +127,7 @@ class App:
         self.window.add_tab(Tab("Nets",
                                 self.neteditor,
                                 "nets",
-                                mainmenu_groups=("project", "undo"),
+                                mainmenu_groups=("project", "undo", "screenshot"),
                                 has_close_button=False))
 
     def switch_to_net(self, net):
@@ -250,7 +249,7 @@ class App:
                 return
         t = self._catch_io_error(lambda: TraceLog(filename))
         rv = runview.RunView(self, t)
-        self.window.add_tab(Tab("Tracelog", rv, mainmenu_groups=("tracelog",)))
+        self.window.add_tab(Tab("Tracelog", rv, mainmenu_groups=("tracelog","screenshot")))
 
     def load_report(self, filename=None):
         if filename is None:
@@ -477,7 +476,7 @@ class App:
                 "inited",
                 lambda: self.window.add_tab(simview.SimViewTab(self,
                                                                simulation,
-                                                               mainmenu_groups=("project",))))
+                                                               mainmenu_groups=("project", "screenshot"))))
             simulation.set_callback("shutdown", lambda: sprocess.shutdown())
             simulation.connect("localhost", port)
 
@@ -743,6 +742,12 @@ class App:
         if filename[-5:] != ".proj":
             filename = filename + ".proj"
         loader.import_project(self.project, filename)
+
+    def save_as_svg(self):
+        tab = self.window.get_current_tab()
+        filename = "net.svg"
+        tab.widget.save_as_svg(filename)
+        self.console_write("Net saved as '{0}'.\n".format(filename), "success")
 
 if __name__ == "__main__":
     args = sys.argv[1:] # Remove "app.py"

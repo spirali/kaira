@@ -174,6 +174,9 @@ class NetView(gtk.HPaned):
     def redraw(self):
         self.canvas.redraw()
 
+    def save_as_svg(self, filename):
+        self.canvas.save_as_svg(filename)
+
     def get_perspective(self):
         return self.perspectives.get_selection(0)
 

@@ -111,6 +111,9 @@ class SimView(gtk.VBox):
         else:
             return 2
 
+    def save_as_svg(self, filename):
+        self.netview.save_as_svg(filename)
+
     def _history(self):
         box = gtk.VBox()
 

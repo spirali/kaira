@@ -133,6 +133,9 @@ class NetEditor(gtk.VBox):
             self.button_undo.set_sensitive(self.undo_manager.has_undo())
             self.button_redo.set_sensitive(self.undo_manager.has_redo())
 
+    def save_as_svg(self, filename):
+        self.canvas.save_as_svg(filename)
+
     def get_zoom(self):
         return self.canvas.get_zoom()
 
@@ -367,8 +370,6 @@ class NetList(ObjectTree):
             ("Tracing", [
                 ("Trace everything", self._trace_everything),
                 ("Trace nothing", self._trace_nothing) ]),
-            ("-", None),
-            ("Export to SVG", self._export_svg)
         ]
 
         if not obj.is_module():
@@ -435,18 +436,6 @@ class NetList(ObjectTree):
         net = obj.copy()
         net.name = obj.name + "_copy"
         self.project.add_net(net)
-
-    def _export_svg(self, w):
-        obj = self.selected_object()
-        if isinstance(obj, str):
-            return
-        surface = cairo.SVGSurface("net.svg", 1000, 1000)
-        try:
-            context = cairo.Context(surface)
-            obj.draw(context, VisualConfig())
-        finally:
-            surface.finish()
-        self.neteditor.app.console_write("Net exported to 'net.svg'.\n", "success")
 
     def _trace_nothing(self, w):
         obj = self.selected_object()

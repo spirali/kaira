@@ -144,10 +144,14 @@ class MainWindow(gtk.Window):
                 self.mainmenu_groups[event_group].append(item)
             return item
 
-        menu = gtk.Menu()
-        item = gtk.MenuItem("_Project")
-        item.set_submenu(menu)
-        main_menu.append(item)
+        def add_menu(label):
+            menu = gtk.Menu()
+            item = gtk.MenuItem(label)
+            item.set_submenu(menu)
+            main_menu.append(item)
+            return menu
+
+        menu = add_menu("_Project")
 
         add("_New project", self.app.new_project)
         add("_Open project", self.app.load_project)
@@ -157,10 +161,7 @@ class MainWindow(gtk.Window):
         menu.append(gtk.SeparatorMenuItem())
         add("_Quit", gtk.main_quit)
 
-        menu = gtk.Menu()
-        item = gtk.MenuItem("_View")
-        item.set_submenu(menu)
-        main_menu.append(item)
+        menu = add_menu("_View")
 
         item = gtk.RadioMenuItem(None, "No grid")
         item.connect("activate", lambda w: self.app.set_grid_size(1))
@@ -180,10 +181,7 @@ class MainWindow(gtk.Window):
         menu.append(gtk.SeparatorMenuItem())
         self.close_tab_item = add("Close tab", self.app.close_current_tab, key="W", ctrl=True)
 
-        menu = gtk.Menu()
-        item = gtk.MenuItem("_Edit")
-        item.set_submenu(menu)
-        main_menu.append(item)
+        menu = add_menu("_Edit")
 
         add("Undo", self.app.undo, "undo", key="Z", ctrl=True)
         add("Redo", self.app.redo, "undo", key="Z", ctrl=True, shift=True)
@@ -195,19 +193,13 @@ class MainWindow(gtk.Window):
         menu.append(gtk.SeparatorMenuItem())
         add("Edit _settings", self.app.edit_settings)
 
-        menu = gtk.Menu()
-        item = gtk.MenuItem("_Build")
-        item.set_submenu(menu)
-        main_menu.append(item)
+        menu = add_menu("_Build")
 
         add("Build project (_relea_se)", lambda: self.app.build_project("release"), "project")
         add("Build project (_traced)", lambda: self.app.build_project("traced"), "project")
         add("Build project (_statespace)", lambda: self.app.build_project("statespace"), "project")
 
-        menu = gtk.Menu()
-        item = gtk.MenuItem("_Simulation")
-        item.set_submenu(menu)
-        main_menu.append(item)
+        menu = add_menu("_Simulation")
 
         add("_Run simulation", self.app.simulation_start, "project", key="F7")
         add("Confi_gure simulation", self.app.open_simconfig_dialog, "project", key="F8")
@@ -217,23 +209,20 @@ class MainWindow(gtk.Window):
             "project")
         add("_Connect to application", self.app.connect_to_application)
 
-        menu = gtk.Menu()
-        item = gtk.MenuItem("_Tracelog")
-        item.set_submenu(menu)
-        main_menu.append(item)
+        menu = add_menu("_Tracelog")
 
         add("Open tracelo_g", self.app.load_tracelog)
         add("E_xport tracelog table", self.app.export_tracelog_table, "tracelog")
         add("Export control se_quence", self.app.export_tracelog_sequence, "tracelog")
 
-        menu = gtk.Menu()
-        item = gtk.MenuItem("_Analysis")
-        item.set_submenu(menu)
-        main_menu.append(item)
+        menu = add_menu("_Analysis")
 
         add("Run state space _analysis", self.app.run_statespace_analysis, "project")
         add("Open _report", self.app.load_report)
 
+        menu = add_menu("_Others")
+
+        add("Save net as SV_G", self.app.save_as_svg, "screenshot")
         return main_menu
 
     def _on_tab_switch(self, w, page, page_index):

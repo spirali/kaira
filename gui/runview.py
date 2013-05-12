@@ -114,6 +114,9 @@ class RunView(gtk.VBox):
             else:
                 item.hide()
 
+    def save_as_svg(self, filename):
+        self.netinstance_view.save_as_svg(filename)
+
     def update_labels(self):
         def format(num, max):
             if num is not None:

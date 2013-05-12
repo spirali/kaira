@@ -18,7 +18,7 @@
 #
 
 import gtk
-
+import cairo
 
 class Canvas(gtk.DrawingArea):
 
@@ -74,6 +74,15 @@ class Canvas(gtk.DrawingArea):
     def set_cursor(self, cursor):
         self.window.set_cursor(cursor)
 
+    def save_as_svg(self, filename):
+        size = (1000, 1000)
+        surface = cairo.SVGSurface(filename, size[0], size[1])
+        try:
+            cr = cairo.Context(surface)
+            self._draw(cr, size[0], size[1])
+        finally:
+            surface.finish()
+
     def _expose(self, w, event):
         cr = self.window.cairo_create()
         self.cr = cr
@@ -81,6 +90,7 @@ class Canvas(gtk.DrawingArea):
                 event.area.width, event.area.height)
         cr.clip()
         self._draw(cr, *self.window.get_size())
+
 
     def _draw(self, cr, width, height):
         cr.set_source_rgb(0.8, 0.8, 0.8)
@@ -93,7 +103,6 @@ class Canvas(gtk.DrawingArea):
                 self.viewport = self.config.get_default_viewport()
             else:
                 self.viewport = (0, 0)
-
 
         cr.translate(width / 2, height / 2)
         cr.scale(self.zoom, self.zoom)
