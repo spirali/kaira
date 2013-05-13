@@ -30,7 +30,6 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
     def __init__(self, neteditor):
         cconfig.NetCanvasConfig.__init__(self)
         self.neteditor = neteditor
-        self.show_tracing = False
 
     @property
     def grid_size(self):
@@ -46,13 +45,13 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
             for i in self.net.items:
                 items += i.get_error_items()
 
-            if self.show_tracing:
+            if self.neteditor.show_tracing:
                 for item in self.net.places() + self.net.transitions():
                      if item.tracing:
                         size = item.box.size
                         position = utils.vector_add_t(item.box.get_position(), size, 0.5)
                         i = citems.TraceBox(
-                            None, "tracebox", citems.AbsPlacement(position))
+                            None, "tracebox", citems.RelativePlacement(item.box, position))
                         i.trace_text = item.get_trace_texts()
                         items.append(i)
         return items

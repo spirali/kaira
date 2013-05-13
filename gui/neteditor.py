@@ -62,6 +62,8 @@ class NetEditor(gtk.VBox):
         self.set_size_request(500,400)
         self.canvas = None
 
+        self.show_tracing = False
+
         self.pack_start(self._controls(), False)
         self.pack_start(self._editarea(), False)
 
@@ -87,7 +89,7 @@ class NetEditor(gtk.VBox):
         return self.netlist.selected_object()
 
     def set_show_tracing(self, value):
-        self.canvas.config.show_tracing = value
+        self.show_tracing = value
         self.canvas.config.configure()
         self.redraw()
 

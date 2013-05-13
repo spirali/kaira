@@ -229,7 +229,7 @@ class TraceBox(CanvasItem):
     def draw(self, cr):
         if self.trace_text:
             px, py = self.get_position()
-            drawing.draw_trace_box(cr, px, py, self.trace_text)
+            drawing.draw_label(cr, px, py, self.trace_text, (1,1,1), (1.0, 0.5, 0.2))
 
 
 class ArrowLine(CanvasItem):

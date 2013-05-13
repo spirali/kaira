@@ -123,21 +123,24 @@ def rounded_rectangle(cr, x, y, w, h, r):
     cr.line_to(x, y + r)
     cr.curve_to(x, y, x, y, x + r, y)
 
-def draw_trace_box(cr, x, y, text):
+def draw_label(cr, x, y, text, text_color, background_color):
     tw = 0
     th = 0
     for txt in text:
         tx, ty = utils.text_size(cr, txt, 8)
         th += ty
         tw = tw if tw > tx else tx
-    rounded_rectangle(cr, x, y, tw + 40, th + len(text)*10, 10)
-    cr.set_source_rgba(1.0, 0.5, 0.2, 0.9)
+    rounded_rectangle(cr, x, y, tw + 40, th + len(text) * 10, 10)
+    cr.set_source_rgba(background_color[0],
+                       background_color[1],
+                       background_color[2],
+                       0.9)
     cr.fill()
     rounded_rectangle(cr, x, y, tw + 40, th + 10, 10)
-    cr.set_source_rgba(1.0, 0.5, 0.2)
+    cr.set_source_rgb(*background_color)
     cr.stroke()
 
-    cr.set_source_rgb(1, 1, 1)
+    cr.set_source_rgb(*text_color)
     th = -5
     for txt in text:
         tx, ty = utils.text_size(cr, txt, 8)
