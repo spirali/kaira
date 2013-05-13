@@ -165,19 +165,18 @@ The places serves as memory spaces for program. Values stored in places are
 called 'tokens'. Places works as queues so they remember order of tokens with
 First-In-First-Out access.
 (In this aspect, our model diverges from Colored Petri nets, where tokens are
-stored in the forms as multisets).
+stored in multisets).
 
 Each place has the following properties:
 
 Name::
-    An arbitrary string that servets to describe the place with no actual
-    meaning.
+    An arbitrary string to describe the place with no actual meaning.
 Type::
     Any C\++ type. Standard types (like 'int', 'std::vector') can be used
     directly; all supported types are listed in
     <<Types,Supported standard types>>. How to use user defined types is
     covered in Section Integration of C\++.
-Init::
+Init expression::
     An expression that initializes the place. In other words, it sets tokens in
     the place at the beginning of the program. It can be empty or can have
     the following two forms:
@@ -187,14 +186,41 @@ Init::
         starts with character '[' and ends with ']'. Each C++ expression has to
         be separated by ';'. Example: when the type of the place is 'double'
         we can use the expression as follows: '[1.0; 1.5; 2.8]'
+Init code::
+    A C++ code that allows generic place initialization.
+    More in Section <<InitCode, Place init code>>.
 
 Transitions
 ~~~~~~~~~~~
 
-...
+Transitions defines the behavior of the model. A program modelled in Kaira
+evolves by firing transitions. A transition takes tokens from its input places,
+computes new values and then put tokens into output places. What tokens are
+needed to fire a transition and what tokens are produced when the transition
+is fired is defined by 'edges'. Edges are topic of the next section. Here we
+describe properties of a transition not described by edges.
 
-Edges
-~~~~~
+Name::
+    An arbitrary string to describe the place with no actual meaning.
+Guard expression::
+    A boolean C\++ expression that can contain input variables. The guard
+    expression has to be evaulated to 'true' to fire a transition.
+Priority::
+    An integer value that specifies the priority of the transition.
+    When a transition is enabled then all transitions with lower priority
+    in the same process cannot be fired. If the priority is unspecified then
+    it is considered as zero priority.
+Fire code::
+    A C++ code that is processed each time when the transition is fired.
+    More in Section <<FireCode, Transition fire code>>.
+
+
+The syntax of edges
+~~~~~~~~~~~~~~~~~~~
+
+For the following text we fix a transition, i.e. the following terms like
+'input edge' are defined in context of this transition. Therefore each
+transition can have different input edges.
 
 There are two types of edges: 'Input edge' (from a place to a transition) and
 'Output edge' (from a transition to a place). Semantics for them is described
@@ -221,18 +247,43 @@ x + 1
 [if(x>2), multicast] x1; x2@where
 --------------------------
 
-Input edges
-~~~~~~~~~~~
-
-An 'input edge' is an edge from a place to a transition. Basic properties are:
+An 'input edge' is an edge from a place to the transition.
+Basic properties are:
 
   - There can be at most one arc between each place and transition
   - 'target' is not allowed
   - allowed configurations: 'bulk', 'guard(CPP-EXPR)', 'origin'
   - 'token-expressions' or 'configurations' has to be nonempty
 
-The most common case is an edge without configurations, hence there are only
-token-expressions.
+An 'output edge' is an edge from a place to the transition.
+Basic properties are:
+
+  - There can be an arbitrary number of edges between each place and transition
+  - 'target' is allowed
+  - allowed configurations: 'bulk', 'if(CPP-EXPR)', 'multicast'
+  - 'token-expressions' has to be nonempty.
+
+Edge related terms
+^^^^^^^^^^^^^^^^^^
+
+Input variable::
+    A variable that appears in any expression on an input edge
+   (in configurations and token-expressions).
+Output variable::
+    A variable that appears in any expression on an output edge
+    (in configurations, token-expressions or target)
+Transition variables::
+    A union of input variables and output variables.
+
+Semantics of transitions
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Here we discuss two topics: when a transition is 'enabled' and if
+the transition enabled what happens when it is 'fired'.
+
+Generally, input edges (together with the guard expression) control when
+the transition is enabled. The most common case is an edge without
+configurations, hence there are only token-expressions.
 
 --------------------------
 expr1; expr2; ... exprN
@@ -243,15 +294,10 @@ if there is at least *N* tokens in the place of the and first token in the
 place's queue is equal to +eval(expr1, B)+, the second token is equal to
 +eval(expr2, B)+, ... .
 
-Output edges
-~~~~~~~~~~~~
+Evolution of the program
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-An 'output edge' is an edge from a place to a transition. Basic properties are:
-
-  - There can be an arbitrary number of edges between each place and transition
-  - 'target' is allowed
-  - allowed configurations: 'bulk', 'if(CPP-EXPR)', 'multicast'
-  - 'token-expressions' has to be nonempty.
+...
 
 Init areas
 ~~~~~~~~~~
@@ -260,6 +306,20 @@ Init areas
 
 Integration of C++ code
 -----------------------
+
+...
+
+[[InitCode]]
+Place init code
+~~~~~~~~~~~~~~~
+
+...
+
+[[FireCode]]
+Transition fire code
+~~~~~~~~~~~~~~~~~~~~
+
+...
 
 Project configuration
 ---------------------
