@@ -22,7 +22,6 @@ import drawing
 import citems
 import net
 import utils
-import tracing
 import undo
 
 class NetEditCanvasConfig(cconfig.NetCanvasConfig):
@@ -45,7 +44,7 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
             for i in self.net.items:
                 items += i.get_error_items()
 
-            if self.neteditor.show_tracing:
+            if self.neteditor.mode == "tracing":
                 for item in self.net.places() + self.net.transitions():
                      if item.tracing:
                         size = item.box.size
@@ -345,50 +344,20 @@ def resize_item(config, item, position):
 
 def contextmenu_place(config, item, position):
     place = item.owner
-
-    def tracingfn_callback():
-        result = tracing.tracefn_dialog(config.neteditor.app.window, "", "int")
-        if result is not None:
-            place.tracing.append(result)
-        config.configure()
-
-
-    def callback(place, value, check):
-            return lambda w: set_tracing(config, place, value, check)
-
-    trace_menu = [ ("Add function",
-                    lambda w: tracingfn_callback()) ]
-    token_name = ("ca::token_name", "std::string")
-    if token_name not in place.tracing:
-        trace_menu.append(("Add function 'ca::token_name'",
-                           lambda w: set_tracing(config, place, token_name, True)))
-
-    trace_fns = place.tracing
-    if trace_fns:
-        trace_menu.append(("-", None))
-        for name, t in trace_fns:
-            trace_menu.append(("Remove tracing function '{0}'".format(name, t),
-                               callback(place, (name, t), False)))
-
     return [
         ("Resize", lambda w: resize_item(config, item, position)),
         ("Edit init code",
             lambda w: config.neteditor.place_edit_callback(place)),
-        ("Tracing", trace_menu),
         ("-", None),
         ("Delete", lambda w: delete_item(config, place)),
     ]
 
 def contextmenu_transition(config, item, position):
     transition = item.owner
-    fire = "fire" in transition.tracing
-    trace_menu = [("fire",
-                   (fire, lambda w: set_tracing(config, transition, "fire", not fire)))]
     return [
         ("Resize", lambda w: resize_item(config, item, position)),
         ("Edit code",
             lambda w: config.neteditor.transition_edit_callback(transition)),
-        ("Tracing", trace_menu),
         ("-", None),
         ("Delete", lambda w: delete_item(config, transition)),
     ]

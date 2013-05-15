@@ -30,6 +30,8 @@ import glib
 import neteditcc
 import undo
 import codeedit
+import objectlist
+import tracing
 
 def netname_dialog(net, mainwindow):
     builder = gtkutils.load_ui("netname-dialog")
@@ -65,7 +67,7 @@ class NetEditor(gtk.VBox):
         self.canvas = None
         self.attribute_widgets = []
 
-        self.show_tracing = False
+        self.mode = "edit"
 
         self.pack_start(self._controls(), False)
 
@@ -93,8 +95,8 @@ class NetEditor(gtk.VBox):
     def get_net(self):
         return self.netlist.selected_object()
 
-    def set_show_tracing(self, value):
-        self.show_tracing = value
+    def set_mode(self, value):
+        self.mode = value
         self.canvas.config.configure()
         self.redraw()
 
@@ -162,12 +164,6 @@ class NetEditor(gtk.VBox):
         self.canvas.config.configure()
         self.redraw()
 
-    def netlist_show(self, v):
-        if v:
-            self.netlist.show()
-        else:
-            self.netlist.hide()
-
     def undo(self):
         if self.undo_manager.has_undo():
             self.undo_manager.perform_undo()
@@ -196,15 +192,15 @@ class NetEditor(gtk.VBox):
 
         toolbar = gtk.Toolbar()
 
-        button1 = gtk.ToggleToolButton(None)
-        button1.connect("toggled", lambda w: self.netlist_show(w.get_active()))
-        button1.set_stock_id(gtk.STOCK_INDEX)
+        button1 = gtk.RadioToolButton(None)
+        button1.connect("toggled", lambda w: self.set_mode("edit"))
+        button1.set_stock_id(gtk.STOCK_EDIT)
         toolbar.add(button1)
 
-        button1 = gtk.ToggleToolButton(None)
-        button1.connect("toggled", lambda w: self.set_show_tracing(w.get_active()))
-        button1.set_icon_widget(icon_trace)
-        toolbar.add(button1)
+        button2 = gtk.RadioToolButton(button1, None)
+        button2.connect("toggled", lambda w: self.set_mode("tracing"))
+        button2.set_icon_widget(icon_trace)
+        toolbar.add(button2)
         toolbar.add(gtk.SeparatorToolItem())
 
         self.button_undo = gtk.ToolButton()
@@ -271,25 +267,6 @@ class NetEditor(gtk.VBox):
         self.attribute_box = box
         return box
 
-
-    def _button_down(self, event, position):
-        if self.tool and self.tool.net:
-            if event.button == 1:
-                self.tool.left_button_down(event, position)
-            elif event.button == 3:
-                self.tool.right_button_down(event, position)
-
-    def _button_up(self, event, position):
-        if self.tool and self.tool.net:
-            if event.button == 1:
-                self.tool.left_button_up(event, position)
-            elif event.button == 3:
-                self.tool.right_button_up(event, position)
-
-    def _mouse_move(self, event, position):
-        if self.tool and self.tool.net:
-            self.tool.mouse_move(event, position)
-
     def _key_press(self, w, event):
         if gtk.gdk.keyval_name(event.keyval) == "Tab":
             self.focus_next_attribute()
@@ -311,7 +288,10 @@ class NetEditor(gtk.VBox):
         self.attribute_widgets = []
 
         if item is not None:
-            self._setup_attribute_widges(item)
+            if self.mode == "edit":
+                self._setup_attribute_widges_mode_edit(item)
+            elif self.mode == "tracing":
+                self._setup_attribute_widges_mode_tracing(item)
 
         if self.attribute_widgets:
             self.focus_edit_item()
@@ -330,7 +310,7 @@ class NetEditor(gtk.VBox):
         self.attribute_box.pack_start(editor, False, False)
         self.attribute_box.show_all()
 
-    def _setup_attribute_widges(self, item):
+    def _setup_attribute_widges_mode_edit(self, item):
         if item.is_transition():
             self._add_attribute_code_editor("Name", item.get_name, item.set_name)
             self._add_attribute_code_editor("Guard", item.get_guard, item.set_guard)
@@ -343,6 +323,85 @@ class NetEditor(gtk.VBox):
             self._add_attribute_code_editor("Inscription", item.get_inscription, item.set_inscription)
         elif item.is_area():
             self._add_attribute_code_editor("Init", item.get_init_expr, item.set_init_expr)
+
+    def _setup_attribute_widges_mode_tracing(self, item):
+        def trace_enable(value, insert=False):
+            if insert:
+                item.tracing.insert(0, value)
+            else:
+                item.tracing.append(value)
+            self.canvas.config.configure()
+        def trace_disable(value):
+            item.tracing.remove(value)
+            self.canvas.config.configure()
+        if item.is_transition():
+            self._add_attribute_checkbox("Trace fire",
+                                         "fire" in item.tracing,
+                                         lambda: trace_enable("fire"),
+                                         lambda: trace_disable("fire"))
+        elif item.is_place():
+            def refresh():
+                objlist.refresh(item.tracing)
+                self.canvas.config.configure()
+            def add_fn():
+                trace_fn = tracing.TraceFunction("", "int")
+                result = tracing.tracefn_dialog(self.app.window, trace_fn)
+                if result:
+                    item.tracing.append(trace_fn)
+                    refresh()
+            def edit_fn(obj):
+                tracing.tracefn_dialog(self.app.window, obj)
+                refresh()
+            def remove_fn(obj):
+                item.tracing.remove(obj)
+                refresh()
+            def add_token_name():
+                trace_fn = tracing.TraceFunction("ca::token_name", "std::string")
+                item.tracing.append(trace_fn)
+                refresh()
+
+            objlist = objectlist.ObjectList([("_", object), ("Name", str), ("Type", str)])
+            objlist.set_size_request(0, 150)
+            objlist.object_as_row = lambda obj: [ obj, obj.name, obj.return_type ]
+            objlist.fill(item.tracing)
+            self._add_attribute_objlist("Trace functions",
+                                        objlist,
+                                        add_fn,
+                                        edit_fn,
+                                        remove_fn)
+            button = gtk.Button("Trace ca::token_name")
+            button.connect("clicked", lambda w: add_token_name())
+            self.attribute_box.pack_start(button, False, False)
+
+    def _add_attribute_objlist(self, text, objlist, add_fn, edit_fn, remove_fn):
+        label = gtk.Label(text)
+        self.attribute_box.pack_start(label, False, False)
+        box = gtk.HBox()
+        self.attribute_box.pack_start(box, False, False)
+        button = gtk.Button("Add")
+        button.connect("clicked", lambda w: add_fn())
+        box.pack_start(button)
+        button = gtk.Button("Edit")
+        button.connect("clicked", lambda w: edit_fn(objlist.selected_object()))
+        box.pack_start(button)
+        button = gtk.Button("Remove")
+        button.connect("clicked", lambda w: remove_fn(objlist.selected_object()))
+        box.pack_start(button)
+
+        self.attribute_box.pack_start(objlist, False, False)
+        self.attribute_widgets.append(objlist)
+
+    def _add_attribute_checkbox(self, text, initial_value, set_true, set_false):
+        def changed(w):
+            if checkbox.get_active():
+                set_true()
+            else:
+                set_false()
+        checkbox = gtk.CheckButton(text, False)
+        checkbox.set_active(initial_value)
+        checkbox.connect("toggled", changed)
+        self.attribute_box.pack_start(checkbox, False, False, 5)
+        self.attribute_widgets.append(checkbox)
 
     def _add_attribute_code_editor(self, name, get_fn, set_fn):
         def on_change():
@@ -366,7 +425,7 @@ class NetEditor(gtk.VBox):
         editor.buffer_changed = on_change
         label = gtk.Label(name)
         self.attribute_box.pack_start(label, False, False)
-        self.attribute_box.pack_start(editor, False, False)
+        self.attribute_box.pack_start(editor, False, False, 3)
         self.attribute_widgets.append(editor)
 
 

@@ -103,7 +103,6 @@ class CanvasConfig:
         for item in self.items:
             item.highlight = None
 
-
     def get_item_at_position(self, position):
         for item in self.items:
             if item.is_at_position(position):
@@ -160,7 +159,7 @@ class CanvasConfig:
             if item.delegate_selection:
                 self.select_item(item.delegate_selection)
                 return
-            self.selected_items = item.get_group()
+            self.selected_items = item.get_group()[:]
             if item.action:
                 self.canvas.set_cursor(get_cursor(item.action))
         self.on_items_selected()

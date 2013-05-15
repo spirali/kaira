@@ -24,6 +24,7 @@ from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
 import citems
 import undo
+import tracing
 
 class Net:
 
@@ -213,10 +214,10 @@ class Net:
         for i in self.transitions():
             if not "fire" in i.tracing:
                 i.tracing.insert(0, "fire")
-        token_name = ("ca::token_name", "std::string")
+        token_name = tracing.TraceFunction("ca::token_name", "std::string")
         for i in self.places():
             if token_name not in i.tracing:
-                i.tracing.insert(0,  token_name)
+                i.tracing.insert(0, tracing.TraceFunction("ca::token_name", "std::string"))
         self.changed()
 
 
@@ -482,17 +483,13 @@ class Place(NetElement):
         return True
 
     def get_trace_texts(self):
-        result = []
-        for name, t in self.tracing:
-            result.append(name)
-            result.append("({0})".format(t))
-        return result
+        return [ trace_function.name for trace_function in self.tracing ]
 
     def tracing_to_xml(self, element):
-        for name, return_type in self.tracing:
+        for trace_function in self.tracing:
             e = xml.Element("trace")
-            e.set("name", name)
-            e.set("return-type", return_type)
+            e.set("name", trace_function.name)
+            e.set("return-type", trace_function.return_type)
             element.append(e)
 
     def as_xml(self):
@@ -839,14 +836,14 @@ def load_tracing(element):
     return trace
 
 def load_place_tracing(element):
-    tracing = []
+    functions = []
     for e in element.findall("trace"):
         name = e.get("name", None)
         return_type = e.get("return-type", None)
         if name is None or return_type is None:
-            return tracing # backward compatability
-        tracing.append((name, return_type))
-    return tracing
+            return []
+        functions.append(tracing.TraceFunction(name, return_type))
+    return functions
 
 def load_place(element, net, loader):
     id = loader.get_id(element)
@@ -865,7 +862,7 @@ def load_place(element, net, loader):
     else:
         place.init.text = element.get("init_string", "") # Backward compatability
     place.set_code(load_code(element))
-    place.tracing =  load_place_tracing(element)
+    place.tracing = load_place_tracing(element)
 
 def load_transition(element, net, loader):
     id = loader.get_id(element)
