@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011 Stanislav Bohm
+#    Copyright (C) 2010-2013  Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #
 #    This file is part of Kaira.
@@ -31,11 +31,16 @@ class CodeEditor(gtk.ScrolledWindow):
     """
         sections: list of (name, start_string, middle_string, end_string)
     """
-    def __init__(self, language, sections, start_pos, head_paragraph=None):
+    def __init__(self, language, sections=None, start_pos=None, head_paragraph=None):
         gtk.ScrolledWindow.__init__(self)
+        if sections is None:
+            sections = [ ("", "", "", "") ]
+        if start_pos is None:
+            start_pos = ("", 0, 0)
         self.sections = sections
 
         self.set_shadow_type(gtk.SHADOW_IN)
+        self.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 
         buffer = self._create_buffer(language, sections, head_paragraph)
         self.view = self._create_view(buffer)
@@ -71,7 +76,7 @@ class CodeEditor(gtk.ScrolledWindow):
         buffer.set_language(lan)
         buffer.set_highlight_syntax(True)
         buffer.set_highlight_matching_brackets(True)
-        buffer.connect("changed", self.buffer_changed)
+        buffer.connect("changed", lambda w: self.buffer_changed())
         self.buffer = buffer
         return buffer
 
@@ -88,12 +93,12 @@ class CodeEditor(gtk.ScrolledWindow):
     def _create_view(self, buffer):
         view = gtksourceview.View(buffer)
         view.set_auto_indent(True)
-        font_desc = pango.FontDescription('monospace')
+        font_desc = pango.FontDescription("monospace 10")
         if font_desc:
             view.modify_font(font_desc)
         return view
 
-    def buffer_changed(self, w):
+    def buffer_changed(self):
         pass
 
     def get_section_iters(self, section_name):
@@ -103,14 +108,20 @@ class CodeEditor(gtk.ScrolledWindow):
         end_iter = self.buffer.get_iter_at_mark(end_mark)
         return start_iter, end_iter
 
-    def get_text(self, section_name = ""):
+    def get_text(self, section_name=""):
         start_iter, end_iter = self.get_section_iters(section_name)
         return self.buffer.get_text(start_iter, end_iter)
 
-    def set_text(self, text, section_name = ""):
+    def set_text(self, text, section_name=""):
         start_iter, end_iter = self.get_section_iters(section_name)
         self.buffer.delete(start_iter, end_iter)
         self.buffer.insert(start_iter, text)
+
+    def grab_focus(self):
+        self.view.grab_focus()
+
+    def has_focus(self):
+        return self.view.has_focus()
 
     def jump_to_position(self, position):
         """ Take pair (section_name, line_number) and move cursor on this position
@@ -131,10 +142,11 @@ class CodeEditor(gtk.ScrolledWindow):
         self.view.scroll_to_iter(text_iter, 0.1)
         self.view.grab_focus()
 
+
 class CodeFileEditor(CodeEditor):
 
     def __init__(self, language, filename=None):
-        CodeEditor.__init__(self, language, [("", "", "", "")], ("", 0,0))
+        CodeEditor.__init__(self, language)
         self.view.set_show_line_numbers(True)
         self.load(filename)
 
@@ -151,6 +163,7 @@ class CodeFileEditor(CodeEditor):
             with open(self.filename, "w") as f:
                 f.write(self.get_text())
 
+
 class TransitionCodeEditor(CodeEditor):
 
     def __init__(self, project, transition, header):
@@ -166,8 +179,9 @@ class TransitionCodeEditor(CodeEditor):
                             ("", 1, 1),
                             header)
 
-    def buffer_changed(self, buffer):
+    def buffer_changed(self):
         self.transition.set_code(self.get_text())
+
 
 class PlaceCodeEditor(CodeEditor):
 
@@ -185,8 +199,9 @@ class PlaceCodeEditor(CodeEditor):
                             ("", 1, 1),
                             header)
 
-    def buffer_changed(self, buffer):
+    def buffer_changed(self):
         self.place.set_code(self.get_text())
+
 
 class HeadCodeEditor(CodeEditor):
 
@@ -204,8 +219,10 @@ class HeadCodeEditor(CodeEditor):
     def save(self):
         self.project.set_head_code(self.get_text())
 
+
 class TabCodeEditor(mainwindow.SaveTab):
     pass
+
 
 class TabCodeFileEditor(mainwindow.SaveTab):
 

@@ -56,7 +56,7 @@ class App:
     """
     def __init__(self, args):
         self.window = MainWindow(self)
-        self.window.set_size_request(650,650)
+        self.window.set_size_request(800,600)
         self.neteditor = None
         self.project = None
         self._open_welcome_tab()

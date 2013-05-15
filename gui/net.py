@@ -264,9 +264,6 @@ class NetItem(object):
         element.set("id", str(self.id))
         return element
 
-    def get_text_entries(self):
-        return []
-
     def get_canvas_items_dict(self):
         result = {}
         for i in self.get_canvas_items():
@@ -437,11 +434,6 @@ class Transition(NetElement):
                 e.append(trace)
         return e
 
-    def get_text_entries(self):
-        return [ ("Name", self.get_name, self.set_name),
-                 ("Guard", self.get_guard, self.set_guard),
-                 ("Priority", self.get_priroty, self.set_priority) ]
-
 
 class Place(NetElement):
 
@@ -529,11 +521,6 @@ class Place(NetElement):
         if build_config.tracing and self.tracing:
             self.tracing_to_xml(e)
         return e
-
-    def get_text_entries(self):
-        return [ ("Type", self.get_place_type, self.set_place_type),
-                ("Init", self.get_init_string, self.set_init_string),
-                ("Name", self.get_name, self.set_name)]
 
 
 class Edge(NetItem):
@@ -654,9 +641,6 @@ class Edge(NetItem):
         sp, ep = self.get_end_points()
         return [sp] + [ p.get_position() for p in self.points ] + [ep]
 
-    def get_text_entries(self):
-        return [ ("Inscription", self.get_inscription, self.set_inscription) ]
-
     def create_xml_export_element(self, name):
         e = xml.Element(name)
         e.set("id", str(self.id))
@@ -708,9 +692,6 @@ class NetArea(RectItem):
 
     def get_init_expr(self):
         return self.init.text
-
-    def get_text_entries(self):
-        return [ ("Init", self.get_init_expr, self.set_init_expr) ]
 
     def is_area(self):
         return True

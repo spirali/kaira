@@ -37,7 +37,7 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
 
     def configure(self):
         cconfig.NetCanvasConfig.configure(self)
-        self.neteditor.set_entry_types([])
+        self.neteditor.set_attributes(None)
 
     def collect_items(self):
         items = cconfig.NetCanvasConfig.collect_items(self)
@@ -86,9 +86,9 @@ class SelectionCanvasConfig(NetEditCanvasConfig):
         else:
             owners = []
         if len(set(owners)) == 1:
-            self.neteditor.set_entry_types(owners[0].get_text_entries())
+            self.neteditor.set_attributes(owners[0])
         else:
-            self.neteditor.set_entry_types([])
+            self.neteditor.set_attributes(None)
 
     def configure(self):
         NetEditCanvasConfig.configure(self)

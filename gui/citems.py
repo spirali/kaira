@@ -171,7 +171,7 @@ class ElementBox(CanvasItem):
             shift = 6 if self.doubleborder else 3
             cr.save()
             cr.set_font_size(8)
-            drawing.draw_align_text(cr, px + sx - shift, py + shift, self.corner_text, 1, 1)
+            drawing.draw_text(cr, px + sx - shift, py + shift, self.corner_text, 1, 1)
             cr.restore()
 
     def is_at_position(self, position):
@@ -295,6 +295,8 @@ class Text(CanvasItem):
     border = False
     padding_x = 6
     padding_y = 2
+    align_x = 0
+    align_y = 1
     radius = None
     color = (0.0, 0.0, 0.0)
 
@@ -309,36 +311,27 @@ class Text(CanvasItem):
                 x + self.size[0] > px and y + self.size[1] > py)
 
     def draw(self, cr):
-        self.size = utils.vector_add(
-            utils.text_size(cr, self.text),
-            (self.padding_x * 2, self.padding_y * 2))
-
         if self.text:
             px, py = self.get_position()
-
-            color = self.background
-            if self.highlight:
-               color = self.highlight
-            if color:
-                cr.set_source_rgba(*color)
-                if self.radius:
-                    drawing.rounded_rectangle(
-                        cr, px, py, self.size[0], self.size[1], self.radius)
-                else:
-                    cr.rectangle(px, py, self.size[0], self.size[1])
-                cr.fill()
 
             if self.inactive:
                cr.set_source_rgb(0.5,0.5,0.5)
             else:
                cr.set_source_rgb(*self.color)
 
-            if self.border:
-                cr.rectangle(px, py, self.size[0], self.size[1])
-                cr.stroke()
+            if self.highlight:
+                background_color = self.highlight
+            else:
+                background_color = None
 
-            drawing.draw_centered_text(
-                cr, px + self.size[0] / 2, py + self.size[1] / 2, self.text)
+            self.size = drawing.draw_text(
+                   cr, px, py, self.text, self.align_x, self.align_y,
+                   padding_x=self.padding_x,
+                   padding_y=self.padding_y,
+                   radius=self.radius,
+                   background_color=background_color)
+        else:
+            self.size = (0, 0)
 
     def get_bounding_box(self):
         return (self.get_position(), self.get_position())

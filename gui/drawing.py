@@ -44,12 +44,30 @@ def draw_round_rectangle(cr, px, py, sx, sy, radius):
     cr.close_path()
 
 def draw_centered_text(cr, px, py, text):
-    draw_align_text(cr, px, py, text, 0.5, 0.5)
+    draw_text(cr, px, py, text, 0.5, 0.5)
 
-def draw_align_text(cr, px, py, text, align_x, align_y):
-    tx, ty = utils.text_size(cr, text)
-    cr.move_to(px - tx * align_x, py + ty * align_y)
-    cr.show_text(text)
+def draw_text(cr, px, py, text, align_x, align_y, padding_x=0, padding_y=0, background_color=None, radius=None):
+    lines = text.strip().replace("\t", "    ").split("\n")
+    tx = max(utils.text_size(cr, text)[0] for text in lines)
+    w_height = utils.text_size(cr, "W")[1] + 2
+    count = len(lines)
+    x = px - tx * align_x
+    y = py + w_height * count * align_y
+    sx = tx + padding_x * 2
+    sy = w_height * count + padding_y * 2
+    if background_color is not None:
+        cr.save()
+        cr.set_source_rgba(*background_color)
+        if radius:
+            rounded_rectangle(cr, x - padding_x, y - padding_y - sy, sx, sy, radius)
+        else:
+            cr.rectangle(x - padding_x, y - padding_y - w_height * count, sx, sy)
+        cr.fill()
+        cr.restore()
+    for i in xrange(count):
+        cr.move_to(x, y - i * w_height)
+        cr.show_text(lines[count - i - 1])
+    return (sx, sy)
 
 def draw_arrow(cr, dir_vector, arrow_degrees, arrow_len):
     dx, dy = dir_vector
