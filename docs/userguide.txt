@@ -9,8 +9,8 @@ profiling, performance prediction and verification.
 
 The main idea is to use visual models inspired by Coloured Petri Nets.
 This model is designed to catch parallel aspects and communication inside of
-developed application. We do not want to program applications completely in
-a visual way, so our models can be enriched by any sequential C++ code.
+the developed application. We do not want to program applications completely
+in a visual way, so our models can be enriched by any sequential C++ code.
 With such model, a user can generate MPI applications, run simulations
 or start a state-space analysis.
 
@@ -23,7 +23,8 @@ of Linux.
 Installation
 ------------
 
-.Quick answer for Debian based distributions if we want to install everything
+.Instructions for Debian based distributions
+ when you want to install everything
 ************
 
   - Necessary packages
@@ -58,7 +59,7 @@ Installation
 
 The following text covers the installation process in more detail.
 
-Dependancies
+Dependencies
 ~~~~~~~~~~~~
 
 To run Kaira, you need the following software.
@@ -74,7 +75,7 @@ To run Kaira, you need the following software.
   - g++
   - matplotlib
 
-Optional dependancies:
+Optional dependencies:
 
   - MPI implementation (tested with: MPICH2, OpenMP, LAM)
   - sparsehash
@@ -142,30 +143,30 @@ Syntax and semantics
 --------------------
 
 A program (project) in Kaira consists of 'visual model', 'sequential codes'
-embeded into model and 'configuration'. This section contains description of
-the visual model and its behaviour. The next section is about integration of
-C++ codes, followed by the section covering configuration.
+embedded into model and 'configuration'. This section contains the description
+of the visual model and its behavior. The next section is about integration of
+C++ codes, followed by the section covering the configuration.
 
 The visual model consists of the following items:
 
 Places::
-   Places serves as memory spaces
+   Places serve as memory spaces
 Transitions::
    Transitions represent computations
 Edges::
-   Edges define what data are needed to start a transtion and what is produced
+   Edges define what data are needed to start a transition and what is produced
    after its computation is finished
 Init areas::
-   Init areas serves to define processes where places are initialized
+   Init areas serve to define processes where places are initialized
 
 Places
 ~~~~~~
 
-The places serves as memory spaces for program. Values stored in places are
-called 'tokens'. Places works as queues so they remember order of tokens with
+The places serve as memory spaces for the program. Values stored in places are
+called 'tokens'. Places works as queues so they remember order of tokens using
 First-In-First-Out access.
 (In this aspect, our model diverges from Colored Petri nets, where tokens are
-stored in multisets).
+stored in multisets, i.e. there is no order of tokens).
 
 Each place has the following properties:
 
@@ -177,7 +178,7 @@ Type::
     <<Types,Supported standard types>>. How to use user defined types is
     covered in Section Integration of C\++.
 Init expression::
-    An expression that initializes the place. In other words, it sets tokens in
+    An expression that initializes the place. In other words, it sets tokens of
     the place at the beginning of the program. It can be empty or can have
     the following two forms:
       - C++ expression of type 'std::vector<T>' where 'T' is the type of the
@@ -197,19 +198,19 @@ Transitions defines the behavior of the model. A program modelled in Kaira
 evolves by firing transitions. A transition takes tokens from its input places,
 computes new values and then put tokens into output places. What tokens are
 needed to fire a transition and what tokens are produced when the transition
-is fired is defined by 'edges'. Edges are topic of the next section. Here we
-describe properties of a transition not described by edges.
+is fired is defined by 'edges'. Edges are the topic of the next section.
+Here we describe properties of a transition not described by edges.
 
 Name::
     An arbitrary string to describe the place with no actual meaning.
 Guard expression::
     A boolean C\++ expression that can contain input variables. The guard
-    expression has to be evaulated to 'true' to fire a transition.
+    expression has to be evaluated to 'true' to fire a transition.
 Priority::
     An integer value that specifies the priority of the transition.
-    When a transition is enabled then all transitions with lower priority
+    When a transition is enabled then all transitions with lower priorities
     in the same process cannot be fired. If the priority is unspecified then
-    it is considered as zero priority.
+    the transition is considered as a transition with priority 0.
 Fire code::
     A C++ code that is processed each time when the transition is fired.
     More in Section <<FireCode, Transition fire code>>.
@@ -250,7 +251,7 @@ x + 1
 An 'input edge' is an edge from a place to the transition.
 Basic properties are:
 
-  - There can be at most one arc between each place and transition
+  - There can be at most one arc between each place and the transition
   - 'target' is not allowed
   - allowed configurations: 'bulk', 'guard(CPP-EXPR)', 'origin'
   - 'token-expressions' or 'configurations' has to be nonempty
@@ -267,10 +268,10 @@ Edge related terms
 ^^^^^^^^^^^^^^^^^^
 
 Input variable::
-    A variable that appears in any expression on an input edge
-   (in configurations and token-expressions).
+    A variable that appears in an expression on an input edge
+    (in configurations and token-expressions).
 Output variable::
-    A variable that appears in any expression on an output edge
+    A variable that appears in an expression on an output edge
     (in configurations, token-expressions or target)
 Transition variables::
     A union of input variables and output variables.
@@ -278,7 +279,7 @@ Transition variables::
 Semantics of transitions
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Here we discuss two topics: when a transition is 'enabled' and if
+Here we discuss two topics: when the transition is 'enabled' and if
 the transition enabled what happens when it is 'fired'.
 
 Generally, input edges (together with the guard expression) control when
@@ -289,7 +290,7 @@ configurations, hence there are only token-expressions.
 expr1; expr2; ... exprN
 --------------------------
 
-In this case the the transition of the arc can be fired under binding *B* only
+In this case the transition of the arc can be fired under binding *B* only
 if there is at least *N* tokens in the place of the and first token in the
 place's queue is equal to +eval(expr1, B)+, the second token is equal to
 +eval(expr2, B)+, ... .
