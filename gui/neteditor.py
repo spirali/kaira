@@ -84,7 +84,7 @@ class NetEditor(gtk.VBox):
         paned.pack2(self.canvas, True, True)
         paned.show_all()
 
-        self._setup_no_attribute()
+        self._setup_no_attribute("Nothing selected")
 
         self.transition_edit_callback = None
         self.place_edit_callback = None
@@ -189,6 +189,8 @@ class NetEditor(gtk.VBox):
                 os.path.join(paths.ICONS_DIR, "area.svg"))
         icon_trace = gtk.image_new_from_file(
                 os.path.join(paths.ICONS_DIR, "trace.svg"))
+        icon_simrun = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "simrun.svg"))
 
         toolbar = gtk.Toolbar()
 
@@ -200,6 +202,11 @@ class NetEditor(gtk.VBox):
         button2 = gtk.RadioToolButton(button1, None)
         button2.connect("toggled", lambda w: self.set_mode("tracing"))
         button2.set_icon_widget(icon_trace)
+        toolbar.add(button2)
+
+        button2 = gtk.RadioToolButton(button1, None)
+        button2.connect("toggled", lambda w: self.set_mode("simrun"))
+        button2.set_icon_widget(icon_simrun)
         toolbar.add(button2)
         toolbar.add(gtk.SeparatorToolItem())
 
@@ -292,19 +299,25 @@ class NetEditor(gtk.VBox):
                 self._setup_attribute_widges_mode_edit(item)
             elif self.mode == "tracing":
                 self._setup_attribute_widges_mode_tracing(item)
+            elif self.mode == "simrun":
+                self._setup_attribute_widges_mode_simrun(item)
 
         if self.attribute_widgets:
             self.focus_edit_item()
         else:
-            self._setup_no_attribute()
+            if item is not None:
+                text = "Nothing to edit in this mode"
+            else:
+                text = "Nothing selected"
+            self._setup_no_attribute(text)
 
         self.attribute_box.show_all()
 
-    def _setup_no_attribute(self):
+    def _setup_no_attribute(self, text):
         editor = codeedit.CodeEditor(self.project.get_syntax_highlight_key())
         editor.set_size_request(0, 60)
         editor.set_sensitive(False)
-        label = gtk.Label("Nothing to edit")
+        label = gtk.Label(text)
         label.set_sensitive(False)
         self.attribute_box.pack_start(label, False, False)
         self.attribute_box.pack_start(editor, False, False)
@@ -312,17 +325,27 @@ class NetEditor(gtk.VBox):
 
     def _setup_attribute_widges_mode_edit(self, item):
         if item.is_transition():
-            self._add_attribute_code_editor("Name", item.get_name, item.set_name)
-            self._add_attribute_code_editor("Guard", item.get_guard, item.set_guard)
-            self._add_attribute_code_editor("Priority", item.get_priority, item.set_priority)
+            self._add_attribute_labelled_code_editor("Name", item.get_name, item.set_name)
+            self._add_attribute_labelled_code_editor("Guard", item.get_guard, item.set_guard)
+            self._add_attribute_labelled_code_editor("Priority",
+                                                     item.get_priority,
+                                                     item.set_priority)
         elif item.is_place():
-            self._add_attribute_code_editor("Name", item.get_name, item.set_name)
-            self._add_attribute_code_editor("Type", item.get_place_type, item.set_place_type)
-            self._add_attribute_code_editor("Init", item.get_init_string, item.set_init_string)
+            self._add_attribute_labelled_code_editor("Name", item.get_name, item.set_name)
+            self._add_attribute_labelled_code_editor("Type",
+                                                     item.get_place_type,
+                                                     item.set_place_type)
+            self._add_attribute_labelled_code_editor("Init",
+                                                     item.get_init_string,
+                                                     item.set_init_string)
         elif item.is_edge():
-            self._add_attribute_code_editor("Inscription", item.get_inscription, item.set_inscription)
+            self._add_attribute_labelled_code_editor("Inscription",
+                                            item.get_inscription,
+                                            item.set_inscription)
         elif item.is_area():
-            self._add_attribute_code_editor("Init", item.get_init_expr, item.set_init_expr)
+            self._add_attribute_labelled_code_editor("Init",
+                                                     item.get_init_expr,
+                                                     item.set_init_expr)
 
     def _setup_attribute_widges_mode_tracing(self, item):
         def trace_enable(value, insert=False):
@@ -337,8 +360,8 @@ class NetEditor(gtk.VBox):
         if item.is_transition():
             self._add_attribute_checkbox("Trace fire",
                                          "fire" in item.tracing,
-                                         lambda: trace_enable("fire"),
-                                         lambda: trace_disable("fire"))
+                                         set_true=lambda: trace_enable("fire"),
+                                         set_false=lambda: trace_disable("fire"))
         elif item.is_place():
             def refresh():
                 objlist.refresh(item.tracing)
@@ -373,6 +396,15 @@ class NetEditor(gtk.VBox):
             button.connect("clicked", lambda w: add_token_name())
             self.attribute_box.pack_start(button, False, False)
 
+    def _setup_attribute_widges_mode_simrun(self, item):
+        if item.is_transition():
+            self._add_attribute_checkbox_code_editor(
+                "Time substitution",
+                item.get_time_substitution(),
+                item.set_time_substitution,
+                item.get_time_substitution_code,
+                item.set_time_substitution_code)
+
     def _add_attribute_objlist(self, text, objlist, add_fn, edit_fn, remove_fn):
         label = gtk.Label(text)
         self.attribute_box.pack_start(label, False, False)
@@ -391,19 +423,42 @@ class NetEditor(gtk.VBox):
         self.attribute_box.pack_start(objlist, False, False)
         self.attribute_widgets.append(objlist)
 
-    def _add_attribute_checkbox(self, text, initial_value, set_true, set_false):
+    def _add_attribute_checkbox(self,
+                                text,
+                                initial_value,
+                                set_fn=None,
+                                set_true=None,
+                                set_false=None):
         def changed(w):
-            if checkbox.get_active():
-                set_true()
-            else:
-                set_false()
+            if set_fn:
+                set_fn(checkbox.get_active())
+            if set_true and set_false:
+                if checkbox.get_active():
+                    set_true()
+                else:
+                    set_false()
+            self.canvas.config.configure()
         checkbox = gtk.CheckButton(text, False)
         checkbox.set_active(initial_value)
         checkbox.connect("toggled", changed)
-        self.attribute_box.pack_start(checkbox, False, False, 5)
+        self.attribute_box.pack_start(checkbox, False, False)
         self.attribute_widgets.append(checkbox)
 
-    def _add_attribute_code_editor(self, name, get_fn, set_fn):
+    def _add_attribute_labelled_code_editor(self, name, get_fn, set_fn):
+        label = gtk.Label(name)
+        self.attribute_box.pack_start(label, False, False)
+        self._add_attribute_code_editor(get_fn, set_fn)
+
+    def _add_attribute_checkbox_code_editor(
+        self, name, bool_value, set_bool_fn, get_code_fn, set_code_fn):
+        def changed(value):
+            editor.set_sensitive(value)
+            set_bool_fn(value)
+        self._add_attribute_checkbox(name, bool_value, set_fn=changed)
+        editor = self._add_attribute_code_editor(get_code_fn, set_code_fn)
+        editor.set_sensitive(bool_value)
+
+    def _add_attribute_code_editor(self, get_fn, set_fn):
         def on_change():
             original = get_fn()
             text = editor.get_text()
@@ -423,11 +478,9 @@ class NetEditor(gtk.VBox):
         editor.set_size_request(0, 60)
         editor.set_text(get_fn())
         editor.buffer_changed = on_change
-        label = gtk.Label(name)
-        self.attribute_box.pack_start(label, False, False)
-        self.attribute_box.pack_start(editor, False, False, 3)
+        self.attribute_box.pack_start(editor, False, False, 0)
         self.attribute_widgets.append(editor)
-
+        return editor
 
 
 class NetList(ObjectTree):

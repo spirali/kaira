@@ -221,15 +221,34 @@ class ElementBox(CanvasItem):
         return (self.get_position(), utils.vector_add(self.get_position(), self.size))
 
 
-class TraceBox(CanvasItem):
+class Label(CanvasItem):
 
-    trace_text = None
+    text = None
+    text_fn = None
     z_level = 5
+    color = (1,1,1)
+    background_color = (0,0,0)
 
     def draw(self, cr):
-        if self.trace_text:
+        text = None
+        if self.text:
+            text = self.text
+        elif self.text_fn:
+            text = self.text_fn()
+        if text:
             px, py = self.get_position()
-            drawing.draw_label(cr, px, py, self.trace_text, (1,1,1), (1.0, 0.5, 0.2))
+            drawing.draw_label(
+                cr, px, py, text, self.symbol,
+                self.color, self.background_color)
+
+class TraceLabel(Label):
+    background_color = (1.0, 0.5, 0.2)
+    symbol = "lookingglass"
+
+
+class SimRunLabel(Label):
+    background_color = (0.2, 0.5, 1.0)
+    symbol = "arrow"
 
 
 class ArrowLine(CanvasItem):

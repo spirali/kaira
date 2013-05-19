@@ -43,17 +43,33 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
         if self.net:
             for i in self.net.items:
                 items += i.get_error_items()
-
             if self.neteditor.mode == "tracing":
-                for item in self.net.places() + self.net.transitions():
-                     if item.tracing:
-                        size = item.box.size
-                        position = utils.vector_add_t(item.box.get_position(), size, 0.5)
-                        i = citems.TraceBox(
-                            None, "tracebox", citems.RelativePlacement(item.box, position))
-                        i.trace_text = item.get_trace_texts()
-                        items.append(i)
+                self.add_extra_tracing_items(items)
+            if self.neteditor.mode == "simrun":
+                self.add_extra_simrun_items(items)
         return items
+
+    def add_extra_tracing_items(self, items):
+        for item in self.net.places() + self.net.transitions():
+            if item.tracing:
+                size = item.box.size
+                position = utils.vector_add_t(item.box.get_position(), size, 0.5)
+                i = citems.TraceLabel(
+                    None, "tracebox", citems.RelativePlacement(item.box, position))
+                i.text = item.get_trace_texts()
+                items.append(i)
+
+    def add_extra_simrun_items(self, items):
+        def text_fn(item):
+            return lambda: ("time: " + item.get_time_substitution_code(),)
+        for item in self.net.transitions():
+            if item.get_time_substitution():
+                size = item.box.size
+                position = utils.vector_add_t(item.box.get_position(), size, 0.5)
+                i = citems.SimRunLabel(
+                    None, "simrunbox", citems.RelativePlacement(item.box, position))
+                i.text_fn = text_fn(item)
+                items.append(i)
 
     def configure_item(self, item):
         item.inactive = False

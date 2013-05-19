@@ -354,10 +354,28 @@ class Transition(NetElement):
     default_size = (70, 36)
     default_radius = 0
 
+    # Simrun options
+    time_substitution = False
+    time_substitution_code = ""
+
     def __init__(self, net, id, position):
         NetElement.__init__(self, net, id, position)
         p = (position[0], position[1] - 20)
         self.guard = citems.Text(self, "guard", self.box.get_relative_placement(p))
+
+    def get_time_substitution(self):
+        return self.time_substitution
+
+    def set_time_substitution(self, value):
+        self.time_substitution = value
+        self.changed()
+
+    def get_time_substitution_code(self):
+        return self.time_substitution_code
+
+    def set_time_substitution_code(self, value):
+        self.time_substitution_code = value
+        self.changed()
 
     def get_priority(self):
         return self.box.corner_text
@@ -409,6 +427,10 @@ class Transition(NetElement):
                 trace = xml.Element("trace")
                 trace.text = t
                 e.append(trace)
+        if self.time_substitution:
+            element = xml.Element("time-substitution")
+            element.text = self.time_substitution_code
+            e.append(element)
         return e
 
     def get_trace_texts(self):
@@ -428,11 +450,18 @@ class Transition(NetElement):
 
         for edge in self.edges_from(postprocess=True):
             e.append(edge.create_xml_export_element("edge-out"))
+
         if build_config.tracing and self.tracing:
             for t in self.tracing:
                 trace = xml.Element("trace")
                 trace.text = t
                 e.append(trace)
+
+        if self.time_substitution:
+            element = xml.Element("time-substitution")
+            element.text = self.time_substitution_code
+            e.append(element)
+
         return e
 
 
@@ -877,6 +906,11 @@ def load_transition(element, net, loader):
         transition.guard.text = element.get("guard", "") # Backward compatability
     transition.set_code(load_code(element))
     transition.tracing = load_tracing(element)
+
+    if element.find("time-substitution") is not None:
+        transition.time_substitution = True
+        transition.time_substitution_code = element.find("time-substitution").text
+
     transition.set_priority(element.get("priority", ""))
 
 def load_edge(element, net, loader):
