@@ -24,14 +24,16 @@ Installation
 ------------
 
 .Instructions for Debian based distributions
- when you want to install everything
 ************
 
-  - Necessary packages
+These steps describe how to install the full version of Kaira.
+How to disable some of subsystems is described below.
+
+  - Installation of necessary packages
 
   $ apt-get install python-gtksourceview2 python-pyparsing g++ python-matplotlib
 
-  - MPI implementation
+  - Installation of MPI implementation
 
   $ apt-get install mpich2
 
@@ -56,6 +58,7 @@ Installation
   $ ./start.sh
 
 ************
+
 
 The following text covers the installation process in more detail.
 
