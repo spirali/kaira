@@ -57,6 +57,10 @@ class TraceLog {
 			return t;
 		}
 
+		// For ControlledTracelog
+		virtual void set_time(ca::IntTime time) {}
+		virtual IntTime get_relative_time() { return 0; }
+
 
 	protected:
 

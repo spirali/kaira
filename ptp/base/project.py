@@ -184,6 +184,9 @@ def load_transition(element, project, net):
         transition.code = element.find("code").text
     transition.tracing = load_tracing(element)
 
+    if element.find("time-substitution") is not None:
+        transition.time_substitution = element.find("time-substitution").text
+
     priority = element.get("priority").strip()
     if priority == "":
         transition.priority = 0

@@ -457,7 +457,7 @@ class Transition(NetElement):
                 trace.text = t
                 e.append(trace)
 
-        if self.time_substitution:
+        if build_config.substitutions and self.time_substitution:
             element = xml.Element("time-substitution")
             element.text = self.time_substitution_code
             e.append(element)

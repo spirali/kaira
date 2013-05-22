@@ -87,6 +87,7 @@ class Project(EventSource):
             build_config.operation = "statespace"
         elif name == "simrun":
             build_config.operation = "simrun"
+            build_config.substitutions = True
         else:
             build_config.operation = "build"
 
@@ -319,6 +320,7 @@ class Project(EventSource):
 class BuildConfig:
 
     tracing = False
+    substitutions = False
     directory = None
     project_name = None
     nets = None

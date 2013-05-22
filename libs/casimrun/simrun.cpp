@@ -83,6 +83,10 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 		}
 	}
 
+	ca::IntTime get_global_time() {
+		return global_time;
+	}
+
 	bool is_process_free(int process_id) {
 		return get_thread_info(process_id, 0).release_time <= global_time;
 	}
@@ -99,14 +103,11 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 			(ControlledTimeTraceLog*) get_tracelog(process_id, 0);
 
 		if (tracelog) {
-			tracelog->set_realtime_mode();
 			tracelog->set_basetime(global_time);
 		}
 
 		// Minimal time when some packet can be received
 		ca::IntTime next_time = ca::MAX_INT_TIME;
-		// Time how long receiving was performed
-		ca::IntTime recv_time = 0;
 		// Was at least one packet received?
 		bool received = false;
 
@@ -123,21 +124,13 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 				}
 				continue;
 			}
-			if (tracelog) {
-				tracelog->set_basetime(global_time + recv_time);
-			}
-			start_time = ca::TraceLog::get_current_time();
 			receive(process_id, p);
-			recv_time +=  ca::TraceLog::get_current_time() - start_time;
 			p--; // Run receive once again
 			received = true;
 		}
 		if (received) {
-			if (tracelog) {
-				tracelog->set_end_time(global_time);
-				tracelog->event_end();
-			}
-			ti.release_time = global_time + recv_time;
+			tracelog->event_end();
+			ti.release_time = tracelog->get_time();
 			return ti.release_time;
 		}
 
@@ -152,18 +145,17 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 			return next_time;
 		}
 	    ti.idle = false;
-		start_time = ca::TraceLog::get_current_time();
 		if (!fire_transition_full(process_id, tr->get_def())) {
 			tr->set_active(false);
 		}
-		ti.release_time =
-			global_time + ca::TraceLog::get_current_time() - start_time;
+		ti.release_time = tracelog->get_time();
 		return ti.release_time;
 	}
 
 	void packet_preprocess(int origin_id, int target_id, Packet &packet) {
-		packet.release_time =
-			global_time + ca::TraceLog::get_current_time() - start_time + 5;
+	    ControlledTimeTraceLog *tracelog =
+			(ControlledTimeTraceLog*) get_tracelog(origin_id, 0);
+		packet.release_time = tracelog->get_time() + 5;
 	}
 
 	protected:
@@ -176,7 +168,6 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 	}
 
 	ca::IntTime global_time;
-	ca::IntTime start_time;
 	std::vector<int> free_threads;
 	std::vector<ThreadInfo> thread_info;
 };
@@ -188,4 +179,5 @@ void casr::main()
 	ca::NetDef *net_def = ca::defs[0]; // Take first definition
 	State state(net_def);
 	state.run();
+	fprintf(stderr, "Kaira: Time = %luns\n", state.get_global_time());
 }

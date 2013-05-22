@@ -12,6 +12,7 @@ void ControlledTimeTraceLog::init()
 ControlledTimeTraceLog::ControlledTimeTraceLog(int process_id, int thread_id, size_t size)
 	: TraceLog(process_id, thread_id, size)
 {
+	settedtime = 0;
 }
 
 void ControlledTimeTraceLog::write_time()
@@ -20,16 +21,26 @@ void ControlledTimeTraceLog::write_time()
 	switch(c) {
 		case 'T': // Transition fire
 		case 'R': // Receive
-			starttime = get_current_time();
+			/*starttime = get_current_time();
 			write_uint64(basetime);
-			return;
-		case 'I': // Receive
-			write_uint64(basetime);
-			return;
+			return;*/
 		case 'F':
 		case 'M':
 		case 'X':
-			write_uint64(basetime + get_current_time() - starttime);
+		{
+			ca::IntTime t = get_current_time();
+			if (settedtime == ca::MAX_INT_TIME) {
+				basetime += t - starttime;
+			} else {
+			    basetime += settedtime;
+				settedtime = ca::MAX_INT_TIME;
+			}
+			starttime = t;
+			write_uint64(basetime);
+			return;
+		}
+		case 'I': // Receive
+			write_uint64(basetime);
 			return;
 		case 'S': // Spawn
 			write_uint64(0);

@@ -344,6 +344,7 @@ class Place(utils.EqByIdMixin):
 class Transition(utils.EqByIdMixin):
 
     code = None
+    time_substitution = None
 
     def __init__(self, net, id, guard):
         self.net = net
@@ -440,6 +441,13 @@ class Transition(utils.EqByIdMixin):
                                      self.get_input_decls(),
                                      "bool",
                                      self.get_source("guard"))
+        if self.time_substitution:
+            decls = self.net.project.get_minimal_decls()
+            decls.set("transitionTime", "ca::IntTime", self.get_source())
+            checker.check_expression(self.time_substitution,
+                                     decls,
+                                     "ca::IntTime",
+                                     self.get_source())
 
 
 class Area(object):

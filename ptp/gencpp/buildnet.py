@@ -239,7 +239,6 @@ def write_send_token(builder,
                builder.line("delete $token_{0};", reuse_tokens[inscription.uid])
         builder.block_end()
 
-
 def write_remove_tokens(builder, net_expr, tr):
     builder.block_begin()
     if tr.is_any_place_traced():
@@ -327,6 +326,9 @@ def write_fire_body(builder,
             builder.line("bool $lock = false;")
         if tr.need_trace():
             builder.if_begin("$tracelog")
+            if tr.time_substitution:
+                builder.line("ca::IntTime transitionTime = $tracelog->get_relative_time();")
+                builder.line("$tracelog->set_time({0});", tr.time_substitution)
             builder.line("$tracelog->event_transition_finished_begin();")
             builder.block_end()
     elif locking:
@@ -462,7 +464,6 @@ def write_fire_phase2(builder, tr, readonly_binding=False):
     if not readonly_binding:
         builder.line("delete $tokens;");
     builder.block_end()
-
 
 def write_cleanup_binding(builder, tr):
     builder.line("void Transition_{0.id}::cleanup_binding(void *data)", tr)
