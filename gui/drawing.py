@@ -46,7 +46,12 @@ def draw_round_rectangle(cr, px, py, sx, sy, radius):
 def draw_centered_text(cr, px, py, text):
     draw_text(cr, px, py, text, 0.5, 0.5)
 
-def draw_text(cr, px, py, text, align_x, align_y, padding_x=0, padding_y=0, background_color=None, radius=None):
+def draw_text(cr, px, py, text,
+              align_x, align_y,
+              padding_x=0, padding_y=0,
+              background_color=None,
+              border_color=None,
+              radius=None):
     lines = text.strip().replace("\t", "    ").split("\n")
     tx = max(utils.text_size(cr, text)[0] for text in lines)
     w_height = utils.text_size(cr, "W")[1] + 2
@@ -63,6 +68,15 @@ def draw_text(cr, px, py, text, align_x, align_y, padding_x=0, padding_y=0, back
         else:
             cr.rectangle(x - padding_x, y - padding_y - w_height * count, sx, sy)
         cr.fill()
+        cr.restore()
+    if border_color is not None:
+        cr.save()
+        cr.set_source_rgba(*border_color)
+        if radius:
+            rounded_rectangle(cr, x - padding_x, y - padding_y - sy, sx, sy, radius)
+        else:
+            cr.rectangle(x - padding_x, y - padding_y - w_height * count, sx, sy)
+        cr.stroke()
         cr.restore()
     for i in xrange(count):
         cr.move_to(x, y - i * w_height)

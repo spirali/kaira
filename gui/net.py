@@ -284,12 +284,13 @@ class NetItem(object):
                 # For transition/place it is expected that "box" is returned
                 item = self.get_canvas_items()[0]
             position = utils.vector_add(item.get_position(), item.size)
-            position = utils.vector_add(position, (10, 0))
+            position = utils.vector_add(position, (0, 0))
             placement = item.get_relative_placement(position)
             error_item = citems.Text(None, "error", placement)
             error_item.delegate_selection = item
-            error_item.background = (255, 0, 0)
-            error_item.border = True
+            error_item.background_color = (255, 0, 0)
+            error_item.border_color = (0, 0, 0)
+            error_item.align_y = 0
             error_item.z_level = 20
             error_item.text = messages[name][0]
             result.append(error_item)

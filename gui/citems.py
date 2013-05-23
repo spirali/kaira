@@ -241,6 +241,7 @@ class Label(CanvasItem):
                 cr, px, py, text, self.symbol,
                 self.color, self.background_color)
 
+
 class TraceLabel(Label):
     background_color = (1.0, 0.5, 0.2)
     symbol = "lookingglass"
@@ -310,8 +311,8 @@ class Text(CanvasItem):
     z_level = 3
     action = "move"
     size = (0, 0)
-    background = None
-    border = False
+    background_color = None
+    border_color = None
     padding_x = 6
     padding_y = 2
     align_x = 0
@@ -341,14 +342,15 @@ class Text(CanvasItem):
             if self.highlight:
                 background_color = self.highlight
             else:
-                background_color = None
+                background_color = self.background_color
 
             self.size = drawing.draw_text(
                    cr, px, py, self.text, self.align_x, self.align_y,
                    padding_x=self.padding_x,
                    padding_y=self.padding_y,
                    radius=self.radius,
-                   background_color=background_color)
+                   background_color=background_color,
+                   border_color=self.border_color)
         else:
             self.size = (0, 0)
 
