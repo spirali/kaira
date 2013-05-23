@@ -22,7 +22,6 @@ import drawing
 import citems
 import net
 import utils
-import tracing
 import undo
 
 class NetEditCanvasConfig(cconfig.NetCanvasConfig):
@@ -37,24 +36,40 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
 
     def configure(self):
         cconfig.NetCanvasConfig.configure(self)
-        self.neteditor.set_entry_types([])
+        self.neteditor.set_attributes(None)
 
     def collect_items(self):
         items = cconfig.NetCanvasConfig.collect_items(self)
         if self.net:
             for i in self.net.items:
                 items += i.get_error_items()
-
-            if self.neteditor.show_tracing:
-                for item in self.net.places() + self.net.transitions():
-                     if item.tracing:
-                        size = item.box.size
-                        position = utils.vector_add_t(item.box.get_position(), size, 0.5)
-                        i = citems.TraceBox(
-                            None, "tracebox", citems.RelativePlacement(item.box, position))
-                        i.trace_text = item.get_trace_texts()
-                        items.append(i)
+            if self.neteditor.mode == "tracing":
+                self.add_extra_tracing_items(items)
+            if self.neteditor.mode == "simrun":
+                self.add_extra_simrun_items(items)
         return items
+
+    def add_extra_tracing_items(self, items):
+        for item in self.net.places() + self.net.transitions():
+            if item.tracing:
+                size = item.box.size
+                position = utils.vector_add_t(item.box.get_position(), size, 0.5)
+                i = citems.TraceLabel(
+                    None, "tracebox", citems.RelativePlacement(item.box, position))
+                i.text = item.get_trace_texts()
+                items.append(i)
+
+    def add_extra_simrun_items(self, items):
+        def text_fn(item):
+            return lambda: ("time: " + item.get_time_substitution_code(),)
+        for item in self.net.transitions():
+            if item.get_time_substitution():
+                size = item.box.size
+                position = utils.vector_add_t(item.box.get_position(), size, 0.5)
+                i = citems.SimRunLabel(
+                    None, "simrunbox", citems.RelativePlacement(item.box, position))
+                i.text_fn = text_fn(item)
+                items.append(i)
 
     def configure_item(self, item):
         item.inactive = False
@@ -86,9 +101,9 @@ class SelectionCanvasConfig(NetEditCanvasConfig):
         else:
             owners = []
         if len(set(owners)) == 1:
-            self.neteditor.set_entry_types(owners[0].get_text_entries())
+            self.neteditor.set_attributes(owners[0])
         else:
-            self.neteditor.set_entry_types([])
+            self.neteditor.set_attributes(None)
 
     def configure(self):
         NetEditCanvasConfig.configure(self)
@@ -345,50 +360,20 @@ def resize_item(config, item, position):
 
 def contextmenu_place(config, item, position):
     place = item.owner
-
-    def tracingfn_callback():
-        result = tracing.tracefn_dialog(config.neteditor.app.window, "", "int")
-        if result is not None:
-            place.tracing.append(result)
-        config.configure()
-
-
-    def callback(place, value, check):
-            return lambda w: set_tracing(config, place, value, check)
-
-    trace_menu = [ ("Add function",
-                    lambda w: tracingfn_callback()) ]
-    token_name = ("ca::token_name", "std::string")
-    if token_name not in place.tracing:
-        trace_menu.append(("Add function 'ca::token_name'",
-                           lambda w: set_tracing(config, place, token_name, True)))
-
-    trace_fns = place.tracing
-    if trace_fns:
-        trace_menu.append(("-", None))
-        for name, t in trace_fns:
-            trace_menu.append(("Remove tracing function '{0}'".format(name, t),
-                               callback(place, (name, t), False)))
-
     return [
         ("Resize", lambda w: resize_item(config, item, position)),
         ("Edit init code",
             lambda w: config.neteditor.place_edit_callback(place)),
-        ("Tracing", trace_menu),
         ("-", None),
         ("Delete", lambda w: delete_item(config, place)),
     ]
 
 def contextmenu_transition(config, item, position):
     transition = item.owner
-    fire = "fire" in transition.tracing
-    trace_menu = [("fire",
-                   (fire, lambda w: set_tracing(config, transition, "fire", not fire)))]
     return [
         ("Resize", lambda w: resize_item(config, item, position)),
         ("Edit code",
             lambda w: config.neteditor.transition_edit_callback(transition)),
-        ("Tracing", trace_menu),
         ("-", None),
         ("Delete", lambda w: delete_item(config, transition)),
     ]

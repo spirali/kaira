@@ -20,19 +20,27 @@
 
 import gtkutils
 import gtk
+import utils
 
-def tracefn_dialog(mainwindow, fn_name, return_type):
+class TraceFunction(utils.EqMixin):
+
+    def __init__(self, name, return_type):
+        self.name = name
+        self.return_type = return_type
+
+def tracefn_dialog(mainwindow, trace_function):
     builder = gtkutils.load_ui("tracefn-dialog")
     dlg = builder.get_object("tracefn-dialog")
 
     try:
         name = builder.get_object("name")
-        name.set_text(fn_name)
+        name.set_text(trace_function.name)
 
         return_int = builder.get_object("return_int")
         return_double = builder.get_object("return_double")
         return_string = builder.get_object("return_string")
 
+        return_type = trace_function.return_type
         if return_type == "int":
             return_int.set_active(True)
         elif return_type == "double":
@@ -49,7 +57,9 @@ def tracefn_dialog(mainwindow, fn_name, return_type):
                 return_type = "double"
             else:
                 return_type = "std::string"
-            return (name.get_text(), return_type)
-        return None
+            trace_function.name = name.get_text()
+            trace_function.return_type = return_type
+            return True
+        return False
     finally:
         dlg.destroy()

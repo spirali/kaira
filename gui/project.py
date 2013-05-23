@@ -85,6 +85,9 @@ class Project(EventSource):
 
         if name == "statespace":
             build_config.operation = "statespace"
+        elif name == "simrun":
+            build_config.operation = "simrun"
+            build_config.substitutions = True
         else:
             build_config.operation = "build"
 
@@ -93,7 +96,7 @@ class Project(EventSource):
             first = self.simulator_net
             build_config.target_env = self.get_target_env_for_simulator_name()
         else:
-            if name == "traced":
+            if name == "traced" or name == "simrun":
                 build_config.tracing = True
 
             build_config.target_env = self.get_target_env_name()
@@ -317,6 +320,7 @@ class Project(EventSource):
 class BuildConfig:
 
     tracing = False
+    substitutions = False
     directory = None
     project_name = None
     nets = None

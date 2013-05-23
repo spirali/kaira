@@ -77,13 +77,7 @@ def get_other_dependancies(project, directory):
     else:
         return []
 
-def write_statespace_makefile(project, directory):
-    config = create_makefile_config()
-    config["include"].append(kaira_path(paths.CAVERIF_INCLUDE_DIR))
-    config["libdir"].append(kaira_path(paths.CAVERIF_LIB_DIR))
-    config["libs"].append("caverif")
-    config["libs"].append("mhash")
-
+def prepare_program_makefile(project, config, directory, other_files=None):
     makefile = prepare_makefile(project, config, directory)
 
     name = project.get_name()
@@ -91,6 +85,9 @@ def write_statespace_makefile(project, directory):
     name_cpp = name + ".cpp"
 
     deps = [ name_o ] + get_other_dependancies(project, directory)
+
+    if other_files is None:
+        other_files = []
 
     makefile.rule("all", [ name ], phony=True)
     makefile.rule(name,
@@ -101,41 +98,44 @@ def write_statespace_makefile(project, directory):
                   "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
     makefile.rule("clean",
                   [],
-                  "rm -f {0} {1}".format(name, " ".join(deps)), phony=True)
+                  "rm -f {0} {1}".format(name, " ".join(deps + list(other_files))), phony=True)
+    return makefile
+
+
+def write_statespace_makefile(project, directory):
+    config = create_makefile_config()
+    config["include"].append(kaira_path(paths.CAVERIF_INCLUDE_DIR))
+    config["libdir"].append(kaira_path(paths.CAVERIF_LIB_DIR))
+    config["libs"].append("caverif")
+    config["libs"].append("mhash")
+    makefile = prepare_program_makefile(project, config, directory)
+    makefile.write_to_file(os.path.join(directory, "makefile"))
+
+def write_simrun_makefile(project, directory):
+    config = create_makefile_config()
+    config["include"].append(kaira_path(paths.CASIMRUN_INCLUDE_DIR))
+    config["libdir"].append(kaira_path(paths.CASIMRUN_LIB_DIR))
+    config["libs"].append("casimrun")
+    makefile = prepare_program_makefile(project, config, directory)
     makefile.write_to_file(os.path.join(directory, "makefile"))
 
 def write_program_makefile(project, directory):
-    makefile = prepare_makefile(project, None, directory)
-
     name = project.get_name()
-    name_o = name + ".o"
     name_cpp = name + ".cpp"
+    name_mpi = name + "_mpi"
     name_mpi_o = name + "_mpi.o"
+    other_files = [ name_mpi, name_mpi_o ]
+    makefile = prepare_program_makefile(project, None, directory, other_files)
 
-    makefile.rule("all", [ name ], phony = True)
-    makefile.rule("mpi", [ name + "_mpi"], phony = True)
+    makefile.rule("mpi", [ name_mpi ], phony=True)
 
     other_deps = get_other_dependancies(project, directory)
-
-    deps = [ name_o ] + other_deps
     deps_mpi = [ name_mpi_o ] + other_deps
-    makefile.rule(name, deps,
-        "$(CC) " + " ".join(deps) + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(LIBS) ")
 
-    makefile.rule(name + "_mpi", deps_mpi, "$(MPICC) -D CA_MPI " + " ".join(deps_mpi)
+    makefile.rule(name_mpi, deps_mpi, "$(MPICC) -D CA_MPI " + " ".join(deps_mpi)
         + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(MPILIBS)" )
-
-    makefile.rule(name_o,
-                  [ name_cpp ],
-                  "$(CC) $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_o))
-
     makefile.rule(name_mpi_o, [ name_cpp ],
         "$(MPICC) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
-
-    all = deps + [ name_o, name_mpi_o ]
-
-    makefile.rule("clean", [],
-        "rm -f {0} {0}_mpi {1}".format(name," ".join(all)), phony=True)
     makefile.write_to_file(os.path.join(directory, "makefile"))
 
 def write_server_makefile(project, directory):

@@ -44,12 +44,44 @@ def draw_round_rectangle(cr, px, py, sx, sy, radius):
     cr.close_path()
 
 def draw_centered_text(cr, px, py, text):
-    draw_align_text(cr, px, py, text, 0.5, 0.5)
+    draw_text(cr, px, py, text, 0.5, 0.5)
 
-def draw_align_text(cr, px, py, text, align_x, align_y):
-    tx, ty = utils.text_size(cr, text)
-    cr.move_to(px - tx * align_x, py + ty * align_y)
-    cr.show_text(text)
+def draw_text(cr, px, py, text,
+              align_x, align_y,
+              padding_x=0, padding_y=0,
+              background_color=None,
+              border_color=None,
+              radius=None):
+    lines = text.strip().replace("\t", "    ").split("\n")
+    tx = max(utils.text_size(cr, text)[0] for text in lines)
+    w_height = utils.text_size(cr, "W")[1] + 2
+    count = len(lines)
+    x = px - tx * align_x
+    y = py + w_height * count * align_y
+    sx = tx + padding_x * 2
+    sy = w_height * count + padding_y * 2
+    if background_color is not None:
+        cr.save()
+        cr.set_source_rgba(*background_color)
+        if radius:
+            rounded_rectangle(cr, x - padding_x, y - padding_y - sy, sx, sy, radius)
+        else:
+            cr.rectangle(x - padding_x, y - padding_y - w_height * count, sx, sy)
+        cr.fill()
+        cr.restore()
+    if border_color is not None:
+        cr.save()
+        cr.set_source_rgba(*border_color)
+        if radius:
+            rounded_rectangle(cr, x - padding_x, y - padding_y - sy, sx, sy, radius)
+        else:
+            cr.rectangle(x - padding_x, y - padding_y - w_height * count, sx, sy)
+        cr.stroke()
+        cr.restore()
+    for i in xrange(count):
+        cr.move_to(x, y - i * w_height)
+        cr.show_text(lines[count - i - 1])
+    return (sx, sy)
 
 def draw_arrow(cr, dir_vector, arrow_degrees, arrow_len):
     dx, dy = dir_vector
@@ -123,20 +155,21 @@ def rounded_rectangle(cr, x, y, w, h, r):
     cr.line_to(x, y + r)
     cr.curve_to(x, y, x, y, x + r, y)
 
-def draw_label(cr, x, y, text, text_color, background_color):
+def draw_label(cr, x, y, text, symbol, text_color, background_color):
     tw = 0
     th = 0
     for txt in text:
         tx, ty = utils.text_size(cr, txt, 8)
         th += ty
         tw = tw if tw > tx else tx
+    cr.set_line_width(2)
     rounded_rectangle(cr, x, y, tw + 40, th + len(text) * 10, 10)
     cr.set_source_rgba(background_color[0],
                        background_color[1],
                        background_color[2],
                        0.9)
     cr.fill()
-    rounded_rectangle(cr, x, y, tw + 40, th + 10, 10)
+    rounded_rectangle(cr, x, y, tw + 40, th + len(text) * 10, 10)
     cr.set_source_rgb(*background_color)
     cr.stroke()
 
@@ -145,11 +178,29 @@ def draw_label(cr, x, y, text, text_color, background_color):
     for txt in text:
         tx, ty = utils.text_size(cr, txt, 8)
         th += ty + 10
-        cr.move_to(x + 30, y + th)
+        cr.move_to(x + 25, y + th)
         cr.show_text(txt)
     cr.fill()
 
-    cr.arc(x + 12, y + 7, 4, 0, 2 * math.pi)
-    cr.move_to(x + 16, y + 11)
-    cr.rel_line_to(5, 5)
-    cr.stroke()
+    if symbol == "lookingglass":
+        cr.arc(x + 12, y + 7, 4, 0, 2 * math.pi)
+        cr.move_to(x + 16, y + 11)
+        cr.rel_line_to(5, 5)
+        cr.stroke()
+    elif symbol == "arrow":
+        cr.set_line_width(1)
+
+        cr.move_to(x + 8, y + 5)
+        cr.rel_line_to(4, 4)
+        cr.rel_line_to(-4, 4)
+        cr.close_path()
+        cr.stroke()
+
+        cr.move_to(x + 13, y + 4)
+        cr.rel_line_to(5, 5)
+        cr.rel_line_to(-5, 5)
+        cr.fill()
+
+        rounded_rectangle(cr, x + 5, y + 2, 15, 14, 3)
+        cr.stroke()
+

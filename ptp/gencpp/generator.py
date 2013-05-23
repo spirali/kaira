@@ -28,6 +28,7 @@ import library
 import octave
 import rpc
 import statespace
+import simrun
 
 
 class CppGenerator:
@@ -43,7 +44,8 @@ class CppGenerator:
         type_name = place.type
         if type_name[-1] == ">":
             type_name += " "
-        return "void place_fn(ca::Context &ctx, ca::TokenList<{1}> &place)\n".format(place, type_name)
+        return "void place_fn(ca::Context &ctx, ca::TokenList<{1}> &place)\n" \
+                  .format(place, type_name)
 
     def get_transition_user_fn_header(self, transition_id):
         transition = self.project.get_transition(transition_id)
@@ -64,15 +66,19 @@ class CppProgramGenerator(CppGenerator):
         builder = build.Builder(self.project, self.get_filename(directory, ".cpp"))
         program.write_standalone_program(builder)
         builder.write_to_file()
-
         makefiles.write_program_makefile(self.project, directory)
 
     def build_statespace(self, directory):
         builder = build.Builder(self.project, self.get_filename(directory, ".cpp"))
         statespace.write_statespace_program(builder)
         builder.write_to_file()
-
         makefiles.write_statespace_makefile(self.project, directory)
+
+    def build_simrun(self, directory):
+        builder = build.Builder(self.project, self.get_filename(directory, ".cpp"))
+        simrun.write_simrun_program(builder)
+        builder.write_to_file()
+        makefiles.write_simrun_makefile(self.project, directory)
 
 
 class CppLibGenerator(CppGenerator):

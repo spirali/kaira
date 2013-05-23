@@ -58,10 +58,10 @@ namespace cass {
 	  }
 	};
 
-	class State  : public ca::StateBase<Net, Activation, Packet>
+	class State  : public ca::StateBase<Net, Activation, ca::Packet>
 	{
 		public:
-			State(ca::NetDef *net_def) : StateBase(net_def) {}
+			State(ca::NetDef *net_def) { spawn(net_def); }
 			State(State &state) : StateBase(state) {}
 			void pack_state(ca::Packer &packer);
 			HashDigest compute_hash(hashid hash_id);

@@ -11,7 +11,8 @@ namespace ca {
 
 class ThreadBase {
 	public:
-		ThreadBase() : tracelog(NULL) {}
+		ThreadBase(int id = -1, TraceLog *tracelog = NULL)
+			: id(id), tracelog(tracelog) {}
 
 		int get_id() { return id; }
 		virtual ~ThreadBase() {}

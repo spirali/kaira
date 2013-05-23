@@ -171,7 +171,7 @@ class ElementBox(CanvasItem):
             shift = 6 if self.doubleborder else 3
             cr.save()
             cr.set_font_size(8)
-            drawing.draw_align_text(cr, px + sx - shift, py + shift, self.corner_text, 1, 1)
+            drawing.draw_text(cr, px + sx - shift, py + shift, self.corner_text, 1, 1)
             cr.restore()
 
     def is_at_position(self, position):
@@ -221,15 +221,35 @@ class ElementBox(CanvasItem):
         return (self.get_position(), utils.vector_add(self.get_position(), self.size))
 
 
-class TraceBox(CanvasItem):
+class Label(CanvasItem):
 
-    trace_text = None
+    text = None
+    text_fn = None
     z_level = 5
+    color = (1,1,1)
+    background_color = (0,0,0)
 
     def draw(self, cr):
-        if self.trace_text:
+        text = None
+        if self.text:
+            text = self.text
+        elif self.text_fn:
+            text = self.text_fn()
+        if text:
             px, py = self.get_position()
-            drawing.draw_label(cr, px, py, self.trace_text, (1,1,1), (1.0, 0.5, 0.2))
+            drawing.draw_label(
+                cr, px, py, text, self.symbol,
+                self.color, self.background_color)
+
+
+class TraceLabel(Label):
+    background_color = (1.0, 0.5, 0.2)
+    symbol = "lookingglass"
+
+
+class SimRunLabel(Label):
+    background_color = (0.2, 0.5, 1.0)
+    symbol = "arrow"
 
 
 class ArrowLine(CanvasItem):
@@ -291,10 +311,12 @@ class Text(CanvasItem):
     z_level = 3
     action = "move"
     size = (0, 0)
-    background = None
-    border = False
+    background_color = None
+    border_color = None
     padding_x = 6
     padding_y = 2
+    align_x = 0
+    align_y = 1
     radius = None
     color = (0.0, 0.0, 0.0)
 
@@ -309,36 +331,28 @@ class Text(CanvasItem):
                 x + self.size[0] > px and y + self.size[1] > py)
 
     def draw(self, cr):
-        self.size = utils.vector_add(
-            utils.text_size(cr, self.text),
-            (self.padding_x * 2, self.padding_y * 2))
-
         if self.text:
             px, py = self.get_position()
-
-            color = self.background
-            if self.highlight:
-               color = self.highlight
-            if color:
-                cr.set_source_rgba(*color)
-                if self.radius:
-                    drawing.rounded_rectangle(
-                        cr, px, py, self.size[0], self.size[1], self.radius)
-                else:
-                    cr.rectangle(px, py, self.size[0], self.size[1])
-                cr.fill()
 
             if self.inactive:
                cr.set_source_rgb(0.5,0.5,0.5)
             else:
                cr.set_source_rgb(*self.color)
 
-            if self.border:
-                cr.rectangle(px, py, self.size[0], self.size[1])
-                cr.stroke()
+            if self.highlight:
+                background_color = self.highlight
+            else:
+                background_color = self.background_color
 
-            drawing.draw_centered_text(
-                cr, px + self.size[0] / 2, py + self.size[1] / 2, self.text)
+            self.size = drawing.draw_text(
+                   cr, px, py, self.text, self.align_x, self.align_y,
+                   padding_x=self.padding_x,
+                   padding_y=self.padding_y,
+                   radius=self.radius,
+                   background_color=background_color,
+                   border_color=self.border_color)
+        else:
+            self.size = (0, 0)
 
     def get_bounding_box(self):
         return (self.get_position(), self.get_position())

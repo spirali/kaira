@@ -24,6 +24,7 @@ from utils import xml_int, xml_str
 import xml.etree.ElementTree as xml
 import citems
 import undo
+import tracing
 
 class Net:
 
@@ -213,10 +214,10 @@ class Net:
         for i in self.transitions():
             if not "fire" in i.tracing:
                 i.tracing.insert(0, "fire")
-        token_name = ("ca::token_name", "std::string")
+        token_name = tracing.TraceFunction("ca::token_name", "std::string")
         for i in self.places():
             if token_name not in i.tracing:
-                i.tracing.insert(0,  token_name)
+                i.tracing.insert(0, tracing.TraceFunction("ca::token_name", "std::string"))
         self.changed()
 
 
@@ -264,9 +265,6 @@ class NetItem(object):
         element.set("id", str(self.id))
         return element
 
-    def get_text_entries(self):
-        return []
-
     def get_canvas_items_dict(self):
         result = {}
         for i in self.get_canvas_items():
@@ -286,12 +284,13 @@ class NetItem(object):
                 # For transition/place it is expected that "box" is returned
                 item = self.get_canvas_items()[0]
             position = utils.vector_add(item.get_position(), item.size)
-            position = utils.vector_add(position, (10, 0))
+            position = utils.vector_add(position, (0, 0))
             placement = item.get_relative_placement(position)
             error_item = citems.Text(None, "error", placement)
             error_item.delegate_selection = item
-            error_item.background = (255, 0, 0)
-            error_item.border = True
+            error_item.background_color = (255, 0, 0)
+            error_item.border_color = (0, 0, 0)
+            error_item.align_y = 0
             error_item.z_level = 20
             error_item.text = messages[name][0]
             result.append(error_item)
@@ -356,10 +355,28 @@ class Transition(NetElement):
     default_size = (70, 36)
     default_radius = 0
 
+    # Simrun options
+    time_substitution = False
+    time_substitution_code = ""
+
     def __init__(self, net, id, position):
         NetElement.__init__(self, net, id, position)
         p = (position[0], position[1] - 20)
         self.guard = citems.Text(self, "guard", self.box.get_relative_placement(p))
+
+    def get_time_substitution(self):
+        return self.time_substitution
+
+    def set_time_substitution(self, value):
+        self.time_substitution = value
+        self.changed()
+
+    def get_time_substitution_code(self):
+        return self.time_substitution_code
+
+    def set_time_substitution_code(self, value):
+        self.time_substitution_code = value
+        self.changed()
 
     def get_priority(self):
         return self.box.corner_text
@@ -411,6 +428,10 @@ class Transition(NetElement):
                 trace = xml.Element("trace")
                 trace.text = t
                 e.append(trace)
+        if self.time_substitution:
+            element = xml.Element("time-substitution")
+            element.text = self.time_substitution_code
+            e.append(element)
         return e
 
     def get_trace_texts(self):
@@ -430,17 +451,19 @@ class Transition(NetElement):
 
         for edge in self.edges_from(postprocess=True):
             e.append(edge.create_xml_export_element("edge-out"))
+
         if build_config.tracing and self.tracing:
             for t in self.tracing:
                 trace = xml.Element("trace")
                 trace.text = t
                 e.append(trace)
-        return e
 
-    def get_text_entries(self):
-        return [ ("Name", self.get_name, self.set_name),
-                 ("Guard", self.get_guard, self.set_guard),
-                 ("Priority", self.get_priroty, self.set_priority) ]
+        if build_config.substitutions and self.time_substitution:
+            element = xml.Element("time-substitution")
+            element.text = self.time_substitution_code
+            e.append(element)
+
+        return e
 
 
 class Place(NetElement):
@@ -490,17 +513,13 @@ class Place(NetElement):
         return True
 
     def get_trace_texts(self):
-        result = []
-        for name, t in self.tracing:
-            result.append(name)
-            result.append("({0})".format(t))
-        return result
+        return [ trace_function.name for trace_function in self.tracing ]
 
     def tracing_to_xml(self, element):
-        for name, return_type in self.tracing:
+        for trace_function in self.tracing:
             e = xml.Element("trace")
-            e.set("name", name)
-            e.set("return-type", return_type)
+            e.set("name", trace_function.name)
+            e.set("return-type", trace_function.return_type)
             element.append(e)
 
     def as_xml(self):
@@ -529,11 +548,6 @@ class Place(NetElement):
         if build_config.tracing and self.tracing:
             self.tracing_to_xml(e)
         return e
-
-    def get_text_entries(self):
-        return [ ("Type", self.get_place_type, self.set_place_type),
-                ("Init", self.get_init_string, self.set_init_string),
-                ("Name", self.get_name, self.set_name)]
 
 
 class Edge(NetItem):
@@ -654,9 +668,6 @@ class Edge(NetItem):
         sp, ep = self.get_end_points()
         return [sp] + [ p.get_position() for p in self.points ] + [ep]
 
-    def get_text_entries(self):
-        return [ ("Inscription", self.get_inscription, self.set_inscription) ]
-
     def create_xml_export_element(self, name):
         e = xml.Element(name)
         e.set("id", str(self.id))
@@ -708,9 +719,6 @@ class NetArea(RectItem):
 
     def get_init_expr(self):
         return self.init.text
-
-    def get_text_entries(self):
-        return [ ("Init", self.get_init_expr, self.set_init_expr) ]
 
     def is_area(self):
         return True
@@ -858,14 +866,14 @@ def load_tracing(element):
     return trace
 
 def load_place_tracing(element):
-    tracing = []
+    functions = []
     for e in element.findall("trace"):
         name = e.get("name", None)
         return_type = e.get("return-type", None)
         if name is None or return_type is None:
-            return tracing # backward compatability
-        tracing.append((name, return_type))
-    return tracing
+            return []
+        functions.append(tracing.TraceFunction(name, return_type))
+    return functions
 
 def load_place(element, net, loader):
     id = loader.get_id(element)
@@ -884,7 +892,7 @@ def load_place(element, net, loader):
     else:
         place.init.text = element.get("init_string", "") # Backward compatability
     place.set_code(load_code(element))
-    place.tracing =  load_place_tracing(element)
+    place.tracing = load_place_tracing(element)
 
 def load_transition(element, net, loader):
     id = loader.get_id(element)
@@ -899,6 +907,11 @@ def load_transition(element, net, loader):
         transition.guard.text = element.get("guard", "") # Backward compatability
     transition.set_code(load_code(element))
     transition.tracing = load_tracing(element)
+
+    if element.find("time-substitution") is not None:
+        transition.time_substitution = True
+        transition.time_substitution_code = element.find("time-substitution").text
+
     transition.set_priority(element.get("priority", ""))
 
 def load_edge(element, net, loader):

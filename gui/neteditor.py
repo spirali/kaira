@@ -25,11 +25,13 @@ import os
 from canvas import Canvas
 from objectlist import ObjectTree
 from net import Net
-import cairo
 import gtkutils
 import glib
 import neteditcc
 import undo
+import codeedit
+import objectlist
+import tracing
 
 def netname_dialog(net, mainwindow):
     builder = gtkutils.load_ui("netname-dialog")
@@ -47,6 +49,12 @@ def netname_dialog(net, mainwindow):
         dlg.destroy()
 
 
+    def __init__(self, name, initial_value, set_fn):
+        self.name = name
+        self.initial_value = initial_value
+        self.set_fn = set_fn
+
+
 class NetEditor(gtk.VBox):
 
     def __init__(self, app, project):
@@ -54,42 +62,41 @@ class NetEditor(gtk.VBox):
         self.project = project
         self.app = app
         self.net = None
-        self.last_active_entry_text = None
-        self.last_active_entry_get = None
-        self.last_active_entry_set = None
-        self.entry_types = []
         self.undo_manager = None
         self.set_size_request(500,400)
         self.canvas = None
+        self.attribute_widgets = []
 
-        self.show_tracing = False
+        self.mode = "edit"
 
         self.pack_start(self._controls(), False)
-        self.pack_start(self._editarea(), False)
 
         paned = gtk.HPaned()
         self.pack_start(paned)
 
         self.netlist = NetList(project, self)
-        self.netlist.set_size_request(100, 100)
-        paned.pack1(self.netlist, False, True)
+
+        vpaned = gtk.VPaned()
+        vpaned.pack1(self._attribute_box(), True, True)
+        vpaned.pack2(self.netlist, False, False)
+        paned.pack1(vpaned, False, False)
         self.canvas = Canvas(None)
         paned.pack2(self.canvas, True, True)
         paned.show_all()
 
-        self.netlist.hide()
+        self._setup_no_attribute("Nothing selected")
+
         self.transition_edit_callback = None
         self.place_edit_callback = None
         self.set_tool("selection")
-        self.connect("key_press_event", self._key_press)
         self.switch_to_net(self.get_net(), False)
         self.on_undomanager_changed()
 
     def get_net(self):
         return self.netlist.selected_object()
 
-    def set_show_tracing(self, value):
-        self.show_tracing = value
+    def set_mode(self, value):
+        self.mode = value
         self.canvas.config.configure()
         self.redraw()
 
@@ -141,8 +148,8 @@ class NetEditor(gtk.VBox):
     def get_zoom(self):
         return self.canvas.get_zoom()
 
-    def focus_entry(self):
-        self.entry.grab_focus()
+    def focus_edit_item(self, index=0):
+        self.attribute_widgets[0].grab_focus()
 
     def set_viewport(self, viewport):
         self.canvas.set_viewport(viewport)
@@ -156,12 +163,6 @@ class NetEditor(gtk.VBox):
     def net_changed(self):
         self.canvas.config.configure()
         self.redraw()
-
-    def netlist_show(self, v):
-        if v:
-            self.netlist.show()
-        else:
-            self.netlist.hide()
 
     def undo(self):
         if self.undo_manager.has_undo():
@@ -188,18 +189,25 @@ class NetEditor(gtk.VBox):
                 os.path.join(paths.ICONS_DIR, "area.svg"))
         icon_trace = gtk.image_new_from_file(
                 os.path.join(paths.ICONS_DIR, "trace.svg"))
+        icon_simrun = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "simrun.svg"))
 
         toolbar = gtk.Toolbar()
 
-        button1 = gtk.ToggleToolButton(None)
-        button1.connect("toggled", lambda w: self.netlist_show(w.get_active()))
-        button1.set_stock_id(gtk.STOCK_INDEX)
+        button1 = gtk.RadioToolButton(None)
+        button1.connect("toggled", lambda w: self.set_mode("edit"))
+        button1.set_stock_id(gtk.STOCK_EDIT)
         toolbar.add(button1)
 
-        button1 = gtk.ToggleToolButton(None)
-        button1.connect("toggled", lambda w: self.set_show_tracing(w.get_active()))
-        button1.set_icon_widget(icon_trace)
-        toolbar.add(button1)
+        button2 = gtk.RadioToolButton(button1, None)
+        button2.connect("toggled", lambda w: self.set_mode("tracing"))
+        button2.set_icon_widget(icon_trace)
+        toolbar.add(button2)
+
+        button2 = gtk.RadioToolButton(button1, None)
+        button2.connect("toggled", lambda w: self.set_mode("simrun"))
+        button2.set_icon_widget(icon_simrun)
+        toolbar.add(button2)
         toolbar.add(gtk.SeparatorToolItem())
 
         self.button_undo = gtk.ToolButton()
@@ -260,97 +268,226 @@ class NetEditor(gtk.VBox):
 
         return vbox
 
-    def _editarea(self):
-        vbox = gtk.VBox()
-        self.entry = gtk.Entry()
-        self.entry.connect("changed", self._entry_changed)
-
-        self.entry_switch = gtk.combo_box_new_text()
-        self.entry_switch.append_text("Inscription")
-        self.entry_switch.connect("changed", self._entry_switch_changed)
-
-        vbox = gtk.HBox()
-        vbox.pack_start(self.entry_switch, False, False)
-        vbox.pack_start(self.entry, True, True)
-
-        vbox.show_all()
-        return vbox
-
-
-    def _button_down(self, event, position):
-        if self.tool and self.tool.net:
-            if event.button == 1:
-                self.tool.left_button_down(event, position)
-            elif event.button == 3:
-                self.tool.right_button_down(event, position)
-
-    def _button_up(self, event, position):
-        if self.tool and self.tool.net:
-            if event.button == 1:
-                self.tool.left_button_up(event, position)
-            elif event.button == 3:
-                self.tool.right_button_up(event, position)
-
-    def _mouse_move(self, event, position):
-        if self.tool and self.tool.net:
-            self.tool.mouse_move(event, position)
+    def _attribute_box(self):
+        box = gtk.VBox(False)
+        box.set_size_request(200, 0)
+        self.attribute_box = box
+        return box
 
     def _key_press(self, w, event):
-        if event.state & gtk.gdk.CONTROL_MASK and \
-               gtk.gdk.keyval_name(event.keyval) == "space" and \
-               self.entry_types:
-            self.set_next_entry_type()
+        if gtk.gdk.keyval_name(event.keyval) == "Tab":
+            self.focus_next_attribute()
+            return True
 
-    def set_next_entry_type(self):
-        current = self.entry_switch.get_active()
-        self.entry_switch.set_active((current + 1) % len(self.entry_types))
-
-    def set_entry_types(self, etypes):
-        self.entry_types = etypes
-        names = [ x[0] for x in etypes ]
-        self.entry_switch.get_model().clear()
-        for name in names:
-            self.entry_switch.append_text(name)
-        self.entry.set_sensitive(bool(names))
-
-        if names:
-            self.entry_switch.set_active(0)
-            name, get, set = self.active_entry_type()
-            self.entry.set_text(get())
-            self.focus_entry()
-
-    def active_entry_type(self):
-        text = self.entry_switch.get_active_text()
-        for e in self.entry_types:
-            if e[0] == text:
-                return e
-
-    def _entry_changed(self, w):
-        if self.entry_types and self.entry_switch.get_active_text():
-            name, get, set = self.active_entry_type()
-            text = self.entry.get_text()
-            original = get()
-            if text == original:
+    def focus_next_attribute(self):
+        for i, widget in enumerate(self.attribute_widgets):
+            if widget.has_focus():
+                self.attribute_widgets[(i + 1) % len(self.attribute_widgets)].grab_focus()
                 return
-            self.add_undo_action(undo.ActionSet(get,
-                                                set,
+        if self.attribute_widgets:
+            self.attribute_widgets[0].grab_focus()
+
+    def set_attributes(self, item):
+        if not self.attribute_widgets and item is None:
+            return
+        for widget in self.attribute_box.get_children():
+            self.attribute_box.remove(widget)
+        self.attribute_widgets = []
+
+        if item is not None:
+            if self.mode == "edit":
+                self._setup_attribute_widges_mode_edit(item)
+            elif self.mode == "tracing":
+                self._setup_attribute_widges_mode_tracing(item)
+            elif self.mode == "simrun":
+                self._setup_attribute_widges_mode_simrun(item)
+
+        if self.attribute_widgets:
+            self.focus_edit_item()
+        else:
+            if item is not None:
+                text = "Nothing to edit in this mode"
+            else:
+                text = "Nothing selected"
+            self._setup_no_attribute(text)
+
+        self.attribute_box.show_all()
+
+    def _setup_no_attribute(self, text):
+        editor = codeedit.CodeEditor(self.project.get_syntax_highlight_key())
+        editor.set_size_request(0, 60)
+        editor.set_sensitive(False)
+        label = gtk.Label(text)
+        label.set_sensitive(False)
+        self.attribute_box.pack_start(label, False, False)
+        self.attribute_box.pack_start(editor, False, False)
+        self.attribute_box.show_all()
+
+    def _setup_attribute_widges_mode_edit(self, item):
+        if item.is_transition():
+            self._add_attribute_labelled_code_editor("Name", item.get_name, item.set_name)
+            self._add_attribute_labelled_code_editor("Guard", item.get_guard, item.set_guard)
+            self._add_attribute_labelled_code_editor("Priority",
+                                                     item.get_priority,
+                                                     item.set_priority)
+        elif item.is_place():
+            self._add_attribute_labelled_code_editor("Name", item.get_name, item.set_name)
+            self._add_attribute_labelled_code_editor("Type",
+                                                     item.get_place_type,
+                                                     item.set_place_type)
+            self._add_attribute_labelled_code_editor("Init",
+                                                     item.get_init_string,
+                                                     item.set_init_string)
+        elif item.is_edge():
+            self._add_attribute_labelled_code_editor("Inscription",
+                                            item.get_inscription,
+                                            item.set_inscription)
+        elif item.is_area():
+            self._add_attribute_labelled_code_editor("Init",
+                                                     item.get_init_expr,
+                                                     item.set_init_expr)
+
+    def _setup_attribute_widges_mode_tracing(self, item):
+        def trace_enable(value, insert=False):
+            if insert:
+                item.tracing.insert(0, value)
+            else:
+                item.tracing.append(value)
+            self.canvas.config.configure()
+        def trace_disable(value):
+            item.tracing.remove(value)
+            self.canvas.config.configure()
+        if item.is_transition():
+            self._add_attribute_checkbox("Trace fire",
+                                         "fire" in item.tracing,
+                                         set_true=lambda: trace_enable("fire"),
+                                         set_false=lambda: trace_disable("fire"))
+        elif item.is_place():
+            def refresh():
+                objlist.refresh(item.tracing)
+                self.canvas.config.configure()
+            def add_fn():
+                trace_fn = tracing.TraceFunction("", "int")
+                result = tracing.tracefn_dialog(self.app.window, trace_fn)
+                if result:
+                    item.tracing.append(trace_fn)
+                    refresh()
+            def edit_fn(obj):
+                tracing.tracefn_dialog(self.app.window, obj)
+                refresh()
+            def remove_fn(obj):
+                item.tracing.remove(obj)
+                refresh()
+            def add_token_name():
+                trace_fn = tracing.TraceFunction("ca::token_name", "std::string")
+                item.tracing.append(trace_fn)
+                refresh()
+
+            objlist = objectlist.ObjectList([("_", object), ("Name", str), ("Type", str)])
+            objlist.set_size_request(0, 150)
+            objlist.object_as_row = lambda obj: [ obj, obj.name, obj.return_type ]
+            objlist.fill(item.tracing)
+            self._add_attribute_objlist("Trace functions",
+                                        objlist,
+                                        add_fn,
+                                        edit_fn,
+                                        remove_fn)
+            button = gtk.Button("Trace ca::token_name")
+            button.connect("clicked", lambda w: add_token_name())
+            self.attribute_box.pack_start(button, False, False)
+
+    def _setup_attribute_widges_mode_simrun(self, item):
+        if item.is_transition():
+            self._add_attribute_checkbox_code_editor(
+                "Time substitution",
+                item.get_time_substitution(),
+                item.set_time_substitution,
+                item.get_time_substitution_code,
+                item.set_time_substitution_code)
+
+    def _add_attribute_objlist(self, text, objlist, add_fn, edit_fn, remove_fn):
+        label = gtk.Label(text)
+        self.attribute_box.pack_start(label, False, False)
+        box = gtk.HBox()
+        self.attribute_box.pack_start(box, False, False)
+        button = gtk.Button("Add")
+        button.connect("clicked", lambda w: add_fn())
+        box.pack_start(button)
+        button = gtk.Button("Edit")
+        button.connect("clicked", lambda w: edit_fn(objlist.selected_object()))
+        box.pack_start(button)
+        button = gtk.Button("Remove")
+        button.connect("clicked", lambda w: remove_fn(objlist.selected_object()))
+        box.pack_start(button)
+
+        self.attribute_box.pack_start(objlist, False, False)
+        self.attribute_widgets.append(objlist)
+
+    def _add_attribute_checkbox(self,
+                                text,
+                                initial_value,
+                                set_fn=None,
+                                set_true=None,
+                                set_false=None):
+        def changed(w):
+            if set_fn:
+                set_fn(checkbox.get_active())
+            if set_true and set_false:
+                if checkbox.get_active():
+                    set_true()
+                else:
+                    set_false()
+            self.canvas.config.configure()
+        checkbox = gtk.CheckButton(text, False)
+        checkbox.set_active(initial_value)
+        checkbox.connect("toggled", changed)
+        self.attribute_box.pack_start(checkbox, False, False)
+        self.attribute_widgets.append(checkbox)
+
+    def _add_attribute_labelled_code_editor(self, name, get_fn, set_fn):
+        label = gtk.Label(name)
+        self.attribute_box.pack_start(label, False, False)
+        self._add_attribute_code_editor(get_fn, set_fn)
+
+    def _add_attribute_checkbox_code_editor(
+        self, name, bool_value, set_bool_fn, get_code_fn, set_code_fn):
+        def changed(value):
+            editor.set_sensitive(value)
+            set_bool_fn(value)
+        self._add_attribute_checkbox(name, bool_value, set_fn=changed)
+        editor = self._add_attribute_code_editor(get_code_fn, set_code_fn)
+        editor.set_sensitive(bool_value)
+
+    def _add_attribute_code_editor(self, get_fn, set_fn):
+        def on_change():
+            original = get_fn()
+            text = editor.get_text()
+            set_fn(text)
+            self.add_undo_action(undo.ActionSet(get_fn,
+                                                set_fn,
                                                 original,
                                                 suppress_similar=True))
-            set(text)
+        editor = codeedit.CodeEditor(self.project.get_syntax_highlight_key())
 
-    def _entry_switch_changed(self, w):
-        if self.entry_types and self.entry_switch.get_active_text():
-            name, get, set = self.active_entry_type()
-            self.entry.set_text(get())
-            self.entry.select_region(0, -1)
+        # Brackets are highlighted even when textview has no focus, it is quite disturbing
+        # So we turn this feature off
+        editor.buffer.set_highlight_matching_brackets(False)
+
+        editor.view.set_events(gtk.gdk.KEY_PRESS)
+        editor.view.connect("key_press_event", self._key_press)
+        editor.set_size_request(0, 60)
+        editor.set_text(get_fn())
+        editor.buffer_changed = on_change
+        self.attribute_box.pack_start(editor, False, False, 0)
+        self.attribute_widgets.append(editor)
+        return editor
 
 
 class NetList(ObjectTree):
 
     def __init__(self, project, neteditor):
-        defs = [("_", object), ("Network|markup", str)]
+        defs = [("_", object), ("Nets|markup", str)]
         ObjectTree.__init__(self, defs, has_context_menu=True)
-        self.hide_headers()
         self.project = project
         self.neteditor = neteditor
         self.setup()

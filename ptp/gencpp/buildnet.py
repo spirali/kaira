@@ -88,6 +88,8 @@ def write_transition_forward(builder, tr):
     builder.line("ca::FireResult full_fire(ca::ThreadBase *thread, ca::NetBase *net);")
     builder.line("void* fire_phase1(ca::ThreadBase *thread, ca::NetBase *net);")
     builder.line("void fire_phase2(ca::ThreadBase *thread, ca::NetBase *net, void *data);")
+    builder.line("void fire_phase2_ro_binding"
+                 "(ca::ThreadBase *thread, ca::NetBase *net, void *data);")
     builder.line("void cleanup_binding(void *data);")
     builder.line("bool is_enable(ca::ThreadBase *thread, ca::NetBase *net);")
     if builder.generate_all_pack:
@@ -105,6 +107,7 @@ def write_transition_functions(builder,
     write_full_fire(builder, tr, locking=locking)
     write_fire_phase1(builder, tr)
     write_fire_phase2(builder, tr)
+    write_fire_phase2(builder, tr, readonly_binding=True)
     write_cleanup_binding(builder, tr)
     write_enable_check(builder, tr)
     if builder.generate_all_pack:
@@ -236,7 +239,6 @@ def write_send_token(builder,
                builder.line("delete $token_{0};", reuse_tokens[inscription.uid])
         builder.block_end()
 
-
 def write_remove_tokens(builder, net_expr, tr):
     builder.block_begin()
     if tr.is_any_place_traced():
@@ -324,6 +326,9 @@ def write_fire_body(builder,
             builder.line("bool $lock = false;")
         if tr.need_trace():
             builder.if_begin("$tracelog")
+            if tr.time_substitution:
+                builder.line("ca::IntTime transitionTime = $tracelog->get_relative_time();")
+                builder.line("$tracelog->set_time({0});", tr.time_substitution)
             builder.line("$tracelog->event_transition_finished_begin();")
             builder.block_end()
     elif locking:
@@ -414,22 +419,32 @@ def write_fire_phase1(builder, tr):
     builder.line("return NULL;")
     builder.block_end()
 
-def write_fire_phase2(builder, tr):
-    builder.line("void Transition_{0.id}::fire_phase2"
-                    "(ca::ThreadBase *$thread, ca::NetBase *$net, void *$data)",
-                 tr)
+def write_fire_phase2(builder, tr, readonly_binding=False):
+    if readonly_binding:
+        builder.line("void Transition_{0.id}::fire_phase2_ro_binding"
+                        "(ca::ThreadBase *$thread, ca::NetBase *$net, void *$data)",
+                     tr)
+    else:
+        builder.line("void Transition_{0.id}::fire_phase2"
+                        "(ca::ThreadBase *$thread, ca::NetBase *$net, void *$data)",
+                     tr)
+
     builder.block_begin()
 
     builder.line("ca::Context ctx($thread, $net);")
     builder.line("{0} *$n = ({0}*) $net;", get_net_class_name(tr.net))
     builder.line("Tokens_{0.id} *$tokens = (Tokens_{0.id}*) $data;", tr)
 
+    for inscription in tr.get_token_inscriptions_in():
+        builder.line("ca::Token<{0} > *$token_{1.uid} = $tokens->token_{1.uid};",
+            inscription.get_type(), inscription);
+
     decls_dict = tr.get_decls()
 
     for name, uid in tr.variable_sources.items():
         if uid is not None:
             builder.line(
-                "{0} {1} = $tokens->token_{2}->value;", decls_dict[name], name, uid)
+                "{0} {1} = $token_{2}->value;", decls_dict[name], name, uid)
 
     for inscription in tr.get_token_inscriptions_in():
         if inscription.is_origin_reader():
@@ -444,8 +459,10 @@ def write_fire_phase2(builder, tr):
                     tr,
                     locking=False,
                     remove_tokens=False,
-                    readonly_tokens=True,
+                    readonly_tokens=readonly_binding,
                     packed_tokens_from_place=False)
+    if not readonly_binding:
+        builder.line("delete $tokens;");
     builder.block_end()
 
 def write_cleanup_binding(builder, tr):
@@ -453,8 +470,7 @@ def write_cleanup_binding(builder, tr):
     builder.block_begin()
     builder.line("Tokens_{0.id} *tokens = (Tokens_{0.id}*) data;", tr)
     for inscription in tr.get_token_inscriptions_in():
-        builder.line("delete tokens->token_{1.uid};",
-            inscription.get_type(), inscription);
+        builder.line("delete tokens->token_{0.uid};", inscription);
     builder.line("delete tokens;");
     builder.block_end()
 
@@ -777,7 +793,7 @@ def write_net_functions(builder, net):
     for tr in net.transitions:
         write_transition_functions(builder, tr)
 
-def write_main_setup(builder, init_function="ca::init"):
+def write_main_setup(builder, init_function="ca::init", start_process=True):
     builder.line("ca::project_description({0});",
         const_string(builder.project.description))
     builder.line("std::vector<ca::Parameter*> parameters;")
@@ -793,4 +809,5 @@ def write_main_setup(builder, init_function="ca::init"):
 
     defs = [ "def_{0.id}".format(net) for net in builder.project.nets ]
     builder.line("ca::NetDef *defs[] = {{{0}}};", ",".join(defs))
-    builder.line("ca::setup({0}, defs);", len(defs));
+    builder.line("ca::setup({0}, defs, {1});",
+        len(defs), const_boolean(start_process));

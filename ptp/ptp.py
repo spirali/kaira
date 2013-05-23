@@ -52,6 +52,8 @@ def main():
         generator.build(output_directory)
     elif args.operation == "statespace":
         generator.build_statespace(output_directory)
+    elif args.operation == "simrun":
+        generator.build_simrun(output_directory)
     else:
         raise PtpException("Unknown operation")
 

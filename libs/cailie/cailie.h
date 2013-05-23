@@ -69,7 +69,7 @@ void init(
 	void extra_args_callback(char, char*, void*) = NULL,
 	void *extra_args_data = NULL);
 
-void setup(int defs_count, NetDef **defs);
+void setup(int defs_count, NetDef **defs, bool start_process);
 void spawn_net(int def_id);
 int main();
 void check_parameters();
