@@ -1,9 +1,11 @@
 #ifndef CASIMRUN_H
 #define CASIMRUN_H
 
+#include "runconfiguration.h"
+
 namespace casr {
 
-	void main();
+	void main(RunConfiguration &run_configuration);
 
 };
 

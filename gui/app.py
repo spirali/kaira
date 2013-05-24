@@ -46,6 +46,7 @@ import report
 import statespace
 import utils
 import controlseq
+import simrun
 
 VERSION_STRING = '0.7'
 
@@ -354,6 +355,17 @@ class App:
             "Sequences", widget, "sequences",
             mainmenu_groups=("project",), call_close=True))
 
+    def edit_simrun(self, lineno=None):
+        position = ("", lineno) if lineno is not None else None
+
+        if self.window.switch_to_tab_by_key("simrun"):
+            return
+        widget = simrun.SimRunConfig(self, self.project)
+        self.window.add_tab(Tab(
+            "SimRun", widget, "simrun",
+            mainmenu_groups=("project",)))
+        widget.editor.jump_to_position(position)
+
     def transition_edit(self, transition, lineno=None):
         position = ("", lineno) if lineno is not None else None
 
@@ -419,7 +431,7 @@ class App:
         widget = settings.SettingsWidget(self)
         self.window.add_tab(Tab("Settings", widget, "settings"))
 
-    def edit_head(self, lineno = None):
+    def edit_head(self, lineno=None):
         position = ("", lineno) if lineno is not None else None
 
         if self.window.switch_to_tab_by_key(
@@ -709,6 +721,8 @@ class App:
 
         if item == "head":
             callback = lambda: self.edit_head(line_no)
+        if item == "communication-model":
+            callback = lambda: self.edit_simrun(line_no - 2)
         elif section == "function":
             callback = lambda: self.transition_edit(item, line_no - 2)
         elif section == "init_function":

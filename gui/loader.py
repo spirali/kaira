@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011, 2012 Stanislav Bohm
+#    Copyright (C) 2010-2013 Stanislav Bohm
 #    Copyright (C) 2011, 2012 Ondrej Meca
 #
 #    This file is part of Kaira.
@@ -89,6 +89,8 @@ def load_configuration(element, project, loader):
         load_build_option(e, project)
     if element.find("head-code") is not None:
         project.set_head_code(element.find("head-code").text)
+    if element.find("communication-model") is not None:
+        project.communication_model_code = element.find("communication-model").text
 
 def import_project(project, filename):
     doc = xml.parse(filename)

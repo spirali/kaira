@@ -31,8 +31,9 @@ struct Packet : public ca::Packet
 class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 {
 	public:
-	State(ca::NetDef *net_def)
-		: thread_info(ca::process_count * ca::threads_count) {
+	State(RunConfiguration &run_configuration, ca::NetDef *net_def)
+		: thread_info(ca::process_count * ca::threads_count),
+          run_configuration(run_configuration) {
 		global_time = 0;
 		for (int p = 0; p < ca::process_count; p++) {
 			free_threads.push_back(ca::threads_count);
@@ -155,7 +156,8 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 	void packet_preprocess(int origin_id, int target_id, Packet &packet) {
 	    ControlledTimeTraceLog *tracelog =
 			(ControlledTimeTraceLog*) get_tracelog(origin_id, 0);
-		packet.release_time = tracelog->get_time() + 5;
+		packet.release_time = tracelog->get_time() +
+			run_configuration.packet_time(origin_id, target_id, packet.size);
 	}
 
 	protected:
@@ -170,14 +172,15 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 	ca::IntTime global_time;
 	std::vector<int> free_threads;
 	std::vector<ThreadInfo> thread_info;
+	RunConfiguration& run_configuration;
 };
 
-void casr::main()
+void casr::main(RunConfiguration &run_configuration)
 {
 	ControlledTimeTraceLog::init();
 	ca::check_parameters();
 	ca::NetDef *net_def = ca::defs[0]; // Take first definition
-	State state(net_def);
+	State state(run_configuration, net_def);
 	state.run();
 	fprintf(stderr, "Kaira: Time = %luns\n", state.get_global_time());
 }

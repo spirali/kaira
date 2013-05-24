@@ -21,11 +21,25 @@
 import buildnet
 import build
 
+def write_run_configuration(builder):
+    # Here we do not use block_begin because we want to supress indentation
+    # User function has to start at the first column to obtain
+    # correct positions of error messages
+    builder.line("class RunConfiguration : public casr::RunConfiguration {{")
+    builder.line("public:")
+    declaration = \
+        "ca::IntTime packet_time(int origin_id, int target_id, size_t size)"
+    builder.write_function(declaration,
+                           builder.project.communication_model_code,
+                           ("*communication-model", 1))
+    builder.line("}};")
+
 def write_main(builder):
     builder.line("int main(int argc, char **argv)")
     builder.block_begin()
     buildnet.write_main_setup(builder, start_process=False)
-    builder.line("casr::main();");
+    builder.line("RunConfiguration run_configuration;")
+    builder.line("casr::main(run_configuration);");
     builder.line("return 0;")
     builder.block_end()
 
@@ -33,4 +47,5 @@ def write_simrun_program(builder):
     build.write_header(builder)
     builder.line("#include <simrun.h>")
     buildnet.write_core(builder)
+    write_run_configuration(builder)
     write_main(builder)

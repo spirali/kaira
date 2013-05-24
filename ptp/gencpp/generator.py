@@ -75,6 +75,10 @@ class CppProgramGenerator(CppGenerator):
         makefiles.write_statespace_makefile(self.project, directory)
 
     def build_simrun(self, directory):
+
+        if not self.project.communication_model_code:
+            raise base.utils.PtpException("Communication model is not setted")
+
         builder = build.Builder(self.project, self.get_filename(directory, ".cpp"))
         simrun.write_simrun_program(builder)
         builder.write_to_file()

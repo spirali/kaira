@@ -58,6 +58,7 @@ class Project(object):
         self.parameters = {}
         self.build_options = {}
         self.head_code = ""
+        self.communication_model_code = ""
 
     def get_root_directory(self):
         return self.root_directory
@@ -264,6 +265,10 @@ def load_configuration(element, project):
     head_code = element.find("head-code")
     if head_code is not None:
         project.head_code = head_code.text
+
+    communication_model_code = element.find("communication-model")
+    if communication_model_code is not None:
+        project.communication_model_code = communication_model_code.text
 
 def load_project(element, target_envs):
     target_env = utils.xml_str(element, "target_env")

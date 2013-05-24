@@ -36,7 +36,7 @@ class CodeEditor(gtk.ScrolledWindow):
         if sections is None:
             sections = [ ("", "", "", "") ]
         if start_pos is None:
-            start_pos = ("", 0, 0)
+            start_pos = (sections[0][0], 1, 1)
         self.sections = sections
 
         self.set_shadow_type(gtk.SHADOW_IN)
@@ -48,6 +48,9 @@ class CodeEditor(gtk.ScrolledWindow):
 
         self.show_all()
         self.jump_to_position(start_pos)
+
+    def grab_focus(self):
+        self.view.grab_focus()
 
     def _create_buffer(self, key, sections, head_paragraph):
         manager = gtksourceview.LanguageManager()
@@ -114,8 +117,11 @@ class CodeEditor(gtk.ScrolledWindow):
 
     def set_text(self, text, section_name=""):
         start_iter, end_iter = self.get_section_iters(section_name)
-        self.buffer.delete(start_iter, end_iter)
-        self.buffer.insert(start_iter, text)
+        mark = self.buffer.create_mark("tmp_end", end_iter, True)
+        self.buffer.insert_with_tags_by_name(end_iter, text, "normal")
+        start_iter, end_iter = self.get_section_iters(section_name)
+        self.buffer.delete(start_iter, self.buffer.get_iter_at_mark(mark))
+        self.buffer.delete_mark(mark)
 
     def grab_focus(self):
         self.view.grab_focus()

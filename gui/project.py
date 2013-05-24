@@ -34,6 +34,9 @@ class Project(EventSource):
                 sequences_changed
     """
 
+    communication_model_code = ""
+    head_code = ""
+
     def __init__(self, file_name):
         assert file_name is not None
         EventSource.__init__(self)
@@ -47,7 +50,6 @@ class Project(EventSource):
         self.generator = None # PTP generator
         self.target_mode = None
         self.simulator_net = None
-        self.head_code = ""
 
     def get_main_net(self):
         for net in self.nets:
@@ -230,7 +232,7 @@ class Project(EventSource):
         root.set("target_env", self.get_target_env_name())
         if self.target_mode:
             root.set("target-mode", self.target_mode)
-        root.append(self._configuration_element(False))
+        root.append(self._configuration_element(None))
         for net in self.nets:
             root.append(net.as_xml())
         for sequence in self.sequences:
@@ -255,7 +257,7 @@ class Project(EventSource):
 
         if self.get_target_mode():
             root.set("target-mode", self.get_target_mode())
-        root.append(self._configuration_element(True))
+        root.append(self._configuration_element(build_config))
 
         description = xml.Element("description")
         description.text = xml.tostring(self.as_xml())
@@ -302,7 +304,7 @@ class Project(EventSource):
         element.text = self.get_build_option(name)
         return element
 
-    def _configuration_element(self, export):
+    def _configuration_element(self, build_config):
         e = xml.Element("configuration")
         for p in self.parameters:
             e.append(p.as_xml())
@@ -313,6 +315,12 @@ class Project(EventSource):
             element = xml.Element("head-code")
             element.text = self.get_head_code()
             e.append(element)
+
+        if build_config is None or build_config.substitutions:
+            if self.communication_model_code.strip():
+                element = xml.Element("communication-model")
+                element.text = self.communication_model_code
+                e.append(element)
 
         return e
 
