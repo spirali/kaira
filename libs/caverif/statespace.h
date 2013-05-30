@@ -14,6 +14,7 @@
 namespace cass {
 
 	class Core;
+	class Node;
 	typedef void* HashDigest;
 
 	struct Activation : public ca::Activation
@@ -71,20 +72,52 @@ namespace cass {
 			void pack_packets(ca::Packer &packer);
 	};
 
+	enum ActionType {
+		ActionFire,
+		ActionFinish,
+		ActionReceive
+	};
+
+	struct NextNodeInfo {
+		Node *node;
+		ActionType action;
+		union {
+				struct {
+					int process_id;
+					int thread_id;
+					int transition_id;
+				} fire; // ActionFire
+				struct {
+					int process_id;
+					int thread_id;
+				} finish; // ActionFinish
+				struct {
+					int process_id;
+					int source_id;
+				} receive; // ActionReceive
+		} data;
+	};
+
 	class Node
 	{
 		public:
 			Node(HashDigest hash, State *state);
 			~Node();
-			const std::vector<Node*> & get_nexts() const { return nexts; }
+			const std::vector<NextNodeInfo> & get_nexts() const { return nexts; }
 			void generate(Core *statespace);
 			HashDigest get_hash() { return hash; }
 
-			State * get_state() { return state; }
+			State* get_state() { return state; }
+			Node* get_prev() { return prev; }
+			int get_distance() { return distance; }
+			void set_prev(Node *prev);
+			const NextNodeInfo& get_next_node_info(Node *node);
 		protected:
 			HashDigest hash;
-			State *state;
-			std::vector<Node*> nexts;
+			State* state;
+			std::vector<NextNodeInfo> nexts;
+			Node* prev;
+			int distance;
 	};
 
 	struct HashDigestHash
@@ -122,6 +155,8 @@ namespace cass {
 			Node * add_state(State *state);
 			ca::NetDef * get_net_def() { return net_def; }
 		protected:
+			void write_control_sequence(Node *node, ca::Output &report);
+			void write_state(const std::string &name, Node *node, ca::Output &report);
 			void run_analysis_deadlock(ca::Output &report);
 
 			bool is_known_node(Node *node) const;

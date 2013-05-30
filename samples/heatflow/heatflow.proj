@@ -43,7 +43,7 @@ int to_up(ca::Context &amp;ctx)
 	place.add(matrix);
 </code><trace name="ca::token_name" return-type="std::string" /></place><place id="106" name="Up row" radius="20" sx="31" sy="0" x="281" y="208"><place-type x="330" y="228">std::vector&lt;double&gt;</place-type><init x="298" y="178" /><code>	std::vector&lt;double&gt; row(param::SIZE_X(), 0);
 	place.add(row);
-</code><trace name="ca::token_name" return-type="std::string" /></place><place id="107" name="Counter" radius="20" sx="16" sy="0" x="642" y="378"><place-type x="672" y="401">int</place-type><init x="678" y="348">[0]</init><trace name="ca::token_name" return-type="std::string" /></place><place id="108" name="" radius="22" sx="0" sy="0" x="786" y="288"><place-type x="803" y="305">DoubleMatrix</place-type><init x="803" y="258" /><trace name="ca::token_name" return-type="std::string" /></place><transition id="111" name="Send result" sx="70" sy="35" x="618" y="270"><guard x="618" y="250" /><trace>fire</trace></transition><transition id="112" name="Write results" sx="100" sy="42" x="726" y="198"><guard x="726" y="178" /><code>	const int size = var.results.size();
+</code><trace name="ca::token_name" return-type="std::string" /></place><place id="107" name="Counter" radius="20" sx="16" sy="0" x="642" y="378"><place-type x="672" y="401">int</place-type><init x="678" y="348">[0]</init><trace name="ca::token_name" return-type="std::string" /></place><place id="108" name="" radius="22" sx="0" sy="0" x="786" y="288"><place-type x="803" y="305">DoubleMatrix</place-type><init x="803" y="258" /><trace name="ca::token_name" return-type="std::string" /></place><transition id="111" name="Send result" priority="" sx="70" sy="35" x="618" y="270"><guard x="618" y="250" /><trace>fire</trace></transition><transition id="112" name="Write results" priority="" sx="100" sy="42" x="726" y="198"><guard x="726" y="178" /><code>	const int size = var.results.size();
 	DoubleMatrix out(param::SIZE_X(), param::SIZE_Y());
 
 	ca::Token&lt;DoubleMatrix&gt; *t = var.results.begin();
@@ -58,7 +58,7 @@ int to_up(ca::Context &amp;ctx)
 	out.swap();
 	out.write_to_file("results.html");
 	ctx.quit();
-</code><trace>fire</trace></transition><transition id="110" name="Compute" sx="70" sy="35" x="511" y="270"><guard x="534" y="252">c &lt; param::LIMIT()</guard><code>	compute_new_values(var.data, &amp;var.up[0], &amp;var.down[0]);
+</code><trace>fire</trace></transition><transition id="110" name="Compute" priority="" sx="70" sy="35" x="511" y="270"><guard x="534" y="252">c &lt; param::LIMIT()</guard><code>	compute_new_values(var.data, &amp;var.up[0], &amp;var.down[0]);
 	int position = id_to_position(param::SIZE_Y(), ctx.process_count(), ctx.process_id());
 	set_fixed_temp(var.data, param::SIZE_Y(), position, param::TEMP());
 	var.data.swap();

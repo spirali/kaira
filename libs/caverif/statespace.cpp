@@ -147,7 +147,8 @@ HashDigest State::compute_hash(hashid hash_id)
 	return mhash_end(hash_thread);
 }
 
-Node::Node(HashDigest hash, State *state) : hash(hash), state(state)
+Node::Node(HashDigest hash, State *state)
+	: hash(hash), state(state), prev(NULL), distance(0)
 {
 
 }
@@ -155,6 +156,14 @@ Node::Node(HashDigest hash, State *state) : hash(hash), state(state)
 Node::~Node()
 {
 	free(hash);
+}
+
+void Node::set_prev(Node *node)
+{
+	if (prev == NULL || node->get_distance() + 1 < get_distance()) {
+		prev = node;
+		distance = node->get_distance() + 1;
+	}
 }
 
 void Node::generate(Core *core)
@@ -178,7 +187,14 @@ void Node::generate(Core *core)
 			bool fired = s->fire_transition_phase1(p, transitions[i]);
 			if (fired) {
 				Node *n = core->add_state(s);
-				nexts.push_back(n);
+				n->set_prev(this);
+				NextNodeInfo nninfo;
+				nninfo.node = n;
+				nninfo.action = ActionFire;
+				nninfo.data.fire.process_id = p;
+				nninfo.data.fire.thread_id = 0;
+				nninfo.data.fire.transition_id = transitions[i]->get_id();
+				nexts.push_back(nninfo);
 				s = NULL;
 			}
 		}
@@ -193,7 +209,13 @@ void Node::generate(Core *core)
 		}
 		s->finish_transition_ro_binding(i);
 		Node *n = core->add_state(s);
-		nexts.push_back(n);
+		n->set_prev(this);
+		NextNodeInfo nninfo;
+		nninfo.node = n;
+		nninfo.action = ActionFinish;
+		nninfo.data.finish.process_id = activations[i].process_id;
+		nninfo.data.finish.thread_id = activations[i].thread_id;
+		nexts.push_back(nninfo);
 		s = NULL;
 	}
 
@@ -204,11 +226,17 @@ void Node::generate(Core *core)
 		if (s == NULL) {
 			s = new State(*state);
 		}
-		if (!s->receive(target, source)) {
+		if (!s->receive(target, source, false)) {
 			continue;
 		}
 		Node *n = core->add_state(s);
-		nexts.push_back(n);
+		n->set_prev(this);
+		NextNodeInfo nninfo;
+		nninfo.node = n;
+		nninfo.action = ActionReceive;
+		nninfo.data.receive.process_id = target;
+		nninfo.data.receive.source_id = source;
+		nexts.push_back(nninfo);
 		s = NULL;
 	}
 	if (s != NULL) {
@@ -252,7 +280,7 @@ void Core::write_dot_file(const std::string &filename)
 	for (it = nodes.begin(); it != nodes.end(); it++)
 	{
 		Node *node = it->second;
-		const std::vector<Node*> &nexts = node->get_nexts();
+		const std::vector<NextNodeInfo> &nexts = node->get_nexts();
 		if (node == initial_node) {
 			fprintf(f, "S%p [style=filled, label=init]\n",
 				node);
@@ -271,7 +299,24 @@ void Core::write_dot_file(const std::string &filename)
 				packets_count);
 		}
 		for (size_t i = 0; i < nexts.size(); i++) {
-			fprintf(f, "S%p -> S%p\n", node, nexts[i]);
+			fprintf(f, "S%p -> S%p [label=\"", node, nexts[i].node);
+			char c;
+			switch(nexts[i].action) {
+				case ActionFire:
+					fprintf(f, "s %i %i\"]\n",
+						nexts[i].data.fire.process_id,
+						nexts[i].data.fire.transition_id);
+					break;
+				case ActionFinish:
+					fprintf(f, "f %i\"]\n",
+						nexts[i].data.finish.process_id);
+					break;
+				case ActionReceive:
+					fprintf(f, "r %i %i\"]\n",
+						nexts[i].data.receive.process_id,
+						nexts[i].data.receive.source_id);
+					break;
+			}
 		}
 	}
 	fprintf(f, "}\n");
@@ -310,10 +355,62 @@ void Core::postprocess()
 	fclose(f);
 }
 
+static void write_control_line(std::stringstream &s, const NextNodeInfo &nninfo)
+{
+	switch (nninfo.action) {
+		case ActionFire:
+			s << "T " << nninfo.data.fire.process_id;
+			s << " " << nninfo.data.fire.thread_id;
+			s << " #" << nninfo.data.fire.transition_id;
+			break;
+		case ActionFinish:
+			s << "F " << nninfo.data.finish.process_id;
+			s << " " << nninfo.data.finish.thread_id;
+			break;
+		case ActionReceive:
+			s << "R " << nninfo.data.receive.process_id;
+			s << " " << nninfo.data.receive.source_id;
+			break;
+	}
+	s << std::endl;
+}
+
+void Core::write_control_sequence(Node *node, ca::Output &report)
+{
+	std::vector<Node*> path;
+	path.reserve(node->get_distance() + 1);
+	do {
+		path.push_back(node);
+	} while ((node = node->get_prev()) != NULL);
+
+	std::stringstream s;
+	Node *prev = path[path.size() - 1];
+	for (std::vector<Node*>::reverse_iterator i = path.rbegin() + 1;
+		 i != path.rend();
+         ++i) {
+		write_control_line(s, prev->get_next_node_info(*i));
+		prev = *i;
+	}
+
+	report.child("control-sequence");
+	report.text(s.str());
+	report.back();
+}
+
+void Core::write_state(const std::string &name, Node *node, ca::Output &report)
+{
+	report.child("state");
+	report.set("name", name);
+	report.set("hash", hashdigest_to_string(MHASH_MD5, node->get_hash()));
+	report.set("distance", node->get_distance());
+	write_control_sequence(node, report);
+	report.back();
+}
+
 void Core::run_analysis_deadlock(ca::Output &report)
 {
 	size_t deadlocks = 0;
-	Node* deadlock_node;
+	Node* deadlock_node = NULL;
 
 	NodeMap::const_iterator it;
 	for (it = nodes.begin(); it != nodes.end(); it++)
@@ -321,7 +418,10 @@ void Core::run_analysis_deadlock(ca::Output &report)
 		Node *node = it->second;
 		if (node->get_nexts().size() == 0) {
 			deadlocks++;
-			deadlock_node = node;
+			if (deadlock_node == NULL ||
+				deadlock_node->get_distance() > node->get_distance()) {
+				deadlock_node = node;
+			}
 		}
 	}
 	report.child("analysis");
@@ -334,13 +434,12 @@ void Core::run_analysis_deadlock(ca::Output &report)
 		report.set("status", "fail");
 		report.set("text", "There are deadlocks");
 		report.child("states");
-		report.text(hashdigest_to_string(MHASH_MD5, deadlock_node->get_hash()));
+		write_state("Deadlock with minimal distance", deadlock_node, report);
 		report.back();
 	} else {
 		report.set("status", "ok");
 	}
 	report.back();
-
 	report.back();
 }
 
@@ -359,6 +458,17 @@ Node * Core::add_state(State *state)
 		delete state;
 		return node;
 	}
+}
+
+const NextNodeInfo& Node::get_next_node_info(Node *node)
+{
+	for (int i = 0; nexts.size(); i++) {
+		if (nexts[i].node == node) {
+			return nexts[i];
+		}
+	}
+	printf("get_next_node_info: Node not found\n");
+	abort();
 }
 
 bool Core::is_known_node(Node *node) const

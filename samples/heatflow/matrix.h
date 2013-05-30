@@ -15,6 +15,9 @@ class DoubleMatrix
 			this->size_y = size_y;
 			array1 = new double[size_y * size_x];
 			array2 = new double[size_y * size_x];
+			init(0.0);
+			swap();
+			init(0.0);
 		}
 
 		DoubleMatrix(const DoubleMatrix &c)
@@ -26,7 +29,6 @@ class DoubleMatrix
 			memcpy(array1, c.array1, get_data_size());
 			array2 = new double[size_x * size_y];
 			memcpy(array2, c.array2, get_data_size());
-
 		}
 
 		DoubleMatrix & operator=(const DoubleMatrix & c)
@@ -130,11 +132,11 @@ class DoubleMatrix
 			return &array2[i + j * size_x];
 		}
 
-		int get_size_x() { 
+		int get_size_x() {
 			return size_x;
 		}
 
-		int get_size_y() { 
+		int get_size_y() {
 			return size_y;
 		}
 

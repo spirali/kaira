@@ -301,7 +301,7 @@ namespace ca {
 			// Pre-process packet before send
 			virtual void packet_preprocess(int origin_id, int target_id, PacketT &packet) {}
 
-			bool receive(int process_id, int origin_id) {
+			bool receive(int process_id, int origin_id, bool free_data=true) {
 				PacketQueue &pq = packets[process_id * ca::process_count + origin_id];
 				if (pq.empty()) {
 					return false;
@@ -321,7 +321,9 @@ namespace ca {
 				for (int t = 0; t < tokens_count; t++) {
 					net->receive(&thread, packet.from_process, edge_id, unpacker);
 				}
-				free(packet.data);
+				if (free_data) {
+					free(packet.data);
+				}
 				return true;
 			}
 

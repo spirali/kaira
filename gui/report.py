@@ -33,7 +33,8 @@ class ReportWidget(gtk.ScrolledWindow):
         self.show_all()
 
         self.textview.create_tag("h1", scale=2)
-        self.textview.create_tag("h2", scale=1.2, weight=700)
+        self.textview.create_tag("h2", scale=1.3, weight=700)
+        self.textview.create_tag("h3", scale=1.1, weight=500)
         self.textview.create_tag("success", foreground="green", weight=700)
         self.textview.create_tag("fail", foreground="red", weight=700)
         self.report.write(self)
@@ -89,9 +90,19 @@ class Report:
             widget.write("]")
         if element.get("text"):
             widget.write("   {0}".format(element.get("text")), t)
+        widget.write("\n\n")
         states = element.find("states")
         if states is not None:
-            widget.write("   ")
-            widget.write_link("Show states",
-                              lambda: widget.open_textview(states.text, "States"))
+            widget.write("States\n", "h3")
+            for state in states.findall("state"):
+                widget.write("  - {0} ({1}) ".format(
+                    state.get("name"),
+                    state.get("distance")))
+                widget.write("   ")
+                widget.write_link("Hash",
+                                  lambda: widget.open_textview(state.get("hash"), "States"))
+                widget.write("   ")
+                widget.write_link("Control sequence",
+                                  lambda: widget.open_textview("Not implemented yet",
+                                                               "States"))
         widget.write("\n")
