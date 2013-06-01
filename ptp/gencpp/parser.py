@@ -19,7 +19,6 @@
 
 import pyparsing as pp
 import base.utils as utils
-import base.net
 
 digits = "0123456789"
 operator_chars = "+-*/%=!<>&|~"
@@ -64,12 +63,17 @@ edge_config_param = lpar + full_expression + rpar
 edge_config_item = pp.Group(ident + pp.Optional(edge_config_param, None))
 edge_config = lbracket + pp.Group(pp.delimitedList(edge_config_item, ",")) + rbracket
 
-edge_expr = (pp.Optional(edge_config, ()) +
-             pp.Optional(pp.Group(expressions), ()) +
-             pp.Optional(pp.Suppress("@") + full_expression, None))
+edge_inscription = pp.Group(
+    pp.Optional(edge_config, ()) +
+    pp.Optional(full_expression, None) +
+    pp.Optional(pp.Suppress("@") + full_expression, None))
+
+edge_expr = pp.delimitedList(edge_inscription, ";")
+
 init_by_expressions = (lbracket + expressions + rbracket) \
                         .setParseAction(lambda t: ("exprs", tuple(t)))
-init_by_vector = pp.ParseElementEnhance(full_expression).setParseAction(lambda t: ("vector", t[0]))
+init_by_vector = pp.ParseElementEnhance(full_expression).setParseAction(
+    lambda t: ("vector", t[0]))
 init_expression = init_by_expressions | init_by_vector
 
 def parse_expression(expr, source, allow_empty):
@@ -92,6 +96,8 @@ def check_typename(tname, source):
         raise utils.PtpException(e.msg, source)
 
 def is_variable(expr):
+    if expr is None:
+        return False
     try:
         ident.parseString(expr, parseAll=True)
         return True
@@ -122,19 +128,19 @@ def parse_edge_expression(string, source):
         raise utils.PtpException("Missing expression", source)
 
     try:
-        configs, expressions, target = edge_expr.parseString(string, parseAll=True)
+        inscriptions = edge_expr.parseString(string, parseAll=True)
     except pp.ParseException, e:
         raise utils.PtpException(e.msg, source)
 
-    config = {}
-    for name, param in configs:
-        if name in config:
-            raise utils.PtpException(
-                "Configuration option '{0}' used twice".format(name), source)
-        else:
-            config[name] = param
+    results = []
+    for configs, expr, target in inscriptions:
+        config = {}
+        for name, param in configs:
+            if name in config:
+                raise utils.PtpException(
+                    "Configuration option '{0}' used more then once".format(name), source)
+            else:
+                config[name] = param
+        results.append((config, expr, target))
 
-    return (config,
-            [ base.net.EdgeInscription(expr)
-                for expr in expressions ],
-            target)
+    return results

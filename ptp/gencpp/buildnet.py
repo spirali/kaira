@@ -58,13 +58,13 @@ def write_tokens_struct(builder, tr):
 
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::Token<{0} > *token_{1};",
-            inscription.get_type(), inscription.uid)
+            inscription.type, inscription.uid)
         if inscription.is_origin_reader():
             builder.line("int origin_{0};", inscription.uid)
 
     for edge in tr.get_bulk_edges_in():
         builder.line("ca::TokenList<{0} > tokens_{1.uid};",
-            edge.get_place_type(), edge)
+            edge.place.type, edge)
         if edge.is_origin_reader():
             builder.line("std::vector<int> origins_{0.uid};", edge)
 
@@ -127,7 +127,7 @@ def write_activation(builder, net, transitions):
         builder.line("{0}->activate_transition_by_pos_id({1});", net, tr.get_pos_id())
 
 def write_send_token(builder,
-                     edge,
+                     inscription,
                      net_expr,
                      trace_send=False,
                      locking=True,
@@ -153,90 +153,88 @@ def write_send_token(builder,
 
     def write_add(expr, bulk=False, token=False):
         write_place_add(builder,
-                        edge.place,
+                        inscription.edge.place,
                         "{0}->".format(net_expr),
                         expr,
                         bulk=bulk,
                         token=token)
         if not interface_edge:
-            write_activation(builder, net_expr, edge.place.get_transitions_out())
+            write_activation(builder,
+                             net_expr,
+                             inscription.edge.place.get_transitions_out())
 
     if reuse_tokens is None:
         reuse_tokens = {}
 
-    if_condition = edge.config.get("if")
+    if_condition = inscription.config.get("if")
 
     if if_condition:
         builder.if_begin(if_condition)
 
-    if edge.is_local():
+    if inscription.is_local():
         write_lock()
-        if edge.is_bulk_edge():
-            write_add(edge.inscriptions[0].expr, True)
+        if inscription.is_bulk():
+            write_add(inscription.expr, True)
         else:
-            for inscription in edge.get_token_inscriptions():
-                if inscription.uid in reuse_tokens:
-                    write_add(builder.expand("$token_{0}",
-                                            reuse_tokens[inscription.uid]),
-                              token=True)
-                else:
-                    write_add(inscription.expr)
+            if inscription.uid in reuse_tokens:
+                write_add(builder.expand("$token_{0}",
+                                        reuse_tokens[inscription.uid]),
+                          token=True)
+            else:
+                write_add(inscription.expr)
     else: # Remote send
-        if edge.is_unicast():
+        if inscription.is_unicast():
             sendtype = ""
             builder.if_begin(builder.expand("{0} == $thread->get_process_id()",
-                                            edge.target))
+                                            inscription.target))
             write_lock()
-            if edge.is_bulk_edge():
-                write_add(edge.inscriptions[0].expr, bulk=True)
+            if inscription.is_bulk():
+                write_add(inscription.expr, bulk=True)
             else:
-                for inscription in edge.get_token_inscriptions():
-                    write_add(inscription.expr)
+                write_add(inscription.expr)
             builder.indent_pop()
             builder.line("}} else {{")
-            builder.line("int $target = {0};", edge.target)
+            builder.line("int $target = {0};", inscription.target)
             target = builder.expand("$target")
             builder.indent_push()
         else:
             sendtype = "_multicast"
-            target = edge.target
+            target = inscription.target
             builder.block_begin()
 
         if trace_send:
             builder.if_begin("$tracelog")
-            builder.line("$tracelog->event_send_part1();", target, edge)
+            builder.line("$tracelog->event_send_part1();")
             builder.block_end()
 
-        if edge.is_token_edge(): # Pack token edge
+        if inscription.is_token(): # Pack token edge
             builder.line("ca::Packer $packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
-            for inscription in edge.get_token_inscriptions():
-                builder.line("ca::pack($packer, {0});", inscription.expr)
+            builder.line("ca::pack($packer, {0});", inscription.expr)
             builder.line("$thread->send{0}({4}, {3}, {1}, {2}, $packer);",
                          sendtype,
-                         edge.id,
-                         len(edge.inscriptions),
+                         inscription.edge.id,
+                         1,
                          net_expr,
                          target)
 
-        else: # Bulk edge
+        elif inscription.is_bulk(): # Bulk edge
             # TODO: Pack in one step if type is directly packable
-            expr = edge.inscriptions[0].expr
+            expr = inscription.expr
             builder.line("ca::Packer $packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
             builder.line("{0}.pack_tokens($packer);", expr);
             builder.line("$thread->send{0}({1}, {3}, {2}, ({4}).size(), $packer);",
-                   sendtype, target, edge.id, net_expr, expr)
+                   sendtype, target, inscription.edge.id, net_expr, expr)
         if trace_send:
             builder.if_begin("$tracelog")
             builder.line("$tracelog->event_send_part2({0}, $packer.get_size(), {1.id});",
-                target, edge)
+                target, inscription.edge)
             builder.block_end()
         builder.block_end()
 
     if if_condition:
         builder.line("}} else {{")
-        for inscription in edge.get_token_inscriptions():
-            if inscription.uid in reuse_tokens:
-               builder.line("delete $token_{0};", reuse_tokens[inscription.uid])
+        if inscription.uid in reuse_tokens:
+            builder.line("delete $token_{0};", reuse_tokens[inscription.uid])
         builder.block_end()
 
 def write_remove_tokens(builder, net_expr, tr):
@@ -256,10 +254,10 @@ def write_remove_tokens(builder, net_expr, tr):
     for edge in tr.edges_in:
         place = edge.place
         if edge.is_origin_reader():
-            if edge.is_bulk_edge():
+            if edge.is_bulk:
                 builder.line("{0}->place_{1.id}_origin.clear();", net_expr, place)
             else:
-                for inscription in edge.inscriptions:
+                for inscription in edge.get_token_inscriptions():
                     builder.line("{0}->place_{1.id}_origin.pop_front();",
                                  net_expr, place)
 
@@ -291,11 +289,11 @@ def write_fire_body(builder,
                                            remove=True)
                     builder.block_end()
                 builder.line("{1} {2}($n->place_{0.id}, true);",
-                    place, edge.get_type(), edge.inscriptions[0].expr)
+                    place, edge.inscriptions[0].type, edge.inscriptions[0].expr)
     else:
        for edge in tr.get_bulk_edges_in():
            builder.line("{2} {3}($tokens->tokens_{0.uid}, false);",
-               edge, edge.place, edge.get_type(), edge.inscriptions[0].expr)
+               edge, edge.place, edge.inscriptions[0].type, edge.inscriptions[0].expr)
 
     decls = tr.get_decls()
 
@@ -339,9 +337,9 @@ def write_fire_body(builder,
     else:
         reuse_tokens = tr.reuse_tokens;
 
-    for edge in tr.edges_out:
+    for inscription in tr.inscriptions_out:
         write_send_token(builder,
-                         edge,
+                         inscription,
                          builder.expand("$n"),
                          trace_send=tr.need_trace(),
                          locking=locking,
@@ -351,10 +349,9 @@ def write_fire_body(builder,
         builder.line("if ($lock) $n->unlock();")
 
     if not readonly_tokens:
-        for edge in tr.edges_in:
-            for inscription in edge.get_token_inscriptions():
-                if inscription.uid not in tr.reuse_tokens.values():
-                    builder.line("delete $token_{0.uid};", inscription)
+        for inscription in tr.get_token_inscriptions_in():
+            if inscription.uid not in tr.reuse_tokens.values():
+                builder.line("delete $token_{0.uid};", inscription)
 
     if tr.need_trace():
         builder.if_begin("$tracelog")
@@ -437,7 +434,7 @@ def write_fire_phase2(builder, tr, readonly_binding=False):
 
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::Token<{0} > *$token_{1.uid} = $tokens->token_{1.uid};",
-            inscription.get_type(), inscription);
+            inscription.type, inscription);
 
     decls_dict = tr.get_decls()
 
@@ -503,11 +500,13 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
 
     for edge in tr.edges_in:
         prev_uid = None
-        for inscription in edge.get_token_inscriptions():
+        for inscription in edge.inscriptions:
+            if not inscription.is_token():
+                continue
             builder.line("// Edge id={0.id} uid={1.uid} expr={1.expr}",
                 edge, inscription)
             line = builder.expand("ca::Token < {0} > *$token_{1.uid} = ",
-                        edge.get_place_type(),
+                        edge.place.type,
                         inscription)
             if prev_uid is None:
                 builder.line("{0} $n->place_{1.id}.begin();",
@@ -525,7 +524,7 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
 
     for edge in tr.edges_in:
         if edge.is_origin_reader():
-            if edge.is_bulk_edge():
+            if edge.is_bulk():
               builder.line("std::vector<int> {0}_origins($n->place_{1.id}_origin.begin(),"
                            " $n->place_{1.id}_origin.end());",
                            edge.inscriptions[0].expr, edge.place)
@@ -536,18 +535,16 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
                                  inscription.expr, edge.place, i)
 
     for edge in tr.edges_in:
-        if "guard" in edge.config:
-            builder.block_begin()
-            builder.line("size_t size = $n->place_{0.id}.size();", edge.place)
-            builder.line("if (!({0})) {1}", edge.config["guard"], fail_command)
-            builder.block_end()
+        for inscription in edge.inscriptions:
+            if "guard" in inscription.config:
+                builder.block_begin()
+                builder.line("size_t size = $n->place_{0.id}.size();", edge.place)
+                builder.line("if (!({0})) {1}", inscription.config["guard"], fail_command)
+                builder.block_end()
 
-        for inscription in edge.get_token_inscriptions():
-            if inscription.uid in sources_uid:
-                continue
-
-            builder.line("if ($token_{2.uid}->value != ({0})) {1}",
-                inscription.expr, fail_command, inscription)
+            if inscription.is_token() and inscription.uid not in sources_uid:
+                builder.line("if ($token_{2.uid}->value != ({0})) {1}",
+                    inscription.expr, fail_command, inscription)
 
     if tr.guard is not None:
         builder.line("if (!({0})) {1}", tr.guard, fail_command)

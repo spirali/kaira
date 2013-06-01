@@ -69,7 +69,7 @@ class Declarations:
 
 class Edge(utils.EqMixin):
 
-    def __init__(self, id, transition, place, inscriptions, config, target):
+    def __init__(self, id, transition, place, inscriptions):
         self.id = id
         self.uid = utils.get_unique_id()
         self.place = place
@@ -77,185 +77,198 @@ class Edge(utils.EqMixin):
         for inscription in inscriptions:
             inscription.edge = self
         self.inscriptions = inscriptions
-        self.config = config
-        self.target = target
 
-    def get_source(self):
+    @property
+    def source(self):
         return "*{0}/inscription".format(self.id)
 
-    def get_place_type(self):
-        return self.place.type
-
-    def get_type(self):
-        if self.is_bulk_edge():
-            return get_token_container_type(self.place.type)
-        else:
-            return self.place.type
-
     def check(self, checker):
-        if self.is_bulk_edge():
-            checker.check_expression(self.inscriptions[0].expr,
-                                     self.transition.get_decls(),
-                                     self.get_type(),
-                                     self.get_source())
-        else:
-            for inscription in self.inscriptions:
-                checker.check_expression(inscription.expr,
-                                         self.transition.get_decls(),
-                                         self.get_place_type(),
-                                         self.get_source())
+        bulk = any(inscription.is_bulk() for inscription in self.inscriptions)
 
-    def check_config(self, valid_keys):
-        invalid_key = utils.key_not_in_list(self.config, valid_keys)
-        if invalid_key is not None:
-            raise utils.PtpException("Invalid config item '{0}'".format(invalid_key),
-                self.get_source())
+        if bulk and len(self.inscriptions) > 1:
+            raise utils.PtpException(
+                "Bulk inscription cannot be combined with others",
+                self.source)
 
     def check_edge_in(self, checker):
-        if self.target is not None:
-            raise utils.PtpException("Input edges cannot contain '@'",
-                self.get_source())
-
-        self.check_config(("bulk", "guard", "origin"))
-        if "bulk" in self.config:
-            if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
-                raise utils.PtpException(
-                    "'bulk' requires a single variable as main expression",
-                    self.get_source())
-        if "guard" in self.config:
-            if self.config["guard"] is None:
-                raise utils.PtpException(
-                    "'guard' requires an expression",
-                    self.get_source())
-            decls = self.transition.get_input_decls_with_size(self.get_source())
-            checker.check_expression(self.config["guard"],
-                                     decls,
-                                     "bool",
-                                     self.get_source())
         self.check(checker)
+
+        for inscription in self.inscriptions:
+            inscription.check_edge_in(checker)
 
     def check_edge_out(self, checker):
-        self.check_config(("bulk", "multicast", "if"))
-        if "bulk" in self.config:
-            if len(self.inscriptions) != 1 or not self.inscriptions[0].is_variable():
-                raise utils.PtpException(
-                    "'bulk' requires a single variable as main expression",
-                    self.get_source())
-
-        if "if" in self.config:
-            if self.config["if"] is None:
-                raise utils.PtpException(
-                    "'if' requires an expression",
-                    self.get_source())
-            decls = self.transition.get_input_decls_with_size(self.get_source())
-            checker.check_expression(self.config["if"],
-                                     decls,
-                                     "bool",
-                                     self.get_source())
-        if self.target is not None:
-            checker.check_expression(self.target,
-                                     self.transition.get_decls(),
-                                     self.get_target_type(),
-                                     self.get_source())
         self.check(checker)
 
-    def get_target_type(self):
+        for inscription in self.inscriptions:
+            inscription.check_edge_out(checker)
+
+    def get_decls(self):
+        decls = Declarations(self.source)
+        for inscription in self.inscriptions:
+            decls.merge(inscription.get_decls())
+        return decls
+
+    def is_bulk(self):
+        return self.inscriptions and self.inscriptions[0].is_bulk()
+
+    def is_token(self):
+        return not self.is_bulk()
+
+    def is_origin_reader(self):
+        return any(inscription.is_origin_reader() for inscription in self.inscriptions)
+
+    def get_tokens_number(self):
+        if self.is_bulk():
+            return None
+        else:
+            count = 0
+            for inscription in self.inscriptions:
+                if inscription.is_token():
+                    count += 1
+            if count > 0:
+                return count
+            else:
+                return None
+
+    def get_token_inscriptions(self):
+        if self.is_bulk():
+           return ()
+        else:
+           return [ inscription for inscription in self.inscriptions
+                    if inscription.has_expr() ]
+
+    def is_local(self):
+        return all(inscription.is_local() for inscription in self.inscriptions)
+
+class EdgeInscription(utils.EqMixin):
+
+    edge = None
+
+    def __init__(self, config, expr, target):
+        self.uid = utils.get_unique_id()
+        self.config = config
+        self.expr = expr
+        self.target = target
+
+    @property
+    def source(self):
+        return self.edge.source
+
+    @property
+    def type(self):
+        if self.is_bulk():
+            return get_token_container_type(self.edge.place.type)
+        else:
+            return self.edge.place.type
+
+    @property
+    def target_type(self):
         if self.is_multicast():
             return get_container_type("int")
         else:
             return "int"
 
-    def get_decls(self):
-        decls = Declarations(self.get_source())
-        if self.is_bulk_edge():
-            decls.set(self.inscriptions[0].expr, self.get_type())
-            if self.is_origin_reader():
-                decls.set(self.inscriptions[0].expr + "_origins",
-                          get_container_type("int"))
-        else:
-            for variable in self.get_single_token_variables():
-                decls.set(variable, self.get_place_type())
-            if self.is_origin_reader():
-                for variable in self.get_single_token_variables():
-                    decls.set(variable + "_origin", "int")
+    def has_expr(self):
+        return self.expr is not None
 
-        if self.target and self.transition.net.project.is_expr_variable(self.target):
-            decls.set(self.target, self.get_target_type())
-        return decls
+    def is_expr_variable(self):
+        return self.edge.transition.net.project.is_expr_variable(self.expr)
 
-    def get_single_token_variables(self):
-        if self.is_bulk_edge():
-            return []
-        return [ inscription.expr
-                 for inscription in self.inscriptions
-                 if inscription.is_variable() ]
+    def is_target_variable(self):
+        if self.target is not None:
+            return self.edge.transition.net.project.is_expr_variable(self.target)
+        return False
 
-    def get_nontoken_variables(self):
-        if self.target and self.transition.net.project.is_expr_variable(self.target):
+    def check(self, checker):
+        if self.has_expr():
+            checker.check_expression(self.expr,
+                                     self.edge.transition.get_decls(),
+                                     self.type,
+                                     self.source)
+
+    def check_config(self, valid_keys):
+        invalid_key = utils.key_not_in_list(self.config, valid_keys)
+        if invalid_key is not None:
+            raise utils.PtpException(
+                "Invalid config item '{0}'".format(invalid_key),
+                self.source)
+
+    def check_edge_in(self, checker):
+        if self.target is not None:
+            raise utils.PtpException("Input edges cannot contain '@'",
+                self.source)
+
+        self.check_config(("bulk", "guard", "origin"))
+        if "guard" in self.config:
+            if self.config["guard"] is None:
+                raise utils.PtpException(
+                    "'guard' requires an expression",
+                    self.source)
+            decls = self.edge.transition.get_input_decls_with_size(self.source)
+            checker.check_expression(self.config["guard"],
+                                     decls,
+                                     "bool",
+                                     self.source)
+        self.check(checker)
+
+    def check_edge_out(self, checker):
+        self.check_config(("bulk", "multicast", "if"))
+
+        if "if" in self.config:
+            if self.config["if"] is None:
+                raise utils.PtpException(
+                    "'if' requires an expression",
+                    self.source)
+            decls = self.edge.transition.get_input_decls_with_size(self.source)
+            checker.check_expression(self.config["if"],
+                                     decls,
+                                     "bool",
+                                     self.source)
+        if self.target is not None:
+            checker.check_expression(self.target,
+                                     self.edge.transition.get_decls(),
+                                     self.target_type,
+                                     self.source)
+        self.check(checker)
+
+    def get_other_variables(self):
+        if self.is_target_variable():
             return [ self.target ]
         else:
             return []
 
-    def get_variable_sources(self):
-        sources = {}
-        if self.is_token_edge():
-            for inscription in self.inscriptions:
-                if inscription.is_variable() and inscription.expr not in sources:
-                    sources[inscription.expr] = inscription.uid
-        else:
-            sources[self.inscriptions[0].expr] = None
-        return sources
-
-    def get_tokens_number(self):
-        if self.is_token_edge():
-            return len(self.inscriptions)
-
-    def get_token_inscriptions(self):
-        if self.is_token_edge():
-            return self.inscriptions
-        else:
-            return []
+    def get_decls(self):
+        decls = Declarations(self.source)
+        if self.is_expr_variable():
+            decls.set(self.expr, self.type)
+            if self.is_origin_reader():
+                if self.is_bulk():
+                    decls.set(self.expr + "_origins",
+                              get_container_type("int"))
+                else:
+                    decls.set(self.expr + "_origin",
+                              "int")
+        if self.is_target_variable():
+            decls.set(self.target, self.target_type)
+        return decls
 
     def is_local(self):
         return self.target is None
 
-    def is_bulk_edge(self):
+    def is_bulk(self):
         return "bulk" in self.config
 
-    def is_token_edge(self):
-        return not self.is_bulk_edge()
+    def is_token(self):
+        return not self.is_bulk() and self.has_expr()
+
+    def is_multicast(self):
+        return "multicast" in self.config
 
     def is_unicast(self):
         return not self.is_multicast()
 
     def is_origin_reader(self):
         return "origin" in self.config
-
-    def is_multicast(self):
-        return "multicast" in self.config
-
-
-class EdgeInscription(utils.EqMixin):
-
-    edge = None
-
-    def __init__(self, expr):
-        self.expr = expr
-        self.uid = utils.get_unique_id()
-
-    def get_type(self):
-        return self.edge.get_place_type()
-
-    def is_variable(self):
-        return (self.edge.transition.net.project.is_expr_variable(self.expr) and
-                not self.expr.endswith("_origin") and
-                not self.expr.endswith("_origins"))
-
-    def get_place(self):
-        return self.edge.place
-
-    def is_origin_reader(self):
-        return self.edge.is_origin_reader() and self.is_variable()
 
 
 class Place(utils.EqByIdMixin):
@@ -356,20 +369,30 @@ class Transition(utils.EqByIdMixin):
         self.var_exprs = None
         self.match_exprs = None
 
+        # Filled by function "analyze_transition"
+        self.inscriptions_in = None
+        self.inscriptions_out = None
+        self.variable_sources = None
+        self.reuse_tokens = None
+        self.variable_sources_out = None
+        self.fresh_tokens = None
+
     def has_code(self):
         return self.code is not None
 
     def get_token_inscriptions_in(self):
-        return sum([ edge.get_token_inscriptions() for edge in self.edges_in ], [])
+        return [ inscription for inscription in self.inscriptions_in
+                 if inscription.is_token() ]
 
     def get_token_inscriptions_out(self):
-        return sum([ edge.get_token_inscriptions() for edge in self.edges_out ], [])
+        return [ inscription for inscription in self.inscriptions_out
+                 if inscription.is_token() ]
 
     def get_bulk_edges_in(self):
-        return [ edge for edge in self.edges_in if edge.is_bulk_edge() ]
+        return [ edge for edge in self.edges_in if edge.is_bulk() ]
 
     def get_bulk_edges_out(self):
-        return [ edge for edge in self.edges_out if edge.is_bulk_edge() ]
+        return [ edge for edge in self.edges_out if edge.is_bulkdge() ]
 
     def need_trace(self):
         if self.is_any_place_traced():
