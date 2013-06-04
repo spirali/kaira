@@ -15,6 +15,7 @@
 namespace ca {
 
 int threads_count = 1;
+int process_count = 1;
 const char *project_description_string = NULL;
 int listen_port = -1;
 int block_on_start = 0;
@@ -28,7 +29,6 @@ size_t tracelog_size = 0;
 
 #ifdef CA_SHMEM
 Process **processes = NULL;
-int process_count = 1;
 bool sequential_run = false;
 #endif
 
