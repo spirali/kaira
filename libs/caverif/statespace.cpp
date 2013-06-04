@@ -359,17 +359,17 @@ static void write_control_line(std::stringstream &s, const NextNodeInfo &nninfo)
 {
 	switch (nninfo.action) {
 		case ActionFire:
-			s << "T " << nninfo.data.fire.process_id;
+			s << nninfo.data.fire.process_id;
 			s << " " << nninfo.data.fire.thread_id;
-			s << " #" << nninfo.data.fire.transition_id;
+			s << " S #" << nninfo.data.fire.transition_id;
 			break;
 		case ActionFinish:
-			s << "F " << nninfo.data.finish.process_id;
-			s << " " << nninfo.data.finish.thread_id;
+			s << nninfo.data.finish.process_id;
+			s << " " << nninfo.data.finish.thread_id << " F";
 			break;
 		case ActionReceive:
-			s << "R " << nninfo.data.receive.process_id;
-			s << " " << nninfo.data.receive.source_id;
+			s << nninfo.data.receive.process_id;
+			s << " 0 R " << nninfo.data.receive.source_id;
 			break;
 	}
 	s << std::endl;
@@ -432,7 +432,7 @@ void Core::run_analysis_deadlock(ca::Output &report)
 	report.set("value", deadlocks);
 	if (deadlocks != 0) {
 		report.set("status", "fail");
-		report.set("text", "There are deadlocks");
+		report.set("text", "Deadlocks found");
 		report.child("states");
 		write_state("Deadlock with minimal distance", deadlock_node, report);
 		report.back();

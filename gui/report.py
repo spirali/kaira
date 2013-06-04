@@ -21,6 +21,7 @@ import gtk
 import textview
 import xml.etree.ElementTree as xml
 import mainwindow
+import controlseq
 
 class ReportWidget(gtk.ScrolledWindow):
 
@@ -56,6 +57,11 @@ class ReportWidget(gtk.ScrolledWindow):
         sw.show_all()
         self.app.window.add_tab(mainwindow.Tab(label, sw))
 
+    def export_control_sequence(self, name, element):
+        sequence = controlseq.ControlSequence(element=element)
+        sequence.name = name
+        self.app.save_sequence_into_project(sequence)
+
 class Report:
 
     def __init__(self, filename):
@@ -71,6 +77,22 @@ class Report:
         widget.write("{0}\n".format(element.get("name")), "h2")
         for e in element.findall("result"):
             self.write_result(widget, e)
+        widget.write("\n")
+
+    def write_state(self, widget, state):
+        name = state.get("name")
+        sequence_element = state.find("control-sequence")
+        widget.write("  - {0} ({1}) ".format(
+            name,
+            state.get("distance")))
+        widget.write("   ")
+        widget.write_link("Hash",
+                          lambda: widget.open_textview(state.get("hash"), "States"))
+        widget.write("   ")
+        if sequence_element is not None:
+            widget.write_link("Export sequence",
+                              lambda: widget.export_control_sequence(name,
+                                                                     sequence_element))
         widget.write("\n")
 
     def write_result(self, widget, element):
@@ -95,14 +117,5 @@ class Report:
         if states is not None:
             widget.write("States\n", "h3")
             for state in states.findall("state"):
-                widget.write("  - {0} ({1}) ".format(
-                    state.get("name"),
-                    state.get("distance")))
-                widget.write("   ")
-                widget.write_link("Hash",
-                                  lambda: widget.open_textview(state.get("hash"), "States"))
-                widget.write("   ")
-                widget.write_link("Control sequence",
-                                  lambda: widget.open_textview("Not implemented yet",
-                                                               "States"))
+                self.write_state(widget,state)
         widget.write("\n")
