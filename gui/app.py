@@ -184,6 +184,7 @@ class App:
             sequence.name = "Sequence"
         if controlseq.sequence_dialog(sequence, self.window):
             self.project.add_sequence(sequence)
+        self.edit_control_sequences()
 
     def export_tracelog_sequence(self):
         tab = self.window.get_current_tab()
