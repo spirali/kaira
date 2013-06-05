@@ -150,6 +150,8 @@ class Simulation(EventSource):
     def run_sequence(self, sequence):
         transitions = {}
         for t in self.runinstance.net.transitions():
+            transitions["#{0}".format(t.id)] = t
+        for t in self.runinstance.net.transitions():
             transitions[t.get_name()] = t
 
         def fire(process_id, thread_id, transition):
@@ -191,7 +193,10 @@ class Simulation(EventSource):
         transition = self.project.get_item(transition_id)
 
         def fire_callback():
-            self.sequence.add_fire(process_id, 0, transition.get_name())
+            name = transition.get_name()
+            if not name:
+                name = "#{0}".format(transition.id)
+            self.sequence.add_fire(process_id, 0, name)
             if transition.has_code() and phases == 2:
                 self.sequence.add_finish(process_id, 0)
 

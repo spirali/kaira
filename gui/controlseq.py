@@ -53,7 +53,8 @@ class ControlSequence:
     def __init__(self, name=None, commands=None, element=None):
         if element is not None:
             self.name = element.get("name")
-            self.commands = element.text.split("\n")
+            self.commands = [ command for command in element.text.split("\n")
+                              if command ]
         else:
             self.name = name
             if commands is None:
