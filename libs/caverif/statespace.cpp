@@ -355,14 +355,22 @@ void Core::postprocess()
 	fclose(f);
 }
 
-static void write_control_line(std::stringstream &s, const NextNodeInfo &nninfo)
+static void write_control_line(ca::NetDef *def, std::stringstream &s, const NextNodeInfo &nninfo)
 {
 	switch (nninfo.action) {
-		case ActionFire:
+		case ActionFire: {
 			s << nninfo.data.fire.process_id;
 			s << " " << nninfo.data.fire.thread_id;
-			s << " S #" << nninfo.data.fire.transition_id;
+			s << " S ";
+			ca::TransitionDef *t = def->get_transition_def(nninfo.data.fire.transition_id);
+			printf("%s\n", t->get_name().c_str());
+			if (t->get_name().size() > 0) {
+				s << t->get_name();
+			} else {
+				s << "#" << nninfo.data.fire.transition_id;
+			}
 			break;
+		}
 		case ActionFinish:
 			s << nninfo.data.finish.process_id;
 			s << " " << nninfo.data.finish.thread_id << " F";
@@ -388,7 +396,7 @@ void Core::write_control_sequence(Node *node, ca::Output &report)
 	for (std::vector<Node*>::reverse_iterator i = path.rbegin() + 1;
 		 i != path.rend();
          ++i) {
-		write_control_line(s, prev->get_next_node_info(*i));
+		write_control_line(net_def, s, prev->get_next_node_info(*i));
 		prev = *i;
 	}
 

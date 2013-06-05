@@ -171,10 +171,11 @@ def load_tracing(element):
 def load_transition(element, project, net):
     id = utils.xml_int(element, "id")
 
+    name = element.get("name")
     guard = project.parse_expression(element.get("guard"),
                                      get_source(element, "guard"),
                                      allow_empty=True)
-    transition = Transition(net, id, guard)
+    transition = Transition(net, id, name, guard)
     transition.edges_in = map(lambda e:
         load_edge_in(e, project, net, transition), element.findall("edge-in"))
     edges_out = map(lambda e:

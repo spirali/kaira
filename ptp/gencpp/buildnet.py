@@ -80,8 +80,9 @@ def write_transition_forward(builder, tr):
     builder.write_class_head(class_name, "ca::TransitionDef")
     builder.write_constructor(class_name,
                               "",
-                              [ "ca::TransitionDef({0}, {1}, {2})".format(
+                              [ "ca::TransitionDef({0}, {1}, {2}, {3})".format(
                                     tr.id,
+                                    const_string(tr.name),
                                     const_boolean(not tr.has_code()),
                                     tr.priority) ])
     builder.write_method_end()

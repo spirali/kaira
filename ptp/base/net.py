@@ -346,9 +346,10 @@ class Transition(utils.EqByIdMixin):
     code = None
     time_substitution = None
 
-    def __init__(self, net, id, guard):
+    def __init__(self, net, id, name, guard):
         self.net = net
         self.id = id
+        self.name = name
         self.guard = guard
         self.edges_in = []
         self.edges_out = []
