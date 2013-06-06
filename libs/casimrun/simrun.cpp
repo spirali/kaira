@@ -182,5 +182,5 @@ void casr::main(RunConfiguration &run_configuration)
 	ca::NetDef *net_def = ca::defs[0]; // Take first definition
 	State state(run_configuration, net_def);
 	state.run();
-	fprintf(stderr, "Kaira: Time = %luns\n", state.get_global_time());
+	fprintf(stderr, "Kaira: Time = %lluns\n", state.get_global_time());
 }
