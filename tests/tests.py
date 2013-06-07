@@ -37,7 +37,7 @@ class BuildTest(unittest.TestCase):
         Project("bidirection").quick_test("11\n12\n13\n")
 
     def test_priorities(self):
-        Project("priorities").quitck_test("C\nB\nB\nB\nB\nB\nB\nB\nB\nB\nB\n")
+        Project("priorities").quick_test("C\nB\nB\nB\nB\nB\nB\nB\nB\nB\nB\n")
 
     def test_workers(self):
         def check_output(output):
