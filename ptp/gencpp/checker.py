@@ -125,6 +125,11 @@ class Checker:
         return builder
 
     def run(self):
+        builder = build.Builder(self.project,
+            os.path.join("/tmp", self.project.get_name() + ".h"))
+        build.write_header_file(builder)
+        builder.write_to_file()
+
         tester = base.tester.Tester()
         tester.prepare_writer = self.prepare_writer
         tester.args = [ "-I", os.path.join(paths.KAIRA_ROOT, paths.CAILIE_INCLUDE_DIR),

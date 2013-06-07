@@ -73,6 +73,7 @@ def write_tokens_struct(builder, tr):
 def write_transition_forward(builder, tr):
     if tr.code is not None:
         write_vars_struct(builder, tr)
+        write_transition_user_function_forward(builder, tr)
 
     write_tokens_struct(builder, tr)
 
@@ -103,8 +104,6 @@ def write_transition_forward(builder, tr):
 def write_transition_functions(builder,
                                tr,
                                locking=True):
-    if tr.code is not None:
-        write_transition_user_function(builder, tr)
     write_full_fire(builder, tr, locking=locking)
     write_fire_phase1(builder, tr)
     write_fire_phase2(builder, tr)
@@ -118,10 +117,32 @@ def write_transition_user_function(builder, tr):
     declaration = "void transition_user_fn_{0.id}(ca::Context &ctx, Vars_{0.id} &var)".format(tr)
     builder.write_function(declaration, tr.code, ("*{0.id}/function".format(tr), 1))
 
+def write_transition_user_function_forward(builder, tr):
+    builder.line("void transition_user_fn_{0.id}(ca::Context &ctx, Vars_{0.id} &var);", tr)
+
 def write_place_user_function(builder, place):
     declaration = "void place_user_fn_{0.id}(ca::Context &ctx, ca::TokenList<{1} > &place)" \
                         .format(place, place.type)
     builder.write_function(declaration, place.code, ("*{0.id}/init_function".format(place), 1))
+
+def write_place_user_function_forward(builder, place):
+    builder.line("void place_user_fn_{0.id}(ca::Context &ctx, ca::TokenList<{1} > &place);",
+                 place, place.type)
+
+def write_user_functions(builder):
+    """ Write user functions, they have to be emmitted at the end of the file,
+        to supress effect of #LINE, because there is probably no way how to
+        return error messages exactly in the state before usage of #LINE
+        (fix filename does not work (consider gcc x.cpp vs gcc /somewhere/x.cpp
+         and __BASE_FILE__ is overrdiden like __FILE__ in some compilers)
+    """
+    for net in builder.project.nets:
+        for tr in net.transitions:
+            if tr.code is not None:
+                write_transition_user_function(builder, tr)
+        for place in net.places:
+            if place.code is not None:
+                write_place_user_function(builder, place)
 
 def write_activation(builder, net, transitions):
     for tr in transitions:
@@ -744,7 +765,7 @@ def write_receive_method(builder, net):
 def write_net_functions_forward(builder, net):
     for place in net.places:
         if place.code is not None:
-            write_place_user_function(builder, place)
+            write_place_user_function_forward(builder, place)
 
     for tr in net.transitions:
         write_transition_forward(builder, tr)

@@ -67,6 +67,7 @@ def write_statespace_program(builder):
     builder.line("#include <caverif.h>")
     write_core(builder)
     write_main(builder)
+    buildnet.write_user_functions(builder)
 
 def write_spawn(builder, net):
     builder.line("ca::NetBase * spawn_{0.id}(ca::ThreadBase *$thread, ca::NetDef *$def) {{", net)

@@ -34,3 +34,4 @@ def write_standalone_program(builder):
     build.write_header(builder)
     buildnet.write_core(builder)
     write_main(builder)
+    buildnet.write_user_functions(builder)

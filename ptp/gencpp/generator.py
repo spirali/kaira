@@ -59,26 +59,33 @@ class CppGenerator:
         w.line("void transition_fn(ca::Context &ctx, Vars &var)")
         return w.get_string()
 
+    def write_header_file(self, directory):
+        builder = build.Builder(self.project, self.get_filename(directory, ".h"))
+        build.write_header_file(builder)
+        builder.write_to_file()
+
 
 class CppProgramGenerator(CppGenerator):
 
     def build(self, directory):
+        self.write_header_file(directory)
         builder = build.Builder(self.project, self.get_filename(directory, ".cpp"))
         program.write_standalone_program(builder)
         builder.write_to_file()
         makefiles.write_program_makefile(self.project, directory)
 
     def build_statespace(self, directory):
+        self.write_header_file(directory)
         builder = build.Builder(self.project, self.get_filename(directory, ".cpp"))
         statespace.write_statespace_program(builder)
         builder.write_to_file()
         makefiles.write_statespace_makefile(self.project, directory)
 
     def build_simrun(self, directory):
-
         if not self.project.communication_model_code:
             raise base.utils.PtpException("Communication model is not setted")
 
+        self.write_header_file(directory)
         builder = build.Builder(self.project, self.get_filename(directory, ".cpp"))
         simrun.write_simrun_program(builder)
         builder.write_to_file()

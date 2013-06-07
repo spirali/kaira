@@ -64,6 +64,18 @@ def replace_dolar(string, text):
         i += 1
     return "".join(result)
 
+def get_safe_name(string):
+    """
+        Creates C++ identifier from string
+    """
+    result = []
+    for c in string:
+        if c.isalnum():
+            result.append(c)
+        else:
+            result.append("_")
+    return "".join(result)
+
 class CppWriter(Writer):
 
     def block_begin(self):
@@ -126,10 +138,7 @@ class CppWriter(Writer):
         self.write_method_start(decl)
 
     def line_directive(self, filename, lineno):
-        if filename is None:
-            self.line('#line {0} __BASE_FILE__', lineno)
-        else:
-            self.line('#line {0} "{1}"', lineno, filename)
+        self.line('#line {0} "{1}"', lineno, filename)
 
     def write_function(self, declaration, code, file_lineno=None):
         if file_lineno:
@@ -139,9 +148,6 @@ class CppWriter(Writer):
         self.line("{{")
         self.raw_text(code)
         self.line("}}")
-        if file_lineno:
-            self.line_directive(None,
-                                self.get_next_line_number() + 1)
 
     def expand(self, string, *args):
         if "$" in string:

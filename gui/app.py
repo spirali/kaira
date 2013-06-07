@@ -724,10 +724,9 @@ class App:
         # before function definition, but
         # we jump at the line counted from the beginnging of user defined text
         # 1 for function definition, 1 for line with {
-
         if item == "head":
             callback = lambda: self.edit_head(line_no)
-        if item == "communication-model":
+        elif item == "communication-model":
             callback = lambda: self.edit_simrun(line_no - 2)
         elif section == "function":
             callback = lambda: self.transition_edit(item, line_no - 2)
@@ -738,7 +737,6 @@ class App:
         else:
             self.console_write(line)
             return
-
         self.console_write_link(location, callback)
         self.console_write(":" + message + "\n")
 

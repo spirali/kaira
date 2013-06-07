@@ -49,3 +49,4 @@ def write_simrun_program(builder):
     buildnet.write_core(builder)
     write_run_configuration(builder)
     write_main(builder)
+    buildnet.write_user_functions(builder)
