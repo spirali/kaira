@@ -123,6 +123,9 @@ class Project(object):
     def is_expr_variable(self, expr):
         return self.target_env.is_expr_variable(expr)
 
+    def get_expr_variables(self, expr):
+        return self.target_env.get_expr_variables(expr)
+
     def parse_typename(self, string, source):
         return self.target_env.parse_typename(string, source)
 

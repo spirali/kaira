@@ -78,6 +78,10 @@ class CppWriter(Writer):
         self.line("if ({0}) {{", self.expand(expr, *args, **kw))
         self.indent_push()
 
+    def if_not_begin(self, expr, *args, **kw):
+        self.line("if (!({0})) {{", self.expand(expr, *args, **kw))
+        self.indent_push()
+
     def while_begin(self, expr):
         self.line("while ({0}) {{", expr)
         self.indent_push()

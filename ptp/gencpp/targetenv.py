@@ -42,6 +42,9 @@ class CppTargetEnv:
     def is_expr_variable(self, string):
         return parser.is_variable(string)
 
+    def get_expr_variables(self, string):
+        return parser.get_expr_variables(string)
+
     def get_checker(self, project):
         return checker.Checker(project)
 

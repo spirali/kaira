@@ -38,6 +38,14 @@ def get_variable_sources(inscriptions):
 
     return sources
 
+def is_dependant(inscription1, inscription2):
+    if inscription1.edge is inscription2.edge and \
+       inscription2.index < inscription1.index:
+        return True
+    if not inscription2.is_expr_variable():
+        return False
+    return inscription2.expr in inscription1.get_foreign_variables()
+
 def analyze_transition(tr):
     variable_sources = {} # string -> uid - which inscriptions carry input variables
     reuse_tokens = {} # uid -> uid - identification number of token for output inscpription
@@ -61,6 +69,10 @@ def analyze_transition(tr):
     inscriptions_out.sort(key=inscription_weight)
 
     variable_sources = get_variable_sources(inscriptions_in)
+    # Order input inscriptions by variable dependancy
+    inscriptions_in = utils.topological_ordering(inscriptions_in, is_dependant)
+    if inscriptions_in is None:
+        raise utils.PtpException("Circle variable dependancy", tr.get_source())
 
     # Try reuse tokens
     for inscription in inscriptions_out:

@@ -59,14 +59,16 @@ def write_tokens_struct(builder, tr):
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::Token<{0} > *token_{1};",
             inscription.type, inscription.uid)
-        if inscription.is_origin_reader():
-            builder.line("int origin_{0};", inscription.uid)
+        if inscription.is_source_reader():
+            builder.line("int source_{0};", inscription.uid)
 
     for edge in tr.get_bulk_edges_in():
-        builder.line("ca::TokenList<{0} > tokens_{1.uid};",
-            edge.place.type, edge)
-        if edge.is_origin_reader():
-            builder.line("std::vector<int> origins_{0.uid};", edge)
+        if edge.is_source_reader():
+            builder.line("ca::PlaceWithSource<{0} > tokens_{1.uid};",
+                edge.place.type, edge)
+        else:
+            builder.line("ca::Place<{0} > tokens_{1.uid};",
+                edge.place.type, edge)
 
     builder.write_class_end()
 
@@ -251,15 +253,6 @@ def write_remove_tokens(builder, net_expr, tr):
         builder.line("{0}->place_{2.id}.remove({1});",
             net_expr, token_var, place)
     builder.block_end()
-    for edge in tr.edges_in:
-        place = edge.place
-        if edge.is_origin_reader():
-            if edge.is_bulk:
-                builder.line("{0}->place_{1.id}_origin.clear();", net_expr, place)
-            else:
-                for inscription in edge.get_token_inscriptions():
-                    builder.line("{0}->place_{1.id}_origin.pop_front();",
-                                 net_expr, place)
 
 def write_fire_body(builder,
                     tr,
@@ -281,6 +274,7 @@ def write_fire_body(builder,
     if packed_tokens_from_place:
         for edge in tr.get_bulk_edges_in():
                 place = edge.place
+                inscription = edge.inscriptions[0]
                 if place.tracing:
                     builder.if_begin("$tracelog")
                     write_trace_token_list(builder,
@@ -288,12 +282,22 @@ def write_fire_body(builder,
                                            builder.expand("$n->place_{0.id}", place),
                                            remove=True)
                     builder.block_end()
-                builder.line("{1} {2}($n->place_{0.id}, true);",
-                    place, edge.inscriptions[0].type, edge.inscriptions[0].expr)
+                if inscription.config.get("svar"):
+                    builder.line("{0} {1} = $n->place_{2.id}.get_sources();",
+                        inscription.get_svar_type(), inscription.config.get("svar"), place)
+
+
+                builder.line("{0} {1};", inscription.type, inscription.expr)
+                builder.line("$n->place_{0.id}.put_into({1});", place, inscription.expr)
     else:
        for edge in tr.get_bulk_edges_in():
-           builder.line("{2} {3}($tokens->tokens_{0.uid}, false);",
-               edge, edge.place, edge.inscriptions[0].type, edge.inscriptions[0].expr)
+           inscription = edge.inscriptions[0]
+           if inscription.config.get("svar"):
+               builder.line("{0} {1} = $tokens->tokens_{2.uid}.get_sources();",
+               inscription.get_svar_type(), inscription.config.get("svar"), edge)
+           builder.line("{0} {1};", inscription.type, inscription.expr)
+           builder.line("$tokens->tokens_{0.uid}.put_into({1});",
+                        edge, inscription.expr)
 
     decls = tr.get_decls()
 
@@ -396,17 +400,14 @@ def write_fire_phase1(builder, tr):
     w.line("Tokens_{0.id} *$tokens = new Tokens_{0.id}();", tr)
     for inscription in tr.get_token_inscriptions_in():
         w.line("$tokens->token_{0.uid} = $token_{0.uid};", inscription);
-        if inscription.is_origin_reader():
-            w.line("$tokens->origin_{0.uid} = {0.expr}_origin;", inscription)
+        if inscription.is_source_reader():
+            w.line("$tokens->source_{0.uid} = "
+                   "$n->place_{0.edge.place.id}.get_source($token_{0.uid});",
+                   inscription)
 
     for edge in tr.get_bulk_edges_in():
         w.line("$tokens->tokens_{0.uid}.overtake($n->place_{1.id});",
                edge, edge.place)
-
-    for edge in tr.get_bulk_edges_in():
-        if edge.is_origin_reader():
-            w.line("$tokens->origins_{0.uid} = {1.expr}_origins;",
-                edge, edge.inscriptions[0])
 
     w.line("return $tokens;")
     # --- End of prepare --- #
@@ -444,13 +445,11 @@ def write_fire_phase2(builder, tr, readonly_binding=False):
                 "{0} {1} = $token_{2}->value;", decls_dict[name], name, uid)
 
     for inscription in tr.get_token_inscriptions_in():
-        if inscription.is_origin_reader():
-            builder.line("int {0.expr}_origin = $tokens->origin_{0.uid};", inscription)
-
-    for edge in tr.get_bulk_edges_in():
-        if edge.is_origin_reader():
-            builder.line("std::vector<int> {1.expr}_origins = $tokens->origins_{0.uid};",
-                edge, edge.inscriptions[0])
+        if inscription.config.get("svar"):
+            builder.line("{0} {1} = $tokens->source_{2.uid};",
+                         inscription.get_svar_type(),
+                         inscription.config.get("svar"),
+                         inscription)
 
     write_fire_body(builder,
                     tr,
@@ -478,18 +477,25 @@ def write_pack_binding(builder, tr):
 
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::pack(packer, tokens->token_{0}->value);", inscription.uid);
-        if inscription.is_origin_reader():
-            builder.line("ca::pack(packer, tokens->origin_{0});", inscription.uid);
 
     for edge in tr.get_bulk_edges_in():
         builder.line("ca::pack(packer, tokens->tokens_{0.uid});", edge);
-        if edge.is_origin_reader():
-            builder.line("ca::pack(packer, tokens->origins_{0.uid});", edge);
-
 
     builder.block_end()
 
 def write_enable_pattern_match(builder, tr, fire_code, fail_command):
+    def setup_variables(inscription):
+        if inscription.config.get("svar"):
+            builder.line("{0} {1} = $n->place_{2.edge.place.id}.get_source($token_{2.uid});",
+                         inscription.get_svar_type(),
+                         inscription.config.get("svar"),
+                         inscription)
+
+        if inscription.uid in sources_uid:
+            builder.line("{0} &{1.expr} = $token_{1.uid}->value;",
+                         decls_dict[inscription.expr],
+                         inscription)
+
     builder.line("{0} *$n = ({0}*) $net;", get_net_class_name(tr.net))
 
     # Check if there are enough tokens
@@ -498,41 +504,70 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
             builder.line("if ($n->place_{0.id}.size() < {1}) {2}",
                 edge.place, edge.get_tokens_number(), fail_command)
 
-    for edge in tr.edges_in:
-        prev_uid = None
-        for inscription in edge.inscriptions:
-            if not inscription.is_token():
-                continue
-            builder.line("// Edge id={0.id} uid={1.uid} expr={1.expr}",
-                edge, inscription)
-            line = builder.expand("ca::Token < {0} > *$token_{1.uid} = ",
-                        edge.place.type,
-                        inscription)
-            if prev_uid is None:
-                builder.line("{0} $n->place_{1.id}.begin();",
-                            line, edge.place)
-            else:
-                builder.line("{0} $token_{1}->next;", line, prev_uid)
-            prev_uid = inscription.uid
-
+    prev_inscriptions = []
     sources_uid = [ uid for uid in tr.variable_sources.values() if uid is not None ]
     decls_dict = tr.get_decls()
+    for inscription in tr.inscriptions_in:
+        if not inscription.is_token():
+            continue
+        builder.line("// Inscription id={0.id} uid={1.uid} expr={1.expr}",
+            edge, inscription)
+        token_line = builder.expand("ca::Token < {0.edge.place.type} > *$token_{0.uid} = ",
+                    inscription)
+        prev = [ i for i in prev_inscriptions if i.edge == inscription.edge ]
+        if prev and inscription.has_same_pick_rule(prev[-1]):
+            start_from = "$token_{0.uid}->next;".format(prev[-1])
+            while prev and inscription.has_same_pick_rule(prev[-1]):
+                prev.pop()
+        else:
+            start_from = "$n->place_{0.id}.begin();".format(inscription.edge.place)
+        builder.line(token_line + start_from)
 
-    for name, uid in tr.variable_sources.items():
-        if uid is not None:
-            builder.line("{0} &{1} = $token_{2}->value;", decls_dict[name], name, uid)
+        filter_expr = inscription.config.get("filter")
 
-    for edge in tr.edges_in:
-        if edge.is_origin_reader():
-            if edge.is_bulk():
-              builder.line("std::vector<int> {0}_origins($n->place_{1.id}_origin.begin(),"
-                           " $n->place_{1.id}_origin.end());",
-                           edge.inscriptions[0].expr, edge.place)
+        conditions = []
+        if filter_expr:
+            conditions.append(filter_expr)
 
-            else:
-                for i, inscription in enumerate(edge.inscriptions):
-                    builder.line("int {0}_origin = *($n->place_{1.id}_origin.begin() + {2});",
-                                 inscription.expr, edge.place, i)
+        if inscription.uid not in sources_uid:
+            conditions.append(builder.expand("($token_{0.uid}->value) == ({0.expr})",
+                                             inscription))
+
+        for i in prev:
+            conditions.append(builder.expand("$token_{0.uid} != $token_{1.uid}",
+                                             inscription, i))
+
+        condition_line = " && ".join("(" + c + ")" for c in conditions)
+
+
+        # If there are some token that can collide or filter expr
+        # then we use cycle to go through other tokens
+        cycle = bool(prev or filter_expr)
+        if cycle:
+            builder.line("for (;;)")
+            builder.block_begin()
+            setup_variables(inscription)
+
+            builder.if_begin(condition_line)
+            builder.line("break;")
+            builder.block_end()
+
+            builder.line("$token_{0.uid} = $n->place_{0.edge.place.id}.next($token_{0.uid});",
+                         inscription)
+
+            builder.if_begin("$token_{0.uid} == NULL", inscription)
+            builder.line(fail_command)
+            builder.block_end()
+            builder.block_end()
+            setup_variables(inscription)
+        else: # without cycle
+            setup_variables(inscription)
+            if conditions:
+                builder.if_not_begin(condition_line)
+                builder.line(fail_command)
+                builder.block_end()
+
+        prev_inscriptions.append(inscription)
 
     for edge in tr.edges_in:
         for inscription in edge.inscriptions:
@@ -588,9 +623,8 @@ def write_place_add(builder,
                     value_code,
                     bulk=False,
                     token=False,
-                    set_origin=True,
                     trace=True,
-                    origin=None):
+                    token_source=None):
     if not bulk:
         if token:
             method = "add_token"
@@ -599,25 +633,18 @@ def write_place_add(builder,
     else:
         method = "overtake"
 
-    if place.need_origin() and set_origin:
-        if origin is None:
-            origin = builder.expand("$thread->get_process_id()")
-        if bulk:
-            builder.line("for (int i = 0; i < {0}.size(); i++)", value_code)
-            builder.block_begin()
-            builder.line("{0}place_{1.id}_origin.push_back({2});", net_code, place, origin)
-            builder.block_end()
-        else:
-            builder.line("{0}place_{1.id}_origin.push_back({2});", net_code, place, origin)
-
-
     if trace and place.tracing and bulk:
         builder.if_begin("$thread->get_tracelog()")
         builder.line("ca::TraceLog *tracelog = $thread->get_tracelog();")
         write_trace_token_list(builder, place, value_code)
         builder.block_end()
 
-    builder.line("{0}place_{1.id}.{2}({3});", net_code, place, method, value_code)
+    if place.need_remember_source() and token_source is not None:
+        builder.line("{0}place_{1.id}.{2}({3}, {4});",
+                     net_code, place, method, value_code, token_source)
+    else:
+        builder.line("{0}place_{1.id}.{2}({3});",
+                     net_code, place, method, value_code)
 
     if trace and place.tracing and not bulk:
         builder.if_begin("$thread->get_tracelog()")
@@ -654,18 +681,22 @@ def write_init_net(builder, net):
                                 place,
                                 builder.expand("$net->"),
                                 expr,
-                                set_origin=False,
+                                token_source=None,
                                 trace=False)
         elif place.init_type == "vector":
             write_place_add(builder,
                             place,
                             builder.expand("$net->"),
                             place.init_value,
-                            set_origin=False,
+                            token_source=None,
                             trace=False)
 
         if place.code is not None:
-            builder.line("place_user_fn_{0.id}(ctx, $net->place_{0.id});", place)
+            builder.block_begin()
+            builder.line("ca::TokenList<{0.type} > $list;", place)
+            builder.line("place_user_fn_{0.id}(ctx, $list);", place)
+            builder.line("$net->place_{0.id}.overtake($list);", place)
+            builder.block_end()
 
         if place.tracing:
             builder.if_begin("$thread->get_tracelog()")
@@ -673,12 +704,6 @@ def write_init_net(builder, net):
             write_trace_token_list(builder,
                                    place,
                                    builder.expand("$net->place_{0.id}", place))
-            builder.block_end()
-
-        if place.need_origin():
-            builder.line("for (int i = 0; i < $net->place_{0.id}.size(); i++)", place)
-            builder.block_begin()
-            builder.line("$net->place_{0.id}_origin.push_back(ctx.process_id());", place)
             builder.block_end()
         builder.block_end()
 
@@ -697,8 +722,7 @@ def write_reports_method(builder, net):
         builder.line('output.child("place");')
         builder.line('output.set("id", {0.id});', place)
         builder.block_begin()
-        if place.need_origin():
-            builder.line("int i = 0;")
+
         builder.line('ca::Token<{1} > *t = place_{0.id}.begin();',
                      place, place.type)
         builder.if_begin("t")
@@ -706,10 +730,8 @@ def write_reports_method(builder, net):
         builder.do_begin()
         builder.line('output.child("token");')
         builder.line('output.set("value", ca::token_name(t->value));')
-        if place.need_origin():
-            builder.line('output.set("origin", ca::to_string(place_{0.id}_origin[i]));',
-                         place)
-            builder.line('i++;')
+        if place.need_remember_source():
+            builder.line('output.set("source", place_{0.id}.get_source(t));', place)
         builder.line('output.back();')
         builder.line("t = t->next;")
         builder.do_end("t != place_{0.id}.begin()".format(place))
@@ -730,7 +752,7 @@ def write_receive_method(builder, net):
                             edge.place,
                             "this->",
                             "ca::unpack<{0} >(unpacker)".format(edge.place.type, "unpacker"),
-                            origin="from_process")
+                            token_source="from_process")
             write_activation(builder, "this", edge.place.get_transitions_out())
             builder.line("break;")
             builder.indent_pop()
@@ -764,6 +786,9 @@ def write_net_class(builder,
         builder.write_constructor(class_name,
                                   emit_declarations(decls),
                                   ["{0}::Net(def, thread)".format(namespace)])
+        for place in net.places:
+            if place.need_remember_source():
+                builder.line("place_{0.id}.set_default_source(thread->get_process_id());", place)
         builder.write_method_end()
 
     builder.write_method_start("ca::NetBase * copy()")
@@ -772,11 +797,12 @@ def write_net_class(builder,
     builder.write_method_end()
 
     for place in net.places:
+        if place.need_remember_source():
+            cls = "ca::PlaceWithSource"
+        else:
+            cls = "ca::Place"
         builder.write_var_decl("place_" + str(place.id),
-                               "ca::TokenList<{0} >".format(place.type))
-        if place.need_origin():
-            builder.write_var_decl("place_{0}_origin".format(place.id),
-                                   "std::deque<int>")
+                               "{0}<{1} >".format(cls, place.type))
 
     write_reports_method(builder, net)
     write_receive_method(builder, net)

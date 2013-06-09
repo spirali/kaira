@@ -27,23 +27,25 @@ lpar, rpar, dot, delim, sem, lbracket, rbracket, lt, bg, aps \
     = map(pp.Suppress, "().,;[]<>'")
 
 def list_of(parser, delim, begin, end):
-    return begin + pp.Optional(parser + pp.ZeroOrMore(delim + parser)) + end
+    return pp.Group(begin + pp.Optional(parser + pp.ZeroOrMore(delim + parser)) + end)
 
 expression = pp.Forward()
 typename = pp.Forward()
 
 ident = pp.Word(pp.alphas+"_:", pp.alphanums+"_:")
-number = pp.Word(digits) + pp.Optional(dot + pp.Word(digits))
-string = pp.dblQuotedString
-char = aps + pp.Word(pp.alphanums, exact=1) + aps
-operator = pp.Word(operator_chars)
+number = pp.Suppress(pp.Word(digits) + pp.Optional(dot + pp.Word(digits)))
+string = pp.Suppress(pp.dblQuotedString)
+char = pp.Suppress(aps + pp.Word(pp.alphanums, exact=1) + aps)
+operator = pp.Suppress(pp.Word(operator_chars))
 parens = list_of(expression, delim, lpar, rpar)
 template = list_of(typename, delim, lt, bg)
+var_or_call = ident + pp.Suppress(pp.Optional(template)) + pp.Optional(parens, None)
+var_or_call.setParseAction(lambda t: t[0] if t[1] is None else t[1])
 basic_expression = pp.Forward()
 basic_expression << ((number |
                       char |
                       string |
-                      ident + pp.Optional(template) + pp.Optional(parens) |
+                      var_or_call |
                       lpar + expression + rpar)
                           + pp.Optional(dot + basic_expression)
                           + pp.Optional(pp.OneOrMore(operator) + basic_expression))
@@ -86,6 +88,11 @@ def parse_expression(expr, source, allow_empty):
         return full_expression.parseString(expr, parseAll=True)[0]
     except pp.ParseException, e:
         raise utils.PtpException(e.msg, source)
+
+def get_expr_variables(expr):
+    if not expr:
+        return set()
+    return set(expression.parseString(expr, parseAll=True))
 
 def check_typename(tname, source):
     if len(tname) == 0:

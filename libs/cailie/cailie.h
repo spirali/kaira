@@ -14,6 +14,7 @@
 #include <algorithm>
 
 #include "token.h"
+#include "place.h"
 #include "thread.h"
 #include "net.h"
 #include "parameters.h"

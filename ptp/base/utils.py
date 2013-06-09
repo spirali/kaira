@@ -60,7 +60,7 @@ def topological_ordering(elements, fn):
         picked = []
         for e in rest:
             for a in rest:
-                if fn(a, e):
+                if a is not e and fn(e, a):
                     break
             else:
                 picked.append(e)

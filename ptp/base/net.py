@@ -78,6 +78,13 @@ class Edge(utils.EqMixin):
             inscription.edge = self
         self.inscriptions = inscriptions
 
+    def __eq__(self, other):
+        return (isinstance(other, self.__class__)
+            and self.uid == other.uid)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     @property
     def source(self):
         return "*{0}/inscription".format(self.id)
@@ -114,8 +121,8 @@ class Edge(utils.EqMixin):
     def is_token(self):
         return not self.is_bulk()
 
-    def is_origin_reader(self):
-        return any(inscription.is_origin_reader() for inscription in self.inscriptions)
+    def is_source_reader(self):
+        return any(inscription.is_source_reader() for inscription in self.inscriptions)
 
     def get_tokens_number(self):
         if self.is_bulk():
@@ -139,6 +146,7 @@ class Edge(utils.EqMixin):
 
     def is_local(self):
         return all(inscription.is_local() for inscription in self.inscriptions)
+
 
 class EdgeInscription(utils.EqMixin):
 
@@ -168,11 +176,29 @@ class EdgeInscription(utils.EqMixin):
         else:
             return "int"
 
+    @property
+    def index(self):
+        return self.edge.inscriptions.index(self)
+
     def has_expr(self):
         return self.expr is not None
 
     def is_expr_variable(self):
         return self.edge.transition.net.project.is_expr_variable(self.expr)
+
+    def get_variables(self):
+        variables = self.edge.transition.net.project.get_expr_variables(self.expr)
+        for name in [ "guard", "filter", "if" ]:
+            if self.config.get(name):
+                variables.update(self.edge.transition.net.project.get_expr_variables(
+                    self.config.get(name)))
+        return variables
+
+    def get_foreign_variables(self):
+        variables = self.get_variables()
+        if self.is_expr_variable():
+            variables.remove(self.expr)
+        return variables
 
     def is_target_variable(self):
         if self.target is not None:
@@ -193,17 +219,55 @@ class EdgeInscription(utils.EqMixin):
                 "Invalid config item '{0}'".format(invalid_key),
                 self.source)
 
+    def check_config_with_expression(self, name, variable=False):
+        if name in self.config:
+            if self.config[name] is None:
+                raise utils.PtpException(
+                    "'{0}' requires an expression".format(name),
+                    self.source)
+            if variable and \
+                not self.edge.transition.net.project.is_expr_variable(self.config[name]):
+                raise utils.PtpException(
+                    "'{0}' requires an variable".format(name))
+            return True
+        else:
+            return False
+
+    def get_svar_type(self):
+        t = "int"
+        if self.is_bulk():
+            t = get_container_type(t)
+        return t
+
     def check_edge_in(self, checker):
         if self.target is not None:
             raise utils.PtpException("Input edges cannot contain '@'",
                 self.source)
 
-        self.check_config(("bulk", "guard", "origin"))
-        if "guard" in self.config:
-            if self.config["guard"] is None:
-                raise utils.PtpException(
-                    "'guard' requires an expression",
-                    self.source)
+        self.check_config(("bulk", "guard", "svar", "filter"))
+
+        if self.check_config_with_expression("svar", variable=True):
+            decls = self.edge.transition.get_input_decls()
+            checker.check_expression(self.config["svar"],
+                                     decls,
+                                     self.get_svar_type(),
+                                     self.source)
+
+        if self.check_config_with_expression("filter"):
+            decls = self.edge.transition.get_input_decls()
+            checker.check_expression(self.config["filter"],
+                                     decls,
+                                     "bool",
+                                     self.source)
+
+        if self.check_config_with_expression("filter"):
+            decls = self.edge.transition.get_input_decls()
+            checker.check_expression(self.config["filter"],
+                                     decls,
+                                     "bool",
+                                     self.source)
+
+        if self.check_config_with_expression("guard"):
             decls = self.edge.transition.get_input_decls_with_size(self.source)
             checker.check_expression(self.config["guard"],
                                      decls,
@@ -241,13 +305,8 @@ class EdgeInscription(utils.EqMixin):
         decls = Declarations(self.source)
         if self.is_expr_variable():
             decls.set(self.expr, self.type)
-            if self.is_origin_reader():
-                if self.is_bulk():
-                    decls.set(self.expr + "_origins",
-                              get_container_type("int"))
-                else:
-                    decls.set(self.expr + "_origin",
-                              "int")
+        if self.config.get("svar"):
+            decls.set(self.config["svar"], self.get_svar_type())
         if self.is_target_variable():
             decls.set(self.target, self.target_type)
         return decls
@@ -267,8 +326,11 @@ class EdgeInscription(utils.EqMixin):
     def is_unicast(self):
         return not self.is_multicast()
 
-    def is_origin_reader(self):
-        return "origin" in self.config
+    def is_source_reader(self):
+        return "svar" in self.config
+
+    def has_same_pick_rule(self, inscription):
+        return inscription.config.get("filter") == self.config.get("filter")
 
 
 class Place(utils.EqByIdMixin):
@@ -349,8 +411,8 @@ class Place(utils.EqByIdMixin):
         edges = self.get_edges_in(with_interface=True)
         return any(not edge.is_local() for edge in edges)
 
-    def need_origin(self):
-        return any(edge.is_origin_reader()
+    def need_remember_source(self):
+        return any(edge.is_source_reader()
                    for edge in self.get_edges_out())
 
 
