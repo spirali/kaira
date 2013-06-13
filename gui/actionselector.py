@@ -77,32 +77,42 @@ class Action:
 
 class MyIcon(gtk.DrawingArea):
 
-    def __init__(self):
+    def __init__(self, state):
+        self.icon_state = state
         gtk.DrawingArea.__init__(self)
-        self.set_size_request(30, 30)
+        self.set_size_request(70, 70)
         self.connect("expose_event", self._expose)
 
     def _expose(self, widget, event):
         cr = widget.window.cairo_create()
         rect = self.get_allocation()
-        cr.set_operator(cairo.OPERATOR_CLEAR)
-        cr.rectangle(0.0, 0.0, rect.width, rect.height)
-        cr.fill()
-        # Set the compositing operator back to the default
-        cr.set_operator(cairo.OPERATOR_OVER)
         self._draw(cr, rect.width, rect.height)
 
     def _draw(self, cr, width, height):
-        pass
-#        x = width / 2
-#        y = height / 2
-#        radius = min(width / 2, height / 2) - 5
+        # clear background
+        cr.set_source_rgba(1,1,1,1)
+        cr.rectangle(0, 0, width, height)
+        cr.fill()
+
+        # draw
+        x = width / 2
+        y = height / 2
+        radius = min(width / 2, height / 2) - 5
+
 #        cr.arc(x, y, radius, 0, 2 * math.pi)
-#        cr.set_source_rgb(1, 1, 1)
-#        cr.fill_preserve()
-#
-#        cr.set_source_rgb(0, 0, 0)
-#        cr.stroke()
+#        cr.set_source_rgb(1, 0, 0)
+#        cr.fill()
+
+        radial = cairo.RadialGradient(0, 0, 0.0, x, y, radius)
+        radial.add_color_stop_rgb(0, 1, 0, 1)
+        radial.add_color_stop_rgb(0, 1, 0, 0)
+        cr.set_source(radial)
+        cr.fill()
+
+        cr.set_line_width(1.5)
+        cr.arc(x, y, radius, 0, 2 * math.pi)
+        cr.set_source_rgb(0, 0, 0)
+        cr.stroke()
 
 class ActionViewShort(gtk.Alignment):
 
@@ -112,7 +122,8 @@ class ActionViewShort(gtk.Alignment):
 
         hbox = gtk.HBox(False)
 
-        icon = MyIcon()
+        # ready | incomplete | incorrect
+        icon = MyIcon("incorrect")
         hbox.pack_start(icon, False, False)
 
         lbl_name = gtk.Label()
