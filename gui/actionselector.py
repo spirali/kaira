@@ -59,12 +59,22 @@ class Action:
     def __init__(self, name, description):
         self.name = name
         self.description = description
+        self.state = "incomplete"
 
     def get_name(self):
         return self.name
 
     def get_description(self):
         return self.description
+
+    def get_state(self):
+        return self.state
+
+    def set_state(self, state):
+        if state == "ready" or state == "incomplete" or state == "incorrect":
+            self.state = state
+        else:
+            raise Exception("Incorrect '{0}' icon state".format(state))
 
     def get_required_sources(self): # interface
         return [] # array of sources
@@ -75,12 +85,16 @@ class Action:
     def run(self): # interface
         pass
 
-class MyIcon(gtk.DrawingArea):
+class StateIcon(gtk.DrawingArea):
 
-    def __init__(self, state):
+    def __init__(self, state, width=30, height=30):
+        """
+            Initialize of StateIcon.
+            -- state - possible values: "ready", "incomplete", "incorrect"
+        """
         self.icon_state = state
         gtk.DrawingArea.__init__(self)
-        self.set_size_request(70, 70)
+        self.set_size_request(width, height)
         self.connect("expose_event", self._expose)
 
     def _expose(self, widget, event):
@@ -90,7 +104,7 @@ class MyIcon(gtk.DrawingArea):
 
     def _draw(self, cr, width, height):
         # clear background
-        cr.set_source_rgba(1,1,1,1)
+        cr.set_source_rgb(0.95,0.95,0.95)
         cr.rectangle(0, 0, width, height)
         cr.fill()
 
@@ -99,17 +113,29 @@ class MyIcon(gtk.DrawingArea):
         y = height / 2
         radius = min(width / 2, height / 2) - 5
 
-#        cr.arc(x, y, radius, 0, 2 * math.pi)
-#        cr.set_source_rgb(1, 0, 0)
-#        cr.fill()
+        cr.arc(x, y, radius, 0, 2 * math.pi)
+        if self.icon_state == "ready":
+            cr.set_source_rgb(0, 0.8, 0)
+        elif self.icon_state == "incomplete":
+            cr.set_source_rgb(1, 0.4, 0)
+        elif self.icon_state == "incorrect":
+            cr.set_source_rgb(1, 0, 0)
+        else:
+            raise Exception(
+                "Incorrect '{0}' icon state.".format(self.icon_state))
 
-        radial = cairo.RadialGradient(0, 0, 0.0, x, y, radius)
-        radial.add_color_stop_rgb(0, 1, 0, 1)
-        radial.add_color_stop_rgb(0, 1, 0, 0)
-        cr.set_source(radial)
         cr.fill()
 
-        cr.set_line_width(1.5)
+        radial = cairo.RadialGradient(
+            x, height, 0,
+            x, height, height-0.2*height)
+        radial.add_color_stop_rgba(0, 0, 0, 0, 0.4)
+        radial.add_color_stop_rgba(1, 0, 0, 0, 0.0)
+        cr.set_source(radial)
+        cr.arc(x, y, radius, 0, 2 * math.pi)
+        cr.fill()
+
+        cr.set_line_width(1)
         cr.arc(x, y, radius, 0, 2 * math.pi)
         cr.set_source_rgb(0, 0, 0)
         cr.stroke()
@@ -123,7 +149,7 @@ class ActionViewShort(gtk.Alignment):
         hbox = gtk.HBox(False)
 
         # ready | incomplete | incorrect
-        icon = MyIcon("incorrect")
+        icon = StateIcon(action.get_state())
         hbox.pack_start(icon, False, False)
 
         lbl_name = gtk.Label()
@@ -147,8 +173,13 @@ class ActionViewFull(gtk.VBox):
         gtk.VBox.__init__(self, False)
         self.action = action
 
+        # creating of gui ---------------------------------------------------
+        self.set_border_width(5)
         # line with name and run button
         hbox = gtk.HBox(False)
+
+        icon = StateIcon(action.get_state(), 25, 25)
+        hbox.pack_start(icon, False, False)
 
         lbl_name = gtk.Label()
         lbl_name.set_alignment(0, 1)
@@ -169,32 +200,42 @@ class ActionViewFull(gtk.VBox):
             def cb_allocate(label, allocation ):
                 label.set_size_request(allocation.width - 2, -1)
 
+            align = gtk.Alignment(0, 0, 1, 1)
+            align.set_padding(0, 5, 5, 5)
+
             frame = gtk.Frame()
             frame.set_label("Description")
             lbl_description = gtk.Label()
             lbl_description.set_alignment(0, 1)
-            lbl_description.set_max_width_chars(15)
+#            lbl_description.set_width_chars(15)
             lbl_description.set_line_wrap(True)
             lbl_description.set_markup("<i>{0}</i>".format(action.description))
             lbl_description.connect( "size-allocate", cb_allocate )
             frame.add(lbl_description)
-            self.pack_start(frame, False, False)
+            align.add(frame)
+            self.pack_start(align, False, False)
 
         required_sources = action.get_required_sources()
-        for source in required_sources:
+        for name, source in required_sources:
             hbox = gtk.HBox(False)
             lbl_src_name = gtk.Label()
             lbl_src_name.set_alignment(0, 0.5)
-            lbl_src_name.set_text(source.get_name())
+            lbl_src_name.set_markup("<b>{0}</b>".format(name))
             hbox.pack_start(lbl_src_name, False, False)
 
             lbl_src_type = gtk.Label()
             lbl_src_type.set_alignment(0, 0.5)
-            lbl_src_type.set_markup(" <i>(*.{0})</i>".format(
+            lbl_src_type.set_markup(" (*.{0})".format(
                 source.get_type().get_standard_extension()))
             hbox.pack_start(lbl_src_type, True, True)
 
-            btn_choose = gtk.Button("Load")
+            entry = gtk.Entry()
+            entry.set_size_request(40, -1)
+            entry.set_editable(False)
+            hbox.pack_start(entry)
+
+            btn_choose = gtk.Button("Detach")
+            btn_choose.set_sensitive(False)
             hbox.pack_start(btn_choose, False, False)
 
             self.pack_start(hbox, False, False)
@@ -254,11 +295,12 @@ class TriColumnsWidget(gtk.VBox):
         toolbar.pack_start(button, False, False)
         self.pack_start(toolbar, False, False)
 
-        # tri-columns
         kth_type = SourceType("kth", "kaira tracelog header")
+        txt_type = SourceType("txt", "plain text")
+
+        # double-columns
 
         paned = gtk.HPaned()
-
         column1 = gtk.VBox(False)
 
         title = gtk.Label("Sources:")
@@ -271,12 +313,13 @@ class TriColumnsWidget(gtk.VBox):
         for i in range(0, 20):
             input_src = Source("Process", kth_type)
             a.append(SourceView(input_src))
-        c_sources = self._column(a)
-        column1.pack_start(c_sources, True, True)
+        sources = self._column(a)
+        column1.pack_start(sources, True, True)
 
         paned.pack1(column1, resize=True)
 
-        paned2 = gtk.HPaned()
+        # column 2
+        paned2 = gtk.VPaned()
 
         column2 = gtk.VBox(False)
         title = gtk.Label("Actions:")
@@ -285,30 +328,28 @@ class TriColumnsWidget(gtk.VBox):
         haling.add(title)
         column2.pack_start(haling, False, False)
 
-        action = Action("Show net", "Tato komponenta dela neco hrozme moc sloziteho :D")
-        action.get_required_sources = lambda: [Source("Process", kth_type)];
+
+        # list of actions
         a = []
         for i in range(0, 20):
+            # tmp action
+            action = Action("Show net {0}".format(i+1),
+                            "This component does something so so too difficult :D")
+            action.get_required_sources = lambda: [
+                ("Data 1", Source("Process", kth_type)),
+                ("Data 2", Source("Read", txt_type)),
+                ("Data 3", Source("Read", txt_type))];
             a.append(ActionViewShort(action))
-        c_actions = self._column(a)
-        column2.pack_start(c_actions)
+        actions = self._column(a)
+        column2.pack_start(actions)
+        paned2.pack1(column2, resize=True)
 
-        pp = gtk.VPaned()
-        pp.pack1(column2, resize=True)
-        pp.pack2(ActionViewFull(action), resize=True)
-
-        paned2.pack1(pp, resize=True)
-
-        column3 = gtk.VBox(False)
-        title = gtk.Label("Outputs:")
-        haling = gtk.Alignment(0, 0, 0, 0)
-        haling.set_padding(0, 5, 2, 0)
-        haling.add(title)
-        column3.pack_start(haling, False, False)
-
-        c_outputs = self._column()
-        column3.pack_start(c_outputs)
-        paned2.pack2(column3, resize=True)
+        # full action view
+        scw = gtk.ScrolledWindow()
+        scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        scw.add_with_viewport(ActionViewFull(action))
+        scw.set_size_request(-1, 10)
+        paned2.pack2(scw)
 
         paned.pack2(paned2, resize=True)
         self.pack_start(paned)
@@ -323,3 +364,7 @@ class TriColumnsWidget(gtk.VBox):
             column.pack_start(item, False, False)
         scw.add_with_viewport(column)
         return scw
+
+    def _load_modules(self):
+        """ Load modules (actions). """
+        pass
