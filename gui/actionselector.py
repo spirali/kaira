@@ -20,6 +20,7 @@
 import gtk
 import math
 import cairo
+from events import EventSource
 
 class SourceType:
 
@@ -140,10 +141,14 @@ class StateIcon(gtk.DrawingArea):
         cr.set_source_rgb(0, 0, 0)
         cr.stroke()
 
-class ActionViewShort(gtk.Alignment):
+class ActionViewShort(gtk.Alignment, EventSource):
 
     def __init__(self, action):
+        self.action = action
+
         gtk.Alignment.__init__(self, 0, 0, 1, 1)
+        EventSource.__init__(self)
+
         self.set_padding(5, 0, 5, 5)
 
         hbox = gtk.HBox(False)
@@ -158,7 +163,8 @@ class ActionViewShort(gtk.Alignment):
         lbl_name.set_markup("<b>{0}</b>".format(action.get_name()))
         hbox.pack_start(lbl_name, True, True)
 
-        btn_choose = gtk.Button("Choose")
+        btn_choose = gtk.Button("Select")
+        btn_choose.connect("clicked", self._select_action)
         hbox.pack_start(btn_choose, False, False)
 
         frame = gtk.Frame()
@@ -166,6 +172,9 @@ class ActionViewShort(gtk.Alignment):
 
         frame.add(hbox)
         self.add(frame)
+
+    def _select_action(self, widget):
+        self.emit_event("action-selected", self.action)
 
 class ActionViewFull(gtk.VBox):
 
@@ -207,7 +216,6 @@ class ActionViewFull(gtk.VBox):
             frame.set_label("Description")
             lbl_description = gtk.Label()
             lbl_description.set_alignment(0, 1)
-#            lbl_description.set_width_chars(15)
             lbl_description.set_line_wrap(True)
             lbl_description.set_markup("<i>{0}</i>".format(action.description))
             lbl_description.connect( "size-allocate", cb_allocate )
@@ -301,22 +309,23 @@ class TriColumnsWidget(gtk.VBox):
         # double-columns
 
         paned = gtk.HPaned()
-        column1 = gtk.VBox(False)
+        # TODO: rename column1 to more readable form
+        self.column1 = gtk.VBox(False)
 
         title = gtk.Label("Sources:")
         haling = gtk.Alignment(0, 0, 0, 0)
         haling.set_padding(0, 5, 2, 0)
         haling.add(title)
-        column1.pack_start(haling, False, False)
+        self.column1.pack_start(haling, False, False)
 
         a = []
         for i in range(0, 20):
             input_src = Source("Process", kth_type)
             a.append(SourceView(input_src))
         sources = self._column(a)
-        column1.pack_start(sources, True, True)
+        self.column1.pack_start(sources, True, True)
 
-        paned.pack1(column1, resize=True)
+        paned.pack1(self.column1, resize=True)
 
         # column 2
         paned2 = gtk.VPaned()
@@ -328,7 +337,6 @@ class TriColumnsWidget(gtk.VBox):
         haling.add(title)
         column2.pack_start(haling, False, False)
 
-
         # list of actions
         a = []
         for i in range(0, 20):
@@ -339,24 +347,31 @@ class TriColumnsWidget(gtk.VBox):
                 ("Data 1", Source("Process", kth_type)),
                 ("Data 2", Source("Read", txt_type)),
                 ("Data 3", Source("Read", txt_type))];
-            a.append(ActionViewShort(action))
+
+            action_view_short = ActionViewShort(action)
+            action_view_short.set_callback(
+                "action-selected", self._select_action)
+            a.append(action_view_short)
+
         actions = self._column(a)
         column2.pack_start(actions)
         paned2.pack1(column2, resize=True)
 
         # full action view
-        scw = gtk.ScrolledWindow()
-        scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        scw.add_with_viewport(ActionViewFull(action))
-        scw.set_size_request(-1, 10)
-        paned2.pack2(scw)
+        # TODO: rename scw to more readable term
+        self.scw = gtk.ScrolledWindow()
+        self.scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        self.scw.add_with_viewport(ActionViewFull(action))
+#        self.scw.set_size_request(-1, 30)
+        paned2.pack2(self.scw)
 
         paned.pack2(paned2, resize=True)
         self.pack_start(paned)
 
         self.show_all()
 
-    def _column(self, items=[]):
+    def _column(self, items=[]): # TODO: column should be object,
+                                 # it will be contain "hide repository".
         scw = gtk.ScrolledWindow()
         scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
         column = gtk.VBox(False)
@@ -364,6 +379,25 @@ class TriColumnsWidget(gtk.VBox):
             column.pack_start(item, False, False)
         scw.add_with_viewport(column)
         return scw
+
+    def _select_action(self, action):
+        # full source view
+        children = self.scw.get_children()
+        for child in children:
+            self.scw.remove(child)
+        action_view = ActionViewFull(action)
+        self.scw.add_with_viewport(action_view)
+        self.scw.show_all()
+        # load required sources
+        children = self.column1.get_children()
+        for child in children:
+            if isinstance(child, gtk.ScrolledWindow):
+                self.column1.remove(child)
+        required_sources = action.get_required_sources()
+        s = [SourceView(source) for name, source in required_sources]
+        sources = self._column(s)
+        self.column1.pack_start(sources, True, True)
+        self.column1.show_all()
 
     def _load_modules(self):
         """ Load modules (actions). """
