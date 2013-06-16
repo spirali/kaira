@@ -21,7 +21,7 @@ import base.utils as utils
 
 import xml.etree.ElementTree as xml
 from base.utils import get_source_path
-from net import Net, Area, Place, Transition, Edge, Declarations
+from net import Net, Area, Place, Transition, Edge, Declarations, EdgeInscription
 
 
 class Parameter(object):
@@ -123,6 +123,9 @@ class Project(object):
     def is_expr_variable(self, expr):
         return self.target_env.is_expr_variable(expr)
 
+    def get_expr_variables(self, expr):
+        return self.target_env.get_expr_variables(expr)
+
     def parse_typename(self, string, source):
         return self.target_env.parse_typename(string, source)
 
@@ -154,9 +157,11 @@ def get_source(element, name):
 def load_edge_in(element, project, net, transition):
     id = utils.xml_int(element, "id")
     place_id = utils.xml_int(element, "place-id")
-    config, expressions, target = project.parse_edge_expression(
-        element.get("expr"), get_source(element, "inscription"))
-    return Edge(id, transition, net.get_place(place_id), expressions, config, target)
+    inscriptions = [ EdgeInscription(config, expr, target)
+                     for (config, expr, target) in
+                         project.parse_edge_expression(element.get("expr"),
+                                                       get_source(element, "inscription")) ]
+    return Edge(id, transition, net.get_place(place_id), inscriptions)
 
 def load_edge_out(element, project, net, transition):
     # Loading edge-in and edge-out are now same
@@ -178,10 +183,8 @@ def load_transition(element, project, net):
     transition = Transition(net, id, name, guard)
     transition.edges_in = map(lambda e:
         load_edge_in(e, project, net, transition), element.findall("edge-in"))
-    edges_out = map(lambda e:
+    transition.edges_out = map(lambda e:
         load_edge_out(e, project, net, transition), element.findall("edge-out"))
-    transition.edges_out = [ edge for edge in edges_out if edge.is_bulk_edge() ] + \
-                           [ edge for edge in edges_out if edge.is_token_edge() ]
     if element.find("code") is not None:
         transition.code = element.find("code").text
     transition.tracing = load_tracing(element)

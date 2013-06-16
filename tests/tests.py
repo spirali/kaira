@@ -14,6 +14,12 @@ class BuildTest(unittest.TestCase):
     def test_pack(self):
         Project("pack").quick_test("Ok\n", processes=2)
 
+    def test_filter(self):
+        Project("filter").quick_test("Ok\n", processes=3)
+
+    def test_from(self):
+        Project("from").quick_test("Ok\n", processes=4)
+
     def test_bulk(self):
         output = "1\n2\n3\n4\na\nb\nc\n"
         Project("bulk").quick_test(output, processes=3)
@@ -27,6 +33,9 @@ class BuildTest(unittest.TestCase):
     def test_broken_tracefn(self):
         Project("broken_tracefn", "broken", trace=True).fail_ptp(
             "*102/type: Invalid trace function 'int_as_string'\n")
+
+    def test_broken_edges(self):
+        Project("broken_edges", "broken").fail_ptp("*102", prefix=True)
 
     def test_parameters(self):
         Project("parameters").quick_test("7 10 123\n",

@@ -104,9 +104,9 @@ class Simulation(EventSource):
                     place_id = utils.xml_int(pe, "id")
                     for te in pe.findall("token"):
                         name = te.get("value")
-                        origin = te.get("origin")
-                        if origin is not None:
-                            name = "{{{0}}} {1}".format(origin, name)
+                        source = te.get("source")
+                        if source is not None:
+                            name = "{{{0}}} {1}".format(source, name)
                         runinstance.add_token(place_id, 0, name)
                     runinstance.clear_removed_and_new_tokens()
 

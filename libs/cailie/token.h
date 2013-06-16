@@ -176,9 +176,17 @@ template<typename T> class TokenList {
 			}
 		}
 
-		Token<T> * begin() const { return token; }
-		size_t size() const { return tokens_count; }
-		Token<T> * last() const { return token->prev; }
+		Token<T> * begin() const {
+			return token;
+		}
+
+		size_t size() const {
+			return tokens_count;
+		}
+
+		Token<T> * last() const {
+			return token->prev;
+		}
 
 		Token<T> * last(int s) {
 			Token<T> *t = token;
@@ -188,7 +196,10 @@ template<typename T> class TokenList {
 			return t;
 		}
 
-		bool is_empty() const { return token == NULL; }
+		bool is_empty() const {
+			return token == NULL;
+		}
+
 		Token<T> * next(Token<T> *token) {
 			if (token != last()) {
 				return token->next;
