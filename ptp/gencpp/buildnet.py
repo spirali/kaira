@@ -524,10 +524,16 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
         builder.line(token_line + start_from)
 
         filter_expr = inscription.config.get("filter")
+        from_expr = inscription.config.get("from")
 
         conditions = []
         if filter_expr:
             conditions.append(filter_expr)
+
+        if from_expr:
+            conditions.append(
+                builder.expand("$n->place_{0.edge.place.id}.get_source($token_{0.uid}) == {1}",
+                               inscription, from_expr))
 
         if inscription.uid not in sources_uid:
             conditions.append(builder.expand("($token_{0.uid}->value) == ({0.expr})",
@@ -542,7 +548,7 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
 
         # If there are some token that can collide or filter expr
         # then we use cycle to go through other tokens
-        cycle = bool(prev or filter_expr)
+        cycle = bool(prev or filter_expr or from_expr)
         if cycle:
             builder.line("for (;;)")
             builder.block_begin()

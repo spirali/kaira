@@ -188,7 +188,7 @@ class EdgeInscription(utils.EqMixin):
 
     def get_variables(self):
         variables = self.edge.transition.net.project.get_expr_variables(self.expr)
-        for name in [ "guard", "filter", "if" ]:
+        for name in [ "guard", "filter", "from", "if" ]:
             if self.config.get(name):
                 variables.update(self.edge.transition.net.project.get_expr_variables(
                     self.config.get(name)))
@@ -244,7 +244,7 @@ class EdgeInscription(utils.EqMixin):
             raise utils.PtpException("Input edges cannot contain '@'",
                 self.source)
 
-        self.check_config(("bulk", "guard", "svar", "filter"))
+        self.check_config(("bulk", "guard", "svar", "filter", "from"))
 
         if self.check_config_with_expression("svar", variable=True):
             decls = self.edge.transition.get_input_decls()
@@ -260,11 +260,11 @@ class EdgeInscription(utils.EqMixin):
                                      "bool",
                                      self.source)
 
-        if self.check_config_with_expression("filter"):
+        if self.check_config_with_expression("from"):
             decls = self.edge.transition.get_input_decls()
-            checker.check_expression(self.config["filter"],
+            checker.check_expression(self.config["from"],
                                      decls,
-                                     "bool",
+                                     "int",
                                      self.source)
 
         if self.check_config_with_expression("guard"):
@@ -327,10 +327,11 @@ class EdgeInscription(utils.EqMixin):
         return not self.is_multicast()
 
     def is_source_reader(self):
-        return "svar" in self.config
+        return "svar" in self.config or "from" in self.config
 
     def has_same_pick_rule(self, inscription):
-        return inscription.config.get("filter") == self.config.get("filter")
+        return (inscription.config.get("filter") == self.config.get("filter") and
+                inscription.config.get("from") == self.config.get("from"))
 
 
 class Place(utils.EqByIdMixin):

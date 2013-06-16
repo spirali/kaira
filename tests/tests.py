@@ -17,6 +17,9 @@ class BuildTest(unittest.TestCase):
     def test_filter(self):
         Project("filter").quick_test("Ok\n", processes=3)
 
+    def test_from(self):
+        Project("from").quick_test("Ok\n", processes=4)
+
     def test_bulk(self):
         output = "1\n2\n3\n4\na\nb\nc\n"
         Project("bulk").quick_test(output, processes=3)
