@@ -222,9 +222,13 @@ def load_place(element, project, net):
 
 def load_area(element, project, net):
     id = utils.xml_int(element, "id")
-    init_type, init_value = project.parse_init_expression(element.get("init-expr"),
-                                                      get_source(element, "init"))
-    places = [ net.get_place(utils.xml_int(e, "id")) for e in element.findall("place") ]
+    init_type, init_value = project.parse_init_expression(
+        element.get("init-expr"),
+        get_source(element, "init"))
+    if init_type is None:
+        raise utils.PtpException("Expression is empty", get_source(element, "init"))
+    places = [ net.get_place(utils.xml_int(e, "id"))
+               for e in element.findall("place") ]
     return Area(net, id, init_type, init_value, places)
 
 def load_net(element, project):
