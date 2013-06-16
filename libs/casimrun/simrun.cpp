@@ -5,6 +5,7 @@
 #include <state.h>
 #include <net.h>
 #include <packet.h>
+#include <iostream>
 
 namespace ca {
 	extern ca::NetDef **defs;
@@ -175,6 +176,7 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 	RunConfiguration& run_configuration;
 };
 
+
 void casr::main(RunConfiguration &run_configuration)
 {
 	ControlledTimeTraceLog::init();
@@ -182,5 +184,5 @@ void casr::main(RunConfiguration &run_configuration)
 	ca::NetDef *net_def = ca::defs[0]; // Take first definition
 	State state(run_configuration, net_def);
 	state.run();
-	fprintf(stderr, "Kaira: Time = %lluns\n", state.get_global_time());
+	std::cerr << "Kaira: Time = " << state.get_global_time() << "ns\n";
 }
