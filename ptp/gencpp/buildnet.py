@@ -557,10 +557,6 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
                 builder.expand("$n->place_{0.edge.place.id}.get_source($token_{0.uid}) == {1}",
                                inscription, from_expr))
 
-        if inscription.uid not in sources_uid:
-            conditions.append(builder.expand("($token_{0.uid}->value) == ({0.expr})",
-                                             inscription))
-
         for i in prev:
             conditions.append(builder.expand("$token_{0.uid} != $token_{1.uid}",
                                              inscription, i))
@@ -587,13 +583,13 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
             builder.line(fail_command)
             builder.block_end()
             builder.block_end()
-            setup_variables(inscription)
-        else: # without cycle
-            setup_variables(inscription)
-            if conditions:
-                builder.if_not_begin(condition_line)
-                builder.line(fail_command)
-                builder.block_end()
+
+        setup_variables(inscription)
+        if inscription.uid not in sources_uid:
+            builder.if_not_begin(builder.expand("($token_{0.uid}->value) == ({0.expr})",
+                                                inscription))
+            builder.line(fail_command)
+            builder.block_end()
 
         prev_inscriptions.append(inscription)
 
