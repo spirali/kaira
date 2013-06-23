@@ -21,8 +21,10 @@ import gtk
 import math
 import cairo
 from events import EventSource
+from stypes import repository as types_repository
 
 class SourceType:
+    # Deprecated: because of type in stypes
 
     def __init__(self, standard_extension, display_name):
         self.standard_extension = standard_extension
@@ -297,6 +299,7 @@ class TriColumnsWidget(gtk.VBox):
         toolbar = gtk.HBox(False)
         toolbar.set_border_width(5)
         button = gtk.Button("Load")
+        button.connect("clicked", lambda w: self._load_action())
         toolbar.pack_start(button, False, False)
 
         button = gtk.Button("Store")
@@ -398,6 +401,13 @@ class TriColumnsWidget(gtk.VBox):
         sources = self._column(s)
         self.column1.pack_start(sources, True, True)
         self.column1.show_all()
+
+    def _load_action(self):
+        """ It runs a loader for sources. For button "Load" in toolbar. """
+
+        for type in types_repository.get_registered_types():
+            print "{0} - ({1})".format(
+                type.get_extension(), type.get_display_name())
 
     def _load_modules(self):
         """ Load modules (actions). """
