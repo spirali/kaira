@@ -56,7 +56,7 @@ class Type:
 class KthType(Type):
 
     def __init__(self):
-        Type.__init__(self, "kth", "kaira tracelog header")
+        Type.__init__(self, "kth", "Kaira tracelog header")
 
 class CsType(Type):
 
@@ -90,6 +90,12 @@ class TypesRepository:
     def deregister_type(self, type):
         if self.is_registered(type):
             del self.types[type.get_extension()]
+
+    def get_type(self, extension):
+        if extension in self.types:
+            return self.types[extension]
+
+        return None
 
     def get_registered_types(self):
         return [type for key, type in self.types.items()]

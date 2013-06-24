@@ -22,25 +22,21 @@ import math
 import cairo
 from events import EventSource
 from stypes import repository as types_repository
-
-class SourceType:
-    # Deprecated: because of type in stypes
-
-    def __init__(self, standard_extension, display_name):
-        self.standard_extension = standard_extension
-        self.display_name = display_name
-        # TODO: also should be there reference to "standard loader" and
-        # "view - optional"
-
-    def get_display_name(self):
-        return self.display_name
-
-    def get_standard_extension(self):
-        return self.standard_extension
+from stypes import Type
 
 class Source:
 
     def __init__(self, name, type, data=None):
+        """ A source of data.
+
+        Arguments:
+        name -- file name (source file on disk)
+        type -- type of the data (stype.Type)
+        data -- if data are in memory the source could be created on fly,
+                default value is None
+
+        """
+
         self.name = name
         self.type = type # SourceType
         self.data = data
@@ -184,7 +180,6 @@ class ActionViewFull(gtk.VBox):
         gtk.VBox.__init__(self, False)
         self.action = action
 
-        # creating of gui ---------------------------------------------------
         self.set_border_width(5)
         # line with name and run button
         hbox = gtk.HBox(False)
@@ -236,7 +231,7 @@ class ActionViewFull(gtk.VBox):
             lbl_src_type = gtk.Label()
             lbl_src_type.set_alignment(0, 0.5)
             lbl_src_type.set_markup(" (*.{0})".format(
-                source.get_type().get_standard_extension()))
+                source.get_type().get_extension()))
             hbox.pack_start(lbl_src_type, True, True)
 
             entry = gtk.Entry()
@@ -267,12 +262,13 @@ class SourceView(gtk.Alignment):
         self.lbl_type.set_markup(
             "<i>{0}</i>".format(input_src.type.get_display_name()))
 
-        self.btn_load = gtk.Button("Load")
         self.btn_show = gtk.Button("Show")
         self.btn_attach = gtk.Button("Attach")
+#        self.btn_store = gtk.Button("Store")
+#        self.btn_clean = gtk.Button("Clean")
 
-        self.btn_show.set_sensitive(False)
-        self.btn_attach.set_sensitive(False)
+#        self.btn_show.set_sensitive(False)
+#        self.btn_attach.set_sensitive(False)
 
         frame = gtk.Frame()
         frame.set_shadow_type(gtk.SHADOW_OUT)
@@ -283,9 +279,9 @@ class SourceView(gtk.Alignment):
 
         table.attach(self.lbl_name,   0, 1, 0, 1)
         table.attach(self.lbl_type,   0, 1, 1, 2)
-        table.attach(self.btn_load,   1, 2, 0, 1, xoptions=0)
-        table.attach(self.btn_show,   1, 2, 1, 2, xoptions=0)
-        table.attach(self.btn_attach, 2, 3, 0, 2, xoptions=0)
+        table.attach(self.btn_show,   1, 2, 0, 1, xoptions=0)
+        table.attach(self.btn_attach, 2, 3, 0, 1, xoptions=0)
+#        table.attach(self.btn_show,   3, 4, 0, 1, xoptions=0)
 
         frame.add(table)
         self.add(frame)
@@ -306,8 +302,7 @@ class TriColumnsWidget(gtk.VBox):
         toolbar.pack_start(button, False, False)
         self.pack_start(toolbar, False, False)
 
-        kth_type = SourceType("kth", "kaira tracelog header")
-        txt_type = SourceType("txt", "plain text")
+        kth_type = types_repository.get_type("kth")
 
         # double-columns
 
@@ -347,9 +342,7 @@ class TriColumnsWidget(gtk.VBox):
             action = Action("Show net {0}".format(i+1),
                             "This component does something so so too difficult :D")
             action.get_required_sources = lambda: [
-                ("Data 1", Source("Process", kth_type)),
-                ("Data 2", Source("Read", txt_type)),
-                ("Data 3", Source("Read", txt_type))];
+                ("Data 1", Source("Process", kth_type))];
 
             action_view_short = ActionViewShort(action)
             action_view_short.set_callback(
@@ -365,7 +358,7 @@ class TriColumnsWidget(gtk.VBox):
         self.scw = gtk.ScrolledWindow()
         self.scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
         self.scw.add_with_viewport(ActionViewFull(action))
-#        self.scw.set_size_request(-1, 30)
+        self.scw.set_size_request(-1, 30)
         paned2.pack2(self.scw)
 
         paned.pack2(paned2, resize=True)
@@ -405,9 +398,28 @@ class TriColumnsWidget(gtk.VBox):
     def _load_action(self):
         """ It runs a loader for sources. For button "Load" in toolbar. """
 
+        dialog = gtk.FileChooserDialog("Load",
+                                       None,
+                                       gtk.FILE_CHOOSER_ACTION_OPEN,
+                                       (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                                       gtk.STOCK_OPEN, gtk.RESPONSE_OK))
+        dialog.set_default_response(gtk.RESPONSE_OK)
+
         for type in types_repository.get_registered_types():
-            print "{0} - ({1})".format(
-                type.get_extension(), type.get_display_name())
+            filter = gtk.FileFilter()
+            filter.set_name("{0} (*.{1})".format(
+                type.get_display_name(), type.get_extension()))
+            # TODO: should be used also mime type?
+            filter.add_pattern("*.{0}".format(type.get_extension()))
+            dialog.add_filter(filter)
+
+        response = dialog.run()
+        if response == gtk.RESPONSE_OK:
+            print "OK"
+        elif response == gtk.RESPONSE_CANCEL:
+            print "Closed,no files selected"
+
+        dialog.destroy()
 
     def _load_modules(self):
         """ Load modules (actions). """
