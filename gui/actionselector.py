@@ -253,22 +253,39 @@ class SourceView(gtk.Alignment):
 
         self.input_src = input_src
 
-        self.lbl_name = gtk.Label()
-        self.lbl_name.set_alignment(0, 1)
+        self.w_name = gtk.Entry() # note: 'w' as a widget
+        self.w_name.set_editable(False)
+#        self.lbl_name.set_alignment(0, 1)
 
         self.lbl_type = gtk.Label()
         self.lbl_type.set_alignment(0, 0)
-        self.lbl_name.set_markup("<b>{0}</b>".format(input_src.get_name()))
+        self.w_name.set_text(input_src.get_name())
         self.lbl_type.set_markup(
             "<i>{0}</i>".format(input_src.type.get_display_name()))
 
-        self.btn_show = gtk.Button("Show")
-        self.btn_attach = gtk.Button("Attach")
-#        self.btn_store = gtk.Button("Store")
-#        self.btn_clean = gtk.Button("Clean")
+        btn_attach = gtk.Button("Attach")
 
-#        self.btn_show.set_sensitive(False)
-#        self.btn_attach.set_sensitive(False)
+        menu = gtk.Menu()
+        menu_show = gtk.MenuItem("Show")
+        menu.append(menu_show)
+        menu.append(gtk.SeparatorMenuItem())
+
+        menu_store = gtk.MenuItem("Store")
+        menu.append(menu_store)
+        menu_load = gtk.MenuItem("Load")
+        menu_load.set_sensitive(False)
+        menu.append(menu_load)
+        menu.append(gtk.SeparatorMenuItem())
+
+        menu_del = gtk.MenuItem("Delete")
+        menu.append(menu_del)
+
+        src_view_menu = gtk.MenuItem(">")
+        src_view_menu.set_submenu(menu)
+
+        menu_bar = gtk.MenuBar()
+        menu_bar.set_child_pack_direction(gtk.PACK_DIRECTION_TTB)
+        menu_bar.append(src_view_menu)
 
         frame = gtk.Frame()
         frame.set_shadow_type(gtk.SHADOW_OUT)
@@ -276,12 +293,12 @@ class SourceView(gtk.Alignment):
         table = gtk.Table(2, 3, False)
         table.set_border_width(2)
         table.set_col_spacing(0, 10)
+        table.set_col_spacing(1, 2)
 
-        table.attach(self.lbl_name,   0, 1, 0, 1)
-        table.attach(self.lbl_type,   0, 1, 1, 2)
-        table.attach(self.btn_show,   1, 2, 0, 1, xoptions=0)
-        table.attach(self.btn_attach, 2, 3, 0, 1, xoptions=0)
-#        table.attach(self.btn_show,   3, 4, 0, 1, xoptions=0)
+        table.attach(self.w_name, 0, 1, 0, 1)
+        table.attach(self.lbl_type, 0, 1, 1, 2)
+        table.attach(btn_attach,    1, 2, 0, 2, xoptions=gtk.FILL)
+        table.attach(menu_bar,      2, 3, 0, 2, xoptions=0)
 
         frame.add(table)
         self.add(frame)
@@ -409,7 +426,7 @@ class TriColumnsWidget(gtk.VBox):
             filter = gtk.FileFilter()
             filter.set_name("{0} (*.{1})".format(
                 type.get_display_name(), type.get_extension()))
-            # TODO: should be used also mime type?
+            # TODO: should be there used also mime-type?
             filter.add_pattern("*.{0}".format(type.get_extension()))
             dialog.add_filter(filter)
 
@@ -424,3 +441,5 @@ class TriColumnsWidget(gtk.VBox):
     def _load_modules(self):
         """ Load modules (actions). """
         pass
+
+# TODO: there should be (loaded) sources repository
