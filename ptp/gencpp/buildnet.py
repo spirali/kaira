@@ -461,10 +461,14 @@ def write_fire_phase2(builder, tr, readonly_binding=False):
 
     decls_dict = tr.get_decls()
 
+    if readonly_binding:
+        declare = "{0} {1} = $token_{2}->value;"
+    else:
+        declare = "{0} &{1} = $token_{2}->value;"
+
     for name, uid in tr.variable_sources.items():
         if uid is not None:
-            builder.line(
-                "{0} {1} = $token_{2}->value;", decls_dict[name], name, uid)
+            builder.line(declare, decls_dict[name], name, uid)
 
     for inscription in tr.get_token_inscriptions_in():
         if inscription.config.get("svar"):
