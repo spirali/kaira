@@ -184,10 +184,13 @@ class CommandWrapper:
         if command is not None:
             self.backend.write(command + "\n")
 
-    def run_command_expect_ok(self, command, ok_callback=None):
+    def run_command_expect_ok(self, command, ok_callback=None, fail_callback=None):
         def callback(line):
             if line != "Ok\n":
-                print "Command '" + command + "' returns: " + line
+                if fail_callback:
+                    fail_callback()
+                else:
+                    print "Command '{0}' returns '{1}'".format(command, line)
             else:
                 if ok_callback:
                     ok_callback()

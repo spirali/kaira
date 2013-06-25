@@ -568,6 +568,13 @@ class App:
     def new_simulation(self):
         simulation = Simulation()
         simulation.set_callback("error", lambda line: self.console_write(line, "error"))
+        simulation.set_callback("command-failed",
+            lambda sequence, command:
+                self.console_write("Command [{0}/{1}] {2} cannot be executed".format(
+                                        command,
+                                        sequence.get_commands_size(),
+                                        sequence.commands[command]),
+                                   "error"))
         return simulation
 
     def connect_to_application(self):

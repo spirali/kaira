@@ -72,27 +72,34 @@ class ControlSequence:
         return element
 
     def execute(self, on_fire, on_finish, on_receive):
-        for line in self.commands:
-            match = command_parser.match(line)
-            if match is None:
-                raise ControlSequenceException("Invalid format: ", line)
+        for i in xrange(len(self.commands)):
+            self.execute_command(i, on_fire, on_finish, on_receive)
 
-            process = int(match.group("process"))
-            thread = int(match.group("thread"))
-            action = match.group("action")
-            if action == "S":
-                if match.group("arg_int"):
-                    arg = match.group("arg_int")
-                else:
-                    arg = match.group("arg_str")
-                on_fire(process, thread, arg)
-            elif action == "F":
-                on_finish(process, thread)
+    def execute_command(self, i, on_fire, on_finish, on_receive):
+        line = self.commands[i]
+        match = command_parser.match(line)
+        if match is None:
+            raise ControlSequenceException("Invalid format: ", line)
+
+        process = int(match.group("process"))
+        thread = int(match.group("thread"))
+        action = match.group("action")
+        if action == "S":
+            if match.group("arg_int"):
+                arg = match.group("arg_int")
             else:
-                arg_int = match.group("arg_int")
-                if arg_int is None:
-                    raise ControlSequenceException("Invalid format of receive")
-                on_receive(process, thread, int(arg_int))
+                arg = match.group("arg_str")
+            return on_fire(process, thread, arg)
+        elif action == "F":
+            return on_finish(process, thread)
+        else:
+            arg_int = match.group("arg_int")
+            if arg_int is None:
+                raise ControlSequenceException("Invalid format of receive")
+            return on_receive(process, thread, int(arg_int))
+
+    def get_commands_size(self):
+        return len(self.commands)
 
     def add_fire(self, process, thread, transition):
         self.commands.append("{0} {1} S {2}".format(process, thread, transition))
