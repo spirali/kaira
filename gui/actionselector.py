@@ -20,9 +20,11 @@
 import gtk
 import math
 import cairo
+import stypes
 from events import EventSource
 from stypes import repository as types_repository
-from stypes import Type
+
+from stypes import KthType
 
 class Source:
 
@@ -53,11 +55,156 @@ class Source:
     def get_type(self):
         return self.type
 
+class ViewSource(gtk.Alignment, EventSource):
+
+    def __init__(self, source):
+        gtk.Alignment.__init__(self, 0, 0, 1, 1)
+        EventSource.__init__(self)
+
+        self.set_padding(5, 0, 10, 10)
+
+        self.source = source
+
+        self.w_name = gtk.Entry() # note: 'w' as a widget
+        self.w_name.set_size_request(40, -1)
+        self.w_name.set_editable(False)
+
+        self.lbl_type = gtk.Label()
+        self.lbl_type.set_alignment(0, 0)
+        self.w_name.set_text(source.get_name())
+        self.lbl_type.set_markup(
+            "<i>{0}</i>".format(source.type.get_display_name()))
+
+        btn_attach = gtk.Button("Attach")
+        btn_attach.connect(
+            "clicked", lambda w: self.emit_event("attach-source", self.source))
+
+        # source menu
+        menu = gtk.Menu()
+        menu_show = gtk.MenuItem("Show")
+        menu.append(menu_show)
+        menu.append(gtk.SeparatorMenuItem())
+
+        menu_store = gtk.MenuItem("Store")
+        menu.append(menu_store)
+        menu_load = gtk.MenuItem("Load")
+        menu_load.set_sensitive(False)
+        menu.append(menu_load)
+        menu.append(gtk.SeparatorMenuItem())
+
+        menu_del = gtk.MenuItem("Delete")
+        menu.append(menu_del)
+
+        src_view_menu = gtk.MenuItem(">")
+        src_view_menu.set_submenu(menu)
+
+        menu_bar = gtk.MenuBar()
+        menu_bar.set_child_pack_direction(gtk.PACK_DIRECTION_TTB)
+        menu_bar.append(src_view_menu)
+
+        # source component
+        frame = gtk.Frame()
+        frame.set_shadow_type(gtk.SHADOW_OUT)
+
+        table = gtk.Table(2, 3, False)
+        table.set_border_width(2)
+        table.set_col_spacing(0, 10)
+        table.set_col_spacing(1, 2)
+
+        table.attach(self.w_name,   0, 1, 0, 1)
+        table.attach(self.lbl_type, 0, 1, 1, 2)
+        table.attach(btn_attach,    1, 2, 0, 2, xoptions=gtk.FILL)
+        table.attach(menu_bar,      2, 3, 0, 2, xoptions=0)
+
+        frame.add(table)
+        self.add(frame)
+
+class SourceRepository(EventSource):
+
+    def __init__(self):
+        EventSource.__init__(self)
+
+        self.repo = []
+
+    def add(self, source):
+        """ Adds a new source to the repository. Returns True if the
+        source is added, otherwise False.
+
+        Arguments:
+        source -- object (actionselector.Source)
+
+        """
+
+        if source not in self.repo:
+            self.repo.append(source)
+            self.emit_event("add-source", source)
+            return True
+        return False
+
+    def remove(self, source):
+        """ Removes the source from the repository. Returns True if the source
+        is removed, otherwise False.
+
+        Arguments:
+        source -- source which should be removed.
+
+        """
+
+        if source in self.repo:
+            idx = self.repo.index(source)
+            del self.repo[idx]
+            return True
+        return False
+
+    def get_sources(self, filter=[]):
+        """ Returns list of loaded sources. If the filter is not empty,
+        the sources are filtered by the extension of type.
+
+        Arguments:
+        filter -- list of types extensions which will be excluded.
+
+        """
+
+        return [source for source in self.repo
+                if source.get_type().get_extension() not in filter]
+
+class ViewSourceRepository(gtk.VBox, EventSource):
+
+    def __init__(self, repository):
+        gtk.VBox.__init__(self)
+        EventSource.__init__(self)
+
+        self.filter = []
+        self.repository = repository
+        self.repository.set_callback("add-source", self.add_source)
+
+        sources = repository.get_sources(self.filter)
+        for source in sources:
+            self.add_source(source)
+
+    def set_filter(self, filter):
+        self.filter = filter
+
+    def get_filter(self):
+        return self.filter
+
+    def add_source(self, source):
+        w_source = ViewSource(source)
+        w_source.set_callback("attach-source",
+                              lambda s: self.emit_event("attach-source", s))
+        self.pack_start(w_source, False, False)
+        w_source.show_all()
+
 class Action:
+
+    """ Action is the template for user actions. It should not be used directly.
+    """
 
     def __init__(self, name, description):
         self.name = name
         self.description = description
+        self._parameters = [] # (name: type)
+        self.sources = {} # attached sources (name: source)
         self.state = "incomplete"
 
     def get_name(self):
@@ -76,13 +223,29 @@ class Action:
             raise Exception("Incorrect '{0}' icon state".format(state))
 
     def get_required_sources(self): # interface
-        return [] # array of sources
+        return self._parameters
 
     def get_processed_data(self): # interface
+        """ Returns Source type. """
         return None
+
+    def _add_parameter(self, name, type):
+        self._parameters.append((name, type))
 
     def run(self): # interface
         pass
+
+class TestAction(Action):
+
+    def __init__(self):
+        Action.__init__(
+            self,
+            "Test Action",
+            "This is only testing action (it is example of usage)")
+
+        kth_type = KthType()
+        self._add_parameter("input 1", kth_type)
+        self._add_parameter("input 2", kth_type)
 
 class StateIcon(gtk.DrawingArea):
 
@@ -174,12 +337,21 @@ class ActionViewShort(gtk.Alignment, EventSource):
     def _select_action(self, widget):
         self.emit_event("action-selected", self.action)
 
-class ActionViewFull(gtk.VBox):
+class ActionViewFull(gtk.VBox, EventSource):
 
-    def __init__(self, action):
-        gtk.VBox.__init__(self, False)
-        self.action = action
+    def __init__(self):
+        gtk.VBox.__init__(self)
+        EventSource.__init__(self)
 
+        self.action = None
+
+    def set_action(self, action):
+
+        # remove old
+        for comp in self.get_children():
+            self.remove(comp)
+
+        # generate
         self.set_border_width(5)
         # line with name and run button
         hbox = gtk.HBox(False)
@@ -197,31 +369,35 @@ class ActionViewFull(gtk.VBox):
 
         self.btn_run = gtk.Button("Run")
         self.btn_run.set_sensitive(False)
+        self.btn_run.hide()
         hbox.pack_start(self.btn_run, False, False)
 
         self.pack_start(hbox, False, False)
 
         # description
-        if action.description is not None or action.description != "":
-            def cb_allocate(label, allocation ):
-                label.set_size_request(allocation.width - 2, -1)
+        def cb_allocate(label, allocation ):
+            label.set_size_request(allocation.width - 2, -1)
 
-            align = gtk.Alignment(0, 0, 1, 1)
-            align.set_padding(0, 5, 5, 5)
+        align = gtk.Alignment(0, 0, 1, 1)
+        align.set_padding(0, 5, 5, 5)
 
-            frame = gtk.Frame()
-            frame.set_label("Description")
-            lbl_description = gtk.Label()
-            lbl_description.set_alignment(0, 1)
-            lbl_description.set_line_wrap(True)
-            lbl_description.set_markup("<i>{0}</i>".format(action.description))
-            lbl_description.connect( "size-allocate", cb_allocate )
-            frame.add(lbl_description)
-            align.add(frame)
-            self.pack_start(align, False, False)
+        self.dsc_frame = gtk.Frame()
+        self.dsc_frame.set_label("Description")
+        self.lbl_description = gtk.Label()
+        self.lbl_description.set_alignment(0, 1)
+        self.lbl_description.set_line_wrap(True)
+        self.lbl_description.set_markup("<i>{0}</i>".format(action.description))
+        self.lbl_description.connect( "size-allocate", cb_allocate)
+        self.dsc_frame.add(self.lbl_description)
+        self.dsc_frame.hide_all()
+        align.add(self.dsc_frame)
+        self.pack_start(align, False, False)
+
+        w_required_sources = gtk.HBox()
+        w_required_sources.hide()
 
         required_sources = action.get_required_sources()
-        for name, source in required_sources:
+        for name, type in required_sources:
             hbox = gtk.HBox(False)
             lbl_src_name = gtk.Label()
             lbl_src_name.set_alignment(0, 0.5)
@@ -231,7 +407,7 @@ class ActionViewFull(gtk.VBox):
             lbl_src_type = gtk.Label()
             lbl_src_type.set_alignment(0, 0.5)
             lbl_src_type.set_markup(" (*.{0})".format(
-                source.get_type().get_extension()))
+                type.get_extension()))
             hbox.pack_start(lbl_src_type, True, True)
 
             entry = gtk.Entry()
@@ -245,68 +421,13 @@ class ActionViewFull(gtk.VBox):
 
             self.pack_start(hbox, False, False)
 
-class SourceView(gtk.Alignment):
-
-    def __init__(self, input_src):
-        gtk.Alignment.__init__(self, 0, 0, 1, 1)
-        self.set_padding(5, 0, 10, 10)
-
-        self.input_src = input_src
-
-        self.w_name = gtk.Entry() # note: 'w' as a widget
-        self.w_name.set_editable(False)
-#        self.lbl_name.set_alignment(0, 1)
-
-        self.lbl_type = gtk.Label()
-        self.lbl_type.set_alignment(0, 0)
-        self.w_name.set_text(input_src.get_name())
-        self.lbl_type.set_markup(
-            "<i>{0}</i>".format(input_src.type.get_display_name()))
-
-        btn_attach = gtk.Button("Attach")
-
-        menu = gtk.Menu()
-        menu_show = gtk.MenuItem("Show")
-        menu.append(menu_show)
-        menu.append(gtk.SeparatorMenuItem())
-
-        menu_store = gtk.MenuItem("Store")
-        menu.append(menu_store)
-        menu_load = gtk.MenuItem("Load")
-        menu_load.set_sensitive(False)
-        menu.append(menu_load)
-        menu.append(gtk.SeparatorMenuItem())
-
-        menu_del = gtk.MenuItem("Delete")
-        menu.append(menu_del)
-
-        src_view_menu = gtk.MenuItem(">")
-        src_view_menu.set_submenu(menu)
-
-        menu_bar = gtk.MenuBar()
-        menu_bar.set_child_pack_direction(gtk.PACK_DIRECTION_TTB)
-        menu_bar.append(src_view_menu)
-
-        frame = gtk.Frame()
-        frame.set_shadow_type(gtk.SHADOW_OUT)
-
-        table = gtk.Table(2, 3, False)
-        table.set_border_width(2)
-        table.set_col_spacing(0, 10)
-        table.set_col_spacing(1, 2)
-
-        table.attach(self.w_name, 0, 1, 0, 1)
-        table.attach(self.lbl_type, 0, 1, 1, 2)
-        table.attach(btn_attach,    1, 2, 0, 2, xoptions=gtk.FILL)
-        table.attach(menu_bar,      2, 3, 0, 2, xoptions=0)
-
-        frame.add(table)
-        self.add(frame)
-
 class TriColumnsWidget(gtk.VBox):
 
     def __init__(self):
         gtk.VBox.__init__(self)
+
+        # repository of loaded sources
+        self.sources_repository = SourceRepository()
 
         # toolbar
         toolbar = gtk.HBox(False)
@@ -319,29 +440,30 @@ class TriColumnsWidget(gtk.VBox):
         toolbar.pack_start(button, False, False)
         self.pack_start(toolbar, False, False)
 
-        kth_type = types_repository.get_type("kth")
-
-        # double-columns
-
+        # sources -------------------------------------------------------------
         paned = gtk.HPaned()
-        # TODO: rename column1 to more readable form
-        self.column1 = gtk.VBox(False)
+        vbox = gtk.VBox(False)
 
         title = gtk.Label("Sources:")
         haling = gtk.Alignment(0, 0, 0, 0)
         haling.set_padding(0, 5, 2, 0)
         haling.add(title)
-        self.column1.pack_start(haling, False, False)
+        vbox.pack_start(haling, False, False)
 
-        a = []
-        for i in range(0, 20):
-            input_src = Source("Process", kth_type)
-            a.append(SourceView(input_src))
-        sources = self._column(a)
-        self.column1.pack_start(sources, True, True)
+        w_source_repository = ViewSourceRepository(self.sources_repository)
+        w_source_repository.set_callback(
+            "attach-source", self._attach_source_action)
 
-        paned.pack1(self.column1, resize=True)
+        scw = gtk.ScrolledWindow()
 
+        scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        scw.add_with_viewport(w_source_repository)
+
+        vbox.pack_start(scw, True, True)
+
+        paned.pack1(vbox, resize=True)
+
+        # actions -------------------------------------------------------------
         # column 2
         paned2 = gtk.VPaned()
 
@@ -352,21 +474,14 @@ class TriColumnsWidget(gtk.VBox):
         haling.add(title)
         column2.pack_start(haling, False, False)
 
-        # list of actions
-        a = []
-        for i in range(0, 20):
-            # tmp action
-            action = Action("Show net {0}".format(i+1),
-                            "This component does something so so too difficult :D")
-            action.get_required_sources = lambda: [
-                ("Data 1", Source("Process", kth_type))];
+        # list of actions # TODO: there should be used call _load_actions
+        action = TestAction()
+        action_view_short = ActionViewShort(action)
+        action_view_short.set_callback(
+            "action-selected", self._select_action)
 
-            action_view_short = ActionViewShort(action)
-            action_view_short.set_callback(
-                "action-selected", self._select_action)
-            a.append(action_view_short)
+        actions = self._column([action_view_short])
 
-        actions = self._column(a)
         column2.pack_start(actions)
         paned2.pack1(column2, resize=True)
 
@@ -374,7 +489,8 @@ class TriColumnsWidget(gtk.VBox):
         # TODO: rename scw to more readable term
         self.scw = gtk.ScrolledWindow()
         self.scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        self.scw.add_with_viewport(ActionViewFull(action))
+        self.action_view_full = ActionViewFull()
+        self.scw.add_with_viewport(self.action_view_full)
         self.scw.set_size_request(-1, 30)
         paned2.pack2(self.scw)
 
@@ -394,23 +510,25 @@ class TriColumnsWidget(gtk.VBox):
         return scw
 
     def _select_action(self, action):
-        # full source view
-        children = self.scw.get_children()
-        for child in children:
-            self.scw.remove(child)
-        action_view = ActionViewFull(action)
-        self.scw.add_with_viewport(action_view)
-        self.scw.show_all()
-        # load required sources
-        children = self.column1.get_children()
-        for child in children:
-            if isinstance(child, gtk.ScrolledWindow):
-                self.column1.remove(child)
-        required_sources = action.get_required_sources()
-        s = [SourceView(source) for name, source in required_sources]
-        sources = self._column(s)
-        self.column1.pack_start(sources, True, True)
-        self.column1.show_all()
+        self.action_view_full.set_action(action)
+        self.action_view_full.show_all()
+#        # full source view
+#        children = self.scw.get_children()
+#        for child in children:
+#            self.scw.remove(child)
+#        action_view = ActionViewFull(action)
+#        self.scw.add_with_viewport(action_view)
+#        self.scw.show_all()
+#        # load required sources
+#        children = self.column1.get_children()
+#        for child in children:
+#            if isinstance(child, gtk.ScrolledWindow):
+#                self.column1.remove(child)
+#        required_sources = action.get_required_sources()
+#        s = [SourceView(source) for name, source in required_sources]
+#        sources = self._column(s)
+#        self.column1.pack_start(sources, True, True)
+#        self.column1.show_all()
 
     def _load_action(self):
         """ It runs a loader for sources. For button "Load" in toolbar. """
@@ -433,13 +551,19 @@ class TriColumnsWidget(gtk.VBox):
         response = dialog.run()
         if response == gtk.RESPONSE_OK:
             print "OK"
+            src = Source("/home/sur096/a.kth", types_repository.get_type("kth"))
+            self.sources_repository.add(src)
+
         elif response == gtk.RESPONSE_CANCEL:
             print "Closed,no files selected"
 
         dialog.destroy()
 
+    def _attach_source_action(self, source):
+        # TODO: depends on selected action will be attached source
+        print "Attached source: ", source
+
     def _load_modules(self):
         """ Load modules (actions). """
         pass
 
-# TODO: there should be (loaded) sources repository
