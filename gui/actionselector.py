@@ -25,6 +25,7 @@ from events import EventSource
 from stypes import repository as types_repository
 
 from stypes import KthType
+from stypes import CsType
 
 class Source:
 
@@ -119,6 +120,9 @@ class ViewSource(gtk.Alignment, EventSource):
         frame.add(table)
         self.add(frame)
 
+    def get_source(self):
+        return self.source
+
 class SourceRepository(EventSource):
 
     def __init__(self):
@@ -184,6 +188,17 @@ class ViewSourceRepository(gtk.VBox, EventSource):
 
     def set_filter(self, filter):
         self.filter = filter
+        if not self.filter:
+            for child in self.get_children():
+                child.show_all()
+            return
+
+        for child in self.get_children():
+            if isinstance(child, ViewSource):
+                if child.get_source().get_type().get_extension() in self.filter:
+                    child.show_all()
+                else:
+                    child.hide_all()
 
     def get_filter(self):
         return self.filter
@@ -244,8 +259,9 @@ class TestAction(Action):
             "This is only testing action (it is example of usage)")
 
         kth_type = KthType()
+        cs_type = CsType()
         self._add_parameter("input 1", kth_type)
-        self._add_parameter("input 2", kth_type)
+        self._add_parameter("input 2", cs_type)
 
 class StateIcon(gtk.DrawingArea):
 
@@ -337,6 +353,43 @@ class ActionViewShort(gtk.Alignment, EventSource):
     def _select_action(self, widget):
         self.emit_event("action-selected", self.action)
 
+class ParameterView(gtk.Table, EventSource):
+
+    def __init__(self, name, type):
+        gtk.Table.__init__(self, 1, 4, False)
+        EventSource.__init__(self)
+
+        self.set_border_width(2)
+
+        self.param_name = name
+        self.param_type = type
+        self.param_source = None
+
+        lbl_src_name = gtk.Label()
+        lbl_src_name.set_alignment(0, 0.5)
+        lbl_src_name.set_markup("<b>{0}</b>".format(self.param_name))
+        self.attach(lbl_src_name, 0, 1, 0, 1, xoptions=0)
+
+        lbl_src_type = gtk.Label()
+        lbl_src_type.set_alignment(0, 0.5)
+        lbl_src_type.set_markup(" ({0})".format(
+            self.param_type.get_extension()))
+        self.attach(lbl_src_type, 1, 2, 0, 1)
+
+        entry = gtk.Entry()
+        entry.set_size_request(100, -1)
+        entry.set_editable(False)
+        entry.connect("focus-in-event", self.filter_sources)
+        self.attach(entry, 2, 3, 0, 1, xoptions=gtk.FILL)
+
+        self.btn_detach = gtk.Button("Detach")
+        self.btn_detach.set_sensitive(False)
+        self.attach(self.btn_detach, 3, 4, 0, 1, xoptions=0)
+
+    def filter_sources(self, widget, event):
+        if self.param_source is None:
+            self.emit_event("filter-sources", self.param_type.get_extension())
+
 class ActionViewFull(gtk.VBox, EventSource):
 
     def __init__(self):
@@ -398,28 +451,11 @@ class ActionViewFull(gtk.VBox, EventSource):
 
         required_sources = action.get_required_sources()
         for name, type in required_sources:
-            hbox = gtk.HBox(False)
-            lbl_src_name = gtk.Label()
-            lbl_src_name.set_alignment(0, 0.5)
-            lbl_src_name.set_markup("<b>{0}</b>".format(name))
-            hbox.pack_start(lbl_src_name, False, False)
-
-            lbl_src_type = gtk.Label()
-            lbl_src_type.set_alignment(0, 0.5)
-            lbl_src_type.set_markup(" (*.{0})".format(
-                type.get_extension()))
-            hbox.pack_start(lbl_src_type, True, True)
-
-            entry = gtk.Entry()
-            entry.set_size_request(40, -1)
-            entry.set_editable(False)
-            hbox.pack_start(entry)
-
-            btn_choose = gtk.Button("Detach")
-            btn_choose.set_sensitive(False)
-            hbox.pack_start(btn_choose, False, False)
-
-            self.pack_start(hbox, False, False)
+            param_view = ParameterView(name, type)
+            param_view.set_callback(
+                "filter-sources",
+                lambda t: self.emit_event("filter-sources", t))
+            self.pack_start(param_view, False, False)
 
 class TriColumnsWidget(gtk.VBox):
 
@@ -436,7 +472,8 @@ class TriColumnsWidget(gtk.VBox):
         button.connect("clicked", lambda w: self._load_action())
         toolbar.pack_start(button, False, False)
 
-        button = gtk.Button("Store")
+        button = gtk.Button("Filter off")
+        button.connect("clicked", lambda w: self.w_source_repository.set_filter([]))
         toolbar.pack_start(button, False, False)
         self.pack_start(toolbar, False, False)
 
@@ -450,14 +487,14 @@ class TriColumnsWidget(gtk.VBox):
         haling.add(title)
         vbox.pack_start(haling, False, False)
 
-        w_source_repository = ViewSourceRepository(self.sources_repository)
-        w_source_repository.set_callback(
+        self.w_source_repository = ViewSourceRepository(self.sources_repository)
+        self.w_source_repository.set_callback(
             "attach-source", self._attach_source_action)
 
         scw = gtk.ScrolledWindow()
 
         scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        scw.add_with_viewport(w_source_repository)
+        scw.add_with_viewport(self.w_source_repository)
 
         vbox.pack_start(scw, True, True)
 
@@ -490,6 +527,8 @@ class TriColumnsWidget(gtk.VBox):
         self.scw = gtk.ScrolledWindow()
         self.scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
         self.action_view_full = ActionViewFull()
+        self.action_view_full.set_callback("filter-sources",
+                                           self._filter_sources_action)
         self.scw.add_with_viewport(self.action_view_full)
         self.scw.set_size_request(-1, 30)
         paned2.pack2(self.scw)
@@ -530,6 +569,10 @@ class TriColumnsWidget(gtk.VBox):
 #        self.column1.pack_start(sources, True, True)
 #        self.column1.show_all()
 
+    def _filter_sources_action(self, type):
+        print "Set filter: ", type
+        self.w_source_repository.set_filter([type])
+
     def _load_action(self):
         """ It runs a loader for sources. For button "Load" in toolbar. """
 
@@ -552,6 +595,10 @@ class TriColumnsWidget(gtk.VBox):
         if response == gtk.RESPONSE_OK:
             print "OK"
             src = Source("/home/sur096/a.kth", types_repository.get_type("kth"))
+            self.sources_repository.add(src)
+            src = Source("/home/sur096/b.cs", types_repository.get_type("cs"))
+            self.sources_repository.add(src)
+            src = Source("/home/sur096/c.kth", types_repository.get_type("kth"))
             self.sources_repository.add(src)
 
         elif response == gtk.RESPONSE_CANCEL:
