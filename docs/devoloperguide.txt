@@ -1,0 +1,20 @@
+
+Kaira Developer's Guide
+=======================
+
+This guide serves as a manual for developers. There are described the basic
+components of Kaira tool (http://verif.cs.vsb.cz/kaira).
+
+User's modules
+--------------
+
+Types
+~~~~~
+
+ ...
+
+Actions
+~~~~~~~
+
+ ...
+
