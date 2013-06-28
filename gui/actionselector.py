@@ -186,6 +186,9 @@ class ViewSourceRepository(gtk.VBox, EventSource):
         for source in sources:
             self.add_source(source)
 
+    def set_selected_parameter(self, name):
+        self.selected_parameter = name
+
     def set_filter(self, filter):
         self.filter = filter
         if not self.filter:
@@ -210,15 +213,16 @@ class ViewSourceRepository(gtk.VBox, EventSource):
         self.pack_start(w_source, False, False)
         w_source.show_all()
 
-class Action:
+class Action(EventSource):
 
     """ Action is the template for user actions. It should not be used directly.
     """
 
     def __init__(self, name, description):
+        EventSource.__init__(self)
         self.name = name
         self.description = description
-        self._parameters = [] # (name: type)
+        self._parameters = {} # (name: type)
         self.sources = {} # attached sources (name: source)
         self.state = "incomplete"
 
@@ -238,14 +242,34 @@ class Action:
             raise Exception("Incorrect '{0}' icon state".format(state))
 
     def get_required_sources(self): # interface
-        return self._parameters
+        return [(name, type) for name, type in self._parameters.items()]
 
     def get_processed_data(self): # interface
         """ Returns Source type. """
         return None
 
+    def attach_source(self, source, name=None):
+        if name is None:
+            attached = False
+            for param_name, type in self._parameters.items():
+                if source.get_type().compare(type) and param_name not in self.sources:
+                    self.sources[param_name] = source
+                    attached = True
+                    self.emit_event("source-attached", param_name, source)
+                    break
+
+            if not attached: # TODO: emit event "no free slot"
+                pass
+
+        elif source.get_type().compare(self._parameters[name]):
+            self.sources[name] = source
+            self.emit_event("source-attached", name, source)
+
+    def detach_source(self, name):
+        del self.sources[name]
+
     def _add_parameter(self, name, type):
-        self._parameters.append((name, type))
+        self._parameters[name] = type
 
     def run(self): # interface
         pass
@@ -363,7 +387,6 @@ class ParameterView(gtk.Table, EventSource):
 
         self.param_name = name
         self.param_type = type
-        self.param_source = None
 
         lbl_src_name = gtk.Label()
         lbl_src_name.set_alignment(0, 0.5)
@@ -376,19 +399,32 @@ class ParameterView(gtk.Table, EventSource):
             self.param_type.get_extension()))
         self.attach(lbl_src_type, 1, 2, 0, 1)
 
-        entry = gtk.Entry()
-        entry.set_size_request(100, -1)
-        entry.set_editable(False)
-        entry.connect("focus-in-event", self.filter_sources)
-        self.attach(entry, 2, 3, 0, 1, xoptions=gtk.FILL)
+        self.entry = gtk.Entry()
+        self.entry.set_size_request(100, -1)
+        self.entry.set_editable(False)
+        self.entry.connect("focus-in-event", self.choose_parameter)
+        self.attach(self.entry, 2, 3, 0, 1, xoptions=gtk.FILL)
 
         self.btn_detach = gtk.Button("Detach")
         self.btn_detach.set_sensitive(False)
+        self.btn_detach.connect("clicked", lambda w: self.detach_source())
         self.attach(self.btn_detach, 3, 4, 0, 1, xoptions=0)
 
-    def filter_sources(self, widget, event):
-        if self.param_source is None:
-            self.emit_event("filter-sources", self.param_type.get_extension())
+    def choose_parameter(self, widget, event):
+        self.emit_event("filter-sources", self.param_type.get_extension())
+        self.emit_event("select-parameter", self.param_name)
+
+    def set_source(self, source):
+        if source is not None:
+            self.entry.set_text(source.get_name())
+            self.btn_detach.set_sensitive(True)
+        else:
+            self.entry.set_text("")
+            self.btn_detach.set_sensitive(False)
+
+    def detach_source(self):
+        self.set_source(None)
+        self.emit_event("detach-source", self.param_name)
 
 class ActionViewFull(gtk.VBox, EventSource):
 
@@ -396,9 +432,23 @@ class ActionViewFull(gtk.VBox, EventSource):
         gtk.VBox.__init__(self)
         EventSource.__init__(self)
 
+        self.params_views = {}
         self.action = None
+        self.selected_parameter = None
+
+    def select_parameter(self, param_name):
+        self.selected_parameter = param_name
+
+    def get_selected_parameter(self):
+        return self.selected_parameter
+
+    def get_action(self):
+        return self.action
 
     def set_action(self, action):
+
+        self.action = action
+        self.action.set_callback("source-attached", self._attach_source)
 
         # remove old
         for comp in self.get_children():
@@ -451,11 +501,24 @@ class ActionViewFull(gtk.VBox, EventSource):
 
         required_sources = action.get_required_sources()
         for name, type in required_sources:
-            param_view = ParameterView(name, type)
-            param_view.set_callback(
+            self.params_views[name] = ParameterView(name, type)
+            self.params_views[name].set_callback(
                 "filter-sources",
                 lambda t: self.emit_event("filter-sources", t))
-            self.pack_start(param_view, False, False)
+            self.params_views[name].set_callback(
+                "select-parameter",
+                lambda n: self.emit_event("select-parameter", n))
+            self.params_views[name].set_callback("detach-source",
+                                                 self._detach_source)
+
+            self.pack_start(self.params_views[name], False, False)
+
+    def _attach_source(self, name, source):
+        self.params_views[name].set_source(source)
+
+    def _detach_source(self, name):
+        self.action.detach_source(name)
+        self.params_views[name].set_source(None)
 
 class TriColumnsWidget(gtk.VBox):
 
@@ -464,6 +527,7 @@ class TriColumnsWidget(gtk.VBox):
 
         # repository of loaded sources
         self.sources_repository = SourceRepository()
+        self.w_selected_action = ActionViewFull()
 
         # toolbar
         toolbar = gtk.HBox(False)
@@ -511,13 +575,14 @@ class TriColumnsWidget(gtk.VBox):
         haling.add(title)
         column2.pack_start(haling, False, False)
 
-        # list of actions # TODO: there should be used call _load_actions
+        # list of actions # TODO: there should be used call _load_actions ---->
         action = TestAction()
         action_view_short = ActionViewShort(action)
         action_view_short.set_callback(
             "action-selected", self._select_action)
 
         actions = self._column([action_view_short])
+        # --------------------------------------------------------------------<
 
         column2.pack_start(actions)
         paned2.pack1(column2, resize=True)
@@ -526,10 +591,11 @@ class TriColumnsWidget(gtk.VBox):
         # TODO: rename scw to more readable term
         self.scw = gtk.ScrolledWindow()
         self.scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        self.action_view_full = ActionViewFull()
-        self.action_view_full.set_callback("filter-sources",
-                                           self._filter_sources_action)
-        self.scw.add_with_viewport(self.action_view_full)
+        self.w_selected_action.set_callback("filter-sources",
+                                            self._filter_sources_action)
+        self.w_selected_action.set_callback("select-parameter",
+                                            self._select_parameter)
+        self.scw.add_with_viewport(self.w_selected_action)
         self.scw.set_size_request(-1, 30)
         paned2.pack2(self.scw)
 
@@ -549,28 +615,13 @@ class TriColumnsWidget(gtk.VBox):
         return scw
 
     def _select_action(self, action):
-        self.action_view_full.set_action(action)
-        self.action_view_full.show_all()
-#        # full source view
-#        children = self.scw.get_children()
-#        for child in children:
-#            self.scw.remove(child)
-#        action_view = ActionViewFull(action)
-#        self.scw.add_with_viewport(action_view)
-#        self.scw.show_all()
-#        # load required sources
-#        children = self.column1.get_children()
-#        for child in children:
-#            if isinstance(child, gtk.ScrolledWindow):
-#                self.column1.remove(child)
-#        required_sources = action.get_required_sources()
-#        s = [SourceView(source) for name, source in required_sources]
-#        sources = self._column(s)
-#        self.column1.pack_start(sources, True, True)
-#        self.column1.show_all()
+        self.w_selected_action.set_action(action)
+        self.w_selected_action.show_all()
+
+    def _select_parameter(self, param_name):
+        self.w_selected_action.select_parameter(param_name)
 
     def _filter_sources_action(self, type):
-        print "Set filter: ", type
         self.w_source_repository.set_filter([type])
 
     def _load_action(self):
@@ -607,10 +658,10 @@ class TriColumnsWidget(gtk.VBox):
         dialog.destroy()
 
     def _attach_source_action(self, source):
-        # TODO: depends on selected action will be attached source
-        print "Attached source: ", source
+        if self.w_selected_action.get_action() is not None:
+            selected_parameter = self.w_selected_action.get_selected_parameter()
+            self.w_selected_action.get_action().attach_source(source, selected_parameter)
 
     def _load_modules(self):
         """ Load modules (actions). """
         pass
-
