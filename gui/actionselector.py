@@ -22,10 +22,10 @@ import math
 import cairo
 import stypes
 from events import EventSource
-from stypes import repository as types_repository
+from stypes import repository as categories_repository
 
-from stypes import KthType
-from stypes import CsType
+from stypes import TracelogCategory
+from stypes import ControlSequenceCategory
 
 class Source:
 
@@ -74,7 +74,7 @@ class ViewSource(gtk.Alignment, EventSource):
         self.lbl_type.set_alignment(0, 0)
         self.w_name.set_text(source.get_name())
         self.lbl_type.set_markup(
-            "<i>{0}</i>".format(source.type.get_display_name()))
+            "<i>{0}</i>".format(source.type.get_name()))
 
         btn_attach = gtk.Button("Attach")
         btn_attach.connect(
@@ -170,7 +170,7 @@ class SourceRepository(EventSource):
         """
 
         return [source for source in self.repo
-                if source.get_type().get_extension() not in filter]
+                if source.get_type().get_id() not in filter]
 
 class ViewSourceRepository(gtk.VBox, EventSource):
 
@@ -198,7 +198,7 @@ class ViewSourceRepository(gtk.VBox, EventSource):
 
         for child in self.get_children():
             if isinstance(child, ViewSource):
-                if child.get_source().get_type().get_extension() in self.filter:
+                if child.get_source().get_type().get_id() in self.filter:
                     child.show_all()
                 else:
                     child.hide_all()
@@ -282,8 +282,8 @@ class TestAction(Action):
             "Test Action",
             "This is only testing action (it is example of usage)")
 
-        kth_type = KthType()
-        cs_type = CsType()
+        kth_type = TracelogCategory()
+        cs_type = ControlSequenceCategory()
         self._add_parameter("input 1", kth_type)
         self._add_parameter("input 2", cs_type)
 
@@ -396,7 +396,7 @@ class ParameterView(gtk.Table, EventSource):
         lbl_src_type = gtk.Label()
         lbl_src_type.set_alignment(0, 0.5)
         lbl_src_type.set_markup(" ({0})".format(
-            self.param_type.get_extension()))
+            self.param_type.get_short_name()))
         self.attach(lbl_src_type, 1, 2, 0, 1)
 
         self.entry = gtk.Entry()
@@ -411,7 +411,7 @@ class ParameterView(gtk.Table, EventSource):
         self.attach(self.btn_detach, 3, 4, 0, 1, xoptions=0)
 
     def choose_parameter(self, widget, event):
-        self.emit_event("filter-sources", self.param_type.get_extension())
+        self.emit_event("filter-sources", self.param_type.get_id())
         self.emit_event("select-parameter", self.param_name)
 
     def set_source(self, source):
@@ -634,22 +634,27 @@ class TriColumnsWidget(gtk.VBox):
                                        gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
 
-        for type in types_repository.get_registered_types():
+        for category in categories_repository.get_registered_categories():
             filter = gtk.FileFilter()
-            filter.set_name("{0} (*.{1})".format(
-                type.get_display_name(), type.get_extension()))
+            filter.set_name("{0} ({1})".format(
+                category.get_name(),
+                ", ".join(map(
+                    lambda s: "*.{0}".format(s),
+                    category.get_extensions()))))
+
             # TODO: should be there used also mime-type?
-            filter.add_pattern("*.{0}".format(type.get_extension()))
+            for extension in category.get_extensions():
+                filter.add_pattern("*.{0}".format(extension))
             dialog.add_filter(filter)
 
         response = dialog.run()
         if response == gtk.RESPONSE_OK:
             print "OK"
-            src = Source("/home/sur096/a.kth", types_repository.get_type("kth"))
+            src = Source("/home/sur096/a.kth", categories_repository.get_category("kth"))
             self.sources_repository.add(src)
-            src = Source("/home/sur096/b.cs", types_repository.get_type("cs"))
+            src = Source("/home/sur096/b.kcs", categories_repository.get_category("kcs"))
             self.sources_repository.add(src)
-            src = Source("/home/sur096/c.kth", types_repository.get_type("kth"))
+            src = Source("/home/sur096/c.kth", categories_repository.get_category("kth"))
             self.sources_repository.add(src)
 
         elif response == gtk.RESPONSE_CANCEL:

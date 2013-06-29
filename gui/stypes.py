@@ -19,60 +19,94 @@
 
 """ Supported types for actions selector """
 
-class Type:
+class IncorrectCategoryException(Exception):
 
-    def __init__(self, extension, display_name):
-        self._extension = extension
-        self._display_name = display_name
+    def __init__(self, value):
+        self.value = value
 
-    def get_extension(self):
-        return self._extension
+    def __str__(self):
+        return "The category '{0}' does not contain " \
+               "any supported extensions!".format(repr(self.value))
 
-    def get_display_name(self):
-        return self._display_name
+class Category:
+    """ Category gives similar types together. It is like types' container. """
+
+    def __init__(self, name, short_name, extensions):
+        """ Initialize of category of types.
+
+        Arguments:
+        name -- name of category
+        short_name -- short version of name
+        extensions -- array of supported types
+
+        """
+        self.name = name
+        self.short_name = short_name
+        if not isinstance(extensions, list):
+            raise Exception("The extensions must be a list")
+        self.extensions = extensions
+
+        self._current_type = None
+
+        self.loaders = {}
+        self.savers = {}
+
+    def get_id(self):
+        if not self.extensions:
+            raise IncorrectCategoryException(self.name)
+
+        return hash(tuple(self.extensions))
+
+    def get_name(self):
+        return self.name
+
+    def get_short_name(self):
+        return self.short_name
+
+    def get_extensions(self):
+        return self.extensions
+
+    def compare(self, category):
+        return self.get_id() == category.get_id()
 
     def load_data(self, source):
-        """ Loads the data and returns it. The default implementation throws
-        the exception, loader is not implemented.
-
-        Arguments:
-        source -- source object; usually some stream
-
-        """
-
-        raise Exception("Method for loading data is not implemented!")
+        pass # FIX: implemet me!
 
     def store_data(self, data):
-        """ Stores the data to a disk. The default implementation throws
-        the exception, method for storing data is not implemented.
+        pass # FIX: implemet me!
 
-        Arguments:
-        data -- data object which should be stored
+    def _add_load_function(type, function):
+        self.loaders[type] = function
 
-        """
+    def _add_save_function(type, function):
+        self.savers[type] = function
 
-        raise Exception("Method for storing data is not implemented!")
-
-class KthType(Type):
+class TracelogCategory(Category):
 
     def __init__(self):
-        Type.__init__(self, "kth", "Kaira tracelog header")
+        Category.__init__(self,
+                      "Kaira tracelog header",
+                      "Tracelog",
+                      ["kth"])
 
-class CsType(Type):
-
-    def __init__(self):
-        Type.__init__(self, "cs", "Control sequence")
-
-class TypesRepository:
+class ControlSequenceCategory(Category):
 
     def __init__(self):
-        self.types = {}
+        Category.__init__(self,
+                      "Control sequence",
+                      "Cont. seq.",
+                      ["kcs"])
 
-    def is_registered(self, type):
-        return type.get_extension() in self.types
+class CategoriesRepository:
 
-    def register_type(self, type):
-        """ Registers a new type if the type is already registered than
+    def __init__(self):
+        self.categories = {}
+
+    def is_registered(self, category):
+        return category.get_id() in self.categories
+
+    def register_category(self, category):
+        """ Registers a new type if the category is already registered than
         is throws the exception.
 
         Arguments:
@@ -80,27 +114,28 @@ class TypesRepository:
 
         """
 
-        if not self.is_registered(type):
-            self.types[type.get_extension()] = type
+        if not self.is_registered(category):
+            self.categories[category.get_id()] = category
         else:
             raise Exception(
-                "The type {0} - ({1}) is already registered".format(
-                    type.get_extension(), type.get_display_name()))
+                "The category '{1}' is already registered".format(
+                    category.get_name()))
 
-    def deregister_type(self, type):
-        if self.is_registered(type):
-            del self.types[type.get_extension()]
+    def deregister_category(self, category):
+        if self.is_registered(category):
+            del self.types[category.get_id()]
 
-    def get_type(self, extension):
-        if extension in self.types:
-            return self.types[extension]
+    def get_category(self, extension):
+        for id, category in self.categories.items():
+            if extension in category.get_extensions():
+                return category
 
         return None
 
-    def get_registered_types(self):
-        return [type for key, type in self.types.items()]
+    def get_registered_categories(self):
+        return [category for id, category in self.categories.items()]
 
 # default repository
-repository = TypesRepository()
-repository.register_type(KthType())
-repository.register_type(CsType())
+repository = CategoriesRepository()
+repository.register_category(TracelogCategory())
+repository.register_category(ControlSequenceCategory())
