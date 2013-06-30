@@ -98,9 +98,10 @@ class MainWindow(gtk.Window):
         self.notebook.remove_page(num)
         self.tablist.remove(tab)
 
-    def close_all_tabs(self, groups=None):
+    def close_all_tabs(self, groups=None, predicate_fn=None):
         for tab in self.tablist[:]:
-            if not groups or set(tab.mainmenu_groups).intersection(set(groups)):
+            if ((not groups or set(tab.mainmenu_groups).intersection(set(groups))) and
+                    predicate_fn is None or predicate_fn(tab)):
                 tab.close()
 
     def get_current_tab(self):
@@ -180,6 +181,11 @@ class MainWindow(gtk.Window):
         add("Hide error messages", self.app.hide_error_messages, "project")
         menu.append(gtk.SeparatorMenuItem())
         self.close_tab_item = add("Close tab", self.app.close_current_tab, key="W", ctrl=True)
+        add("Close all simulation tabs",
+            self.app.close_simulation_tabs,
+            key="W",
+            ctrl=True,
+            shift=True)
 
         menu = add_menu("_Edit")
 

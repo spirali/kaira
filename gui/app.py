@@ -272,6 +272,9 @@ class App:
         if force or tab.has_close_button():
             tab.close()
 
+    def close_simulation_tabs(self):
+        self.window.close_all_tabs(predicate_fn=lambda tab: isinstance(tab, simview.SimViewTab))
+
     def save_project_as(self):
         filename = self.run_file_dialog("Save project", "save", "Project", "*.proj")
         if filename is None:
