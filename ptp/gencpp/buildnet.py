@@ -193,6 +193,8 @@ def write_send_token(builder,
     if_condition = inscription.config.get("if")
 
     if if_condition:
+        if inscription.uid in reuse_tokens:
+            builder.line("bool $token_{0.uid}_used = true;", inscription)
         builder.if_begin(if_condition)
 
     if inscription.is_local():
@@ -258,7 +260,7 @@ def write_send_token(builder,
     if if_condition:
         builder.line("}} else {{")
         if inscription.uid in reuse_tokens:
-            builder.line("delete $token_{0};", reuse_tokens[inscription.uid])
+            builder.line("$token_{0.uid}_used = false;", inscription)
         builder.block_end()
 
 def write_remove_tokens(builder, net_expr, tr):
@@ -378,6 +380,13 @@ def write_fire_body(builder,
         for inscription in tr.get_token_inscriptions_in():
             if inscription.uid not in tr.reuse_tokens.values():
                 builder.line("delete $token_{0.uid};", inscription)
+        for inscription in tr.get_token_inscriptions_out():
+            if (inscription.config.get("if") and
+                inscription.uid in tr.reuse_tokens):
+                builder.if_begin("!$token_{0.uid}_used", inscription)
+                builder.line("delete $token_{0.uid};", inscription)
+                builder.block_end()
+
 
     if tr.need_trace():
         builder.if_begin("$tracelog")

@@ -85,6 +85,7 @@ def analyze_transition(tr):
             # Variable is not taken from input as token
             # or token is already reused --> reusage not possible
             continue
+
         reuse_tokens[inscription.uid] = token_uid
         used_tokens.append(token_uid)
 
