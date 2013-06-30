@@ -27,6 +27,8 @@ from stypes import repository as categories_repository
 from stypes import TracelogCategory
 from stypes import ControlSequenceCategory
 
+
+
 class Source:
 
     def __init__(self, name, type, data=None):
@@ -41,7 +43,7 @@ class Source:
         """
 
         self.name = name
-        self.type = type # SourceType
+        self.type = type # Category of source
         self.data = data
 
     def get_data(self):
@@ -123,95 +125,144 @@ class ViewSource(gtk.Alignment, EventSource):
     def get_source(self):
         return self.source
 
-class SourceRepository(EventSource):
+class Parameter(EventSource):
 
-    def __init__(self):
+    def __init__(self, name, type, array, required):
         EventSource.__init__(self)
 
-        self.repo = []
+        self.name = name
+        self.type = type
+        self.array = array
+        self.required = required
 
-    def add(self, source):
-        """ Adds a new source to the repository. Returns True if the
-        source is added, otherwise False.
+        self.real_attached = 0
+        self.sources = [None] * self.required
 
-        Arguments:
-        source -- object (actionselector.Source)
+    def get_name(self):
+        return self.name
 
-        """
+    def get_type(self):
+        return self.type
 
-        if source not in self.repo:
-            self.repo.append(source)
-            self.emit_event("add-source", source)
-            return True
-        return False
+    def is_array(self):
+        return self.array
 
-    def remove(self, source):
-        """ Removes the source from the repository. Returns True if the source
-        is removed, otherwise False.
+    def get_required(self):
+        return self.required
 
-        Arguments:
-        source -- source which should be removed.
+    def get_sources_count(self):
+        return self.real_attached
 
-        """
+    def is_empty(self):
+        return self.real_attached == 0
 
-        if source in self.repo:
-            idx = self.repo.index(source)
-            del self.repo[idx]
-            return True
-        return False
-
-    def get_sources(self, filter=[]):
-        """ Returns list of loaded sources. If the filter is not empty,
-        the sources are filtered by the extension of type.
+    def get_source(self, index=-1):
+        """ Returns a chosen source, default returns the last attached source.
 
         Arguments:
-        filter -- list of types extensions which will be excluded.
+        index -- index of chosen source
 
         """
+        if not self.sources or index >= len(self.sources):
+            return None
+        else:
+            return self.sources[index]
 
-        return [source for source in self.repo
-                if source.get_type().get_id() not in filter]
+    def attach_source(self, source, index=None):
+        if index is None: # attach
+            attached = False
+            for i in range(0, len(self.sources)):
+                if self.sources[i] is None:
+                    self.sources[i] = source
+                    attached = True
+                    break
+            if not attached:
+                self.sources.append(source)
 
-class ViewSourceRepository(gtk.VBox, EventSource):
-
-    def __init__(self, repository):
-        gtk.VBox.__init__(self)
-        EventSource.__init__(self)
-
-        self.filter = []
-        self.repository = repository
-        self.repository.set_callback("add-source", self.add_source)
-
-        sources = repository.get_sources(self.filter)
-        for source in sources:
-            self.add_source(source)
-
-    def set_selected_parameter(self, name):
-        self.selected_parameter = name
-
-    def set_filter(self, filter):
-        self.filter = filter
-        if not self.filter:
-            for child in self.get_children():
-                child.show_all()
+            self.real_attached += 1
+        elif index >= 0:
+            if index < len(self.sources):
+                self.sources[index] = source
+            else:
+                self.sources.append(source)
+            self.real_attached += 1
+        else: # no change
             return
+        self.emit_event("parameter-changed")
 
+    def detach_source(self, index):
+        if index >= 0 and index < len(self.sources):
+            if index < self.required:
+                self.sources[index] = None
+            else:
+                self.sources.pop(index)
+            self.real_attached -= 1
+            self.emit_event("parameter-changed")
+
+class ParameterView(gtk.Table, EventSource):
+
+    def __init__(self, parameter):
+        gtk.Table.__init__(self, 1, 4, False)
+        EventSource.__init__(self)
+
+        self.set_border_width(2)
+
+        self.parameter = parameter
+        self.parameter.set_callback(
+            "parameter-changed", self._actualize)
+
+        self._actualize()
+
+    def _actualize(self):
+        # remove
         for child in self.get_children():
-            if isinstance(child, ViewSource):
-                if child.get_source().get_type().get_id() in self.filter:
-                    child.show_all()
-                else:
-                    child.hide_all()
+            self.remove(child)
 
-    def get_filter(self):
-        return self.filter
+        # create new view
+        rows = self.parameter.get_sources_count() + 1
+        columns = 4
+        self.resize(rows, columns)
 
-    def add_source(self, source):
-        w_source = ViewSource(source)
-        w_source.set_callback("attach-source",
-                              lambda s: self.emit_event("attach-source", s))
-        self.pack_start(w_source, False, False)
-        w_source.show_all()
+        lbl_name = gtk.Label()
+        lbl_name.set_alignment(0, 0.5)
+        lbl_name.set_markup("<b>{0}</b>".format(self.parameter.get_name()))
+        self.attach(lbl_name, 0, 1, 0, 1, xoptions=0)
+
+        lbl_type = gtk.Label()
+        lbl_type.set_alignment(0, 0.5)
+        lbl_type.set_markup(
+            " ({0})".format(self.parameter.get_type().get_short_name()))
+        self.attach(lbl_type, 1, 2, 0, 1)
+
+        to = 1
+        if self.parameter.is_array():
+            to = self.parameter.get_sources_count() + 1
+            if self.parameter.get_required() > self.parameter.get_sources_count():
+                to = self.parameter.get_required()
+
+        for i in range(0, to):
+            entry = gtk.Entry()
+            entry.set_editable(False)
+            entry.connect("focus-in-event", self.choose_parameter, i)
+            attached_source = self.parameter.get_source(i)
+            if attached_source is not None:
+                entry.set_text(attached_source.get_name())
+            self.attach(entry, 2, 3, i, i+1, xoptions=gtk.FILL)
+
+            btn_detach = gtk.Button("Detach")
+            btn_detach.set_sensitive(attached_source is not None)
+            btn_detach.connect(
+                "clicked",
+                lambda w, index: self.parameter.detach_source(index), i)
+
+            self.attach(btn_detach, 3, 4, i, i+1, xoptions=0)
+
+        self.show_all()
+
+    def choose_parameter(self, widget, event, index):
+        print "IDX: ", index
+        self.emit_event("filter-sources", self.parameter.get_type().get_id())
+        self.emit_event("select-parameter", self.parameter.get_name(), index)
 
 class Action(EventSource):
 
@@ -222,8 +273,7 @@ class Action(EventSource):
         EventSource.__init__(self)
         self.name = name
         self.description = description
-        self._parameters = {} # (name: type)
-        self.sources = {} # attached sources (name: source)
+        self.parameters = []
         self.state = "incomplete"
 
     def get_name(self):
@@ -242,50 +292,47 @@ class Action(EventSource):
             raise Exception("Incorrect '{0}' icon state".format(state))
 
     def get_required_sources(self): # interface
-        return [(name, type) for name, type in self._parameters.items()]
+        return [(param.get_name(), param) for param in self.parameters]
 
     def get_processed_data(self): # interface
         """ Returns Source type. """
         return None
 
-    def attach_source(self, source, name=None):
-        if name is None:
-            attached = False
-            for param_name, type in self._parameters.items():
-                if source.get_type().compare(type) and param_name not in self.sources:
-                    self.sources[param_name] = source
-                    attached = True
-                    self.emit_event("source-attached", param_name, source)
-                    break
+    def attach_source(self, source, name=None, index=None):
+        for parameter in self.parameters:
+            if name is not None and parameter.get_name() == name:
+                parameter.attach_source(source, index)
+                return
+            elif source.get_type().compare(parameter.get_type()) and \
+                    (parameter.is_empty() or parameter.is_array()):
+                parameter.attach_source(source)
+                return
 
-            if not attached: # TODO: emit event "no free slot"
-                pass
-
-        elif source.get_type().compare(self._parameters[name]):
-            self.sources[name] = source
-            self.emit_event("source-attached", name, source)
+        # not attached source
+        self.emit_event("no-free-slot", source)
 
     def detach_source(self, name):
-        del self.sources[name]
+        for paramtere in self.parameters:
+            if parameter.get_name() == name:
+                parameter.detach_source()
 
-    def _add_parameter(self, name, type):
-        self._parameters[name] = type
+    def _add_parameter(self, name, type, array=False, required=1):
+        """ Adds a new argument.
+
+        Argumens:
+        name -- Name of argument.
+        type -- Type of argument (category).
+        array -- True if the argument is represented as an array,
+                 otherwise false.
+        required -- The default value is 1 (one argument is almost always
+                    required), but if it is an array, it determines a minimum
+                    length of the array.
+
+        """
+        self.parameters.append(Parameter(name, type, array, required))
 
     def run(self): # interface
         pass
-
-class TestAction(Action):
-
-    def __init__(self):
-        Action.__init__(
-            self,
-            "Test Action",
-            "This is only testing action (it is example of usage)")
-
-        kth_type = TracelogCategory()
-        cs_type = ControlSequenceCategory()
-        self._add_parameter("input 1", kth_type)
-        self._add_parameter("input 2", cs_type)
 
 class StateIcon(gtk.DrawingArea):
 
@@ -377,55 +424,6 @@ class ActionViewShort(gtk.Alignment, EventSource):
     def _select_action(self, widget):
         self.emit_event("action-selected", self.action)
 
-class ParameterView(gtk.Table, EventSource):
-
-    def __init__(self, name, type):
-        gtk.Table.__init__(self, 1, 4, False)
-        EventSource.__init__(self)
-
-        self.set_border_width(2)
-
-        self.param_name = name
-        self.param_type = type
-
-        lbl_src_name = gtk.Label()
-        lbl_src_name.set_alignment(0, 0.5)
-        lbl_src_name.set_markup("<b>{0}</b>".format(self.param_name))
-        self.attach(lbl_src_name, 0, 1, 0, 1, xoptions=0)
-
-        lbl_src_type = gtk.Label()
-        lbl_src_type.set_alignment(0, 0.5)
-        lbl_src_type.set_markup(" ({0})".format(
-            self.param_type.get_short_name()))
-        self.attach(lbl_src_type, 1, 2, 0, 1)
-
-        self.entry = gtk.Entry()
-        self.entry.set_size_request(100, -1)
-        self.entry.set_editable(False)
-        self.entry.connect("focus-in-event", self.choose_parameter)
-        self.attach(self.entry, 2, 3, 0, 1, xoptions=gtk.FILL)
-
-        self.btn_detach = gtk.Button("Detach")
-        self.btn_detach.set_sensitive(False)
-        self.btn_detach.connect("clicked", lambda w: self.detach_source())
-        self.attach(self.btn_detach, 3, 4, 0, 1, xoptions=0)
-
-    def choose_parameter(self, widget, event):
-        self.emit_event("filter-sources", self.param_type.get_id())
-        self.emit_event("select-parameter", self.param_name)
-
-    def set_source(self, source):
-        if source is not None:
-            self.entry.set_text(source.get_name())
-            self.btn_detach.set_sensitive(True)
-        else:
-            self.entry.set_text("")
-            self.btn_detach.set_sensitive(False)
-
-    def detach_source(self):
-        self.set_source(None)
-        self.emit_event("detach-source", self.param_name)
-
 class ActionViewFull(gtk.VBox, EventSource):
 
     def __init__(self):
@@ -434,10 +432,10 @@ class ActionViewFull(gtk.VBox, EventSource):
 
         self.params_views = {}
         self.action = None
-        self.selected_parameter = None
+        self.selected_parameter = (None, None)
 
-    def select_parameter(self, param_name):
-        self.selected_parameter = param_name
+    def select_parameter(self, param_name, index):
+        self.selected_parameter = (param_name, index)
 
     def get_selected_parameter(self):
         return self.selected_parameter
@@ -448,7 +446,8 @@ class ActionViewFull(gtk.VBox, EventSource):
     def set_action(self, action):
 
         self.action = action
-        self.action.set_callback("source-attached", self._attach_source)
+#        self.action.set_callback("source-attached", self._attach_source)
+        self.action.set_callback("no-free-slot", self._no_free_slot)
 
         # remove old
         for comp in self.get_children():
@@ -500,25 +499,132 @@ class ActionViewFull(gtk.VBox, EventSource):
         w_required_sources.hide()
 
         required_sources = action.get_required_sources()
-        for name, type in required_sources:
-            self.params_views[name] = ParameterView(name, type)
+        for name, parameter in required_sources:
+            self.params_views[name] = ParameterView(parameter)
             self.params_views[name].set_callback(
                 "filter-sources",
                 lambda t: self.emit_event("filter-sources", t))
             self.params_views[name].set_callback(
                 "select-parameter",
-                lambda n: self.emit_event("select-parameter", n))
-            self.params_views[name].set_callback("detach-source",
-                                                 self._detach_source)
+                lambda name, idx: self.emit_event("select-parameter", name, idx))
 
             self.pack_start(self.params_views[name], False, False)
 
-    def _attach_source(self, name, source):
-        self.params_views[name].set_source(source)
+    def _no_free_slot(self, source):
+        message = gtk.MessageDialog(type=gtk.MESSAGE_INFO,
+                                    buttons=gtk.BUTTONS_OK)
 
-    def _detach_source(self, name):
-        self.action.detach_source(name)
-        self.params_views[name].set_source(None)
+        message.set_markup("There is no free slot for source: '{0}'.".format(
+            source.get_name()))
+        message.run()
+        message.destroy()
+
+class SourceRepository(EventSource):
+
+    def __init__(self):
+        EventSource.__init__(self)
+
+        self.repo = []
+
+    def add(self, source):
+        """ Adds a new source to the repository. Returns True if the
+        source is added, otherwise False.
+
+        Arguments:
+        source -- object (actionselector.Source)
+
+        """
+
+        if source not in self.repo:
+            self.repo.append(source)
+            self.emit_event("add-source", source)
+            return True
+        return False
+
+    def remove(self, source):
+        """ Removes the source from the repository. Returns True if the source
+        is removed, otherwise False.
+
+        Arguments:
+        source -- source which should be removed.
+
+        """
+
+        if source in self.repo:
+            idx = self.repo.index(source)
+            del self.repo[idx]
+            return True
+        return False
+
+    def get_sources(self, filter=[]):
+        """ Returns list of loaded sources. If the filter is not empty,
+        the sources are filtered by the extension of type.
+
+        Arguments:
+        filter -- list of types extensions which will be excluded.
+
+        """
+
+        return [source for source in self.repo
+                if source.get_type().get_id() not in filter]
+
+class ViewSourceRepository(gtk.VBox, EventSource):
+
+    def __init__(self, repository):
+        gtk.VBox.__init__(self)
+        EventSource.__init__(self)
+
+        self.filter = []
+        self.repository = repository
+        self.repository.set_callback("add-source", self.add_source)
+
+        sources = repository.get_sources(self.filter)
+        for source in sources:
+            self.add_source(source)
+
+    def set_selected_parameter(self, name):
+        self.selected_parameter = name
+
+    def set_filter(self, filter):
+        self.filter = filter
+        if not self.filter:
+            for child in self.get_children():
+                child.show_all()
+            return
+
+        for child in self.get_children():
+            if isinstance(child, ViewSource):
+                if child.get_source().get_type().get_id() in self.filter:
+                    child.show_all()
+                else:
+                    child.hide_all()
+
+    def get_filter(self):
+        return self.filter
+
+    def add_source(self, source):
+        w_source = ViewSource(source)
+        w_source.set_callback("attach-source",
+                              lambda s: self.emit_event("attach-source", s))
+        self.pack_start(w_source, False, False)
+        w_source.show_all()
+
+# >>> TMP
+
+class TestAction(Action):
+
+    def __init__(self):
+        Action.__init__(
+            self,
+            "Test Action",
+            "This is only testing action (it is example of usage)")
+
+        kth_type = TracelogCategory()
+        cs_type = ControlSequenceCategory()
+        self._add_parameter("input 1", kth_type, array=True, required=3)
+        self._add_parameter("input 2", cs_type)
+
+# <<< TMP
 
 class TriColumnsWidget(gtk.VBox):
 
@@ -537,7 +643,7 @@ class TriColumnsWidget(gtk.VBox):
         toolbar.pack_start(button, False, False)
 
         button = gtk.Button("Filter off")
-        button.connect("clicked", lambda w: self.w_source_repository.set_filter([]))
+        button.connect("clicked", lambda w: self._filter_off_action())
         toolbar.pack_start(button, False, False)
         self.pack_start(toolbar, False, False)
 
@@ -614,12 +720,16 @@ class TriColumnsWidget(gtk.VBox):
         scw.add_with_viewport(column)
         return scw
 
+    def _filter_off_action(self):
+        self.w_selected_action.select_parameter(None, None)
+        self.w_source_repository.set_filter([])
+
     def _select_action(self, action):
         self.w_selected_action.set_action(action)
         self.w_selected_action.show_all()
 
-    def _select_parameter(self, param_name):
-        self.w_selected_action.select_parameter(param_name)
+    def _select_parameter(self, param_name, index):
+        self.w_selected_action.select_parameter(param_name, index)
 
     def _filter_sources_action(self, type):
         self.w_source_repository.set_filter([type])
@@ -665,7 +775,11 @@ class TriColumnsWidget(gtk.VBox):
     def _attach_source_action(self, source):
         if self.w_selected_action.get_action() is not None:
             selected_parameter = self.w_selected_action.get_selected_parameter()
-            self.w_selected_action.get_action().attach_source(source, selected_parameter)
+            self.w_selected_action.get_action().attach_source(source, *selected_parameter)
+
+            # after attach is canceled selected parameter, and turn filter off
+            self.w_selected_action.select_parameter(None, None)
+            self.w_source_repository.set_filter([])
 
     def _load_modules(self):
         """ Load modules (actions). """
