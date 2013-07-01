@@ -182,17 +182,19 @@ class Parameter(EventSource):
             self.real_attached += 1
         elif index >= 0:
             if index < len(self.sources):
+                if self.sources[index] is None:
+                    self.real_attached += 1
                 self.sources[index] = source
             else:
                 self.sources.append(source)
-            self.real_attached += 1
+                self.real_attached += 1
         else: # no change
             return
         self.emit_event("parameter-changed")
 
     def detach_source(self, index):
         if index >= 0 and index < len(self.sources):
-            if index < self.required:
+            if len(self.sources) - self.required < 0:
                 self.sources[index] = None
             else:
                 self.sources.pop(index)
