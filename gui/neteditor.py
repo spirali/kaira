@@ -160,7 +160,9 @@ class NetEditor(gtk.VBox):
     def redraw(self):
         self.canvas.redraw()
 
-    def net_changed(self):
+    def net_changed(self, net):
+        if net != self.net:
+            return
         self.canvas.config.configure()
         self.redraw()
 

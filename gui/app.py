@@ -113,11 +113,9 @@ class App:
 
     def set_project(self, project):
         self.project = project
-        self.project.set_callback("changed", self._project_changed)
         self.project.set_callback("filename_changed", self._project_filename_changed)
         self.init_tabs()
         self.window.console.reset()
-        self._project_changed()
         self._project_filename_changed()
 
     def init_tabs(self):
@@ -606,9 +604,6 @@ class App:
             error_messages = {}
             self._process_error_line(e.message, error_messages)
             self.project.set_error_messages(error_messages)
-
-    def _project_changed(self):
-        self.neteditor.net_changed()
 
     def _project_filename_changed(self):
         self.window.set_title("Kaira - {0} ({1})" \
