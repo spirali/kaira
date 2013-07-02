@@ -75,6 +75,7 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 				}
 			}
 			if (quit) {
+				global_time = next_time;
 				return;
 			}
 			if (next_time == ca::MAX_INT_TIME) {
@@ -184,5 +185,5 @@ void casr::main(RunConfiguration &run_configuration)
 	ca::NetDef *net_def = ca::defs[0]; // Take first definition
 	State state(run_configuration, net_def);
 	state.run();
-	std::cerr << "Kaira: Time = " << state.get_global_time() << "ns\n";
+	std::cerr << "Kaira: Time = " << state.get_global_time() / 1e6 << "ms\n";
 }
