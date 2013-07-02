@@ -59,7 +59,6 @@ void ca::check_parameters()
 
 int ca::main()
 {
-	check_parameters();
 
 	#ifdef CA_MPI
 	ServiceMessage *m = (ServiceMessage*) malloc(sizeof(ServiceMessage));
@@ -347,6 +346,8 @@ void ca::setup(int _defs_count, NetDef **_defs, bool start_process)
 
 void ca::spawn_net(int def_id)
 {
+	check_parameters();
+
 	#ifdef CA_SHMEM
 	for (int t = 0; t < process_count; t++) {
 		Net *net = processes[t]->spawn_net(processes[t]->get_thread(0), def_id, false);
