@@ -22,6 +22,8 @@ import os
 KAIRA_PTP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KAIRA_ROOT = os.path.dirname(KAIRA_PTP)
 
+KAIRA_CONFIG_INI = os.path.join(KAIRA_ROOT, "build", "config.ini")
+
 CAILIE_INCLUDE_DIR = "libs/cailie"
 CAILIE_LIB_DIR = "build/libs/cailie"
 

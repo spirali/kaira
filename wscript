@@ -1,5 +1,6 @@
 
 from waflib import Logs
+import os
 
 APPNAME = "Kaira"
 VERSION = "0.7"
@@ -30,6 +31,7 @@ def options(ctx):
                     default="")
 
     ctx.load("compiler_cxx")
+
 
 def configure(ctx):
     if ctx.options.icc:
@@ -93,6 +95,17 @@ def configure(ctx):
         Logs.pprint("CYAN",
                     "MPI support is disabled, because "
                     "no MPI implementation was found.")
+
+    conffile = ctx.bldnode.make_node("config.ini")
+    conffile.parent.mkdir()
+    myconf = []
+    myconf.append("[Main]")
+    myconf.append("VERSION: " + VERSION)
+    myconf.append("CXX: " + " ".join(ctx.env.CXX))
+    if mpi:
+        myconf.append("MPICXX: " + " ".join(ctx.all_envs["mpi"].CXX))
+    conffile.write("\n".join(myconf))
+    ctx.env.append_value('cfg_files', conffile.abspath())
 
 def build(ctx):
     ctx.recurse("libs/cailie")

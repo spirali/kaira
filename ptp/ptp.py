@@ -1,10 +1,21 @@
 #!/usr/bin/env python
 import sys
+import traceback
+import argparse
+import ConfigParser
+
+import base.paths
+
+config = ConfigParser.RawConfigParser()
+if not config.read(base.paths.KAIRA_CONFIG_INI):
+    print "File '{0}' was not found.".format(
+        base.paths.KAIRA_CONFIG_INI)
+    print "Run './waf configure' in Kaira top directory"
+    sys.exit(1)
+
 import base.project as project
 from base.utils import PtpException
 import gencpp.targetenv
-import traceback
-import argparse
 
 debug_mode = False
 

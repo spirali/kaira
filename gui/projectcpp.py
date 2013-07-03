@@ -24,7 +24,6 @@ class ProjectCppBase(Project):
     def __init__(self, file_name):
         Project.__init__(self, file_name)
         self.build_options = {
-            "CC" : "g++",
             "CFLAGS" : "-O2",
             "LIBS" : ""
         }
@@ -54,7 +53,6 @@ class ProjectCpp(ProjectCppBase):
     def __init__(self, file_name):
         ProjectCppBase.__init__(self, file_name)
         self.build_options = {
-            "CC" : "g++",
             "CFLAGS" : "-O2",
             "LIBS" : ""
         }
