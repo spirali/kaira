@@ -433,7 +433,7 @@ class TokenBox(CanvasItem):
     def draw(self, cr):
         w_size = utils.text_size(cr, "W")[1] + 6
 
-        all =  self.tokens + self.new_tokens + self.removed_tokens
+        all =  self.removed_tokens + self.tokens + self.new_tokens
         if not all:
             return
 
