@@ -244,7 +244,7 @@ class EdgeInscription(utils.EqMixin):
             raise utils.PtpException("Input edges cannot contain '@'",
                 self.source)
 
-        self.check_config(("bulk", "guard", "svar", "filter", "from"))
+        self.check_config(("bulk", "guard", "svar", "filter", "from", "sort_by_source"))
 
         if self.check_config_with_expression("svar", variable=True):
             decls = self.edge.transition.get_input_decls()
@@ -274,6 +274,10 @@ class EdgeInscription(utils.EqMixin):
                                      "bool",
                                      self.source)
         self.check(checker)
+
+        if "sort_by_source" in self.config and "bulk" not in self.config:
+            raise utils.PtpException("Configuration option 'sort_by_source' "
+                                     "can be used only with 'bulk'")
 
     def check_edge_out(self, checker):
         self.check_config(("bulk", "multicast", "if"))
@@ -327,7 +331,9 @@ class EdgeInscription(utils.EqMixin):
         return not self.is_multicast()
 
     def is_source_reader(self):
-        return "svar" in self.config or "from" in self.config
+        return "svar" in self.config or \
+               "from" in self.config or \
+               "sort_by_source" in self.config
 
     def has_same_pick_rule(self, inscription):
         return (inscription.config.get("filter") == self.config.get("filter") and

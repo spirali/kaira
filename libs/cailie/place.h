@@ -88,7 +88,19 @@ template <typename T> class PlaceWithSource : public Place<T>
 
 		void overtake(PlaceWithSource<T> &place) {
 			place.put_into(this->token_list);
+			place.sources.clear();
 			sources = place.sources;
+		}
+
+		void sorted_put_into(TokenList<T> &list) {
+			std::vector<std::pair<Token<T>*,int> > v(sources.begin(), sources.end());
+			std::sort(v.begin(), v.end(), sort_helper);
+			typename std::vector<std::pair<Token<T>*,int> >::iterator i;
+			for (i = v.begin(); i != v.end(); i++) {
+				remove(i->first);
+				list.add_token(i->first);
+			}
+			sources.clear();
 		}
 
 		void copy_tokens(TokenList<T> &list) {
@@ -158,6 +170,11 @@ template <typename T> class PlaceWithSource : public Place<T>
 	protected:
 		std::map<Token<T>*, int> sources;
 		int default_source;
+
+		static int sort_helper(const std::pair<Token<T>*, int> &p1,
+							   const std::pair<Token<T>*, int> &p2) {
+			return p1.second < p2.second;
+		}
 };
 
 template<typename T> void pack(Packer &packer, Place<T> &place)

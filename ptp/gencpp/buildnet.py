@@ -312,7 +312,12 @@ def write_fire_body(builder,
 
 
                 builder.line("{0} {1};", inscription.type, inscription.expr)
-                builder.line("$n->place_{0.id}.put_into({1});", place, inscription.expr)
+                if "sort_by_source" in inscription.config:
+                        builder.line("$n->place_{0.id}.sorted_put_into({1});",
+                                     place,
+                                     inscription.expr)
+                else:
+                        builder.line("$n->place_{0.id}.put_into({1});", place, inscription.expr)
     else:
        for edge in tr.get_bulk_edges_in():
            inscription = edge.inscriptions[0]
@@ -394,7 +399,8 @@ def write_fire_body(builder,
         builder.block_end()
 
 def write_full_fire(builder, tr, locking=True):
-    builder.line("ca::FireResult Transition_{0.id}::full_fire(ca::ThreadBase *$thread, ca::NetBase *$net)",
+    builder.line("ca::FireResult Transition_{0.id}::full_fire"
+                     "(ca::ThreadBase *$thread, ca::NetBase *$net)",
                  tr)
     builder.block_begin()
     builder.line("ca::Context ctx($thread, $net);")
@@ -419,7 +425,8 @@ def write_enable_check(builder, tr):
     builder.block_end()
 
 def write_fire_phase1(builder, tr):
-    builder.line("void *Transition_{0.id}::fire_phase1(ca::ThreadBase *$thread, ca::NetBase *$net)", tr)
+    builder.line("void *Transition_{0.id}::fire_phase1"
+                     "(ca::ThreadBase *$thread, ca::NetBase *$net)", tr)
     builder.block_begin()
     builder.line("ca::Context ctx($thread, $net);")
 
@@ -708,7 +715,9 @@ def write_init_net(builder, net):
         if areas == []:
             builder.if_begin("$pid == 0")
         else:
-            conditions = [ builder.expand("std::find($area_{0.id}.begin(), $area_{0.id}.end(), $pid) !="
+            conditions = [ builder.expand(
+                           "std::find($area_{0.id}.begin(), "
+                           "$area_{0.id}.end(), $pid) !="
                            " $area_{0.id}.end()", area) for area in areas ]
             builder.if_begin(" && ".join(conditions))
 
@@ -754,7 +763,8 @@ def write_spawn(builder, net):
     builder.block_end()
 
 def write_reports_method(builder, net):
-    builder.write_method_start("void write_reports_content(ca::ThreadBase *thread, ca::Output &output)")
+    builder.write_method_start("void write_reports_content"
+                                   "(ca::ThreadBase *thread, ca::Output &output)")
     for place in net.places:
         builder.line('output.child("place");')
         builder.line('output.set("id", {0.id});', place)
@@ -779,7 +789,8 @@ def write_reports_method(builder, net):
 
 def write_receive_method(builder, net):
     builder.write_method_start(
-        "void receive(ca::ThreadBase *$thread, int from_process, int place_pos, ca::Unpacker &unpacker)")
+        "void receive(ca::ThreadBase *$thread, int from_process, "
+            "int place_pos, ca::Unpacker &unpacker)")
     builder.line("switch(place_pos) {{")
     for edge in net.get_edges_out():
         if not edge.is_local():
