@@ -146,6 +146,9 @@ class Net:
     def transitions(self):
         return [ item for item in self.items if item.is_transition() ]
 
+    def edges(self):
+        return [ item for item in self.items if item.is_edge() ]
+
     def areas(self):
         return [ item for item in self.items if item.is_area() ]
 
@@ -447,10 +450,10 @@ class Transition(NetElement):
             e.append(self.xml_code_element())
 
         for edge in self.edges_to(postprocess=True):
-            e.append(edge.create_xml_export_element("edge-in"))
+            e.append(edge.create_xml_export_element("edge-in", build_config))
 
         for edge in self.edges_from(postprocess=True):
-            e.append(edge.create_xml_export_element("edge-out"))
+            e.append(edge.create_xml_export_element("edge-out", build_config))
 
         if build_config.tracing and self.tracing:
             for t in self.tracing:
@@ -554,6 +557,9 @@ class Edge(NetItem):
 
     z_level = 1
 
+    size_substitution = False
+    size_substitution_code = ""
+
     def __init__(self, net, id, from_item, to_item, points):
         NetItem.__init__(self, net, id)
         self.from_item = from_item
@@ -565,6 +571,20 @@ class Edge(NetItem):
                                        "inscription",
                                        self.line.get_relative_placement(None),
                                        "")
+
+    def get_size_substitution(self):
+        return self.size_substitution
+
+    def set_size_substitution(self, value):
+        self.size_substitution = value
+        self.changed()
+
+    def get_size_substitution_code(self):
+        return self.size_substitution_code
+
+    def set_size_substitution_code(self, value):
+        self.size_substitution_code = value
+        self.changed()
 
     def simple_copy(self):
         """ Copy of edge that preserves topological properties:
@@ -662,13 +682,18 @@ class Edge(NetItem):
             pe.set("x", str(position[0]))
             pe.set("y", str(position[1]))
             e.append(pe)
+
+        if self.size_substitution:
+            element = xml.Element("size-substitution")
+            element.text = self.size_substitution_code
+            e.append(element)
         return e
 
     def get_all_points(self):
         sp, ep = self.get_end_points()
         return [sp] + [ p.get_position() for p in self.points ] + [ep]
 
-    def create_xml_export_element(self, name):
+    def create_xml_export_element(self, name, build_config):
         e = xml.Element(name)
         e.set("id", str(self.id))
         if self.from_item.is_place():
@@ -676,6 +701,12 @@ class Edge(NetItem):
         else:
             e.set("place-id", str(self.to_item.get_id()))
         e.set("expr", self.inscription.text)
+
+        if build_config.substitutions and self.size_substitution:
+            element = xml.Element("size-substitution")
+            element.text = self.size_substitution_code
+            e.append(element)
+
         return e
 
 
@@ -929,6 +960,11 @@ def load_edge(element, net, loader):
     else: # Backward compitabality
         if element.get("inscription") is not None:
             edge.inscription.text = xml_str(element, "inscription")
+
+    if element.find("size-substitution") is not None:
+        edge.size_substitution = True
+        edge.size_substitution_code = element.find("size-substitution").text
+
 
 def load_area(element, net, loader):
     id = loader.get_id(element)

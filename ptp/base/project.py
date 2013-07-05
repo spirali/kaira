@@ -161,7 +161,10 @@ def load_edge_in(element, project, net, transition):
                      for (config, expr, target) in
                          project.parse_edge_expression(element.get("expr"),
                                                        get_source(element, "inscription")) ]
-    return Edge(id, transition, net.get_place(place_id), inscriptions)
+    edge = Edge(id, transition, net.get_place(place_id), inscriptions)
+    if element.find("size-substitution") is not None:
+        edge.size_substitution = element.find("size-substitution").text
+    return edge
 
 def load_edge_out(element, project, net, transition):
     # Loading edge-in and edge-out are now same

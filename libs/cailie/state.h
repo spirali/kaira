@@ -62,13 +62,29 @@ namespace ca {
 								   int edge_id,
 								   int tokens_count,
 								   const ca::Packer &packer) {
+						send(target, net, edge_id, tokens_count, packer, packer.get_size());
+					}
+
+					void send(int target,
+								   ca::NetBase *net,
+								   int edge_id,
+								   int tokens_count,
+								   const ca::Packer &packer,
+								   size_t fake_size) {
 						std::vector<int> a(1);
 						a[0] = target;
-						send_multicast(a, net, edge_id, tokens_count, packer);
+						send_multicast(a, net, edge_id, tokens_count, packer, fake_size);
 					}
 
 					void send_multicast(const std::vector<int> &targets, ca::NetBase *net,
 						int edge_id, int tokens_count, const ca::Packer &packer) {
+							send_multicast(
+								targets, net, edge_id, tokens_count, packer, packer.get_size());
+					}
+
+					void send_multicast(const std::vector<int> &targets, ca::NetBase *net,
+						int edge_id, int tokens_count,
+						const ca::Packer &packer, size_t fake_size) {
 							std::vector<int>::const_iterator i;
 							ca::Tokens *data = (ca::Tokens*) packer.get_buffer();
 							data->edge_id = edge_id;
@@ -91,10 +107,9 @@ namespace ca {
 									packet.data = malloc(packer.get_size());
 									memcpy(packet.data, data, packer.get_size());
 								}
-								state->packet_preprocess(process_id, target, packet);
+								state->packet_preprocess(process_id, target, packet, fake_size);
 								state->add_packet(process_id, target, packet);
 							}
-
 					}
 
 				protected:
@@ -299,7 +314,8 @@ namespace ca {
 			}
 
 			// Pre-process packet before send
-			virtual void packet_preprocess(int origin_id, int target_id, PacketT &packet) {}
+			virtual void packet_preprocess(
+				int origin_id, int target_id, PacketT &packet, size_t fake_size) {}
 
 			bool receive(int process_id, int origin_id, bool free_data=true) {
 				PacketQueue &pq = packets[process_id * ca::process_count + origin_id];

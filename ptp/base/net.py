@@ -69,6 +69,8 @@ class Declarations:
 
 class Edge(utils.EqMixin):
 
+    size_substitution = None
+
     def __init__(self, id, transition, place, inscriptions):
         self.id = id
         self.uid = utils.get_unique_id()
@@ -103,11 +105,24 @@ class Edge(utils.EqMixin):
         for inscription in self.inscriptions:
             inscription.check_edge_in(checker)
 
+        if self.size_substitution:
+            raise utils.PtpException(
+                "Size substition can be used only for output edges",
+                self.source)
+
     def check_edge_out(self, checker):
         self.check(checker)
 
         for inscription in self.inscriptions:
             inscription.check_edge_out(checker)
+
+        if self.size_substitution:
+            decls = self.transition.net.project.get_minimal_decls()
+            decls.set("size", "size_t", self.source)
+            checker.check_expression(self.size_substitution,
+                                     decls,
+                                     "size_t",
+                                     self.source)
 
     def get_decls(self):
         decls = Declarations(self.source)

@@ -403,6 +403,14 @@ class NetEditor(gtk.VBox):
                 item.get_time_substitution_code,
                 item.set_time_substitution_code)
 
+        if item.is_edge():
+            self._add_attribute_checkbox_code_editor(
+                "Size substitution",
+                item.get_size_substitution(),
+                item.set_size_substitution,
+                item.get_size_substitution_code,
+                item.set_size_substitution_code)
+
     def _add_attribute_objlist(self, text, objlist, add_fn, edit_fn, remove_fn):
         label = gtk.Label(text)
         self.attribute_box.pack_start(label, False, False)

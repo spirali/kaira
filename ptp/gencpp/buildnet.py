@@ -187,6 +187,20 @@ def write_send_token(builder,
                              net_expr,
                              inscription.edge.place.get_transitions_out())
 
+    def send_packer(inscription, sendtype, count, target):
+        if inscription.edge.size_substitution:
+            builder.line("size_t size = $packer.get_size();")
+            builder.line("size_t fake_size = {0};", inscription.edge.size_substitution)
+            pattern = "$thread->send{0}({4}, {3}, {1}, {2}, $packer, fake_size);"
+        else:
+            pattern = "$thread->send{0}({4}, {3}, {1}, {2}, $packer);"
+        builder.line(pattern,
+                     sendtype,
+                     inscription.edge.id,
+                     count,
+                     net_expr,
+                     target)
+
     if reuse_tokens is None:
         reuse_tokens = {}
 
@@ -236,24 +250,23 @@ def write_send_token(builder,
         if inscription.is_token(): # Pack token edge
             builder.line("ca::Packer $packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
             builder.line("ca::pack($packer, {0});", inscription.expr)
-            builder.line("$thread->send{0}({4}, {3}, {1}, {2}, $packer);",
-                         sendtype,
-                         inscription.edge.id,
-                         1,
-                         net_expr,
-                         target)
+            send_packer(inscription, sendtype, 1, target)
 
         elif inscription.is_bulk(): # Bulk edge
             # TODO: Pack in one step if type is directly packable
             expr = inscription.expr
             builder.line("ca::Packer $packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
             builder.line("{0}.pack_tokens($packer);", expr);
-            builder.line("$thread->send{0}({1}, {3}, {2}, ({4}).size(), $packer);",
-                   sendtype, target, inscription.edge.id, net_expr, expr)
+            send_packer(inscription, sendtype, "({0}).size()".format(expr), target)
+
         if trace_send:
             builder.if_begin("$tracelog")
-            builder.line("$tracelog->event_send_part2({0}, $packer.get_size(), {1.id});",
-                target, inscription.edge)
+            if inscription.edge.size_substitution:
+                size = "fake_size"
+            else:
+                size = builder.expand("$packer.get_size()")
+            builder.line("$tracelog->event_send_part2({0}, {2}, {1.id});",
+                target, inscription.edge, size)
             builder.block_end()
         builder.block_end()
 

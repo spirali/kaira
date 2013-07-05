@@ -24,9 +24,16 @@ class ThreadBase {
 
 		TraceLog* get_tracelog() { return tracelog; }
 
-		virtual void send(int target, NetBase *net, int edge_id, int tokens_count, const Packer &packer) = 0;
+		virtual void send(int target, NetBase *net, int edge_id,
+						int tokens_count, const Packer &packer) = 0;
 		virtual void send_multicast(const std::vector<int> &targets, NetBase *net,
 			int edge_id, int tokens_count, const Packer &packer) = 0;
+
+		/* Methods for simulated run where packet with fake size can be sent */
+		virtual void send(int target, NetBase *net, int edge_id,
+						int tokens_count, const Packer &packer, size_t fake_size) {}
+		virtual void send_multicast(const std::vector<int> &targets, NetBase *net,
+			int edge_id, int tokens_count, const Packer &packer, size_t fake_size) {};
 
 	protected:
 		int id;

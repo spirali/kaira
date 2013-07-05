@@ -155,11 +155,11 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 		return ti.release_time;
 	}
 
-	void packet_preprocess(int origin_id, int target_id, Packet &packet) {
+	void packet_preprocess(int origin_id, int target_id, Packet &packet, size_t fake_size) {
 	    ControlledTimeTraceLog *tracelog =
 			(ControlledTimeTraceLog*) get_tracelog(origin_id, 0);
 		packet.release_time = tracelog->get_time() +
-			run_configuration.packet_time(origin_id, target_id, packet.size);
+			run_configuration.packet_time(origin_id, target_id, fake_size);
 	}
 
 	protected:
