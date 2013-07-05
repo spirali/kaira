@@ -92,6 +92,8 @@ class NetEditor(gtk.VBox):
         self.switch_to_net(self.get_net(), False)
         self.on_undomanager_changed()
 
+        self.project.set_callback("changed", self._project_changed)
+
     def get_net(self):
         return self.netlist.selected_object()
 
@@ -159,12 +161,6 @@ class NetEditor(gtk.VBox):
 
     def redraw(self):
         self.canvas.redraw()
-
-    def net_changed(self, net):
-        if net != self.net:
-            return
-        self.canvas.config.configure()
-        self.redraw()
 
     def undo(self):
         if self.undo_manager.has_undo():
@@ -483,6 +479,12 @@ class NetEditor(gtk.VBox):
         self.attribute_box.pack_start(editor, False, False, 0)
         self.attribute_widgets.append(editor)
         return editor
+
+    def _project_changed(self, obj):
+        if obj != self.net and obj != "error_messages":
+            return
+        self.canvas.config.configure()
+        self.redraw()
 
 
 class NetList(ObjectTree):

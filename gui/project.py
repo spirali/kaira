@@ -196,7 +196,7 @@ class Project(EventSource):
 
     def set_error_messages(self, messages):
         self.error_messages = messages
-        self.changed()
+        self.changed("error_messages")
 
     def get_item(self, id):
         for net in self.nets:
@@ -220,12 +220,12 @@ class Project(EventSource):
         else:
             return None
 
-    def changed(self):
+    def changed(self, obj=None):
         self.generator = None # Invalidate generator cache
-        self.emit_event("changed")
+        self.emit_event("changed", obj)
 
     def _net_changed(self, net):
-        self.changed()
+        self.changed(net)
 
     def as_xml(self):
         root = xml.Element("project")
