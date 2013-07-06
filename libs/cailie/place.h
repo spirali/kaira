@@ -172,7 +172,7 @@ template <typename T> class PlaceWithSource : public Place<T>
 		int default_source;
 
 		static int sort_helper(const std::pair<Token<T>*, int> &p1,
-							   const std::pair<Token<T>*, int> &p2) {
+				   const std::pair<Token<T>*, int> &p2) {
 			return p1.second < p2.second;
 		}
 };

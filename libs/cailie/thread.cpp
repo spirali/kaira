@@ -160,6 +160,7 @@ Net * Thread::spawn_net(int def_index)
 	return process->spawn_net(this, def_index, true);
 }
 
+/*
 int Thread::get_new_msg_id()
 {
 	if (tracelog) {
@@ -172,5 +173,5 @@ int Thread::get_new_msg_id()
 		return 0;
 	}
 }
-
+*/
 

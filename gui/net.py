@@ -66,7 +66,6 @@ class Net:
         if item.id is None:
             item.id = self.new_id()
         self.items.append(item)
-        self.items.sort(key = lambda i: i.z_level, reverse = True)
         self.changed()
 
     def set_name(self, name):
@@ -225,8 +224,6 @@ class Net:
 
 
 class NetItem(object):
-
-    z_level = 0
 
     def __init__(self, net, id):
         self.net = net
@@ -555,8 +552,6 @@ class Place(NetElement):
 
 class Edge(NetItem):
 
-    z_level = 1
-
     size_substitution = False
     size_substitution_code = ""
 
@@ -785,8 +780,6 @@ class NetArea(RectItem):
 
 
 class InterfaceBox(RectItem):
-
-    z_level = -2
 
     def is_interfacebox(self):
         return True

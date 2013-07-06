@@ -57,21 +57,11 @@ class Process {
 		void start_and_join();
 		void clear();
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
-
-		int get_threads_count() const { return threads_count; }
-		int get_process_count() const { return process_count; }
-		int get_process_id() const { return process_id; }
-
 		void quit_all(Thread *thread);
 		void quit();
 
-		Net * get_net() { return net; }
-
 		Net * spawn_net(Thread *thread, int def_index, bool globally);
-
 		Thread *get_thread(int id);
-
-		bool quit_flag;
 
 		void send(int target, Net * net, int edge_id, int tokens_count,
 			const Packer &packer, Thread *thread);
@@ -92,6 +82,25 @@ class Process {
 
 		void broadcast_packet(int tag, void *data, size_t size, Thread *thread, int exclude = -1);
 		void write_header(FILE *file);
+
+
+		int get_threads_count() const {
+			return threads_count;
+		}
+
+		int get_process_count() const {
+			return process_count;
+		}
+
+		int get_process_id() const {
+			return process_id;
+		}
+
+		Net * get_net() const {
+			return net;
+		}
+
+		bool quit_flag;
 	protected:
 
 		struct EarlyMessage {

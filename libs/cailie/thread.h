@@ -14,7 +14,6 @@ class ThreadBase {
 		ThreadBase(int id = -1, TraceLog *tracelog = NULL)
 			: id(id), tracelog(tracelog) {}
 
-		int get_id() { return id; }
 		virtual ~ThreadBase() {}
 
 		virtual void quit_all() = 0;
@@ -22,7 +21,6 @@ class ThreadBase {
 		virtual int get_threads_count() const = 0;
 		virtual int get_process_id() const = 0;
 
-		TraceLog* get_tracelog() { return tracelog; }
 
 		virtual void send(int target, NetBase *net, int edge_id,
 						int tokens_count, const Packer &packer) = 0;
@@ -34,6 +32,14 @@ class ThreadBase {
 						int tokens_count, const Packer &packer, size_t fake_size) {}
 		virtual void send_multicast(const std::vector<int> &targets, NetBase *net,
 			int edge_id, int tokens_count, const Packer &packer, size_t fake_size) {};
+
+		int get_id() {
+				return id;
+		}
+
+		TraceLog* get_tracelog() {
+				return tracelog;
+		}
 
 	protected:
 		int id;
@@ -49,20 +55,17 @@ class Thread : public ThreadBase {
 		void run_scheduler();
 		void run_one_step();
 
-		int get_process_id() const { return process->get_process_id(); }
-		int get_process_count() const { return process->get_process_count(); }
-		int get_threads_count() const { return process->get_threads_count(); }
-
-		#ifdef CA_MPI
-		MpiRequests * get_requests() { return &requests; }
-		#endif
-
 		void add_message(ThreadMessage *message);
 		bool process_thread_messages();
 		int process_messages();
 		void clean_thread_messages();
 		void process_message(ThreadMessage *message);
+		Net * spawn_net(int def_index);
 		void quit_all();
+
+		#ifdef CA_MPI
+		MpiRequests * get_requests() { return &requests; }
+		#endif
 
 		void send(int target, NetBase *net, int edge_id, int tokens_count, const Packer &packer) {
 			// Thread can be run only over standard nets so we can safely cast
@@ -76,17 +79,27 @@ class Thread : public ThreadBase {
 		}
 		Process * get_process() const { return process; }
 
-		Net * spawn_net(int def_index);
+
+		int get_process_id() const {
+				return process->get_process_id();
+		}
+
+		int get_process_count() const {
+				return process->get_process_count();
+		}
+
+		int get_threads_count() const {
+				return process->get_threads_count();
+		}
 
 		void set_process(Process *process, int id) {
 			this->process = process;
 			this->id = id;
 		}
 
-		void set_tracelog(TraceLog *tracelog, int id) { this->tracelog = tracelog; this->msg_id = id; }
-		int get_msg_id() { return msg_id; };
-		int get_new_msg_id();
-
+		void set_tracelog(TraceLog *tracelog) {
+				this->tracelog = tracelog;
+		}
 
 	protected:
 		Process *process;
@@ -97,8 +110,6 @@ class Thread : public ThreadBase {
 		#ifdef CA_MPI
 		MpiRequests requests;
 		#endif
-
-		int msg_id;
 };
 
 }

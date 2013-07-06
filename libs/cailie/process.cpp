@@ -165,9 +165,7 @@ Process::Process(
 
 	if (tracelog_size > 0) {
 		for (int t = 0; t < threads_count; t++) {
-			threads[t].set_tracelog(
-				new RealTimeTraceLog(process_id, t, tracelog_size),
-				process_id * threads_count + t);
+			threads[t].set_tracelog(new RealTimeTraceLog(process_id, t, tracelog_size));
 		}
 	}
 

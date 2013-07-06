@@ -31,7 +31,7 @@ class TraceLog {
 		void event_send_part1();
 		void event_send_part2(int target, size_t size, int edge_id);
 		void event_send_part2(const std::vector<int> &target, size_t size, int edge_id);
-		void event_receive(int msg_id);
+		void event_receive(int from_process);
 		void event_idle();
 
 		void trace_token_add(int place_id, void *pointer);
@@ -64,8 +64,13 @@ class TraceLog {
 
 	protected:
 
-		void check_size(size_t size) { if (pos + size >= end) { overflow(); } }
-		void write_char(char c) { *(pos++) = c; }
+		void check_size(size_t size) {
+			if (pos + size >= end) { overflow(); }
+		}
+
+		void write_char(char c) {
+			*(pos++) = c;
+		}
 
 		void write_uint64(uint64_t value) {
 			memcpy(pos, &value, sizeof(uint64_t));
@@ -116,7 +121,9 @@ class RealTimeTraceLog : public TraceLog
 			TraceLog(process_id, thread_id, size) {}
 		static void init();
 	protected:
-		void write_time() { write_uint64(get_current_time()); }
+		void write_time() {
+			write_uint64(get_current_time());
+		}
 };
 
 }

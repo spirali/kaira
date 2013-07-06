@@ -14,7 +14,6 @@
 
 namespace ca {
 
-
 	struct Activation {
 		Activation(
 			TransitionDef *transition_def,
@@ -47,10 +46,22 @@ namespace ca {
 									 state->get_tracelog(process_id, thread_id)),
 						  state(state),
 						  process_id(process_id) {}
-					void quit_all() { state->set_quit_flag(); }
-					int get_process_count() const { return process_count; }
-					int get_threads_count() const { return 1; }
-					int get_process_id() const { return process_id; }
+
+					void quit_all() {
+							state->set_quit_flag();
+					}
+
+					int get_process_count() const {
+							return process_count;
+					}
+
+					int get_threads_count() const {
+							return 1;
+					}
+
+					int get_process_id() const {
+							return process_id;
+					}
 
 					void set(int process_id, int thread_id) {
 						this->process_id = process_id;
@@ -157,6 +168,7 @@ namespace ca {
 					packets[i] = state.packets[i];
 				}
 			}
+
 			~StateBase()
 			{
 				delete [] packets;
@@ -166,7 +178,10 @@ namespace ca {
 				return activations;
 			};
 
-			PacketQueue* get_packet_queue(int i) { return &packets[i]; }
+			PacketQueue* get_packet_queue(int i) {
+					return &packets[i];
+			}
+
 			void write_reports(FILE *out) {
 				Output output(out);
 				output.child("report");
@@ -347,8 +362,13 @@ namespace ca {
 				return packets[process_id * process_count + origin_id];
 			}
 
-			void set_quit_flag() { quit = true; }
-			bool get_quit_flag() { return quit; }
+			void set_quit_flag() {
+					quit = true;
+			}
+
+			bool get_quit_flag() {
+					return quit;
+			}
 
 		protected:
 			virtual TraceLog* get_tracelog(int process_id, int thread_id) {
