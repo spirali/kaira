@@ -289,11 +289,11 @@ class App:
                                "success")
 
     def build_project(self, target):
-        self.console_write("Building '{0}' ...\n".format(target))
+        self.console_write("Building '{0}' ...\n".format(target), "info")
         build_config = self.project.get_build_config(target)
         self.start_build(self.project,
                          build_config,
-                         lambda: self.console_write("Build finished\n", "success"))
+                         lambda: self.console_write("Build finished ({0})\n".format(target), "success"))
 
     def run_statespace_analysis(self):
         self.window.add_tab(Tab("Statespace",
@@ -509,7 +509,7 @@ class App:
                 return
 
         build_config = self.project.get_build_config("simulation")
-        self.console_write("Preparing simulation ...\n")
+        self.console_write("Preparing simulation ...\n", "info")
         self.start_build(self.project, build_config, project_builded)
 
     def open_simconfig_dialog(self):
