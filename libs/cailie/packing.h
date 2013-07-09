@@ -54,7 +54,7 @@ template<typename T> void direct_pack(Packer &packer, T value) {
 	packer.pack_data(&value, sizeof(T));
 }
 
-inline void pack(Packer &packer, void *data, size_t size) {
+inline void pack(Packer &packer, const void *data, size_t size) {
 	packer.pack_data(data, size);
 }
 
