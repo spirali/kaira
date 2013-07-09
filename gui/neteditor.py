@@ -412,6 +412,10 @@ class NetEditor(gtk.VBox):
                 item.set_size_substitution_code)
 
     def _add_attribute_objlist(self, text, objlist, add_fn, edit_fn, remove_fn):
+        def remove(w):
+            obj = objlist.selected_object()
+            if (obj):
+                remove_fn(obj)
         label = gtk.Label(text)
         self.attribute_box.pack_start(label, False, False)
         box = gtk.HBox()
@@ -423,7 +427,7 @@ class NetEditor(gtk.VBox):
         button.connect("clicked", lambda w: edit_fn(objlist.selected_object()))
         box.pack_start(button)
         button = gtk.Button("Remove")
-        button.connect("clicked", lambda w: remove_fn(objlist.selected_object()))
+        button.connect("clicked", remove)
         box.pack_start(button)
 
         self.attribute_box.pack_start(objlist, False, False)
