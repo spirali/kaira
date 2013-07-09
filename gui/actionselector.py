@@ -20,14 +20,19 @@
 import gtk
 import math
 import cairo
-import stypes
+
+import re
+import os
+import sys
+import imp
+
 from events import EventSource
 from stypes import repository as categories_repository
 
-from stypes import TracelogCategory
-from stypes import ControlSequenceCategory
+KAIRA_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PLUGIN_DIR = os.path.join(KAIRA_DIR, "plugins")
 
-
+plugins = {}
 
 class Source:
 
@@ -293,7 +298,7 @@ class Action(EventSource):
         else:
             raise Exception("Incorrect '{0}' icon state".format(state))
 
-    def get_required_sources(self): # interface
+    def get_required_sources(self):
         return [(param.get_name(), param) for param in self.parameters]
 
     def get_processed_data(self): # interface
@@ -314,24 +319,29 @@ class Action(EventSource):
         self.emit_event("no-free-slot", source)
 
     def detach_source(self, name):
-        for paramtere in self.parameters:
+        for parameter in self.parameters:
             if parameter.get_name() == name:
                 parameter.detach_source()
 
-    def _add_parameter(self, name, type, array=False, required=1):
+    def _add_parameter(self, name, type, list=False, required=1):
         """ Adds a new argument.
 
         Argumens:
         name -- Name of argument.
         type -- Type of argument (category).
-        array -- True if the argument is represented as an array,
+        list -- True if the argument is represented as a list,
                  otherwise false.
         required -- The default value is 1 (one argument is almost always
                     required), but if it is an array, it determines a minimum
                     length of the array.
 
         """
-        self.parameters.append(Parameter(name, type, array, required))
+        if not list and required > 1:
+            raise Exception(
+                "The parameter '{0}' is not a list, 'required' must be equal "
+                "to one, not '{1}'!".format(name, required))
+
+        self.parameters.append(Parameter(name, type, list, required))
 
     def run(self): # interface
         pass
@@ -611,23 +621,6 @@ class ViewSourceRepository(gtk.VBox, EventSource):
         self.pack_start(w_source, False, False)
         w_source.show_all()
 
-# >>> TMP
-
-class TestAction(Action):
-
-    def __init__(self):
-        Action.__init__(
-            self,
-            "Test Action",
-            "This is only testing action (it is example of usage)")
-
-        kth_type = TracelogCategory()
-        cs_type = ControlSequenceCategory()
-        self._add_parameter("input 1", kth_type, array=True, required=3)
-        self._add_parameter("input 2", cs_type)
-
-# <<< TMP
-
 class TriColumnsWidget(gtk.VBox):
 
     def __init__(self):
@@ -684,12 +677,13 @@ class TriColumnsWidget(gtk.VBox):
         column2.pack_start(haling, False, False)
 
         # list of actions # TODO: there should be used call _load_actions ---->
-        action = TestAction()
-        action_view_short = ActionViewShort(action)
-        action_view_short.set_callback(
-            "action-selected", self._select_action)
-
-        actions = self._column([action_view_short])
+#        action = TestAction()
+#        action_view_short = ActionViewShort(action)
+#        action_view_short.set_callback(
+#            "action-selected", self._select_action)
+#
+#        actions = self._column([action_view_short])
+        actions = self._load_modules()
         # --------------------------------------------------------------------<
 
         column2.pack_start(actions)
@@ -784,5 +778,33 @@ class TriColumnsWidget(gtk.VBox):
             self.w_source_repository.set_filter([])
 
     def _load_modules(self):
-        """ Load modules (actions). """
-        pass
+        """ Load modules (actions). It returns a column widget with all loaded
+        actions."""
+
+        actions_views = []
+        for name, action in plugins.items():
+            action_view_short = ActionViewShort(action)
+            action_view_short.set_callback(
+                "action-selected", self._select_action)
+            actions_views.append(action_view_short)
+
+        return self._column(actions_views)
+
+#*******************************************************************************
+# Modules methods
+
+def add_plugin(plugin):
+    plugins[plugin.name] = plugin
+
+def load_plugins():
+    sys.path.insert(0, PLUGIN_DIR)
+    for name in os.listdir(PLUGIN_DIR):
+        basename = os.path.basename(name)
+        fullname = os.path.join(PLUGIN_DIR, name)
+        if re.match('.*\.py$', basename) and os.path.isfile(fullname):
+            # the file is *.py and it exists
+            imp.load_source("plugin_" + name, fullname)
+
+    sys.path.remove(PLUGIN_DIR)
+
+load_plugins()
