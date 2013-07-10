@@ -117,7 +117,7 @@ class Edge(utils.EqMixin):
             inscription.check_edge_out(checker)
 
         if self.size_substitution:
-            decls = self.transition.net.project.get_minimal_decls()
+            decls = self.transition.get_decls()
             decls.set("size", "size_t", self.source)
             checker.check_expression(self.size_substitution,
                                      decls,
@@ -550,7 +550,7 @@ class Transition(utils.EqByIdMixin):
                                      "bool",
                                      self.get_source("guard"))
         if self.time_substitution:
-            decls = self.net.project.get_minimal_decls()
+            decls = self.get_decls()
             decls.set("transitionTime", "ca::IntTime", self.get_source())
             checker.check_expression(self.time_substitution,
                                      decls,
