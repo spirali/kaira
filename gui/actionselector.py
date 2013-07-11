@@ -27,7 +27,7 @@ import sys
 import imp
 
 from events import EventSource
-from stypes import repository as categories_repository
+from stypes import repository as types_repo
 
 KAIRA_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLUGIN_DIR = os.path.join(KAIRA_DIR, "plugins")
@@ -267,7 +267,6 @@ class ParameterView(gtk.Table, EventSource):
         self.show_all()
 
     def choose_parameter(self, widget, event, index):
-        print "IDX: ", index
         self.emit_event("filter-sources", self.parameter.get_type().get_id())
         self.emit_event("select-parameter", self.parameter.get_name(), index)
 
@@ -328,7 +327,7 @@ class Action(EventSource):
 
         Argumens:
         name -- Name of argument.
-        type -- Type of argument (category).
+        type -- Type of argument (type).
         list -- True if the argument is represented as a list,
                  otherwise false.
         required -- The default value is 1 (one argument is almost always
@@ -740,27 +739,26 @@ class TriColumnsWidget(gtk.VBox):
                                        gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
 
-        for category in categories_repository.get_registered_categories():
+        for type in types_repo.get_registered_types():
             filter = gtk.FileFilter()
             filter.set_name("{0} ({1})".format(
-                category.get_name(),
+                type.get_name(),
                 ", ".join(map(
                     lambda s: "*.{0}".format(s),
-                    category.get_extensions()))))
+                    type.get_extensions()))))
 
             # TODO: should be there used also mime-type?
-            for extension in category.get_extensions():
+            for extension in type.get_extensions():
                 filter.add_pattern("*.{0}".format(extension))
             dialog.add_filter(filter)
 
         response = dialog.run()
         if response == gtk.RESPONSE_OK:
-            print "OK"
-            src = Source("/home/sur096/a.kth", categories_repository.get_category("kth"))
+            src = Source("/home/sur096/a.kth", types_repo.get_type("kth"))
             self.sources_repository.add(src)
-            src = Source("/home/sur096/b.kcs", categories_repository.get_category("kcs"))
+            src = Source("/home/sur096/b.kcs", types_repo.get_type("kcs"))
             self.sources_repository.add(src)
-            src = Source("/home/sur096/c.kth", categories_repository.get_category("kth"))
+            src = Source("/home/sur096/c.kth", types_repo.get_type("kth"))
             self.sources_repository.add(src)
 
         elif response == gtk.RESPONSE_CANCEL:

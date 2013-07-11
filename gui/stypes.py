@@ -19,23 +19,23 @@
 
 """ Supported types for actions selector """
 
-class IncorrectCategoryException(Exception):
+class IncorrectTypeException(Exception):
 
     def __init__(self, value):
         self.value = value
 
     def __str__(self):
-        return "The category '{0}' does not contain " \
+        return "The type '{0}' does not contain " \
                "any supported extensions!".format(repr(self.value))
 
-class Category:
-    """ Category gives similar types together. It is like types' container. """
+class Type:
+    """ Type gives similar types together. It is like types' container. """
 
     def __init__(self, name, short_name, extensions):
-        """ Initialize of category of types.
+        """ Initialize of type of types.
 
         Arguments:
-        name -- name of category
+        name -- name of type
         short_name -- short version of name
         extensions -- array of supported types
 
@@ -53,7 +53,7 @@ class Category:
 
     def get_id(self):
         if not self.extensions:
-            raise IncorrectCategoryException(self.name)
+            raise IncorrectTypeException(self.name)
 
         return hash(tuple(self.extensions))
 
@@ -66,8 +66,8 @@ class Category:
     def get_extensions(self):
         return self.extensions
 
-    def compare(self, category):
-        return self.get_id() == category.get_id()
+    def compare(self, type):
+        return self.get_id() == type.get_id()
 
     def load_data(self, source):
         pass # FIX: implemet me!
@@ -81,18 +81,18 @@ class Category:
     def _add_save_function(type, function):
         self.savers[type] = function
 
-class TracelogCategory(Category):
+class TracelogType(Type):
 
     def __init__(self):
-        Category.__init__(self,
+        Type.__init__(self,
                       "Kaira tracelog header",
                       "Tracelog",
                       ["kth"])
 
-class ControlSequenceCategory(Category):
+class ControlSequenceType(Type):
 
     def __init__(self):
-        Category.__init__(self,
+        Type.__init__(self,
                       "Control sequence",
                       "Cont. seq.",
                       ["kcs"])
@@ -100,13 +100,13 @@ class ControlSequenceCategory(Category):
 class CategoriesRepository:
 
     def __init__(self):
-        self.categories = {}
+        self.types = {}
 
-    def is_registered(self, category):
-        return category.get_id() in self.categories
+    def is_registered(self, type):
+        return type.get_id() in self.types
 
-    def register_category(self, category):
-        """ Registers a new type if the category is already registered than
+    def register_type(self, type):
+        """ Registers a new type if the type is already registered than
         is throws the exception.
 
         Arguments:
@@ -114,28 +114,28 @@ class CategoriesRepository:
 
         """
 
-        if not self.is_registered(category):
-            self.categories[category.get_id()] = category
+        if not self.is_registered(type):
+            self.types[type.get_id()] = type
         else:
             raise Exception(
-                "The category '{1}' is already registered".format(
-                    category.get_name()))
+                "The type '{1}' is already registered".format(
+                    type.get_name()))
 
-    def deregister_category(self, category):
-        if self.is_registered(category):
-            del self.types[category.get_id()]
+    def deregister_type(self, type):
+        if self.is_registered(type):
+            del self.types[type.get_id()]
 
-    def get_category(self, extension):
-        for id, category in self.categories.items():
-            if extension in category.get_extensions():
-                return category
+    def get_type(self, extension):
+        for id, type in self.types.items():
+            if extension in type.get_extensions():
+                return type
 
         return None
 
-    def get_registered_categories(self):
-        return [category for id, category in self.categories.items()]
+    def get_registered_types(self):
+        return [type for id, type in self.types.items()]
 
 # default repository
 repository = CategoriesRepository()
-repository.register_category(TracelogCategory())
-repository.register_category(ControlSequenceCategory())
+repository.register_type(TracelogType())
+repository.register_type(ControlSequenceType())

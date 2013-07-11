@@ -9,13 +9,12 @@ class TestAction(actionselector.Action):
             "Test action",
             "Only testin plugin\'s action")
 
-        kth_type = types_repo.get_category("kth")
+        kth_type = types_repo.get_type("kth")
         self._add_parameter("Tracelog 1", kth_type)
         self._add_parameter("Tracelog 2", kth_type)
 
     def run(self):
         actionselector.Action.run() # check parameters TODO: add into origin
-        print "TestAction was runned."
 
     def get_processed_data(self):
         return []
