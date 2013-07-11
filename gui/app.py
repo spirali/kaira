@@ -41,13 +41,11 @@ import settings
 import loader
 import ptp
 import runview
-import actionselector
 import codetests
 import report
 import statespace
 import utils
 import controlseq
-from copy import copy
 
 VERSION_STRING = '0.6'
 

@@ -796,10 +796,11 @@ def add_plugin(plugin):
 
 def load_plugins():
     sys.path.insert(0, PLUGIN_DIR)
-    for name in os.listdir(PLUGIN_DIR):
-        basename = os.path.basename(name)
-        fullname = os.path.join(PLUGIN_DIR, name)
+    for filename in os.listdir(PLUGIN_DIR):
+        basename = os.path.basename(filename)
+        fullname = os.path.join(PLUGIN_DIR, filename)
         if re.match('.*\.py$', basename) and os.path.isfile(fullname):
+            name = filename[:-3] # strip sufix
             # the file is *.py and it exists
             imp.load_source("plugin_" + name, fullname)
 
