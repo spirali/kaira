@@ -234,6 +234,13 @@ class MainWindow(gtk.Window):
         add("Run state space _analysis", self.app.run_statespace_analysis, "project")
         add("Open _report", self.app.load_report)
 
+        menu = gtk.Menu()
+        item = gtk.MenuItem("Too_ls")
+        item.set_submenu(menu)
+        main_menu.append(item)
+
+        add("Run _tool", self.app.run_tool_window)
+
         return main_menu
 
     def _on_tab_switch(self, w, page, page_index):
