@@ -309,8 +309,12 @@ class Action(EventSource):
             if name is not None and parameter.get_name() == name:
                 parameter.attach_source(source, index)
                 return
-            elif source.get_type().compare(parameter.get_type()) and \
+
+        for parameter in self.parameters:
+            if source.get_type().compare(parameter.get_type()) and \
                     (parameter.is_empty() or parameter.is_array()):
+                # it must be in another loop, because it is necessary
+                # check all parameters by the name at first
                 parameter.attach_source(source)
                 return
 

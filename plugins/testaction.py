@@ -10,7 +10,7 @@ class TestAction(actionselector.Action):
             "Only testin plugin\'s action")
 
         kth_type = types_repo.get_type("kth")
-        self._add_parameter("Tracelog 1", kth_type)
+        self._add_parameter("Tracelog 1", kth_type, list=True)
         self._add_parameter("Tracelog 2", kth_type)
 
     def run(self):
