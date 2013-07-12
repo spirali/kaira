@@ -46,7 +46,7 @@ import report
 import statespace
 import utils
 import controlseq
-import actionselector
+import extensions
 
 VERSION_STRING = '0.6'
 
@@ -294,7 +294,7 @@ class App:
 
     def run_tool_window(self):
         self.window.add_tab(Tab("Tools",
-                                actionselector.TriColumnsWidget(self)))
+                                extensions.ExtensionManager(self)))
 
     def run_statespace_analysis(self):
         self.window.add_tab(Tab("Statespace",

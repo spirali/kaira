@@ -17,10 +17,9 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-#from actionselector import Source
 import re
 import runview
-import actionselector
+import extensions
 
 from tracelog import TraceLog
 
@@ -46,20 +45,20 @@ class NoLoaderExists(Exception):
 class Type:
     """ Type gives similar types together. It is like types' container. """
 
-    def __init__(self, name, short_name, extensions):
+    def __init__(self, name, short_name, suffixes):
         """ Initialize of type of types.
 
         Arguments:
         name -- name of type
         short_name -- short version of name
-        extensions -- array of supported types
+        suffixes -- a list of supported file types
 
         """
         self.name = name
         self.short_name = short_name
-        if not isinstance(extensions, list):
-            raise Exception("The extensions must be a list")
-        self.extensions = extensions
+        if not isinstance(suffixes, list):
+            raise Exception("The suffixes must be a list")
+        self.suffixes = suffixes
 
         self._current_type = None
 
@@ -67,10 +66,10 @@ class Type:
         self.savers = {}
 
     def get_id(self):
-        if not self.extensions:
+        if not self.suffixes:
             raise IncorrectTypeException(self.name)
 
-        return hash(tuple(self.extensions))
+        return "-".join(self.suffixes)
 
     def get_name(self):
         return self.name
@@ -78,24 +77,24 @@ class Type:
     def get_short_name(self):
         return self.short_name
 
-    def get_extensions(self):
-        return self.extensions
+    def get_suffixes(self):
+        return self.suffixes
 
     def compare(self, type):
         return self.get_id() == type.get_id()
 
-    def load_source(self, filename, type, *args):
+    def load_source(self, filename, *args):
 
-        # get extension (after first dot)
-        extension = re.split("\.", filename)
-        extension = ".".join(extension[1:])
+        # get suffix (after first dot)
+        suffix = re.split("\.", filename)
+        suffix = ".".join(suffix[1:])
 
-        if extension in self.loaders:
-            fn_load = self.loaders[extension]
+        if suffix in self.loaders:
+            fn_load = self.loaders[suffix]
             data = fn_load(filename, *args)
-            return actionselector.Source(filename, type, data)
+            return extensions.Source(filename, self, data)
         else:
-            raise NoLoaderExists(type.get_name())
+            raise NoLoaderExists(self.get_name())
 
     def store_source(self, data, *args):
         pass # FIX: implemet me!
@@ -103,19 +102,20 @@ class Type:
     def get_view(self, data, *args):
         return None
 
-    def _d_register_load_function(self, extension, function):
-        self.loaders[extension] = function
+    def _dev_register_load_function(self, suffix, function):
+        self.loaders[suffix] = function
 
-    def _d_register_save_function(self, extension, function):
-        self.savers[extension] = function
+    def _dev_register_save_function(self, suffix, function):
+        self.savers[suffix] = function
 
-class CategoriesRepository:
+class TypesRepository:
 
     def __init__(self):
-        self.types = {}
+        self.registered = []
+        self.types = []
 
     def is_registered(self, type):
-        return type.get_id() in self.types
+        return type.get_id() in self.registered
 
     def register_type(self, type):
         """ Registers a new type if the type is already registered than
@@ -127,7 +127,7 @@ class CategoriesRepository:
         """
 
         if not self.is_registered(type):
-            self.types[type.get_id()] = type
+            self.types.append(type)
         else:
             raise Exception(
                 "The type '{1}' is already registered".format(
@@ -135,17 +135,20 @@ class CategoriesRepository:
 
     def deregister_type(self, type):
         if self.is_registered(type):
-            del self.types[type.get_id()]
+            idx = self.registered.index(type.get_id())
+            del self.registered[idx]
+            idx = self.types.index(type)
+            del self.types[idx]
 
-    def get_type(self, extension):
-        for id, type in self.types.items():
-            if extension in type.get_extensions():
+    def get_type(self, suffix):
+        for type in self.types:
+            if suffix in type.get_suffixes():
                 return type
 
         return None
 
     def get_registered_types(self):
-        return [type for id, type in self.types.items()]
+        return self.types
 
 # ******************************************************************************
 # supported types
@@ -158,7 +161,7 @@ class TracelogType(Type):
                       "Tracelog",
                       ["kth"])
 
-        self._d_register_load_function("kth", self.load_kth)
+        self._dev_register_load_function("kth", self.load_kth)
 
     def load_kth(self, filename): # TODO: processed the exceptions of TraceLog
         t = TraceLog(filename)
@@ -173,13 +176,17 @@ class ControlSequenceType(Type):
 
     def __init__(self):
         Type.__init__(self,
-                      "Control sequence",
+                      "Kaira control sequence",
                       "Cont. seq.",
                       ["kcs"])
+        self._dev_register_load_function("kcs", self.load_kcs)
+
+    def load_kcs(self, filename):
+        return filename
 
 # ******************************************************************************
 
 # default repository
-repository = CategoriesRepository()
+repository = TypesRepository()
 repository.register_type(TracelogType())
 repository.register_type(ControlSequenceType())
