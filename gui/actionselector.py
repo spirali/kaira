@@ -28,6 +28,8 @@ import imp
 
 from events import EventSource
 from stypes import repository as types_repo
+from stypes import NoLoaderExists
+from mainwindow import Tab
 
 KAIRA_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLUGIN_DIR = os.path.join(KAIRA_DIR, "plugins")
@@ -36,7 +38,7 @@ plugins = {}
 
 class Source:
 
-    def __init__(self, name, type, data=None):
+    def __init__(self, name, type, data):
         """ A source of data.
 
         Arguments:
@@ -65,9 +67,12 @@ class Source:
 
 class ViewSource(gtk.Alignment, EventSource):
 
-    def __init__(self, source):
+    def __init__(self, source, app):
         gtk.Alignment.__init__(self, 0, 0, 1, 1)
         EventSource.__init__(self)
+
+        self.app = app
+        self.tab = None
 
         self.set_padding(5, 0, 10, 10)
 
@@ -90,6 +95,8 @@ class ViewSource(gtk.Alignment, EventSource):
         # source menu
         menu = gtk.Menu()
         menu_show = gtk.MenuItem("Show")
+        menu_show.connect(
+            "activate", lambda w: self._cb_show())
         menu.append(menu_show)
         menu.append(gtk.SeparatorMenuItem())
 
@@ -129,6 +136,15 @@ class ViewSource(gtk.Alignment, EventSource):
 
     def get_source(self):
         return self.source
+
+    def _cb_show(self):
+        if self.tab is None:
+            type = self.source.get_type()
+            view = type.get_view(self.source.get_data(), self.app)
+            self.tab = Tab("Tracelog", view, mainmenu_groups=("tracelog",))
+            self.app.window.add_tab(self.tab)
+        else:
+            self.app.window.switch_to_tab(self.tab)
 
 class Parameter(EventSource):
 
@@ -461,7 +477,7 @@ class ActionViewFull(gtk.VBox, EventSource):
     def set_action(self, action):
 
         self.action = action
-#        self.action.set_callback("source-attached", self._attach_source)
+#        self.action.set_callback("source-attached", self._attach_source) TODO: throw out
         self.action.set_callback("no-free-slot", self._no_free_slot)
 
         # remove old
@@ -585,10 +601,11 @@ class SourceRepository(EventSource):
 
 class ViewSourceRepository(gtk.VBox, EventSource):
 
-    def __init__(self, repository):
+    def __init__(self, repository, app):
         gtk.VBox.__init__(self)
         EventSource.__init__(self)
 
+        self.app = app
         self.filter = []
         self.repository = repository
         self.repository.set_callback("add-source", self.add_source)
@@ -618,7 +635,7 @@ class ViewSourceRepository(gtk.VBox, EventSource):
         return self.filter
 
     def add_source(self, source):
-        w_source = ViewSource(source)
+        w_source = ViewSource(source, self.app)
         w_source.set_callback("attach-source",
                               lambda s: self.emit_event("attach-source", s))
         self.pack_start(w_source, False, False)
@@ -626,9 +643,10 @@ class ViewSourceRepository(gtk.VBox, EventSource):
 
 class TriColumnsWidget(gtk.VBox):
 
-    def __init__(self):
+    def __init__(self, app):
         gtk.VBox.__init__(self)
 
+        self.app = app
         # repository of loaded sources
         self.sources_repository = SourceRepository()
         self.w_selected_action = ActionViewFull()
@@ -655,7 +673,8 @@ class TriColumnsWidget(gtk.VBox):
         haling.add(title)
         vbox.pack_start(haling, False, False)
 
-        self.w_source_repository = ViewSourceRepository(self.sources_repository)
+        self.w_source_repository = ViewSourceRepository(
+            self.sources_repository, self.app)
         self.w_source_repository.set_callback(
             "attach-source", self._attach_source_action)
 
@@ -710,7 +729,7 @@ class TriColumnsWidget(gtk.VBox):
         self.show_all()
 
     def _column(self, items=[]): # TODO: column should be object,
-                                 # it will be contain "hide repository".
+                                 # it will contains "hide repository".
         scw = gtk.ScrolledWindow()
         scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
         column = gtk.VBox(False)
@@ -745,11 +764,12 @@ class TriColumnsWidget(gtk.VBox):
 
         for type in types_repo.get_registered_types():
             filter = gtk.FileFilter()
-            filter.set_name("{0} ({1})".format(
-                type.get_name(),
-                ", ".join(map(
+            name = "{0} ({1})".format(
+                type.get_name(), ", ".join(map(
                     lambda s: "*.{0}".format(s),
-                    type.get_extensions()))))
+                    type.get_extensions())))
+            filter.set_name(name)
+            filter.set_data(name, type)
 
             # TODO: should be there used also mime-type?
             for extension in type.get_extensions():
@@ -758,12 +778,18 @@ class TriColumnsWidget(gtk.VBox):
 
         response = dialog.run()
         if response == gtk.RESPONSE_OK:
-            src = Source("/home/sur096/a.kth", types_repo.get_type("kth"))
-            self.sources_repository.add(src)
-            src = Source("/home/sur096/b.kcs", types_repo.get_type("kcs"))
-            self.sources_repository.add(src)
-            src = Source("/home/sur096/c.kth", types_repo.get_type("kth"))
-            self.sources_repository.add(src)
+            filename = dialog.get_filename()
+
+            filter = dialog.get_filter()
+            type = filter.get_data(filter.get_name())
+
+            try:
+                src = type.load_source(filename, type)
+                self.sources_repository.add(src)
+            except NoLoaderExists as ex:
+                self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
+            finally:
+                dialog.destroy()
 
         elif response == gtk.RESPONSE_CANCEL:
             print "Closed,no files selected"

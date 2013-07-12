@@ -294,7 +294,7 @@ class App:
 
     def run_tool_window(self):
         self.window.add_tab(Tab("Tools",
-                                actionselector.TriColumnsWidget()))
+                                actionselector.TriColumnsWidget(self)))
 
     def run_statespace_analysis(self):
         self.window.add_tab(Tab("Statespace",
