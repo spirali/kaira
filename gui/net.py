@@ -28,21 +28,21 @@ import tracing
 
 class Net:
 
-    def __init__(self, project, net_type, name, id = None, test = False):
-        assert net_type in [ "main", "module", "test" ]
-
+    def __init__(self, project, name, id=None, main=False):
         if id is None:
             self.id = project.new_id()
         else:
             self.id = id
         self.project = project
-        self.net_type = net_type
+        self.main = main
         self.name = name
         self.items = []
         self.change_callback = lambda n: None
         self.change_item_callback = lambda n, i: None
-        self.interface_box = None
         self.undo_manager = undo.UndoManager()
+
+    def is_main(self):
+        return self.main
 
     def get_name(self):
         return self.name
@@ -50,11 +50,8 @@ class Net:
     def get_id(self):
         return self.id
 
-    def is_main(self):
-        return self.net_type == "main"
-
-    def is_simulator_net(self):
-        return self.project.get_simulator_net() == self
+    def is_build_net(self):
+        return self.project.build_net == self
 
     def set_change_callback(self, callback):
         self.change_callback = callback
@@ -72,9 +69,6 @@ class Net:
         self.name = name
         self.changed()
 
-    def is_test(self):
-        return self.net_type == "test"
-
     def changed(self):
         self.change_callback(self)
 
@@ -86,18 +80,6 @@ class Net:
         self.add_item(place)
         self.changed()
         return place
-
-    def add_interface_node(self, position, id = None):
-        inode = InterfaceNode(self, id, position)
-        self.add_item(inode)
-        self.changed()
-        return inode
-
-    def add_interface_box(self, position, size, id = None):
-        self.interface_box = InterfaceBox(self, id, position, size)
-        self.add_item(self.interface_box)
-        self.changed()
-        return self.interface_box
 
     def add_transition(self, position, id = None):
         transition = Transition(self, id, position)
@@ -121,13 +103,9 @@ class Net:
         e = xml.Element("net")
         e.set("name", self.name)
         e.set("id", str(self.id))
-        e.set("net-type", self.net_type)
         for item in self.items:
             e.append(item.as_xml())
         return e
-
-    def is_module(self):
-        return self.interface_box is not None
 
     def copy(self):
         xml = self.as_xml()
@@ -168,8 +146,6 @@ class Net:
         for area in self.areas():
             e.append(area.export_xml())
 
-        if self.interface_box:
-            e.append(self.interface_box.export_xml())
         return e
 
     def item_by_id(self, id):
@@ -248,12 +224,6 @@ class NetItem(object):
         return False
 
     def is_inode(self):
-        return False
-
-    def is_interfacebox(self):
-        return False
-
-    def is_interfacenode(self):
         return False
 
     def delete(self):
@@ -818,52 +788,6 @@ class NetArea(RectItem):
                  if self.is_inside(transition) ]
 
 
-class InterfaceBox(RectItem):
-
-    def is_interfacebox(self):
-        return True
-
-    def as_xml(self):
-        e = self.create_xml_element("interface-box")
-        e.set("x", str(self.position[0]))
-        e.set("y", str(self.position[1]))
-        e.set("sx", str(self.size[0]))
-        e.set("sy", str(self.size[1]))
-        return e
-
-    def export_xml(self):
-        e = xml.Element("interface")
-        for inode in self.net.inodes():
-            for edge in self.net.edges_from(inode, postprocess = True):
-                e.append(edge.create_xml_export_element("edge-out"))
-            for edge in self.net.edges_to(inode, postprocess = True):
-                e.append(edge.create_xml_export_element("edge-in"))
-        return e
-
-
-class InterfaceNode(NetElement):
-
-    def __init__(self, net, id, position):
-        NetItem.__init__(self, net, id)
-        self.set_position(position)
-
-    def is_inode(self):
-        return True
-
-    def get_border_point(self, outer_point):
-        v = utils.make_vector_with_size(self.position, outer_point, 5.0)
-        return utils.vector_add(self.position, v)
-
-    def as_xml(self):
-        e = self.create_xml_element("interface-node")
-        e.set("x", str(self.position[0]))
-        e.set("y", str(self.position[1]))
-        return e
-
-    def is_interfacenode(self):
-        return True
-
-
 class BasicLoader:
     """
         Loads an element id from xml and preserves original id
@@ -1014,38 +938,11 @@ def load_area(element, net, loader):
     else:
         area.init.text = xml_str(element,"init-expr", "")
 
-def load_interface_box(element, net, loader):
-    id = loader.get_id(element)
-    sx = xml_int(element,"sx")
-    sy = xml_int(element,"sy")
-    px = xml_int(element, "x")
-    py = xml_int(element, "y")
-    net.add_interface_box((px, py), (sx, sy), id)
-
-def load_interface_node(element, net, loader):
-    id = loader.get_id(element)
-    px = xml_int(element, "x")
-    py = xml_int(element, "y")
-    net.add_interface_node((px, py), id)
-
 def load_net(element, project, loader):
     name = element.get("name", "Main") # Setting "Main" for backward compatability
     id = loader.get_id(element)
-    net_type = element.get("net-type")
 
-    if net_type is None: # Backward compatability
-        if element.find("interface-box") is None:
-            net_type = "main"
-        else:
-            net_type = "module"
-
-    net = Net(project, net_type, name, id)
-    interface_box = element.find("interface-box")
-    if interface_box is not None:
-        load_interface_box(interface_box, net, loader)
-
-    for e in element.findall("interface-node"):
-        load_interface_node(e, net, loader)
+    net = Net(project, name, id)
 
     for e in element.findall("area"):
         load_area(e, net, loader)

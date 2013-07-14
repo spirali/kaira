@@ -516,6 +516,7 @@ class NetList(ObjectTree):
     def __init__(self, project, neteditor):
         defs = [("_", object), ("Nets|markup", str)]
         ObjectTree.__init__(self, defs, has_context_menu=True)
+        self.set_size_request(0, 80)
         self.project = project
         self.neteditor = neteditor
         self.setup()
@@ -524,10 +525,10 @@ class NetList(ObjectTree):
 
     def get_context_menu(self):
         obj = self.selected_object()
-        menu = [ ("Add", [ ("Module", self._add_module), ("Test", self._add_test) ]) ]
-
+        menu = [ ("Add net", lambda w: self._add_net()) ]
         if isinstance(obj, str):
             return menu
+
         menu += [
             ("-", None),
             ("Copy net", self._copy),
@@ -538,49 +539,28 @@ class NetList(ObjectTree):
                 ("Trace everything", self._trace_everything),
                 ("Trace nothing", self._trace_nothing) ]),
         ]
-
-        if not obj.is_module():
-            menu.append(("-", None))
-            menu.append(("Select for simulations", self._set_simulator_net))
+        menu.append(("Select for build", self._set_build_net))
         return menu
 
     def setup(self):
-        objs = []
-        if self.project.get_main_net():
-            objs.append(self.project.get_main_net())
-        objs += self.project.get_modules()
+        self.refresh(self.project.nets)
 
-        tests = self.project.get_tests()
-        if tests:
-            objs.append(("Tests", tests))
-        self.refresh(objs)
-
-    def _add_module(self, w):
-        net = Net(self.project, "module", "Net_{0}".format(self.project.new_id()))
-        net.add_interface_box((20, 20), (400, 300))
-        self._add_net(net)
-
-    def _add_test(self, w):
-        net = Net(self.project, "test", "Net_{0}".format(self.project.new_id()))
-        if self.project.get_simulator_net() is None:
-            self.project.set_simulator_net(net)
-        self._add_net(net)
-
-    def _add_net(self, net):
+    def _add_net(self):
+        net = Net(self.project, "Net_{0}".format(self.project.new_id()))
         if netname_dialog(net, self.neteditor.app.window):
             self.project.add_net(net)
             self.neteditor.switch_to_net(net)
 
-    def _set_simulator_net(self, w):
+    def _set_build_net(self, w):
          obj = self.selected_object()
-         self.project.set_simulator_net(obj)
+         self.project.set_build_net(obj)
 
     def _remove(self, w):
         obj = self.selected_object()
         if isinstance(obj, str):
             return
         if obj.is_main():
-            self.neteditor.app.show_info_dialog("Net 'Main' cannot be removed.")
+            self.neteditor.app.show_info_dialog("Main net cannot be removed.")
         else:
             self.project.remove_net(obj)
             net = self.project.get_nets()[0]
@@ -590,11 +570,8 @@ class NetList(ObjectTree):
         obj = self.selected_object()
         if isinstance(obj, str):
             return
-        if obj.is_main():
-            self.neteditor.app.show_info_dialog("Net 'Main' cannot be renamed.")
-        else:
-            netname_dialog(obj, self.neteditor.app.window)
-            self.update(obj)
+        netname_dialog(obj, self.neteditor.app.window)
+        self.update(obj)
 
     def _copy(self, w):
         obj = self.selected_object()
@@ -621,7 +598,7 @@ class NetList(ObjectTree):
             return (obj, obj)
         else:
             name = glib.markup_escape_text(obj.get_name())
-            if obj.is_simulator_net():
+            if obj.is_build_net():
                 return (obj, "<b>{0}</b>".format(name))
             else:
                 return (obj, name)

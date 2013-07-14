@@ -30,19 +30,18 @@ class GeneralConfig(gtk.VBox):
         gtk.VBox.__init__(self)
         self.project = project
 
-        if project.is_library():
-            frame = gtk.Frame("Target")
-            frame.set_border_width(10)
-            self.pack_start(frame, False, False)
-            vbox = gtk.VBox()
-            frame.add(vbox)
-            gtkutils.radio_buttons([
-                ("lib", "C++ library"),
-                ("rpc-lib", "C++ library with RPC"),
-                ("octave", "Octave plugin"),
-                ("rpc-octave", "Octave plugin with RPC")
-            ], project.get_target_mode(), vbox,
-                lambda key: project.set_target_mode(key))
+        frame = gtk.Frame("Library mode")
+        frame.set_border_width(10)
+        self.pack_start(frame, False, False)
+        vbox = gtk.VBox()
+        frame.add(vbox)
+        gtkutils.radio_buttons([
+            ("lib", "C++ library"),
+            ("rpc-lib", "C++ library with RPC"),
+            ("octave", "Octave plugin"),
+            ("rpc-octave", "Octave plugin with RPC")
+        ], project.get_target_mode(), vbox,
+            lambda key: project.set_target_mode(key))
 
         self.show()
 

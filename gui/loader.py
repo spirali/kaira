@@ -29,7 +29,6 @@ import controlseq
 
 projects = [
     projectcpp.ProjectCpp,
-    projectcpp.ProjectCppLibrary,
 ]
 
 def create_project(filename, target_env_name):
@@ -54,12 +53,11 @@ def load_project_from_xml(root, filename):
         load_configuration(root.find("configuration"), project, loader)
     for e in root.findall("net"):
         project.add_net(load_net(e, project, loader))
+    assert project.nets
+    project.nets[0].main = True
     for e in root.findall("sequence"):
         project.sequences.append(controlseq.ControlSequence(element=e))
-    if project.get_main_net() is not None:
-        project.simulator_net = project.get_main_net()
-    elif project.get_tests():
-        project.simulator_net = project.get_tests()[0]
+    project.build_net = project.get_main_net()
 
     project.id_counter += 1
 
@@ -105,7 +103,6 @@ def import_project_from_xml(project, root, filename):
     for e in root.findall("net"):
         net = load_net(e, project, loader)
         project.add_net(net)
-    nets_postload_process(project, loader)
     project.id_counter += 1
     return project
 
@@ -115,15 +112,8 @@ def new_empty_project(directory, target_env_name):
     project_filename = os.path.join(directory,name + ".proj")
     project = create_project(project_filename, target_env_name)
 
-    if project.is_library():
-        net = Net(project, "module", name)
-        net.add_interface_box((20, 20), (400, 300))
-        project.add_net(net)
-    else:
-        project.add_net(Net(project, "main", "Main"))
-
-    if project.get_main_net() is not None:
-        project.simulator_net = project.get_main_net()
+    project.add_net(Net(project, name, main=True))
+    project.build_net = project.get_main_net()
 
     project.save()
     return project

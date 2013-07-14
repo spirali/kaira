@@ -19,7 +19,7 @@
 
 from project import Project
 
-class ProjectCppBase(Project):
+class ProjectCpp(Project):
 
     def __init__(self, file_name):
         Project.__init__(self, file_name)
@@ -42,40 +42,5 @@ class ProjectCppBase(Project):
         return ["*.cpp", "*.cc", "*.c"]
 
     @classmethod
-    def get_target_env_for_simulator_name(self):
-        """ When we run simulator we have to build regular application even
-            we are building library """
-        return "C++"
-
-
-class ProjectCpp(ProjectCppBase):
-
-    def __init__(self, file_name):
-        ProjectCppBase.__init__(self, file_name)
-        self.build_options = {
-            "CFLAGS" : "-O2",
-            "LIBS" : ""
-        }
-
-    @classmethod
     def get_target_env_name(self):
         return "C++"
-
-    def is_library(self):
-        return False
-
-
-class ProjectCppLibrary(ProjectCppBase):
-
-    def __init__(self, file_name):
-        ProjectCppBase.__init__(self, file_name)
-        self.target_mode = "lib"
-
-    @classmethod
-    def get_target_env_name(self):
-        return "C++ library"
-
-    def is_library(self):
-        return True
-
-

@@ -49,12 +49,10 @@ class Project(EventSource):
         self.error_messages = {}
         self.generator = None # PTP generator
         self.target_mode = None
-        self.simulator_net = None
+        self.build_net = None
 
     def get_main_net(self):
-        for net in self.nets:
-            if net.is_main():
-                return net
+        return self.nets[0]
 
     def get_build_option(self, name):
         if name in self.build_options:
@@ -93,37 +91,19 @@ class Project(EventSource):
         else:
             build_config.operation = "build"
 
-        if name == "simulation" or name == "statespace":
-            # simulator_net has to be exported as first net
-            first = self.simulator_net
-            build_config.target_env = self.get_target_env_for_simulator_name()
-        else:
-            if name == "traced" or name == "simrun":
-                build_config.tracing = True
+        if name == "traced" or name == "simrun":
+            build_config.tracing = True
 
-            build_config.target_env = self.get_target_env_name()
-            if self.is_library:
-                # In library it does not matter who is first
-                first = None
-            else:
-                # In program, main is first
-                first = self.project.get_main_net()
+        build_config.target_env = self.get_target_env_name()
 
-        if first is None:
-            nets = self.nets
-        else:
-            nets = [ first ]
-            nets += [ net for net in self.nets if net != first ]
-
+        nets = [ self.build_net ]
+        nets += [ net for net in self.nets if net != self.build_net ]
         build_config.nets = nets
         return build_config
 
-    def set_simulator_net(self, net):
-        self.simulator_net = net
+    def set_build_net(self, net):
+        self.build_net = net
         self.emit_event("netlist_changed")
-
-    def get_simulator_net(self):
-        return self.simulator_net
 
     def set_build_option(self, name, value):
         self.build_options[name] = value
@@ -153,15 +133,12 @@ class Project(EventSource):
 
     def remove_net(self, net):
         self.nets.remove(net)
-        if self.simulator_net == net:
-            self.simulator_net = self.get_main_net()
+        if self.build_net == net:
+            self.build_net = self.get_main_net()
         self.emit_event("netlist_changed")
 
     def get_modules(self):
         return [ net for net in self.nets if net.is_module() ]
-
-    def get_tests(self):
-        return [ net for net in self.nets if net.is_test() ]
 
     def get_simconfig(self):
         return self.simconfig

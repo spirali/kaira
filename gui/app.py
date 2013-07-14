@@ -338,9 +338,6 @@ class App:
             dialog.add_filter(ffilter)
 
     def edit_code_tests(self):
-        if not self.project.is_library():
-            self.show_info_dialog("Tests are available only for project type 'Library'.")
-            return
         if self.window.switch_to_tab_by_key("codetests"):
             return
         widget = codetests.CodeTestList(self)
@@ -498,10 +495,6 @@ class App:
                                                                mainmenu_groups=("project", "screenshot"))))
             simulation.set_callback("shutdown", lambda: sprocess.shutdown())
             simulation.connect("localhost", port)
-
-        if self.project.get_simulator_net() is None:
-            self.console_write("No net is selected for simulations\n", "error")
-            return
 
         simconfig = self.project.get_simconfig()
         if simconfig.parameters_values is None:
