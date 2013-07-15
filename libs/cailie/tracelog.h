@@ -4,17 +4,15 @@
 
 #include <string>
 #include <vector>
-#include <time.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
 
-namespace ca {
+#include "clock.h"
 
-typedef uint64_t IntTime;
-const IntTime MAX_INT_TIME = ~((IntTime)0);
+namespace ca {
 
 class TraceLog {
 
@@ -46,15 +44,11 @@ class TraceLog {
 		static IntTime get_current_time()
 		{
 			struct timespec time;
-
 			if (clock_gettime(CLOCK_MONOTONIC, &time)) {
 				perror("TraceLog::get_current_time");
 				exit(-1);
 			}
-
-			uint64_t t = ((uint64_t) (time.tv_sec - initial_time.tv_sec)) * 1000000000;
-			t += time.tv_nsec - initial_time.tv_nsec;
-			return t;
+			return time_diff(initial_time, time);
 		}
 
 		// For ControlledTracelog

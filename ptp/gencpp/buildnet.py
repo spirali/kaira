@@ -75,7 +75,7 @@ def write_tokens_struct(builder, tr):
 def write_transition_forward(builder, tr):
     if tr.code is not None:
         write_vars_struct(builder, tr)
-        write_transition_user_function_forward(builder, tr)
+        write_transition_user_function(builder, tr, forward=True)
 
     write_tokens_struct(builder, tr)
 
@@ -115,12 +115,16 @@ def write_transition_functions(builder,
     if builder.generate_all_pack:
         write_pack_binding(builder, tr)
 
-def write_transition_user_function(builder, tr):
-    declaration = "void transition_user_fn_{0.id}(ca::Context &ctx, Vars_{0.id} &var)".format(tr)
-    builder.write_function(declaration, tr.code, ("*{0.id}/function".format(tr), 1))
+def write_transition_user_function(builder, tr, forward=False):
+    args = [ "ca::Context &ctx, Vars_{0.id} &var".format(tr) ]
+    if tr.clock:
+        args.append("ca::Clock &clock")
+    declaration = "void transition_user_fn_{0.id}({1})".format(tr, ", ".join(args))
 
-def write_transition_user_function_forward(builder, tr):
-    builder.line("void transition_user_fn_{0.id}(ca::Context &ctx, Vars_{0.id} &var);", tr)
+    if forward:
+        builder.line("{0};", declaration)
+    else:
+        builder.write_function(declaration, tr.code, ("*{0.id}/function".format(tr), 1))
 
 def write_place_user_function(builder, place):
     declaration = "void place_user_fn_{0.id}(ca::Context &ctx, ca::TokenList<{1} > &place)" \
@@ -361,11 +365,18 @@ def write_fire_body(builder,
             builder.line("$n->unlock();")
         decls = tr.get_decls().get_list()
         if len(decls) == 0:
-            builder.line("Vars_{0.id} vars;", tr)
+            builder.line("Vars_{0.id} $vars;", tr)
         else:
-            builder.line("Vars_{0.id} vars({1});",
+            builder.line("Vars_{0.id} $vars({1});",
                 tr, ",".join([ name for name, t in decls ]))
-        builder.line("transition_user_fn_{0.id}(ctx, vars);", tr)
+
+        args = [ "ctx", "$vars" ]
+        if tr.clock:
+            builder.line("ca::Clock $clock;")
+            args.append("$clock")
+
+        builder.line("transition_user_fn_{0.id}({1});", tr, builder.expand((", ".join(args))))
+
         if locking:
             builder.line("bool $lock = false;")
         if tr.need_trace():

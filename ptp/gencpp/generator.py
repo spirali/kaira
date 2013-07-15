@@ -56,7 +56,10 @@ class CppGenerator:
                 w.line("\t{0} &{1};", t, name)
         w.line("}};")
         w.emptyline()
-        w.line("void transition_fn(ca::Context &ctx, Vars &var)")
+        args = [ "ca::Context &ctx, Vars &var" ]
+        if transition.clock:
+            args.append("ca::Clock &clock")
+        w.line("void transition_fn({0})".format(", ".join(args)))
         return w.get_string()
 
     def write_header_file(self, directory):

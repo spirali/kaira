@@ -359,6 +359,8 @@ class Transition(NetElement):
     time_substitution = False
     time_substitution_code = ""
 
+    clock = False
+
     def __init__(self, net, id, position):
         NetElement.__init__(self, net, id, position)
         p = (position[0], position[1] - 20)
@@ -377,6 +379,12 @@ class Transition(NetElement):
     def set_time_substitution_code(self, value):
         self.time_substitution_code = value
         self.changed()
+
+    def set_clock(self, value):
+        self.clock = value
+
+    def has_clock(self):
+        return self.clock
 
     def get_priority(self):
         return self.box.corner_text
@@ -420,6 +428,8 @@ class Transition(NetElement):
         e.set("y", str(position[1]))
         e.set("sx", str(self.box.size[0]))
         e.set("sy", str(self.box.size[1]))
+        e.set("clock", str(self.has_clock()))
+
         e.append(canvastext_to_xml(self.guard, "guard"))
         if self.has_code():
             e.append(self.xml_code_element())
@@ -442,6 +452,7 @@ class Transition(NetElement):
         e.set("name", self.box.name)
         e.set("guard", self.guard.text)
         e.set("priority", self.get_priority())
+        e.set("clock", str(self.has_clock()))
 
         if self.has_code():
             e.append(self.xml_code_element())
@@ -931,6 +942,7 @@ def load_transition(element, net, loader):
         transition.guard.text = element.get("guard", "") # Backward compatability
     transition.set_code(load_code(element))
     transition.tracing = load_tracing(element)
+    transition.clock = utils.xml_bool(element, "clock", False)
 
     if element.find("time-substitution") is not None:
         transition.time_substitution = True

@@ -453,6 +453,7 @@ class Transition(utils.EqByIdMixin):
         self.tracing = []
         self.var_exprs = None
         self.match_exprs = None
+        self.clock = False
 
         # Filled by function "analyze_transition"
         self.inscriptions_in = None

@@ -328,6 +328,7 @@ class NetEditor(gtk.VBox):
             self._add_attribute_labelled_code_editor("Priority",
                                                      item.get_priority,
                                                      item.set_priority)
+            self._add_attribute_checkbox("Clock", item.has_clock(), item.set_clock)
         elif item.is_place():
             self._add_attribute_labelled_code_editor("Name", item.get_name, item.set_name)
             self._add_attribute_labelled_code_editor("Type",

@@ -191,6 +191,7 @@ def load_transition(element, project, net):
     if element.find("code") is not None:
         transition.code = element.find("code").text
     transition.tracing = load_tracing(element)
+    transition.clock = utils.xml_bool(element, "clock", False)
 
     if element.find("time-substitution") is not None:
         transition.time_substitution = element.find("time-substitution").text
