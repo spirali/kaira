@@ -358,6 +358,8 @@ class Transition(NetElement):
     # Simrun options
     time_substitution = False
     time_substitution_code = ""
+    clock_substitution = False
+    clock_substitution_code = ""
 
     clock = False
 
@@ -378,6 +380,20 @@ class Transition(NetElement):
 
     def set_time_substitution_code(self, value):
         self.time_substitution_code = value
+        self.changed()
+
+    def get_clock_substitution(self):
+        return self.clock_substitution
+
+    def set_clock_substitution(self, value):
+        self.clock_substitution = value
+        self.changed()
+
+    def get_clock_substitution_code(self):
+        return self.clock_substitution_code
+
+    def set_clock_substitution_code(self, value):
+        self.clock_substitution_code = value
         self.changed()
 
     def set_clock(self, value):
@@ -442,6 +458,10 @@ class Transition(NetElement):
             element = xml.Element("time-substitution")
             element.text = self.time_substitution_code
             e.append(element)
+        if self.clock_substitution:
+            element = xml.Element("clock-substitution")
+            element.text = self.clock_substitution_code
+            e.append(element)
         return e
 
     def get_trace_texts(self):
@@ -473,7 +493,10 @@ class Transition(NetElement):
             element = xml.Element("time-substitution")
             element.text = self.time_substitution_code
             e.append(element)
-
+        if build_config.substitutions and self.clock_substitution:
+            element = xml.Element("clock-substitution")
+            element.text = self.clock_substitution_code
+            e.append(element)
         return e
 
 
@@ -947,6 +970,9 @@ def load_transition(element, net, loader):
     if element.find("time-substitution") is not None:
         transition.time_substitution = True
         transition.time_substitution_code = element.find("time-substitution").text
+    if element.find("clock-substitution") is not None:
+        transition.clock_substitution = True
+        transition.clock_substitution_code = element.find("clock-substitution").text
 
     transition.set_priority(element.get("priority", ""))
 

@@ -21,7 +21,7 @@ namespace ca {
 		public:
 			virtual ~Clock() {}
 
-			virtual void tick() {
+			void tick() {
 				if (clock_gettime(CLOCK_MONOTONIC, &time)) {
 					perror("ca::Clock::tick");
 					exit(-1);

@@ -442,6 +442,7 @@ class Transition(utils.EqByIdMixin):
 
     code = None
     time_substitution = None
+    clock_substitution = None
 
     def __init__(self, net, id, name, guard):
         self.net = net
@@ -554,6 +555,13 @@ class Transition(utils.EqByIdMixin):
             decls = self.get_decls()
             decls.set("transitionTime", "ca::IntTime", self.get_source())
             checker.check_expression(self.time_substitution,
+                                     decls,
+                                     "ca::IntTime",
+                                     self.get_source())
+        if self.clock_substitution:
+            decls = self.get_decls()
+            decls.set("clockTime", "ca::IntTime", self.get_source())
+            checker.check_expression(self.clock_substitution,
                                      decls,
                                      "ca::IntTime",
                                      self.get_source())

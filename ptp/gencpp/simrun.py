@@ -34,6 +34,37 @@ def write_run_configuration(builder):
                            ("*communication-model", 1))
     builder.line("}};")
 
+def write_clock(builder, tr):
+    class_name = "Clock_{0.id}".format(tr)
+    builder.write_class_head(class_name, "ca::Clock")
+    builder.write_constructor(class_name,
+                              "ca::Context &ctx",
+                              [ "ctx(ctx)" ])
+    builder.write_method_end()
+    builder.line("ca::IntTime tock();")
+    builder.line("protected:")
+    builder.line("ca::Context &ctx;")
+    builder.write_class_end()
+
+def write_clock_tock(builder, tr):
+    builder.write_function(
+            "ca::IntTime Clock_{0.id}::tock()".format(tr),
+            "ca::IntTime clockTime = Clock::tock();\n"
+                "return {0};".format(tr.clock_substitution),
+            ("*{0.id}/clock-substitution".format(tr), 1))
+
+def write_clocks_tock(builder):
+    for net in builder.project.nets:
+        for tr in net.transitions:
+            if tr.clock_substitution:
+                write_clock_tock(builder, tr)
+
+def write_clocks(builder):
+    for net in builder.project.nets:
+        for tr in net.transitions:
+            if tr.clock_substitution:
+                write_clock(builder, tr)
+
 def write_main(builder):
     builder.line("int main(int argc, char **argv)")
     builder.block_begin()
@@ -46,7 +77,9 @@ def write_main(builder):
 def write_simrun_program(builder):
     build.write_header(builder)
     builder.line("#include <simrun.h>")
+    write_clocks(builder)
     buildnet.write_core(builder)
     write_run_configuration(builder)
     write_main(builder)
     buildnet.write_user_functions(builder)
+    write_clocks_tock(builder)

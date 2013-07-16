@@ -17,7 +17,6 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-
 import base.utils as utils
 from writer import CppWriter, emit_declarations
 from writer import const_string, const_boolean
@@ -372,7 +371,10 @@ def write_fire_body(builder,
 
         args = [ "ctx", "$vars" ]
         if tr.clock:
-            builder.line("ca::Clock $clock;")
+            if tr.clock_substitution:
+                builder.line("Clock_{0.id} $clock(ctx);", tr)
+            else:
+                builder.line("ca::Clock $clock;")
             args.append("$clock")
 
         builder.line("transition_user_fn_{0.id}({1});", tr, builder.expand((", ".join(args))))

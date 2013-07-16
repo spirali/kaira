@@ -195,6 +195,8 @@ def load_transition(element, project, net):
 
     if element.find("time-substitution") is not None:
         transition.time_substitution = element.find("time-substitution").text
+    if element.find("clock-substitution") is not None:
+        transition.clock_substitution = element.find("clock-substitution").text
 
     priority = element.get("priority").strip()
     if priority == "":

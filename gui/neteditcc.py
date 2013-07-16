@@ -36,7 +36,6 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
 
     def configure(self):
         cconfig.NetCanvasConfig.configure(self)
-        self.neteditor.set_attributes(None)
 
     def collect_items(self):
         items = cconfig.NetCanvasConfig.collect_items(self)
@@ -64,13 +63,24 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
             return lambda: ("{0}: {1}".format(text,
                                               getattr(item, attr)),)
         for item in self.net.transitions():
+            box_position = item.box.get_position()
             if item.get_time_substitution():
                 size = item.box.size
-                position = utils.vector_add_t(item.box.get_position(), size, 0.5)
+                position = utils.vector_add_t(box_position, size, 0.5)
                 i = citems.SimRunLabel(
                     None, "simrunbox", citems.RelativePlacement(item.box, position))
                 i.text_fn = text_fn("time", item, "time_substitution_code")
                 items.append(i)
+                box_position = utils.vector_add(box_position, (0, 20))
+
+            if item.get_clock_substitution():
+                size = item.box.size
+                position = utils.vector_add_t(box_position, size, 0.5)
+                i = citems.SimRunLabel(
+                    None, "simrunbox", citems.RelativePlacement(item.box, position))
+                i.text_fn = text_fn("clock", item, "clock_substitution_code")
+                items.append(i)
+
 
         for item in self.net.edges():
             if item.get_size_substitution():

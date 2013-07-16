@@ -66,6 +66,7 @@ class NetEditor(gtk.VBox):
         self.set_size_request(500,400)
         self.canvas = None
         self.attribute_widgets = []
+        self.attribute_item = None
 
         self.mode = "edit"
 
@@ -286,8 +287,11 @@ class NetEditor(gtk.VBox):
             self.attribute_widgets[0].grab_focus()
 
     def set_attributes(self, item):
+        focus = self.attribute_item is not item
+        self.attribute_item = item
         if not self.attribute_widgets and item is None:
             return
+
         for widget in self.attribute_box.get_children():
             self.attribute_box.remove(widget)
         self.attribute_widgets = []
@@ -301,7 +305,8 @@ class NetEditor(gtk.VBox):
                 self._setup_attribute_widges_mode_simrun(item)
 
         if self.attribute_widgets:
-            self.focus_edit_item()
+            if focus:
+                self.focus_edit_item()
         else:
             if item is not None:
                 text = "Nothing to edit in this mode"
@@ -403,6 +408,12 @@ class NetEditor(gtk.VBox):
                 item.set_time_substitution,
                 item.get_time_substitution_code,
                 item.set_time_substitution_code)
+            self._add_attribute_checkbox_code_editor(
+                "Clock substitution",
+                item.get_clock_substitution(),
+                item.set_clock_substitution,
+                item.get_clock_substitution_code,
+                item.set_clock_substitution_code)
 
         if item.is_edge():
             self._add_attribute_checkbox_code_editor(
