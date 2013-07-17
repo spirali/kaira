@@ -302,6 +302,7 @@ class Point(CanvasItem):
         if self.color:
             px, py = self.get_position()
             cr.set_source_rgb(*self.color)
+            cr.new_sub_path()
             cr.arc(px, py, self.radius, 0, 2 * math.pi)
             cr.fill()
 
@@ -476,10 +477,12 @@ class TokenBox(CanvasItem):
             cr.set_source_rgb(0.2,0.45,0)
 
 
+        cr.new_sub_path()
         cr.arc(px, py, 8, 0, 2 * math.pi)
         cr.fill()
 
         cr.set_line_width(0.5)
+        cr.new_sub_path()
         cr.arc(px, py, 8, 0, 2 * math.pi)
         cr.set_source_rgb(0,0,0)
         cr.stroke()

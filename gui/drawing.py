@@ -30,6 +30,7 @@ def draw_round_rectangle(cr, px, py, sx, sy, radius):
         sy -- height of base rectangle
         radius -- radius in corner
     """
+    cr.new_sub_path()
     cr.arc(px, py, radius, math.pi, 1.5*math.pi)
     cr.line_to(px + sx, py - radius)
 
