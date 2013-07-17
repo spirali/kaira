@@ -15,7 +15,8 @@ namespace ca {
 	extern size_t tracelog_size;
 }
 
-using namespace casr;
+
+namespace casr {
 
 struct ThreadInfo
 {
@@ -177,8 +178,7 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 	RunConfiguration& run_configuration;
 };
 
-
-void casr::main(RunConfiguration &run_configuration)
+void main(RunConfiguration &run_configuration)
 {
 	ControlledTimeTraceLog::init();
 	ca::check_parameters();
@@ -186,4 +186,6 @@ void casr::main(RunConfiguration &run_configuration)
 	State state(run_configuration, net_def);
 	state.run();
 	std::cerr << "Kaira: Time = " << state.get_global_time() / 1e6 << "ms\n";
+}
+
 }
