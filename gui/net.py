@@ -489,10 +489,32 @@ class Place(NetElement):
         p = (position[0] + self.box.radius * 0.85, position[1] - self.box.radius * 1.5)
         self.init = citems.Text(self, "init", self.box.get_relative_placement(p))
 
+        p = self.box.get_relative_placement((- self.box.radius - 5, -5), absolute=False)
+        self.interface = citems.PlaceInterface(self, "interface", p)
+
     def get_canvas_items(self):
-        return [ self.box,
+        items = [ self.box,
                  self.place_type,
                  self.init ]
+        if self.interface.is_visible():
+            items.append(self.interface)
+        return items
+
+    def get_interface_in(self):
+        return self.interface.interface_in
+
+    def set_interface_in(self, value):
+        self.interface.interface_in = value
+        self.interface.update()
+        self.changed()
+
+    def get_interface_out(self):
+        return self.interface.interface_out
+
+    def set_interface_out(self, value):
+        self.interface.interface_out = value
+        self.interface.update()
+        self.changed()
 
     def get_radius(self):
         return self.radius
@@ -531,6 +553,17 @@ class Place(NetElement):
             e.set("return-type", trace_function.return_type)
             element.append(e)
 
+    def interface_as_xml(self):
+        element = xml.Element("interface")
+        position = self.interface.get_position()
+        element.set("x", str(position[0]))
+        element.set("y", str(position[1]))
+        if self.interface.interface_in is not None:
+            element.set("in", self.interface.interface_in)
+        if self.interface.interface_out is not None:
+            element.set("out", self.interface.interface_out)
+        return element
+
     def as_xml(self):
         e = self.create_xml_element("place")
         position = self.box.get_position()
@@ -544,6 +577,8 @@ class Place(NetElement):
         e.append(canvastext_to_xml(self.init, "init"))
         if self.has_code():
             e.append(self.xml_code_element())
+        if self.interface.is_visible():
+            e.append(self.interface_as_xml())
         self.tracing_to_xml(e)
         return e
 
@@ -880,6 +915,14 @@ def load_place(element, net, loader):
         place.init.text = element.get("init_string", "") # Backward compatability
     place.set_code(load_code(element))
     place.tracing = load_place_tracing(element)
+
+    interface = element.find("interface")
+    if interface is not None:
+        place.interface.set_position((xml_int(interface, "x"),
+                                      xml_int(interface, "y")))
+        place.interface.interface_in = interface.get("in")
+        place.interface.interface_out = interface.get("out")
+        place.interface.update()
 
 def load_transition(element, net, loader):
     id = loader.get_id(element)

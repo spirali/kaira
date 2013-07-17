@@ -118,7 +118,9 @@ class CanvasItem:
     def set_position(self, position):
         self.placement.set_position(position)
 
-    def get_relative_placement(self, position):
+    def get_relative_placement(self, position, absolute=True):
+        if not absolute:
+            position = utils.vector_add(position, self.placement.get_position())
         return RelativePlacement(self.placement, position)
 
 
@@ -328,6 +330,7 @@ class Text(CanvasItem):
     def is_at_position(self, position):
         px, py = position
         x, y = self.get_position()
+        x -= self.align_x * self.size[0]
         return (x < px and y < py and
                 x + self.size[0] > px and y + self.size[1] > py)
 
@@ -642,6 +645,26 @@ class ClockIcon(Point):
         cr.move_to(px, py)
         cr.rel_line_to(3.7, 1.4)
         cr.stroke()
+
+
+class PlaceInterface(Text):
+
+    color = (0.2, 0.2, 0.2)
+    background_color = (0.4, 0.4, 0.4, 0.2)
+    align_x = 1
+
+    interface_in = None
+    interface_out = None
+
+    def update(self):
+        self.text = ""
+        if self.interface_in is not None:
+            self.text = self.interface_in + u" \u25B6\n"
+        if self.interface_out is not None:
+            self.text += self.interface_out + u" \u25C0\n"
+
+    def is_visible(self):
+        return self.interface_in is not None or self.interface_out is not None
 
 
 def shorten_token_name(name):

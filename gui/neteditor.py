@@ -342,6 +342,11 @@ class NetEditor(gtk.VBox):
             self._add_attribute_labelled_code_editor("Init",
                                                      item.get_init_string,
                                                      item.set_init_string)
+            self._add_attribute_checkbox_entry(
+                "Input", item.get_interface_in, item.set_interface_in)
+            self._add_attribute_checkbox_entry(
+                "Output", item.get_interface_out, item.set_interface_out)
+
         elif item.is_edge():
             self._add_attribute_labelled_code_editor("Inscription",
                                             item.get_inscription,
@@ -479,6 +484,32 @@ class NetEditor(gtk.VBox):
         self._add_attribute_checkbox(name, bool_value, set_fn=changed)
         editor = self._add_attribute_code_editor(get_code_fn, set_code_fn)
         editor.set_sensitive(bool_value)
+
+
+    def _add_attribute_checkbox_entry(self, name, get_fn, set_fn):
+        def changed(value):
+            entry.set_sensitive(value)
+            if value:
+                set_fn("")
+            else:
+                set_fn(None)
+        self._add_attribute_checkbox(name, get_fn() is not None, set_fn=changed)
+        entry = self._add_attribute_entry(get_fn, set_fn)
+        entry.set_sensitive(get_fn() is not None)
+
+    def _add_attribute_entry(self, get_fn, set_fn):
+        def changed(w):
+            set_fn(w.get_text())
+        entry = gtk.Entry()
+        value = get_fn()
+        if value is None:
+            entry.set_text("")
+        else:
+            entry.set_text(value)
+        entry.connect("changed", changed) #lambda w: set_fn(entry.get_text()))
+        self.attribute_box.pack_start(entry, False, False, 0)
+        self.attribute_widgets.append(entry)
+        return entry
 
     def _add_attribute_code_editor(self, get_fn, set_fn):
         def on_change():
