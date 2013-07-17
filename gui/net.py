@@ -368,6 +368,14 @@ class Transition(NetElement):
         p = (position[0], position[1] - 20)
         self.guard = citems.Text(self, "guard", self.box.get_relative_placement(p))
 
+    def get_canvas_items(self):
+        items = [ self.box, self.guard ]
+        if self.clock:
+            p = utils.vector_add(self.box.get_position(), (-9, 7))
+            items.append(citems.ClockIcon(
+                self, "clock", self.box.get_relative_placement(p)))
+        return items
+
     def get_time_substitution(self):
         return self.time_substitution
 
@@ -411,9 +419,6 @@ class Transition(NetElement):
 
     def get_priroty(self):
         return self.box.corner_text
-
-    def get_canvas_items(self):
-        return [ self.box, self.guard ]
 
     def get_name(self):
         return self.box.name

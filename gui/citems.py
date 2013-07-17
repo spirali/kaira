@@ -620,6 +620,26 @@ class Box(Point):
         else:
             return False
 
+class ClockIcon(Point):
+
+    z_level = 1
+
+    def draw(self, cr):
+        px, py = self.get_position()
+        cr.new_sub_path()
+        cr.set_source_rgb(1,1,1)
+        cr.arc(px, py, 6, 0, 2 * math.pi)
+        cr.fill()
+        cr.set_source_rgb(0,0,0)
+        cr.set_line_width(1)
+        cr.new_sub_path()
+        cr.arc(px, py, 6, 0, 2 * math.pi)
+        cr.move_to(px, py)
+        cr.rel_line_to(0, -3.5)
+        cr.move_to(px, py)
+        cr.rel_line_to(3.7, 1.4)
+        cr.stroke()
+
 
 def shorten_token_name(name):
     if len(name) > 25:
