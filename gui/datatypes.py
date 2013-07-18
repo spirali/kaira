@@ -25,63 +25,55 @@ from tracelog import TraceLog
 
 """ Supported types for actions selector """
 
-class IncorrectTypeException(Exception):
+class DataTypeException(Exception):
+    pass
+
+
+class IncorrectTypeException(DataTypeException):
 
     def __init__(self, value):
         self.value = value
+        message = "The type '{0}' does not contain " \
+                   "any supported extensions!".format(str(value))
+        DataTypeException.__init__(self, message)
 
-    def __str__(self):
-        return "The type '{0}' does not contain " \
-               "any supported extensions!".format(repr(self.value))
 
-class NoLoaderExists(Exception):
+class NoLoaderExists(DataTypeException):
 
     def __init__(self, value):
-        self.value = value
+        message = "Loader for '{0}' does not exist!".format(str(value))
+        DataTypeException.__init__(self, message)
 
-    def __str__(self):
-        return "Loader for '{0}' does not exist!".format(repr(self.value))
 
-class Type:
+class Type(object):
     """ Type gives similar types together. It is like types' container. """
 
-    def __init__(self, name, short_name, suffixes):
+    def __init__(self, name, short_name, files_extensions):
         """ Initialize of type of types.
 
         Arguments:
         name -- name of type
         short_name -- short version of name
         suffixes -- a list of supported file types
-
         """
-        self.name = name
-        self.short_name = short_name
-        if not isinstance(suffixes, list):
-            raise Exception("The suffixes must be a list")
-        self.suffixes = suffixes
-
-        self._current_type = None
+        self._name = name
+        self._short_name = short_name
+        self._files_extensions = list(files_extensions)
 
         self.loaders = {}
         self.savers = {}
 
-    def get_id(self):
-        if not self.suffixes:
-            raise IncorrectTypeException(self.name)
+    @property
+    def name(self):
+        return self._name
 
-        return "-".join(self.suffixes)
+    @property
+    def short_name(self):
+        return self._short_name
 
-    def get_name(self):
-        return self.name
-
-    def get_short_name(self):
-        return self.short_name
-
-    def get_suffixes(self):
-        return self.suffixes
-
-    def compare(self, type):
-        return self.get_id() == type.get_id()
+    @property
+    def files_extensions(self):
+        return self._files_extensions
 
     def load_source(self, filename, *args):
 
@@ -94,99 +86,36 @@ class Type:
             data = fn_load(filename, *args)
             return extensions.Source(filename, self, data)
         else:
-            raise NoLoaderExists(self.get_name())
+            raise NoLoaderExists(self.name)
 
     def store_source(self, data, *args):
         pass # FIX: implemet me!
 
-    def get_view(self, data, *args):
+    def get_view(self, data, **kwargs):
         return None
 
-    def _dev_register_load_function(self, suffix, function):
-        self.loaders[suffix] = function
+    def register_load_function(self, extension, function):
+        self.loaders[extension] = function
 
-    def _dev_register_save_function(self, suffix, function):
-        self.savers[suffix] = function
+    def register_save_function(self, extension, function):
+        self.savers[extension] = function
 
-class TypesRepository:
-
-    def __init__(self):
-        self.registered = []
-        self.types = []
-
-    def is_registered(self, type):
-        return type.get_id() in self.registered
-
-    def register_type(self, type):
-        """ Registers a new type if the type is already registered than
-        is throws the exception.
-
-        Arguments:
-        type -- the Type object
-
-        """
-
-        if not self.is_registered(type):
-            self.types.append(type)
-        else:
-            raise Exception(
-                "The type '{1}' is already registered".format(
-                    type.get_name()))
-
-    def deregister_type(self, type):
-        if self.is_registered(type):
-            idx = self.registered.index(type.get_id())
-            del self.registered[idx]
-            idx = self.types.index(type)
-            del self.types[idx]
-
-    def get_type(self, suffix):
-        for type in self.types:
-            if suffix in type.get_suffixes():
-                return type
-
-        return None
-
-    def get_registered_types(self):
-        return self.types
 
 # ******************************************************************************
 # supported types
+types_repository = []
 
-class TracelogType(Type):
+t_tracelog = Type("Kaira tracelog", "Tracelog", ["kth"])
+def load_kth(filename):
+    return TraceLog(filename)
+t_tracelog.register_load_function("kth", load_kth)
+def tracelog_view(data, app):
+    return runview.RunView(app, data)
+t_tracelog.get_view = tracelog_view
+types_repository.append(t_tracelog)
 
-    def __init__(self):
-        Type.__init__(self,
-                      "Kaira tracelog",
-                      "Tracelog",
-                      ["kth"])
-
-        self._dev_register_load_function("kth", self.load_kth)
-
-    def load_kth(self, filename): # TODO: processed the exceptions of TraceLog
-        t = TraceLog(filename)
-        return t
-
-    def get_view(self, data, *args):
-        app = args[0]
-        rv = runview.RunView(app, data)
-        return rv
-
-class ControlSequenceType(Type):
-
-    def __init__(self):
-        Type.__init__(self,
-                      "Kaira control sequence",
-                      "Cont. seq.",
-                      ["kcs"])
-        self._dev_register_load_function("kcs", self.load_kcs)
-
-    def load_kcs(self, filename):
-        return filename
-
-# ******************************************************************************
-
-# default repository
-repository = TypesRepository()
-repository.register_type(TracelogType())
-repository.register_type(ControlSequenceType())
+t_contseq = Type("Kaira control sequence", "Cont. seq.", ["kcs"])
+def load_kcs(filename):
+    return filename
+t_contseq.register_load_function("kcs", load_kcs)
+types_repository.append(t_contseq)

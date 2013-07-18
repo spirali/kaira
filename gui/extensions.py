@@ -27,7 +27,7 @@ import sys
 import imp
 
 from events import EventSource
-from datatypes import repository as types_repository
+from datatypes import types_repository
 from datatypes import NoLoaderExists
 from mainwindow import Tab
 
@@ -95,7 +95,7 @@ class SourceView(gtk.Alignment, EventSource):
         # name of data type
         label = gtk.Label()
         label.set_alignment(0, 0)
-        label.set_markup("<i>{0}</i>".format(source.type.get_name()))
+        label.set_markup("<i>{0}</i>".format(source.type.name))
         table.attach(label, 0, 1, 1, 2)
 
         # attach button
@@ -192,7 +192,7 @@ class SourceRepository(EventSource):
         """
 
         return [source for source in self.repo
-                if source.get_type().get_id() not in self.filter]
+                if source.get_type() not in self.filter]
 
 class SourceRepositoryView(gtk.VBox, EventSource):
 
@@ -217,7 +217,7 @@ class SourceRepositoryView(gtk.VBox, EventSource):
             return
 
         for child in self.get_children():
-            if child.get_source().get_type().get_id() in filter:
+            if child.get_source().get_type() in filter:
                 child.show_all()
             else:
                 child.hide_all()
@@ -333,7 +333,7 @@ class Extension(EventSource):
             return
 
         for parameter in self.parameters:
-            if source.get_type().compare(parameter.get_type()) and \
+            if source.get_type() == parameter.get_type() and \
                     (parameter.is_empty() or parameter.is_list()):
                 parameter.attach_source(source)
                 return
@@ -636,7 +636,7 @@ class ParameterView(gtk.Table, EventSource):
         lbl_type = gtk.Label()
         lbl_type.set_alignment(0, 0.5)
         lbl_type.set_markup(
-            " ({0})".format(self.parameter.get_type().get_short_name()))
+            " ({0})".format(self.parameter.get_type().short_name))
         self.attach(lbl_type, 1, 2, 0, 1)
 
         until = 1
@@ -665,7 +665,7 @@ class ParameterView(gtk.Table, EventSource):
         self.show_all()
 
     def _cb_choose_parameter(self, widget, event, index):
-        self.emit_event("filter-sources", [self.parameter.get_type().get_id()])
+        self.emit_event("filter-sources", [self.parameter.get_type()])
         self.emit_event("select-parameter", self.parameter, index)
 
 # ******************************************************************************
@@ -774,17 +774,17 @@ class ExtensionManager(gtk.VBox):
                                        gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
 
-        for type in types_repository.get_registered_types():
+        for type in types_repository:
             filter = gtk.FileFilter()
             name = "{0} ({1})".format(
-                type.get_name(), ", ".join(map(
+                type.short_name, ", ".join(map(
                     lambda s: "*.{0}".format(s),
-                    type.get_suffixes())))
+                    type.files_extensions)))
             filter.set_name(name)
             filter.set_data(name, type)
 
-            for suffix in type.get_suffixes():
-                filter.add_pattern("*.{0}".format(suffix))
+            for file_extension in type.files_extensions:
+                filter.add_pattern("*.{0}".format(file_extension))
             dialog.add_filter(filter)
 
         response = dialog.run()
