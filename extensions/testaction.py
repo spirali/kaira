@@ -1,25 +1,20 @@
 
-from extensions import Extension
-from extensions import add_extension
+from extensions import Operation
+from extensions import Argument
+from extensions import add_operation
 
 from datatypes import t_tracelog
 
-class TestExtension(Extension):
+class TestOperation(Operation):
+    _name = "Testing Operation"
+    _description = "Operation do serves only for tests"
+    _arguments = [
+        Argument("Tracelog", t_tracelog),
+        Argument("Tracelogs 1", t_tracelog, list=True),
+        Argument("Tracelogs 2", t_tracelog, list=True, minimum=3)]
 
-    def __init__(self):
-        Extension.__init__(
-            self,
-            "Test action",
-            "Only testin plugin\'s action")
+    def run(self, tracelog, tracelogs1, tracelogs2):
+        print "Operation was finished."
+        return None
 
-    def init_parameters(self):
-        self._dev_add_parameter("Tracelog 1", t_tracelog, list=True)
-        self._dev_add_parameter("Tracelog 2", t_tracelog)
-
-    def run(self):
-        print "The testing extension was runned."
-
-    def get_processed_data(self):
-        return []
-
-add_extension(TestExtension())
+add_operation(TestOperation)
