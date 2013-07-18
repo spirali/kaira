@@ -54,7 +54,8 @@ def draw_text(cr, px, py, text,
               border_color=None,
               radius=None):
     lines = text.strip().replace("\t", "    ").split("\n")
-    tx = max(utils.text_size(cr, text)[0] for text in lines)
+    sizes = [ utils.text_size(cr, text)[0] for text in lines ]
+    tx = max(sizes)
     w_height = utils.text_size(cr, "W")[1] + 2
     count = len(lines)
     x = px - tx * align_x
@@ -80,8 +81,9 @@ def draw_text(cr, px, py, text,
         cr.stroke()
         cr.restore()
     for i in xrange(count):
-        cr.move_to(x, y - i * w_height)
-        cr.show_text(lines[count - i - 1])
+        j = count - i - 1
+        cr.move_to(px - sizes[j] * align_x, y - i * w_height)
+        cr.show_text(lines[j])
     return (sx, sy)
 
 def draw_arrow(cr, dir_vector, arrow_degrees, arrow_len):
