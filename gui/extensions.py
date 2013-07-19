@@ -26,6 +26,7 @@ import os
 import sys
 import imp
 
+from time import time, gmtime, strftime
 from events import EventSource
 from datatypes import types_repository
 from datatypes import NoLoaderExists
@@ -603,7 +604,7 @@ class OperationFullView(gtk.VBox, EventSource):
         # button run
         button = gtk.Button("Run")
         button.set_sensitive(operation.state == "ready")
-        button.connect("clicked", lambda w: self._cb_run)
+        button.connect("clicked", lambda w: self._cb_run())
         hbox.pack_start(button, False, False)
 
         self.pack_start(hbox, False, False)
@@ -660,8 +661,8 @@ class OperationFullView(gtk.VBox, EventSource):
                 args.append(lst)
             else:
                 args.append(parameter.get_source().data)
-        sources = self.operation.run(*args)
-        self.emit_event("operation-finished", sources)
+        data = self.operation.run(*args)
+        self.emit_event("operation-finished", self.operation, data)
 
     def _cb_state_changed(self, state, icon, btn_run):
         icon.set_state(state)
@@ -697,6 +698,8 @@ class ExtensionManager(gtk.VBox):
             "select-parameter", self._cb_select_parameter)
         self.full_view.set_callback(
             "filter-sources", lambda f: self.sources_view.set_filter(f))
+        self.full_view.set_callback(
+            "operation-finished", self._cb_operation_finished)
 
         # toolbar
         toolbar = gtk.HBox(False)
@@ -823,6 +826,22 @@ class ExtensionManager(gtk.VBox):
         operation = self.full_view.operation
         if operation is not None:
             operation.select_parameter(param, index)
+
+    def _cb_operation_finished(self, operation, sources):
+        if sources is None:
+            return
+        try:
+            sources = list(sources)
+        except TypeError:
+            sources = [sources]
+
+        ts = time()
+        tstring = strftime("%Y-%m-%d %H:%M:%S", gmtime(ts))
+        # add milliseconds
+        tstring = "%s.%03d" % (tstring, int(round(ts * 1e3)) - int(ts) * 1e3)
+        for source in sources:
+            source._name = "%s (%s)" % (source._name, tstring)
+            self.sources_repository.add(source)
 
     def _cb_attach_source(self, source):
         operation = self.full_view.operation
