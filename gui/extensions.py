@@ -51,7 +51,7 @@ class IncorrectStateException(ExtensionException):
 # ******************************************************************************
 # Sources
 
-class Source:
+class Source(object):
 
     def __init__(self, name, type, data):
         """ A source of data.
@@ -62,21 +62,25 @@ class Source:
         data -- if data are in memory the source could be created on fly,
                 default value is None """
 
-        self.name = name
-        self.type = type
-        self.data = data
+        self._name = name
+        self._type = type
+        self._data = data
 
-    def get_name(self):
-        return self.name
+    @property
+    def name(self):
+        return self._name
 
-    def get_type(self):
-        return self.type
+    @property
+    def type(self):
+        return self._type
 
-    def get_data(self):
-        return self.data
+    @property
+    def data(self):
+        return self._data
 
-    def set_data(self, data):
-        self.data = data
+    @data.setter
+    def data(self, value):
+        self._data = value
 
 
 class SourceView(gtk.Alignment, EventSource):
@@ -100,13 +104,13 @@ class SourceView(gtk.Alignment, EventSource):
         entry = gtk.Entry()
         entry.set_size_request(40, -1)
         entry.set_editable(False)
-        entry.set_text(source.get_name())
+        entry.set_text(self.source.name)
         table.attach(entry, 0, 1, 0, 1)
 
         # name of data type
         label = gtk.Label()
         label.set_alignment(0, 0)
-        label.set_markup("<i>{0}</i>".format(source.type.name))
+        label.set_markup("<i>{0}</i>".format(self.source.type.name))
         table.attach(label, 0, 1, 1, 2)
 
         # attach button
@@ -124,6 +128,7 @@ class SourceView(gtk.Alignment, EventSource):
         menu.append(gtk.SeparatorMenuItem())
 
         item = gtk.MenuItem("Store")
+        item.set_sensitive(False)
         menu.append(item)
         item = gtk.MenuItem("Load")
         item.set_sensitive(False)
@@ -149,13 +154,10 @@ class SourceView(gtk.Alignment, EventSource):
 
         self.add(frame)
 
-    def get_source(self):
-        return self.source
-
     def _cb_show(self):
         if self.tabview is None:
-            type = self.source.get_type()
-            view = type.get_view(self.source.get_data(), self.app)
+            type = self.source.type
+            view = type.get_view(self.source.data, self.app)
             self.tabview = Tab("Tracelog", view, mainmenu_groups=("tracelog",))
             self.app.window.add_tab(self.tabview)
         else:
@@ -171,19 +173,19 @@ class SourceRepository(EventSource):
         EventSource.__init__(self)
 
         self.repo = {} # (name: source)
-        self.filter = [] # contains id of datatypes.Type
+        self.filter = [] # contains data types (datatypes.Type)
 
     def add(self, source):
-        if source.get_name() not in self.repo:
-            self.repo[source.get_name()] = source
+        if source.name not in self.repo:
+            self.repo[source.name] = source
             self.emit_event("source-added", source)
             return True
         return False
 
     def remove(self, source):
-        if source.get_name() in self.repo:
-            del self.repo[source.get_name()]
-            source.set_data(None) # free data
+        if source.name in self.repo:
+            del self.repo[source.name]
+            source.data = None # free data
             self.emit_event("source-removed", source)
             return True
         return False
@@ -203,7 +205,7 @@ class SourceRepository(EventSource):
         filter -- list of files extensions which will be excluded """
 
         return [source for source in self.repo
-                if source.get_type() not in self.filter]
+                if source.type not in self.filter]
 
 
 class SourceRepositoryView(gtk.VBox, EventSource):
@@ -218,21 +220,23 @@ class SourceRepositoryView(gtk.VBox, EventSource):
         self.repository.set_callback("source-removed", self._cb_source_removed)
         self.app = app
 
+        self.sources_views = {} # (source, source_view)
+
         sources = self.repository.get_sources()
         for source in sources:
             self._cb_source_added(source)
 
     def _cb_filter_changed(self, filter):
         if not filter:
-            for child in self.get_children():
-                child.show_all()
+            for source, source_view in self.sources_views.items():
+                source_view.show_all()
             return
 
-        for child in self.get_children():
-            if child.get_source().get_type() in filter:
-                child.show_all()
+        for source, source_view in self.sources_views.items():
+            if source.type in filter:
+                source_view.show_all()
             else:
-                child.hide_all()
+                source_view.hide_all()
 
     def _cb_source_added(self, source):
         source_view = SourceView(source, self.app)
@@ -240,15 +244,13 @@ class SourceRepositoryView(gtk.VBox, EventSource):
         source_view.set_callback("delete-source", self._cb_delete_source)
         self.pack_start(source_view, False, False)
         source_view.show_all()
+        self.sources_views[source] = source_view
 
     def _cb_source_removed(self, source):
-        for child in self.get_children():
-            if isinstance(child, SourceView) and \
-                child.get_source().get_name() == source.get_name():
-
-                child.remove_callback("attach-source", self._cb_attach_source)
-                child.remove_callback("delete-source", self._cb_delete_source)
-                self.remove(child)
+        source_view = self.sources_views[source]
+        source_view.remove_callback("attach-source", self._cb_attach_source)
+        source_view.remove_callback("delete-source", self._cb_delete_source)
+        self.remove(source_view)
 
     def _cb_attach_source(self, source):
         # redirect the event from repository
@@ -323,6 +325,8 @@ class Parameter(object, EventSource):
         return self._argument.list
 
     def sources_count(self):
+        """ It returns real attached sources, regardless of minimum count.
+         It cannot be used length of 'sources' list. """
         return self.real_attached
 
     def is_empty(self):
@@ -370,7 +374,7 @@ class Parameter(object, EventSource):
 
     def detach_source(self, index=0):
         if 0 <= index < len(self.sources):
-            if len(self.sources) - self.minimum < 0:
+            if len(self.sources) - self.minimum <= 0:
                 self.sources[index] = None
             else:
                 self.sources.pop(index)
@@ -426,7 +430,7 @@ class ParameterView(gtk.Table, EventSource):
             entry.connect("focus-in-event", self._cb_choose_parameter, i)
             attached_source = self.parameter.get_source(i)
             if attached_source is not None:
-                entry.set_text(attached_source.get_name())
+                entry.set_text(attached_source.name)
             self.attach(entry, 2, 3, i, i+1, xoptions=gtk.FILL)
 
             button = gtk.Button("Detach")
@@ -503,7 +507,7 @@ class Operation(object, EventSource):
             return
 
         for parameter in self.parameters:
-            if source.get_type() == parameter.type and \
+            if source.type == parameter.type and \
                     (parameter.is_empty() or parameter.is_list()):
                 parameter.attach_source(source)
                 return
@@ -665,10 +669,10 @@ class OperationFullView(gtk.VBox, EventSource):
             if parameter.is_list():
                 lst = []
                 for idx in xrange(parameter.sources_count()):
-                    lst.append(parameter.get_source(idx).get_data())
+                    lst.append(parameter.get_source(idx).data)
                 args.append(lst)
             else:
-                args.append(parameter.get_source().get_data())
+                args.append(parameter.get_source().data)
         sources = self.operation.run(*args)
         self.emit_event("operation-finished", sources)
 
@@ -681,8 +685,7 @@ class OperationFullView(gtk.VBox, EventSource):
 
     def _cb_no_free_slot(self, source):
         self.app.show_message_dialog(
-            "There is no free slot for source: '{0}'.".format(
-                source.get_name()),
+            "There is no free slot for source: '{0}'.".format(source.name),
             gtk.MESSAGE_INFO)
 
 # ******************************************************************************
@@ -852,7 +855,7 @@ class ExtensionManager(gtk.VBox):
             for param in operation.parameters:
                 if param.is_list():
                     idx = 0
-                    while idx < param.sources_count():
+                    while idx < param.minimum + param.sources_count():
                         psource = param.get_source(idx)
                         if psource is not None and psource == source:
                             param.detach_source(idx)

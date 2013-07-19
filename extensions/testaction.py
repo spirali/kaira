@@ -10,8 +10,8 @@ class TestOperation(Operation):
     _description = "Operation do serves only for tests"
     _arguments = [
         Argument("Tracelog", t_tracelog),
-        Argument("Tracelogs 1", t_tracelog, list=True),
-        Argument("Tracelogs 2", t_tracelog, list=True, minimum=3)]
+        Argument("Tracelogs 1", t_tracelog, list=True, minimum=3),
+        Argument("Tracelogs 2", t_tracelog, list=True)]
 
     def run(self, tracelog, tracelogs1, tracelogs2):
         print "Operation was finished."
