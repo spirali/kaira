@@ -167,55 +167,46 @@ class SourceView(gtk.Alignment, EventSource):
         self.emit_event("delete-source", self.source)
 
 
-class SourceRepository(EventSource):
+class SourcesRepository(object, EventSource):
 
     def __init__(self):
         EventSource.__init__(self)
 
-        self.repo = {} # (name: source)
-        self.filter = [] # contains data types (datatypes.Type)
+        self._repo = {} # (name: source)
 
     def add(self, source):
-        if source.name not in self.repo:
-            self.repo[source.name] = source
+        if source.name not in self._repo:
+            self._repo[source.name] = source
             self.emit_event("source-added", source)
             return True
         return False
 
     def remove(self, source):
-        if source.name in self.repo:
-            del self.repo[source.name]
+        if source.name in self._repo:
+            del self._repo[source.name]
             source.data = None # free data
             self.emit_event("source-removed", source)
             return True
         return False
 
-    def get_filter(self):
-        return self.filter
-
-    def set_filter(self, filter):
-        self.filter = filter
-        self.emit_event("filter-changed", filter)
-
-    def get_sources(self):
+    def get_sources(self, filter=None):
         """ Returns list of loaded sources. If the filter is not empty,
         the sources are filtered by the extension of file.
 
         Arguments:
-        filter -- list of files extensions which will be excluded """
+        filter -- a list of types which will be included, if the filter
+                  is None than are include all of sources """
+        return [source for name, source in self._repo.items()
+                if filter is None or source.type in filter]
 
-        return [source for source in self.repo
-                if source.type not in self.filter]
 
-
-class SourceRepositoryView(gtk.VBox, EventSource):
+class SourcesRepositoryView(gtk.VBox, EventSource):
 
     def __init__(self, repository, app):
         gtk.VBox.__init__(self)
         EventSource.__init__(self)
 
         self.repository = repository
-        self.repository.set_callback("filter-changed", self._cb_filter_changed)
         self.repository.set_callback("source-added", self._cb_source_added)
         self.repository.set_callback("source-removed", self._cb_source_removed)
         self.app = app
@@ -226,14 +217,10 @@ class SourceRepositoryView(gtk.VBox, EventSource):
         for source in sources:
             self._cb_source_added(source)
 
-    def _cb_filter_changed(self, filter):
-        if not filter:
-            for source, source_view in self.sources_views.items():
-                source_view.show_all()
-            return
-
+    def set_filter(self, filter):
+        show_sources = self.repository.get_sources(filter)
         for source, source_view in self.sources_views.items():
-            if source.type in filter:
+            if source in show_sources:
                 source_view.show_all()
             else:
                 source_view.hide_all()
@@ -693,23 +680,23 @@ class OperationFullView(gtk.VBox, EventSource):
 
 class ExtensionManager(gtk.VBox):
 
-    def __init__(self, app):
+    def __init__(self, sources_repository, app):
         gtk.VBox.__init__(self)
 
         self.app = app
         self.loaded_operations = []
 
         # repository of loaded sources
-        self.sources_repository = SourceRepository()
+        self.sources_repository = sources_repository
         self.sources_repository.set_callback(
             "source-removed", self._cb_detach_source)
 
         # full view of selected operation
         self.full_view = OperationFullView(self.app)
         self.full_view.set_callback(
-            "filter-sources", lambda f: self.sources_repository.set_filter(f))
-        self.full_view.set_callback(
             "select-parameter", self._cb_select_parameter)
+        self.full_view.set_callback(
+            "filter-sources", lambda f: self.sources_view.set_filter(f))
 
         # toolbar
         toolbar = gtk.HBox(False)
@@ -732,13 +719,14 @@ class ExtensionManager(gtk.VBox):
         haling.add(title)
         vbox.pack_start(haling, False, False)
 
-        sources_view = SourceRepositoryView(self.sources_repository, self.app)
-        sources_view.set_callback(
+        self.sources_view = SourcesRepositoryView(
+            self.sources_repository, self.app)
+        self.sources_view.set_callback(
             "attach-source", lambda s: self._cb_attach_source(s))
 
         scw = gtk.ScrolledWindow()
         scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        scw.add_with_viewport(sources_view)
+        scw.add_with_viewport(self.sources_view)
 
         vbox.pack_start(scw, True, True)
 
@@ -829,7 +817,7 @@ class ExtensionManager(gtk.VBox):
 
     def _cb_filter_off(self):
         self.full_view.operation.select_parameter(None, None)
-        self.sources_repository.set_filter([])
+        self.sources_view.set_filter(None)
 
     def _cb_select_parameter(self, param, index):
         operation = self.full_view.operation
@@ -843,7 +831,7 @@ class ExtensionManager(gtk.VBox):
 
             # after attach is canceled selected parameter, and turn filter off
             operation.select_parameter(None, None)
-            self.sources_repository.set_filter([])
+            self.sources_view.set_filter(None)
         else:
             self.app.show_message_dialog(
                 "No operation is chosen.", gtk.MESSAGE_INFO)

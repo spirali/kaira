@@ -60,6 +60,7 @@ class App:
         self.window.set_size_request(650,650)
         self.neteditor = None
         self.project = None
+        self.sources_repository = extensions.SourcesRepository()
         self._open_welcome_tab()
         self.grid_size = 1
         self.settings = self.load_settings()
@@ -293,8 +294,9 @@ class App:
                          lambda: self.console_write("Build finished\n", "success"))
 
     def run_tool_window(self):
-        self.window.add_tab(Tab("Tools",
-                                extensions.ExtensionManager(self)))
+        self.window.add_tab(
+            Tab("Tools", extensions.ExtensionManager(
+                self.sources_repository, self)))
 
     def run_statespace_analysis(self):
         self.window.add_tab(Tab("Statespace",
