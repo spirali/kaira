@@ -27,7 +27,7 @@ import sys
 import imp
 
 from time import time, gmtime, strftime
-from events import EventSource
+from events import EventSource, EventCallbacksList
 from datatypes import types_repository
 from datatypes import NoLoaderExists
 from mainwindow import Tab
@@ -159,7 +159,7 @@ class SourceView(gtk.Alignment, EventSource):
         if self.tabview is None:
             type = self.source.type
             view = type.get_view(self.source.data, self.app)
-            self.tabview = Tab("Tracelog", view, mainmenu_groups=("tracelog",))
+            self.tabview = Tab(self.source.type.short_name, view,)
             self.app.window.add_tab(self.tabview)
         else:
             self.app.window.switch_to_tab(self.tabview)
@@ -208,8 +208,11 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
         EventSource.__init__(self)
 
         self.repository = repository
-        self.repository.set_callback("source-added", self._cb_source_added)
-        self.repository.set_callback("source-removed", self._cb_source_removed)
+        self.events = EventCallbacksList()
+        self.events.set_callback(
+            self.repository, "source-added", self._cb_source_added)
+        self.events.set_callback(
+            self.repository, "source-removed", self._cb_source_removed)
         self.app = app
 
         self.sources_views = {} # (source, source_view)
@@ -225,6 +228,13 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
                 source_view.show_all()
             else:
                 source_view.hide_all()
+
+    def deregister_callbacks(self):
+        for source in self.repository.get_sources(None):
+            source_view = self.sources_views[source]
+            source_view.remove_callback("attach-source", self._cb_attach_source)
+            source_view.remove_callback("delete-source", self._cb_delete_source)
+        self.events.remove_all()
 
     def _cb_source_added(self, source):
         source_view = SourceView(source, self.app)
@@ -379,11 +389,14 @@ class ParameterView(gtk.Table, EventSource):
         self.set_border_width(2)
 
         self.parameter = parameter
-        self.parameter.set_callback(
+        self.event = self.parameter.set_callback(
             "parameter-changed", self._cb_parameter_changed)
 
         # initialize view
         self._cb_parameter_changed()
+
+    def deregister_callbacks(self):
+        self.event.remove()
 
     def _cb_parameter_changed(self):
         # remove
@@ -441,10 +454,11 @@ class Operation(object, EventSource):
     def __init__(self):
         EventSource.__init__(self)
 
+        self.events = EventCallbacksList()
         self.parameters = [Parameter(arg) for arg in self._arguments]
         for parameter in self.parameters:
-            parameter.set_callback(
-                "parameter-changed", self._cb_parameter_changed)
+            self.events.set_callback(
+                parameter, "parameter-changed", self._cb_parameter_changed)
 
         self._selected_parameter = (None, None)
         self._state = "ready" if self.all_sources_filled() else "incomplete"
@@ -486,11 +500,11 @@ class Operation(object, EventSource):
     def run(self, *args):
         """ This method is called with attached arguments. Method must not
          any side effect and it must not modify argument. """
-        return [] # TODO: list of sources
+        return None
 
     def attach_source(self, source):
         parameter, index = self.selected_parameter
-        if parameter is not None:
+        if parameter is not None and parameter.type == source.type:
             parameter.attach_source(source, index)
             return
 
@@ -513,6 +527,9 @@ class Operation(object, EventSource):
                         return False
         return True
 
+    def deregister_callbacks(self):
+        self.events.remove_all()
+
     def _cb_parameter_changed(self):
         if self.all_sources_filled():
             self.state = "ready"
@@ -532,7 +549,7 @@ class OperationShortView(gtk.Alignment, EventSource):
         hbox = gtk.HBox(False)
 
         icon = StateIcon(self.operation.state)
-        self.operation.set_callback(
+        self.event = self.operation.set_callback(
             "state-changed", lambda s: icon.set_state(s))
         hbox.pack_start(icon, False, False)
 
@@ -554,6 +571,8 @@ class OperationShortView(gtk.Alignment, EventSource):
         frame.add(hbox)
         self.add(frame)
 
+    def deregister_callbacks(self):
+        self.event.remove()
 
 class OperationFullView(gtk.VBox, EventSource):
 
@@ -561,17 +580,18 @@ class OperationFullView(gtk.VBox, EventSource):
         gtk.VBox.__init__(self)
         EventSource.__init__(self)
 
-        self.__registered_callbacks = []
+        self.events = EventCallbacksList()
 
         self.app = app
         self.operation = None
 
+    def deregister_callbacks(self):
+        self.events.remove_all()
+
     def set_operation(self, operation):
 
         # remove callbacks
-        for callback in self.__registered_callbacks:
-            callback.remove()
-        self.__registered_callbacks = []
+        self.events.remove_all()
 
         # remove old components
         for comp in self.get_children():
@@ -589,8 +609,8 @@ class OperationFullView(gtk.VBox, EventSource):
         icon = StateIcon(self.operation.state, 25, 25)
         hbox.pack_start(icon, False, False)
 
-        cb = self.operation.set_callback("no-free-slot", self._cb_no_free_slot)
-        self.__registered_callbacks.append(cb)
+        self.events.set_callback(
+            self.operation, "no-free-slot", self._cb_no_free_slot)
 
         # name
         label = gtk.Label()
@@ -609,11 +629,10 @@ class OperationFullView(gtk.VBox, EventSource):
 
         self.pack_start(hbox, False, False)
 
-        cb = self.operation.set_callback(
-            "state-changed",
+        self.events.set_callback(
+            self.operation, "state-changed",
             lambda state: self._cb_state_changed(state, icon, button))
 
-        self.__registered_callbacks.append(cb)
         # description
         def cb_allocate(label, allocation ):
             label.set_size_request(allocation.width -2, -1)
@@ -637,15 +656,14 @@ class OperationFullView(gtk.VBox, EventSource):
         # parameters
         for parameter in operation.parameters:
             param_view = ParameterView(parameter)
-            cb = param_view.set_callback(
-                "filter-sources",
+            self.events.set_callback(
+                param_view, "filter-sources",
                 lambda f: self.emit_event("filter-sources", f))
-            self.__registered_callbacks.append(cb)
-            cb = param_view.set_callback(
+            self.events.set_callback(
+                param_view,
                 "select-parameter",
                 lambda param, idx: self.emit_event(
                     "select-parameter", param, idx))
-            self.__registered_callbacks.append(cb)
 
             self.pack_start(param_view, False, False)
 
@@ -686,20 +704,24 @@ class ExtensionManager(gtk.VBox):
 
         self.app = app
         self.loaded_operations = []
+        self.objects_with_callbacks = []
+        self.events = EventCallbacksList()
 
         # repository of loaded sources
         self.sources_repository = sources_repository
-        self.sources_repository.set_callback(
-            "source-removed", self._cb_detach_source)
+        self.events.set_callback(
+            self.sources_repository, "source-removed", self._cb_detach_source)
 
         # full view of selected operation
         self.full_view = OperationFullView(self.app)
-        self.full_view.set_callback(
-            "select-parameter", self._cb_select_parameter)
-        self.full_view.set_callback(
+        self.objects_with_callbacks.append(self.full_view)
+        self.events.set_callback(
+            self.full_view, "select-parameter", self._cb_select_parameter)
+        self.events.set_callback(
+            self.full_view,
             "filter-sources", lambda f: self.sources_view.set_filter(f))
-        self.full_view.set_callback(
-            "operation-finished", self._cb_operation_finished)
+        self.events.set_callback(
+            self.full_view, "operation-finished", self._cb_operation_finished)
 
         # toolbar
         toolbar = gtk.HBox(False)
@@ -724,7 +746,9 @@ class ExtensionManager(gtk.VBox):
 
         self.sources_view = SourcesRepositoryView(
             self.sources_repository, self.app)
-        self.sources_view.set_callback(
+        self.objects_with_callbacks.append(self.sources_view)
+        self.events.set_callback(
+            self.sources_view,
             "attach-source", lambda s: self._cb_attach_source(s))
 
         scw = gtk.ScrolledWindow()
@@ -760,6 +784,11 @@ class ExtensionManager(gtk.VBox):
 
         self.show_all()
 
+    def close(self):
+        for obj in self.objects_with_callbacks:
+            obj.deregister_callbacks()
+        self.events.remove_all()
+
     def _load_operations(self):
         """ Load modules (operations). It returns a column with all loaded
          operations."""
@@ -771,10 +800,13 @@ class ExtensionManager(gtk.VBox):
             operation = operation_cls()
             self.loaded_operations.append(operation)
             short_view = OperationShortView(operation)
-            short_view.set_callback(
-                "operation-selected",
+            self.events.set_callback(
+                short_view, "operation-selected",
                 lambda op: self.full_view.set_operation(op))
             column.pack_start(short_view, False, False)
+
+            self.objects_with_callbacks.append(operation)
+            self.objects_with_callbacks.append(short_view)
         scw.add_with_viewport(column)
         return scw
 
@@ -819,8 +851,9 @@ class ExtensionManager(gtk.VBox):
         dialog.destroy()
 
     def _cb_filter_off(self):
-        self.full_view.operation.select_parameter(None, None)
-        self.sources_view.set_filter(None)
+        if self.full_view.operation is not None:
+            self.full_view.operation.select_parameter(None, None)
+            self.sources_view.set_filter(None)
 
     def _cb_select_parameter(self, param, index):
         operation = self.full_view.operation
@@ -828,10 +861,9 @@ class ExtensionManager(gtk.VBox):
             operation.select_parameter(param, index)
 
     def _cb_operation_finished(self, operation, sources):
-        self.sources_view.set_filter(None)
-
         if sources is None:
             return
+
         try:
             sources = list(sources)
         except TypeError:
@@ -844,6 +876,9 @@ class ExtensionManager(gtk.VBox):
         for source in sources:
             source._name = "%s (%s)" % (source._name, tstring)
             self.sources_repository.add(source)
+        # destroy filter and selected_parameter
+        self.full_view.operation.select_parameter(None, None)
+        self.sources_view.set_filter(None)
 
     def _cb_attach_source(self, source):
         operation = self.full_view.operation

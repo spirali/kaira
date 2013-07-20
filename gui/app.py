@@ -294,9 +294,9 @@ class App:
                          lambda: self.console_write("Build finished\n", "success"))
 
     def run_tool_window(self):
-        self.window.add_tab(
-            Tab("Tools", extensions.ExtensionManager(
-                self.sources_repository, self)))
+        tab = Tab("Tools", extensions.ExtensionManager(
+            self.sources_repository, self,), call_close=True)
+        self.window.add_tab(tab)
 
     def run_statespace_analysis(self):
         self.window.add_tab(Tab("Statespace",
