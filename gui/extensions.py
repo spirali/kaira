@@ -828,6 +828,8 @@ class ExtensionManager(gtk.VBox):
             operation.select_parameter(param, index)
 
     def _cb_operation_finished(self, operation, sources):
+        self.sources_view.set_filter(None)
+
         if sources is None:
             return
         try:
@@ -848,9 +850,16 @@ class ExtensionManager(gtk.VBox):
         if operation is not None:
             operation.attach_source(source)
 
-            # after attach is canceled selected parameter, and turn filter off
-            operation.select_parameter(None, None)
-            self.sources_view.set_filter(None)
+            param, idx = operation.selected_parameter
+            if param is None:
+                return
+
+            if param.is_list(): # the filter will stay on,
+                                # if a parameter is list type
+                operation.select_parameter(param, idx + 1)
+            else:
+                operation.select_parameter(None, None)
+                self.sources_view.set_filter(None)
         else:
             self.app.show_message_dialog(
                 "No operation is chosen.", gtk.MESSAGE_INFO)
