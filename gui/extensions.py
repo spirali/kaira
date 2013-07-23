@@ -18,10 +18,9 @@
 #
 
 import gtk
-import math
-import cairo
+import drawing
+import paths
 
-import re
 import os
 import sys
 import imp
@@ -32,56 +31,29 @@ from datatypes import types_repository
 from datatypes import NoLoaderExists
 from mainwindow import Tab
 
-KAIRA_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EXTENSIONS_DIR = os.path.join(KAIRA_DIR, "extensions")
 
 operations = {} # the list of all loaded operations
 
 class ExtensionException(Exception):
     pass
 
-
-class IncorrectStateException(ExtensionException):
-
-    def __init__(self, value):
-        self.value = value
-        message = "Incorrect state value '{0}'.".format(value)
-        Exception.__init__(self, message)
-
-
-# ******************************************************************************
+# *****************************************************************************
 # Sources
 
 class Source(object):
 
     def __init__(self, name, type, data):
-        """ A source of data.
+        """Initialize a source of data.
 
         Arguments:
         name -- file name (source file on disk)
         type -- type of the data (stype.Type)
-        data -- if data are in memory the source could be created on fly,
-                default value is None """
+        data -- physical data
 
-        self._name = name
-        self._type = type
-        self._data = data
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def type(self):
-        return self._type
-
-    @property
-    def data(self):
-        return self._data
-
-    @data.setter
-    def data(self, value):
-        self._data = value
+        """
+        self.name = name
+        self.type = type
+        self.data = data
 
 
 class SourceView(gtk.Alignment, EventSource):
@@ -191,12 +163,14 @@ class SourcesRepository(object, EventSource):
         return False
 
     def get_sources(self, filter=None):
-        """ Returns list of loaded sources. If the filter is not empty,
-        the sources are filtered by the extension of file.
+        """Return a list of loaded sources. If the filter is not empty,
+        the sources are filtered by the type.
 
-        Arguments:
-        filter -- a list of types which will be included, if the filter
-                  is None than are include all of sources """
+        Keyword arguments:
+        filter -- a list of types which will be included (default None);
+                  if the filter is None than are include all of sources
+
+        """
         return [source for name, source in self._repo.items()
                 if filter is None or source.type in filter]
 
@@ -232,8 +206,10 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
     def deregister_callbacks(self):
         for source in self.repository.get_sources(None):
             source_view = self.sources_views[source]
-            source_view.remove_callback("attach-source", self._cb_attach_source)
-            source_view.remove_callback("delete-source", self._cb_delete_source)
+            source_view.remove_callback(
+                "attach-source", self._cb_attach_source)
+            source_view.remove_callback(
+                "delete-source", self._cb_delete_source)
         self.events.remove_all()
 
     def _cb_source_added(self, source):
@@ -258,44 +234,30 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
         self.repository.remove(source)
 
 
-# ******************************************************************************
+# *****************************************************************************
 # Extension
 
 class Argument(object):
-    """ This class describes the argument of operation. It serves as persistent
-     structure. """
+    """This class describes the argument of operation. It serves as persistent
+     structure.
+
+    """
 
     def __init__(self, name, type, list=False, minimum=1):
-        """ Initialize of an argument.
+        """Initialize of an argument.
 
         Arguments:
         name -- display name of argument
-        type -- data type of argument datatypes.Type
+        type -- data type of argument (datatypes.Type)
         list -- True if the argument represents a list of arguments, otherwise
                 False
-        minimum -- minimal count of values in list """
+        minimum -- minimal count of values in list
 
-        self._name = name
-        self._type = type
-        self._list = list
-        self._minimum = minimum
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def type(self):
-        return self._type
-
-    @property
-    def list(self):
-        return self._list
-
-    @property
-    def minimum(self):
-        return self._minimum
-
+        """
+        self.name = name
+        self.type = type
+        self.list = list
+        self.minimum = minimum
 
 class Parameter(object, EventSource):
 
@@ -322,20 +284,23 @@ class Parameter(object, EventSource):
     def is_list(self):
         return self._argument.list
 
-    def sources_count(self):
-        """ It returns real attached sources, regardless of minimum count.
-         It cannot be used length of 'sources' list. """
-        return self.real_attached
-
     def is_empty(self):
         return self.real_attached == 0
 
+    def sources_count(self):
+        """Return a number of real attached sources, with no respect
+        to minimum count.
+
+        """
+        return self.real_attached
+
     def get_source(self, index=-1):
-        """ Returns a chosen source, default returns the last attached source.
+        """Return a chosen source.
 
-        Arguments:
-        index -- index of chosen source """
+        Keyword arguments:
+        index -- index of chosen source (default -1; last added)
 
+        """
         if not self.sources or index >= len(self.sources):
             return None
         else:
@@ -378,6 +343,13 @@ class Parameter(object, EventSource):
                 self.sources.pop(index)
             self.real_attached -= 1
             self.emit_event("parameter-changed")
+
+    def get_data(self):
+        if self.is_list():
+            return [self.sources[idx].data
+                    for idx in xrange(self.real_attached)]
+        else:
+            return self.sources[0].data
 
 
 class ParameterView(gtk.Table, EventSource):
@@ -455,52 +427,49 @@ class Operation(object, EventSource):
         EventSource.__init__(self)
 
         self.events = EventCallbacksList()
-        self.parameters = [Parameter(arg) for arg in self._arguments]
+        self.parameters = [Parameter(arg) for arg in self.arguments]
         for parameter in self.parameters:
             self.events.set_callback(
                 parameter, "parameter-changed", self._cb_parameter_changed)
 
-        self._selected_parameter = (None, None)
+        self.selected_parameter = (None, None)
         self._state = "ready" if self.all_sources_filled() else "incomplete"
-
-    @property
-    def name(self): # from extended class
-        return self._name
-
-    @property
-    def description(self): # from extended class
-        return self._description
 
     @property
     def state(self):
         return self._state
 
     @state.setter
-    def state(self, value):
-        if value == "ready" or value == "incomplete" or value == "incorrect":
-            self._state = value
-            self.emit_event("state-changed", value)
-        else:
-            raise IncorrectStateException(value)
-
-    @property
-    def selected_parameter(self):
-        return self._selected_parameter
+    def state(self, state):
+        assert (state == "ready" or
+                state == "incomplete" or
+                state == "incorrect")
+        self._state = state
+        self.emit_event("state-changed", state)
 
     def select_parameter(self, parameter, index=0):
-        """ Select a specific parameter. The index is important if the selected
+        """Select a specific parameter. The index is important if the selected
          parameter is a list. Then the index specify the position in the list.
 
         Arguments:
         parameter -- selected parameter
-        index -- the specific position in a list, default is 0 """
 
-        self._selected_parameter = (parameter, index)
+        Keyword arguments:
+        index -- the specific position in a list (default 0)
+
+        """
+        self.selected_parameter = (parameter, index)
 
     def run(self, *args):
-        """ This method is called with attached arguments. Method must not
-         any side effect and it must not modify argument. """
+        """This method is called with attached arguments. Method must not
+         any side effect and it must not modify argument.
+
+        """
         return None
+
+    def execute(self):
+        args = [parameter.get_data() for parameter in self.parameters]
+        return self.run(*args)
 
     def attach_source(self, source):
         parameter, index = self.selected_parameter
@@ -548,7 +517,7 @@ class OperationShortView(gtk.Alignment, EventSource):
         self.set_padding(5, 0, 5, 5)
         hbox = gtk.HBox(False)
 
-        icon = StateIcon(self.operation.state)
+        icon = drawing.StateIcon(self.operation.state)
         self.event = self.operation.set_callback(
             "state-changed", lambda s: icon.set_state(s))
         hbox.pack_start(icon, False, False)
@@ -574,6 +543,7 @@ class OperationShortView(gtk.Alignment, EventSource):
     def deregister_callbacks(self):
         self.event.remove()
 
+
 class OperationFullView(gtk.VBox, EventSource):
 
     def __init__(self, app):
@@ -592,6 +562,7 @@ class OperationFullView(gtk.VBox, EventSource):
 
         # remove callbacks
         self.events.remove_all()
+        self.events = EventCallbacksList() # TODO: Why must by initialized again ??
 
         # remove old components
         for comp in self.get_children():
@@ -606,7 +577,7 @@ class OperationFullView(gtk.VBox, EventSource):
         self.set_border_width(5)
         hbox = gtk.HBox(False)
 
-        icon = StateIcon(self.operation.state, 25, 25)
+        icon = drawing.StateIcon(self.operation.state, 25, 25)
         hbox.pack_start(icon, False, False)
 
         self.events.set_callback(
@@ -670,16 +641,7 @@ class OperationFullView(gtk.VBox, EventSource):
         self.show_all()
 
     def _cb_run(self):
-        args = []
-        for parameter in self.operation.parameters:
-            if parameter.is_list():
-                lst = []
-                for idx in xrange(parameter.sources_count()):
-                    lst.append(parameter.get_source(idx).data)
-                args.append(lst)
-            else:
-                args.append(parameter.get_source().data)
-        data = self.operation.run(*args)
+        data = self.operation.execute()
         self.emit_event("operation-finished", self.operation, data)
 
     def _cb_state_changed(self, state, icon, btn_run):
@@ -694,7 +656,8 @@ class OperationFullView(gtk.VBox, EventSource):
             "There is no free slot for source: '{0}'.".format(source.name),
             gtk.MESSAGE_INFO)
 
-# ******************************************************************************
+
+# *****************************************************************************
 # Extensions manager
 
 class ExtensionManager(gtk.VBox):
@@ -702,9 +665,10 @@ class ExtensionManager(gtk.VBox):
     def __init__(self, sources_repository, app):
         gtk.VBox.__init__(self)
 
+        self.__objects_with_callbacks = []
+
         self.app = app
         self.loaded_operations = []
-        self.objects_with_callbacks = []
         self.events = EventCallbacksList()
 
         # repository of loaded sources
@@ -714,12 +678,12 @@ class ExtensionManager(gtk.VBox):
 
         # full view of selected operation
         self.full_view = OperationFullView(self.app)
-        self.objects_with_callbacks.append(self.full_view)
+        self.__objects_with_callbacks.append(self.full_view)
         self.events.set_callback(
             self.full_view, "select-parameter", self._cb_select_parameter)
         self.events.set_callback(
-            self.full_view,
-            "filter-sources", lambda f: self.sources_view.set_filter(f))
+            self.full_view, "filter-sources",
+            lambda f: self.sources_view.set_filter(f))
         self.events.set_callback(
             self.full_view, "operation-finished", self._cb_operation_finished)
 
@@ -746,10 +710,10 @@ class ExtensionManager(gtk.VBox):
 
         self.sources_view = SourcesRepositoryView(
             self.sources_repository, self.app)
-        self.objects_with_callbacks.append(self.sources_view)
+        self.__objects_with_callbacks.append(self.sources_view)
         self.events.set_callback(
-            self.sources_view,
-            "attach-source", lambda s: self._cb_attach_source(s))
+            self.sources_view, "attach-source",
+            lambda s: self._cb_attach_source(s))
 
         scw = gtk.ScrolledWindow()
         scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
@@ -785,14 +749,15 @@ class ExtensionManager(gtk.VBox):
         self.show_all()
 
     def close(self):
-        for obj in self.objects_with_callbacks:
+        for obj in self.__objects_with_callbacks:
             obj.deregister_callbacks()
         self.events.remove_all()
 
     def _load_operations(self):
-        """ Load modules (operations). It returns a column with all loaded
-         operations."""
+        """Load modules (operations). It returns a column with all loaded
+         operations.
 
+        """
         scw = gtk.ScrolledWindow()
         scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
         column = gtk.VBox(False)
@@ -805,13 +770,13 @@ class ExtensionManager(gtk.VBox):
                 lambda op: self.full_view.set_operation(op))
             column.pack_start(short_view, False, False)
 
-            self.objects_with_callbacks.append(operation)
-            self.objects_with_callbacks.append(short_view)
+            self.__objects_with_callbacks.append(operation)
+            self.__objects_with_callbacks.append(short_view)
         scw.add_with_viewport(column)
         return scw
 
     def _cb_load(self):
-        """ It runs a loader for sources. For button "Load" in toolbar. """
+        """It runs a loader for sources. For button "Load" in toolbar."""
 
         dialog = gtk.FileChooserDialog("Source load",
                                        self.app.window,
@@ -874,7 +839,7 @@ class ExtensionManager(gtk.VBox):
         # add milliseconds
         tstring = "%s.%03d" % (tstring, int(round(ts * 1e3)) - int(ts) * 1e3)
         for source in sources:
-            source._name = "%s (%s)" % (source._name, tstring)
+            source.name = "%s (%s)" % (source.name, tstring)
             self.sources_repository.add(source)
         # destroy filter and selected_parameter
         self.full_view.operation.select_parameter(None, None)
@@ -900,7 +865,7 @@ class ExtensionManager(gtk.VBox):
                 "No operation is chosen.", gtk.MESSAGE_INFO)
 
     def _cb_detach_source(self, source):
-        """ Detach source from all operation's parameters. """
+        """Detach source from all operation's parameters."""
 
         for operation in self.loaded_operations:
             for param in operation.parameters:
@@ -918,85 +883,21 @@ class ExtensionManager(gtk.VBox):
                         param.detach_source()
 
 
-# ******************************************************************************
-# Temporary classes
-
-class StateIcon(gtk.DrawingArea):
-
-    def __init__(self, state, width=30, height=30):
-        """ Initialize of StateIcon.
-
-        Arguments:
-        state -- possible values: "ready", "incomplete", "incorrect" """
-
-        self.icon_state = state
-        gtk.DrawingArea.__init__(self)
-        self.set_size_request(width, height)
-        self.connect("expose_event", self._expose)
-
-    def set_state(self, state):
-        if state == "ready" or state == "incomplete" or state == "incorrect":
-            self.icon_state = state
-            self.queue_draw()
-
-    def _expose(self, widget, event):
-        cr = widget.window.cairo_create()
-        rect = self.get_allocation()
-        self._draw(cr, rect.width, rect.height)
-
-    def _draw(self, cr, width, height):
-        # clear background
-        cr.set_source_rgb(0.95,0.95,0.95)
-        cr.rectangle(0, 0, width, height)
-        cr.fill()
-
-        # draw
-        x = width / 2
-        y = height / 2
-        radius = min(width / 2, height / 2) - 5
-
-        cr.arc(x, y, radius, 0, 2 * math.pi)
-        if self.icon_state == "ready":
-            cr.set_source_rgb(0, 0.8, 0)
-        elif self.icon_state == "incomplete":
-            cr.set_source_rgb(1, 0.4, 0)
-        elif self.icon_state == "incorrect":
-            cr.set_source_rgb(1, 0, 0)
-        else:
-            raise Exception(
-                "Incorrect '{0}' icon state.".format(self.icon_state))
-
-        cr.fill()
-
-        radial = cairo.RadialGradient(
-            x, height, 0,
-            x, height, height-0.2*height)
-        radial.add_color_stop_rgba(0, 0, 0, 0, 0.4)
-        radial.add_color_stop_rgba(1, 0, 0, 0, 0.0)
-        cr.set_source(radial)
-        cr.arc(x, y, radius, 0, 2 * math.pi)
-        cr.fill()
-
-        cr.set_line_width(1)
-        cr.arc(x, y, radius, 0, 2 * math.pi)
-        cr.set_source_rgb(0, 0, 0)
-        cr.stroke()
-
-# ******************************************************************************
+# *****************************************************************************
 # Modules methods
 
 def add_operation(operation):
     operations[operation.name] = operation
 
 def load_extensions():
-    sys.path.insert(0, EXTENSIONS_DIR)
-    for filename in os.listdir(EXTENSIONS_DIR):
+    sys.path.insert(0, paths.EXTENSIONS_DIR)
+    for filename in os.listdir(paths.EXTENSIONS_DIR):
         basename = os.path.basename(filename)
-        fullname = os.path.join(EXTENSIONS_DIR, filename)
-        if re.match('.*\.py$', basename) and os.path.isfile(fullname):
-            name = filename[:-3] # strip sufix
+        fullname = os.path.join(paths.EXTENSIONS_DIR, filename)
+        if basename.endswith(".py") and os.path.isfile(fullname):
+            name = basename.split(".", 1)[0]
             # the file is *.py and it exists
             imp.load_source("extension_" + name, fullname)
-    sys.path.remove(EXTENSIONS_DIR)
+    sys.path.remove(paths.EXTENSIONS_DIR)
 
 load_extensions()

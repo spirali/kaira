@@ -17,13 +17,12 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import re
 import runview
 import extensions
 
 from tracelog import TraceLog
 
-""" Supported types for actions selector """
+"""Supported types for extensions."""
 
 class DataTypeException(Exception):
     pass
@@ -46,43 +45,33 @@ class NoLoaderExists(DataTypeException):
 
 
 class Type(object):
-    """ Type gives similar types together. It is like types' container. """
 
     def __init__(self, name, short_name, files_extensions):
-        """ Initialize of type of types.
+        """Initialize of type of types.
 
         Arguments:
         name -- name of type
         short_name -- short version of name
-        suffixes -- a list of supported file types
+        files_extensions -- a list of supported file types
+
         """
-        self._name = name
-        self._short_name = short_name
-        self._files_extensions = list(files_extensions)
+        self.name = name
+        self.short_name = short_name
+        self.files_extensions = list(files_extensions)
 
         self.loaders = {}
         self.savers = {}
 
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def short_name(self):
-        return self._short_name
-
-    @property
-    def files_extensions(self):
-        return self._files_extensions
-
     def load_source(self, filename, *args):
+        # getting file extensions (after first dot)
+        splitedname = filename.split(".")
+        if len(splitedname) >= 2:
+            file_extension = splitedname[-1]
+        else:
+            raise NoLoaderExists("empty file extension")
 
-        # get suffix (after first dot)
-        suffix = re.split("\.", filename)
-        suffix = ".".join(suffix[1:])
-
-        if suffix in self.loaders:
-            fn_load = self.loaders[suffix]
+        if file_extension in self.loaders:
+            fn_load = self.loaders[file_extension]
             data = fn_load(filename, *args)
             return extensions.Source(filename, self, data)
         else:
@@ -105,6 +94,7 @@ class Type(object):
 # supported types
 types_repository = []
 
+# Tracelog type
 t_tracelog = Type("Kaira tracelog", "Tracelog", ["kth"])
 def load_kth(filename):
     return TraceLog(filename)
@@ -114,6 +104,7 @@ def tracelog_view(data, app):
 t_tracelog.get_view = tracelog_view
 types_repository.append(t_tracelog)
 
+# Control sequence type
 t_contseq = Type("Kaira control sequence", "Cont. seq.", ["kcs"])
 def load_kcs(filename):
     return filename
