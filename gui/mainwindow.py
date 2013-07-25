@@ -229,8 +229,15 @@ class MainWindow(gtk.Window):
         add("Open _report", self.app.load_report)
 
         menu = add_menu("_Others")
-
         add("Save net as SV_G", self.app.save_as_svg, "screenshot")
+
+        menu = gtk.Menu()
+        item = gtk.MenuItem("Too_ls")
+        item.set_submenu(menu)
+        main_menu.append(item)
+
+        add("Run _tool", self.app.run_tool_window)
+
         return main_menu
 
     def _on_tab_switch(self, w, page, page_index):

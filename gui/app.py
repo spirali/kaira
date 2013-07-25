@@ -47,6 +47,7 @@ import statespace
 import utils
 import controlseq
 import simrun
+import extensions
 
 VERSION_STRING = '0.7'
 
@@ -60,6 +61,7 @@ class App:
         self.window.set_size_request(800,600)
         self.neteditor = None
         self.project = None
+        self.sources_repository = extensions.SourcesRepository()
         self._open_welcome_tab()
         self.grid_size = 1
         self.settings = self.load_settings()
@@ -228,7 +230,6 @@ class App:
         else:
             return None
 
-
     def load_project(self):
         filename = self.run_file_dialog("Open project", "open", "Project", "*.proj")
         if filename is None:
@@ -294,6 +295,11 @@ class App:
         self.start_build(self.project,
                          build_config,
                          lambda: self.console_write("Build finished ({0})\n".format(target), "success"))
+
+    def run_tool_window(self):
+        tab = Tab("Tools", extensions.ExtensionManager(
+            self.sources_repository, self,), call_close=True)
+        self.window.add_tab(tab)
 
     def run_statespace_analysis(self):
         self.window.add_tab(Tab("Statespace",

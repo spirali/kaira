@@ -19,6 +19,8 @@
 
 import math
 import utils
+import gtk
+import cairo
 
 def draw_round_rectangle(cr, px, py, sx, sy, radius):
     """
@@ -205,3 +207,76 @@ def draw_label(cr, x, y, text, symbol, text_color, background_color):
         rounded_rectangle(cr, x + 5, y + 2, 15, 14, 3)
         cr.stroke()
 
+    cr.arc(x + 12, y + 7, 4, 0, 2 * math.pi)
+    cr.move_to(x + 16, y + 11)
+    cr.rel_line_to(5, 5)
+    cr.stroke()
+
+
+class StateIcon(gtk.DrawingArea):
+
+    def __init__(self, state, width=30, height=30):
+        """ Initialize an icon.
+
+        Arguments:
+        state -- possible values: "ready", "incomplete", "incorrect"
+
+        Keyword arguments:
+        width -- the width of icon (default 30)
+        height -- the height of icon (default 30)
+
+        """
+        assert (state == "ready" or
+                state == "incomplete" or
+                state == "incorrect")
+        self.icon_state = state
+        gtk.DrawingArea.__init__(self)
+        self.set_size_request(width, height)
+        self.connect("expose_event", self._expose)
+
+    def set_state(self, state):
+        assert (state == "ready" or
+               state == "incomplete" or
+               state == "incorrect")
+        self.icon_state = state
+        self.queue_draw()
+
+    def _expose(self, widget, event):
+        cr = widget.window.cairo_create()
+        rect = self.get_allocation()
+        self._draw(cr, rect.width, rect.height)
+
+    def _draw(self, cr, width, height):
+        # clear background
+        cr.set_source_rgb(0.95,0.95,0.95)
+        cr.rectangle(0, 0, width, height)
+        cr.fill()
+
+        # draw
+        x = width / 2
+        y = height / 2
+        radius = min(width / 2, height / 2) - 5
+
+        cr.arc(x, y, radius, 0, 2 * math.pi)
+        if self.icon_state == "ready":
+            cr.set_source_rgb(0, 0.8, 0)
+        elif self.icon_state == "incomplete":
+            cr.set_source_rgb(1, 0.4, 0)
+        elif self.icon_state == "incorrect":
+            cr.set_source_rgb(1, 0, 0)
+
+        cr.fill()
+
+        radial = cairo.RadialGradient(
+            x, height, 0,
+            x, height, height-0.2*height)
+        radial.add_color_stop_rgba(0, 0, 0, 0, 0.4)
+        radial.add_color_stop_rgba(1, 0, 0, 0, 0.0)
+        cr.set_source(radial)
+        cr.arc(x, y, radius, 0, 2 * math.pi)
+        cr.fill()
+
+        cr.set_line_width(1)
+        cr.arc(x, y, radius, 0, 2 * math.pi)
+        cr.set_source_rgb(0, 0, 0)
+        cr.stroke()
