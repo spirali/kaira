@@ -17,6 +17,7 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+
 class EventCallback:
 
     def __init__(self, source, event_name, callback):
@@ -26,6 +27,7 @@ class EventCallback:
 
     def remove(self):
         self.source.remove_callback(self.event_name, self.callback)
+
 
 class EventCallbacksList:
 
@@ -38,6 +40,8 @@ class EventCallbacksList:
     def remove_all(self):
         for callback in self.list:
             callback.remove()
+        self.list = []
+
 
 class EventSource:
 

@@ -562,7 +562,6 @@ class OperationFullView(gtk.VBox, EventSource):
 
         # remove callbacks
         self.events.remove_all()
-        self.events = EventCallbacksList() # TODO: Why must by initialized again ??
 
         # remove old components
         for comp in self.get_children():
