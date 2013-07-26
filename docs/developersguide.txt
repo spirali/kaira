@@ -3,18 +3,46 @@ Kaira Developer's Guide
 =======================
 
 This guide serves as a manual for developers. There are described the basic
-components of Kaira tool (http://verif.cs.vsb.cz/kaira).
+components of tool Kaira (http://verif.cs.vsb.cz/kaira).
 
-User's modules
---------------
+User's extension
+----------------
+
+Kaira can be extended by user's extensions in form of operations. To an
+operation can be looked upon similarly like to a mathematical function that
+takes some arguments and produce one or more results. For these inputs (arguments)
+and outputs (results) must be explicitly specified their data type.
+Developers can use data types that were already implemented or define new one.
+
+There are firstly described two basic objects that serves as an interface for
+user's operations. Next follows an easy example of a user's data type
+and an operation that use that. At the end is said how to these new components
+integrate to Kaira.
 
 Types
 ~~~~~
+As it was said, every operation must specify data types of their inputs/outputs.
+For this purpose there is class +Type+ in module +datatypes+). Moreover every
+data type contains other methods, i.e.:
 
+- +load(filename, application)+, for loading data from a file.
+- +store(data, filename, application)+, for store data to a file.
+- +get_view(data, application)+, should returns a gtk component with some
+presentation of given data.
+
+Every methods also contains a reference to application instance, where is a lot
+useful methods, for dialogs, catching exceptions, etc.
+
+There is an example of an easy data type for working with 'csv' files. The
+example shows how to add a new data type. First, every (new) data type must be
+a part of the module +datatype+.
+
+[python]
+------------------------------------------------------------
+t_csv = Type("Coma separated values", "CSV", ["csv"]) # <1>
+------------------------------------------------------------
+
+
+Operation
+~~~~~~~~~
  ...
-
-Actions
-~~~~~~~
-
- ...
-
