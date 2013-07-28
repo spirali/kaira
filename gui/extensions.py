@@ -136,6 +136,13 @@ class SourceView(gtk.Alignment, EventSource):
             self.tabview = Tab(
                 self.source.type.short_name, view,
                 mainmenu_groups=self.source.type.get_mainmenu_groups())
+
+            # modify close method
+            origin_close = self.tabview.close
+            def new_close():
+                origin_close()
+                self.tabview = None
+            self.tabview.close = new_close
             self.app.window.add_tab(self.tabview)
         else:
             self.app.window.switch_to_tab(self.tabview)
