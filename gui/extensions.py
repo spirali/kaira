@@ -131,6 +131,8 @@ class SourceView(gtk.Alignment, EventSource):
         if self.tabview is None:
             type = self.source.type
             view = type.get_view(self.source.data, self.app)
+            if view is None:
+                return
             self.tabview = Tab(
                 self.source.type.short_name, view,
                 mainmenu_groups=self.source.type.get_mainmenu_groups())
