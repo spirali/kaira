@@ -28,7 +28,7 @@ import imp
 from time import time, gmtime, strftime
 from events import EventSource, EventCallbacksList
 from datatypes import types_repository
-from datatypes import NoLoaderExists
+from datatypes import NoLoaderExists, NoSaverExists
 from mainwindow import Tab
 
 
@@ -101,7 +101,7 @@ class SourceView(gtk.Alignment, EventSource):
         menu.append(gtk.SeparatorMenuItem())
 
         item = gtk.MenuItem("Store")
-        item.set_sensitive(False)
+        item.connect("activate", lambda w: self._cb_store())
         menu.append(item)
         item = gtk.MenuItem("Load")
         item.set_sensitive(False)
@@ -133,8 +133,10 @@ class SourceView(gtk.Alignment, EventSource):
             view = type.get_view(self.source.data, self.app)
             if view is None:
                 return
+            tabname = "{0} ({1})".format(
+                self.source.type.short_name, os.path.basename(self.source.name))
             self.tabview = Tab(
-                self.source.type.short_name, view,
+                tabname, view,
                 mainmenu_groups=self.source.type.get_mainmenu_groups())
 
             # modify close method
@@ -148,7 +150,41 @@ class SourceView(gtk.Alignment, EventSource):
             self.app.window.switch_to_tab(self.tabview)
 
     def _cb_delete(self):
+        if self.tabview is not None:
+            self.tabview.close()
         self.emit_event("delete-source", self.source)
+
+    def _cb_store(self):
+        dialog = gtk.FileChooserDialog("Source store",
+                                       self.app.window,
+                                       gtk.FILE_CHOOSER_ACTION_SAVE,
+                                       (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                                       gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+        dialog.set_default_response(gtk.RESPONSE_OK)
+
+        filter = gtk.FileFilter()
+        name = "{0} ({1})".format(
+            self.source.type.short_name, ", ".join(map(
+                lambda s: "*.{0}".format(s),
+                self.source.type.files_extensions)))
+        filter.set_name(name)
+        for file_extension in self.source.type.files_extensions:
+            filter.add_pattern("*.{0}".format(file_extension))
+        dialog.add_filter(filter)
+
+        response = dialog.run()
+        if response == gtk.RESPONSE_OK:
+            filename = dialog.get_filename()
+
+            try:
+                self.source.type.store_source(
+                    self.source.data, filename, self.app)
+            except NoSaverExists as ex:
+                self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
+            finally:
+                dialog.destroy()
+        else:
+            dialog.destroy()
 
 
 class SourcesRepository(object, EventSource):
@@ -822,8 +858,8 @@ class ExtensionManager(gtk.VBox):
                 self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
             finally:
                 dialog.destroy()
-
-        dialog.destroy()
+        else:
+            dialog.destroy()
 
     def _cb_filter_off(self):
         if self.full_view.operation is not None:
