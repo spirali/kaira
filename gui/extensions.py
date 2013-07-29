@@ -64,6 +64,7 @@ class SourceView(gtk.Alignment, EventSource):
 
         self.source = source
         self.app = app # reference to the main application
+        self.data_free = False
         self.tabview = None
 
         self.set_padding(5, 0, 10, 10)
@@ -86,30 +87,43 @@ class SourceView(gtk.Alignment, EventSource):
         label.set_markup("<i>{0}</i>".format(self.source.type.name))
         table.attach(label, 0, 1, 1, 2)
 
+        self.btns_group1 = []
+        self.btns_group2 = []
         # attach button
         button = gtk.Button("Attach")
         button.connect(
             "clicked", lambda w: self.emit_event("attach-source", self.source))
         table.attach(button, 1, 2, 0, 2, xoptions=gtk.FILL)
+        self.btns_group1.append(button)
 
         # source menu
         menu = gtk.Menu()
 
         item = gtk.MenuItem("Show")
         item.connect("activate", lambda w: self._cb_show())
+        self.btns_group1.append(item)
         menu.append(item)
         menu.append(gtk.SeparatorMenuItem())
 
         item = gtk.MenuItem("Store")
         item.connect("activate", lambda w: self._cb_store())
+        self.btns_group1.append(item)
         menu.append(item)
         item = gtk.MenuItem("Load")
-        item.set_sensitive(False)
+        item.connect("activate", lambda w: self._cb_load())
+        item.set_sensitive(self.data_free)
+        self.btns_group2.append(item)
         menu.append(item)
         menu.append(gtk.SeparatorMenuItem())
 
+        item = gtk.MenuItem("Free")
+        item.connect("activate", lambda w: self._cb_free())
+        self.btns_group1.append(item)
+        menu.append(item)
+
         item = gtk.MenuItem("Delete")
         item.connect("activate", lambda w: self._cb_delete())
+        self.btns_group1.append(item)
         menu.append(item)
 
         source_menu = gtk.MenuItem(">")
@@ -149,10 +163,11 @@ class SourceView(gtk.Alignment, EventSource):
         else:
             self.app.window.switch_to_tab(self.tabview)
 
-    def _cb_delete(self):
-        if self.tabview is not None:
-            self.tabview.close()
-        self.emit_event("delete-source", self.source)
+    def _lock_buttons(self):
+        for btn in self.btns_group1:
+            btn.set_sensitive(not self.data_free)
+        for btn in self.btns_group2:
+            btn.set_sensitive(self.data_free)
 
     def _cb_store(self):
         dialog = gtk.FileChooserDialog("Source store",
@@ -185,6 +200,27 @@ class SourceView(gtk.Alignment, EventSource):
                 dialog.destroy()
         else:
             dialog.destroy()
+
+    def _cb_load(self):
+        self.source.data = self.source.type.load_source(
+            self.source.name, self.app, self.source.type.settings).data
+        self.data_free = False
+        self._lock_buttons()
+        self.emit_event("source-data-changed", self.source)
+
+    def _cb_free(self):
+        del self.source.data
+        self.source.data = None
+        self.data_free = True
+        self._lock_buttons()
+        if self.tabview is not None:
+            self.tabview.close()
+        self.emit_event("source-data-changed", self.source)
+
+    def _cb_delete(self):
+        if self.tabview is not None:
+            self.tabview.close()
+        self.emit_event("delete-source", self.source)
 
 
 class SourcesRepository(object, EventSource):
@@ -263,6 +299,7 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
         source_view = SourceView(source, self.app)
         source_view.set_callback("attach-source", self._cb_attach_source)
         source_view.set_callback("delete-source", self._cb_delete_source)
+        source_view.set_callback("source-data-changed", self._cb_data_changed)
         self.pack_start(source_view, False, False)
         source_view.show_all()
         self.sources_views[source] = source_view
@@ -271,11 +308,16 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
         source_view = self.sources_views[source]
         source_view.remove_callback("attach-source", self._cb_attach_source)
         source_view.remove_callback("delete-source", self._cb_delete_source)
+        source_view.remove_callback(
+            "source-data-changed", self._cb_data_changed)
         self.remove(source_view)
 
     def _cb_attach_source(self, source):
         # redirect the event from repository
         self.emit_event("attach-source", source)
+
+    def _cb_data_changed(self, source):
+        self.emit_event("source-data-changed", source)
 
     def _cb_delete_source(self, source):
         self.repository.remove(source)
@@ -398,7 +440,6 @@ class Parameter(object, EventSource):
         else:
             return self.sources[0].data
 
-
 class ParameterView(gtk.Table, EventSource):
 
     def __init__(self, parameter):
@@ -408,8 +449,9 @@ class ParameterView(gtk.Table, EventSource):
         self.set_border_width(2)
 
         self.parameter = parameter
-        self.event = self.parameter.set_callback(
-            "parameter-changed", self._cb_parameter_changed)
+        self.events = EventCallbacksList()
+        self.events.set_callback(
+            self.parameter, "parameter-changed", self._cb_parameter_changed)
 
         # initialize view
         self._cb_parameter_changed()
@@ -421,6 +463,7 @@ class ParameterView(gtk.Table, EventSource):
         # remove
         for child in self.get_children():
             self.remove(child)
+        self.entries = []
 
         # create actualized view
         rows = self.parameter.sources_count() + 1
@@ -451,6 +494,7 @@ class ParameterView(gtk.Table, EventSource):
             attached_source = self.parameter.get_source(i)
             if attached_source is not None:
                 entry.set_text(attached_source.name)
+                entry.set_sensitive(attached_source.data is not None)
             self.attach(entry, 2, 3, i, i+1, xoptions=gtk.FILL)
 
             button = gtk.Button("Detach")
@@ -535,7 +579,8 @@ class Operation(object, EventSource):
 
     def all_sources_filled(self):
         for parameter in self.parameters:
-            if parameter.get_source() is None:
+            if (parameter.get_source() is None or
+                    parameter.get_source().data is None):
                 return False
             if parameter.is_list():
                 for idx in xrange(parameter.minimum):
@@ -758,8 +803,10 @@ class ExtensionManager(gtk.VBox):
             self.sources_repository, self.app)
         self.__objects_with_callbacks.append(self.sources_view)
         self.events.set_callback(
-            self.sources_view, "attach-source",
-            lambda s: self._cb_attach_source(s))
+            self.sources_view, "attach-source", self._cb_attach_source)
+        self.events.set_callback(
+            self.sources_view,
+            "source-data-changed", self._cb_source_data_changed)
 
         scw = gtk.ScrolledWindow()
         scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
@@ -927,6 +974,13 @@ class ExtensionManager(gtk.VBox):
                     psource = param.get_source()
                     if psource is not None and psource == source:
                         param.detach_source()
+
+    def _cb_source_data_changed(self, source):
+        for operation in self.loaded_operations:
+            for param in operation.parameters:
+                for psource in param.sources:
+                    if psource == source:
+                        param.emit_event("parameter-changed")
 
 
 # *****************************************************************************
