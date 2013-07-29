@@ -90,7 +90,7 @@ class ActionSet(ActionBase):
             return False
 
 
-class ActionSetAttr(ActionSet):
+class ActionSetAttr(ActionBase):
 
     def __init__(self, obj, name, value):
         self.obj = obj
