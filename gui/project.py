@@ -83,21 +83,31 @@ class Project(EventSource):
         build_config.directory = os.path.join(self.get_directory(), name)
         build_config.project_name = self.get_name()
 
+        use_build_net = True
+
         if name == "statespace":
             build_config.operation = "statespace"
         elif name == "simrun":
             build_config.operation = "simrun"
             build_config.substitutions = True
+        elif name == "lib" or name == "libtraced":
+            build_config.operation = "lib"
+            build_config.library = True
+            use_build_net = False
         else:
             build_config.operation = "build"
 
-        if name == "traced" or name == "simrun":
+        if name == "traced" or name == "simrun" or name == "libtraced":
             build_config.tracing = True
 
         build_config.target_env = self.get_target_env_name()
 
-        nets = [ self.build_net ]
-        nets += [ net for net in self.nets if net != self.build_net ]
+        if use_build_net:
+            nets = [ self.build_net ]
+            nets += [ net for net in self.nets if net != self.build_net ]
+        else:
+            nets = self.nets[:]
+
         build_config.nets = nets
         return build_config
 
@@ -311,6 +321,7 @@ class BuildConfig:
     nets = None
     target_env = None
     operation = None
+    library = False
 
     def get_filename(self, filename):
         return os.path.join(self.directory, filename)

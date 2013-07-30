@@ -62,6 +62,10 @@ template <typename T> class Place {
 			ca::pack(packer, this->token_list);
 		}
 
+		bool is_empty() const {
+			return token_list.is_empty();
+		}
+
 	protected:
 		TokenList<T> token_list;
 };

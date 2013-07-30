@@ -370,14 +370,10 @@ class Place(utils.EqByIdMixin):
     def get_pos_id(self):
         return self.net.places.index(self)
 
-    def get_edges_in(self, with_interface = False):
+    def get_edges_in(self):
         result = []
         for tr in self.net.transitions:
             for edge in tr.edges_out:
-                if edge.place == self:
-                    result.append(edge)
-        if with_interface:
-            for edge in self.net.get_interface_edges_out():
                 if edge.place == self:
                     result.append(edge)
         return result
@@ -430,8 +426,7 @@ class Place(utils.EqByIdMixin):
         return "*{0}/{1}".format(self.id, location)
 
     def is_receiver(self):
-        edges = self.get_edges_in(with_interface=True)
-        return any(not edge.is_local() for edge in edges)
+        return any(not edge.is_local() for edge in self.get_edges_in())
 
     def need_remember_source(self):
         return any(edge.is_source_reader()
@@ -603,28 +598,15 @@ class Net(object):
         self.places = []
         self.transitions = []
         self.areas = []
-        self.interface_edges_in = []
-        self.interface_edges_out = []
-        self.module_flag = False
 
     def get_name(self):
         return self.name
 
-    def is_module(self):
-        return self.module_flag
-
     def get_all_edges(self):
-        return sum([ t.edges_in + t.edges_out for t in self.transitions ], []) + \
-               self.interface_edges_in + self.interface_edges_out
+        return sum([ t.edges_in + t.edges_out for t in self.transitions ], [])
 
     def get_edges_out(self):
-        return sum([ t.edges_out for t in self.transitions ], []) + self.interface_edges_out
-
-    def get_interface_edges_out(self):
-        return self.interface_edges_out
-
-    def get_interface_edges_in(self):
-        return self.interface_edges_in
+        return sum([ t.edges_out for t in self.transitions ], [])
 
     def get_place(self, id):
         for place in self.places:
@@ -639,19 +621,13 @@ class Net(object):
     def get_index(self):
         return self.project.nets.index(self)
 
-    def get_module_index(self):
-        index = 0
-        for net in self.project.nets:
-            if net.is_module():
-                if net == self:
-                    return index
-                index += 1
+    def get_input_places(self):
+        return [ place for place in self.places
+                 if place.interface_input ]
 
-    def get_module_input_vars(self):
-        return set().union(*[ e.expr.get_free_vars() for e in self.interface_edges_out ])
-
-    def get_module_output_vars(self):
-        return set().union(* [ e.get_free_vars() for e in self.interface_edges_in ])
+    def get_output_places(self):
+        return [ place for place in self.places
+                 if place.interface_output ]
 
     def get_areas_with_place(self, place):
         return [ area for area in self.areas if area.is_place_inside(place) ]

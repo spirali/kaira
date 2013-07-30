@@ -591,6 +591,11 @@ class Place(NetElement):
             e.append(self.xml_code_element())
         if build_config.tracing and self.tracing:
             self.tracing_to_xml(e)
+        if build_config.library:
+            if self.interface.interface_in is not None:
+                e.set("in", self.interface.interface_in)
+            if self.interface.interface_out is not None:
+                e.set("out", self.interface.interface_out)
         return e
 
 

@@ -48,7 +48,7 @@ class CodeTest(utils.EqMixin):
             f.write("#include \"{0}.h\"\n\n"
                        "int main(int argc, char **argv)\n"
                        "{{\n"
-                       "\t// calib_init HAS TO be always first\n"
+                       "\t// calib_init HAS TO be always the first\n"
                        "\tcalib_init(argc, argv);\n\n"
                        "\t// Put your code here\n\n"
                        "\treturn 0;\n}}\n".format(self.project.get_name()))
@@ -56,9 +56,9 @@ class CodeTest(utils.EqMixin):
     def write_makefile(self):
         filename = os.path.join(self.get_directory(), "makefile")
         with open(filename, "w") as f:
-            f.write("BUILD_DIR=../../release\n\n"
+            f.write("BUILD_DIR=../../lib\n\n"
                     "{0}: {0}.cpp\n"
-                    "\t$(CC) -o {0} {0}.cpp -I$(BUILD_DIR) -L$(BUILD_DIR)"
+                    "\t$(CXX) -o {0} {0}.cpp -I$(BUILD_DIR) -L$(BUILD_DIR)"
                     " $(CFLAGS) $(INCLUDE) $(LIBDIR) -l{1} $(LIBS)\n\n"
                     "include $(BUILD_DIR)/makefile"
                         .format(self.name, self.project.get_name()))

@@ -67,9 +67,6 @@ class CppGenerator:
         build.write_header_file(builder)
         builder.write_to_file()
 
-
-class CppProgramGenerator(CppGenerator):
-
     def build(self, directory):
         self.write_header_file(directory)
         builder = build.Builder(self.project, self.get_filename(directory, ".cpp"))
@@ -94,11 +91,11 @@ class CppProgramGenerator(CppGenerator):
         builder.write_to_file()
         makefiles.write_simrun_makefile(self.project, directory)
 
+    def build_lib(self, directory):
+        self.build_library(directory)
+        makefiles.write_library_makefile(self.project, directory)
 
-class CppLibGenerator(CppGenerator):
-
-    def build(self, directory):
-
+        """
         if self.project.get_target_mode() == "lib":
             self.build_library(directory)
             makefiles.write_library_makefile(self.project, directory)
@@ -118,7 +115,7 @@ class CppLibGenerator(CppGenerator):
             self.build_client_library(directory)
             self.build_oct_files(directory)
             makefiles.write_library_makefile(self.project, directory, rpc=True, octave=True)
-
+        """
 
     def build_client_library(self, directory):
         source_filename = self.get_filename(directory, ".cpp")

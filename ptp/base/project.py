@@ -69,9 +69,6 @@ class Project(object):
     def get_target_mode(self):
         return self.target_mode
 
-    def get_modules(self):
-        return [ net for net in self.nets if net.is_module() ]
-
     def get_build_option(self, name):
         value = self.build_options.get(name)
         if value is None:
@@ -224,6 +221,8 @@ def load_place(element, project, net):
     if element.find("code") is not None:
         place.code = element.find("code").text
     place.tracing = load_place_tracing(element)
+    place.interface_input = element.get("in")
+    place.interface_output = element.get("out")
     return place
 
 def load_area(element, project, net):
@@ -247,14 +246,6 @@ def load_net_content(element, project, net):
                         for e in element.findall("transition") ]
     net.transitions.sort(key=lambda t: t.priority, reverse=True)
     net.areas = [ load_area(e, project, net) for e in element.findall("area") ]
-
-    interface = element.find("interface")
-    if interface is not None:
-        net.module_flag = True
-        net.interface_edges_out = [ load_edge_out(e, net, None)
-                                    for e in interface.findall("edge-out") ]
-        net.interface_edges_in = [ load_edge_in(e, net, None)
-                                   for e in interface.findall("edge-in") ]
 
 def load_parameter(element, project):
     name = utils.xml_str(element, "name")

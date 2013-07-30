@@ -344,7 +344,7 @@ class App:
         self.window.add_tab(SaveTab("Tests",
                                     widget,
                                     "codetests",
-                                    mainmenu_groups=()))
+                                    mainmenu_groups=("project",)))
 
     def edit_control_sequences(self):
         if self.window.switch_to_tab_by_key("sequences"):

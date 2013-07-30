@@ -202,10 +202,13 @@ class MainWindow(gtk.Window):
 
         menu = add_menu("_Build")
 
-        add("Build project (_relea_se)", lambda: self.app.build_project("release"), "project")
-        add("Build project (_traced)", lambda: self.app.build_project("traced"), "project")
-        add("Build project (_statespace)", lambda: self.app.build_project("statespace"), "project")
-        add("Build project (s_imrun)", lambda: self.app.build_project("simrun"), "project")
+        add("Build relea_se", lambda: self.app.build_project("release"), "project")
+        add("Build _traced", lambda: self.app.build_project("traced"), "project")
+        add("Build _statespace", lambda: self.app.build_project("statespace"), "project")
+        add("Build s_imrun", lambda: self.app.build_project("simrun"), "project")
+        menu.append(gtk.SeparatorMenuItem())
+        add("Build library", lambda: self.app.build_project("lib"), "project")
+        add("Build traced library", lambda: self.app.build_project("libtraced"), "project")
 
         menu = add_menu("_Simulation")
 

@@ -20,8 +20,7 @@ import gencpp.targetenv
 debug_mode = False
 
 target_envs = {
-    "C++" : gencpp.targetenv.CppProgram(),
-    "C++ library" : gencpp.targetenv.CppLib()
+    "C++" : gencpp.targetenv.CppTargetEnv(),
 }
 
 def get_generator_from_xml(element):
@@ -65,6 +64,8 @@ def main():
         generator.build_statespace(output_directory)
     elif args.operation == "simrun":
         generator.build_simrun(output_directory)
+    elif args.operation == "lib":
+        generator.build_lib(output_directory)
     else:
         raise PtpException("Unknown operation")
 
