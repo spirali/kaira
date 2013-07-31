@@ -430,9 +430,9 @@ class Parameter(object, EventSource):
     def detach_source(self, index=0):
         if 0 <= index < len(self.sources):
             if len(self.sources) - self.minimum <= 0:
-                self.sources[index] = None
-            else:
-                self.sources.pop(index)
+                # minimal count of parameters remain visible
+                self.sources.append(None)
+            self.sources.pop(index)
             self.real_attached -= 1
             self.emit_event("parameter-changed")
 
@@ -1000,7 +1000,7 @@ class ExtensionManager(gtk.VBox):
         if operation is not None:
             param, idx = operation.selected_parameter
             if param is not None:
-                operation.select_parameter(param, idx-1)
+                operation.select_parameter(param, param.sources_count())
 
     def _cb_detach_source_from_all_operations(self, source):
         """Detach source from all operation's parameters."""
