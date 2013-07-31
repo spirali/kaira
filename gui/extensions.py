@@ -26,8 +26,9 @@ import sys
 import imp
 
 from time import time, gmtime, strftime
+from utils import get_file_extension
 from events import EventSource, EventCallbacksList
-from datatypes import types_repository
+from datatypes import types_repository, file_extension_to_type
 from datatypes import NoLoaderExists, NoSaverExists
 from mainwindow import Tab
 
@@ -886,6 +887,9 @@ class ExtensionManager(gtk.VBox):
                                        gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
 
+        all_supported_types = gtk.FileFilter()
+        all_supported_types.set_name("All supported files")
+        dialog.add_filter(all_supported_types)
         for type in types_repository:
             filter = gtk.FileFilter()
             name = "{0} ({1})".format(
@@ -893,19 +897,26 @@ class ExtensionManager(gtk.VBox):
                     lambda s: "*.{0}".format(s),
                     type.files_extensions)))
             filter.set_name(name)
-            filter.set_data(name, type)
 
             for file_extension in type.files_extensions:
-                filter.add_pattern("*.{0}".format(file_extension))
+                pattern = "*.{0}".format(file_extension)
+                filter.add_pattern(pattern)
+                all_supported_types.add_pattern(pattern)
             dialog.add_filter(filter)
 
         response = dialog.run()
         if response == gtk.RESPONSE_OK:
             filename = dialog.get_filename()
 
-            filter = dialog.get_filter()
-            type = filter.get_data(filter.get_name())
-
+            file_extension = get_file_extension(filename)
+            type = file_extension_to_type(file_extension)
+            if type is None:
+                self.app.show_message_dialog(
+                    "For '{0}' files is not defined a type!".format(
+                        file_extension),
+                    gtk.MESSAGE_WARNING)
+                dialog.destroy()
+                return
             try:
                 src = type.load_source(filename, self.app)
                 self.sources_repository.add(src)

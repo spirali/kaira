@@ -19,6 +19,7 @@
 
 import runview
 import extensions
+from utils import get_file_extension
 
 from tracelog import TraceLog
 
@@ -28,6 +29,8 @@ import csv
 import gtkutils
 
 """Supported types for extensions."""
+
+types_repository = []
 
 class DataTypeException(Exception):
     pass
@@ -75,16 +78,8 @@ class Type(object):
         self.loaders = {}
         self.savers = {}
 
-    def _get_file_extension(self, filename):
-        # getting file extensions (after last dot)
-        splitedname = filename.split(".")
-        if len(splitedname) >= 2:
-            file_extension = splitedname[-1]
-            return file_extension
-        return None
-
     def load_source(self, filename, app, settings=None):
-        file_extension = self._get_file_extension(filename)
+        file_extension = get_file_extension(filename)
         if file_extension is None:
             raise NoLoaderExists("empty file extension")
 
@@ -96,7 +91,7 @@ class Type(object):
             raise NoLoaderExists("{0} ({1})".format(self.name, file_extension))
 
     def store_source(self, data, filename, app, settings=None):
-        file_extension = self._get_file_extension(filename)
+        file_extension = get_file_extension(filename)
         if file_extension is None:
             raise NoSaverExists("empty file extension")
 
@@ -120,8 +115,17 @@ class Type(object):
 
 
 # ******************************************************************************
+# module functions
+def file_extension_to_type(file_extension):
+    for type in types_repository:
+        for type_file_extension in type.files_extensions:
+            if file_extension == type_file_extension:
+                return type
+    return None
+
+
+# ******************************************************************************
 # supported types
-types_repository = []
 
 # Standard data types
 t_string = Type("String", "string", [])
