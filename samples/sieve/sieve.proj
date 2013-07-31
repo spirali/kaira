@@ -1,6 +1,6 @@
-<project target_env="C++"><configuration><parameter default="100" description="" name="N" policy="mandatory" type="int" /><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O0 -ggdb</build-option><head-code>
+<project target_env="C++"><configuration><parameter default="100" description="" name="N" policy="mandatory" type="int" /><build-option name="LIBS" /><build-option name="CFLAGS">-O0 -ggdb</build-option><head-code>
 struct Segment{
-	std::vector&lt;bool&gt; checks;
+	std::vector&lt;bool&gt; marks;
 	int start;
 };
 
@@ -9,34 +9,34 @@ namespace ca {
 	
 	std::string token_name(Segment &amp;segment) {
 		std::stringstream s;
-		s &lt;&lt; "[" &lt;&lt; segment.start &lt;&lt; "," &lt;&lt; segment.start + segment.checks.size() - 1 &lt;&lt; "]";
-		for (int i = 0; i &lt; segment.checks.size(); i++) {
-			if (segment.checks[i]) {
+		s &lt;&lt; "[" &lt;&lt; segment.start &lt;&lt; "," &lt;&lt; segment.start + segment.marks.size() - 1 &lt;&lt; "]";
+		for (int i = 0; i &lt; segment.marks.size(); i++) {
+			if (segment.marks[i]) {
 				s &lt;&lt; " " &lt;&lt; segment.start + i;
 			}
 		}
 		return s.str();
 	}
-}</head-code></configuration><net id="101" name="Main" net-type="main"><edge bidirectional="true" from_item="102" id="105" to_item="103"><inscription x="-30.1645420776" y="-49.8277181544">segment</inscription></edge><edge from_item="104" id="106" to_item="103"><inscription x="78.0" y="24.0">num</inscription><point x="66" y="24" /></edge><edge from_item="103" id="108" to_item="107"><inscription x="252.0" y="18.0">[if(next_num &gt; 0)] next_num</inscription><point x="246" y="12" /></edge><edge from_item="103" id="110" to_item="109"><inscription x="227.757074181" y="-48.0188100853">[multicast] prime@targets</inscription></edge><edge from_item="109" id="113" to_item="111"><inscription x="432.0" y="78.0">prime</inscription><point x="414" y="186" /></edge><edge from_item="107" id="114" to_item="111"><inscription x="258.0" y="132.0">[bulk] start</inscription><point x="246" y="144" /></edge><edge from_item="111" id="115" to_item="104"><inscription x="78.0" y="132.0">[bulk] start</inscription><point x="66" y="150" /></edge><edge bidirectional="true" from_item="111" id="116" to_item="102"><inscription x="-129.678930371" y="81.6771520843">segment</inscription><point x="-144" y="186" /></edge><area id="118" sx="120" sy="96" x="-192" y="-72"><init x="-222" y="-90">ca::range(0, ctx.process_count())</init></area><place id="102" name="" radius="20" sx="0" sy="0" x="-142.0" y="-30.0"><place-type x="-125.0" y="-13.0">Segment</place-type><init x="-125.0" y="-60.0" /><code>	int s = (param::N() - 2) / ctx.process_count() + 1;
+}</head-code></configuration><net id="101" name="Main" net-type="main"><area id="118" sx="120" sy="96" x="-192" y="-72"><init x="-222" y="-90">ca::range(0, ctx.process_count())</init></area><place id="102" name="segment" radius="20" sx="22.0" sy="4.0" x="-142" y="-30"><place-type x="-111.0" y="-2.0">Segment</place-type><init x="-125" y="-60" /><code>	int s = (param::N() - 2) / ctx.process_count() + 1;
 	Segment segment;	
 	segment.start = ctx.process_id() * s + 2;
 	if (segment.start + s &gt; param::N()) {
 		s = param::N() - segment.start;
 	}
-	segment.checks.resize(s, true);
+	segment.marks.resize(s, true);
 	place.add(segment);
-</code></place><place id="104" name="" radius="20" sx="0" sy="0" x="66" y="78"><place-type x="83" y="95">int</place-type><init x="83" y="48">[2]</init></place><place id="107" name="" radius="20" sx="0" sy="0" x="246" y="78"><place-type x="263" y="95">int</place-type><init x="263" y="48" /></place><place id="109" name="" radius="20" sx="0" sy="0" x="414" y="-30"><place-type x="431" y="-13">int</place-type><init x="431" y="-60" /></place><transition id="103" name="" priority="" sx="70" sy="36" x="126" y="-48"><guard x="126" y="-68" /><code>
-	int end = var.segment.start + var.segment.checks.size();
+</code></place><place id="104" name="number" radius="20" sx="0" sy="0" x="66" y="78"><place-type x="83" y="95">int</place-type><init x="83" y="48">[2]</init></place><place id="107" name="next&#10;number" radius="20" sx="0" sy="0" x="246" y="78"><place-type x="263" y="95">int</place-type><init x="263" y="48" /></place><place id="109" name="prime" radius="20" sx="0" sy="0" x="414" y="-30"><place-type x="431" y="-13">int</place-type><init x="431" y="-60" /></place><transition clock="False" id="103" name="Find&#10;prime" priority="" sx="70" sy="36" x="126" y="-48"><guard x="126" y="-68" /><code>
+	int end = var.segment.start + var.segment.marks.size();
 
 	if (var.num * var.num &gt; param::N()) {		
 		for (int i = var.num; i &lt; end; i++) {
-			if (var.segment.checks[i - var.segment.start]) {		
+			if (var.segment.marks[i - var.segment.start]) {		
 				printf("%i\n", i);
 			}
 		}
 	} else {
 		for (int i = var.num; i &lt; end; i++) {
-			if (var.segment.checks[i - var.segment.start]) {		
+			if (var.segment.marks[i - var.segment.start]) {		
 				printf("%i\n", i);
 				var.prime = i;
 				var.next_num = i+1;
@@ -53,14 +53,14 @@ namespace ca {
 	} else {
 		var.targets.push_back(next);
 	}
-</code></transition><transition id="111" name="" priority="" sx="70" sy="36" x="132" y="168"><guard x="132" y="148" /><code>	if (var.prime == -1) {
+</code></transition><transition clock="False" id="111" name="Mark&#10;composites" priority="" sx="70" sy="36" x="132" y="168"><guard x="132" y="148" /><code>	if (var.prime == -1) {
 		var.start.add(var.segment.start);	
 	} else {
-		for (int i = (var.prime - (var.segment.start % var.prime)) % var.prime; i &lt; var.segment.checks.size(); i += var.prime) {
-			var.segment.checks[i] = false;
+		for (int i = (var.prime - (var.segment.start % var.prime)) % var.prime; i &lt; var.segment.marks.size(); i += var.prime) {
+			var.segment.marks[i] = false;
 		}
 	}
-</code></transition></net><sequence name="Sequence23">0 0 S #103
+</code></transition><edge bidirectional="true" from_item="102" id="105" to_item="103"><inscription x="-16.1612903226" y="-47.7865665046">segment</inscription></edge><edge from_item="104" id="106" to_item="103"><inscription x="78.0" y="24.0">num</inscription><point x="66" y="24" /></edge><edge from_item="103" id="108" to_item="107"><inscription x="252.0" y="18.0">[if(next_num &gt; 0)] next_num</inscription><point x="246" y="12" /></edge><edge from_item="103" id="110" to_item="109"><inscription x="227.0" y="-48.0">[multicast] prime@targets</inscription></edge><edge from_item="109" id="113" to_item="111"><inscription x="432.0" y="78.0">prime</inscription><point x="414" y="186" /></edge><edge from_item="107" id="114" to_item="111"><inscription x="258.0" y="132.0">[bulk] start</inscription><point x="246" y="144" /></edge><edge from_item="111" id="115" to_item="104"><inscription x="78.0" y="132.0">[bulk] start</inscription><point x="66" y="150" /></edge><edge bidirectional="true" from_item="111" id="116" to_item="102"><inscription x="-117.49378213" y="80.3642055329">segment</inscription><point x="-132" y="180" /></edge></net><sequence name="Sequence23">0 0 S #103
 0 0 F
 0 0 R 0
 1 0 R 0
