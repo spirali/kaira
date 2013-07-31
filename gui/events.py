@@ -1,5 +1,6 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2010 Stanislav Bohm,
+#                  2013 Martin Surkovsky
 #
 #    This file is part of Kaira.
 #
@@ -20,13 +21,16 @@
 
 class EventCallback:
 
-    def __init__(self, source, event_name, callback):
+    def __init__(self, source, event_name, callback, *args, **kw):
         self.source = source
         self.event_name = event_name
         self.callback = callback
+        self.args = args
+        self.kw = kw
 
     def remove(self):
-        self.source.remove_callback(self.event_name, self.callback)
+        self.source.remove_callback(
+            self.event_name, self.callback, *self.args, **self.kw)
 
 
 class EventCallbacksList:
@@ -34,8 +38,8 @@ class EventCallbacksList:
     def __init__(self):
         self.list = []
 
-    def set_callback(self, source, event_name, callback):
-        self.list.append(source.set_callback(event_name, callback))
+    def set_callback(self, source, event_name, callback, *args, **kw):
+        self.list.append(source.set_callback(event_name, callback, *args, **kw))
 
     def remove_all(self):
         for callback in self.list:
@@ -48,20 +52,20 @@ class EventSource:
     def __init__(self):
         self.__callbacks = {}
 
-    def set_callback(self, event_name, callback):
+    def set_callback(self, event_name, callback, *args, **kw):
         lst = self.__callbacks.setdefault(event_name, [])
-        lst.append(callback)
-        return EventCallback(self, event_name, callback)
+        lst.append((callback, args, kw))
+        return EventCallback(self, event_name, callback, *args, **kw)
 
     def emit_event(self, event_name, *params):
         if event_name in self.__callbacks:
-            for cb in self.__callbacks[event_name]:
-                cb(*params)
+            for cb, args, kw in self.__callbacks[event_name]:
+                cb(*(args + params), **kw)
 
     def event_emitter(self, event_name):
         return lambda *x: self.emit_event(event_name, *x)
 
-    def remove_callback(self, event_name, callback):
-        self.__callbacks[event_name].remove(callback)
+    def remove_callback(self, event_name, callback, *args, **kw):
+        self.__callbacks[event_name].remove((callback, args, kw))
         if not self.__callbacks[event_name]:
             del self.__callbacks[event_name]
