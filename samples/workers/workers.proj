@@ -1,4 +1,4 @@
-<project target_env="C++"><configuration><parameter default="120" description="" name="LIMIT" policy="mandatory" type="int" /><parameter default="10" description="" name="SIZE" policy="mandatory" type="int" /><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option><head-code>
+<project target_env="C++"><configuration><parameter default="120" description="" name="LIMIT" policy="mandatory" type="int" /><parameter default="10" description="" name="SIZE" policy="mandatory" type="int" /><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option><head-code>
 struct Job {
 	Job(int start, int end) : start(start), end(end) {}
 	int start;
@@ -9,7 +9,7 @@ namespace ca {
 
 	std::string token_name(const Job &amp;job) {
 		std::stringstream s;
-		s &lt;&lt; "Job start=" &lt;&lt; job.start &lt;&lt; " end=" &lt;&lt; job.end;
+		s &lt;&lt; "Job [" &lt;&lt; job.start &lt;&lt; "," &lt;&lt; job.end &lt;&lt; ")";
 		return s.str();
 	}
 
@@ -20,7 +20,7 @@ namespace ca {
 	template&lt;&gt; Job unpack(Unpacker &amp;unpacker) {
 		return direct_unpack&lt;Job&gt;(unpacker);
 	}
-}</head-code></configuration><net id="0" name="Main" net-type="main"><edge from_item="103" id="110" to_item="107"><inscription x="131.0" y="193.0">start</inscription></edge><edge from_item="107" id="111" to_item="103"><inscription x="51.0" y="88.0">start + param::SIZE()</inscription><point x="37" y="107" /></edge><edge from_item="104" id="112" to_item="107"><inscription x="217.0" y="180.0">worker</inscription></edge><edge from_item="105" id="113" to_item="108"><inscription x="424.0" y="206.0">job</inscription></edge><edge from_item="103" id="114" to_item="109"><inscription x="-4.0" y="305.0">param::LIMIT()</inscription></edge><edge from_item="104" id="115" to_item="109"><inscription x="161.0" y="301.0">[guard(size == ctx.process_count() - 1 ) ]</inscription></edge><edge from_item="106" id="116" to_item="109"><inscription x="177.0" y="347.0">[bulk] results</inscription></edge><edge from_item="108" id="117" to_item="104"><inscription x="260.0" y="257.0">ctx.process_id()@0</inscription></edge><edge from_item="108" id="118" to_item="106"><inscription x="316.0" y="344.0">[bulk] results@0</inscription><point x="415" y="360" /></edge><edge from_item="107" id="119" to_item="105"><inscription x="313.0" y="88.0">Job(start, start + param::SIZE())@worker</inscription><point x="415" y="107" /></edge><place id="103" name="" radius="20" sx="0" sy="0" x="38" y="255"><place-type x="63" y="271">int</place-type><init x="46" y="222">[0]</init></place><place id="104" name="" radius="20" sx="0" sy="0" x="185" y="250"><place-type x="202" y="267">int</place-type><init x="202" y="225">ca::range(1, ctx.process_count())</init></place><place id="105" name="" radius="22" sx="0" sy="0" x="415" y="165"><place-type x="432" y="182">Job</place-type><init x="432" y="135" /></place><place id="106" name="" radius="20" sx="0" sy="0" x="270" y="360"><place-type x="287" y="377">int</place-type><init x="287" y="330" /></place><transition id="107" name="divide" priority="" sx="90" sy="35" x="192" y="90"><guard x="192" y="70">start &lt; param::LIMIT()</guard><trace>fire</trace></transition><transition id="108" name="compute" priority="" sx="70" sy="35" x="380" y="234"><guard x="380" y="214" /><code>	int t;
+}</head-code></configuration><net id="0" name="Main" net-type="main"><place id="103" name="counter" radius="20" sx="4" sy="0" x="38" y="255"><place-type x="65" y="271">int</place-type><init x="52" y="222">[0]</init></place><place id="104" name="ready" radius="20" sx="0" sy="0" x="186" y="252"><place-type x="203" y="269">int</place-type><init x="203" y="227">ca::range(1, ctx.process_count())</init></place><place id="105" name="" radius="22" sx="0" sy="0" x="415" y="165"><place-type x="432" y="182">Job</place-type><init x="432" y="135" /></place><place id="106" name="results" radius="20" sx="0" sy="0" x="270" y="360"><place-type x="287" y="377">int</place-type><init x="287" y="330" /></place><transition clock="False" id="107" name="divide" priority="" sx="90" sy="35" x="192" y="90"><guard x="192" y="70">start &lt; param::LIMIT()</guard><trace>fire</trace></transition><transition clock="False" id="108" name="compute" priority="" sx="70" sy="35" x="380" y="234"><guard x="380" y="214" /><code>	int t;
 	for (t=var.job.start; t &lt; var.job.end; t++) {
 		if (t &lt; 2) continue;
 		int s;
@@ -35,9 +35,9 @@ namespace ca {
 			var.results.add(t);
 		}
 	}
-</code><trace>fire</trace></transition><transition id="109" name="write result" priority="" sx="70" sy="35" x="85" y="345"><guard x="85" y="325" /><code>	ca::Token&lt;int&gt; *t;
+</code><trace>fire</trace></transition><transition clock="False" id="109" name="write result" priority="" sx="70" sy="35" x="90" y="342"><guard x="90" y="322" /><code>	ca::Token&lt;int&gt; *t;
 	for (t = var.results.begin(); t != NULL; t = var.results.next(t)) {
 		printf("%i\n", t-&gt;value);
 	}
 	ctx.quit();
-</code><trace>fire</trace></transition></net></project>
+</code><trace>fire</trace></transition><edge from_item="103" id="110" to_item="107"><inscription x="132.0" y="192.0">start</inscription></edge><edge from_item="107" id="111" to_item="103"><inscription x="51.0" y="88.0">start + param::SIZE()</inscription><point x="37" y="107" /></edge><edge from_item="104" id="112" to_item="107"><inscription x="217.0" y="180.0">worker</inscription></edge><edge from_item="105" id="113" to_item="108"><inscription x="424.0" y="206.0">job</inscription></edge><edge from_item="103" id="114" to_item="109"><inscription x="0.0" y="305.0">param::LIMIT()</inscription></edge><edge from_item="104" id="115" to_item="109"><inscription x="163.0" y="301.0">[guard(size == ctx.process_count() - 1 ) ]</inscription></edge><edge from_item="106" id="116" to_item="109"><inscription x="180.0" y="345.0">[bulk] results</inscription></edge><edge from_item="108" id="117" to_item="104"><inscription x="260.0" y="258.0">ctx.process_id()@0</inscription></edge><edge from_item="108" id="118" to_item="106"><inscription x="316.0" y="344.0">[bulk] results@0</inscription><point x="415" y="360" /></edge><edge from_item="107" id="119" to_item="105"><inscription x="313.0" y="88.0">Job(start, start + param::SIZE())@worker</inscription><point x="415" y="107" /></edge></net></project>
