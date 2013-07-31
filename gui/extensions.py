@@ -230,6 +230,9 @@ class SourcesRepository(object, EventSource):
 
         self._repo = {} # (name: source)
 
+    def __len__(self):
+        return len(self._repo)
+
     def add(self, source):
         if source.name not in self._repo:
             self._repo[source.name] = source
@@ -285,6 +288,7 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
                 source_view.show_all()
             else:
                 source_view.hide_all()
+        return (len(show_sources), len(self.repository))
 
     def deregister_callbacks(self):
         for source in self.repository.get_sources(None):
@@ -512,7 +516,7 @@ class ParameterView(gtk.Table, EventSource):
 
     def _cb_choose_parameter(self, widget, event, index):
         self.emit_event("filter-sources", [self.parameter.type])
-        self.emit_event("select-parameter", self.parameter, index)
+        self.parameter.emit_event("select-parameter", index)
 
 
 class Operation(object, EventSource):
@@ -525,6 +529,10 @@ class Operation(object, EventSource):
         for parameter in self.parameters:
             self.events.set_callback(
                 parameter, "parameter-changed", self._cb_parameter_changed)
+            self.events.set_callback(
+                parameter,
+                "select-parameter",
+                lambda p, i: self.select_parameter(p, i), parameter)
 
         self.selected_parameter = (None, None)
         self._state = "ready" if self.all_sources_filled() else "incomplete"
@@ -552,6 +560,15 @@ class Operation(object, EventSource):
         index -- the specific position in a list (default 0)
 
         """
+        if parameter is None:
+            self.selected_parameter = (None, None)
+            return
+
+        if parameter.is_list():
+            if index > parameter.sources_count():
+                index = parameter.sources_count()
+        else:
+            index = 0
         self.selected_parameter = (parameter, index)
 
     def run(self, *args):
@@ -725,11 +742,6 @@ class OperationFullView(gtk.VBox, EventSource):
                 param_view, "filter-sources",
                 lambda f: self.emit_event("filter-sources", f))
             self.events.set_callback(
-                param_view,
-                "select-parameter",
-                lambda param, idx: self.emit_event(
-                    "select-parameter", param, idx))
-            self.events.set_callback(
                 param_view, "detach-source",
                 lambda s: self.emit_event("detach-source", s))
 
@@ -778,10 +790,7 @@ class ExtensionManager(gtk.VBox):
         self.full_view = OperationFullView(self.app)
         self.__objects_with_callbacks.append(self.full_view)
         self.events.set_callback(
-            self.full_view, "select-parameter", self._cb_select_parameter)
-        self.events.set_callback(
-            self.full_view, "filter-sources",
-            lambda f: self.sources_view.set_filter(f))
+            self.full_view, "filter-sources", self._cb_filter_sources)
         self.events.set_callback(
             self.full_view, "operation-finished", self._cb_operation_finished)
         self.events.set_callback(
@@ -801,11 +810,13 @@ class ExtensionManager(gtk.VBox):
 
         # sources
         vbox = gtk.VBox(False)
+        vbox.set_size_request(80,-1)
 
-        title = gtk.Label("Sources:")
+        self.sources_title = gtk.Label()
+        self.sources_title.set_markup("Sources:")
         haling = gtk.Alignment(0, 0, 0, 0)
         haling.set_padding(0, 5, 2, 0)
-        haling.add(title)
+        haling.add(self.sources_title)
         vbox.pack_start(haling, False, False)
 
         self.sources_view = SourcesRepositoryView(
@@ -828,10 +839,10 @@ class ExtensionManager(gtk.VBox):
 
         # list of operation's views
         vbox = gtk.VBox(False)
-        title = gtk.Label("Operations:")
+        label = gtk.Label("Operations:")
         haling = gtk.Alignment(0, 0, 0, 0)
         haling.set_padding(0, 5, 2, 0)
-        haling.add(title)
+        haling.add(label)
         vbox.pack_start(haling, False, False)
         operations = self._load_operations()
         vbox.pack_start(operations)
@@ -868,8 +879,7 @@ class ExtensionManager(gtk.VBox):
             self.loaded_operations.append(operation)
             short_view = OperationShortView(operation)
             self.events.set_callback(
-                short_view, "operation-selected",
-                lambda op: self.full_view.set_operation(op))
+                short_view, "operation-selected", self._cb_operation_selected)
             column.pack_start(short_view, False, False)
 
             self.__objects_with_callbacks.append(operation)
@@ -923,19 +933,28 @@ class ExtensionManager(gtk.VBox):
             except NoLoaderExists as ex:
                 self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
             finally:
+                self._cb_filter_off()
                 dialog.destroy()
         else:
             dialog.destroy()
 
+    def _cb_operation_selected(self, operation):
+        if self.full_view.operation == operation:
+            return
+        self._cb_filter_off()
+        self.full_view.set_operation(operation)
+
+    def _cb_filter_sources(self, type):
+        visible_sources, all_sources = self.sources_view.set_filter(type)
+        self.sources_title.set_markup(
+            "Sources (<b>visible {0} from {1}</b>):".format(
+                visible_sources, all_sources))
+
     def _cb_filter_off(self):
+        self.sources_title.set_markup("Sources:")
+        self.sources_view.set_filter(None)
         if self.full_view.operation is not None:
             self.full_view.operation.select_parameter(None, None)
-            self.sources_view.set_filter(None)
-
-    def _cb_select_parameter(self, param, index):
-        operation = self.full_view.operation
-        if operation is not None:
-            operation.select_parameter(param, index)
 
     def _cb_operation_finished(self, operation, sources):
         if sources is None:
@@ -968,7 +987,7 @@ class ExtensionManager(gtk.VBox):
 
             if param.is_list(): # the filter will stay on,
                                 # if a parameter is list type
-                operation.select_parameter(param, idx + 1)
+                operation.select_parameter(param, param.sources_count() + 1)
             else:
                 operation.select_parameter(None, None)
                 self.sources_view.set_filter(None)
