@@ -48,26 +48,24 @@ class Parameter(object):
 
 class Project(object):
 
-    def __init__(self, name, root_directory, target_env, target_mode, description):
+    def __init__(self, name, root_directory, target_env, description):
         self.name = name
         self.root_directory = root_directory
         self.target_env = target_env
-        self.target_mode = target_mode
         self.nets = []
         self.description = description
         self.parameters = {}
         self.build_options = {}
         self.head_code = ""
         self.communication_model_code = ""
+        self.library_rpc = False
+        self.library_octave = False
 
     def get_root_directory(self):
         return self.root_directory
 
     def get_name(self):
         return self.name
-
-    def get_target_mode(self):
-        return self.target_mode
 
     def get_build_option(self, name):
         value = self.build_options.get(name)
@@ -282,14 +280,15 @@ def load_project(element, target_envs):
 
     description = element.find("description").text
     name = utils.xml_str(element, "name")
-    target_mode = utils.xml_str(element, "target-mode", "default")
     root_directory = utils.xml_str(element, "root-directory")
 
     p = Project(name,
                 root_directory,
                 target_envs[target_env],
-                target_mode,
                 description)
+
+    p.library_rpc = utils.xml_bool(element, "library-rpc", False)
+    p.library_octave = utils.xml_bool(element, "library-octave", False)
 
     load_configuration(element.find("configuration"), p)
 

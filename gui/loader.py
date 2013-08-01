@@ -46,8 +46,8 @@ def load_project_from_xml(root, filename):
     if target_env_name is None: # For backward compatability
         target_env_name = root.get("extenv", "C++")
     project = create_project(filename, target_env_name)
-    if root.get("target-mode"):
-        project.target_mode = root.get("target-mode")
+    project.library_rpc = utils.xml_bool(root, "library-rpc", False)
+    project.library_octave = utils.xml_bool(root, "library-octave", False)
     loader = BasicLoader(project)
     if root.find("configuration") is not None:
         load_configuration(root.find("configuration"), project, loader)

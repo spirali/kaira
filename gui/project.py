@@ -48,8 +48,11 @@ class Project(EventSource):
         self.simconfig = SimConfig()
         self.error_messages = {}
         self.generator = None # PTP generator
-        self.target_mode = None
         self.build_net = None
+
+        # Library options
+        self.library_rpc = False
+        self.library_octave = False
 
     def get_main_net(self):
         return self.nets[0]
@@ -59,12 +62,6 @@ class Project(EventSource):
             return self.build_options[name]
         else:
             return ""
-
-    def get_target_mode(self):
-        return self.target_mode
-
-    def set_target_mode(self, value):
-        self.target_mode = value
 
     def get_generator(self):
         """ Can raise PtpException """
@@ -217,8 +214,8 @@ class Project(EventSource):
     def as_xml(self):
         root = xml.Element("project")
         root.set("target_env", self.get_target_env_name())
-        if self.target_mode:
-            root.set("target-mode", self.target_mode)
+        root.set("library-rpc", str(self.library_rpc))
+        root.set("library-octave", str(self.library_octave))
         root.append(self._configuration_element(None))
         for net in self.nets:
             root.append(net.as_xml())
@@ -242,8 +239,9 @@ class Project(EventSource):
         root.set("target_env", build_config.target_env)
         root.set("root-directory", self.get_directory())
 
-        if self.get_target_mode():
-            root.set("target-mode", self.get_target_mode())
+        if build_config.library:
+            root.set("library-rpc", str(self.library_rpc))
+            root.set("library-octave", str(self.library_octave))
         root.append(self._configuration_element(build_config))
 
         description = xml.Element("description")
