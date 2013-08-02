@@ -29,11 +29,9 @@ def write_library_functions(builder):
 
 def write_parameters_setters(builder):
     for p in builder.project.get_parameters():
-        builder.line("void set_pararameter_{0}({1} value)",
-                     p.get_name(),
-                     builder.emit_type(p.get_type()))
+        builder.line("void set_parameter_{0.name}({0.type} value)", p)
         builder.block_begin()
-        builder.line("param::{0}.__set_value(value);", p.get_name())
+        builder.line("param::{0.name}.__set_value(value);", p)
         builder.block_end()
 
 def write_library(builder, header_filename):
@@ -48,9 +46,7 @@ def write_library_header_file(builder):
     builder.emptyline()
     builder.line("void calib_init(int argc, char **argv);")
     for p in builder.project.get_parameters():
-        builder.line("void set_pararameter_{0}({1} {0});",
-                  p.get_name(),
-                  builder.emit_type(p.get_type()))
+        builder.line("void set_parameter_{0.name}({0.type} {0.name});", p)
 
     for net in builder.project.nets:
         builder.line("void {0}({1});",
