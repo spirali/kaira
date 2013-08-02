@@ -612,8 +612,7 @@ class App:
             self.project.set_error_messages(error_messages)
 
     def _project_filename_changed(self):
-        self.window.set_title("Kaira - {0} ({1})" \
-            .format(self.project.get_name(), self.project.get_target_env_name()))
+        self.window.set_title("Kaira - {0}".format(self.project.get_name()))
 
     def _run_build_program(self, name, args, directory, ok_callback, fail_callback):
         def on_exit(code):
