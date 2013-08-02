@@ -41,6 +41,10 @@ def write_library(builder, header_filename):
     write_library_functions(builder)
     buildnet.write_user_functions(builder)
 
+def get_library_function_declaration(net):
+    return writer.emit_declarations(get_library_function_arguments(net),
+                                    reference=True)
+
 def write_library_header_file(builder):
     build.write_header_file(builder, close_guard=False)
     builder.emptyline()
@@ -51,8 +55,7 @@ def write_library_header_file(builder):
     for net in builder.project.nets:
         builder.line("void {0}({1});",
                  net.name,
-                 writer.emit_declarations(get_library_function_arguments(net),
-                                          reference=True))
+                 get_library_function_declaration(net))
     build.write_header_file_close_guard(builder)
 
 def write_library_init_function(builder):
@@ -61,18 +64,26 @@ def write_library_init_function(builder):
     buildnet.write_main_setup(builder)
     builder.block_end()
 
-def write_library_function(builder, net):
-    builder.line("void {0}({1})",
-                 net.name,
-                 writer.emit_declarations(get_library_function_arguments(net),
-                                          reference=True))
+def write_library_function(builder, net, rpc=False):
+    if rpc:
+        args = builder.expand("void *$data, ca::Packer &$packer")
+    else:
+        args = get_library_function_declaration(net)
+
+    builder.line("void {0}({1})", net.name, args)
     builder.block_begin()
+
+    if rpc:
+        builder.line("ca::Unpacker $unpacker($data);")
 
     builder.line("ca::spawn_net({0});", net.get_index())
     builder.line("Net_{0} *$n = (Net_{0}*)ca::get_main_net();", net.id)
 
     for place in net.get_input_places():
-        builder.line("$n->place_{0.id}.add({0.interface_input});", place)
+        if rpc:
+            builder.line("$n->place_{0.id}.add(ca::unpack<{0.type}>($unpacker));", place)
+        else:
+            builder.line("$n->place_{0.id}.add({0.interface_input});", place)
 
     builder.line("$n->set_manual_delete();")
     builder.line("ca::main();")
@@ -83,7 +94,11 @@ def write_library_function(builder, net):
             net.get_name())
         builder.line("exit(-1);")
         builder.block_end()
-        builder.line("{0.interface_output} = $n->place_{0.id}.begin()->value;", place)
+
+        if rpc:
+            builder.line("ca::pack($packer, $n->place_{0.id}.begin()->value);", place)
+        else:
+            builder.line("{0.interface_output} = $n->place_{0.id}.begin()->value;", place)
 
     builder.line("delete $n;")
     builder.block_end()

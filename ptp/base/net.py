@@ -358,6 +358,8 @@ class EdgeInscription(utils.EqMixin):
 class Place(utils.EqByIdMixin):
 
     code = None
+    interface_input = None
+    interface_output = None
 
     def __init__(self, net, id, type, init_type, init_value):
         self.net = net
@@ -395,9 +397,12 @@ class Place(utils.EqByIdMixin):
     def get_areas(self):
         return self.net.get_areas_with_place(self)
 
+    def is_io_place(self):
+        return self.interface_input is None or self.interface_output is None
+
     def check(self, checker):
         functions = [ "token_name" ]
-        if self.is_receiver():
+        if self.is_receiver() or (self.net.project.library_rpc and self.is_io_place()):
             functions.append("pack")
             functions.append("unpack")
         checker.check_type(self.type, self.get_source("type"), functions)

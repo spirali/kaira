@@ -92,8 +92,13 @@ class CppGenerator:
         makefiles.write_simrun_makefile(self.project, directory)
 
     def build_lib(self, directory):
-        self.build_library(directory)
-        makefiles.write_library_makefile(self.project, directory)
+        if self.project.library_rpc:
+            self.build_server(directory)
+            self.build_client_library(directory)
+            makefiles.write_library_makefile(self.project, directory, rpc=True)
+        else:
+            self.build_library(directory)
+            makefiles.write_library_makefile(self.project, directory)
 
         """
         if self.project.get_target_mode() == "lib":
@@ -134,6 +139,9 @@ class CppGenerator:
 
     def build_server(self, directory):
         server_directory = os.path.join(directory, "server")
+        header_filename = self.get_filename(server_directory, ".h")
+
+        self.write_header_file(server_directory)
 
         # Check for server directory
         if os.path.exists(server_directory):
@@ -142,11 +150,10 @@ class CppGenerator:
         else:
             os.makedirs(server_directory)
 
-        source_filename = os.path.join(server_directory,
-                                       self.project.get_name() + "_server.cpp")
+        source_filename = self.get_filename(server_directory, "_server.cpp")
 
         builder = build.Builder(self.project, source_filename)
-        rpc.write_server(builder)
+        rpc.write_server(builder, header_filename)
         builder.write_to_file()
 
         makefiles.write_server_makefile(self.project, server_directory)

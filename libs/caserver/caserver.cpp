@@ -83,7 +83,9 @@ void CaServer::run()
 	init_listen_socket();
 
 	for(;;) {
-		int client_socket = accept(listen_socket, NULL, NULL);
+		struct sockaddr_in client_addr;
+		socklen_t len = sizeof(sockaddr_in);
+		int client_socket = accept(listen_socket, (struct sockaddr *)&client_addr, &len);
 
 		if (client_socket < 0) {
 			perror("accept");
@@ -92,8 +94,12 @@ void CaServer::run()
 
 		send(client_socket, welcome_message.get_buffer(), welcome_message.get_size(), 0);
 
+		printf("New connection from %s\n", inet_ntoa(client_addr.sin_addr));
+
 		CaClient client(*this, client_socket);
 		client.run();
+
+		printf("Connection closed\n");
 		close(client_socket);
 	}
 

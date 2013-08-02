@@ -11,7 +11,7 @@ struct CaCallHeader {
 	size_t size;
 };
 
-#define CA_RESERVED_CALL_PREFIX sizeof(CaCallHeader)
+#define CACLIENT_RESERVED_CALL_PREFIX sizeof(CaCallHeader)
 
 class CaClient {
 
