@@ -132,16 +132,21 @@ class SettingsWidget(gtk.Table):
 
         self.add_widget(key, label, default_value, entry, validator)
 
-    def add_combobox(self, key, label, items):
+    def add_combobox(self, key, label, items, default=0):
         """Adds to a setting widget a combo-box where it can be selected one
-        of the items.
+        of the items. If the list of items is empty then is add parameter to
+        settings.
 
         Arguments:
         key -- unique key
         label -- the showed label in setting widget
         items -- couple: (label, object)
+        default -- index of default item
 
         """
+        if len(items) == 0:
+            return
+
         def callback(combo, key, items):
             self.settings[key] = items[combo.get_active()][1]
 
@@ -152,12 +157,85 @@ class SettingsWidget(gtk.Table):
         cell = gtk.CellRendererText()
         combo.pack_start(cell, True)
         combo.add_attribute(cell, 'text', 0)
-        if items:
-            combo.set_active(0)
+        default_value = None
+        if items and default < len(items):
+            combo.set_active(default)
+            default_value = items[default][1]
 
-        combo.connect("changed", callback, key, items)
-        default_value = items[0][1] if items else None
+        combo.connect("changed", callback, key, items, default=0)
         self.add_widget(key, label, default_value, combo)
+
+    def add_radiobuttons(self, key, label, items, default=0, ncols=1):
+        if len(items) == 0:
+            return
+
+        def callback(button, key, value):
+            self.settings[key] = value
+
+        vbox, hbox = gtk.VBox(), gtk.HBox()
+        idx, button = 0, None
+        for vlabel, value in items:
+            button = gtk.RadioButton(button, vlabel)
+            button.connect("toggled", callback, key, value)
+            if idx == default:
+                button.set_active(True)
+            hbox.pack_start(button, False, False, 3)
+            idx += 1
+            if idx % ncols == 0:
+                vbox.pack_start(hbox, False, False)
+                hbox = gtk.HBox()
+        if idx % ncols != 0:
+            vbox.pack_start(hbox, False, False)
+        vbox.show_all()
+
+        if default < len(items):
+            default_value = items[default][1]
+        else:
+            default_value = items[0][1]
+
+        self.add_widget(key, label, default_value, vbox)
+
+
+    def add_checkbuttons(self, key, label, items, defaults=[0], ncols=1):
+        """ Add to setting widget a list of check-box buttons and in the
+        settings it is represented by a list of selected values.
+
+        Arguments:
+        key -- unique key
+        label -- the showed label in setting widget
+        items -- couple: (label, object)
+        defaults -- a list of indexes in items
+        ncols -- a number of check-boxes which should be in one line
+
+        """
+        if len(items) == 0:
+            return
+
+        self.settings[key] = []
+        def callback(button, key, value):
+            if value in self.settings[key]:
+                self.settings[key].remove(value)
+            else:
+                self.settings[key].append(value)
+
+        vbox, hbox = gtk.VBox(), gtk.HBox()
+        idx = 0
+        for vlabel, value in items:
+            button = gtk.CheckButton(vlabel)
+            button.connect("toggled", callback, key, value)
+            if idx in defaults:
+                button.set_active(True)
+            hbox.pack_start(button, False, False, 3)
+            idx += 1
+            if idx % ncols == 0:
+                vbox.pack_start(hbox, False, False)
+                hbox = gtk.HBox()
+        if idx % ncols != 0:
+            vbox.pack_start(hbox, False, False)
+
+        defaults_values = [items[default][1] for default in defaults]
+        self.add_widget(key, label, defaults_values, vbox)
+
 
 # *****************************************************************************
 # Level 1
@@ -188,7 +266,6 @@ gobject.signal_new("value-status-changed",
 # *****************************************************************************
 
 def cb(widget, key, button):
-    print "MSG: ", widget.get_value_status_message(key)
     button.set_sensitive(widget.are_values_correct())
 
 settings = SettingsWidget("Tests settings")
@@ -196,7 +273,7 @@ settings.add_int("k", "K", 3)
 settings.add_separator()
 settings.add_positive_int("b", "Positive int", 3)
 settings.add_entry("str", "String", "")
-settings.add_combobox("item", "Items", [('one', 1), ('two', 2), ('three', 3), ('four', 4), ('five', 5)])
+settings.add_checkbuttons("item", "Items", [('one', 1), ('two', 2), ('three', 3), ('four', 4), ('five', 5)], [0,2], 2)
 
 
 dialog = gtk.Dialog(title=settings.widget_name,
