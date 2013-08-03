@@ -24,10 +24,9 @@ class SettingsWidget(gtk.Table):
 
     warning_color = gtk.gdk.color_parse("#f66")
 
-    def __init__(self, name=None):
+    def __init__(self):
         gtk.Table.__init__(self, 1, 2, False)
         self.set_col_spacing(0, 10)
-        self.widget_name = name
         self.settings = dict() # key: value
         self.value_status = dict() # key: (true|false, message)
         self.row = 0 # count of parameters
@@ -54,6 +53,7 @@ class SettingsWidget(gtk.Table):
     def get_value_status_message(self, key):
         return self.value_status[key][1]
 
+
 # *****************************************************************************
 # Level 0
 
@@ -66,7 +66,7 @@ class SettingsWidget(gtk.Table):
 
         assert(key not in settings)
         self.settings[key] = default_value
-        self.value_status[key] = (True, None)
+        self.value_status[key] = (True, "")
 
         lbl = gtk.Label(label)
         lbl.set_alignment(0.0, 0.5)
@@ -77,6 +77,7 @@ class SettingsWidget(gtk.Table):
             xoptions=gtk.FILL, yoptions=0,
             xpadding=5)
 
+        widget.connect("focus-in-event", self._cb_focus, key)
         self.attach(
             widget,
             1, 2,
@@ -96,6 +97,9 @@ class SettingsWidget(gtk.Table):
             xpadding=5, ypadding=5)
         self.row += 1
         self.resize(self.row+1, 2)
+
+    def _cb_focus(self, widget, event, key):
+        self.emit("select-key", key)
 
 # *****************************************************************************
 # Level 1
@@ -245,7 +249,7 @@ class SettingsWidget(gtk.Table):
 
     def add_positive_int(self, key, label, default_value):
         def validator(value):
-            if value < 0:
+            if value <= 0:
                 return "The number is not greater than zero."
             return None
 
@@ -259,16 +263,60 @@ gobject.signal_new("value-status-changed",
                    gobject.SIGNAL_RUN_FIRST,
                    gobject.TYPE_NONE,
                    (gobject.TYPE_STRING,))
+gobject.signal_new("select-key",
+                   SettingsWidget,
+                   gobject.SIGNAL_RUN_FIRST,
+                   gobject.TYPE_NONE,
+                   (gobject.TYPE_STRING,))
 
+
+class SettingDialog(gtk.Dialog):
+
+    def __init__(self, setting_widget, title, window=None):
+        gtk.Dialog.__init__(self,
+                            title=title,
+                            parent=window,
+                            flags=gtk.DIALOG_MODAL,
+                            buttons=None)
+        self.setting = setting_widget
+        self.setting.connect(
+            "value-status-changed", self._cb_value_status_changed)
+        self.setting.connect(
+            "select-key", self._cb_select_value)
+
+        self.protected_buttons = []
+
+        self.statusbar = gtk.Statusbar()
+
+        self.vbox.pack_start(self.setting, False, False)
+        self.vbox.pack_start(self.statusbar, False, False, 5)
+        self.vbox.pack_start(gtk.HSeparator())
+        self.vbox.show_all()
+        for child in self.get_content_area().get_children():
+            print child
+
+    def add_protected_button(self, button):
+        self.protected_buttons.append(button)
+
+    def remove_protected_button(self, button):
+        self.protected_buttons.remove(button)
+
+    def _cb_value_status_changed(self, setting, key):
+        status = setting.are_values_correct()
+        for button in self.protected_buttons:
+            button.set_sensitive(status)
+        self.statusbar.push(hash(key), setting.get_value_status_message(key))
+
+    def _cb_select_value(self, setting, key):
+        self.statusbar.push(hash(key), settings.get_value_status_message(key))
 
 # *****************************************************************************
 # Test
 # *****************************************************************************
-
 def cb(widget, key, button):
     button.set_sensitive(widget.are_values_correct())
 
-settings = SettingsWidget("Tests settings")
+settings = SettingsWidget()
 settings.add_int("k", "K", 3)
 settings.add_separator()
 settings.add_positive_int("b", "Positive int", 3)
@@ -276,15 +324,9 @@ settings.add_entry("str", "String", "")
 settings.add_checkbuttons("item", "Items", [('one', 1), ('two', 2), ('three', 3), ('four', 4), ('five', 5)], [0,2], 2)
 
 
-dialog = gtk.Dialog(title=settings.widget_name,
-                    parent=None,
-                    flags=gtk.DIALOG_MODAL,
-                    buttons=None)
-button_ok = dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
-dialog.vbox.pack_start(settings, True, True)
-dialog.vbox.show_all()
-
-settings.connect("value-status-changed", cb, button_ok)
+dialog = SettingDialog(settings, "Setting")
+button = dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
+dialog.add_protected_button(button)
 response = dialog.run()
 if response == gtk.RESPONSE_OK:
     for key in settings.settings:
