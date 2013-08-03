@@ -89,7 +89,7 @@ class SimpleComboBox(gtk.ComboBox):
         cell = gtk.CellRendererText()
         self.pack_start(cell, True)
         self.add_attribute(cell, 'text', 1)
-        if v:
+        if values:
             self.set_active(0)
 
     def get_object(self):
