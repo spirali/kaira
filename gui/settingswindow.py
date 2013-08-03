@@ -26,7 +26,6 @@ class SettingsWidget(gtk.Table):
 
     def __init__(self, name=None):
         gtk.Table.__init__(self, 1, 2, False)
-        print len(dir(self))
         self.set_col_spacing(0, 10)
         self.widget_name = name
         self.settings = dict() # key: value
@@ -143,7 +142,22 @@ class SettingsWidget(gtk.Table):
         items -- couple: (label, object)
 
         """
-        pass
+        def callback(combo, key, items):
+            self.settings[key] = items[combo.get_active()][1]
+
+        store = gtk.ListStore(str, object)
+        combo = gtk.ComboBox(store)
+        for item in items:
+            store.append(item)
+        cell = gtk.CellRendererText()
+        combo.pack_start(cell, True)
+        combo.add_attribute(cell, 'text', 0)
+        if items:
+            combo.set_active(0)
+
+        combo.connect("changed", callback, key, items)
+        default_value = items[0][1] if items else None
+        self.add_widget(key, label, default_value, combo)
 
 # *****************************************************************************
 # Level 1
@@ -182,6 +196,7 @@ settings.add_int("k", "K", 3)
 settings.add_separator()
 settings.add_positive_int("b", "Positive int", 3)
 settings.add_entry("str", "String", "")
+settings.add_combobox("item", "Items", [('one', 1), ('two', 2), ('three', 3), ('four', 4), ('five', 5)])
 
 
 dialog = gtk.Dialog(title=settings.widget_name,
@@ -195,5 +210,6 @@ dialog.vbox.show_all()
 settings.connect("value-status-changed", cb, button_ok)
 response = dialog.run()
 if response == gtk.RESPONSE_OK:
-    print "OK"
+    for key in settings.settings:
+        print key, " = ", settings.settings[key]
     dialog.destroy()
