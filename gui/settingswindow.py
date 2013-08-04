@@ -21,7 +21,19 @@ import gtk
 import gobject
 
 class SettingsWidget(gtk.Table):
+    """General widget for visualize and change settings parameters.
+    The parameters are stored in form of dictionary (key: value). It means
+    that every parameter must have a unique key. The widget also provides with
+    two specific event signals: value-status-changed and select-key.
 
+    Signals:
+    value-status-changed -- it is emit if a value is not accepted by a
+    validator or if a value is correct. Value-status is both True or False.
+    The signal is emitted when the status is changed from True to False
+    or vice versa
+    select-key -- it is emit when the view of specific parameter get a focus.
+
+    """
     warning_color = gtk.gdk.color_parse("#f66")
 
     def __init__(self):
@@ -29,15 +41,26 @@ class SettingsWidget(gtk.Table):
         self.set_col_spacing(0, 10)
         self.settings = dict() # key: value
         self.value_status = dict() # key: (true|false, message)
-        self.row = 0 # count of parameters
+        self.row = 0 # index of current row
 
     def set(self, key, value):
         self.settings[key] = value
 
     def get(self, key):
+        assert(key in self.settings)
         return self.settings[key]
 
     def set_value_status(self, key, status, message=""):
+        """Set a status to specific value. If the status is True, the message
+        should be empty string (nothing wrong), otherwise the message informs
+        about what is wrong.
+
+        Arguments:
+        key -- the unique key
+        status -- True if the status is right, otherwise False
+        message -- The message informs about what is wrong.
+
+        """
         old_status, old_message = self.value_status[key]
         if old_status != status or old_message != message:
             self.value_status[key] = (status, message)
@@ -47,15 +70,13 @@ class SettingsWidget(gtk.Table):
         return self.value_status[key][0]
 
     def are_values_correct(self):
-        return all([status
-                    for key, (status, msg) in self.value_status.items()])
+        return all([status for key, (status,msg) in self.value_status.items()])
 
     def get_value_status_message(self, key):
         return self.value_status[key][1]
 
-
-# *****************************************************************************
-# Level 0
+    # -------------------------------------------------------------------------
+    # add general widget
 
     def add_widget(self,
                    key,
@@ -64,7 +85,22 @@ class SettingsWidget(gtk.Table):
                    widget,
                    validator=lambda x: None):
 
-        assert(key not in settings)
+        """Adds a general widget which is responsible for correct setting of
+        its value.
+
+        Arguments:
+        key -- the unique key
+        label -- label than will be presented in a widget
+        default_value -- default value of a setting's argument
+        widget -- a widget which cares about correct setting of a value
+
+        Keywords:
+        validator -- a function which checks a value. If the value is correct
+        validator returns None, otherwise it returns a message containing what
+        is wrong (default: a function returns None)
+
+        """
+        assert(key not in self.settings)
         self.settings[key] = default_value
         self.value_status[key] = (True, "")
 
@@ -95,14 +131,15 @@ class SettingsWidget(gtk.Table):
             self.row, self.row+1,
             xoptions=gtk.EXPAND|gtk.FILL, yoptions=0,
             xpadding=5, ypadding=5)
+
         self.row += 1
         self.resize(self.row+1, 2)
 
     def _cb_focus(self, widget, event, key):
         self.emit("select-key", key)
 
-# *****************************************************************************
-# Level 1
+    # -------------------------------------------------------------------------
+    # add specific components
 
     def add_entry(self,
                   key,
@@ -111,13 +148,28 @@ class SettingsWidget(gtk.Table):
                   validator=lambda x: None,
                   strToValue=lambda x: x):
 
+        """ Adds an entry component for editing parameters than can be easily
+        represented as a string (string, numbers, etc.).
+
+        Arguments:
+        key -- the unique key
+        label -- label than will be presented in a widget
+        default_value -- default value of a setting's argument
+
+        Keywords:
+        validator -- a function than checks values (default: a function
+        returns None)
+        strToValue -- a function converts a string representation to required
+        type, e.g. from string to int, etc. If the value cannot be convert
+        than it throws a ValueError. (default: function returns given value)
+
+        """
         def callback(editable, key, std_color):
             try:
                 value = strToValue(editable.get_text())
                 message = validator(value)
                 if message is not None:
-                    editable.modify_text(
-                        gtk.STATE_NORMAL, self.warning_color)
+                    editable.modify_text(gtk.STATE_NORMAL, self.warning_color)
                     self.set_value_status(key, False, message)
                 else:
                     editable.modify_text(gtk.STATE_NORMAL, std_color)
@@ -133,10 +185,10 @@ class SettingsWidget(gtk.Table):
         entry.set_text(str(default_value))
         std_color = entry.get_style().text[gtk.STATE_NORMAL]
         entry.connect("changed", callback, key, std_color)
-
         self.add_widget(key, label, default_value, entry, validator)
 
     def add_combobox(self, key, label, items, default=0):
+
         """Adds to a setting widget a combo-box where it can be selected one
         of the items. If the list of items is empty then is add parameter to
         settings.
@@ -161,15 +213,28 @@ class SettingsWidget(gtk.Table):
         cell = gtk.CellRendererText()
         combo.pack_start(cell, True)
         combo.add_attribute(cell, 'text', 0)
-        default_value = None
-        if items and default < len(items):
-            combo.set_active(default)
-            default_value = items[default][1]
+        combo.connect("changed", callback, key, items)
 
-        combo.connect("changed", callback, key, items, default=0)
+        assert(default < len(items))
+        combo.set_active(default)
+        default_value = items[default][1]
         self.add_widget(key, label, default_value, combo)
 
     def add_radiobuttons(self, key, label, items, default=0, ncols=1):
+
+        """Adds a list of radio-buttons where one them can be selected.
+
+        Arguments:
+        key -- unique key
+        label -- the showed label in settings widget
+        items -- couples: (label, object)
+
+        Keywords:
+        default -- the index of default value (default: first item)
+        ncols -- number of radio-buttons which will be put in one line.
+        (default: 1)
+
+        """
         if len(items) == 0:
             return
 
@@ -188,28 +253,28 @@ class SettingsWidget(gtk.Table):
             if idx % ncols == 0:
                 vbox.pack_start(hbox, False, False)
                 hbox = gtk.HBox()
-        if idx % ncols != 0:
+        if idx % ncols != 0: # add last unprocessed row
             vbox.pack_start(hbox, False, False)
         vbox.show_all()
 
-        if default < len(items):
-            default_value = items[default][1]
-        else:
-            default_value = items[0][1]
-
+        assert(default < len(items))
+        default_value = items[default][1]
         self.add_widget(key, label, default_value, vbox)
 
 
     def add_checkbuttons(self, key, label, items, defaults=[0], ncols=1):
-        """ Add to setting widget a list of check-box buttons and in the
+        """Add to setting widget a list of check-box buttons and in the
         settings it is represented by a list of selected values.
 
         Arguments:
         key -- unique key
         label -- the showed label in setting widget
-        items -- couple: (label, object)
-        defaults -- a list of indexes in items
+        items -- couples: (label, object)
+
+        Keywords:
+        defaults -- a list of indexes in items (default: first items)
         ncols -- a number of check-boxes which should be in one line
+        (default: 1)
 
         """
         if len(items) == 0:
@@ -234,15 +299,15 @@ class SettingsWidget(gtk.Table):
             if idx % ncols == 0:
                 vbox.pack_start(hbox, False, False)
                 hbox = gtk.HBox()
-        if idx % ncols != 0:
+        if idx % ncols != 0: # add last unprocessed row
             vbox.pack_start(hbox, False, False)
 
+        assert(all([index < len(items) for index in defaults]))
         defaults_values = [items[default][1] for default in defaults]
         self.add_widget(key, label, defaults_values, vbox)
 
-
-# *****************************************************************************
-# Level 1
+    # -------------------------------------------------------------------------
+    # add specific data types
 
     def add_int(self, key, label, default_value):
         self.add_entry(key, label, default_value, strToValue=int)
@@ -256,7 +321,7 @@ class SettingsWidget(gtk.Table):
         self.add_entry(key, label, default_value, validator, int)
 
 
-# register new signal
+# register new signals to setting widget
 gobject.type_register(SettingsWidget)
 gobject.signal_new("value-status-changed",
                    SettingsWidget,
@@ -269,9 +334,15 @@ gobject.signal_new("select-key",
                    gobject.TYPE_NONE,
                    (gobject.TYPE_STRING,))
 
+# *****************************************************************************
+# Setting dialog with status-bar
 
 class SettingDialog(gtk.Dialog):
 
+    """Default setting dialog containing a status-bar informs about messages
+    got from validators. Without buttons; they must be added manually.
+
+    """
     def __init__(self, setting_widget, title, window=None):
         gtk.Dialog.__init__(self,
                             title=title,
@@ -281,21 +352,22 @@ class SettingDialog(gtk.Dialog):
         self.setting = setting_widget
         self.setting.connect(
             "value-status-changed", self._cb_value_status_changed)
-        self.setting.connect(
-            "select-key", self._cb_select_value)
-
-        self.protected_buttons = []
-
+        self.setting.connect("select-key", self._cb_select_value)
         self.statusbar = gtk.Statusbar()
+        self.protected_buttons = []
 
         self.vbox.pack_start(self.setting, False, False)
         self.vbox.pack_start(self.statusbar, False, False, 5)
         self.vbox.pack_start(gtk.HSeparator())
         self.vbox.show_all()
-        for child in self.get_content_area().get_children():
-            print child
 
     def add_protected_button(self, button):
+        """Protected buttons are locked if some of values is not correct.
+
+        Arguments:
+        button -- a button which will be protected
+
+        """
         self.protected_buttons.append(button)
 
     def remove_protected_button(self, button):
@@ -308,27 +380,4 @@ class SettingDialog(gtk.Dialog):
         self.statusbar.push(hash(key), setting.get_value_status_message(key))
 
     def _cb_select_value(self, setting, key):
-        self.statusbar.push(hash(key), settings.get_value_status_message(key))
-
-# *****************************************************************************
-# Test
-# *****************************************************************************
-def cb(widget, key, button):
-    button.set_sensitive(widget.are_values_correct())
-
-settings = SettingsWidget()
-settings.add_int("k", "K", 3)
-settings.add_separator()
-settings.add_positive_int("b", "Positive int", 3)
-settings.add_entry("str", "String", "")
-settings.add_checkbuttons("item", "Items", [('one', 1), ('two', 2), ('three', 3), ('four', 4), ('five', 5)], [0,2], 2)
-
-
-dialog = SettingDialog(settings, "Setting")
-button = dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
-dialog.add_protected_button(button)
-response = dialog.run()
-if response == gtk.RESPONSE_OK:
-    for key in settings.settings:
-        print key, " = ", settings.settings[key]
-    dialog.destroy()
+        self.statusbar.push(hash(key), setting.get_value_status_message(key))
