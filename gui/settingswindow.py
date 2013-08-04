@@ -263,6 +263,18 @@ class SettingsWidget(gtk.Table):
         self.add_widget(key, label, default_value, vbox)
 
 
+    def add_checkbutton(self, key, label, default=True):
+
+        self.settings[key] = default
+
+        def callback(button, key):
+            self.settings[key] = not self.settings[key]
+
+        button = gtk.CheckButton(label)
+        button.connect("toggled", callback, key)
+        button.set_active(default)
+        self.add_widget(key, label, default, button)
+
     def add_checkbuttons(self, key, label, items, defaults=[0], ncols=1):
         """Add to setting widget a list of check-box buttons and in the
         settings it is represented by a list of selected values.
