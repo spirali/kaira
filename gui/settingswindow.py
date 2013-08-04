@@ -41,6 +41,7 @@ class SettingsWidget(gtk.Table):
         self.set_col_spacing(0, 10)
         self.settings = dict() # key: value
         self.value_status = dict() # key: (true|false, message)
+        self.widgets = dict() # key: widget
         self.row = 0 # index of current row
 
     def set(self, key, value):
@@ -50,7 +51,7 @@ class SettingsWidget(gtk.Table):
         assert(key in self.settings)
         return self.settings[key]
 
-    def set_value_status(self, key, status, message=""):
+    def set_value_status(self, key, status, message=None):
         """Set a status to specific value. If the status is True, the message
         should be empty string (nothing wrong), otherwise the message informs
         about what is wrong.
@@ -100,9 +101,8 @@ class SettingsWidget(gtk.Table):
         is wrong (default: a function returns None)
 
         """
-        assert(key not in self.settings)
         self.settings[key] = default_value
-        self.value_status[key] = (True, "")
+        self.value_status[key] = (True, None)
 
         lbl = gtk.Label(label)
         lbl.set_alignment(0.0, 0.5)
@@ -123,6 +123,7 @@ class SettingsWidget(gtk.Table):
 
         self.row += 1
         self.resize(self.row+1, 2)
+        self.widgets[key] = widget
 
     def add_separator(self):
         self.attach(
@@ -352,13 +353,10 @@ class SettingDialog(gtk.Dialog):
         self.setting = setting_widget
         self.setting.connect(
             "value-status-changed", self._cb_value_status_changed)
-        self.setting.connect("select-key", self._cb_select_value)
-        self.statusbar = gtk.Statusbar()
         self.protected_buttons = []
 
         self.vbox.pack_start(self.setting, False, False)
-        self.vbox.pack_start(self.statusbar, False, False, 5)
-        self.vbox.pack_start(gtk.HSeparator())
+        self.vbox.pack_start(gtk.HSeparator(), False, False, 3)
         self.vbox.show_all()
 
     def add_protected_button(self, button):
@@ -377,7 +375,9 @@ class SettingDialog(gtk.Dialog):
         status = setting.are_values_correct()
         for button in self.protected_buttons:
             button.set_sensitive(status)
-        self.statusbar.push(hash(key), setting.get_value_status_message(key))
-
-    def _cb_select_value(self, setting, key):
-        self.statusbar.push(hash(key), setting.get_value_status_message(key))
+        widget = setting.widgets[key]
+        status_message = setting.get_value_status_message(key)
+        if widget.get_has_tooltip() and status_message == None:
+            widget.set_has_tooltip(False)
+        else:
+            widget.set_tooltip_text(status_message)
