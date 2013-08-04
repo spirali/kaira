@@ -338,7 +338,7 @@ gobject.signal_new("select-key",
 # *****************************************************************************
 # Setting dialog with status-bar
 
-class SettingDialog(gtk.Dialog):
+class BasicSettingDialog(gtk.Dialog):
 
     """Default setting dialog containing a status-bar informs about messages
     got from validators. Without buttons; they must be added manually.
