@@ -17,16 +17,16 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import runview
 import extensions
 from utils import get_file_extension
-
-from tracelog import TraceLog
 
 # User's imports
 import gtk
 import csv
 import gtkutils
+import settingswindow
+import runview
+from tracelog import TraceLog
 
 """Supported types for extensions."""
 
@@ -86,6 +86,8 @@ class Type(object):
         if file_extension in self.loaders:
             fn_load = self.loaders[file_extension]
             data = fn_load(filename, app, settings)
+            if data is None:
+                return None
             return extensions.Source(filename, self, data)
         else:
             raise NoLoaderExists("{0} ({1})".format(self.name, file_extension))
@@ -114,7 +116,7 @@ class Type(object):
         self.savers[extension] = function
 
 
-# ******************************************************************************
+# *****************************************************************************
 # module functions
 def file_extension_to_type(file_extension):
     for type in types_repository:
@@ -124,12 +126,13 @@ def file_extension_to_type(file_extension):
     return None
 
 
-# ******************************************************************************
+# *****************************************************************************
 # supported types
 
 # Standard data types
 t_string = Type("String", "string", [])
 
+# -----------------------------------------------------------------------------
 # Tracelog type
 t_tracelog = Type("Kaira tracelog", "Tracelog", ["kth"])
 def load_kth(filename, app, settings=None):
@@ -146,88 +149,58 @@ t_tracelog.get_view = tracelog_view
 
 types_repository.append(t_tracelog)
 
-# CSV type
-t_csv = Type("Comma separated values", "csv", ["csv"])
+# -----------------------------------------------------------------------------
+# Table type
+t_table = Type("Table", "Table", ["csv"])
 
 def show_csv_setting_dialog(parent_window):
-    dialog = gtk.Dialog(title="Setting",
-                        parent=parent_window,
-                        flags=gtk.DIALOG_MODAL,
-                        buttons=(gtk.STOCK_OK, gtk.RESPONSE_OK))
+    settings = settingswindow.SettingsWidget()
 
-    delimiters = {"tab": '\t',
-                  "comma": ',',
-                  "semicolon": ';',
-                  "space": ' '}
-    quotemarks = {"single-quotes": '\'',
-                  "double-quotes": '\"'}
-    header = {"header-yes": True,
-               "header-no": False}
+    settings.add_combobox("delimiter",
+                          "Delimiter",
+                          [("Tab", "\t"), ("Comma", ","),
+                           ("Semicolon", ";"), ("Space", " ")],
+                          default=1)
 
-    settings = {"delimiter": "comma",
-               "quotemark": "double-quotes",
-               "header": "header-no"}
+    settings.add_combobox("quotechar",
+                          "Quote char",
+                          [("Single quotes", "\'"), ("Double quotes", "\"")],
+                          default=1)
 
-    def cb_settings_change(settings, key, value):
-        settings[key] = value
-
-    hbox = gtk.HBox(False)
-    label = gtk.Label()
-    label.set_markup("<b>Delimiter:</b>")
-    hbox.pack_start(label, False, False, 10)
-    gtkutils.radio_buttons([("tab", "Tab"),
-                            ("comma", "Comma"),
-                            ("semicolon", "Semicolon"),
-                            ("space", "Space")],
-                           settings["delimiter"],
-                           hbox,
-                           lambda key: cb_settings_change(
-                               settings, "delimiter", key))
-    dialog.vbox.pack_start(hbox, False, False)
-
-    hbox = gtk.HBox(False)
-    label = gtk.Label()
-    label.set_markup("<b>Quotation mark:</b>")
-    hbox.pack_start(label, False, False, 10)
-    gtkutils.radio_buttons([("single-quotes", "Single quotes"),
-                            ("double-quotes", "Double quotes")],
-                           settings["quotemark"],
-                           hbox,
-                           lambda key: cb_settings_change(
-                               settings, "quotemark", key))
-    dialog.vbox.pack_start(hbox, False, False)
-
-    hbox = gtk.HBox(False)
-    label = gtk.Label()
-    label.set_markup("<b>Header:</b>")
-    hbox.pack_start(label, False, False, 10)
-    gtkutils.radio_buttons([("header-yes", "Yes"),
-                            ("header-no", "No")],
-                           settings["header"],
-                           hbox,
-                           lambda key: cb_settings_change(
-                               settings, "header", key))
-    dialog.vbox.pack_start(hbox, False, False)
-    dialog.vbox.show_all()
-
+    settings.add_radiobuttons("header",
+                              "Header",
+                              [("Yes", True), ("No", False)],
+                              default=1,
+                              ncols=2)
+    dialog = settingswindow.BasicSettingDialog(
+        settings, "Setting", parent_window)
+    button_ok = dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
+    dialog.add_protected_button(button_ok)
     response = dialog.run()
     if response == gtk.RESPONSE_OK:
         dialog.destroy()
+        delimiter = settings.get("delimiter")
+        quotechar = settings.get("quotechar")
+        has_header = settings.get("header")
+        return (delimiter, quotechar, has_header)
 
-    return (delimiters[settings["delimiter"]],
-            quotemarks[settings["quotemark"]],
-            header[settings["header"]])
+    dialog.destroy()
+    return None
 
 def load_csv(filename, app, settings=None):
     if settings is None:
         settings = show_csv_setting_dialog(app.window)
-        t_csv.settings = settings
-    delimiter, quotemark, header_yes = settings
+        t_table.settings = settings
+
+    if settings is None:
+        return # setting was canceled
+
+    delimiter, quotechar, has_header = settings
     with open(filename, "rb") as csvfile:
         csvreader = csv.reader(
-            csvfile, delimiter=delimiter, quotechar=quotemark)
+            csvfile, delimiter=delimiter, quotechar=quotechar)
         data = []
-        if header_yes:
+        if has_header:
             header = csvreader.next()
         else:
             row = csvreader.next()
@@ -238,30 +211,39 @@ def load_csv(filename, app, settings=None):
         for row in csvreader:
             data.append(row)
         return (header, data)
-t_csv.register_load_function("csv", load_csv)
+t_table.register_load_function("csv", load_csv)
 
 def store_csv(data, filename, app, settings=None):
     header, rows = data
     if settings is None:
         settings = show_csv_setting_dialog(app.window)
-    delimiter, quotemark, header_yes = settings
+    delimiter, quotechar, has_header = settings
     with open(filename, "wb") as csvfile:
         csvwriter = csv.writer(
-            csvfile, delimiter=delimiter, quotechar=quotemark)
-        if header_yes:
+            csvfile, delimiter=delimiter, quotechar=quotechar)
+        if has_header:
             csvwriter.writerow(header)
         for row in rows:
             csvwriter.writerow(row)
-t_csv.register_save_function("csv", store_csv)
+t_table.register_save_function("csv", store_csv)
 
 def csv_view(data, app):
     header, rows = data
     colnames = [(title, str) for title in header]
 
     view = gtkutils.SimpleList(colnames)
+    idx = 1
     for row in rows:
-        view.append(row) # TODO: catch bad adding; all rows must have the same count of items
+        try:
+            view.append(row)
+            idx += 1
+        except ValueError:
+            required_len = len(header) if header is not None else len(rows[0])
+            msg = ("Row sequence has wrong length. It must have {0} items"
+                    " instead of {1}.\nThe problem row is index is {2}.".
+                        format(required_len, len(row), idx))
+            app.show_message_dialog(msg, gtk.MESSAGE_WARNING)
     return view
-t_csv.get_view = csv_view
+t_table.get_view = csv_view
 
-types_repository.append(t_csv)
+types_repository.append(t_table)
