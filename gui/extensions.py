@@ -578,9 +578,9 @@ class Operation(object, EventSource):
         """
         return None
 
-    def execute(self):
+    def execute(self, app):
         args = [parameter.get_data() for parameter in self.parameters]
-        return self.run(*args)
+        return self.run(app, *args)
 
     def attach_source(self, source):
         parameter, index = self.selected_parameter
@@ -750,7 +750,7 @@ class OperationFullView(gtk.VBox, EventSource):
         self.show_all()
 
     def _cb_run(self):
-        data = self.operation.execute()
+        data = self.operation.execute(self.app)
         self.emit_event("operation-finished", self.operation, data)
 
     def _cb_state_changed(self, state, icon, btn_run):
