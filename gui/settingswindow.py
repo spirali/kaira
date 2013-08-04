@@ -82,7 +82,6 @@ class SettingsWidget(gtk.Table):
     def add_widget(self,
                    key,
                    label,
-                   default_value,
                    widget,
                    validator=lambda x: None):
 
@@ -101,7 +100,6 @@ class SettingsWidget(gtk.Table):
         is wrong (default: a function returns None)
 
         """
-        self.settings[key] = default_value
         self.value_status[key] = (True, None)
 
         lbl = gtk.Label(label)
@@ -145,7 +143,7 @@ class SettingsWidget(gtk.Table):
     def add_entry(self,
                   key,
                   label,
-                  default_value,
+                  default,
                   validator=lambda x: None,
                   strToValue=lambda x: x):
 
@@ -165,6 +163,8 @@ class SettingsWidget(gtk.Table):
         than it throws a ValueError. (default: function returns given value)
 
         """
+        self.settings[key] = default
+
         def callback(editable, key, std_color):
             try:
                 value = strToValue(editable.get_text())
@@ -183,10 +183,10 @@ class SettingsWidget(gtk.Table):
                     key, False, "The string cannot be convert to the value.");
 
         entry = gtk.Entry()
-        entry.set_text(str(default_value))
+        entry.set_text(str(default))
         std_color = entry.get_style().text[gtk.STATE_NORMAL]
         entry.connect("changed", callback, key, std_color)
-        self.add_widget(key, label, default_value, entry, validator)
+        self.add_widget(key, label, entry, validator)
 
     def add_combobox(self, key, label, items, default=0):
 
@@ -201,6 +201,9 @@ class SettingsWidget(gtk.Table):
         default -- index of default item
 
         """
+        assert(default < len(items))
+        self.settings[key] = items[default][1]
+
         if len(items) == 0:
             return
 
@@ -214,12 +217,9 @@ class SettingsWidget(gtk.Table):
         cell = gtk.CellRendererText()
         combo.pack_start(cell, True)
         combo.add_attribute(cell, 'text', 0)
-        combo.connect("changed", callback, key, items)
-
-        assert(default < len(items))
         combo.set_active(default)
-        default_value = items[default][1]
-        self.add_widget(key, label, default_value, combo)
+        combo.connect("changed", callback, key, items)
+        self.add_widget(key, label, combo)
 
     def add_radiobuttons(self, key, label, items, default=0, ncols=1):
 
@@ -239,6 +239,9 @@ class SettingsWidget(gtk.Table):
         if len(items) == 0:
             return
 
+        assert(default < len(items))
+        self.settings[key] = items[default][1]
+
         def callback(button, key, value):
             self.settings[key] = value
 
@@ -246,9 +249,9 @@ class SettingsWidget(gtk.Table):
         idx, button = 0, None
         for vlabel, value in items:
             button = gtk.RadioButton(button, vlabel)
-            button.connect("toggled", callback, key, value)
             if idx == default:
                 button.set_active(True)
+            button.connect("toggled", callback, key, value)
             hbox.pack_start(button, False, False, 3)
             idx += 1
             if idx % ncols == 0:
@@ -258,9 +261,7 @@ class SettingsWidget(gtk.Table):
             vbox.pack_start(hbox, False, False)
         vbox.show_all()
 
-        assert(default < len(items))
-        default_value = items[default][1]
-        self.add_widget(key, label, default_value, vbox)
+        self.add_widget(key, label, vbox)
 
 
     def add_checkbutton(self, key, label, default=True):
@@ -271,9 +272,9 @@ class SettingsWidget(gtk.Table):
             self.settings[key] = not self.settings[key]
 
         button = gtk.CheckButton(label)
-        button.connect("toggled", callback, key)
         button.set_active(default)
-        self.add_widget(key, label, default, button)
+        button.connect("toggled", callback, key)
+        self.add_widget(key, label, button)
 
     def add_checkbuttons(self, key, label, items, defaults=[0], ncols=1):
         """Add to setting widget a list of check-box buttons and in the
@@ -293,7 +294,9 @@ class SettingsWidget(gtk.Table):
         if len(items) == 0:
             return
 
-        self.settings[key] = []
+        assert(all([index < len(items) for index in defaults]))
+        self.settings[key] = [items[default][1] for default in defaults]
+
         def callback(button, key, value):
             if value in self.settings[key]:
                 self.settings[key].remove(value)
@@ -304,9 +307,9 @@ class SettingsWidget(gtk.Table):
         idx = 0
         for vlabel, value in items:
             button = gtk.CheckButton(vlabel)
-            button.connect("toggled", callback, key, value)
             if idx in defaults:
                 button.set_active(True)
+            button.connect("toggled", callback, key, value)
             hbox.pack_start(button, False, False, 3)
             idx += 1
             if idx % ncols == 0:
@@ -314,10 +317,9 @@ class SettingsWidget(gtk.Table):
                 hbox = gtk.HBox()
         if idx % ncols != 0: # add last unprocessed row
             vbox.pack_start(hbox, False, False)
+        vbox.show_all()
 
-        assert(all([index < len(items) for index in defaults]))
-        defaults_values = [items[default][1] for default in defaults]
-        self.add_widget(key, label, defaults_values, vbox)
+        self.add_widget(key, label, vbox)
 
     # -------------------------------------------------------------------------
     # add specific data types
