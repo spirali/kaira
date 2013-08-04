@@ -929,7 +929,8 @@ class ExtensionManager(gtk.VBox):
                 return
             try:
                 src = type.load_source(filename, self.app)
-                self.sources_repository.add(src)
+                if src is not None:
+                    self.sources_repository.add(src)
             except NoLoaderExists as ex:
                 self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
             finally:
