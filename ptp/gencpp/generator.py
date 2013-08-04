@@ -92,13 +92,18 @@ class CppGenerator:
         makefiles.write_simrun_makefile(self.project, directory)
 
     def build_lib(self, directory):
+        makefiles.write_library_makefile(self.project,
+                                         directory,
+                                         rpc=self.project.library_rpc,
+                                         octave=self.project.library_octave)
         if self.project.library_rpc:
             self.build_server(directory)
             self.build_client_library(directory)
-            makefiles.write_library_makefile(self.project, directory, rpc=True)
         else:
             self.build_library(directory)
-            makefiles.write_library_makefile(self.project, directory)
+
+        if self.project.library_octave:
+            self.build_oct_files(directory)
 
         """
         if self.project.get_target_mode() == "lib":

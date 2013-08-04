@@ -405,6 +405,11 @@ class Place(utils.EqByIdMixin):
         if self.is_receiver() or (self.net.project.library_rpc and self.is_io_place()):
             functions.append("pack")
             functions.append("unpack")
+        if self.net.project.library_octave:
+            if self.interface_input:
+                functions.append("from_octave_value")
+            if self.interface_output:
+                functions.append("to_octave_value")
         checker.check_type(self.type, self.get_source("type"), functions)
 
         source = self.get_source("init")
@@ -426,6 +431,8 @@ class Place(utils.EqByIdMixin):
                                      return_type,
                                      self.get_source("type"),
                                      "Invalid trace function '{0}'".format(name))
+
+
 
     def get_source(self, location):
         return "*{0}/{1}".format(self.id, location)
@@ -627,12 +634,16 @@ class Net(object):
         return self.project.nets.index(self)
 
     def get_input_places(self):
-        return [ place for place in self.places
-                 if place.interface_input ]
+        places = [ place for place in self.places
+                   if place.interface_input ]
+        places.sort(key=lambda place: place.interface_input)
+        return places
 
     def get_output_places(self):
-        return [ place for place in self.places
-                 if place.interface_output ]
+        places = [ place for place in self.places
+                   if place.interface_output ]
+        places.sort(key=lambda place: place.interface_output)
+        return places
 
     def get_areas_with_place(self, place):
         return [ area for area in self.areas if area.is_place_inside(place) ]

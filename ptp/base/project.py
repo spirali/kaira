@@ -23,7 +23,6 @@ import xml.etree.ElementTree as xml
 from base.utils import get_source_path
 from net import Net, Area, Place, Transition, Edge, Declarations, EdgeInscription
 
-
 class Parameter(object):
 
     def __init__(self, name, type, default, description, policy):
@@ -106,6 +105,13 @@ class Project(object):
         return self.head_code
 
     def check(self):
+        if self.library_octave:
+            import ptp # Import here to avoid cyclyc import
+            if ptp.get_config("Main", "OCTAVE") != "True":
+                raise utils.PtpException("Cannot build a module for Octave, "
+                                         "Kaira is not configured with Octave support.\n"
+                                         "Run './waf configure' in Kaira root directory")
+
         checker = self.target_env.get_checker(self)
         for net in self.nets:
             net.check(checker)

@@ -32,6 +32,12 @@ def kaira_path(path):
     return os.path.join("${KAIRA_PATH}", path)
 
 def prepare_makefile(project, config, directory):
+
+    def add_prefix(prefix, value):
+        if not value.startswith(prefix):
+            return prefix + value
+        return value
+
     import ptp
     if config is None:
         config = create_makefile_config()
@@ -44,9 +50,10 @@ def prepare_makefile(project, config, directory):
     makefile.set("CFLAGS", project.get_build_option("CFLAGS"))
 
     makefile.set("INCLUDE",
-                 "-I{0} -I{1} {2}".format(kaira_path(paths.CAILIE_INCLUDE_DIR),
-                                          os.path.relpath(project.root_directory, directory),
-                                          " ".join("-I" + s for s in config["include"])))
+                 "-I{0} -I{1} {2}".format(
+                     kaira_path(paths.CAILIE_INCLUDE_DIR),
+                     os.path.relpath(project.root_directory, directory),
+                     " ".join(add_prefix("-I", s) for s in config["include"])))
 
     makefile.set("LIBDIR",
                  "-L{0} {1}".format(kaira_path(paths.CAILIE_LIB_DIR),
@@ -188,6 +195,12 @@ def write_library_makefile(project, directory, rpc=False, octave=False):
         config["include"].append(kaira_path(paths.CACLIENT_INCLUDE_DIR))
         config["libdir"].append(kaira_path(paths.CACLIENT_LIB_DIR))
         config["libs"].append("caclient")
+
+    if octave:
+        import ptp
+        config["include"].append(kaira_path(paths.CAOCTAVE_INCLUDE_DIR))
+        config["include"].append(ptp.get_config("Octave", "INCFLAGS"))
+
 
     makefile = prepare_makefile(project, config, directory)
     other_deps = get_other_dependancies(project, directory)
