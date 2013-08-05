@@ -201,11 +201,9 @@ class SettingsWidget(gtk.Table):
         default -- index of default item
 
         """
-        assert(default < len(items))
-        self.settings[key] = items[default][1]
-
         if len(items) == 0:
             return
+        assert(default < len(items))
 
         def callback(combo, key, items):
             self.settings[key] = items[combo.get_active()][1]
@@ -217,8 +215,8 @@ class SettingsWidget(gtk.Table):
         cell = gtk.CellRendererText()
         combo.pack_start(cell, True)
         combo.add_attribute(cell, 'text', 0)
-        combo.set_active(default)
         combo.connect("changed", callback, key, items)
+        combo.set_active(default) # also set default value
         self.add_widget(key, label, combo)
 
     def add_radiobuttons(self, key, label, items, default=0, ncols=1):
@@ -238,20 +236,18 @@ class SettingsWidget(gtk.Table):
         """
         if len(items) == 0:
             return
-
         assert(default < len(items))
-        self.settings[key] = items[default][1]
 
         def callback(button, key, value):
             self.settings[key] = value
 
+        buttons = []
         vbox, hbox = gtk.VBox(), gtk.HBox()
         idx, button = 0, None
         for vlabel, value in items:
             button = gtk.RadioButton(button, vlabel)
-            if idx == default:
-                button.set_active(True)
             button.connect("toggled", callback, key, value)
+            buttons.append(button)
             hbox.pack_start(button, False, False, 3)
             idx += 1
             if idx % ncols == 0:
@@ -259,10 +255,9 @@ class SettingsWidget(gtk.Table):
                 hbox = gtk.HBox()
         if idx % ncols != 0: # add last unprocessed row
             vbox.pack_start(hbox, False, False)
+        buttons[default].set_active(True)
         vbox.show_all()
-
         self.add_widget(key, label, vbox)
-
 
     def add_checkbutton(self, key, label, default=True):
 
@@ -272,7 +267,7 @@ class SettingsWidget(gtk.Table):
             self.settings[key] = not self.settings[key]
 
         button = gtk.CheckButton(label)
-        button.set_active(default)
+        button.set_active(default) # also set default value
         button.connect("toggled", callback, key)
         self.add_widget(key, label, button)
 
@@ -293,23 +288,23 @@ class SettingsWidget(gtk.Table):
         """
         if len(items) == 0:
             return
-
         assert(all([index < len(items) for index in defaults]))
-        self.settings[key] = [items[default][1] for default in defaults]
 
+        self.settings[key] = []
         def callback(button, key, value):
             if value in self.settings[key]:
                 self.settings[key].remove(value)
             else:
                 self.settings[key].append(value)
 
+        buttons = []
         vbox, hbox = gtk.VBox(), gtk.HBox()
         idx = 0
         for vlabel, value in items:
             button = gtk.CheckButton(vlabel)
-            if idx in defaults:
-                button.set_active(True)
             button.connect("toggled", callback, key, value)
+            if idx in defaults:
+                buttons.append(button)
             hbox.pack_start(button, False, False, 3)
             idx += 1
             if idx % ncols == 0:
@@ -317,6 +312,8 @@ class SettingsWidget(gtk.Table):
                 hbox = gtk.HBox()
         if idx % ncols != 0: # add last unprocessed row
             vbox.pack_start(hbox, False, False)
+
+        map(lambda btn: btn.set_active(True), buttons) # also set default vals.
         vbox.show_all()
 
         self.add_widget(key, label, vbox)
