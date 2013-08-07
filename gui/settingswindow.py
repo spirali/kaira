@@ -101,6 +101,7 @@ class SettingsWidget(gtk.Table):
 
         """
         self.value_status[key] = (True, None)
+        self.widgets[key] = widget
 
         lbl = gtk.Label(label)
         lbl.set_alignment(0.0, 0.5)
@@ -121,7 +122,6 @@ class SettingsWidget(gtk.Table):
 
         self.row += 1
         self.resize(self.row+1, 2)
-        self.widgets[key] = widget
 
     def add_separator(self):
         self.attach(
@@ -180,13 +180,14 @@ class SettingsWidget(gtk.Table):
             except ValueError:
                 editable.modify_text(gtk.STATE_NORMAL, self.warning_color)
                 self.set_value_status(
-                    key, False, "The string cannot be convert to the value.");
+                    key, False, "The string cannot be convert to the desired type.");
 
         entry = gtk.Entry()
-        entry.set_text(str(default))
+        self.add_widget(key, label, entry, validator)
+
         std_color = entry.get_style().text[gtk.STATE_NORMAL]
         entry.connect("changed", callback, key, std_color)
-        self.add_widget(key, label, entry, validator)
+        entry.set_text(str(default))
 
     def add_combobox(self, key, label, items, default=0):
 
@@ -327,7 +328,7 @@ class SettingsWidget(gtk.Table):
     def add_positive_int(self, key, label, default_value):
         def validator(value):
             if value <= 0:
-                return "The number is not greater than zero."
+                return "The number must be greater than zero."
             return None
 
         self.add_entry(key, label, default_value, validator, int)
@@ -392,3 +393,157 @@ class BasicSettingDialog(gtk.Dialog):
             widget.set_has_tooltip(False)
         else:
             widget.set_tooltip_text(status_message)
+
+
+class BasicSettingAssistant(gtk.Assistant):
+
+    def __init__(self, pages_count, title, parent=None):
+        gtk.Assistant.__init__(self)
+        self._response = None
+
+        self.set_title(title)
+        if parent is not None:
+            self.set_transient_for(parent)
+            self.set_position(gtk.WIN_POS_CENTER_ON_PARENT)
+        self.set_modal(True)
+
+        self.pages_count = pages_count
+        self.pages = []
+        self.create_functions = []
+
+        assert(self.pages_count > 0)
+        if self.pages_count == 1:
+            self.__add_empty_page(gtk.ASSISTANT_PAGE_CONFIRM)
+        else:
+            self.__add_empty_page(gtk.ASSISTANT_PAGE_INTRO)
+            for i in xrange(1, self.pages_count):
+                self.__add_empty_page(gtk.ASSISTANT_PAGE_CONTENT)
+            # last page
+            vbox = gtk.VBox(False) # TODO: better (confirm part)
+            self.append_page(vbox)
+            self.set_page_type(vbox, gtk.ASSISTANT_PAGE_CONFIRM)
+            self.set_page_title(vbox, "Confirm")
+            self.set_page_complete(vbox, True)
+
+        self.connect("apply", self._cb_apply)
+        self.connect("cancel", self._cb_cancel)
+        self.connect("close", self._cb_close)
+        self.connect("prepare", self._cb_prepare)
+
+    def append_setting_widget(self, title, fn_create_setting_widget):
+        sp = self.pages[len(self.create_functions)]
+        self.set_page_title(sp, title)
+        self.create_functions.append(fn_create_setting_widget)
+
+    def create_setting_widget(self, page_num, setting=None):
+        sw = self.create_functions[page_num](setting)
+        sw.connect("value-status-changed", self._cb_check_setting)
+        sp = self.get_nth_page(page_num)
+        sp.set_setting_widget(sw)
+        self.set_page_complete(sp, sp.are_values_correct())
+
+    def create_summary_widget(self):
+        pass
+
+    def run(self):
+        self.show_all()
+        gtk.main()
+        return self._response
+
+    def _cb_apply(self, bsa):
+        self.collected_setting = []
+        for n in xrange(bsa.pages_count):
+            sp = bsa.get_nth_page(n)
+            self.collected_setting.append(sp.get_setting())
+        self._response = gtk.RESPONSE_APPLY
+
+    def _cb_cancel(self, bsa):
+        bsa.destroy()
+        gtk.main_quit()
+        self._response = gtk.RESPONSE_CANCEL
+
+    def _cb_close(self, bsa):
+        self.destroy()
+        gtk.main_quit()
+        if self._response == gtk.RESPONSE_APPLY:
+            self._response = gtk.RESPONSE_OK
+            return
+        self._response = gtk.RESPONSE_CLOSE
+
+    def _cb_prepare(self, bsa, sp):
+        csp_num = bsa.get_current_page()
+
+        page_type = bsa.get_page_type(sp)
+        if page_type == gtk.ASSISTANT_PAGE_CONFIRM:
+            return
+
+        if sp.setting_widget is not None:
+            return
+
+        if page_type == gtk.ASSISTANT_PAGE_INTRO:
+            bsa.create_setting_widget(csp_num)
+        elif page_type == gtk.ASSISTANT_PAGE_CONTENT:
+            previous_sp = bsa.get_nth_page(csp_num - 1)
+            bsa.create_setting_widget(csp_num, previous_sp.get_setting())
+
+    def _cb_check_setting(self, sw, key):
+        csp_num = self.get_current_page()
+        self.set_page_complete(self.get_nth_page(csp_num),
+                               sw.are_values_correct())
+
+    def __add_empty_page(self, page_type):
+        sp = self.SettingPage()
+        self.pages.append(sp)
+        self.append_page(sp)
+        self.set_page_type(sp, page_type)
+
+
+    class SettingPage(gtk.VBox):
+
+        def __init__(self):
+            gtk.VBox.__init__(self)
+            self.setting_widget = None
+
+            self.label_msg = gtk.Label()
+            self.info_bar = gtk.InfoBar()
+            self.info_bar.get_content_area().add(self.label_msg)
+            self.pack_end(self.info_bar, False, False)
+
+        def set_setting_widget(self, sw):
+            if self.setting_widget is not None:
+               self.remove(self.setting_widget)
+            self.setting_widget = sw
+            self.setting_widget.connect("value-status-changed",
+                                        self._cb_check_setting)
+            self.pack_start(self.setting_widget)
+            self.setting_widget.show_all()
+            self.set_infobar()
+
+        def get_setting(self):
+            if self.setting_widget is None:
+                return None
+            return self.setting_widget.settings
+
+        def are_values_correct(self):
+            if self.setting_widget is None:
+                return False
+            return self.setting_widget.are_values_correct()
+
+        def set_infobar(self):
+            if self.are_values_correct():
+                self.info_bar.hide()
+                return
+            for key in self.setting_widget.settings:
+                msg = self.setting_widget.get_value_status_message(key)
+                if msg is not None:
+                    self.setting_widget.widgets[key].grab_focus() # TODO: fix
+                    self.label_msg.set_text(msg)
+                    return
+
+        def _cb_check_setting(self, sw, key):
+            msg = sw.get_value_status_message(key)
+            if msg is None:
+                self.info_bar.hide()
+            else:
+                self.label_msg.set_text(msg)
+                self.info_bar.show()
