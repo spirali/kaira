@@ -12,41 +12,41 @@ class Filter(Operation):
 
     def run(self, app, data):
         header, rows = data
-        items = [(label, idx) for idx, label in enumerate(header)]
-        setting = settingswindow.SettingsWidget()
-        setting.add_checkbuttons("selected_cols", "Columns", items, ncols=3)
 
-        # choose columns for filtering
-        dialog = settingswindow.BasicSettingDialog(setting, "Select columns", app.window)
-        button = dialog.add_button(gtk.STOCK_GO_FORWARD, gtk.RESPONSE_OK)
-        dialog.add_protected_button(button)
-        response = dialog.run()
+        assistant = settingswindow.BasicSettingAssistant(2, "Filter setting", app.window)
+
+        def create_page_1(setting):
+            items = [(label, idx) for idx, label in enumerate(header)]
+            s_widget = settingswindow.SettingsWidget()
+            s_widget.add_checkbuttons("selected_cols", "Columns", items, ncols=3)
+            return s_widget
+
+        def create_page_2(setting):
+            selected_columns = setting["selected_cols"]
+            selected_columns.sort()
+            s_widget = settingswindow.SettingsWidget()
+            for idx, col_idx in enumerate(selected_columns):
+                if idx > 0:
+                    s_widget.add_separator()
+                s_widget.add_entry(col_idx, header[col_idx], "")
+                s_widget.add_checkbutton("neg{0}".format(col_idx), "Negation", False)
+            return s_widget
+
+        assistant.append_setting_widget("Select columns", create_page_1)
+        assistant.append_setting_widget("Set filters", create_page_2)
+
+        response = assistant.run()
         if response != gtk.RESPONSE_OK:
-            return
+            return None
 
-        dialog.destroy()
-        selected_columns = setting.get("selected_cols")
+        selected_columns = assistant.collected_setting[0]["selected_cols"]
+        filter_by = assistant.collected_setting[1]
+        print "Filter by: ", filter_by
 
-        # set filters
-        setting = settingswindow.SettingsWidget()
-        for idx, col_idx in enumerate(selected_columns):
-            if idx > 0:
-                setting.add_separator()
-            setting.add_entry(col_idx, header[col_idx], "")
-            setting.add_checkbutton("neg{0}".format(col_idx), "Negation", False)
-
-        dialog = settingswindow.BasicSettingDialog(setting, "Set filter", app.window)
-        button  = dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
-        dialog.add_protected_button(button)
-        response = dialog.run()
-        if response != gtk.RESPONSE_OK:
-            return
-
-        dialog.destroy()
         filters = {}
         for col_idx in selected_columns:
-            filters[col_idx] = (setting.get(col_idx),
-                                setting.get("neg{0}".format(col_idx)))
+            filters[col_idx] = (filter_by.get(col_idx),
+                                filter_by.get("neg{0}".format(col_idx)))
 
         # filter data
         def f(row):
