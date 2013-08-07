@@ -13,12 +13,15 @@ class Filter(Operation):
     def run(self, app, data):
         header, rows = data
 
-        assistant = settingswindow.BasicSettingAssistant(2, "Filter setting", app.window)
+        assistant = settingswindow.BasicSettingAssistant(2,
+                                                         "Filter setting",
+                                                         app.window)
 
         def create_page_1(setting):
             items = [(label, idx) for idx, label in enumerate(header)]
             s_widget = settingswindow.SettingsWidget()
-            s_widget.add_checkbuttons("selected_cols", "Columns", items, ncols=3)
+            s_widget.add_checkbuttons(
+                "selected_cols", "Columns", items, ncols=3)
             return s_widget
 
         def create_page_2(setting):
@@ -29,7 +32,8 @@ class Filter(Operation):
                 if idx > 0:
                     s_widget.add_separator()
                 s_widget.add_entry(col_idx, header[col_idx], "")
-                s_widget.add_checkbutton("neg{0}".format(col_idx), "Negation", False)
+                s_widget.add_checkbutton("neg{0}".format(col_idx),
+                                         "Negation", False)
             return s_widget
 
         assistant.append_setting_widget("Select columns", create_page_1)

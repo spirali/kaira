@@ -42,6 +42,8 @@ class SettingsWidget(gtk.Table):
         self.settings = dict() # key: value
         self.value_status = dict() # key: (true|false, message)
         self.widgets = dict() # key: widget
+        self.labels = dict()  # key: label
+        self.keys_order = []
         self.row = 0 # index of current row
 
     def set(self, key, value):
@@ -100,8 +102,10 @@ class SettingsWidget(gtk.Table):
         is wrong (default: a function returns None)
 
         """
+        self.keys_order.append(key)
         self.value_status[key] = (True, None)
         self.widgets[key] = widget
+        self.labels[key] = label
 
         lbl = gtk.Label(label)
         lbl.set_alignment(0.0, 0.5)
@@ -121,7 +125,7 @@ class SettingsWidget(gtk.Table):
             xpadding=5)
 
         self.row += 1
-        self.resize(self.row+1, 2)
+        self.resize(self.row, 2)
 
     def add_separator(self):
         self.attach(
@@ -400,12 +404,14 @@ class BasicSettingAssistant(gtk.Assistant):
     def __init__(self, pages_count, title, parent=None):
         gtk.Assistant.__init__(self)
         self._response = None
+        self._last_page = 0
 
         self.set_title(title)
         if parent is not None:
             self.set_transient_for(parent)
             self.set_position(gtk.WIN_POS_CENTER_ON_PARENT)
         self.set_modal(True)
+        self.set_forward_page_func(self.__forward_page)
 
         self.pages_count = pages_count
         self.pages = []
@@ -413,17 +419,13 @@ class BasicSettingAssistant(gtk.Assistant):
 
         assert(self.pages_count > 0)
         if self.pages_count == 1:
-            self.__add_empty_page(gtk.ASSISTANT_PAGE_CONFIRM)
+            self.__add_empty_setting_page(gtk.ASSISTANT_PAGE_INTRO)
+            self.__add_empty_summary_page()
         else:
-            self.__add_empty_page(gtk.ASSISTANT_PAGE_INTRO)
+            self.__add_empty_setting_page(gtk.ASSISTANT_PAGE_INTRO)
             for i in xrange(1, self.pages_count):
-                self.__add_empty_page(gtk.ASSISTANT_PAGE_CONTENT)
-            # last page
-            vbox = gtk.VBox(False) # TODO: better (confirm part)
-            self.append_page(vbox)
-            self.set_page_type(vbox, gtk.ASSISTANT_PAGE_CONFIRM)
-            self.set_page_title(vbox, "Confirm")
-            self.set_page_complete(vbox, True)
+                self.__add_empty_setting_page(gtk.ASSISTANT_PAGE_CONTENT)
+            self.__add_empty_summary_page()
 
         self.connect("apply", self._cb_apply)
         self.connect("cancel", self._cb_cancel)
@@ -442,8 +444,22 @@ class BasicSettingAssistant(gtk.Assistant):
         sp.set_setting_widget(sw)
         self.set_page_complete(sp, sp.are_values_correct())
 
-    def create_summary_widget(self):
-        pass
+    def fill_summary_widget(self, smp):
+        smp.reset_summary_page()
+
+        for n in xrange(self.pages_count):
+            sp = self.get_nth_page(n)
+            sw = sp.setting_widget
+            smp.add_page_title(self.get_page_title(sp))
+            for key in sw.keys_order:
+                smp.add_setting_value(sw.labels[key], sw.settings[key])
+        smp.show_all()
+        self.set_page_complete(smp, True)
+
+    def reset_pages_from(self, page_num):
+        for n in xrange(page_num, self.pages_count):
+            sp = self.get_nth_page(n)
+            sp.remove_settig_widget()
 
     def run(self):
         self.show_all()
@@ -472,9 +488,9 @@ class BasicSettingAssistant(gtk.Assistant):
 
     def _cb_prepare(self, bsa, sp):
         csp_num = bsa.get_current_page()
-
         page_type = bsa.get_page_type(sp)
         if page_type == gtk.ASSISTANT_PAGE_CONFIRM:
+            self.fill_summary_widget(sp)
             return
 
         if sp.setting_widget is not None:
@@ -491,11 +507,29 @@ class BasicSettingAssistant(gtk.Assistant):
         self.set_page_complete(self.get_nth_page(csp_num),
                                sw.are_values_correct())
 
-    def __add_empty_page(self, page_type):
+    def __forward_page(self, current_page):
+        if self._last_page > current_page:
+            '''after back step/s, it is supposed that something has changed,
+               then next pages are reseted.'''
+            self.reset_pages_from(current_page+1)
+
+        self._last_page = current_page
+        page = self.get_nth_page(current_page)
+        if self.get_page_type(page) == gtk.ASSISTANT_PAGE_CONFIRM:
+            return -1
+        return current_page + 1
+
+    def __add_empty_setting_page(self, page_type):
         sp = self.SettingPage()
         self.pages.append(sp)
         self.append_page(sp)
         self.set_page_type(sp, page_type)
+
+    def __add_empty_summary_page(self):
+        smp = self.SummaryPage()
+        self.append_page(smp)
+        self.set_page_type(smp, gtk.ASSISTANT_PAGE_CONFIRM)
+        self.set_page_title(smp, "Configuration summary")
 
 
     class SettingPage(gtk.VBox):
@@ -518,6 +552,10 @@ class BasicSettingAssistant(gtk.Assistant):
             self.pack_start(self.setting_widget)
             self.setting_widget.show_all()
             self.set_infobar()
+
+        def remove_settig_widget(self):
+            self.remove(self.setting_widget)
+            self.setting_widget = None
 
         def get_setting(self):
             if self.setting_widget is None:
@@ -547,3 +585,57 @@ class BasicSettingAssistant(gtk.Assistant):
             else:
                 self.label_msg.set_text(msg)
                 self.info_bar.show()
+
+
+    class SummaryPage(gtk.ScrolledWindow):
+
+        def __init__(self):
+            gtk.ScrolledWindow.__init__(self)
+            self.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+
+            self.table = gtk.Table(1, 2, False)
+            # due to scrolled window table must not be empty
+            # the label will be removed
+            self.table.attach(gtk.Label("temporary"), 0, 1, 0,1)
+
+            self.add_with_viewport(self.table)
+            self.row = 0
+
+        def add_page_title(self, title):
+            label = gtk.Label()
+            label.set_markup("<b>{0}</b>".format(title))
+            label.set_alignment(0, 1)
+            self.table.attach(label,
+                              0, 2,
+                              self.row, self.row+1,
+                              xoptions=gtk.FILL, yoptions=0,
+                              xpadding=10, ypadding=10)
+
+            self.row += 1
+            self.table.resize(self.row, 2)
+
+        def add_setting_value(self, vlabel, value):
+            label = gtk.Label()
+            label.set_markup("<i>{0}:</i>".format(vlabel))
+            label.set_alignment(1, 1)
+            self.table.attach(label,
+                              0, 1,
+                              self.row, self.row+1,
+                              xoptions=gtk.FILL, yoptions=0,
+                              xpadding=10, ypadding=3)
+
+            label = gtk.Label(repr(value))
+            label.set_alignment(0, 1)
+            self.table.attach(label,
+                              1, 2,
+                              self.row, self.row+1,
+                              xoptions=gtk.FILL, yoptions=0,
+                              xpadding=0, ypadding=3)
+
+            self.row += 1
+            self.table.resize(self.row, 2)
+
+        def reset_summary_page(self):
+            for child in self.table.get_children():
+                self.table.remove(child)
+            self.table.resize(1, 2)
