@@ -26,7 +26,7 @@ import sys
 import imp
 
 from time import time, gmtime, strftime
-from utils import get_file_extension
+from utils import get_file_extension, trim_file_extension
 from events import EventSource, EventCallbacksList
 from datatypes import types_repository, file_extension_to_type
 from datatypes import NoLoaderExists, NoSaverExists
@@ -41,7 +41,7 @@ class ExtensionException(Exception):
 # *****************************************************************************
 # Sources
 
-class Source(object):
+class Source(object, EventSource):
 
     def __init__(self, name, type, data):
         """Initialize a source of data.
@@ -52,10 +52,20 @@ class Source(object):
         data -- physical data
 
         """
-        self.name = name
+        EventSource.__init__(self)
+
+        self._name = name
         self.type = type
         self.data = data
 
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        self._name = name
+        self.emit_event("source-name-changed", name)
 
 class SourceView(gtk.Alignment, EventSource):
 
@@ -64,6 +74,9 @@ class SourceView(gtk.Alignment, EventSource):
         EventSource.__init__(self)
 
         self.source = source
+        self.source.set_callback("source-name-changed",
+                                 lambda n: self.entry_name.set_text(n))
+
         self.app = app # reference to the main application
         self.data_free = False
         self.tabview = None
@@ -76,11 +89,11 @@ class SourceView(gtk.Alignment, EventSource):
         table.set_col_spacing(1, 2)
 
         # name of source
-        entry = gtk.Entry()
-        entry.set_size_request(40, -1)
-        entry.set_editable(False)
-        entry.set_text(self.source.name)
-        table.attach(entry, 0, 1, 0, 1)
+        self.entry_name = gtk.Entry()
+        self.entry_name.set_size_request(40, -1)
+        self.entry_name.set_editable(False)
+        self.entry_name.set_text(self.source.name)
+        table.attach(self.entry_name, 0, 1, 0, 1)
 
         # name of data type
         label = gtk.Label()
@@ -191,9 +204,14 @@ class SourceView(gtk.Alignment, EventSource):
         if response == gtk.RESPONSE_OK:
             filename = dialog.get_filename()
 
+            file_extension = get_file_extension(filename)
+            if file_extension is None and self.source.type.files_extensions:
+                file_extension = self.source.type.files_extensions[0]
+            filename = trim_file_extension(filename)
             try:
                 self.source.type.store_source(
-                    self.source.data, filename, self.app)
+                    self.source.data, filename, file_extension, self.app)
+                self.source.name = "{0}.{1}".format(filename, file_extension)
             except NoSaverExists as ex:
                 self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
             finally:
@@ -400,6 +418,8 @@ class Parameter(object, EventSource):
             return self.sources[index]
 
     def attach_source(self, source, index=None):
+        old_real_attached = self.real_attached
+
         if index is None: # attach
             attached = False
             for i in xrange(len(self.sources)):
@@ -425,6 +445,12 @@ class Parameter(object, EventSource):
             raise ExtensionException(
                 "You try attach source to negative index"
                 "({0}) of parameter!".format(index))
+
+        if old_real_attached < self.real_attached:
+            source.set_callback("source-name-changed",
+                                self._cb_source_name_changed,
+                                self.real_attached-1)
+
         self.emit_event("parameter-changed")
 
     def detach_source(self, index=0):
@@ -432,8 +458,10 @@ class Parameter(object, EventSource):
             if len(self.sources) - self.minimum <= 0:
                 # minimal count of parameters remain visible
                 self.sources.append(None)
-            self.sources.pop(index)
+            source = self.sources.pop(index)
             self.real_attached -= 1
+            source.remove_callback("source-name-changed",
+                                   self._cb_source_name_changed, index)
             self.emit_event("parameter-changed")
 
     def get_data(self):
@@ -443,11 +471,15 @@ class Parameter(object, EventSource):
         else:
             return self.sources[0].data
 
+    def _cb_source_name_changed(self, idx, name):
+        self.emit_event("source-name-changed", idx, name)
+
 class ParameterView(gtk.Table, EventSource):
 
     def __init__(self, parameter):
         gtk.Table.__init__(self, 1, 4, False)
         EventSource.__init__(self)
+        self.entries = []
 
         self.set_border_width(2)
 
@@ -455,6 +487,8 @@ class ParameterView(gtk.Table, EventSource):
         self.events = EventCallbacksList()
         self.events.set_callback(
             self.parameter, "parameter-changed", self._cb_parameter_changed)
+        self.events.set_callback(
+            self.parameter, "source-name-changed", self._cb_source_name_changed)
 
         # initialize view
         self._cb_parameter_changed()
@@ -499,6 +533,7 @@ class ParameterView(gtk.Table, EventSource):
                 entry.set_text(attached_source.name)
                 entry.set_sensitive(attached_source.data is not None)
             self.attach(entry, 2, 3, i, i+1, xoptions=gtk.FILL)
+            self.entries.append(entry)
 
             button = gtk.Button("Detach")
             button.set_sensitive(attached_source is not None)
@@ -509,6 +544,9 @@ class ParameterView(gtk.Table, EventSource):
             self.attach(button, 3, 4, i, i+1, xoptions=0)
 
         self.show_all()
+
+    def _cb_source_name_changed(self, idx, name):
+        self.entries[idx].set_text(name)
 
     def _cb_detach_source(self, index):
         self.parameter.detach_source(index)

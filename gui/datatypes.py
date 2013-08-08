@@ -92,14 +92,13 @@ class Type(object):
         else:
             raise NoLoaderExists("{0} ({1})".format(self.name, file_extension))
 
-    def store_source(self, data, filename, app, settings=None):
-        file_extension = get_file_extension(filename)
+    def store_source(self, data, filename, file_extension, app, settings=None):
         if file_extension is None:
             raise NoSaverExists("empty file extension")
 
         if file_extension in self.savers:
             fn_save = self.savers[file_extension]
-            fn_save(data, filename, app, settings)
+            fn_save(data, filename, file_extension, app, settings)
         else:
             raise NoSaverExists("{0} ({1})".format(self.name, file_extension))
 
@@ -213,12 +212,12 @@ def load_csv(filename, app, settings=None):
         return (header, data)
 t_table.register_load_function("csv", load_csv)
 
-def store_csv(data, filename, app, settings=None):
+def store_csv(data, filename, file_extension, app, settings=None):
     header, rows = data
     if settings is None:
         settings = show_csv_setting_dialog(app.window)
     delimiter, quotechar, has_header = settings
-    with open(filename, "wb") as csvfile:
+    with open("{0}.{1}".format(filename, file_extension), "wb") as csvfile:
         csvwriter = csv.writer(
             csvfile, delimiter=delimiter, quotechar=quotechar)
         if has_header:

@@ -45,7 +45,6 @@ class Filter(Operation):
 
         selected_columns = assistant.collected_setting[0]["selected_cols"]
         filter_by = assistant.collected_setting[1]
-        print "Filter by: ", filter_by
 
         filters = {}
         for col_idx in selected_columns:
