@@ -43,7 +43,7 @@ class ExtensionException(Exception):
 
 class Source(object, EventSource):
 
-    def __init__(self, name, type, data):
+    def __init__(self, name, type, data, stored=False):
         """Initialize a source of data.
 
         Arguments:
@@ -57,6 +57,7 @@ class Source(object, EventSource):
         self._name = name
         self.type = type
         self.data = data
+        self.stored = stored
 
     @property
     def name(self):
@@ -130,10 +131,11 @@ class SourceView(gtk.Alignment, EventSource):
         menu.append(item)
         menu.append(gtk.SeparatorMenuItem())
 
-        item = gtk.MenuItem("Free")
-        item.connect("activate", lambda w: self._cb_free())
-        self.btns_group1.append(item)
-        menu.append(item)
+        self.item_free = gtk.MenuItem("Free")
+        self.item_free.connect("activate", lambda w: self._cb_free())
+        self.item_free.set_sensitive(self.source.stored)
+        self.btns_group1.append(self.item_free)
+        menu.append(self.item_free)
 
         item = gtk.MenuItem("Delete")
         item.connect("activate", lambda w: self._cb_delete())
@@ -211,7 +213,10 @@ class SourceView(gtk.Alignment, EventSource):
             try:
                 self.source.type.store_source(
                     self.source.data, filename, file_extension, self.app)
+
                 self.source.name = "{0}.{1}".format(filename, file_extension)
+                self.source.stored = True
+                self.item_free.set_sensitive(True)
             except NoSaverExists as ex:
                 self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
             finally:

@@ -88,7 +88,7 @@ class Type(object):
             data = fn_load(filename, app, settings)
             if data is None:
                 return None
-            return extensions.Source(filename, self, data)
+            return extensions.Source(filename, self, data, True)
         else:
             raise NoLoaderExists("{0} ({1})".format(self.name, file_extension))
 
