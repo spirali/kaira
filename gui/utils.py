@@ -386,6 +386,12 @@ def get_file_extension(filename):
         return file_extension
     return None
 
+def trim_file_extension(filename):
+    splitedname = filename.split(".")
+    if len(splitedname) >= 2:
+        return ".".join(splitedname[:-1])
+    return filename
+
 class EqMixin(object):
 
     def __eq__(self, other):
