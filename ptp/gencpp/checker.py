@@ -165,7 +165,6 @@ class Checker:
             import ptp # To avoid cyclic import
             tester.args += [ "-I", os.path.join(paths.KAIRA_ROOT, paths.CAOCTAVE_INCLUDE_DIR) ]
             tester.args += ptp.get_config("Octave", "INCFLAGS").split()
-            print tester.args
         tester.args += self.project.get_build_option("CFLAGS").split()
         tester.run()
 
