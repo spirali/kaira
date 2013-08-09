@@ -52,7 +52,7 @@ def write_verif_configuration(builder):
                     builder.line("return memcmp(" +
                              "arc1.nni->data.fire.binding, arc2.nni->data.fire.binding, "
                              "mhash_get_block_size(MHASH_MD5)) < 0;")
-                    builder.line("}} else {{")
+                    builder.write_else()
                     builder.line("return arc1.nni->data.fire.process_id < "
                                         "arc2.nni->data.fire.process_id;")
                     builder.block_end()
@@ -65,7 +65,7 @@ def write_verif_configuration(builder):
                         "mhash_get_block_size(MHASH_MD5)) < 0;")
         builder.block_end()
     builder.block_end()
-    builder.line("}} else {{")
+    builder.write_else()
     builder.line("return arc1.nni->data.fire.transition_id < "
                         "arc2.nni->data.fire.transition_id;")
     builder.block_end()

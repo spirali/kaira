@@ -219,7 +219,7 @@ def write_send_token(builder,
             else:
                 write_add(inscription.expr)
             builder.indent_pop()
-            builder.line("}} else {{")
+            builder.write_else()
             builder.line("int $target = {0};", inscription.target)
             target = builder.expand("$target")
             builder.indent_push()
@@ -258,7 +258,7 @@ def write_send_token(builder,
         builder.block_end()
 
     if if_condition:
-        builder.line("}} else {{")
+        builder.write_else()
         if inscription.uid in reuse_tokens:
             builder.line("delete $token_{0};", reuse_tokens[inscription.uid])
         builder.block_end()
