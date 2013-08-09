@@ -38,6 +38,7 @@ class SettingsWidget(gtk.Table):
 
     def __init__(self):
         gtk.Table.__init__(self, 1, 2, False)
+        self.set_row_spacings(5)
         self.set_col_spacing(0, 10)
         self.settings = dict() # key: value
         self.value_status = dict() # key: (true|false, message)
@@ -108,22 +109,23 @@ class SettingsWidget(gtk.Table):
         self.labels[key] = label
 
         lbl = gtk.Label(label)
-        lbl.set_alignment(0.0, 0.5)
-        self.attach(
-            lbl,
-            0, 1,
-            self.row, self.row+1,
-            xoptions=gtk.FILL, yoptions=0,
-            xpadding=5)
+        lbl.set_alignment(0.0, 0.0)
+        self.attach(lbl,
+                    0, 1,
+                    self.row, self.row+1,
+                    xoptions=gtk.FILL, yoptions=gtk.FILL,
+                    xpadding=5)
 
         widget.connect("focus-in-event", self._cb_focus_in, key)
         widget.connect("focus-out-event", self._cb_focus_out, key)
-        self.attach(
-            widget,
-            1, 2,
-            self.row, self.row+1,
-            xoptions=gtk.EXPAND|gtk.FILL, yoptions=0,
-            xpadding=5)
+
+        yopt = (gtk.EXPAND|gtk.FILL
+                if isinstance(widget, gtk.ScrolledWindow) else 0)
+        self.attach(widget,
+                    1, 2,
+                    self.row, self.row+1,
+                    xoptions=gtk.EXPAND|gtk.FILL, yoptions=yopt,
+                    xpadding=5)
 
         self.row += 1
         self.resize(self.row, 2)
@@ -327,6 +329,53 @@ class SettingsWidget(gtk.Table):
 
         self.add_widget(key, label, vbox)
 
+    def add_checkbuttons_list(self, key, label, items, defaults=[]):
+
+        if len(items) == 0:
+            return
+        assert(all([index< len(items) for index in defaults]))
+
+        self.settings[key] = []
+        def callback(crtoggle, path, store):
+            siter = store.get_iter(path)
+            value = store.get_value(siter, 1)
+            select = store.get_value(siter, 2)
+            if select:
+                self.settings[key].remove(value)
+            else:
+                self.settings[key].append(value)
+            store.set_value(siter, 2, not select)
+
+        scw = gtk.ScrolledWindow()
+        scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+
+        store = gtk.ListStore(gobject.TYPE_STRING,
+                              gobject.TYPE_PYOBJECT,
+                              gobject.TYPE_BOOLEAN)
+
+        data = [(vlabel, value, idx in defaults)
+                for idx, (vlabel, value) in enumerate(items)]
+        map(store.append, data) # fill store
+
+        tree_view = gtk.TreeView(store)
+        scw.add_with_viewport(tree_view)
+
+        # column with labels of values
+        text_renderer = gtk.CellRendererText()
+        column = gtk.TreeViewColumn("Value", text_renderer, text=0)
+        column.set_sort_column_id(0)
+        tree_view.append_column(column)
+
+        # column for select values
+        bool_renderer = gtk.CellRendererToggle()
+        bool_renderer.set_property("activatable", True)
+        bool_renderer.connect("toggled", callback, store)
+        column = gtk.TreeViewColumn("Select", bool_renderer, active=2)
+        column.set_sort_column_id(2)
+        tree_view.append_column(column)
+
+        self.add_widget(key, label, scw)
+
     # -------------------------------------------------------------------------
     # add specific data types
 
@@ -348,17 +397,17 @@ gobject.signal_new("value-status-changed",
                    SettingsWidget,
                    gobject.SIGNAL_RUN_FIRST,
                    gobject.TYPE_NONE,
-                   (gobject.TYPE_STRING,))
+                   (gobject.TYPE_PYOBJECT,))
 gobject.signal_new("select-key",
                    SettingsWidget,
                    gobject.SIGNAL_RUN_FIRST,
                    gobject.TYPE_NONE,
-                   (gobject.TYPE_STRING,))
+                   (gobject.TYPE_PYOBJECT,))
 gobject.signal_new("value-committed",
                    SettingsWidget,
                    gobject.SIGNAL_RUN_FIRST,
                    gobject.TYPE_NONE,
-                   (gobject.TYPE_STRING,))
+                   (gobject.TYPE_PYOBJECT,))
 
 # *****************************************************************************
 # Setting dialog with status-bar
