@@ -16,24 +16,29 @@ class Filter(Operation):
         assistant = settingswindow.BasicSettingAssistant(2,
                                                          "Filter setting",
                                                          app.window)
+        assistant.set_size_request(600, 400)
 
         def create_page_1(setting):
             items = [(label, idx) for idx, label in enumerate(header)]
-            s_widget = settingswindow.SettingsWidget()
-            s_widget.add_checkbuttons(
-                "selected_cols", "Columns", items, ncols=3)
+            s_widget = settingswindow.SettingWidget()
+            s_widget.add_checkbuttons_list(
+                "selected_cols", "Columns", items)
             return s_widget
 
         def create_page_2(setting):
             selected_columns = setting["selected_cols"]
             selected_columns.sort()
-            s_widget = settingswindow.SettingsWidget()
+            s_widget = settingswindow.SettingWidget()
+
             for idx, col_idx in enumerate(selected_columns):
                 if idx > 0:
                     s_widget.add_separator()
                 s_widget.add_entry(col_idx, header[col_idx], "")
-                s_widget.add_checkbutton("neg{0}".format(col_idx),
-                                         "Negation", False)
+                s_widget.add_radiobuttons("cmp_fn{0}".format(col_idx),
+                                          "Compare",
+                                          [("Equal", lambda x, y: x == y),
+                                           ("Not equal", lambda x, y: x != y)],
+                                          ncols=2)
             return s_widget
 
         assistant.append_setting_widget("Select columns", create_page_1)
@@ -46,22 +51,14 @@ class Filter(Operation):
         selected_columns = assistant.collected_setting[0]["selected_cols"]
         filter_by = assistant.collected_setting[1]
 
-        filters = {}
+        cmp_fns = {}
         for col_idx in selected_columns:
-            filters[col_idx] = (filter_by.get(col_idx),
-                                filter_by.get("neg{0}".format(col_idx)))
+            cmp_fns[col_idx] = filter_by.get("cmp_fn{0}".format(col_idx))
 
         # filter data
         def f(row):
-            for col_idx in selected_columns:
-                filter, negation = filters[col_idx]
-                if negation:
-                    if row[col_idx] == filter: # negate of condition
-                        return False
-                else:
-                    if row[col_idx] != filter:
-                        return False
-            return True
+            return all(cmp_fns[idx](filter_by[idx], row[idx])
+                       for idx in selected_columns)
 
         filtered_data = (header, filter(f, rows))
         return Source("Filtered table", t_table, filtered_data)
