@@ -116,7 +116,8 @@ class SettingsWidget(gtk.Table):
             xoptions=gtk.FILL, yoptions=0,
             xpadding=5)
 
-        widget.connect("focus-in-event", self._cb_focus, key)
+        widget.connect("focus-in-event", self._cb_focus_in, key)
+        widget.connect("focus-out-event", self._cb_focus_out, key)
         self.attach(
             widget,
             1, 2,
@@ -138,8 +139,11 @@ class SettingsWidget(gtk.Table):
         self.row += 1
         self.resize(self.row+1, 2)
 
-    def _cb_focus(self, widget, event, key):
+    def _cb_focus_in(self, widget, event, key):
         self.emit("select-key", key)
+
+    def _cb_focus_out(self, widget, event, key):
+        self.emit("value-committed", key)
 
     # -------------------------------------------------------------------------
     # add specific components
@@ -350,6 +354,11 @@ gobject.signal_new("select-key",
                    gobject.SIGNAL_RUN_FIRST,
                    gobject.TYPE_NONE,
                    (gobject.TYPE_STRING,))
+gobject.signal_new("value-committed",
+                   SettingsWidget,
+                   gobject.SIGNAL_RUN_FIRST,
+                   gobject.TYPE_NONE,
+                   (gobject.TYPE_STRING,))
 
 # *****************************************************************************
 # Setting dialog with status-bar
@@ -547,8 +556,9 @@ class BasicSettingAssistant(gtk.Assistant):
             if self.setting_widget is not None:
                self.remove(self.setting_widget)
             self.setting_widget = sw
+            self.setting_widget.connect("value-committed",self._cb_check_value)
             self.setting_widget.connect("value-status-changed",
-                                        self._cb_check_setting)
+                                        self._cb_value_status_changed)
             self.pack_start(self.setting_widget)
             self.setting_widget.show_all()
             self.set_infobar()
@@ -578,14 +588,18 @@ class BasicSettingAssistant(gtk.Assistant):
                     self.label_msg.set_text(msg)
                     return
 
-        def _cb_check_setting(self, sw, key):
+        def _cb_value_status_changed(self, sw, key):
+            msg = sw.get_value_status_message(key)
+            if msg is None and self.info_bar.get_visible():
+                self.info_bar.hide()
+
+        def _cb_check_value(self, sw, key):
             msg = sw.get_value_status_message(key)
             if msg is None:
                 self.info_bar.hide()
             else:
                 self.label_msg.set_text(msg)
                 self.info_bar.show()
-
 
     class SummaryPage(gtk.ScrolledWindow):
 
