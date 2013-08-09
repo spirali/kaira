@@ -115,11 +115,11 @@ def write_net_class_extension(builder, net):
 def write_main(builder):
     builder.line("int main(int argc, char **argv)")
     builder.block_begin()
-    builder.line("cass::Core core;")
     buildnet.write_main_setup(builder, "cass::init", start_process=False)
-    builder.line("core.generate();")
     builder.line("VerifConfiguration verif_configuration;")
-    builder.line("core.postprocess(verif_configuration);")
+    builder.line("cass::Core core(verif_configuration);")
+    builder.line("core.generate();")
+    builder.line("core.postprocess();")
     builder.line("return 0;")
     builder.block_end()
 

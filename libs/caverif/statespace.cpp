@@ -193,7 +193,12 @@ void Node::generate(Core *core)
 					s = new State(*state);
 				}
 				ca::Packer packer;
-				bool fired = s->fire_transition_full_with_binding(p, transitions[i], packer);
+				bool fired;
+				if (core->generate_binding_in_nni(transitions[i]->get_id())) {
+					fired = s->fire_transition_full_with_binding(p, transitions[i], packer);
+				} else {
+					fired = s->fire_transition_full(p, transitions[i]);
+				}
 				if (fired) {
 					Node *n = core->add_state(s);
 					n->set_prev(this);
@@ -203,7 +208,9 @@ void Node::generate(Core *core)
 					nninfo.data.fire.process_id = p;
 					nninfo.data.fire.thread_id = 0;
 					nninfo.data.fire.transition_id = transitions[i]->get_id();
-					nninfo.data.fire.binding = core->hash_packer(packer);
+					if (core->generate_binding_in_nni(transitions[i]->get_id())) {
+						nninfo.data.fire.binding = core->hash_packer(packer);
+					}
 					nexts.push_back(nninfo);
 					s = NULL;
 				}
@@ -278,8 +285,14 @@ void Node::generate(Core *core)
 	}
 }
 
-Core::Core() : initial_node(NULL), nodes(10000, HashDigestHash(MHASH_MD5), HashDigestEq(MHASH_MD5))
+Core::Core(VerifConfiguration &verif_configuration) : initial_node(NULL), nodes(10000, HashDigestHash(MHASH_MD5),
+		HashDigestEq(MHASH_MD5)), net_def(NULL), verif_configuration(verif_configuration)
 {
+	if (analyse_transition_occurrence) {
+		generate_binging_in_nni = true;
+	} else {
+		generate_binging_in_nni = false;
+	}
 }
 
 Core::~Core()
@@ -358,7 +371,7 @@ void Core::write_dot_file(const std::string &filename)
 	fclose(f);
 }
 
-void Core::postprocess(VerifConfiguration &verif_configuration)
+void Core::postprocess()
 {
 	if (write_dot) {
 		write_dot_file("statespace.dot");
@@ -381,7 +394,7 @@ void Core::postprocess(VerifConfiguration &verif_configuration)
 		run_analysis_deadlock(report);
 	}
 	if (analyse_transition_occurrence) {
-		run_analysis_transition_occurrence(report, verif_configuration);
+		run_analysis_transition_occurrence(report);
 	}
 
 	report.child("description");
@@ -390,6 +403,16 @@ void Core::postprocess(VerifConfiguration &verif_configuration)
 
 	report.back();
 	fclose(f);
+}
+
+bool Core::generate_binding_in_nni(int transition_id)
+{
+	if (generate_binging_in_nni && verif_configuration.is_transition_analyzed(transition_id)) {
+		return true;
+	} else {
+		return false;
+	}
+
 }
 
 static void write_control_line(ca::NetDef *def, std::stringstream &s, const NextNodeInfo &nninfo)
@@ -509,7 +532,7 @@ void Core::run_analysis_deadlock(ca::Output &report)
 	report.back();
 }
 
-void Core::run_analysis_transition_occurrence(ca::Output &report, VerifConfiguration &verif_configuration)
+void Core::run_analysis_transition_occurrence(ca::Output &report)
 {
 	ArcCompare arcCmp(verif_configuration);
 	ParikhVector *actual, *next;

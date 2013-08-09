@@ -179,21 +179,21 @@ namespace cass {
 	class Core
 	{
 		public:
-			Core();
+			Core(VerifConfiguration &verif_configuration);
 			~Core();
 			void generate();
-			void postprocess(VerifConfiguration &verif_configuration);
+			void postprocess();
 			void write_dot_file(const std::string &filename);
 			Node * add_state(State *state);
 			HashDigest hash_packer(ca::Packer packer);
 			ca::NetDef * get_net_def() { return net_def; }
+			bool generate_binding_in_nni(int transition_id);
 		protected:
 			void write_control_sequence(std::vector<Node*> &nodes, ca::Output &report);
 			void write_state(const std::string &name, Node *node, ca::Output &report);
 			void write_suffix(const std::string &name, std::vector<Node*> &nodes, ca::Output &report);
 			void run_analysis_deadlock(ca::Output &report);
-			void run_analysis_transition_occurrence(ca::Output &report,
-					VerifConfiguration &verif_configuration);
+			void run_analysis_transition_occurrence(ca::Output &report);
 
 			bool is_known_node(Node *node) const;
 			Node *get_node(HashDigest digest) const;
@@ -201,6 +201,8 @@ namespace cass {
 			NodeMap nodes;
 			Node *initial_node;
 			ca::NetDef *net_def;
+			VerifConfiguration &verif_configuration;
+			bool generate_binging_in_nni;
 	};
 
 	void init(int argc, char **argv, std::vector<ca::Parameter*> &parameters);
