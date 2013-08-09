@@ -421,6 +421,8 @@ class Transition(utils.EqByIdMixin):
 
     code = None
     time_substitution = None
+    calls_quit = False
+    compare_function = "none"
 
     def __init__(self, net, id, name, guard):
         self.net = net

@@ -8,6 +8,7 @@
 #include "cailie.h"
 #include "basictypes.h"
 #include "state.h"
+#include "verifconfiguration.h"
 
 #include <set>
 
@@ -15,6 +16,7 @@ namespace cass {
 
 	class Core;
 	class Node;
+	class VerifConfiguration;
 	typedef void* HashDigest;
 
 	struct Activation : public ca::Activation
@@ -34,19 +36,23 @@ namespace cass {
 			void *packed_binding;
 	};
 
+	inline bool binding_compare(const Activation &t1, const Activation &t2) {
+		if (t1.packed_binding_size == t2.packed_binding_size) {
+			return memcmp(t1.packed_binding,
+						  t2.packed_binding,
+						  t1.packed_binding_size) < 0;
+		} else {
+			return t1.packed_binding_size < t2.packed_binding_size;
+		}
+	}
+
 	struct ActivationCompare
 	{
 	  bool operator() (const Activation &t1, const Activation &t2) {
 			if (t1.transition_def->get_id() == t2.transition_def->get_id()) {
 				if (t1.process_id == t2.process_id) {
 					if (t1.thread_id == t2.thread_id) {
-						if (t1.packed_binding_size == t2.packed_binding_size) {
-							return memcmp(t1.packed_binding,
-										  t2.packed_binding,
-                                          t1.packed_binding_size) < 0;
-						} else {
-							return t1.packed_binding_size < t2.packed_binding_size;
-						}
+						return binding_compare(t1, t2);
 					} else {
 						return t1.thread_id < t2.thread_id;
 					}
@@ -86,6 +92,7 @@ namespace cass {
 					int process_id;
 					int thread_id;
 					int transition_id;
+					HashDigest binding;
 				} fire; // ActionFire
 				struct {
 					int process_id;
@@ -97,6 +104,28 @@ namespace cass {
 				} receive; // ActionReceive
 		} data;
 	};
+
+	struct Arc
+	{
+		Arc(Node *node, const NextNodeInfo *nni): node(node), nni(nni) {};
+
+		Node *node;
+		NextNodeInfo const *nni;
+	};
+
+	struct ArcCompare
+	{
+		ArcCompare(VerifConfiguration &verif_configuration):
+			verif_configuration(verif_configuration) {};
+
+		bool operator() (const Arc &arc1, const Arc &arc2) const {
+			return verif_configuration.compare(arc1, arc2);
+		}
+
+		VerifConfiguration &verif_configuration;
+	};
+
+	typedef std::map<Arc, int, ArcCompare> ParikhVector;
 
 	class Node
 	{
@@ -110,6 +139,8 @@ namespace cass {
 			State* get_state() { return state; }
 			Node* get_prev() { return prev; }
 			int get_distance() { return distance; }
+			void* get_data() { return data; };
+			void set_data(void* data) { this->data = data; };
 			void set_prev(Node *prev);
 			const NextNodeInfo& get_next_node_info(Node *node);
 		protected:
@@ -118,6 +149,7 @@ namespace cass {
 			std::vector<NextNodeInfo> nexts;
 			Node* prev;
 			int distance;
+			void* data;
 	};
 
 	struct HashDigestHash
@@ -150,14 +182,18 @@ namespace cass {
 			Core();
 			~Core();
 			void generate();
-			void postprocess();
+			void postprocess(VerifConfiguration &verif_configuration);
 			void write_dot_file(const std::string &filename);
 			Node * add_state(State *state);
+			HashDigest hash_packer(ca::Packer packer);
 			ca::NetDef * get_net_def() { return net_def; }
 		protected:
-			void write_control_sequence(Node *node, ca::Output &report);
+			void write_control_sequence(std::vector<Node*> &nodes, ca::Output &report);
 			void write_state(const std::string &name, Node *node, ca::Output &report);
+			void write_suffix(const std::string &name, std::vector<Node*> &nodes, ca::Output &report);
 			void run_analysis_deadlock(ca::Output &report);
+			void run_analysis_transition_occurrence(ca::Output &report,
+					VerifConfiguration &verif_configuration);
 
 			bool is_known_node(Node *node) const;
 			Node *get_node(HashDigest digest) const;

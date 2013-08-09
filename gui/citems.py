@@ -251,6 +251,9 @@ class SimRunLabel(Label):
     background_color = (0.2, 0.5, 1.0)
     symbol = "arrow"
 
+class VerifLabel(Label):
+    background_color = (0.7, 0, 0.8)
+    symbol = "tick"
 
 class ArrowLine(CanvasItem):
 

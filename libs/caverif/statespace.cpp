@@ -2,6 +2,8 @@
 #include "statespace.h"
 #include <string.h>
 #include <vector>
+#include <map>
+#include <queue>
 #include <algorithm>
 #include <alloca.h>
 
@@ -16,6 +18,7 @@ using namespace cass;
 
 static bool write_dot = false;
 static bool analyse_deadlock = false;
+static bool analyse_transition_occurrence = false;
 static std::string project_name;
 
 static void args_callback(char c, char *optarg, void *data)
@@ -27,6 +30,10 @@ static void args_callback(char c, char *optarg, void *data)
 		}
 		if (!strcmp(optarg, "deadlock")) {
 			analyse_deadlock = true;
+			return;
+		}
+		if (!strcmp(optarg, "transition_occurrence")) {
+			analyse_transition_occurrence = true;
 			return;
 		}
 		fprintf(stderr, "Invalid argument in -V\n");
@@ -148,7 +155,7 @@ HashDigest State::compute_hash(hashid hash_id)
 }
 
 Node::Node(HashDigest hash, State *state)
-	: hash(hash), state(state), prev(NULL), distance(0)
+	: hash(hash), state(state), prev(NULL), distance(0), data(NULL)
 {
 
 }
@@ -178,7 +185,33 @@ void Node::generate(Core *core)
 	int transitions_count = def->get_transitions_count();
 
 	State *s = NULL;
-	/* Fire transitions */
+
+	/* Full fire transition */
+	for (int p = 0; p < ca::process_count; p++) {
+			for (int i = 0; i < transitions_count; i++) {
+				if (s == NULL) {
+					s = new State(*state);
+				}
+				ca::Packer packer;
+				bool fired = s->fire_transition_full_with_binding(p, transitions[i], packer);
+				if (fired) {
+					Node *n = core->add_state(s);
+					n->set_prev(this);
+					NextNodeInfo nninfo;
+					nninfo.node = n;
+					nninfo.action = ActionFire;
+					nninfo.data.fire.process_id = p;
+					nninfo.data.fire.thread_id = 0;
+					nninfo.data.fire.transition_id = transitions[i]->get_id();
+					nninfo.data.fire.binding = core->hash_packer(packer);
+					nexts.push_back(nninfo);
+					s = NULL;
+				}
+			}
+		}
+
+	/* we do not support threads
+	// Fire transitions
 	for (int p = 0; p < ca::process_count; p++) {
 		for (int i = 0; i < transitions_count; i++) {
 			if (s == NULL) {
@@ -200,7 +233,7 @@ void Node::generate(Core *core)
 		}
 	}
 
-	/* Finish transitions */
+	// Finish transitions
 	std::vector<Activation> &activations = state->get_activations();
 	for (int i = 0; i < activations.size(); i++)
 	{
@@ -218,6 +251,7 @@ void Node::generate(Core *core)
 		nexts.push_back(nninfo);
 		s = NULL;
 	}
+	*/
 
 	/* Receive packets */
 	for (int pq = 0; pq < ca::process_count * ca::process_count; pq++) {
@@ -324,7 +358,7 @@ void Core::write_dot_file(const std::string &filename)
 	fclose(f);
 }
 
-void Core::postprocess()
+void Core::postprocess(VerifConfiguration &verif_configuration)
 {
 	if (write_dot) {
 		write_dot_file("statespace.dot");
@@ -346,6 +380,9 @@ void Core::postprocess()
 	if (analyse_deadlock) {
 		run_analysis_deadlock(report);
 	}
+	if (analyse_transition_occurrence) {
+		run_analysis_transition_occurrence(report, verif_configuration);
+	}
 
 	report.child("description");
 	report.text(ca::project_description_string);
@@ -363,7 +400,6 @@ static void write_control_line(ca::NetDef *def, std::stringstream &s, const Next
 			s << " " << nninfo.data.fire.thread_id;
 			s << " S ";
 			ca::TransitionDef *t = def->get_transition_def(nninfo.data.fire.transition_id);
-			printf("%s\n", t->get_name().c_str());
 			if (t->get_name().size() > 0) {
 				s << t->get_name();
 			} else {
@@ -383,10 +419,20 @@ static void write_control_line(ca::NetDef *def, std::stringstream &s, const Next
 	s << std::endl;
 }
 
-void Core::write_control_sequence(Node *node, ca::Output &report)
+void Core::write_control_sequence(std::vector<Node*> &nodes, ca::Output &report)
 {
 	std::vector<Node*> path;
-	path.reserve(node->get_distance() + 1);
+	Node *node;
+
+	if(nodes.size() == 0) {
+		fprintf(stderr, "Try write control sequence with zero length\n");
+		exit(1);
+	}
+	path.reserve(nodes[0]->get_distance() + nodes.size());
+	for (int i = nodes.size() - 1; i > 0; i--) {
+		path.push_back(nodes[i]);
+	}
+	node = nodes[0];
 	do {
 		path.push_back(node);
 	} while ((node = node->get_prev()) != NULL);
@@ -411,7 +457,19 @@ void Core::write_state(const std::string &name, Node *node, ca::Output &report)
 	report.set("name", name);
 	report.set("hash", hashdigest_to_string(MHASH_MD5, node->get_hash()));
 	report.set("distance", node->get_distance());
-	write_control_sequence(node, report);
+	std::vector<Node*> nodes;
+	nodes.push_back(node);
+	write_control_sequence(nodes, report);
+	report.back();
+}
+
+void Core::write_suffix(const std::string &name, std::vector<Node*> &nodes, ca::Output &report)
+{
+	report.child("state");
+	report.set("name", name);
+	report.set("hash", hashdigest_to_string(MHASH_MD5, nodes.back()->get_hash()));
+	report.set("distance", nodes.back()->get_distance());
+	write_control_sequence(nodes, report);
 	report.back();
 }
 
@@ -451,6 +509,91 @@ void Core::run_analysis_deadlock(ca::Output &report)
 	report.back();
 }
 
+void Core::run_analysis_transition_occurrence(ca::Output &report, VerifConfiguration &verif_configuration)
+{
+	ArcCompare arcCmp(verif_configuration);
+	ParikhVector *actual, *next;
+	std::queue<Node*> node_queue;
+	std::vector<Node*> second_sequence;
+	Node *first_sequence;
+	Node *node;
+	int errors = 0;
+
+	actual = new ParikhVector(arcCmp);
+	const std::vector<ca::TransitionDef*> transitions = net_def->get_transition_defs();
+	initial_node->set_data(actual);
+	node_queue.push(initial_node);
+
+	while (!node_queue.empty() && !errors) {
+		node = node_queue.front();
+		node_queue.pop();
+		actual = (ParikhVector*)(node->get_data());
+		const std::vector<NextNodeInfo> &nexts_nodes = node->get_nexts();
+		for (int i = 0; i < nexts_nodes.size(); i++) {
+			if (errors) {
+				break;
+			}
+			next = new ParikhVector(*actual);
+			if (nexts_nodes[i].action == ActionFire) {
+				Arc arc(node, &nexts_nodes[i]);
+				if (verif_configuration.is_transition_analyzed(nexts_nodes[i].data.fire.transition_id)) {
+					if (next->count(arc)) {
+						next->at(arc) += 1;
+					} else {
+						next->insert(std::pair<Arc, int>(arc, 1));
+					}
+				}
+			}
+			if (nexts_nodes[i].node->get_data() != NULL) {
+				ParikhVector::const_iterator it;
+				ParikhVector *old = (ParikhVector*)nexts_nodes[i].node->get_data();
+				for (it = next->begin(); it != next->end(); it++) {
+					if (old->count(it->first) == 0 || it->second != old->at(it->first)) {
+						first_sequence = nexts_nodes[i].node;
+						second_sequence.push_back(node);
+						second_sequence.push_back(nexts_nodes[i].node);
+						errors++;
+						break;
+					}
+				}
+				delete next;
+			} else {
+				nexts_nodes[i].node->set_data(next);
+				node_queue.push(nexts_nodes[i].node);
+			}
+		}
+	}
+
+	NodeMap::const_iterator it;
+	for (it = nodes.begin(); it != nodes.end(); it++)
+	{
+		Node *node = it->second;
+		if (node->get_data() != NULL) {
+			delete (ParikhVector*)node->get_data();
+			node->set_data(NULL);
+		}
+	}
+
+	report.child("analysis");
+	report.set("name", "transition order analysis");
+
+	report.child("result");
+	report.set("name", "Number of errors");
+	report.set("value", errors);
+	if (errors > 0) {
+		report.set("status", "fail");
+		report.set("text", "Sequences with different transition order found");
+		report.child("states");
+		write_state("First transition order", first_sequence, report);
+		write_suffix("Second transition order", second_sequence, report);
+		report.back();
+	} else {
+		report.set("status", "ok");
+	}
+	report.back();
+	report.back();
+}
+
 Node * Core::add_state(State *state)
 {
 	HashDigest hash = state->compute_hash(MHASH_MD5);
@@ -466,6 +609,17 @@ Node * Core::add_state(State *state)
 		delete state;
 		return node;
 	}
+}
+
+HashDigest Core::hash_packer(ca::Packer packer)
+{
+	MHASH hash_thread = mhash_init(MHASH_MD5);
+	if (hash_thread == MHASH_FAILED) {
+		fprintf(stderr, "Hash failed\n");
+		exit(1);
+	}
+	mhash(hash_thread, packer.get_buffer(), packer.get_size());
+	return mhash_end(hash_thread);
 }
 
 const NextNodeInfo& Node::get_next_node_info(Node *node)

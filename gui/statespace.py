@@ -65,6 +65,10 @@ class StatespaceConfig(gtk.VBox):
         vbox.pack_start(self.analyze_deadlock, False, False)
         self.analyze_deadlock.set_active(True)
 
+        self.analyze_transition_occurrence = gtk.CheckButton("Transition occurrence analysis")
+        vbox.pack_start(self.analyze_transition_occurrence, False, False)
+        self.analyze_transition_occurrence.set_active(True)
+
         self.analyze_cycles = gtk.CheckButton("Detect computation cycles")
         vbox.pack_start(self.analyze_cycles, False, False)
         self.analyze_cycles.set_active(True)
@@ -129,6 +133,9 @@ class StatespaceConfig(gtk.VBox):
 
             if self.analyze_deadlock.get_active():
                 parameters.append("-Vdeadlock")
+
+            if self.analyze_transition_occurrence.get_active():
+                parameters.append("-Vtransition_occurrence")
             p.start(parameters)
             self.process = p
             self.stop_button.set_sensitive(True)

@@ -203,4 +203,10 @@ def draw_label(cr, x, y, text, symbol, text_color, background_color):
 
         rounded_rectangle(cr, x + 5, y + 2, 15, 14, 3)
         cr.stroke()
+    elif symbol == "tick":
+        cr.set_line_width(2)
 
+        cr.move_to(x + 5, y + 10)
+        cr.rel_line_to(4, 3)
+        cr.rel_line_to(9, -10)
+        cr.stroke()

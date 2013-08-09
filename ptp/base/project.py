@@ -192,6 +192,11 @@ def load_transition(element, project, net):
     if element.find("time-substitution") is not None:
         transition.time_substitution = element.find("time-substitution").text
 
+    if element.find("verif-quit_flag") is not None:
+        transition.calls_quit = True
+    if element.find("verif-compare") is not None:
+        transition.compare_function = element.find("verif-compare").text
+
     priority = element.get("priority").strip()
     if priority == "":
         transition.priority = 0

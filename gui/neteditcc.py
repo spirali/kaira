@@ -47,6 +47,8 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
                 self.add_extra_tracing_items(items)
             if self.neteditor.mode == "simrun":
                 self.add_extra_simrun_items(items)
+            if self.neteditor.mode == "verif":
+                self.add_extra_verif_items(items)
         return items
 
     def add_extra_tracing_items(self, items):
@@ -70,6 +72,15 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
                     None, "simrunbox", citems.RelativePlacement(item.box, position))
                 i.text_fn = text_fn(item)
                 items.append(i)
+
+    def add_extra_verif_items(self, items):
+        for item in self.net.transitions():
+            size = item.box.size
+            position = utils.vector_add_t(item.box.get_position(), size, 0.5)
+            i = citems.VerifLabel(
+                None, "verifbox", citems.RelativePlacement(item.box, position))
+            i.text = item.get_verif_texts()
+            items.append(i)
 
     def configure_item(self, item):
         item.inactive = False
