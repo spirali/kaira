@@ -270,15 +270,15 @@ class SettingsWidget(gtk.Table):
         vbox.show_all()
         self.add_widget(key, label, vbox)
 
-    def add_checkbutton(self, key, label, default=True):
+    def add_checkbutton(self, key, label, default_value=True, button_label=""):
 
-        self.settings[key] = default
+        self.settings[key] = default_value
 
         def callback(button, key):
             self.settings[key] = not self.settings[key]
 
-        button = gtk.CheckButton(label)
-        button.set_active(default) # also set default value
+        button = gtk.CheckButton(button_label)
+        button.set_active(default_value) # also set default value
         button.connect("toggled", callback, key)
         self.add_widget(key, label, button)
 
