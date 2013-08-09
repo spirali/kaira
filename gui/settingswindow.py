@@ -118,13 +118,12 @@ class SettingsWidget(gtk.Table):
 
         widget.connect("focus-in-event", self._cb_focus_in, key)
         widget.connect("focus-out-event", self._cb_focus_out, key)
-
-        yopt = (gtk.EXPAND|gtk.FILL
-                if isinstance(widget, gtk.ScrolledWindow) else 0)
+        yoptions = (gtk.EXPAND|gtk.FILL
+                    if isinstance(widget, gtk.ScrolledWindow) else gtk.FILL)
         self.attach(widget,
                     1, 2,
                     self.row, self.row+1,
-                    xoptions=gtk.EXPAND|gtk.FILL, yoptions=yopt,
+                    xoptions=gtk.EXPAND|gtk.FILL, yoptions=yoptions,
                     xpadding=5)
 
         self.row += 1
@@ -190,7 +189,8 @@ class SettingsWidget(gtk.Table):
             except ValueError:
                 editable.modify_text(gtk.STATE_NORMAL, self.warning_color)
                 self.set_value_status(
-                    key, False, "The string cannot be convert to the desired type.");
+                    key, False,
+                    "The string cannot be convert to the desired type.");
 
         entry = gtk.Entry()
         self.add_widget(key, label, entry, validator)
@@ -593,27 +593,41 @@ class BasicSettingAssistant(gtk.Assistant):
     class SettingPage(gtk.VBox):
 
         def __init__(self):
-            gtk.VBox.__init__(self)
+            gtk.VBox.__init__(self, False)
             self.setting_widget = None
+            self.wrong_keys = []
+
+            scw = gtk.ScrolledWindow()
+            scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+
+            self.sw_vbox = gtk.VBox(False)
+            self.sw_vbox.set_border_width(5)
+            # due to scrolled window sw_vbox must not be empty
+            # the label will be removed
+            self.sw_vbox.pack_start(gtk.Label())
+            scw.add_with_viewport(self.sw_vbox)
+            self.pack_start(scw, True, True)
 
             self.label_msg = gtk.Label()
-            self.info_bar = gtk.InfoBar()
-            self.info_bar.get_content_area().add(self.label_msg)
-            self.pack_end(self.info_bar, False, False)
+            self.infobar = gtk.InfoBar()
+            self.infobar.set_message_type(gtk.MESSAGE_WARNING)
+            self.infobar.get_content_area().add(self.label_msg)
+            self.pack_start(self.infobar, False, False)
+            self.infobar.show()
 
         def set_setting_widget(self, sw):
-            if self.setting_widget is not None:
-               self.remove(self.setting_widget)
+            for child in self.sw_vbox.get_children():
+                self.sw_vbox.remove(child)
             self.setting_widget = sw
             self.setting_widget.connect("value-committed",self._cb_check_value)
             self.setting_widget.connect("value-status-changed",
                                         self._cb_value_status_changed)
-            self.pack_start(self.setting_widget)
+            self.sw_vbox.pack_start(self.setting_widget, True, True)
             self.setting_widget.show_all()
             self.set_infobar()
 
         def remove_settig_widget(self):
-            self.remove(self.setting_widget)
+            self.sw_vbox.remove(self.setting_widget)
             self.setting_widget = None
 
         def get_setting(self):
@@ -628,27 +642,42 @@ class BasicSettingAssistant(gtk.Assistant):
 
         def set_infobar(self):
             if self.are_values_correct():
-                self.info_bar.hide()
+                self.set_wrong_message()
                 return
+
             for key in self.setting_widget.settings:
                 msg = self.setting_widget.get_value_status_message(key)
                 if msg is not None:
-                    self.setting_widget.widgets[key].grab_focus() # TODO: fix
-                    self.label_msg.set_text(msg)
+                    self.set_wrong_message(key, msg)
                     return
+
+        def set_wrong_message(self, key=None, message=None):
+            if message is None:
+                if key in self.wrong_keys:
+                    self.wrong_keys.remove(key)
+                if self.wrong_keys: # check if is it there other unsolved key
+                    old_key = self.wrong_keys[-1]
+                    msg = self.setting_widget.get_value_status_message(old_key)
+                    self.set_wrong_message(old_key, msg)
+                    return
+                self.label_msg.set_text("")
+                self.infobar.hide()
+            else:
+                if key not in self.wrong_keys:
+                    self.wrong_keys.append(key)
+                self.label_msg.set_markup("<b>{0}:</b> {1}".format(
+                    self.setting_widget.labels[key], message))
+                self.infobar.show()
 
         def _cb_value_status_changed(self, sw, key):
             msg = sw.get_value_status_message(key)
-            if msg is None and self.info_bar.get_visible():
-                self.info_bar.hide()
+            if msg is None: # correct status immediately
+                self.set_wrong_message()
 
         def _cb_check_value(self, sw, key):
             msg = sw.get_value_status_message(key)
-            if msg is None:
-                self.info_bar.hide()
-            else:
-                self.label_msg.set_text(msg)
-                self.info_bar.show()
+            self.set_wrong_message(key, msg)
+
 
     class SummaryPage(gtk.ScrolledWindow):
 
@@ -659,7 +688,7 @@ class BasicSettingAssistant(gtk.Assistant):
             self.table = gtk.Table(1, 2, False)
             # due to scrolled window table must not be empty
             # the label will be removed
-            self.table.attach(gtk.Label("temporary"), 0, 1, 0,1)
+            self.table.attach(gtk.Label(), 0, 1, 0,1)
 
             self.add_with_viewport(self.table)
             self.row = 0
