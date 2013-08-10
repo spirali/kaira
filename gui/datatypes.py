@@ -73,32 +73,32 @@ class Type(object):
         self.name = name
         self.short_name = short_name
         self.files_extensions = list(files_extensions)
-        self.settings = None
+        self.setting = None
 
         self.loaders = {}
         self.savers = {}
 
-    def load_source(self, filename, app, settings=None):
+    def load_source(self, filename, app, setting=None):
         file_extension = get_file_extension(filename)
         if file_extension is None:
             raise NoLoaderExists("empty file extension")
 
         if file_extension in self.loaders:
             fn_load = self.loaders[file_extension]
-            data = fn_load(filename, app, settings)
+            data = fn_load(filename, app, setting)
             if data is None:
                 return None
             return extensions.Source(filename, self, data, True)
         else:
             raise NoLoaderExists("{0} ({1})".format(self.name, file_extension))
 
-    def store_source(self, data, filename, file_extension, app, settings=None):
+    def store_source(self, data, filename, file_extension, app, setting=None):
         if file_extension is None:
             raise NoSaverExists("empty file extension")
 
         if file_extension in self.savers:
             fn_save = self.savers[file_extension]
-            fn_save(data, filename, file_extension, app, settings)
+            fn_save(data, filename, file_extension, app, setting)
         else:
             raise NoSaverExists("{0} ({1})".format(self.name, file_extension))
 
@@ -134,7 +134,7 @@ t_string = Type("String", "string", [])
 # -----------------------------------------------------------------------------
 # Tracelog type
 t_tracelog = Type("Kaira tracelog", "Tracelog", ["kth"])
-def load_kth(filename, app, settings=None):
+def load_kth(filename, app, setting=None):
     if filename is None:
         return
     return app._catch_io_error(lambda: TraceLog(filename))
@@ -153,48 +153,50 @@ types_repository.append(t_tracelog)
 t_table = Type("Table", "Table", ["csv"])
 
 def show_csv_setting_dialog(parent_window):
-    settings = settingswindow.SettingsWidget()
+    sw = settingswindow.SettingsWidget()
 
-    settings.add_combobox("delimiter",
-                          "Delimiter",
-                          [("Tab", "\t"), ("Comma", ","),
-                           ("Semicolon", ";"), ("Space", " ")],
-                          default=1)
+    sw.add_combobox("delimiter",
+                    "Delimiter",
+                    [("Tab", "\t"), ("Comma", ","),
+                    ("Semicolon", ";"), ("Space", " ")],
+                    default=1)
 
-    settings.add_combobox("quotechar",
-                          "Quote char",
-                          [("Single quotes", "\'"), ("Double quotes", "\"")],
-                          default=1)
+    sw.add_combobox("quotechar",
+                    "Quote char",
+                    [("Single quotes", "\'"), ("Double quotes", "\"")],
+                    default=1)
 
-    settings.add_radiobuttons("header",
-                              "Header",
-                              [("Yes", True), ("No", False)],
-                              default=1,
-                              ncols=2)
-    dialog = settingswindow.BasicSettingDialog(
-        settings, "Setting", parent_window)
-    button_ok = dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK)
-    dialog.add_protected_button(button_ok)
+    sw.add_radiobuttons("header",
+                        "Header",
+                        [("With header", True), ("Without header", False)],
+                        default=1,
+                        ncols=2)
+
+    dialog = settingswindow.BasicSettingDialog(sw, "Setting", parent_window)
+    dialog.set_size_request(400, 250)
+    dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
+    dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK, True)
+
     response = dialog.run()
     if response == gtk.RESPONSE_OK:
         dialog.destroy()
-        delimiter = settings.get("delimiter")
-        quotechar = settings.get("quotechar")
-        has_header = settings.get("header")
+        delimiter = sw.get("delimiter")
+        quotechar = sw.get("quotechar")
+        has_header = sw.get("header")
         return (delimiter, quotechar, has_header)
 
     dialog.destroy()
     return None
 
-def load_csv(filename, app, settings=None):
-    if settings is None:
-        settings = show_csv_setting_dialog(app.window)
-        t_table.settings = settings
+def load_csv(filename, app, setting=None):
+    if setting is None:
+        setting = show_csv_setting_dialog(app.window)
+        t_table.setting = setting
 
-    if settings is None:
+    if setting is None:
         return # setting was canceled
 
-    delimiter, quotechar, has_header = settings
+    delimiter, quotechar, has_header = setting
     with open(filename, "rb") as csvfile:
         csvreader = csv.reader(
             csvfile, delimiter=delimiter, quotechar=quotechar)
@@ -212,11 +214,11 @@ def load_csv(filename, app, settings=None):
         return (header, data)
 t_table.register_load_function("csv", load_csv)
 
-def store_csv(data, filename, file_extension, app, settings=None):
+def store_csv(data, filename, file_extension, app, setting=None):
     header, rows = data
-    if settings is None:
-        settings = show_csv_setting_dialog(app.window)
-    delimiter, quotechar, has_header = settings
+    if setting is None:
+        setting = show_csv_setting_dialog(app.window)
+    delimiter, quotechar, has_header = setting
     with open("{0}.{1}".format(filename, file_extension), "wb") as csvfile:
         csvwriter = csv.writer(
             csvfile, delimiter=delimiter, quotechar=quotechar)

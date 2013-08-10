@@ -226,7 +226,7 @@ class SourceView(gtk.Alignment, EventSource):
 
     def _cb_load(self):
         self.source.data = self.source.type.load_source(
-            self.source.name, self.app, self.source.type.settings).data
+            self.source.name, self.app, self.source.type.setting).data
         self.data_free = False
         self._lock_buttons()
         self.emit_event("source-data-changed", self.source)
