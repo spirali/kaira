@@ -145,7 +145,7 @@ class Checker:
         builder = build.Builder(self.project, filename)
         build.write_header(builder)
 
-        if self.project.library_octave:
+        if self.project.get_build_with_octave():
             builder.line("#include <caoctave.h>")
 
         return builder
@@ -161,7 +161,8 @@ class Checker:
         tester.prepare_writer = self.prepare_writer
         tester.args = [ "-I", os.path.join(paths.KAIRA_ROOT, paths.CAILIE_INCLUDE_DIR),
                         "-I", self.project.root_directory ]
-        if self.project.library_octave:
+
+        if self.project.get_build_with_octave():
             import ptp # To avoid cyclic import
             tester.args += [ "-I", os.path.join(paths.KAIRA_ROOT, paths.CAOCTAVE_INCLUDE_DIR) ]
             tester.args += ptp.get_config("Octave", "INCFLAGS").split()

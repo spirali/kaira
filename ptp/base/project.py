@@ -73,6 +73,9 @@ class Project(object):
         else:
             return value
 
+    def get_build_with_octave(self):
+        return self.library_octave or self.get_build_option("USE_OCTAVE") == "True"
+
     def get_parameter(self, name):
         return self.parameters.get(name)
 

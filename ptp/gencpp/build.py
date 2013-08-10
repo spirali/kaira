@@ -51,7 +51,7 @@ def write_header_file(builder, close_guard=True):
     builder.line("#ifndef {0}", guard)
     builder.line("#define {0}", guard)
     builder.line('#include <cailie.h>')
-    if builder.project.library_octave:
+    if builder.project.get_build_with_octave():
         builder.line("#include <caoctave.h>")
     builder.line('#include <algorithm>')
     builder.line('#include <stdlib.h>')
