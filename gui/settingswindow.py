@@ -412,6 +412,104 @@ gobject.signal_new("value-committed",
 # *****************************************************************************
 # Setting dialog with status-bar
 
+class SettingPage(gtk.VBox):
+
+    def __init__(self, setting_widget=None):
+        gtk.VBox.__init__(self, False)
+        self.setting_widget = setting_widget
+        self.wrong_keys = []
+
+        scw = gtk.ScrolledWindow()
+        scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+
+        self.sw_vbox = gtk.VBox(False)
+        self.sw_vbox.set_border_width(5)
+        # due to scrolled window sw_vbox must not be empty
+        # the label will be removed
+        self.sw_vbox.pack_start(gtk.Label())
+        scw.add_with_viewport(self.sw_vbox)
+        self.sw_vbox.show()
+        self.pack_start(scw, True, True)
+        scw.show()
+
+        self.label_msg = gtk.Label()
+        self.infobar = gtk.InfoBar()
+        self.infobar.set_message_type(gtk.MESSAGE_WARNING)
+        self.infobar.get_content_area().add(self.label_msg)
+        self.pack_start(self.infobar, False, False)
+
+        self.set_setting_widget(self.setting_widget)
+
+    def set_setting_widget(self, sw):
+        if sw is None:
+            self.remove_settig_widget()
+            return
+
+        for child in self.sw_vbox.get_children():
+            self.sw_vbox.remove(child)
+        self.setting_widget = sw
+        self.setting_widget.connect("value-committed",self._cb_check_value)
+        self.setting_widget.connect("value-status-changed",
+                                    self._cb_value_status_changed)
+        self.sw_vbox.pack_start(self.setting_widget, True, True)
+        self.setting_widget.show_all()
+        self.set_infobar()
+        self.show()
+
+    def remove_settig_widget(self):
+        if self.setting_widget is not None:
+            self.sw_vbox.remove(self.setting_widget)
+            self.setting_widget = None
+
+    def get_setting(self):
+        if self.setting_widget is None:
+            return None
+        return self.setting_widget.settings
+
+    def are_values_correct(self):
+        if self.setting_widget is None:
+            return False
+        return self.setting_widget.are_values_correct()
+
+    def set_infobar(self):
+        if self.are_values_correct():
+            self.set_wrong_message()
+            return
+
+        for key in self.setting_widget.settings:
+            msg = self.setting_widget.get_value_status_message(key)
+            if msg is not None:
+                self.set_wrong_message(key, msg)
+                return
+
+    def set_wrong_message(self, key=None, message=None):
+        if message is None:
+            if key in self.wrong_keys:
+                self.wrong_keys.remove(key)
+            if self.wrong_keys: # check if is it there other unsolved key
+                old_key = self.wrong_keys[-1]
+                msg = self.setting_widget.get_value_status_message(old_key)
+                self.set_wrong_message(old_key, msg)
+                return
+            self.label_msg.set_text("")
+            self.infobar.hide_all()
+        else:
+            if key not in self.wrong_keys:
+                self.wrong_keys.append(key)
+            self.label_msg.set_markup("<b>{0}:</b> {1}".format(
+                self.setting_widget.labels[key], message))
+            self.infobar.show_all()
+
+    def _cb_value_status_changed(self, sw, key):
+        msg = sw.get_value_status_message(key)
+        if msg is None: # correct status immediately
+            self.set_wrong_message()
+
+    def _cb_check_value(self, sw, key):
+        msg = sw.get_value_status_message(key)
+        self.set_wrong_message(key, msg)
+
+
 class BasicSettingDialog(gtk.Dialog):
 
     """Default setting dialog containing a status-bar informs about messages
@@ -424,37 +522,38 @@ class BasicSettingDialog(gtk.Dialog):
                             parent=window,
                             flags=gtk.DIALOG_MODAL,
                             buttons=None)
-        self.setting = setting_widget
-        self.setting.connect(
+        self.setting_widget = setting_widget
+        self.setting_widget.connect(
             "value-status-changed", self._cb_value_status_changed)
         self.protected_buttons = []
 
-        self.vbox.pack_start(self.setting, False, False)
-        self.vbox.pack_start(gtk.HSeparator(), False, False, 3)
-        self.vbox.show_all()
+        self.vbox.pack_start(SettingPage(self.setting_widget), True, True)
+        self.vbox.show()
 
-    def add_protected_button(self, button):
-        """Protected buttons are locked if some of values is not correct.
+    def add_button(self, button_text, response_id, protected=False):
+        """ Overridden version of method for adding buttons. This one has the
+        same behavior as the super class method. But moreover it is possible
+        to specify whether the button is protected or not.
 
         Arguments:
-        button -- a button which will be protected
+        button_text -- label of button
+        response_id -- response after click on it (default gtk responses)
+
+        Keywords:
+        protected -- True if the button is against of wrong setting values;
+                     the button is locked when the setting widget is not
+                     correct (default: False).
 
         """
-        self.protected_buttons.append(button)
+        button = gtk.Dialog.add_button(self, button_text, response_id)
+        if protected:
+            self.protected_buttons.append(button)
+        return button
 
-    def remove_protected_button(self, button):
-        self.protected_buttons.remove(button)
-
-    def _cb_value_status_changed(self, setting, key):
-        status = setting.are_values_correct()
+    def _cb_value_status_changed(self, setting_widget, key):
+        status = setting_widget.are_values_correct()
         for button in self.protected_buttons:
             button.set_sensitive(status)
-        widget = setting.widgets[key]
-        status_message = setting.get_value_status_message(key)
-        if widget.get_has_tooltip() and status_message == None:
-            widget.set_has_tooltip(False)
-        else:
-            widget.set_tooltip_text(status_message)
 
 
 class BasicSettingAssistant(gtk.Assistant):
@@ -578,7 +677,7 @@ class BasicSettingAssistant(gtk.Assistant):
         return current_page + 1
 
     def __add_empty_setting_page(self, page_type):
-        sp = self.SettingPage()
+        sp = SettingPage()
         self.pages.append(sp)
         self.append_page(sp)
         self.set_page_type(sp, page_type)
@@ -588,95 +687,6 @@ class BasicSettingAssistant(gtk.Assistant):
         self.append_page(smp)
         self.set_page_type(smp, gtk.ASSISTANT_PAGE_CONFIRM)
         self.set_page_title(smp, "Configuration summary")
-
-
-    class SettingPage(gtk.VBox):
-
-        def __init__(self):
-            gtk.VBox.__init__(self, False)
-            self.setting_widget = None
-            self.wrong_keys = []
-
-            scw = gtk.ScrolledWindow()
-            scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-
-            self.sw_vbox = gtk.VBox(False)
-            self.sw_vbox.set_border_width(5)
-            # due to scrolled window sw_vbox must not be empty
-            # the label will be removed
-            self.sw_vbox.pack_start(gtk.Label())
-            scw.add_with_viewport(self.sw_vbox)
-            self.pack_start(scw, True, True)
-
-            self.label_msg = gtk.Label()
-            self.infobar = gtk.InfoBar()
-            self.infobar.set_message_type(gtk.MESSAGE_WARNING)
-            self.infobar.get_content_area().add(self.label_msg)
-            self.pack_start(self.infobar, False, False)
-            self.infobar.show()
-
-        def set_setting_widget(self, sw):
-            for child in self.sw_vbox.get_children():
-                self.sw_vbox.remove(child)
-            self.setting_widget = sw
-            self.setting_widget.connect("value-committed",self._cb_check_value)
-            self.setting_widget.connect("value-status-changed",
-                                        self._cb_value_status_changed)
-            self.sw_vbox.pack_start(self.setting_widget, True, True)
-            self.setting_widget.show_all()
-            self.set_infobar()
-
-        def remove_settig_widget(self):
-            self.sw_vbox.remove(self.setting_widget)
-            self.setting_widget = None
-
-        def get_setting(self):
-            if self.setting_widget is None:
-                return None
-            return self.setting_widget.settings
-
-        def are_values_correct(self):
-            if self.setting_widget is None:
-                return False
-            return self.setting_widget.are_values_correct()
-
-        def set_infobar(self):
-            if self.are_values_correct():
-                self.set_wrong_message()
-                return
-
-            for key in self.setting_widget.settings:
-                msg = self.setting_widget.get_value_status_message(key)
-                if msg is not None:
-                    self.set_wrong_message(key, msg)
-                    return
-
-        def set_wrong_message(self, key=None, message=None):
-            if message is None:
-                if key in self.wrong_keys:
-                    self.wrong_keys.remove(key)
-                if self.wrong_keys: # check if is it there other unsolved key
-                    old_key = self.wrong_keys[-1]
-                    msg = self.setting_widget.get_value_status_message(old_key)
-                    self.set_wrong_message(old_key, msg)
-                    return
-                self.label_msg.set_text("")
-                self.infobar.hide()
-            else:
-                if key not in self.wrong_keys:
-                    self.wrong_keys.append(key)
-                self.label_msg.set_markup("<b>{0}:</b> {1}".format(
-                    self.setting_widget.labels[key], message))
-                self.infobar.show()
-
-        def _cb_value_status_changed(self, sw, key):
-            msg = sw.get_value_status_message(key)
-            if msg is None: # correct status immediately
-                self.set_wrong_message()
-
-        def _cb_check_value(self, sw, key):
-            msg = sw.get_value_status_message(key)
-            self.set_wrong_message(key, msg)
 
 
     class SummaryPage(gtk.ScrolledWindow):
