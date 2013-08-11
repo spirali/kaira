@@ -22,29 +22,30 @@ from build import BuildOptionsWidget
 from packages import PackagesWidget
 
 import gtk
-import gtkutils
 
-class GeneralConfig(gtk.VBox):
+
+class LibraryConfig(gtk.VBox):
 
     def __init__(self, project):
+        def set_rpc(w):
+            project.library_rpc = w.get_active()
+        def set_octave(w):
+            project.library_octave = w.get_active()
+
         gtk.VBox.__init__(self)
         self.project = project
 
-        if project.is_library():
-            frame = gtk.Frame("Target")
-            frame.set_border_width(10)
-            self.pack_start(frame, False, False)
-            vbox = gtk.VBox()
-            frame.add(vbox)
-            gtkutils.radio_buttons([
-                ("lib", "C++ library"),
-                ("rpc-lib", "C++ library with RPC"),
-                ("octave", "Octave plugin"),
-                ("rpc-octave", "Octave plugin with RPC")
-            ], project.get_target_mode(), vbox,
-                lambda key: project.set_target_mode(key))
+        button = gtk.CheckButton("Build library in RPC mode")
+        button.set_active(project.library_rpc)
+        button.connect("toggled", set_rpc)
+        self.pack_start(button, False, False)
 
+        button = gtk.CheckButton("Build Octave module")
+        button.set_active(project.library_octave)
+        button.connect("toggled", set_octave)
+        self.pack_start(button, False, False)
         self.show()
+
 
 class ProjectConfig(gtk.Notebook):
 
@@ -52,8 +53,8 @@ class ProjectConfig(gtk.Notebook):
         gtk.Notebook.__init__(self)
         self.set_tab_pos(gtk.POS_LEFT)
 
-        w = GeneralConfig(app.project)
-        self.append_page(w, gtk.Label("General"))
+        w = LibraryConfig(app.project)
+        self.append_page(w, gtk.Label("Library"))
 
         w = PackagesWidget(app.project)
         self.append_page(w, gtk.Label("Packages"))

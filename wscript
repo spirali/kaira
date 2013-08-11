@@ -1,5 +1,5 @@
 
-from waflib import Logs
+from waflib import Logs, Context
 import os
 
 APPNAME = "Kaira"
@@ -15,6 +15,11 @@ def options(ctx):
                    action="store_true",
                    default=False,
                    help="do not build MPI")
+
+    ctx.add_option("--disable-octave",
+                   action="store_true",
+                   default=False,
+                   help="do not build Octave subsystem")
 
     ctx.add_option("--disable-verif",
                    action="store_true",
@@ -46,6 +51,7 @@ def configure(ctx):
     if not ctx.env.CXXFLAGS:
         ctx.env.append_value("CXXFLAGS", "-O2")
         ctx.env.append_value("CXXFLAGS", "-g")
+        ctx.env.append_value("CXXFLAGS", "-fPIC")
 
     if not ctx.options.disable_verif:
         verif =  ctx.check_cxx(header_name="google/sparse_hash_map",
@@ -59,6 +65,9 @@ def configure(ctx):
         ctx.env.HAVE_VERIF = True
     else:
         ctx.env.HAVE_VERIF = False
+
+    if not ctx.options.disable_octave:
+        ctx.find_program("mkoctfile", var="MKOCTFILE")
 
     if not ctx.options.disable_doc:
         ctx.find_program("asciidoc", var="ASCIIDOC")
@@ -102,8 +111,20 @@ def configure(ctx):
     myconf.append("[Main]")
     myconf.append("VERSION: " + VERSION)
     myconf.append("CXX: " + " ".join(ctx.env.CXX))
+    myconf.append("OCTAVE: " + str(bool(ctx.env.MKOCTFILE)))
     if mpi:
         myconf.append("MPICXX: " + " ".join(ctx.all_envs["mpi"].CXX))
+    if ctx.env.MKOCTFILE:
+        myconf.append("[Octave]")
+        incflags = ctx.cmd_and_log([ctx.env.MKOCTFILE, "--print", "INCFLAGS" ],
+                                   output=Context.STDOUT)
+        lflags = ctx.cmd_and_log([ctx.env.MKOCTFILE, "--print", "LFLAGS" ],
+                                   output=Context.STDOUT)
+        libs = ctx.cmd_and_log([ctx.env.MKOCTFILE, "--print", "OCTAVE_LIBS" ],
+                                   output=Context.STDOUT)
+        myconf.append("INCFLAGS: " + incflags)
+        myconf.append("LFLAGS: " + lflags)
+        myconf.append("LIBS: " + libs)
     conffile.write("\n".join(myconf))
     ctx.env.append_value('cfg_files', conffile.abspath())
 

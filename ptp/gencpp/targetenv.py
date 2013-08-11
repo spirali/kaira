@@ -48,14 +48,5 @@ class CppTargetEnv:
     def get_checker(self, project):
         return checker.Checker(project)
 
-
-class CppProgram(CppTargetEnv):
-
     def get_generator(self, project):
-        return generator.CppProgramGenerator(project)
-
-
-class CppLib(CppTargetEnv):
-
-    def get_generator(self, project):
-        return generator.CppLibGenerator(project)
+        return generator.CppGenerator(project)

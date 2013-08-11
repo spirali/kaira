@@ -45,12 +45,14 @@ def write_header(builder):
     write_first_lines(builder)
     builder.line("#include \"{0}.h\"", builder.project.get_name())
 
-def write_header_file(builder):
+def write_header_file(builder, close_guard=True):
     write_first_lines(builder)
     guard = "KAIRA_PROJECT_{0}".format(get_safe_name(builder.project.get_name()))
     builder.line("#ifndef {0}", guard)
     builder.line("#define {0}", guard)
     builder.line('#include <cailie.h>')
+    if builder.project.get_build_with_octave():
+        builder.line("#include <caoctave.h>")
     builder.line('#include <algorithm>')
     builder.line('#include <stdlib.h>')
     builder.line('#include <stdio.h>')
@@ -62,6 +64,11 @@ def write_header_file(builder):
         builder.line_directive("*head", 1)
         builder.raw_text(builder.project.get_head_code())
         builder.emptyline()
+    if close_guard:
+        builder.line("#endif // {0}", guard)
+
+def write_header_file_close_guard(builder):
+    guard = "KAIRA_PROJECT_{0}".format(get_safe_name(builder.project.get_name()))
     builder.line("#endif // {0}", guard)
 
 def write_parameters_forward(builder):

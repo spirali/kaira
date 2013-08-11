@@ -102,6 +102,28 @@ class TypeChecker:
             check.own_message = message.format("ca::unpack", self.name)
             tester.add(check)
 
+        if "from_octave_value" in self.functions:
+            decls = Declarations()
+            decls.set(var, self.name + "&")
+            ovalue = tester.new_id()
+            decls.set(ovalue, "octave_value&")
+            check = CheckStatement("caoctave::from_octave_value({0},{1});".format(var, ovalue),
+                                   decls,
+                                   source=source)
+            check.own_message = message.format("caoctave::from_octave_value", self.name)
+            tester.add(check)
+
+        if "to_octave_value" in self.functions:
+            decls = Declarations()
+            decls.set(var, self.name + "&")
+            check = CheckStatement("return caoctave::to_octave_value({0});".format(var),
+                                   decls,
+                                   "octave_value",
+                                   source=source)
+            check.own_message = message.format("caoctave::to_octave_value", self.name)
+            tester.add(check)
+
+
 class Checker:
 
     def __init__(self, project):
@@ -122,11 +144,16 @@ class Checker:
     def prepare_writer(self, filename):
         builder = build.Builder(self.project, filename)
         build.write_header(builder)
+
+        if self.project.get_build_with_octave():
+            builder.line("#include <caoctave.h>")
+
         return builder
 
     def run(self):
         builder = build.Builder(self.project,
             os.path.join("/tmp", self.project.get_name() + ".h"))
+
         build.write_header_file(builder)
         builder.write_to_file()
 
@@ -134,6 +161,11 @@ class Checker:
         tester.prepare_writer = self.prepare_writer
         tester.args = [ "-I", os.path.join(paths.KAIRA_ROOT, paths.CAILIE_INCLUDE_DIR),
                         "-I", self.project.root_directory ]
+
+        if self.project.get_build_with_octave():
+            import ptp # To avoid cyclic import
+            tester.args += [ "-I", os.path.join(paths.KAIRA_ROOT, paths.CAOCTAVE_INCLUDE_DIR) ]
+            tester.args += ptp.get_config("Octave", "INCFLAGS").split()
         tester.args += self.project.get_build_option("CFLAGS").split()
         tester.run()
 

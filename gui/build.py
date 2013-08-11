@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011 Stanislav Bohm
+#    Copyright (C) 2010, 2011, 2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -37,11 +37,14 @@ class BuildOptionsWidget(gtk.VBox):
         self.table.set_row_spacings(5)
         self.table.set_col_spacings(5)
 
-        options = [ o for o in self.project.build_options.keys() if o != "OTHER_FILES" ]
+        options = [ o for o in self.project.build_options.keys()
+                    if o != "OTHER_FILES"
+                    if o != "USE_OCTAVE" ]
         for i, option in enumerate(options):
             self.add_line(i, option)
 
         self.pack_start(self.table, False, False)
+        self.pack_start(self._octave(), False, False)
 
         self.filelist, controls = self._filelist()
         self.pack_start(controls, False, False)
@@ -118,6 +121,12 @@ class BuildOptionsWidget(gtk.VBox):
 
         finally:
             dialog.destroy()
+
+    def _octave(self):
+        button = gtk.CheckButton("Build with Octave C++ API")
+        button.set_active(self.project.get_build_option("USE_OCTAVE") == "True")
+        button.connect("clicked", lambda w: self.project.set_build_option("USE_OCTAVE", str(w.get_active())))
+        return button
 
     def _remove_file(self, w):
         self.filelist.remove_selection()

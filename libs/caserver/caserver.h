@@ -6,7 +6,7 @@
 #include <string>
 #include <cailie.h>
 
-typedef ca::Packer (CaPublicFn)(void *);
+typedef void (CaPublicFn)(void *, ca::Packer&);
 
 class CaPublicFunction {
 	public:
@@ -14,9 +14,18 @@ class CaPublicFunction {
 			const std::string &definition,
 			CaPublicFn *fn) : fn(fn), name(name), definition(definition) {}
 
-		std::string get_name() const { return name; }
-		std::string get_definition() const { return definition; }
-		ca::Packer call(void *buffer) const { return fn(buffer); }
+		std::string get_name() const {
+			return name;
+		}
+
+		std::string get_definition() const {
+			return definition;
+		}
+
+		void call(void *buffer, ca::Packer &packer) const {
+			fn(buffer, packer);
+		}
+
 	private:
 		CaPublicFn *fn;
 		std::string name;

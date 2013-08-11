@@ -23,7 +23,6 @@ import xml.etree.ElementTree as xml
 from base.utils import get_source_path
 from net import Net, Area, Place, Transition, Edge, Declarations, EdgeInscription
 
-
 class Parameter(object):
 
     def __init__(self, name, type, default, description, policy):
@@ -48,17 +47,18 @@ class Parameter(object):
 
 class Project(object):
 
-    def __init__(self, name, root_directory, target_env, target_mode, description):
+    def __init__(self, name, root_directory, target_env, description):
         self.name = name
         self.root_directory = root_directory
         self.target_env = target_env
-        self.target_mode = target_mode
         self.nets = []
         self.description = description
         self.parameters = {}
         self.build_options = {}
         self.head_code = ""
         self.communication_model_code = ""
+        self.library_rpc = False
+        self.library_octave = False
 
     def get_root_directory(self):
         return self.root_directory
@@ -66,18 +66,15 @@ class Project(object):
     def get_name(self):
         return self.name
 
-    def get_target_mode(self):
-        return self.target_mode
-
-    def get_modules(self):
-        return [ net for net in self.nets if net.is_module() ]
-
     def get_build_option(self, name):
         value = self.build_options.get(name)
         if value is None:
             return ""
         else:
             return value
+
+    def get_build_with_octave(self):
+        return self.library_octave or self.get_build_option("USE_OCTAVE") == "True"
 
     def get_parameter(self, name):
         return self.parameters.get(name)
@@ -111,6 +108,13 @@ class Project(object):
         return self.head_code
 
     def check(self):
+        if self.library_octave:
+            import ptp # Import here to avoid cyclyc import
+            if ptp.get_config("Main", "OCTAVE") != "True":
+                raise utils.PtpException("Cannot build a module for Octave, "
+                                         "Kaira is not configured with Octave support.\n"
+                                         "Run './waf configure' in Kaira root directory")
+
         checker = self.target_env.get_checker(self)
         for net in self.nets:
             net.check(checker)
@@ -218,12 +222,14 @@ def load_place(element, project, net):
     id = utils.xml_int(element, "id")
     type_name = project.parse_typename(element.get("type"),
                                        get_source(element, "type"))
-    init_type, init_value = project.parse_init_expression(element.get("init-expr"),
+    init_type, init_value = project.parse_init_expression(element.get("init-expr", ""),
                                                       get_source(element, "init"))
     place = Place(net, id, type_name, init_type, init_value)
     if element.find("code") is not None:
         place.code = element.find("code").text
     place.tracing = load_place_tracing(element)
+    place.interface_input = element.get("in")
+    place.interface_output = element.get("out")
     return place
 
 def load_area(element, project, net):
@@ -247,14 +253,6 @@ def load_net_content(element, project, net):
                         for e in element.findall("transition") ]
     net.transitions.sort(key=lambda t: t.priority, reverse=True)
     net.areas = [ load_area(e, project, net) for e in element.findall("area") ]
-
-    interface = element.find("interface")
-    if interface is not None:
-        net.module_flag = True
-        net.interface_edges_out = [ load_edge_out(e, net, None)
-                                    for e in interface.findall("edge-out") ]
-        net.interface_edges_in = [ load_edge_in(e, net, None)
-                                   for e in interface.findall("edge-in") ]
 
 def load_parameter(element, project):
     name = utils.xml_str(element, "name")
@@ -291,14 +289,15 @@ def load_project(element, target_envs):
 
     description = element.find("description").text
     name = utils.xml_str(element, "name")
-    target_mode = utils.xml_str(element, "target-mode", "default")
     root_directory = utils.xml_str(element, "root-directory")
 
     p = Project(name,
                 root_directory,
                 target_envs[target_env],
-                target_mode,
                 description)
+
+    p.library_rpc = utils.xml_bool(element, "library-rpc", False)
+    p.library_octave = utils.xml_bool(element, "library-octave", False)
 
     load_configuration(element.find("configuration"), p)
 

@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm
+#    Copyright (C) 2012,2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -18,73 +18,62 @@
 #
 
 import buildnet
-import build
 import library
+import writer
 
 def write_client(builder, header_filename):
     builder.line("#include \"{0}\"", header_filename)
     builder.line("#include <caclient.h>")
     builder.line("static CaClient client;")
     builder.emptyline()
-    build.write_types(builder)
-    for net in builder.project.get_modules():
-        builder.line("static int __{0.name}_id;", net)
+    for net in builder.project.nets:
+        builder.line("static int ${0.name}_id;", net)
         write_client_library_function(builder, net)
         builder.emptyline()
 
     write_client_init_function(builder)
 
 def write_client_init_function(builder):
-
     builder.line("void calib_init(int argc, char **argv)")
     builder.block_begin()
     builder.line("client.connect();")
 
-    for net in builder.project.get_modules():
-        name = builder.emitter.const_string(net.name)
-        defs = builder.emitter.const_string(
-            library.emit_library_function_declaration(builder.emitter, net))
-        builder.line("client.register_function({0}, {1}, &__{2}_id);", name, defs, net.name)
-
+    for net in builder.project.nets:
+        declaration = library.get_library_function_declaration(net)
+        builder.line("client.register_function({0}, {1}, &${2}_id);",
+                writer.const_string(net.name),
+                writer.const_string(declaration),
+                net.name)
     builder.block_end()
 
 def write_client_library_function(builder, net):
     builder.line("void {0}({1})",
                  net.name,
-                 library.emit_library_function_declaration(builder.emitter, net, "___"))
+                 library.get_library_function_declaration(net))
     builder.block_begin()
 
-    context = net.get_interface_context()
+    builder.line("ca::Packer $packer(ca::PACKER_DEFAULT_SIZE, CACLIENT_RESERVED_CALL_PREFIX);")
 
-    builder.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, CA_RESERVED_CALL_PREFIX);")
+    for place in net.get_input_places():
+        builder.line("ca::pack($packer, {0.interface_input});", place)
 
-    for name in library.get_library_input_arguments(net):
-        builder.line("{0};",
-                     build.get_pack_code(builder.project,
-                                         context[name],
-                                         "packer", "___" + name))
+    builder.line("ca::Unpacker $unpacker = client.call(${0}_id, $packer);", net.name)
 
-    builder.line("CaUnpacker unpacker = client.call(__{0}_id, packer);", net.name)
-
-    for name in library.get_library_output_arguments(net):
-        builder.line("___{0} = {1};",
-                     name,
-                     build.get_unpack_code(builder.project, context[name], "unpacker"))
+    for place in net.get_output_places():
+        builder.line("{0.interface_output} = ca::unpack<{0.type}>($unpacker);", place)
 
     builder.block_end()
 
-
 def write_server(builder):
-    build.write_header(builder)
     builder.line("#include <caserver.h>")
-    build.write_types_declaration(builder)
+    builder.line("#include \"{0}.h\"", builder.project.get_name())
+    builder.emptyline()
     buildnet.write_core(builder)
-    library.write_library_functions(builder)
-
-    for net in builder.project.get_modules():
-        write_library_function_wrapper(builder, net)
-
+    for net in builder.project.nets:
+        library.write_library_function(builder, net, rpc=True)
+    library.write_library_init_function(builder)
     write_server_main(builder)
+    buildnet.write_user_functions(builder)
 
 def write_server_main(builder):
     builder.line("int main(int argc, char **argv)")
@@ -92,41 +81,12 @@ def write_server_main(builder):
     builder.line("calib_init(argc, argv);")
     builder.line("CaServer server;")
 
-    for net in builder.project.get_modules():
-        declaration = library.emit_library_function_declaration(builder.emitter, net)
-        builder.line("server.register_function({0},{1},{2}_wrapper);",
-                  builder.emitter.const_string(net.name),
-                  builder.emitter.const_string(declaration),
+    for net in builder.project.nets:
+        declaration = library.get_library_function_declaration(net)
+        builder.line("server.register_function({0},{1},{2});",
+                  writer.const_string(net.name),
+                  writer.const_string(declaration),
                   net.name)
     builder.line("server.run();")
     builder.line("return 0;")
-    builder.block_end()
-
-def write_library_function_wrapper(builder, net):
-    builder.line("CaPacker {0}_wrapper(void *buffer)", net.name)
-    builder.block_begin()
-
-    builder.line("CaUnpacker unpacker(buffer);")
-
-    context = net.get_interface_context()
-
-    for name in library.get_library_input_arguments(net):
-        builder.line("{2} ___{0} = {1};",
-                  name,
-                  build.get_unpack_code(builder.project, context[name], "unpacker"),
-                  builder.emit_type(context[name]))
-
-    for name in library.get_library_output_only_arguments(net):
-        builder.line("{1} ___{0};", name, builder.emit_type(context[name]))
-
-    args = ",".join("___" + name for name, _ in library.get_library_function_arguments(net))
-    builder.line("{0}({1});", net.name, args)
-
-    builder.line("CaPacker packer(CA_PACKER_DEFAULT_SIZE, sizeof(size_t));")
-
-    for name in library.get_library_output_arguments(net):
-        builder.line("{0};", build.get_pack_code(builder.project,
-                                                 context[name],
-                                                 "packer", "___" + name))
-    builder.line("return packer;")
     builder.block_end()

@@ -67,9 +67,6 @@ class CppGenerator:
         build.write_header_file(builder)
         builder.write_to_file()
 
-
-class CppProgramGenerator(CppGenerator):
-
     def build(self, directory):
         self.write_header_file(directory)
         builder = build.Builder(self.project, self.get_filename(directory, ".cpp"))
@@ -94,31 +91,18 @@ class CppProgramGenerator(CppGenerator):
         builder.write_to_file()
         makefiles.write_simrun_makefile(self.project, directory)
 
-
-class CppLibGenerator(CppGenerator):
-
-    def build(self, directory):
-
-        if self.project.get_target_mode() == "lib":
-            self.build_library(directory)
-            makefiles.write_library_makefile(self.project, directory)
-
-        if self.project.get_target_mode() == "rpc-lib":
+    def build_lib(self, directory):
+        makefiles.write_library_makefile(self.project,
+                                         directory,
+                                         rpc=self.project.library_rpc)
+        if self.project.library_rpc:
             self.build_server(directory)
             self.build_client_library(directory)
-            makefiles.write_library_makefile(self.project, directory, rpc=True)
-
-        if self.project.get_target_mode() == "octave":
+        else:
             self.build_library(directory)
-            self.build_oct_files(directory)
-            makefiles.write_library_makefile(self.project, directory, octave=True)
 
-        if self.project.get_target_mode() == "rpc-octave":
-            self.build_server(directory)
-            self.build_client_library(directory)
+        if self.project.library_octave:
             self.build_oct_files(directory)
-            makefiles.write_library_makefile(self.project, directory, rpc=True, octave=True)
-
 
     def build_client_library(self, directory):
         source_filename = self.get_filename(directory, ".cpp")
@@ -137,6 +121,7 @@ class CppLibGenerator(CppGenerator):
 
     def build_server(self, directory):
         server_directory = os.path.join(directory, "server")
+        source_filename = self.get_filename(server_directory, "_server.cpp")
 
         # Check for server directory
         if os.path.exists(server_directory):
@@ -145,8 +130,7 @@ class CppLibGenerator(CppGenerator):
         else:
             os.makedirs(server_directory)
 
-        source_filename = os.path.join(server_directory,
-                                       self.project.get_name() + "_server.cpp")
+        self.write_header_file(server_directory)
 
         builder = build.Builder(self.project, source_filename)
         rpc.write_server(builder)
@@ -173,7 +157,7 @@ class CppLibGenerator(CppGenerator):
         m_filename = os.path.join(directory, self.project.get_name() + ".m")
 
         builder = build.Builder(self.project, source_filename)
-        octave.write_oct_file(builder, self.project.get_name() + ".h")
+        octave.write_oct_file(builder)
         builder.write_to_file()
 
         builder = octave.OctaveBuilder(self.project)

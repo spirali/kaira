@@ -48,25 +48,20 @@ class Project(EventSource):
         self.simconfig = SimConfig()
         self.error_messages = {}
         self.generator = None # PTP generator
-        self.target_mode = None
-        self.simulator_net = None
+        self.build_net = None
+
+        # Library options
+        self.library_rpc = False
+        self.library_octave = False
 
     def get_main_net(self):
-        for net in self.nets:
-            if net.is_main():
-                return net
+        return self.nets[0]
 
     def get_build_option(self, name):
         if name in self.build_options:
             return self.build_options[name]
         else:
             return ""
-
-    def get_target_mode(self):
-        return self.target_mode
-
-    def set_target_mode(self, value):
-        self.target_mode = value
 
     def get_generator(self):
         """ Can raise PtpException """
@@ -85,45 +80,37 @@ class Project(EventSource):
         build_config.directory = os.path.join(self.get_directory(), name)
         build_config.project_name = self.get_name()
 
+        use_build_net = True
+
         if name == "statespace":
             build_config.operation = "statespace"
         elif name == "simrun":
             build_config.operation = "simrun"
             build_config.substitutions = True
+        elif name == "lib" or name == "libtraced":
+            build_config.operation = "lib"
+            build_config.library = True
+            use_build_net = False
         else:
             build_config.operation = "build"
 
-        if name == "simulation" or name == "statespace":
-            # simulator_net has to be exported as first net
-            first = self.simulator_net
-            build_config.target_env = self.get_target_env_for_simulator_name()
-        else:
-            if name == "traced" or name == "simrun":
-                build_config.tracing = True
+        if name == "traced" or name == "simrun" or name == "libtraced":
+            build_config.tracing = True
 
-            build_config.target_env = self.get_target_env_name()
-            if self.is_library:
-                # In library it does not matter who is first
-                first = None
-            else:
-                # In program, main is first
-                first = self.project.get_main_net()
+        build_config.target_env = self.get_target_env_name()
 
-        if first is None:
-            nets = self.nets
+        if use_build_net:
+            nets = [ self.build_net ]
+            nets += [ net for net in self.nets if net != self.build_net ]
         else:
-            nets = [ first ]
-            nets += [ net for net in self.nets if net != first ]
+            nets = self.nets[:]
 
         build_config.nets = nets
         return build_config
 
-    def set_simulator_net(self, net):
-        self.simulator_net = net
+    def set_build_net(self, net):
+        self.build_net = net
         self.emit_event("netlist_changed")
-
-    def get_simulator_net(self):
-        return self.simulator_net
 
     def set_build_option(self, name, value):
         self.build_options[name] = value
@@ -153,15 +140,12 @@ class Project(EventSource):
 
     def remove_net(self, net):
         self.nets.remove(net)
-        if self.simulator_net == net:
-            self.simulator_net = self.get_main_net()
+        if self.build_net == net:
+            self.build_net = self.get_main_net()
         self.emit_event("netlist_changed")
 
     def get_modules(self):
         return [ net for net in self.nets if net.is_module() ]
-
-    def get_tests(self):
-        return [ net for net in self.nets if net.is_test() ]
 
     def get_simconfig(self):
         return self.simconfig
@@ -230,8 +214,8 @@ class Project(EventSource):
     def as_xml(self):
         root = xml.Element("project")
         root.set("target_env", self.get_target_env_name())
-        if self.target_mode:
-            root.set("target-mode", self.target_mode)
+        root.set("library-rpc", str(self.library_rpc))
+        root.set("library-octave", str(self.library_octave))
         root.append(self._configuration_element(None))
         for net in self.nets:
             root.append(net.as_xml())
@@ -255,8 +239,9 @@ class Project(EventSource):
         root.set("target_env", build_config.target_env)
         root.set("root-directory", self.get_directory())
 
-        if self.get_target_mode():
-            root.set("target-mode", self.get_target_mode())
+        if build_config.library:
+            root.set("library-rpc", str(self.library_rpc))
+            root.set("library-octave", str(self.library_octave))
         root.append(self._configuration_element(build_config))
 
         description = xml.Element("description")
@@ -334,6 +319,7 @@ class BuildConfig:
     nets = None
     target_env = None
     operation = None
+    library = False
 
     def get_filename(self, filename):
         return os.path.join(self.directory, filename)

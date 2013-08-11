@@ -20,9 +20,16 @@ import gencpp.targetenv
 debug_mode = False
 
 target_envs = {
-    "C++" : gencpp.targetenv.CppProgram(),
-    "C++ library" : gencpp.targetenv.CppLib()
+    "C++" : gencpp.targetenv.CppTargetEnv(),
 }
+
+def get_config(section, name):
+    try:
+        return config.get(section, name)
+    except ConfigParser.NoOptionError:
+        raise PtpException("{0}/{1} not found in config.ini\n"
+                           "It means that Kaira is not properly configured\n"
+                           "Run './waf configure' in Kaira top directory".format(section, name))
 
 def get_generator_from_xml(element):
     return project.load_project(element, target_envs).get_generator()
@@ -65,6 +72,8 @@ def main():
         generator.build_statespace(output_directory)
     elif args.operation == "simrun":
         generator.build_simrun(output_directory)
+    elif args.operation == "lib":
+        generator.build_lib(output_directory)
     else:
         raise PtpException("Unknown operation")
 

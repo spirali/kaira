@@ -358,6 +358,8 @@ class EdgeInscription(utils.EqMixin):
 class Place(utils.EqByIdMixin):
 
     code = None
+    interface_input = None
+    interface_output = None
 
     def __init__(self, net, id, type, init_type, init_value):
         self.net = net
@@ -370,14 +372,10 @@ class Place(utils.EqByIdMixin):
     def get_pos_id(self):
         return self.net.places.index(self)
 
-    def get_edges_in(self, with_interface = False):
+    def get_edges_in(self):
         result = []
         for tr in self.net.transitions:
             for edge in tr.edges_out:
-                if edge.place == self:
-                    result.append(edge)
-        if with_interface:
-            for edge in self.net.get_interface_edges_out():
                 if edge.place == self:
                     result.append(edge)
         return result
@@ -399,11 +397,19 @@ class Place(utils.EqByIdMixin):
     def get_areas(self):
         return self.net.get_areas_with_place(self)
 
+    def is_io_place(self):
+        return self.interface_input is None or self.interface_output is None
+
     def check(self, checker):
         functions = [ "token_name" ]
-        if self.is_receiver():
+        if self.is_receiver() or (self.net.project.library_rpc and self.is_io_place()):
             functions.append("pack")
             functions.append("unpack")
+        if self.net.project.library_octave:
+            if self.interface_input:
+                functions.append("from_octave_value")
+            if self.interface_output:
+                functions.append("to_octave_value")
         checker.check_type(self.type, self.get_source("type"), functions)
 
         source = self.get_source("init")
@@ -426,12 +432,13 @@ class Place(utils.EqByIdMixin):
                                      self.get_source("type"),
                                      "Invalid trace function '{0}'".format(name))
 
+
+
     def get_source(self, location):
         return "*{0}/{1}".format(self.id, location)
 
     def is_receiver(self):
-        edges = self.get_edges_in(with_interface=True)
-        return any(not edge.is_local() for edge in edges)
+        return any(not edge.is_local() for edge in self.get_edges_in())
 
     def need_remember_source(self):
         return any(edge.is_source_reader()
@@ -603,28 +610,15 @@ class Net(object):
         self.places = []
         self.transitions = []
         self.areas = []
-        self.interface_edges_in = []
-        self.interface_edges_out = []
-        self.module_flag = False
 
     def get_name(self):
         return self.name
 
-    def is_module(self):
-        return self.module_flag
-
     def get_all_edges(self):
-        return sum([ t.edges_in + t.edges_out for t in self.transitions ], []) + \
-               self.interface_edges_in + self.interface_edges_out
+        return sum([ t.edges_in + t.edges_out for t in self.transitions ], [])
 
     def get_edges_out(self):
-        return sum([ t.edges_out for t in self.transitions ], []) + self.interface_edges_out
-
-    def get_interface_edges_out(self):
-        return self.interface_edges_out
-
-    def get_interface_edges_in(self):
-        return self.interface_edges_in
+        return sum([ t.edges_out for t in self.transitions ], [])
 
     def get_place(self, id):
         for place in self.places:
@@ -639,19 +633,17 @@ class Net(object):
     def get_index(self):
         return self.project.nets.index(self)
 
-    def get_module_index(self):
-        index = 0
-        for net in self.project.nets:
-            if net.is_module():
-                if net == self:
-                    return index
-                index += 1
+    def get_input_places(self):
+        places = [ place for place in self.places
+                   if place.interface_input ]
+        places.sort(key=lambda place: place.interface_input)
+        return places
 
-    def get_module_input_vars(self):
-        return set().union(*[ e.expr.get_free_vars() for e in self.interface_edges_out ])
-
-    def get_module_output_vars(self):
-        return set().union(* [ e.get_free_vars() for e in self.interface_edges_in ])
+    def get_output_places(self):
+        places = [ place for place in self.places
+                   if place.interface_output ]
+        places.sort(key=lambda place: place.interface_output)
+        return places
 
     def get_areas_with_place(self, place):
         return [ area for area in self.areas if area.is_place_inside(place) ]

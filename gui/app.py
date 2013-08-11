@@ -58,7 +58,7 @@ class App:
     """
     def __init__(self, args):
         self.window = MainWindow(self)
-        self.window.set_size_request(800,600)
+        self.window.set_size_request(800,660)
         self.neteditor = None
         self.project = None
         self.sources_repository = extensions.SourcesRepository()
@@ -344,16 +344,13 @@ class App:
             dialog.add_filter(ffilter)
 
     def edit_code_tests(self):
-        if not self.project.is_library():
-            self.show_info_dialog("Tests are available only for project type 'Library'.")
-            return
         if self.window.switch_to_tab_by_key("codetests"):
             return
         widget = codetests.CodeTestList(self)
         self.window.add_tab(SaveTab("Tests",
                                     widget,
                                     "codetests",
-                                    mainmenu_groups=()))
+                                    mainmenu_groups=("project",)))
 
     def edit_control_sequences(self):
         if self.window.switch_to_tab_by_key("sequences"):
@@ -504,10 +501,6 @@ class App:
                                                                mainmenu_groups=("project", "screenshot"))))
             simulation.set_callback("shutdown", lambda: sprocess.shutdown())
             simulation.connect("localhost", port)
-
-        if self.project.get_simulator_net() is None:
-            self.console_write("No net is selected for simulations\n", "error")
-            return
 
         simconfig = self.project.get_simconfig()
         if simconfig.parameters_values is None:

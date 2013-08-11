@@ -37,3 +37,5 @@ CAVERIF_LIB_DIR = "build/libs/caverif"
 
 CASIMRUN_INCLUDE_DIR = "libs/casimrun"
 CASIMRUN_LIB_DIR = "build/libs/casimrun"
+
+CAOCTAVE_INCLUDE_DIR = "libs/caoctave"
