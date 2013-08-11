@@ -222,7 +222,7 @@ def load_place(element, project, net):
     id = utils.xml_int(element, "id")
     type_name = project.parse_typename(element.get("type"),
                                        get_source(element, "type"))
-    init_type, init_value = project.parse_init_expression(element.get("init-expr"),
+    init_type, init_value = project.parse_init_expression(element.get("init-expr", ""),
                                                       get_source(element, "init"))
     place = Place(net, id, type_name, init_type, init_value)
     if element.find("code") is not None:

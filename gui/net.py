@@ -586,9 +586,10 @@ class Place(NetElement):
         e = self.create_xml_element("place")
         e.set("name", self.box.name)
         e.set("type", self.place_type.text)
-        e.set("init-expr", self.init.text)
-        if self.has_code():
-            e.append(self.xml_code_element())
+        if not build_config.library or self.interface.interface_in is None:
+            e.set("init-expr", self.init.text)
+            if self.has_code():
+                e.append(self.xml_code_element())
         if build_config.tracing and self.tracing:
             self.tracing_to_xml(e)
         if build_config.library:
