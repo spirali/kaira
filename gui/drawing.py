@@ -188,6 +188,7 @@ def draw_label(cr, x, y, text, symbol, text_color, background_color):
     cr.fill()
 
     if symbol == "lookingglass":
+        cr.new_sub_path()
         cr.arc(x + 12, y + 7, 4, 0, 2 * math.pi)
         cr.move_to(x + 16, y + 11)
         cr.rel_line_to(5, 5)
@@ -208,11 +209,6 @@ def draw_label(cr, x, y, text, symbol, text_color, background_color):
 
         rounded_rectangle(cr, x + 5, y + 2, 15, 14, 3)
         cr.stroke()
-
-    cr.arc(x + 12, y + 7, 4, 0, 2 * math.pi)
-    cr.move_to(x + 16, y + 11)
-    cr.rel_line_to(5, 5)
-    cr.stroke()
 
 
 class StateIcon(gtk.DrawingArea):
