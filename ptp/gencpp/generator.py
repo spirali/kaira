@@ -121,9 +121,7 @@ class CppGenerator:
 
     def build_server(self, directory):
         server_directory = os.path.join(directory, "server")
-        header_filename = self.get_filename(server_directory, ".h")
-
-        self.write_header_file(server_directory)
+        source_filename = self.get_filename(server_directory, "_server.cpp")
 
         # Check for server directory
         if os.path.exists(server_directory):
@@ -132,10 +130,10 @@ class CppGenerator:
         else:
             os.makedirs(server_directory)
 
-        source_filename = self.get_filename(server_directory, "_server.cpp")
+        self.write_header_file(server_directory)
 
         builder = build.Builder(self.project, source_filename)
-        rpc.write_server(builder, header_filename)
+        rpc.write_server(builder)
         builder.write_to_file()
 
         makefiles.write_server_makefile(self.project, server_directory)
@@ -159,7 +157,7 @@ class CppGenerator:
         m_filename = os.path.join(directory, self.project.get_name() + ".m")
 
         builder = build.Builder(self.project, source_filename)
-        octave.write_oct_file(builder, self.project.get_name() + ".h")
+        octave.write_oct_file(builder)
         builder.write_to_file()
 
         builder = octave.OctaveBuilder(self.project)

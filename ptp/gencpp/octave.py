@@ -35,9 +35,9 @@ def write_loader(builder, oct_file):
         builder.line("autoload(\"{0}\", file_in_loadpath (\"{1}\"))", net.name, oct_file)
     builder.line("{0}_init()", builder.project.get_name())
 
-def write_oct_file(builder, header_filename):
+def write_oct_file(builder):
     builder.line("#include <caoctave.h>")
-    builder.line("#include \"{0}\"", header_filename)
+    builder.line("#include \"{0}.h\"", builder.project.get_name())
     builder.emptyline()
 
     for net in builder.project.nets:

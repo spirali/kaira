@@ -64,9 +64,9 @@ def write_client_library_function(builder, net):
 
     builder.block_end()
 
-def write_server(builder, header_filename):
+def write_server(builder):
     builder.line("#include <caserver.h>")
-    builder.line("#include \"{0}\"", header_filename)
+    builder.line("#include \"{0}.h\"", builder.project.get_name())
     builder.emptyline()
     buildnet.write_core(builder)
     for net in builder.project.nets:

@@ -118,7 +118,13 @@ def configure(ctx):
         myconf.append("[Octave]")
         incflags = ctx.cmd_and_log([ctx.env.MKOCTFILE, "--print", "INCFLAGS" ],
                                    output=Context.STDOUT)
+        lflags = ctx.cmd_and_log([ctx.env.MKOCTFILE, "--print", "LFLAGS" ],
+                                   output=Context.STDOUT)
+        libs = ctx.cmd_and_log([ctx.env.MKOCTFILE, "--print", "OCTAVE_LIBS" ],
+                                   output=Context.STDOUT)
         myconf.append("INCFLAGS: " + incflags)
+        myconf.append("LFLAGS: " + lflags)
+        myconf.append("LIBS: " + libs)
     conffile.write("\n".join(myconf))
     ctx.env.append_value('cfg_files', conffile.abspath())
 
