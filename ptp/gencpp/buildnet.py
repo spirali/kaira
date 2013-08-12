@@ -290,8 +290,16 @@ def write_remove_tokens(builder, net_expr, tr):
             builder.if_begin("$tracelog")
             write_trace_token(builder, place, token_var, remove=True)
             builder.block_end()
+
+        if inscription.is_conditioned():
+            builder.if_begin("$inscription_if_{0.uid}", inscription)
+
         builder.line("{0}->place_{2.id}.remove({1});",
             net_expr, token_var, place)
+
+        if inscription.is_conditioned():
+            builder.block_end()
+
     builder.block_end()
 
 def write_fire_body(builder,
@@ -580,8 +588,20 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
             continue
         builder.line("// Inscription id={0.id} uid={1.uid} expr={1.expr}",
             edge, inscription)
-        token_line = builder.expand("ca::Token < {0.edge.place.type} > *$token_{0.uid} = ",
-                    inscription)
+        builder.line("ca::Token < {0.edge.place.type} > *$token_{0.uid};", inscription)
+
+        if inscription.is_conditioned():
+            builder.line("bool $inscription_if_{0.uid};", inscription)
+            builder.if_begin("!({0})", inscription.config.get("if"))
+            builder.line("$inscription_if_{0.uid} = false;", inscription)
+            builder.line("$token_{0.uid} = new ca::Token<{0.edge.place.type}>;", inscription)
+            # Set self references to survive "removing" from place
+            builder.line("$token_{0.uid}->next = $token_{0.uid};", inscription)
+            builder.line("$token_{0.uid}->prev = $token_{0.uid};", inscription)
+            setup_variables(inscription)
+            builder.line("}} else {{")
+            builder.line("$inscription_if_{0.uid} = true;", inscription)
+
         prev = [ i for i in prev_inscriptions if i.edge == inscription.edge ]
         if prev and inscription.has_same_pick_rule(prev[-1]):
             start_from = "$token_{0.uid}->next;".format(prev[-1])
@@ -589,7 +609,7 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
                 prev.pop()
         else:
             start_from = "$n->place_{0.id}.begin();".format(inscription.edge.place)
-        builder.line(token_line + start_from)
+        builder.line("$token_{0.uid} = {1};", inscription, builder.expand(start_from))
 
         filter_expr = inscription.config.get("filter")
         from_expr = inscription.config.get("from")
@@ -638,6 +658,9 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
             builder.block_end()
 
         prev_inscriptions.append(inscription)
+
+        if inscription.is_conditioned():
+            builder.block_end()
 
     for edge in tr.edges_in:
         for inscription in edge.inscriptions:

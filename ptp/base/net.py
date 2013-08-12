@@ -198,6 +198,9 @@ class EdgeInscription(utils.EqMixin):
     def has_expr(self):
         return self.expr is not None
 
+    def is_conditioned(self):
+        return "if" in self.config
+
     def is_expr_variable(self):
         return self.edge.transition.net.project.is_expr_variable(self.expr)
 
@@ -259,7 +262,7 @@ class EdgeInscription(utils.EqMixin):
             raise utils.PtpException("Input edges cannot contain '@'",
                 self.source)
 
-        self.check_config(("bulk", "guard", "svar", "filter", "from", "sort_by_source"))
+        self.check_config(("bulk", "guard", "svar", "filter", "from", "if", "sort_by_source"))
 
         if self.check_config_with_expression("svar", variable=True):
             decls = self.edge.transition.get_input_decls()
@@ -288,6 +291,13 @@ class EdgeInscription(utils.EqMixin):
                                      decls,
                                      "bool",
                                      self.source)
+
+        if self.check_config_with_expression("if"):
+            decls = self.edge.transition.get_input_decls_with_size(self.source)
+            checker.check_expression(self.config["if"],
+                                     decls,
+                                     "bool",
+                                     self.source)
         self.check(checker)
 
         if "sort_by_source" in self.config and "bulk" not in self.config:
@@ -297,16 +307,13 @@ class EdgeInscription(utils.EqMixin):
     def check_edge_out(self, checker):
         self.check_config(("bulk", "multicast", "if"))
 
-        if "if" in self.config:
-            if self.config["if"] is None:
-                raise utils.PtpException(
-                    "'if' requires an expression",
-                    self.source)
+        if self.check_config_with_expression("if"):
             decls = self.edge.transition.get_input_decls_with_size(self.source)
             checker.check_expression(self.config["if"],
                                      decls,
                                      "bool",
                                      self.source)
+
         if self.target is not None:
             checker.check_expression(self.target,
                                      self.edge.transition.get_decls(),

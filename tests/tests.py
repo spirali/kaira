@@ -68,6 +68,9 @@ class BuildTest(unittest.TestCase):
     def test_edgeif(self):
         Project("edgeif").quick_test("3 2\n")
 
+    def test_edgeif2(self):
+        Project("edgeif2").quick_test("Ok\n")
+
     def test_build(self):
         Project("build").quick_test("1: 10\n2: 20\n")
 

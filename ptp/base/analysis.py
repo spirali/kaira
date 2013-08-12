@@ -53,20 +53,27 @@ def analyze_transition(tr):
     used_tokens = []  # [uid] - Tokens from input inscriptions that are reused on output
     variable_sources_out = {} # string -> uid or None
 
-    def inscription_weight(inscription):
+    def inscription_out_weight(inscription):
         # Reorder edges, bulk edges first because we want them send first
         # Otherwise it can cause problems like in sending results in "workers" example
         if inscription.is_bulk():
             return 0
         # Unconditional edges has higher priority
-        if inscription.config.get("if"):
+        if inscription.is_conditioned():
             return 2
         else:
             return 1
 
+    def inscription_in_weight(inscription):
+        if inscription.is_conditioned():
+            return 1
+        else:
+            return 0
+
     inscriptions_in = sum((edge.inscriptions for edge in tr.edges_in), [])
+    inscriptions_in.sort(key=inscription_in_weight)
     inscriptions_out = sum((edge.inscriptions for edge in tr.edges_out), [])
-    inscriptions_out.sort(key=inscription_weight)
+    inscriptions_out.sort(key=inscription_out_weight)
 
     variable_sources = get_variable_sources(inscriptions_in)
     # Order input inscriptions by variable dependancy
