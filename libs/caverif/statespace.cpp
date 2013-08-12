@@ -448,7 +448,7 @@ void Core::write_control_sequence(std::vector<Node*> &nodes, ca::Output &report)
 	Node *node;
 
 	if(nodes.size() == 0) {
-		fprintf(stderr, "Try write control sequence with zero length\n");
+		fprintf(stderr, "Control sequence of zero length cannot be written\n");
 		exit(1);
 	}
 	path.reserve(nodes[0]->get_distance() + nodes.size());
@@ -598,17 +598,17 @@ void Core::run_analysis_transition_occurrence(ca::Output &report)
 	}
 
 	report.child("analysis");
-	report.set("name", "transition order analysis");
+	report.set("name", "Transition occurence analysis");
 
 	report.child("result");
 	report.set("name", "Number of errors");
 	report.set("value", errors);
 	if (errors > 0) {
 		report.set("status", "fail");
-		report.set("text", "Sequences with different transition order found");
+		report.set("text", "Sequences with different transition occurence found");
 		report.child("states");
-		write_state("First transition order", first_sequence, report);
-		write_suffix("Second transition order", second_sequence, report);
+		write_state("First witness path", first_sequence, report);
+		write_suffix("Second witness path", second_sequence, report);
 		report.back();
 	} else {
 		report.set("status", "ok");

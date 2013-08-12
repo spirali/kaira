@@ -25,11 +25,8 @@ def write_verif_configuration(builder):
     ignored = []
     compared = []
     for net in builder.project.nets:
-        for transition in net.transitions:
-            if transition.compare_function == "none":
-                ignored.append(transition)
-            else:
-                compared.append(transition)
+        compared += [ t for t in net.transitions if t.occurence_analysis ]
+        ignored += [ t for t in net.transitions if not t.occurence_analysis ]
 
     builder.line("class VerifConfiguration : public cass::VerifConfiguration {{")
     builder.line("public:")
@@ -42,27 +39,25 @@ def write_verif_configuration(builder):
     for tr in compared:
         builder.line("case {0}:", tr.id)
         builder.block_begin()
-        if tr.compare_function == "id":
-            builder.line("return false;")
-        else:
-            if tr.compare_function.count("p"):
-                if tr.compare_function.count("b"):
-                    builder.if_begin("arc1.nni->data.fire.process_id == "
-                                     "arc2.nni->data.fire.process_id")
-                    builder.line("return memcmp(" +
-                             "arc1.nni->data.fire.binding, arc2.nni->data.fire.binding, "
-                             "mhash_get_block_size(MHASH_MD5)) < 0;")
-                    builder.write_else()
-                    builder.line("return arc1.nni->data.fire.process_id < "
-                                        "arc2.nni->data.fire.process_id;")
-                    builder.block_end()
-                else:
-                    builder.line("return arc1.nni->data.fire.process_id < "
-                                        "arc2.nni->data.fire.process_id;")
-            else:
+        if tr.occurence_analysis_compare_process and tr.occurence_analysis_compare_binding:
+                builder.if_begin("arc1.nni->data.fire.process_id == "
+                                 "arc2.nni->data.fire.process_id")
                 builder.line("return memcmp(" +
-                        "arc1.nni->data.fire.binding, arc2.nni->data.fire.binding, "
-                        "mhash_get_block_size(MHASH_MD5)) < 0;")
+                         "arc1.nni->data.fire.binding, arc2.nni->data.fire.binding, "
+                         "mhash_get_block_size(MHASH_MD5)) < 0;")
+                builder.write_else()
+                builder.line("return arc1.nni->data.fire.process_id < "
+                                    "arc2.nni->data.fire.process_id;")
+                builder.block_end()
+        elif tr.occurence_analysis_compare_process and not tr.occurence_analysis_compare_binding:
+                builder.line("return arc1.nni->data.fire.process_id < "
+                                    "arc2.nni->data.fire.process_id;")
+        elif not tr.occurence_analysis_compare_process and tr.occurence_analysis_compare_binding:
+            builder.line("return memcmp(" +
+                    "arc1.nni->data.fire.binding, arc2.nni->data.fire.binding, "
+                    "mhash_get_block_size(MHASH_MD5)) < 0;")
+        else:
+            builder.line("return false;")
         builder.block_end()
     builder.block_end()
     builder.write_else()
@@ -75,7 +70,7 @@ def write_verif_configuration(builder):
     builder.block_begin()
     if ignored:
         builder.line("int transitions[] = {{{0}}};", ", ".join(str(i.id) for i in ignored))
-        builder.line("std::set<int> ignored_transitions (transitions, transitions + {});",
+        builder.line("std::set<int> ignored_transitions (transitions, transitions + {0});",
                      len(ignored))
         builder.line("return ignored_transitions.count(transition_id) == 0;")
     else:

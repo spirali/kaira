@@ -417,47 +417,36 @@ class NetEditor(gtk.VBox):
     def _setup_attribute_widges_mode_verif(self, item):
         def set_calls_quit(value):
             item.calls_quit = value
-        def set_compare_function_ptr(w):
-            if checkbox1.get_active():
-                if checkbox2.get_active():
-                    item.compare_function_ptr = "idpb"
-                else:
-                    item.compare_function_ptr = "idp"
-            else:
-                if checkbox2.get_active():
-                    item.compare_function_ptr = "idb"
-                else:
-                    item.compare_function_ptr = "id"
+        def set_compare_process(value):
+            item.occurence_analysis_compare_process = value
             self.canvas.config.configure()
-        def set_transition_occurrence(value):
-            if value:
-                item.compare_function_ptr = "id"
-            else:
-                item.compare_function_ptr = "none"
+        def set_compare_binding(value):
+            item.occurence_analysis_compare_binding = value
+            self.canvas.config.configure()
+        def set_occurence_analysis(value):
+            item.occurence_analysis = value
             frame.set_sensitive(value)
+            self.canvas.config.configure()
         if item.is_transition():
             self._add_attribute_checkbox("Transition calls quit",
                                          item.calls_quit,
-                                         set_true=lambda: set_calls_quit(True),
-                                         set_false=lambda: set_calls_quit(False))
+                                         set_fn=set_calls_quit(True))
             self.attribute_box.pack_start(gtk.HSeparator(), False, False, 5)
             self._add_attribute_checkbox("Transition occurrence",
-                                         item.compare_function_ptr != "none",
-                                         set_true=lambda: set_transition_occurrence(True),
-                                         set_false=lambda: set_transition_occurrence(False))
-            frame = gtk.Frame("Distinguish properties")
+                                         item.occurence_analysis,
+                                         set_fn=set_occurence_analysis)
+            frame = gtk.Frame("Properties to compare")
             box = gtk.VBox()
             checkbox1 = gtk.CheckButton("process id", False)
             checkbox2 = gtk.CheckButton("binding", False)
-            checkbox1.set_active(item.compare_function_ptr.count("p"))
-            checkbox2.set_active(item.compare_function_ptr.count("b"))
-            checkbox1.connect("toggled", set_compare_function_ptr)
-            checkbox2.connect("toggled", set_compare_function_ptr)
+            checkbox1.set_active(item.occurence_analysis_compare_process)
+            checkbox2.set_active(item.occurence_analysis_compare_binding)
+            checkbox1.connect("toggled", lambda w: set_compare_process(w.get_active()))
+            checkbox2.connect("toggled", lambda w: set_compare_binding(w.get_active()))
             box.pack_start(checkbox1)
             box.pack_start(checkbox2)
             frame.add(box)
-            if item.compare_function_ptr == "none":
-                frame.set_sensitive(False)
+            frame.set_sensitive(item.occurence_analysis)
             self.attribute_box.pack_start(frame, False, False)
 
     def _add_attribute_objlist(self, text, objlist, add_fn, edit_fn, remove_fn):
