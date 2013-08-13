@@ -361,9 +361,9 @@ class Transition(NetElement):
 
     # Verif options
     calls_quit = False
-    occurence_analysis = False
-    occurence_analysis_compare_process = False
-    occurence_analysis_compare_binding = False
+    occurrence_analysis = False
+    occurrence_analysis_compare_process = False
+    occurrence_analysis_compare_binding = False
 
     def __init__(self, net, id, position):
         NetElement.__init__(self, net, id, position)
@@ -442,11 +442,11 @@ class Transition(NetElement):
             element = xml.Element("verif-quit_flag")
             element.text = "True"
             e.append(element)
-        if self.occurence_analysis:
-            element = xml.Element("verif-occurence")
-            if self.occurence_analysis:
-                element.set("process", str(self.occurence_analysis_compare_process))
-                element.set("binding", str(self.occurence_analysis_compare_binding))
+        if self.occurrence_analysis:
+            element = xml.Element("verif-occurrence")
+            if self.occurrence_analysis:
+                element.set("process", str(self.occurrence_analysis_compare_process))
+                element.set("binding", str(self.occurrence_analysis_compare_binding))
             e.append(element)
         return e
 
@@ -455,11 +455,11 @@ class Transition(NetElement):
 
     def get_verif_texts(self):
         texts = []
-        if self.occurence_analysis:
-            texts.append("occurence")
-            if self.occurence_analysis_compare_process:
+        if self.occurrence_analysis:
+            texts.append("occurrence")
+            if self.occurrence_analysis_compare_process:
                 texts[-1] += " +process"
-            if self.occurence_analysis_compare_binding:
+            if self.occurrence_analysis_compare_binding:
                 texts[-1] += " +binding"
         if self.calls_quit:
             texts.append("call quit")
@@ -496,11 +496,11 @@ class Transition(NetElement):
                 element = xml.Element("verif-quit_flag")
                 element.text = "True"
                 e.append(element)
-            if self.occurence_analysis:
-                element = xml.Element("verif-occurence")
-                if self.occurence_analysis:
-                    element.set("process", str(self.occurence_analysis_compare_process))
-                    element.set("binding", str(self.occurence_analysis_compare_binding))
+            if self.occurrence_analysis:
+                element = xml.Element("verif-occurrence")
+                if self.occurrence_analysis:
+                    element.set("process", str(self.occurrence_analysis_compare_process))
+                    element.set("binding", str(self.occurrence_analysis_compare_binding))
                 e.append(element)
         return e
 
@@ -951,11 +951,11 @@ def load_transition(element, net, loader):
         transition.time_substitution = True
         transition.time_substitution_code = element.find("time-substitution").text
 
-    e = element.find("verif-occurence")
+    e = element.find("verif-occurrence")
     if e is not None:
-        transition.occurence_analysis = True
-        transition.occurence_analysis_compare_process = utils.xml_bool(e, "process")
-        transition.occurence_analysis_compare_binding = utils.xml_bool(e, "binding")
+        transition.occurrence_analysis = True
+        transition.occurrence_analysis_compare_process = utils.xml_bool(e, "process")
+        transition.occurrence_analysis_compare_binding = utils.xml_bool(e, "binding")
 
     transition.set_priority(element.get("priority", ""))
 

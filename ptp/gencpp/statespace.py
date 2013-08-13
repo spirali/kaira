@@ -25,8 +25,8 @@ def write_verif_configuration(builder):
     ignored = []
     compared = []
     for net in builder.project.nets:
-        compared += [ t for t in net.transitions if t.occurence_analysis ]
-        ignored += [ t for t in net.transitions if not t.occurence_analysis ]
+        compared += [ t for t in net.transitions if t.occurrence_analysis ]
+        ignored += [ t for t in net.transitions if not t.occurrence_analysis ]
 
     builder.line("class VerifConfiguration : public cass::VerifConfiguration {{")
     builder.line("public:")
@@ -39,7 +39,7 @@ def write_verif_configuration(builder):
     for tr in compared:
         builder.line("case {0}:", tr.id)
         builder.block_begin()
-        if tr.occurence_analysis_compare_process and tr.occurence_analysis_compare_binding:
+        if tr.occurrence_analysis_compare_process and tr.occurrence_analysis_compare_binding:
                 builder.if_begin("arc1.nni->data.fire.process_id == "
                                  "arc2.nni->data.fire.process_id")
                 builder.line("return memcmp(" +
@@ -49,10 +49,10 @@ def write_verif_configuration(builder):
                 builder.line("return arc1.nni->data.fire.process_id < "
                                     "arc2.nni->data.fire.process_id;")
                 builder.block_end()
-        elif tr.occurence_analysis_compare_process and not tr.occurence_analysis_compare_binding:
+        elif tr.occurrence_analysis_compare_process and not tr.occurrence_analysis_compare_binding:
                 builder.line("return arc1.nni->data.fire.process_id < "
                                     "arc2.nni->data.fire.process_id;")
-        elif not tr.occurence_analysis_compare_process and tr.occurence_analysis_compare_binding:
+        elif not tr.occurrence_analysis_compare_process and tr.occurrence_analysis_compare_binding:
             builder.line("return memcmp(" +
                     "arc1.nni->data.fire.binding, arc2.nni->data.fire.binding, "
                     "mhash_get_block_size(MHASH_MD5)) < 0;")

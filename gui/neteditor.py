@@ -418,35 +418,35 @@ class NetEditor(gtk.VBox):
         def set_calls_quit(value):
             item.calls_quit = value
         def set_compare_process(value):
-            item.occurence_analysis_compare_process = value
+            item.occurrence_analysis_compare_process = value
             self.canvas.config.configure()
         def set_compare_binding(value):
-            item.occurence_analysis_compare_binding = value
+            item.occurrence_analysis_compare_binding = value
             self.canvas.config.configure()
-        def set_occurence_analysis(value):
-            item.occurence_analysis = value
+        def set_occurrence_analysis(value):
+            item.occurrence_analysis = value
             frame.set_sensitive(value)
             self.canvas.config.configure()
         if item.is_transition():
             self._add_attribute_checkbox("Transition calls quit",
                                          item.calls_quit,
-                                         set_fn=set_calls_quit(True))
+                                         set_fn=set_calls_quit)
             self.attribute_box.pack_start(gtk.HSeparator(), False, False, 5)
             self._add_attribute_checkbox("Transition occurrence",
-                                         item.occurence_analysis,
-                                         set_fn=set_occurence_analysis)
+                                         item.occurrence_analysis,
+                                         set_fn=set_occurrence_analysis)
             frame = gtk.Frame("Properties to compare")
             box = gtk.VBox()
             checkbox1 = gtk.CheckButton("process id", False)
             checkbox2 = gtk.CheckButton("binding", False)
-            checkbox1.set_active(item.occurence_analysis_compare_process)
-            checkbox2.set_active(item.occurence_analysis_compare_binding)
+            checkbox1.set_active(item.occurrence_analysis_compare_process)
+            checkbox2.set_active(item.occurrence_analysis_compare_binding)
             checkbox1.connect("toggled", lambda w: set_compare_process(w.get_active()))
             checkbox2.connect("toggled", lambda w: set_compare_binding(w.get_active()))
             box.pack_start(checkbox1)
             box.pack_start(checkbox2)
             frame.add(box)
-            frame.set_sensitive(item.occurence_analysis)
+            frame.set_sensitive(item.occurrence_analysis)
             self.attribute_box.pack_start(frame, False, False)
 
     def _add_attribute_objlist(self, text, objlist, add_fn, edit_fn, remove_fn):

@@ -598,14 +598,14 @@ void Core::run_analysis_transition_occurrence(ca::Output &report)
 	}
 
 	report.child("analysis");
-	report.set("name", "Transition occurence analysis");
+	report.set("name", "Transition occurrence analysis");
 
 	report.child("result");
 	report.set("name", "Number of errors");
 	report.set("value", errors);
 	if (errors > 0) {
 		report.set("status", "fail");
-		report.set("text", "Sequences with different transition occurence found");
+		report.set("text", "Sequences with different transition occurrence found");
 		report.child("states");
 		write_state("First witness path", first_sequence, report);
 		write_suffix("Second witness path", second_sequence, report);

@@ -194,11 +194,11 @@ def load_transition(element, project, net):
 
     if element.find("verif-quit_flag") is not None:
         transition.calls_quit = True
-    e = element.find("verif-occurence")
+    e = element.find("verif-occurrence")
     if e is not None:
-        transition.occurence_analysis = True
-        transition.occurence_analysis_compare_process = utils.xml_bool(e, "process")
-        transition.occurence_analysis_compare_binding = utils.xml_bool(e, "binding")
+        transition.occurrence_analysis = True
+        transition.occurrence_analysis_compare_process = utils.xml_bool(e, "process")
+        transition.occurrence_analysis_compare_binding = utils.xml_bool(e, "binding")
 
     priority = element.get("priority").strip()
     if priority == "":

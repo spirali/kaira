@@ -422,9 +422,9 @@ class Transition(utils.EqByIdMixin):
     code = None
     time_substitution = None
     calls_quit = False
-    occurence_analysis = False
-    occurence_analysis_compare_process = False
-    occurence_analysis_compare_binding = False
+    occurrence_analysis = False
+    occurrence_analysis_compare_process = False
+    occurrence_analysis_compare_binding = False
 
     def __init__(self, net, id, name, guard):
         self.net = net
