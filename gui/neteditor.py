@@ -190,6 +190,8 @@ class NetEditor(gtk.VBox):
                 os.path.join(paths.ICONS_DIR, "trace.svg"))
         icon_simrun = gtk.image_new_from_file(
                 os.path.join(paths.ICONS_DIR, "simrun.svg"))
+        icon_verif = gtk.image_new_from_file(
+                os.path.join(paths.ICONS_DIR, "verif.svg"))
 
         toolbar = gtk.Toolbar()
 
@@ -206,6 +208,11 @@ class NetEditor(gtk.VBox):
         button2 = gtk.RadioToolButton(button1, None)
         button2.connect("toggled", lambda w: self.set_mode("simrun"))
         button2.set_icon_widget(icon_simrun)
+        toolbar.add(button2)
+
+        button2 = gtk.RadioToolButton(button1, None)
+        button2.connect("toggled", lambda w: self.set_mode("verif"))
+        button2.set_icon_widget(icon_verif)
         toolbar.add(button2)
         toolbar.add(gtk.SeparatorToolItem())
 
@@ -303,6 +310,8 @@ class NetEditor(gtk.VBox):
                 self._setup_attribute_widges_mode_tracing(item)
             elif self.mode == "simrun":
                 self._setup_attribute_widges_mode_simrun(item)
+            elif self.mode == "verif":
+                self._setup_attribute_widges_mode_verif(item)
 
         if self.attribute_widgets:
             if focus:
@@ -428,6 +437,41 @@ class NetEditor(gtk.VBox):
                 item.get_size_substitution_code,
                 item.set_size_substitution_code)
 
+    def _setup_attribute_widges_mode_verif(self, item):
+        def set_calls_quit(value):
+            item.calls_quit = value
+        def set_compare_process(value):
+            item.occurrence_analysis_compare_process = value
+            self.canvas.config.configure()
+        def set_compare_binding(value):
+            item.occurrence_analysis_compare_binding = value
+            self.canvas.config.configure()
+        def set_occurrence_analysis(value):
+            item.occurrence_analysis = value
+            frame.set_sensitive(value)
+            self.canvas.config.configure()
+        if item.is_transition():
+            self._add_attribute_checkbox("Transition calls quit",
+                                         item.calls_quit,
+                                         set_fn=set_calls_quit)
+            self.attribute_box.pack_start(gtk.HSeparator(), False, False, 5)
+            self._add_attribute_checkbox("Transition occurrence",
+                                         item.occurrence_analysis,
+                                         set_fn=set_occurrence_analysis)
+            frame = gtk.Frame("Properties to compare")
+            box = gtk.VBox()
+            checkbox1 = gtk.CheckButton("process id", False)
+            checkbox2 = gtk.CheckButton("binding", False)
+            checkbox1.set_active(item.occurrence_analysis_compare_process)
+            checkbox2.set_active(item.occurrence_analysis_compare_binding)
+            checkbox1.connect("toggled", lambda w: set_compare_process(w.get_active()))
+            checkbox2.connect("toggled", lambda w: set_compare_binding(w.get_active()))
+            box.pack_start(checkbox1)
+            box.pack_start(checkbox2)
+            frame.add(box)
+            frame.set_sensitive(item.occurrence_analysis)
+            self.attribute_box.pack_start(frame, False, False)
+
     def _add_attribute_objlist(self, text, objlist, add_fn, edit_fn, remove_fn):
         def remove(w):
             obj = objlist.selected_object()
@@ -449,6 +493,19 @@ class NetEditor(gtk.VBox):
 
         self.attribute_box.pack_start(objlist, False, False)
         self.attribute_widgets.append(objlist)
+
+    def _add_attribute_combobox(self,
+                                values,
+                                initial_value,
+                                set_fn):
+        def changed(w):
+            set_fn(combobox.get_object())
+            self.canvas.config.configure()
+        combobox = gtkutils.SimpleComboBox(values)
+        combobox.set_object(initial_value)
+        combobox.connect("changed", changed)
+        self.attribute_box.pack_start(combobox, False, False)
+        self.attribute_widgets.append(combobox)
 
     def _add_attribute_checkbox(self,
                                 text,

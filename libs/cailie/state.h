@@ -265,6 +265,14 @@ namespace ca {
 				return transition_def->full_fire(&thread, nets[process_id]);
 			}
 
+			bool fire_transition_full_with_binding(int process_id, TransitionDef *transition_def,
+					ca::Packer &packer)
+			{
+				int thread_id = 0;
+				StateThread thread(this, process_id, thread_id);
+				return transition_def->full_fire_with_binding(&thread, nets[process_id], packer);
+			}
+
 			void finish_transition(typename std::vector<ActivationT>::iterator i)
 			{
 				StateThread thread(this, i->process_id, i->thread_id);

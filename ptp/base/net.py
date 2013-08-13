@@ -455,8 +455,16 @@ class Place(utils.EqByIdMixin):
 class Transition(utils.EqByIdMixin):
 
     code = None
+
+    # Time substitution
     time_substitution = None
     clock_substitution = None
+
+    # Verification
+    calls_quit = False
+    occurrence_analysis = False
+    occurrence_analysis_compare_process = False
+    occurrence_analysis_compare_binding = False
 
     def __init__(self, net, id, name, guard):
         self.net = net

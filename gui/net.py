@@ -333,6 +333,12 @@ class Transition(NetElement):
 
     clock = False
 
+    # Verif options
+    calls_quit = False
+    occurrence_analysis = False
+    occurrence_analysis_compare_process = False
+    occurrence_analysis_compare_binding = False
+
     def __init__(self, net, id, position):
         NetElement.__init__(self, net, id, position)
         p = (position[0], position[1] - 20)
@@ -433,14 +439,38 @@ class Transition(NetElement):
             element = xml.Element("time-substitution")
             element.text = self.time_substitution_code
             e.append(element)
+
         if self.clock_substitution:
             element = xml.Element("clock-substitution")
             element.text = self.clock_substitution_code
+            e.append(element)
+
+        if self.calls_quit:
+            element = xml.Element("verif-quit_flag")
+            element.text = "True"
+            e.append(element)
+        if self.occurrence_analysis:
+            element = xml.Element("verif-occurrence")
+            if self.occurrence_analysis:
+                element.set("process", str(self.occurrence_analysis_compare_process))
+                element.set("binding", str(self.occurrence_analysis_compare_binding))
             e.append(element)
         return e
 
     def get_trace_texts(self):
         return self.tracing
+
+    def get_verif_texts(self):
+        texts = []
+        if self.occurrence_analysis:
+            texts.append("occurrence")
+            if self.occurrence_analysis_compare_process:
+                texts[-1] += " +process"
+            if self.occurrence_analysis_compare_binding:
+                texts[-1] += " +binding"
+        if self.calls_quit:
+            texts.append("call quit")
+        return texts
 
     def export_xml(self, build_config):
         e = self.create_xml_element("transition")
@@ -468,10 +498,23 @@ class Transition(NetElement):
             element = xml.Element("time-substitution")
             element.text = self.time_substitution_code
             e.append(element)
+
         if build_config.substitutions and self.clock_substitution:
             element = xml.Element("clock-substitution")
             element.text = self.clock_substitution_code
             e.append(element)
+
+        if build_config.verification:
+            if self.calls_quit:
+                element = xml.Element("verif-quit_flag")
+                element.text = "True"
+                e.append(element)
+            if self.occurrence_analysis:
+                element = xml.Element("verif-occurrence")
+                if self.occurrence_analysis:
+                    element.set("process", str(self.occurrence_analysis_compare_process))
+                    element.set("binding", str(self.occurrence_analysis_compare_binding))
+                e.append(element)
         return e
 
 
@@ -951,6 +994,12 @@ def load_transition(element, net, loader):
     if element.find("clock-substitution") is not None:
         transition.clock_substitution = True
         transition.clock_substitution_code = element.find("clock-substitution").text
+
+    e = element.find("verif-occurrence")
+    if e is not None:
+        transition.occurrence_analysis = True
+        transition.occurrence_analysis_compare_process = utils.xml_bool(e, "process")
+        transition.occurrence_analysis_compare_binding = utils.xml_bool(e, "binding")
 
     transition.set_priority(element.get("priority", ""))
 

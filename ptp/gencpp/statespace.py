@@ -21,6 +21,64 @@
 import build
 import buildnet
 
+def write_verif_configuration(builder):
+    ignored = []
+    compared = []
+    for net in builder.project.nets:
+        compared += [ t for t in net.transitions if t.occurrence_analysis ]
+        ignored += [ t for t in net.transitions if not t.occurrence_analysis ]
+
+    builder.line("class VerifConfiguration : public cass::VerifConfiguration {{")
+    builder.line("public:")
+
+    builder.line("bool compare(const cass::Arc &arc1, const cass::Arc &arc2)")
+    builder.block_begin()
+    builder.if_begin("arc1.nni->data.fire.transition_id == arc2.nni->data.fire.transition_id")
+    builder.line("switch(arc1.nni->data.fire.transition_id)")
+    builder.block_begin()
+    for tr in compared:
+        builder.line("case {0}:", tr.id)
+        builder.block_begin()
+        if tr.occurrence_analysis_compare_process and tr.occurrence_analysis_compare_binding:
+                builder.if_begin("arc1.nni->data.fire.process_id == "
+                                 "arc2.nni->data.fire.process_id")
+                builder.line("return memcmp(" +
+                         "arc1.nni->data.fire.binding, arc2.nni->data.fire.binding, "
+                         "mhash_get_block_size(MHASH_MD5)) < 0;")
+                builder.write_else()
+                builder.line("return arc1.nni->data.fire.process_id < "
+                                    "arc2.nni->data.fire.process_id;")
+                builder.block_end()
+        elif tr.occurrence_analysis_compare_process and not tr.occurrence_analysis_compare_binding:
+                builder.line("return arc1.nni->data.fire.process_id < "
+                                    "arc2.nni->data.fire.process_id;")
+        elif not tr.occurrence_analysis_compare_process and tr.occurrence_analysis_compare_binding:
+            builder.line("return memcmp(" +
+                    "arc1.nni->data.fire.binding, arc2.nni->data.fire.binding, "
+                    "mhash_get_block_size(MHASH_MD5)) < 0;")
+        else:
+            builder.line("return false;")
+        builder.block_end()
+    builder.block_end()
+    builder.write_else()
+    builder.line("return arc1.nni->data.fire.transition_id < "
+                        "arc2.nni->data.fire.transition_id;")
+    builder.block_end()
+    builder.block_end()
+
+    builder.line("bool is_transition_analyzed(int transition_id)")
+    builder.block_begin()
+    if ignored:
+        builder.line("int transitions[] = {{{0}}};", ", ".join(str(i.id) for i in ignored))
+        builder.line("std::set<int> ignored_transitions (transitions, transitions + {0});",
+                     len(ignored))
+        builder.line("return ignored_transitions.count(transition_id) == 0;")
+    else:
+        builder.line("return true;")
+    builder.block_end()
+
+    builder.line("}};")
+
 def write_core(builder):
     build.write_basic_definitions(builder)
     for net in builder.project.nets:
@@ -52,8 +110,9 @@ def write_net_class_extension(builder, net):
 def write_main(builder):
     builder.line("int main(int argc, char **argv)")
     builder.block_begin()
-    builder.line("cass::Core core;")
     buildnet.write_main_setup(builder, "cass::init", start_process=False)
+    builder.line("VerifConfiguration verif_configuration;")
+    builder.line("cass::Core core(verif_configuration);")
     builder.line("core.generate();")
     builder.line("core.postprocess();")
     builder.line("return 0;")
@@ -66,6 +125,7 @@ def write_statespace_program(builder):
     build.write_header(builder)
     builder.line("#include <caverif.h>")
     write_core(builder)
+    write_verif_configuration(builder)
     write_main(builder)
     buildnet.write_user_functions(builder)
 

@@ -202,6 +202,14 @@ def load_transition(element, project, net):
     if element.find("clock-substitution") is not None:
         transition.clock_substitution = element.find("clock-substitution").text
 
+    if element.find("verif-quit_flag") is not None:
+        transition.calls_quit = True
+    e = element.find("verif-occurrence")
+    if e is not None:
+        transition.occurrence_analysis = True
+        transition.occurrence_analysis_compare_process = utils.xml_bool(e, "process")
+        transition.occurrence_analysis_compare_binding = utils.xml_bool(e, "binding")
+
     priority = element.get("priority").strip()
     if priority == "":
         transition.priority = 0

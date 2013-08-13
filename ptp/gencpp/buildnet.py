@@ -89,6 +89,7 @@ def write_transition_forward(builder, tr):
                                     tr.priority) ])
     builder.write_method_end()
     builder.line("ca::FireResult full_fire(ca::ThreadBase *thread, ca::NetBase *net);")
+    builder.line("ca::FireResult full_fire_with_binding(ca::ThreadBase *thread, ca::NetBase *net, ca::Packer &$packer);")
     builder.line("void* fire_phase1(ca::ThreadBase *thread, ca::NetBase *net);")
     builder.line("void fire_phase2(ca::ThreadBase *thread, ca::NetBase *net, void *data);")
     builder.line("void fire_phase2_ro_binding"
@@ -106,6 +107,7 @@ def write_transition_functions(builder,
                                tr,
                                locking=True):
     write_full_fire(builder, tr, locking=locking)
+    write_full_fire_with_binding(builder, tr, locking=locking)
     write_fire_phase1(builder, tr)
     write_fire_phase2(builder, tr)
     write_fire_phase2(builder, tr, readonly_binding=True)
@@ -236,7 +238,7 @@ def write_send_token(builder,
             else:
                 write_add(inscription.expr)
             builder.indent_pop()
-            builder.line("}} else {{")
+            builder.write_else()
             builder.line("int $target = {0};", inscription.target)
             target = builder.expand("$target")
             builder.indent_push()
@@ -274,7 +276,7 @@ def write_send_token(builder,
         builder.block_end()
 
     if if_condition:
-        builder.line("}} else {{")
+        builder.write_else()
         if inscription.uid in reuse_tokens:
             builder.line("$token_{0.uid}_used = false;", inscription)
         builder.block_end()
@@ -440,6 +442,26 @@ def write_full_fire(builder, tr, locking=True):
     builder.line("ca::Context ctx($thread, $net);")
 
     w = build.Builder(builder.project)
+    write_fire_body(w, tr, locking=locking)
+    w.line("return ca::TRANSITION_FIRED;")
+
+    write_enable_pattern_match(builder, tr, w, "return ca::NOT_ENABLED;")
+    builder.line("return ca::NOT_ENABLED;")
+    builder.block_end()
+
+def write_full_fire_with_binding(builder, tr, locking=True):
+    builder.line("ca::FireResult Transition_{0.id}::full_fire_with_binding(ca::ThreadBase *$thread, ca::NetBase *$net, ca::Packer &$packer)",
+                 tr)
+    builder.block_begin()
+    builder.line("ca::Context ctx($thread, $net);")
+
+    w = build.Builder(builder.project)
+    for inscription in tr.get_token_inscriptions_in():
+        w.line("ca::pack($packer, $token_{0}->value);", inscription.uid);
+
+    for edge in tr.get_bulk_edges_in():
+        w.line("ca::pack($packer, $n->place_{0.id});", edge.place);
+
     write_fire_body(w, tr, locking=locking)
     w.line("return ca::TRANSITION_FIRED;")
 
