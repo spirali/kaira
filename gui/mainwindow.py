@@ -217,12 +217,6 @@ class MainWindow(gtk.Window):
             "project")
         add("_Connect to application", self.app.connect_to_application)
 
-        menu = add_menu("_Tracelog")
-
-        add("Open tracelo_g", self.app.load_tracelog)
-        add("E_xport tracelog table", self.app.export_tracelog_table, "tracelog")
-        add("Export control se_quence", self.app.export_tracelog_sequence, "tracelog")
-
         menu = add_menu("_Analysis")
 
         add("Run state space _analysis", self.app.run_statespace_analysis, "project")

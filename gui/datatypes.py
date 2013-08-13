@@ -62,7 +62,7 @@ class Type(object):
         self.loaders = {}
         self.savers = {}
 
-    def load_source(self, filename, *args):
+    def load_source(self, filename, app):
         # getting file extensions (after first dot)
         splitedname = filename.split(".")
         if len(splitedname) >= 2:
@@ -72,13 +72,16 @@ class Type(object):
 
         if file_extension in self.loaders:
             fn_load = self.loaders[file_extension]
-            data = fn_load(filename, *args)
+            data = fn_load(filename, app)
             return extensions.Source(filename, self, data)
         else:
             raise NoLoaderExists(self.name)
 
-    def store_source(self, data, *args):
+    def store_source(self, data, filename, app):
         pass # FIX: implemet me!
+
+    def get_mainmenu_groups(self):
+        return None
 
     def get_view(self, data, **kwargs):
         return None
@@ -96,17 +99,16 @@ types_repository = []
 
 # Tracelog type
 t_tracelog = Type("Kaira tracelog", "Tracelog", ["kth"])
-def load_kth(filename):
-    return TraceLog(filename)
+def load_kth(filename, app):
+    if filename is None:
+        return
+    return app._catch_io_error(lambda: TraceLog(filename))
 t_tracelog.register_load_function("kth", load_kth)
+
+t_tracelog.get_mainmenu_groups = lambda: ("screenshot")
+
 def tracelog_view(data, app):
     return runview.RunView(app, data)
 t_tracelog.get_view = tracelog_view
-types_repository.append(t_tracelog)
 
-# Control sequence type
-t_contseq = Type("Kaira control sequence", "Cont. seq.", ["kcs"])
-def load_kcs(filename):
-    return filename
-t_contseq.register_load_function("kcs", load_kcs)
-types_repository.append(t_contseq)
+types_repository.append(t_tracelog)

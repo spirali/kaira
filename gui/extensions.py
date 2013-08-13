@@ -131,7 +131,9 @@ class SourceView(gtk.Alignment, EventSource):
         if self.tabview is None:
             type = self.source.type
             view = type.get_view(self.source.data, self.app)
-            self.tabview = Tab(self.source.type.short_name, view,)
+            self.tabview = Tab(
+                self.source.type.short_name, view,
+                mainmenu_groups=self.source.type.get_mainmenu_groups())
             self.app.window.add_tab(self.tabview)
         else:
             self.app.window.switch_to_tab(self.tabview)
@@ -805,7 +807,7 @@ class ExtensionManager(gtk.VBox):
             type = filter.get_data(filter.get_name())
 
             try:
-                src = type.load_source(filename)
+                src = type.load_source(filename, self.app)
                 self.sources_repository.add(src)
             except NoLoaderExists as ex:
                 self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
