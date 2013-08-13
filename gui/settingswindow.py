@@ -45,6 +45,7 @@ class SettingWidget(gtk.Table):
 
         self.widgets = {} # key: widget
         self.labels = {}  # key: label
+        self.value_labels = {} #key: value label; if it has
         self.keys_order = []
         self.row = 0 # index of current row
 
@@ -218,7 +219,9 @@ class SettingWidget(gtk.Table):
         assert default < len(items)
 
         def callback(combo, key, items):
-            self.setting[key] = items[combo.get_active()][1]
+            vlabel, value = items[combo.get_active()]
+            self.setting[key] = value
+            self.value_labels[key] = vlabel
 
         store = gtk.ListStore(str, object)
         combo = gtk.ComboBox(store)
@@ -250,15 +253,16 @@ class SettingWidget(gtk.Table):
             return
         assert default < len(items)
 
-        def callback(button, key, value):
+        def callback(button, key, value, vlabel):
             self.setting[key] = value
+            self.value_labels[key] = vlabel
 
         buttons = []
         vbox, hbox = gtk.VBox(), gtk.HBox()
         button = None
         for idx, (vlabel, value) in enumerate(items):
             button = gtk.RadioButton(button, vlabel)
-            button.connect("toggled", callback, key, value)
+            button.connect("toggled", callback, key, value, vlabel)
             buttons.append(button)
             hbox.pack_start(button, False, False, 3)
             idx += 1
@@ -269,7 +273,7 @@ class SettingWidget(gtk.Table):
             vbox.pack_start(hbox, False, False)
         buttons[default].set_active(True)
         # set default value
-        self.setting[key] = items[default][1]
+        self.value_labels[key], self.setting[key] = items[default]
         vbox.show_all()
         self.add_widget(key, label, vbox)
 
@@ -304,17 +308,20 @@ class SettingWidget(gtk.Table):
         assert all(index < len(items) for index in defaults)
 
         self.setting[key] = []
-        def callback(button, key, value):
+        self.value_labels[key] = []
+        def callback(button, key, value, vlabel):
             if value in self.setting[key]:
                 self.setting[key].remove(value)
+                self.value_labels[key].remove(vlabel)
             else:
                 self.setting[key].append(value)
+                self.value_labels[key].append(vlabel)
 
         buttons = []
         vbox, hbox = gtk.VBox(), gtk.HBox()
         for idx, (vlabel, value) in enumerate(items):
             button = gtk.CheckButton(vlabel)
-            button.connect("toggled", callback, key, value)
+            button.connect("toggled", callback, key, value, vlabel)
             if idx in defaults:
                 buttons.append(button)
             hbox.pack_start(button, False, False, 3)
@@ -349,14 +356,18 @@ class SettingWidget(gtk.Table):
         assert all(index< len(items) for index in defaults)
 
         self.setting[key] = []
+        self.value_labels[key] = []
         def callback(crtoggle, path, store):
             siter = store.get_iter(path)
+            vlabel = store.get_value(siter, 0)
             value = store.get_value(siter, 1)
             select = store.get_value(siter, 2)
             if select:
                 self.setting[key].remove(value)
+                self.value_labels[key].remove(vlabel)
             else:
                 self.setting[key].append(value)
+                self.value_labels[key].append(vlabel)
             store.set_value(siter, 2, not select)
 
         scw = gtk.ScrolledWindow()
@@ -629,7 +640,8 @@ class BasicSettingAssistant(gtk.Assistant):
             sw = sp.setting_widget
             smp.add_page_title(self.get_page_title(sp))
             for key in sw.keys_order:
-                smp.add_setting_value(sw.labels[key], sw.setting[key])
+                vlbl = sw.value_labels[key] if key in sw.value_labels else None
+                smp.add_setting_value(sw.labels[key], sw.setting[key], vlbl)
         smp.show_all()
         self.set_page_complete(smp, True)
 
@@ -736,9 +748,9 @@ class BasicSettingAssistant(gtk.Assistant):
             self.row += 1
             self.table.resize(self.row, 2)
 
-        def add_setting_value(self, vlabel, value):
+        def add_setting_value(self, name, value, vlabel):
             label = gtk.Label()
-            label.set_markup("<i>{0}:</i>".format(vlabel))
+            label.set_markup("<i>{0}:</i>".format(name))
             label.set_alignment(1, 1)
             self.table.attach(label,
                               0, 1,
@@ -746,10 +758,7 @@ class BasicSettingAssistant(gtk.Assistant):
                               xoptions=gtk.FILL, yoptions=0,
                               xpadding=10, ypadding=3)
 
-            if hasattr(value, "__name__"):
-                label = gtk.Label(value.__name__)
-            else:
-                label = gtk.Label(repr(value))
+            label = gtk.Label(repr(value) if vlabel is None else vlabel)
             label.set_alignment(0, 1)
             self.table.attach(label,
                               1, 2,
