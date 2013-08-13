@@ -123,7 +123,6 @@ class SourceView(gtk.Alignment, EventSource):
 
         item = gtk.MenuItem("Delete")
         item.connect("activate", lambda w: self._cb_delete())
-        self.btns_group1.append(item)
         menu.append(item)
 
         source_menu = gtk.MenuItem(">")
@@ -421,7 +420,6 @@ class Parameter(object, EventSource):
             raise ExtensionException(
                 "You try attach source to negative index"
                 "({0}) of parameter!".format(index))
-
         self.emit_event("parameter-changed")
 
     def detach_source(self, index=0):
@@ -501,11 +499,15 @@ class ParameterView(gtk.Table, EventSource):
             button.set_sensitive(attached_source is not None)
             button.connect(
                 "clicked",
-                lambda w, index: self.parameter.detach_source(index), i)
+                lambda w, index: self._cb_detach_source(index), i)
 
             self.attach(button, 3, 4, i, i+1, xoptions=0)
 
         self.show_all()
+
+    def _cb_detach_source(self, index):
+        self.parameter.detach_source(index)
+        self.emit_event("detach-source", self.parameter.get_source(index))
 
     def _cb_choose_parameter(self, widget, event, index):
         self.emit_event("filter-sources", [self.parameter.type])
@@ -579,13 +581,13 @@ class Operation(object, EventSource):
 
     def all_sources_filled(self):
         for parameter in self.parameters:
-            if (parameter.get_source() is None or
-                    parameter.get_source().data is None):
+            count = 0
+            for idx in xrange(parameter.sources_count()):
+                src = parameter.get_source(idx)
+                if src is not None and src.data is not None:
+                    count += 1
+            if count < parameter.minimum:
                 return False
-            if parameter.is_list():
-                for idx in xrange(parameter.minimum):
-                    if parameter.get_source(idx) is None:
-                        return False
         return True
 
     def deregister_callbacks(self):
@@ -726,6 +728,9 @@ class OperationFullView(gtk.VBox, EventSource):
                 "select-parameter",
                 lambda param, idx: self.emit_event(
                     "select-parameter", param, idx))
+            self.events.set_callback(
+                param_view, "detach-source",
+                lambda s: self.emit_event("detach-source", s))
 
             self.pack_start(param_view, False, False)
 
@@ -765,7 +770,8 @@ class ExtensionManager(gtk.VBox):
         # repository of loaded sources
         self.sources_repository = sources_repository
         self.events.set_callback(
-            self.sources_repository, "source-removed", self._cb_detach_source)
+            self.sources_repository, "source-removed",
+            self._cb_detach_source_from_all_operations)
 
         # full view of selected operation
         self.full_view = OperationFullView(self.app)
@@ -777,6 +783,8 @@ class ExtensionManager(gtk.VBox):
             lambda f: self.sources_view.set_filter(f))
         self.events.set_callback(
             self.full_view, "operation-finished", self._cb_operation_finished)
+        self.events.set_callback(
+            self.full_view, "detach-source", self._cb_detach_source)
 
         # toolbar
         toolbar = gtk.HBox(False)
@@ -958,6 +966,13 @@ class ExtensionManager(gtk.VBox):
                 "No operation is chosen.", gtk.MESSAGE_INFO)
 
     def _cb_detach_source(self, source):
+        operation = self.full_view.operation
+        if operation is not None:
+            param, idx = operation.selected_parameter
+            if param is not None:
+                operation.select_parameter(param, idx-1)
+
+    def _cb_detach_source_from_all_operations(self, source):
         """Detach source from all operation's parameters."""
 
         for operation in self.loaded_operations:
