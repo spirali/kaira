@@ -153,7 +153,7 @@ types_repository.append(t_tracelog)
 t_table = Type("Table", "Table", ["csv"])
 
 def show_csv_setting_dialog(parent_window):
-    sw = settingswindow.SettingsWidget()
+    sw = settingswindow.SettingWidget()
 
     sw.add_combobox("delimiter",
                     "Delimiter",

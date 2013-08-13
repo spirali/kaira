@@ -340,7 +340,6 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
         self.remove(source_view)
 
     def _cb_attach_source(self, source):
-        # redirect the event from repository
         self.emit_event("attach-source", source)
 
     def _cb_data_changed(self, source):
@@ -632,8 +631,8 @@ class Operation(object, EventSource):
             return
 
         for parameter in self.parameters:
-            if source.type == parameter.type and \
-                    (parameter.is_empty() or parameter.is_list()):
+            if (source.type == parameter.type and
+                    (parameter.is_empty() or parameter.is_list())):
                 parameter.attach_source(source)
                 return
 

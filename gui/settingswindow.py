@@ -20,8 +20,8 @@
 import gtk
 import gobject
 
-class SettingsWidget(gtk.Table):
-    """General widget for visualize and change settings parameters.
+class SettingWidget(gtk.Table):
+    """General widget for visualize and change setting parameters.
     The parameters are stored in form of dictionary (key: value). It means
     that every parameter must have a unique key. The widget also provides with
     two specific event signals: value-status-changed and select-key.
@@ -40,19 +40,20 @@ class SettingsWidget(gtk.Table):
         gtk.Table.__init__(self, 1, 2, False)
         self.set_row_spacings(5)
         self.set_col_spacing(0, 10)
-        self.settings = dict() # key: value
-        self.value_status = dict() # key: (true|false, message)
-        self.widgets = dict() # key: widget
-        self.labels = dict()  # key: label
+        self.setting = {} # key: value
+        self.value_status = {} # key: (true|false, message)
+
+        self.widgets = {} # key: widget
+        self.labels = {}  # key: label
         self.keys_order = []
         self.row = 0 # index of current row
 
     def set(self, key, value):
-        self.settings[key] = value
+        self.setting[key] = value
 
     def get(self, key):
-        assert(key in self.settings)
-        return self.settings[key]
+        assert key in self.setting
+        return self.setting[key]
 
     def set_value_status(self, key, status, message=None):
         """Set a status to specific value. If the status is True, the message
@@ -172,7 +173,7 @@ class SettingsWidget(gtk.Table):
         than it throws a ValueError. (default: function returns given value)
 
         """
-        self.settings[key] = default
+        self.setting[key] = default
 
         def callback(editable, key, std_color):
             try:
@@ -183,7 +184,7 @@ class SettingsWidget(gtk.Table):
                     self.set_value_status(key, False, message)
                 else:
                     editable.modify_text(gtk.STATE_NORMAL, std_color)
-                    self.settings[key] = value
+                    self.setting[key] = value
                     self.set_value_status(key, True)
 
             except ValueError:
@@ -203,7 +204,7 @@ class SettingsWidget(gtk.Table):
 
         """Adds to a setting widget a combo-box where it can be selected one
         of the items. If the list of items is empty then is add parameter to
-        settings.
+        setting.
 
         Arguments:
         key -- unique key
@@ -212,12 +213,12 @@ class SettingsWidget(gtk.Table):
         default -- index of default item
 
         """
-        if len(items) == 0:
+        if not items:
             return
-        assert(default < len(items))
+        assert default < len(items)
 
         def callback(combo, key, items):
-            self.settings[key] = items[combo.get_active()][1]
+            self.setting[key] = items[combo.get_active()][1]
 
         store = gtk.ListStore(str, object)
         combo = gtk.ComboBox(store)
@@ -236,7 +237,7 @@ class SettingsWidget(gtk.Table):
 
         Arguments:
         key -- unique key
-        label -- the showed label in settings widget
+        label -- the showed label in setting widget
         items -- couples: (label, object)
 
         Keywords:
@@ -245,17 +246,17 @@ class SettingsWidget(gtk.Table):
         (default: 1)
 
         """
-        if len(items) == 0:
+        if not items:
             return
-        assert(default < len(items))
+        assert default < len(items)
 
         def callback(button, key, value):
-            self.settings[key] = value
+            self.setting[key] = value
 
         buttons = []
         vbox, hbox = gtk.VBox(), gtk.HBox()
-        idx, button = 0, None
-        for vlabel, value in items:
+        button = None
+        for idx, (vlabel, value) in enumerate(items):
             button = gtk.RadioButton(button, vlabel)
             button.connect("toggled", callback, key, value)
             buttons.append(button)
@@ -267,15 +268,17 @@ class SettingsWidget(gtk.Table):
         if idx % ncols != 0: # add last unprocessed row
             vbox.pack_start(hbox, False, False)
         buttons[default].set_active(True)
+        # set default value
+        self.setting[key] = items[default][1]
         vbox.show_all()
         self.add_widget(key, label, vbox)
 
     def add_checkbutton(self, key, label, default_value=True, button_label=""):
 
-        self.settings[key] = default_value
+        self.setting[key] = default_value
 
         def callback(button, key):
-            self.settings[key] = not self.settings[key]
+            self.setting[key] = not self.setting[key]
 
         button = gtk.CheckButton(button_label)
         button.set_active(default_value) # also set default value
@@ -283,8 +286,7 @@ class SettingsWidget(gtk.Table):
         self.add_widget(key, label, button)
 
     def add_checkbuttons(self, key, label, items, defaults=[0], ncols=1):
-        """Add to setting widget a list of check-box buttons and in the
-        settings it is represented by a list of selected values.
+        """Adds to a setting widget a list of check-box buttons.
 
         Arguments:
         key -- unique key
@@ -297,21 +299,20 @@ class SettingsWidget(gtk.Table):
         (default: 1)
 
         """
-        if len(items) == 0:
+        if not items:
             return
-        assert(all([index < len(items) for index in defaults]))
+        assert all(index < len(items) for index in defaults)
 
-        self.settings[key] = []
+        self.setting[key] = []
         def callback(button, key, value):
-            if value in self.settings[key]:
-                self.settings[key].remove(value)
+            if value in self.setting[key]:
+                self.setting[key].remove(value)
             else:
-                self.settings[key].append(value)
+                self.setting[key].append(value)
 
         buttons = []
         vbox, hbox = gtk.VBox(), gtk.HBox()
-        idx = 0
-        for vlabel, value in items:
+        for idx, (vlabel, value) in enumerate(items):
             button = gtk.CheckButton(vlabel)
             button.connect("toggled", callback, key, value)
             if idx in defaults:
@@ -330,20 +331,32 @@ class SettingsWidget(gtk.Table):
         self.add_widget(key, label, vbox)
 
     def add_checkbuttons_list(self, key, label, items, defaults=[]):
+        """Adds a list of check button in form of two columns table, where
+        the first one contains a name of a value and the second one contains a
+        check-button for select/deselect values.
 
-        if len(items) == 0:
+        Arguments:
+        key -- unique key
+        label -- the showed name in setting widget
+        items -- a list of couples (label, object)
+
+        Keywords:
+        defaults -- a list of indexes which will be selected by default
+
+        """
+        if not items:
             return
-        assert(all([index< len(items) for index in defaults]))
+        assert all(index< len(items) for index in defaults)
 
-        self.settings[key] = []
+        self.setting[key] = []
         def callback(crtoggle, path, store):
             siter = store.get_iter(path)
             value = store.get_value(siter, 1)
             select = store.get_value(siter, 2)
             if select:
-                self.settings[key].remove(value)
+                self.setting[key].remove(value)
             else:
-                self.settings[key].append(value)
+                self.setting[key].append(value)
             store.set_value(siter, 2, not select)
 
         scw = gtk.ScrolledWindow()
@@ -392,19 +405,25 @@ class SettingsWidget(gtk.Table):
 
 
 # register new signals to setting widget
-gobject.type_register(SettingsWidget)
+gobject.type_register(SettingWidget)
+""" It is emitted when the status of a value is changed. Something is wrong
+or some mistake was corrected. """
 gobject.signal_new("value-status-changed",
-                   SettingsWidget,
+                   SettingWidget,
                    gobject.SIGNAL_RUN_FIRST,
                    gobject.TYPE_NONE,
                    (gobject.TYPE_PYOBJECT,))
+
+""" It is emitted when the widget get the focus. """
 gobject.signal_new("select-key",
-                   SettingsWidget,
+                   SettingWidget,
                    gobject.SIGNAL_RUN_FIRST,
                    gobject.TYPE_NONE,
                    (gobject.TYPE_PYOBJECT,))
+
+""" It is emitted when the widget lose the focus. """
 gobject.signal_new("value-committed",
-                   SettingsWidget,
+                   SettingWidget,
                    gobject.SIGNAL_RUN_FIRST,
                    gobject.TYPE_NONE,
                    (gobject.TYPE_PYOBJECT,))
@@ -464,7 +483,7 @@ class SettingPage(gtk.VBox):
     def get_setting(self):
         if self.setting_widget is None:
             return None
-        return self.setting_widget.settings
+        return self.setting_widget.setting
 
     def are_values_correct(self):
         if self.setting_widget is None:
@@ -476,7 +495,7 @@ class SettingPage(gtk.VBox):
             self.set_wrong_message()
             return
 
-        for key in self.setting_widget.settings:
+        for key in self.setting_widget.setting:
             msg = self.setting_widget.get_value_status_message(key)
             if msg is not None:
                 self.set_wrong_message(key, msg)
@@ -559,6 +578,8 @@ class BasicSettingDialog(gtk.Dialog):
 class BasicSettingAssistant(gtk.Assistant):
 
     def __init__(self, pages_count, title, parent=None):
+        assert pages_count > 0
+
         gtk.Assistant.__init__(self)
         self._response = None
         self._last_page = 0
@@ -574,7 +595,6 @@ class BasicSettingAssistant(gtk.Assistant):
         self.pages = []
         self.create_functions = []
 
-        assert(self.pages_count > 0)
         if self.pages_count == 1:
             self.__add_empty_setting_page(gtk.ASSISTANT_PAGE_INTRO)
             self.__add_empty_summary_page()
@@ -609,7 +629,7 @@ class BasicSettingAssistant(gtk.Assistant):
             sw = sp.setting_widget
             smp.add_page_title(self.get_page_title(sp))
             for key in sw.keys_order:
-                smp.add_setting_value(sw.labels[key], sw.settings[key])
+                smp.add_setting_value(sw.labels[key], sw.setting[key])
         smp.show_all()
         self.set_page_complete(smp, True)
 
@@ -726,7 +746,10 @@ class BasicSettingAssistant(gtk.Assistant):
                               xoptions=gtk.FILL, yoptions=0,
                               xpadding=10, ypadding=3)
 
-            label = gtk.Label(repr(value))
+            if hasattr(value, "__name__"):
+                label = gtk.Label(value.__name__)
+            else:
+                label = gtk.Label(repr(value))
             label.set_alignment(0, 1)
             self.table.attach(label,
                               1, 2,
