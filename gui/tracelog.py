@@ -107,11 +107,11 @@ class TraceLog:
             trace.pointer = event_pointer.pointer
             trace.process_event(ri)
             if ri.last_event == "fire":
-                sequence.add_fire(ri.last_event_process,
+                sequence.add_transition_start(ri.last_event_process,
                                   ri.last_event_thread,
                                   ri.last_event_activity.transition.get_name())
             elif ri.last_event == "finish":
-                sequence.add_finish(ri.last_event_process, ri.last_event_thread)
+                sequence.add_transition_finish(ri.last_event_process, ri.last_event_thread)
             elif ri.last_event == "receive":
                 sequence.add_receive(ri.last_event_process,
                                      ri.last_event_thread,

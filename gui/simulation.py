@@ -159,13 +159,23 @@ class Simulation(EventSource):
             if command[0] >= sequence.get_commands_size():
                 self.query_reports()
                 return
-            sequence.execute_command(command[0], fire, finish, receive)
+            sequence.execute_command(command[0], fire, start, finish, receive)
             command[0] += 1
 
         def fail_callback():
             self.emit_event("command-failed", sequence, command[0] - 1)
 
         def fire(process_id, thread_id, transition):
+            t = transitions.get(transition)
+            if t is None:
+                 raise SimulationException("Transition not found")
+            self.fire_transition(t.id,
+                                 process_id,
+                                 2,
+                                 ok_callback=next_command,
+                                 query_reports=False)
+
+        def start(process_id, thread_id, transition):
             t = transitions.get(transition)
             if t is None:
                  raise SimulationException("Transition not found")
@@ -233,9 +243,12 @@ class Simulation(EventSource):
             name = transition.get_name()
             if not name:
                 name = "#{0}".format(transition.id)
-            self.sequence.add_fire(process_id, 0, name)
-            if transition.has_code() and phases == 2:
-                self.sequence.add_finish(process_id, 0)
+            if phases == 2:
+                self.sequence.add_fire(process_id, 0, name)
+            else:
+                self.sequence.add_transition_start(process_id, 0, name)
+                if transition.has_code():
+                    self.sequence.add_transition_finish(process_id, 0)
             if query_reports:
                 self.query_reports(ok_callback)
             elif ok_callback:
@@ -252,7 +265,7 @@ class Simulation(EventSource):
                           fail_callback=None,
                           query_reports=True):
         def callback():
-            self.sequence.add_finish(process_id, thread_id)
+            self.sequence.add_transition_finish(process_id, thread_id)
             if query_reports:
                 self.query_reports(ok_callback)
             elif ok_callback:

@@ -24,7 +24,7 @@ import objectlist
 import xml.etree.ElementTree as xml
 
 command_parser = re.compile(
-   "(?P<process>\d+) (?P<thread>\d+) (?P<action>[SFR])( ((?P<arg_int>\d+)|(?P<arg_str>.*)))?"
+   "(?P<process>\d+) (?P<thread>\d+) (?P<action>[SFTR])( ((?P<arg_int>\d+)|(?P<arg_str>.*)))?"
 )
 
 def sequence_dialog(sequence, mainwindow):
@@ -71,11 +71,11 @@ class ControlSequence:
         element.text = "\n".join(self.commands)
         return element
 
-    def execute(self, on_fire, on_finish, on_receive):
+    def execute(self, on_fire, on_transition_start, on_transition_finish, on_receive):
         for i in xrange(len(self.commands)):
-            self.execute_command(i, on_fire, on_finish, on_receive)
+            self.execute_command(i, on_fire, on_transition_start, on_transition_finish, on_receive)
 
-    def execute_command(self, i, on_fire, on_finish, on_receive):
+    def execute_command(self, i, on_fire, on_transition_start, on_transition_finish, on_receive):
         line = self.commands[i]
         match = command_parser.match(line)
         if match is None:
@@ -84,32 +84,44 @@ class ControlSequence:
         process = int(match.group("process"))
         thread = int(match.group("thread"))
         action = match.group("action")
-        if action == "S":
+
+        if action == "T":
             if match.group("arg_int"):
                 arg = match.group("arg_int")
             else:
                 arg = match.group("arg_str")
             return on_fire(process, thread, arg)
-        elif action == "F":
-            return on_finish(process, thread)
-        else:
+        elif action == "R":
             arg_int = match.group("arg_int")
             if arg_int is None:
                 raise ControlSequenceException("Invalid format of receive")
             return on_receive(process, thread, int(arg_int))
+        elif action == "S":
+            if match.group("arg_int"):
+                arg = match.group("arg_int")
+            else:
+                arg = match.group("arg_str")
+            return on_transition_start(process, thread, arg)
+        else: # action == "F":
+            return on_transition_finish(process, thread)
 
     def get_commands_size(self):
         return len(self.commands)
 
     def add_fire(self, process, thread, transition):
-        self.commands.append("{0} {1} S {2}".format(process, thread, transition))
+        self.commands.append("{0} {1} T {2}".format(process, thread, transition))
         if self.view:
             self.view.add_fire(process, thread, transition)
 
-    def add_finish(self, process, thread):
+    def add_transition_start(self, process, thread, transition):
+        self.commands.append("{0} {1} S {2}".format(process, thread, transition))
+        if self.view:
+            self.view.add_transition_start(process, thread, transition)
+
+    def add_transition_finish(self, process, thread):
         self.commands.append("{0} {1} F".format(process, thread))
         if self.view:
-            self.view.add_finish(process, thread)
+            self.view.add_transition_finish(process, thread)
 
     def add_receive(self, process, thread, from_process):
         self.commands.append("{0} {1} R {2}".format(process, thread, from_process))
@@ -127,16 +139,24 @@ class SequenceView(gtkutils.SimpleList):
 
     def load_sequence(self, sequence):
         self.clear()
-        sequence.execute(self.add_fire, self.add_finish, self.add_receive)
+        sequence.execute(self.add_fire,
+                         self.add_transition_start,
+                         self.add_transition_finish,
+                         self.add_receive)
 
     def add_fire(self, process_id, thread_id, transition):
         self.append(("{0}/{1}".format(process_id, thread_id),
                      "<span background='green'>Fire</span>",
                      transition))
 
-    def add_finish(self, process_id, thread_id):
+    def add_transition_start(self, process_id, thread_id, transition):
         self.append(("{0}/{1}".format(process_id, thread_id),
-                     "<span background='#FF7070'>Finish</span>",
+                     "<span background='lightgreen'>StartT</span>",
+                     transition))
+
+    def add_transition_finish(self, process_id, thread_id):
+        self.append(("{0}/{1}".format(process_id, thread_id),
+                     "<span background='#FF7070'>FinishT</span>",
                      ""))
 
     def add_receive(self, process_id, thread_id, from_process):

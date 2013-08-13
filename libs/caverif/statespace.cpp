@@ -421,7 +421,7 @@ static void write_control_line(ca::NetDef *def, std::stringstream &s, const Next
 		case ActionFire: {
 			s << nninfo.data.fire.process_id;
 			s << " " << nninfo.data.fire.thread_id;
-			s << " S ";
+			s << " T ";
 			ca::TransitionDef *t = def->get_transition_def(nninfo.data.fire.transition_id);
 			if (t->get_name().size() > 0) {
 				s << t->get_name();
@@ -430,10 +430,6 @@ static void write_control_line(ca::NetDef *def, std::stringstream &s, const Next
 			}
 			break;
 		}
-		case ActionFinish:
-			s << nninfo.data.finish.process_id;
-			s << " " << nninfo.data.finish.thread_id << " F";
-			break;
 		case ActionReceive:
 			s << nninfo.data.receive.process_id;
 			s << " 0 R " << nninfo.data.receive.source_id;
@@ -447,14 +443,16 @@ void Core::write_control_sequence(std::vector<Node*> &nodes, ca::Output &report)
 	std::vector<Node*> path;
 	Node *node;
 
-	if(nodes.size() == 0) {
+	if (nodes.size() == 0) {
 		fprintf(stderr, "Control sequence of zero length cannot be written\n");
 		exit(1);
 	}
+
 	path.reserve(nodes[0]->get_distance() + nodes.size());
 	for (int i = nodes.size() - 1; i > 0; i--) {
 		path.push_back(nodes[i]);
 	}
+
 	node = nodes[0];
 	do {
 		path.push_back(node);
@@ -464,7 +462,7 @@ void Core::write_control_sequence(std::vector<Node*> &nodes, ca::Output &report)
 	Node *prev = path[path.size() - 1];
 	for (std::vector<Node*>::reverse_iterator i = path.rbegin() + 1;
 		 i != path.rend();
-         ++i) {
+		 ++i) {
 		write_control_line(net_def, s, prev->get_next_node_info(*i));
 		prev = *i;
 	}
