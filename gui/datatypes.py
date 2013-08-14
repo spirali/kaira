@@ -192,7 +192,6 @@ def load_csv(filename, app, setting=None):
     if setting is None:
         setting = show_csv_setting_dialog(app.window)
         t_table.setting = setting
-
     if setting is None:
         return # setting was canceled
 
@@ -200,14 +199,18 @@ def load_csv(filename, app, setting=None):
     with open(filename, "rb") as csvfile:
         csvreader = csv.reader(
             csvfile, delimiter=delimiter, quotechar=quotechar)
+
         data = []
-        if has_header:
-            header = csvreader.next()
-        else:
-            row = csvreader.next()
-            data.append(row)
-            count = len(row)
-            header = ["V{0}".format(i) for i in xrange(count)]
+        try:
+            if has_header:
+                header = csvreader.next()
+            else:
+                row = csvreader.next()
+                data.append(row)
+                count = len(row)
+                header = ["V{0}".format(i) for i in xrange(count)]
+        except StopIteration:
+            return (["V0"], [])
 
         for row in csvreader:
             data.append(row)
