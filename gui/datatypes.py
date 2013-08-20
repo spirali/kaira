@@ -183,7 +183,7 @@ def show_csv_setting_dialog(parent_window):
     dialog.destroy()
     return None
 
-def load_csv(filename, app, setting=None):
+def load_csv(filename, app, setting):
     if setting is None:
         setting = show_csv_setting_dialog(app.window)
         t_table.setting = setting
@@ -212,7 +212,7 @@ def load_csv(filename, app, setting=None):
         return (header, data)
 t_table.register_load_function("csv", load_csv)
 
-def store_csv(data, filename, file_extension, app, setting=None):
+def store_csv(data, filename, file_extension, app, setting):
     header, rows = data
     if setting is None:
         setting = show_csv_setting_dialog(app.window)
