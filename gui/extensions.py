@@ -164,9 +164,7 @@ class SourceView(gtk.Alignment, EventSource):
                 return
             tabname = "{0} ({1})".format(
                 self.source.type.short_name, os.path.basename(self.source.name))
-            self.tabview = Tab(
-                tabname, view,
-                mainmenu_groups=self.source.type.get_mainmenu_groups())
+            self.tabview = Tab(tabname, view)
 
             # modify close method
             origin_close = self.tabview.close

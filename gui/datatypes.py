@@ -105,9 +105,6 @@ class Type(object):
     def get_view(self, data, app):
         return None
 
-    def get_mainmenu_groups(self): # TODO: should it be removed?
-        return []
-
     def register_load_function(self, extension, function):
         self.loaders[extension] = function
 
@@ -139,8 +136,6 @@ def load_kth(filename, app, setting=None):
         return
     return app._catch_io_error(lambda: TraceLog(filename))
 t_tracelog.register_load_function("kth", load_kth)
-
-t_tracelog.get_mainmenu_groups = lambda: ["screenshot"]
 
 def tracelog_view(data, app):
     return runview.RunView(app, data)
