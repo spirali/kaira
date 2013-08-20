@@ -89,15 +89,15 @@ def write_transition_forward(builder, tr):
                                     tr.priority) ])
     builder.write_method_end()
     builder.line("ca::FireResult full_fire(ca::ThreadBase *thread, ca::NetBase *net);")
-    builder.line("ca::FireResult full_fire_with_binding(ca::ThreadBase *thread, ca::NetBase *net, ca::Packer &$packer);")
     builder.line("void* fire_phase1(ca::ThreadBase *thread, ca::NetBase *net);")
     builder.line("void fire_phase2(ca::ThreadBase *thread, ca::NetBase *net, void *data);")
     builder.line("void fire_phase2_ro_binding"
                  "(ca::ThreadBase *thread, ca::NetBase *net, void *data);")
     builder.line("void cleanup_binding(void *data);")
     builder.line("bool is_enable(ca::ThreadBase *thread, ca::NetBase *net);")
-    if builder.generate_all_pack:
+    if builder.pack_bindings:
         builder.line("void pack_binding(ca::Packer &packer, void *data);")
+        builder.line("ca::FireResult full_fire_with_binding(ca::ThreadBase *thread, ca::NetBase *net, ca::Packer &$packer);")
     builder.write_class_end()
     builder.line("static Transition_{0.id} transition_{0.id};",
         tr, const_boolean(not tr.has_code()))
@@ -107,14 +107,14 @@ def write_transition_functions(builder,
                                tr,
                                locking=True):
     write_full_fire(builder, tr, locking=locking)
-    write_full_fire_with_binding(builder, tr, locking=locking)
     write_fire_phase1(builder, tr)
     write_fire_phase2(builder, tr)
     write_fire_phase2(builder, tr, readonly_binding=True)
     write_cleanup_binding(builder, tr)
     write_enable_check(builder, tr)
-    if builder.generate_all_pack:
+    if builder.pack_bindings:
         write_pack_binding(builder, tr)
+        write_full_fire_with_binding(builder, tr, locking=locking)
 
 def write_transition_user_function(builder, tr, forward=False):
     args = [ "ca::Context &ctx, Vars_{0.id} &var".format(tr) ]

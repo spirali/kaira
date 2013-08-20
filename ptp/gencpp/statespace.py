@@ -120,7 +120,7 @@ def write_main(builder):
 
 def write_statespace_program(builder):
     builder.thread_class = "cass::Thread"
-    builder.generate_all_pack = True
+    builder.pack_bindings = True
 
     build.write_header(builder)
     builder.line("#include <caverif.h>")

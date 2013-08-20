@@ -4,6 +4,7 @@
 
 #include <queue>
 #include <stdio.h>
+#include <stdlib.h>
 #include "output.h"
 #include "packing.h"
 
@@ -46,7 +47,10 @@ class TransitionDef {
 		}
 
 		virtual FireResult full_fire(ThreadBase *thread, NetBase *net) = 0;
-		virtual FireResult full_fire_with_binding(ThreadBase *thread, NetBase *net, ca::Packer &packer) = 0;
+		virtual FireResult full_fire_with_binding(ThreadBase *thread, NetBase *net, ca::Packer &packer) {
+			fprintf(stderr, "Internal error: full_fire_with_binding\n");
+			abort();
+		};
 		virtual void* fire_phase1(ThreadBase *thread, NetBase *net) = 0;
 		virtual void fire_phase2(ThreadBase *thread, NetBase *net, void *data) = 0;
 		virtual void fire_phase2_ro_binding

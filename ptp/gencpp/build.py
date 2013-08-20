@@ -33,7 +33,7 @@ class Builder(CppWriter):
         self.thread_class = "ca::Thread"
 
         # Generate packing function for all structures
-        self.generate_all_pack = False
+        self.pack_bindings = False
 
 
 def write_first_lines(builder):
