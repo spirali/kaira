@@ -1,0 +1,155 @@
+
+Kaira Developer's Guide
+=======================
+
+This guide serves as a manual for developers. There are described the basic
+components of tool Kaira (http://verif.cs.vsb.cz/kaira).
+
+User's extension
+----------------
+
+Kaira can be extended by user's extensions in form of operations. To an
+operation can be looked upon similarly like to a mathematical function that
+takes some arguments and produce one or more results. For these inputs
+(arguments) and outputs (results) must be explicitly specified their data type.
+Developers can use data types that were already implemented or define new one.
+
+There are firstly described two basic objects that serves as an interface for
+user's operations. Next follows an easy example of a user's data type
+and an operation that use that. At the end is said how to these new components
+integrate to Kaira.
+
+Types
+~~~~~
+As it was mentioned, every operation must specify data types of their
+inputs/outputs. For this purpose there is class +Type+ in module +datatypes+).
+Every data type is consists of:
+
+- a *name*,
+- a *short name*,
+- a *list of supported file types* (files extensions), and
+- two dictionaries with *methods for loading or storing data* (for every
+supported file extensions there may be registered a load/store method).
+
+For add a new load/store method there are functions
+*register_(load/store)_function*. The functions takes a name of the file
+extension (it must be in a supported file types list) and a load/store function.
+
+There is also method for getting visual representation of a data; the method
++get_view+ that returns a gtk component or +None+ (default).
+
+Methods for load, store, and visualization data contains a reference
+to the application instance, where is a lot of useful methods, for dialogs,
+catching exceptions, etc.
+
+There is an example of an easy data type for working with 'csv' files. The
+example shows how to add a new data type. Every (new) data type is a part of
+the module +datatypes+.
+
+.Example of add a new data type
+-------------------------------------------------------------------------------
+t_table = Type("Table", "Table", ["csv"]) # <1>
+
+def load_csv(filename, app, setting): # <2>
+    if setting is None:
+        setting = show_csv_setting_dialog(app.window)
+        t_table.setting = setting
+    if setting is None:
+        return # setting was canceled
+
+    delimiter, quotechar, has_header = setting
+    with open(filename, "rb") as csvfile:
+        csvreader = csv.reader(
+            csvfile, delimiter=delimiter, quotechar=quotechar)
+
+        data = []
+        try:
+            if has_header:
+                header = csvreader.next()
+            else:
+                row = csvreader.next()
+                data.append(row)
+                count = len(row)
+                header = ["V{0}".format(i) for i in xrange(count)]
+        except StopIteration:
+            return (["V0"], [])
+
+        for row in csvreader:
+            data.append(row)
+        return (header, data)
+t_table.register_load_function("csv", load_csv) # <3>
+
+...
+-------------------------------------------------------------------------------
+
+<1> Create a new data type.
+<2> Define a method for loading data. It takes a name of a file, a reference to
+the application, and a <<inner-setting, setting>>.
+<3> Register the load function to the data type; bind this to 'csv' format.
+
+[[inner-setting]]
+.Setting
+The functions for load and store data may require some setting from a user.
+E.g. the function +load_csv+ requires information about type of separator or
+items delimiter. In this case; if the setting is once given then
+the same one is used by the next calling on the same file. If the setting
+is empty then is show a dialog (method: +show_csv_setting_dialog+). The easy
+way how to create that dialog will be shown in the <<setting-widget-category,
+setting widget>> category.
+
+.Finalize the example of adding new data type.
+-------------------------------------------------------------------------------
+...
+
+def store_csv(data, filename, file_extension, app, setting): # <1>
+    header, rows = data
+    if setting is None:
+        setting = show_csv_setting_dialog(app.window)
+    delimiter, quotechar, has_header = setting
+    with open("{0}.{1}".format(filename, file_extension), "wb") as csvfile:
+        csvwriter = csv.writer(
+            csvfile, delimiter=delimiter, quotechar=quotechar)
+        if has_header:
+            csvwriter.writerow(header)
+        for row in rows:
+            csvwriter.writerow(row)
+t_table.register_save_function("csv", store_csv) # <2>
+
+def csv_view(data, app): # <3>
+    header, rows = data
+    colnames = [(title, str) for title in header]
+
+    view = gtkutils.SimpleList(colnames)
+    idx = 1
+    for row in rows:
+        try:
+            view.append(row)
+            idx += 1
+        except ValueError:
+            required_len = len(header) if header is not None else len(rows[0])
+            msg = ("Row sequence has wrong length. It must have {0} items"
+                    " instead of {1}.\nThe problem row is index is {2}.".
+                        format(required_len, len(row), idx))
+            app.show_message_dialog(msg, gtk.MESSAGE_WARNING)
+    return view
+t_table.get_view = csv_view # <4>
+
+types_repository.append(t_table) # <5>
+-------------------------------------------------------------------------------
+
+<1> Define a method for storing data. It takes a data, a name of a file,
+file extensions, a reference to the application, and <<inner-setting, setting>>.
+<2> Register the save function to the 'csv' files types.
+<3> Define method for visualize data. It creates a list of rows of a table.
+<4> Assign the visualization method.
+<5> Append the new data type to the types repository which is part of the
++datatypes+ module.
+
+Operation
+~~~~~~~~~
+ ...
+
+[[setting-widget-category]]
+Setting widget
+--------------
+ ...
