@@ -47,6 +47,7 @@ example shows how to add a new data type. Every (new) data type is a part of
 the module +datatypes+.
 
 .Example of add a new data type
+[source,python]
 -------------------------------------------------------------------------------
 t_table = Type("Table", "Table", ["csv"]) # <1>
 
@@ -97,7 +98,8 @@ is empty then is show a dialog (method: +show_csv_setting_dialog+). The easy
 way how to create that dialog will be shown in the <<setting-widget-category,
 setting widget>> category.
 
-.Finalize the example of adding new data type.
+.Finalize the example of adding new data type
+[source,python]
 -------------------------------------------------------------------------------
 ...
 
@@ -147,7 +149,103 @@ file extensions, a reference to the application, and <<inner-setting, setting>>.
 
 Operation
 ~~~~~~~~~
- ...
+
+The extensions are provided in form of operations. It is similar to
+mathematical conception of operations. An operation has some inputs parameters
+and produce some outputs (from 'zero' to 'N' outputs are allowed).
+The operation as such does not have any side effect, only it takes inputs and
+produce outputs.
+
+All of the operations (extensions) are stored in the directory:
++$KAIRA_DIR/gui/extensions/+. Operations in modules there are automatically
+loaded after start application. One module can get together more operations.
+
+All the supportive class for creating a new operation are in
++gui/extensions.py+ module. For creating a new operation is necessary to make
+a new module in +gui/extensions/+ or use one of existing. Every operation
+extends the +extensions.Operation+ class.
+
+.Create an operation for filtering table data
+[source,python]
+-------------------------------------------------------------------------------
+import gtk
+import settingswindow
+from extensions import Argument, Source, Operation, add_operation # <1>
+from datatypes import t_table # <2>
+
+class Filter(Operation): # <3>
+
+    # <4>
+    name = "Table filter"
+    description = "Data are filtered by a value(s) in specific column(s)"
+    arguments = [Argument("Data", t_table)]
+
+    def run(self, app, data):
+        header, rows = data
+
+        # <5>
+        assistant = settingswindow.BasicSettingAssistant(2,
+                                                         "Filter setting",
+                                                         app.window)
+        # ... define a content of the assistant ...
+
+        response = assistant.run()
+        if response != gtk.RESPONSE_OK:
+            return None
+
+        selected_columns = assistant.collected_setting[0]["selected_cols"]
+        filter_by = assistant.collected_setting[1]
+
+        cmp_fns = {} # compare functions
+        for col_idx in selected_columns:
+            cmp_fns[col_idx] = filter_by.get("cmp_fn{0}".format(col_idx))
+
+        # <6>
+        # filter data
+        def f(row):
+            return all(cmp_fns[idx](filter_by[idx], row[idx])
+                       for idx in selected_columns)
+
+        filtered_data = (header, filter(f, rows))
+        return Source("Filtered table", t_table, filtered_data) # <7>
+
+add_operation(Filter) # <8>
+
+-------------------------------------------------------------------------------
+
+<1> Import important class and a function from +extensions+ module.
+<2> Import required data type from +datatypes+ module.
+<3> Define a new operation. 'It must extends extensions.Operation'.
+<4> Define the standard parameters of an operation. These must be a class
+arguments, they are constants that cannot be changed; read-only arguments.
+* *name*, a name of the operation,
+* *description*, a short description about what an operation does,
+* *arguments*, a list of argument instances (+extensions.Argument+), from them
+are generated functions parameters.
+
+<5> Between '5' and '6' is defined an assistant widget for getting some
+setting information from a user. This will be described more detailed in
+a section <<setting-widget-category, setting widget>> category.
+<6> There is the proper body of the operation, there is a code for filtering
+data.
+<7> The resulting data are packed to a Source and it is returned as result of
+the function. *The all of the functions must return a +extension.Source+ type
+or a list of sources.
+<8> The last and the most important think is that *every operation* which should
+be visible in the extension manager *must be registered*. For this there is
+the method +extensions.add_operation+. It takes a reference to a class of
+an operation.
+
+Visualization of operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+When you are finished your operation and it is successfully loaded than you
+will see it in the tool window. It is look like at the following picture:
+image:img/tool-window.png[alt="Tools window visualization", width=800]
+
+If a user create his/her operation in the same way as it was described above
+than the visualization of an operation and its integration to the extension
+manager is done automatically.
+
 
 [[setting-widget-category]]
 Setting widget
