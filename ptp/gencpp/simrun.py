@@ -38,12 +38,12 @@ def write_clock(builder, tr):
     class_name = "Clock_{0.id}".format(tr)
     builder.write_class_head(class_name, "ca::Clock")
     builder.write_constructor(class_name,
-                              "ca::Context &ctx",
-                              [ "ctx(ctx)" ])
+                                "ca::ThreadBase *thread",
+                              [ "ctx(thread)" ])
     builder.write_method_end()
     builder.line("ca::IntTime tock();")
     builder.line("protected:")
-    builder.line("ca::Context &ctx;")
+    builder.line("casr::Context ctx;")
     builder.write_class_end()
 
 def write_clock_tock(builder, tr):
@@ -76,7 +76,6 @@ def write_main(builder):
 
 def write_simrun_program(builder):
     build.write_header(builder)
-    builder.line("#include <simrun.h>")
     write_clocks(builder)
     buildnet.write_core(builder)
     write_run_configuration(builder)

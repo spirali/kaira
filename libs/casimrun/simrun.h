@@ -2,6 +2,7 @@
 #define CASIMRUN_H
 
 #include "runconfiguration.h"
+#include "context.h"
 
 namespace casr {
 

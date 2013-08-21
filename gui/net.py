@@ -162,16 +162,19 @@ class Net:
         self.changed()
 
     def edges_from(self, item, postprocess=False):
-        edges = [ i for i in self.items if i.is_edge() and i.from_item == item ]
+        edges = [ i for i in self.items
+                    if i.is_edge() and i.from_item == item ]
         if postprocess:
-            edges += [ i.make_complement()
+            edges = [ i.export_form() for i in edges ]
+            edges += [ i.make_complement(export_form=True)
                        for i in self.edges_to(item) if i.is_bidirectional() ]
         return edges
 
     def edges_to(self, item, postprocess=False):
         edges = [ i for i in self.items if i.is_edge() and i.to_item == item ]
         if postprocess:
-            edges += [ i.make_complement()
+            edges = [ i.export_form() for i in edges ]
+            edges += [ i.make_complement(export_form=True)
                        for i in self.edges_from(item) if i.is_bidirectional() ]
         return edges
 
@@ -679,6 +682,8 @@ class Edge(NetItem):
             id, inscription, from_item and to_item """
         e = Edge(self.net, self.id, self.from_item, self.to_item, [])
         e.inscription = self.inscription
+        e.size_substitution = self.size_substitution
+        e.size_substitution_code = self.size_substitution_code
         return e
 
     def get_canvas_items(self):
@@ -715,12 +720,22 @@ class Edge(NetItem):
         self.line.bidirectional = not self.line.bidirectional
         self.changed()
 
-    def make_complement(self):
+    def export_form(self):
+        if self.is_bidirectional() and self.from_item.is_place():
+            e = self.simple_copy()
+            e.size_substitution = False
+            return e
+        return self
+
+    def make_complement(self, export_form=False):
         """ This function returns exact copy of the edge with changed directions,
             This is used during splitting bidirectional edges """
-        c = self.simple_copy()
-        c.switch_direction()
-        return c
+        e = self.simple_copy()
+        e.switch_direction()
+        if export_form and e.from_item.is_place():
+            e.size_substitution = False
+
+        return e
 
     def get_end_points(self):
         if self.points:

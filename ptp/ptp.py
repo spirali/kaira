@@ -58,13 +58,13 @@ def main():
         global debug_mode
         debug_mode = True
 
-    p = project.load_project_from_file(args.project, target_envs)
-    generator = p.get_generator()
-
     if args.output is None:
         output_directory = "."
     else:
         output_directory = args.output
+
+    p = project.load_project_from_file(args.project, target_envs, args.operation)
+    generator = p.get_generator()
 
     if args.operation == "build":
         generator.build(output_directory)

@@ -59,6 +59,7 @@ class Project(object):
         self.communication_model_code = ""
         self.library_rpc = False
         self.library_octave = False
+        self.build_target = None
 
     def get_root_directory(self):
         return self.root_directory
@@ -290,7 +291,7 @@ def load_configuration(element, project):
     if communication_model_code is not None:
         project.communication_model_code = communication_model_code.text
 
-def load_project(element, target_envs):
+def load_project(element, target_envs, build_target="build"):
     target_env = utils.xml_str(element, "target_env")
     if target_env not in target_envs:
         raise utils.PtpException("Unknown target environment")
@@ -303,6 +304,7 @@ def load_project(element, target_envs):
                 root_directory,
                 target_envs[target_env],
                 description)
+    p.build_target = build_target
 
     p.library_rpc = utils.xml_bool(element, "library-rpc", False)
     p.library_octave = utils.xml_bool(element, "library-octave", False)
@@ -318,6 +320,6 @@ def load_project(element, target_envs):
     p.analyze()
     return p
 
-def load_project_from_file(filename, target_envs):
+def load_project_from_file(filename, target_envs, build_target="build"):
     doc = xml.parse(filename)
-    return load_project(doc.getroot(), target_envs)
+    return load_project(doc.getroot(), target_envs, build_target)

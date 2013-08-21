@@ -1,6 +1,7 @@
 source_files = (
     "simrun.cpp",
-    "tracelog.cpp"
+    "tracelog.cpp",
+    "state.cpp"
 )
 
 def build(ctx):

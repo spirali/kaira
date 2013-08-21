@@ -194,6 +194,7 @@ def write_send_token(builder,
 
     def send_packer(inscription, sendtype, count, target):
         if inscription.edge.size_substitution:
+            builder.line("casr::Context ctx($thread);")
             builder.line("size_t size = $packer.get_size();")
             builder.line("size_t fake_size = {0};", inscription.edge.size_substitution)
             pattern = "$thread->send{0}({4}, {3}, {1}, {2}, $packer, fake_size);"
@@ -382,7 +383,7 @@ def write_fire_body(builder,
         args = [ "ctx", "$vars" ]
         if tr.clock:
             if tr.clock_substitution:
-                builder.line("Clock_{0.id} $clock(ctx);", tr)
+                builder.line("Clock_{0.id} $clock($thread);", tr)
             else:
                 builder.line("ca::Clock $clock;")
             args.append("$clock")
@@ -394,6 +395,7 @@ def write_fire_body(builder,
         if tr.need_trace():
             builder.if_begin("$tracelog")
             if tr.time_substitution:
+                builder.line("casr::Context ctx($thread);")
                 builder.line("ca::IntTime transitionTime = $tracelog->get_relative_time();")
                 builder.line("$tracelog->set_time({0});", tr.time_substitution)
             builder.line("$tracelog->event_transition_finished_begin();")

@@ -33,8 +33,8 @@ class Declarations:
         self.types = {}
         self.source = source
 
-    def set(self, var, t, source=None):
-        if var in self.types:
+    def set(self, var, t, source=None, force=False):
+        if not force and var in self.types:
             if self.types[var] != t:
                 if source is None:
                     source = self.source
@@ -119,6 +119,7 @@ class Edge(utils.EqMixin):
         if self.size_substitution:
             decls = self.transition.get_decls()
             decls.set("size", "size_t", self.source)
+            decls.set("ctx", "casr::Context", self.source, force=True)
             checker.check_expression(self.size_substitution,
                                      decls,
                                      "size_t",
@@ -575,14 +576,16 @@ class Transition(utils.EqByIdMixin):
                                      self.get_source("guard"))
         if self.time_substitution:
             decls = self.get_decls()
-            decls.set("transitionTime", "ca::IntTime", self.get_source())
+            decls.set("ctx", "casr::Context", force=True)
+            decls.set("transitionTime", "ca::IntTime", self.get_source(), force=True)
             checker.check_expression(self.time_substitution,
                                      decls,
                                      "ca::IntTime",
                                      self.get_source())
         if self.clock_substitution:
             decls = self.get_decls()
-            decls.set("clockTime", "ca::IntTime", self.get_source())
+            decls.set("ctx", "casr::Context", force=True)
+            decls.set("clockTime", "ca::IntTime", self.get_source(), force=True)
             checker.check_expression(self.clock_substitution,
                                      decls,
                                      "ca::IntTime",
