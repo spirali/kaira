@@ -36,15 +36,6 @@ class DataTypeException(Exception):
     pass
 
 
-class IncorrectTypeException(DataTypeException):
-
-    def __init__(self, value):
-        self.value = value
-        message = "The type '{0}' does not contain " \
-                   "any supported extensions!".format(str(value))
-        DataTypeException.__init__(self, message)
-
-
 class NoLoaderExists(DataTypeException):
 
     def __init__(self, value):
@@ -108,7 +99,7 @@ class Type(object):
     def register_load_function(self, extension, function):
         self.loaders[extension] = function
 
-    def register_save_function(self, extension, function):
+    def register_store_function(self, extension, function):
         self.savers[extension] = function
 
 
@@ -224,7 +215,7 @@ def store_csv(data, filename, file_extension, app, setting):
             csvwriter.writerow(header)
         for row in rows:
             csvwriter.writerow(row)
-t_table.register_save_function("csv", store_csv)
+t_table.register_store_function("csv", store_csv)
 
 def csv_view(data, app):
     header, rows = data
