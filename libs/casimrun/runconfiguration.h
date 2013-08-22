@@ -5,9 +5,12 @@
 
 namespace casr {
 
+class Context;
+
 class RunConfiguration {
 	public:
-		virtual ca::IntTime packet_time(int source_id, int target_id, size_t size) = 0;
+		virtual ca::IntTime packet_time(
+				Context &context, int source_id, int target_id, size_t size) = 0;
 
 };
 

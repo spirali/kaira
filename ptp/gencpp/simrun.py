@@ -28,7 +28,7 @@ def write_run_configuration(builder):
     builder.line("class RunConfiguration : public casr::RunConfiguration {{")
     builder.line("public:")
     declaration = \
-        "ca::IntTime packet_time(int origin_id, int target_id, size_t size)"
+            "ca::IntTime packet_time(casr::Context &ctx, int origin_id, int target_id, size_t size)"
     builder.write_function(declaration,
                            builder.project.communication_model_code,
                            ("*communication-model", 1))

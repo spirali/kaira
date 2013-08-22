@@ -1,5 +1,6 @@
 
 #include "state.h"
+#include "context.h"
 
 namespace ca {
 	extern ca::NetDef **defs;
@@ -126,8 +127,10 @@ ca::IntTime casr::State::run_process(int process_id) {
 
 void casr::State::packet_preprocess(
 		int origin_id, int target_id, Packet &packet, size_t fake_size) {
-    ControlledTimeTraceLog *tracelog =
+	ControlledTimeTraceLog *tracelog =
 		(ControlledTimeTraceLog*) get_tracelog(origin_id, 0);
+	StateThread thread(this, target_id, 0);
+	Context ctx(&thread);
 	packet.release_time = tracelog->get_time() +
-		run_configuration.packet_time(origin_id, target_id, fake_size);
+		run_configuration.packet_time(ctx, origin_id, target_id, fake_size);
 }

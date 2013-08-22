@@ -33,7 +33,8 @@ class SimRunConfig(gtk.VBox):
         button.connect("clicked", lambda w: self.set_hockney())
         hbox.pack_start(button, False, False)
 
-        header = "ca::IntTime packet_time(int source_id, int target_id, size_t size)\n"
+        header = "ca::IntTime packet_time(" \
+                 "casr::Context &ctx, int source_id, int target_id, size_t size)\n"
 
         content = project.communication_model_code
         if content.strip() == "":
