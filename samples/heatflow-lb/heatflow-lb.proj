@@ -1,0 +1,269 @@
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><parameter default="10" description="" name="LIMIT" policy="mandatory" type="int" /><parameter default="4" description="" name="SIZE_X" policy="mandatory" type="int" /><parameter default="4" description="" name="SIZE_Y" policy="mandatory" type="int" /><parameter default="200" description="" name="TEMP" policy="mandatory" type="int" /><parameter default="10" description="Must be &gt;1" name="LBPERIOD" policy="mandatory" type="int" /><build-option name="LIBS" /><build-option name="OTHER_FILES">compute.cpp</build-option><build-option name="CFLAGS">-O2 -g</build-option><head-code>
+#include &lt;compute.h&gt;
+
+struct PerformanceInfo {
+	long time;
+	int rows;
+};
+
+typedef std::vector&lt;double&gt; Row;
+typedef std::vector&lt;Row&gt; Rows;
+
+struct State {
+	State(int size_x, int size_y, int position) : 
+		matrix(size_x, size_y),
+		position(position),
+		counter(0),
+		lb_counter(0),
+		time_sum(0) {}
+	DoubleMatrix matrix;
+	int position;
+	int counter;
+	int lb_counter;
+	int time_sum;
+};
+
+struct Results {
+	Results(int position, const DoubleMatrix &amp;matrix) : position(position), matrix(matrix) {}
+	
+	int position;
+	DoubleMatrix matrix;
+};
+	
+namespace ca {
+
+	std::string token_name(PerformanceInfo &amp;pi) {
+		std::stringstream s;
+		s &lt;&lt; "PerfInfo [" &lt;&lt; pi.time &lt;&lt; "," &lt;&lt; pi.rows &lt;&lt; "]";
+		return s.str();
+	}
+
+
+	void pack(Packer &amp;packer, PerformanceInfo &amp;pi) {
+		pack(packer, pi.time);
+		pack(packer, pi.rows);				
+	}
+	
+	
+	template&lt;&gt; PerformanceInfo unpack(Unpacker &amp;unpacker) {	
+		PerformanceInfo ri;
+		ri.time = unpack&lt;long&gt;(unpacker);
+		ri.rows = unpack&lt;int&gt;(unpacker);	
+		return ri;
+	}
+	
+
+	std::string token_name(Rows &amp;rows) {
+		std::stringstream s;
+		s &lt;&lt; "Rows (" &lt;&lt; rows.size() &lt;&lt; ")";
+		return s.str();
+	}
+
+	std::string token_name(const ::State &amp;m) {
+		std::stringstream s;
+		s &lt;&lt; "[p=" &lt;&lt; m.position &lt;&lt; ",y=" &lt;&lt; m.matrix.get_size_y() &lt;&lt; ",c=" &lt;&lt; m.counter &lt;&lt; ",lb=" &lt;&lt;
+		  m.lb_counter &lt;&lt; ",t=" &lt;&lt; m.time_sum &lt;&lt; "]";
+		return s.str();
+	}
+	
+
+	std::string token_name(const DoubleMatrix &amp;m) {
+		std::stringstream s;
+		s &lt;&lt; "DoubleMatrix (" &lt;&lt; m.get_size_x() &lt;&lt; "," &lt;&lt; m.get_size_y() &lt;&lt; ")";
+		return s.str();
+	}
+	
+	void pack(Packer &amp;packer, const DoubleMatrix &amp;m) {
+		pack(packer, m.get_size_x());
+		pack(packer, m.get_size_y());
+		pack(packer, m.get_data(), m.get_data_size());
+	}
+	
+	template&lt;&gt; DoubleMatrix unpack(Unpacker &amp;unpacker) {
+		int size_x = unpack&lt;int&gt;(unpacker);
+		int size_y = unpack&lt;int&gt;(unpacker);
+		DoubleMatrix d(size_x, size_y);
+		d.set_data((double*) unpack(unpacker, d.get_data_size()));
+		d.swap();
+		return d;		
+	}	
+
+	std::string token_name(Results &amp;r) {
+		std::stringstream s;
+		s &lt;&lt; "Results " &lt;&lt; r.position &lt;&lt; " " &lt;&lt; r.matrix.get_size_y();
+		return s.str();
+	}
+
+	void pack(Packer &amp;packer, const Results &amp;r) {
+		pack(packer, r.position);
+		pack(packer, r.matrix);
+	}
+	
+	template&lt;&gt; Results unpack(Unpacker &amp;unpacker) {
+		int i = unpack&lt;int&gt;(unpacker);
+		return Results(i, unpack&lt;DoubleMatrix&gt;(unpacker));
+	}
+	
+}
+
+double rsum(const Rows &amp;rows) {
+	double sum = 0;
+	for (int i = 0; i &lt; rows.size(); i++) {
+		for (int j = 0; j &lt; rows.size(); j++) {
+			sum += rows[i][j];
+		}
+	}
+	return sum;
+}
+
+double rsum(std::vector&lt;double&gt; &amp;row) {
+	double sum = 0;
+	for (int i = 0; i &lt; row.size(); i++) {
+		sum += row[i];
+	}
+	return sum;
+}
+
+int to_down(ca::Context &amp;ctx)
+{
+	return (ctx.process_id() + 1) % ctx.process_count();
+}
+
+int to_up(ca::Context &amp;ctx)
+{
+	return (ctx.process_id() + ctx.process_count() - 1) 
+			% ctx.process_count();
+}
+
+int load_balance(double my_time, int my_lines, double other_time, int other_lines)
+{
+        return (int) ((my_lines * other_lines * (my_time - other_time)) /
+			((my_lines * other_time) + (other_lines * my_time)) / 2);
+}
+
+bool is_lb(const State &amp;state) {
+	return state.lb_counter == param::LBPERIOD();
+}</head-code><communication-model>	printf("TIME = %li\n", ctx.time());
+	const ca::IntTime latency = 2e6;  // [ns]
+	const ca::IntTime bandwidth = 20; // [byte/ns]
+	return latency + size / bandwidth;
+</communication-model></configuration><net id="101" name="Main"><area id="102" sx="142" sy="264" x="232" y="150"><init x="217" y="132">ca::range(0, ctx.process_count())</init></area><place id="104" name="Down row" radius="20" sx="33" sy="0" x="279" y="359"><place-type x="308" y="381">Row</place-type><init x="296" y="329" /><code>	Row row;
+	row.resize(param::SIZE_X(), 0);
+	place.add(row);
+</code></place><place id="105" name="Local state" radius="20" sx="33" sy="0" x="288" y="282"><place-type x="326" y="308">State</place-type><init x="305" y="252" /><code>	int id = ctx.process_id();
+	int size = ctx.process_count();
+	int position = id_to_position(param::SIZE_Y(), size, id);
+	State s(param::SIZE_X(), id_to_size(param::SIZE_Y(), size, id), position);	
+	s.matrix.swap();
+	set_fixed_temp(s.matrix, param::SIZE_Y(), position, param::TEMP());	
+	place.add(s);
+</code></place><place id="106" name="Up row" radius="20" sx="31" sy="0" x="281" y="207"><place-type x="330" y="227">Row</place-type><init x="298" y="177" /><code>	Row row;
+	row.resize(param::SIZE_X(), 0);
+	place.add(row);
+</code></place><place id="108" name="" radius="22" sx="0" sy="0" x="784" y="304"><place-type x="801" y="321">Results</place-type><init x="801" y="274" /></place><place id="137" name="" radius="20" sx="0" sy="0" x="560" y="480"><place-type x="560" y="504">PerformanceInfo</place-type><init x="577" y="450" /></place><place id="146" name="countTo&#10;Receive" radius="20" sx="18" sy="6" x="-162" y="276"><place-type x="-128" y="297">int</place-type><init x="-145" y="246" /></place><place id="156" name="" radius="20" sx="0" sy="0" x="-6" y="360"><place-type x="11" y="377">std::vector&lt;double&gt;</place-type><init x="11" y="330" /></place><transition clock="False" id="111" name="Send result" priority="4" sx="70" sy="35" x="752" y="160"><guard x="662" y="142">state.counter == param::LIMIT()</guard></transition><transition clock="False" id="112" name="Write results" priority="" sx="100" sy="42" x="736" y="368"><guard x="736" y="348" /><code>	DoubleMatrix out(param::SIZE_X(), param::SIZE_Y());
+
+	ca::Token&lt;Results&gt; *t;
+	int z = 0;
+	for (t = var.results.begin(); t != NULL; t = var.results.next(t), z++) {
+		for (int s = 0; s &lt; t-&gt;value.matrix.get_size_y(); s++) {
+			int l = (s + t-&gt;value.position) % param::SIZE_Y();
+			memcpy(out.get_write_pointer(0, l),
+			       t-&gt;value.matrix.get_row(s), sizeof(double) * param::SIZE_X());			
+		}
+	}
+	out.swap();
+	out.write_to_file("results.html");
+	ctx.quit();
+</code></transition><transition clock="True" id="110" name="Compute" priority="3" sx="70" sy="35" x="528" y="224"><guard x="560" y="208">state.lb_counter &lt; param::LBPERIOD()</guard><code>	clock.tick();
+	compute_new_values(var.state.matrix, &amp;var.up[0], &amp;var.down[0]);
+	var.state.matrix.swap();
+	ca::IntTime time = clock.tock();
+
+	var.state.time_sum += time;
+	var.state.lb_counter++;	
+	var.state.counter++;
+
+	if (var.state.lb_counter == param::LBPERIOD()) {
+		long avg_time = var.state.time_sum / param::LBPERIOD();
+		var.up_info.time = avg_time;
+		var.up_info.rows = var.state.matrix.get_size_y();
+		var.down_info.time = avg_time;
+		var.down_info.rows = var.state.matrix.get_size_y();	
+	} else {
+		set_fixed_temp(var.state.matrix, param::SIZE_Y(), var.state.position, param::TEMP());			
+	}
+</code></transition><transition clock="False" id="132" name="Balance" priority="" sx="70" sy="36" x="-42" y="468"><guard x="-126" y="450" /><code>	long avg_time = var.state.time_sum / param::LBPERIOD();	
+	
+	int loadbalance_up = load_balance(
+		avg_time,
+		var.state.matrix.get_size_y(),
+		var.info1.time,
+		var.info1.rows);
+		
+	int loadbalance_down = load_balance(
+		avg_time,
+		var.state.matrix.get_size_y(),
+		var.info2.time,
+		var.info2.rows);
+		
+	var.receiveCount = 0;
+	if (loadbalance_up &gt; 0) {	
+	        printf("Balancing %i: up %i rows \n", ctx.process_id(), loadbalance_up);
+		if (loadbalance_up * 2 &gt;= var.state.matrix.get_size_y()) {
+			loadbalance_up = (var.state.matrix.get_size_y() - 1) / 2;
+		}
+		var.state.position = (var.state.position + loadbalance_up + param::SIZE_Y()) % param::SIZE_Y();		
+		var.target1 = to_up(ctx);
+		double *row = var.state.matrix.get_row(0);
+		var.rows1 = std::vector&lt;double&gt;(row, row + param::SIZE_X() * loadbalance_up);		
+		var.state.matrix.remove_rows(0, loadbalance_up);
+	} else {
+		var.target1 = -1;
+		if (loadbalance_up &lt; 0) {
+			var.receiveCount++;
+		}
+	}
+	
+	if (loadbalance_down &gt; 0) {
+	        printf("Balancing %i: down %i rows \n", ctx.process_id(), loadbalance_down);	
+		if (loadbalance_down * 2 &gt;= var.state.matrix.get_size_y()) {
+			loadbalance_down = (var.state.matrix.get_size_y() - 1) / 2;
+		}
+		var.target2 = to_down(ctx);
+		double *row = var.state.matrix.get_row(var.state.matrix.get_size_y() - loadbalance_down);
+		var.rows2 = std::vector&lt;double&gt;(row, row + param::SIZE_X() * loadbalance_down);
+		var.state.matrix.remove_rows(var.state.matrix.get_size_y() - loadbalance_down, loadbalance_down);
+	} else {
+		var.target2 = -1;
+		if (loadbalance_down &lt; 0) {
+			var.receiveCount++;
+		}
+	}
+</code></transition><transition clock="False" id="151" name="Finish LB" priority="" sx="70" sy="36" x="-42" y="120"><guard x="-42" y="100" /><code>	var.state.lb_counter = 0;
+	var.state.time_sum = 0;
+	
+	//var.state.counter ++;
+	
+	double *row;
+	row = var.state.matrix.get_row(0);
+	var.up = std::vector&lt;double&gt;(row, row + param::SIZE_X());			
+	row = var.state.matrix.get_row(var.state.matrix.get_size_y() - 1);
+	var.down = std::vector&lt;double&gt;(row, row + param::SIZE_X());				
+	
+	set_fixed_temp(var.state.matrix, param::SIZE_Y(), var.state.position, param::TEMP());		
+</code></transition><transition clock="False" id="159" name="Merge" priority="" sx="70" sy="36" x="-42" y="264"><guard x="-18" y="249">c &gt; 0</guard><code>	int rows_count = var.data.size() / param::SIZE_X();
+	if (var.from == to_up(ctx)) {
+		var.state.matrix.add_rows(0, rows_count, &amp;var.data[0]);
+		var.state.position = (var.state.position - rows_count + param::SIZE_Y()) % param::SIZE_Y();
+	}
+	if (var.from == to_down(ctx)) {
+		var.state.matrix.add_rows(var.state.matrix.get_size_y(), rows_count, &amp;var.data[0]);
+	}
+		
+</code></transition><edge from_item="108" id="123" to_item="112"><inscription x="600.0" y="330.0">[bulk, 
+guard(size == ctx.process_count())]
+results</inscription></edge><edge from_item="111" id="125" to_item="108"><inscription x="666.0" y="246.0">Results(state.position,
+state.matrix)@0</inscription></edge><edge from_item="105" id="126" to_item="111"><inscription x="447.0" y="160.0">state</inscription><point x="240" y="264" /><point x="242" y="177" /></edge><edge from_item="104" id="129" to_item="110"><inscription x="384.0" y="342.0">down</inscription><point x="450" y="318" /></edge><edge from_item="106" id="121" to_item="110"><inscription x="463.0" y="223.0">up</inscription><point x="300" y="240" /></edge><edge from_item="110" id="119" to_item="106"><inscription x="393.0" y="191.0">[if(!is_lb(state))] down@to_down(ctx)</inscription><point x="528" y="208" /></edge><edge bidirectional="true" from_item="105" id="118" to_item="110"><inscription x="390.0" y="288.0">state</inscription><point x="414" y="282" /></edge><edge from_item="110" id="117" to_item="104"><inscription x="384.0" y="368.0">[if(!is_lb(state))] up@to_up(ctx)</inscription><point x="486" y="360" /></edge><edge bidirectional="true" from_item="105" id="133" to_item="132"><inscription x="144.0" y="448.0">state</inscription><point x="160" y="432" /></edge><edge from_item="137" id="142" to_item="132"><inscription x="194.0" y="494.0">[from(to_up(ctx))] info1;
+[from(to_down(ctx))] info2</inscription></edge><edge from_item="132" id="149" to_item="146"><inscription x="-120.0" y="468.0">receiveCount</inscription><point x="-150" y="486" /></edge><edge from_item="146" id="152" to_item="151"><inscription x="-99.0" y="120.0">0</inscription><point x="-156" y="138" /></edge><edge bidirectional="true" from_item="105" id="155" to_item="151"><inscription x="56.0" y="120.0">state</inscription><point x="88" y="138" /></edge><edge from_item="132" id="157" to_item="156"><inscription x="0.0" y="400.0">[if (target1 &gt;= 0)] rows1@target1;
+[if (target2 &gt;= 0)] rows2@target2</inscription></edge><edge bidirectional="true" from_item="105" id="160" to_item="159"><inscription x="72.0" y="288.0">state</inscription></edge><edge from_item="146" id="161" to_item="159"><inscription x="-82.0" y="250.0">c</inscription><point x="-84" y="264" /></edge><edge from_item="159" id="162" to_item="146"><inscription x="-88.0" y="295.0">c-1</inscription><point x="-84" y="288" /></edge><edge from_item="156" id="164" to_item="159"><inscription x="1.0" y="318.0">[svar(from)] data</inscription></edge><edge from_item="151" id="171" to_item="106"><inscription x="-22" y="64">down@to_down(ctx)</inscription><point x="-9" y="90" /><point x="89" y="89" /></edge><edge from_item="151" id="172" to_item="104"><inscription x="32.0" y="192.0">up@to_up(ctx)</inscription><point x="-6" y="190" /></edge><edge from_item="110" id="174" to_item="137"><inscription x="576.0" y="432.0">[if(is_lb(state))] up_info@to_up(ctx);
+[if(is_lb(state))] down_info@to_down(ctx)</inscription></edge></net></project>
