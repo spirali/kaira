@@ -1,0 +1,94 @@
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><parameter default="10" description="" name="LIMIT" policy="mandatory" type="int" /><parameter default="4" description="" name="SIZE_X" policy="mandatory" type="int" /><parameter default="4" description="" name="SIZE_Y" policy="mandatory" type="int" /><parameter default="200" description="" name="TEMP" policy="mandatory" type="int" /><build-option name="LIBS" /><build-option name="OTHER_FILES">compute.cpp</build-option><build-option name="CFLAGS">-O2 -g</build-option><head-code>
+#include &lt;compute.h&gt;
+
+namespace ca {
+
+	std::string token_name(const DoubleMatrix &amp;m) {
+		return "DoubleMatrix";
+	}
+	
+	void pack(Packer &amp;packer, DoubleMatrix &amp;m) {
+		pack(packer, m.get_size_x());
+		pack(packer, m.get_size_y());
+		pack(packer, m.get_data(), m.get_data_size());
+	}
+	
+	template&lt;&gt; DoubleMatrix unpack(Unpacker &amp;unpacker) {
+		int size_x = unpack&lt;int&gt;(unpacker);
+		int size_y = unpack&lt;int&gt;(unpacker);
+		DoubleMatrix d(size_x, size_y);
+		d.set_data((double*) unpack(unpacker, d.get_data_size()));
+		d.swap();
+		return d;
+	}	
+}
+
+int to_down(ca::Context &amp;ctx)
+{
+	return (ctx.process_id() + 1) % ctx.process_count();
+}
+
+int to_up(ca::Context &amp;ctx)
+{
+	return (ctx.process_id() + ctx.process_count() - 1) 
+			% ctx.process_count();
+}
+
+bool is_first(ca::Context &amp;ctx)
+{
+	return ctx.process_id() == 0;
+}
+
+bool is_last(ca::Context &amp;ctx)
+{
+	return ctx.process_id() == ctx.process_count() - 1;
+}</head-code><communication-model>         const ca::IntTime latency = 5847;  // [ns]
+         return latency + size * 0.5049;
+</communication-model></configuration><net id="101" name="Main"><area id="102" sx="498.0" sy="280.0" x="211" y="143"><init x="211" y="128">ca::range(0, ctx.process_count())</init></area><place id="104" name="Down row" radius="20" sx="33" sy="0" x="279" y="359"><place-type x="308" y="381">std::vector&lt;double&gt;</place-type><init x="296" y="329" /><code>	if (!is_last(ctx)) {
+		std::vector&lt;double&gt; row(param::SIZE_X(), 0);
+		place.add(row);
+	}
+</code></place><place id="105" name="Local data" radius="20" sx="33" sy="0" x="280" y="286"><place-type x="318" y="312">DoubleMatrix</place-type><init x="297" y="256" /><code>	int id = ctx.process_id();
+	int size = ctx.process_count();
+	int position = id_to_position(param::SIZE_Y(), size, id);
+	DoubleMatrix matrix(param::SIZE_X(), id_to_size(param::SIZE_Y(), size, id));
+	set_fixed_temp(matrix, param::SIZE_Y(), position, param::TEMP());
+	matrix.swap();
+	place.add(matrix);
+</code></place><place id="106" name="Up row" radius="20" sx="31" sy="0" x="281" y="208"><place-type x="330" y="228">std::vector&lt;double&gt;</place-type><init x="298" y="178" /><code>	if (!is_first(ctx)) {
+		std::vector&lt;double&gt; row(param::SIZE_X(), 0);
+		place.add(row);
+	}
+</code></place><place id="107" name="Counter" radius="20" sx="16" sy="0" x="642" y="378"><place-type x="672.0" y="395.0">int</place-type><init x="678" y="348">[0]</init></place><place id="108" name="" radius="22" sx="0" sy="0" x="786" y="288"><place-type x="803" y="305">DoubleMatrix</place-type><init x="803" y="258" /></place><transition clock="False" id="111" name="Send result" priority="" sx="70" sy="35" x="618" y="270"><guard x="618" y="250" /><trace>fire</trace></transition><transition clock="False" id="112" name="Write results" priority="" sx="100" sy="42" x="733" y="186"><guard x="733" y="166" /><code>	const int size = var.results.size();
+	DoubleMatrix out(param::SIZE_X(), param::SIZE_Y());
+
+	ca::Token&lt;DoubleMatrix&gt; *t = var.results.begin();
+	for (int i = 0; i &lt; var.sources.size(); i++) {
+		int source = var.sources[i];
+		int position = id_to_position(param::SIZE_Y(), size, source);
+		int y = id_to_size(param::SIZE_Y(), size, source);
+		memcpy(out.get_write_pointer(0, position),
+		       t-&gt;value.get_data(), t-&gt;value.get_data_size());
+		t = var.results.next(t);
+	}
+	out.swap();
+	out.write_to_file("results.html");
+	ctx.quit();
+</code><trace>fire</trace><time-substitution>transitionTime * 4</time-substitution></transition><transition clock="False" id="110" name="Compute" priority="" sx="70" sy="35" x="511" y="270"><guard x="548.0" y="249.0">c &lt; param::LIMIT()</guard><code>	if (ctx.process_id() == 0) {
+		var.up.resize(param::SIZE_X(), 0);
+	}
+	
+	if (ctx.process_id() == ctx.process_count() - 1) {
+		var.down.resize(param::SIZE_X(), 0);
+	}
+	
+	compute_new_values(var.data, &amp;var.up[0], &amp;var.down[0]);
+	int position = id_to_position(param::SIZE_Y(), ctx.process_count(), ctx.process_id());
+	set_fixed_temp(var.data, param::SIZE_Y(), position, param::TEMP());
+	var.data.swap();
+</code><trace>fire</trace><time-substitution>transitionTime * 4</time-substitution></transition><edge from_item="108" id="123" to_item="112"><inscription x="834.0" y="228.0">[bulk, 
+svar(sources), 
+guard(size == ctx.process_count())]
+results</inscription></edge><edge from_item="107" id="124" to_item="111"><inscription x="660.0" y="324.0">param::LIMIT()</inscription></edge><edge from_item="111" id="125" to_item="108"><inscription x="714.0" y="271.0">data@0</inscription><size-substitution>size * 4</size-substitution></edge><edge from_item="105" id="126" to_item="111"><inscription x="444.0" y="161.0">data</inscription><point x="243" y="286" /><point x="242" y="177" /><point x="654" y="180" /></edge><edge from_item="104" id="129" to_item="110"><inscription x="396.0" y="335.0">[if(!is_last(ctx))] down</inscription></edge><edge from_item="110" id="127" to_item="107"><inscription x="556.0" y="360.0">c+1</inscription><point x="580" y="350" /></edge><edge from_item="107" id="122" to_item="110"><inscription x="608.0" y="325.0">c</inscription></edge><edge from_item="106" id="121" to_item="110"><inscription x="412.0" y="245.0">[if(!is_first(ctx))] up</inscription><point x="328" y="245" /></edge><edge from_item="110" id="119" to_item="106"><inscription x="379.138638446" y="183.970390093">[if(!is_last(ctx))] 
+down@to_down(ctx)</inscription><point x="523.0" y="210.0" /><size-substitution>size * 2</size-substitution></edge><edge bidirectional="true" from_item="105" id="118" to_item="110"><inscription x="408.0" y="291.0">data</inscription><point x="380" y="285" /></edge><edge from_item="110" id="117" to_item="104"><inscription x="435.0" y="368.0">[if(!is_first(ctx))] 
+up@to_up(ctx)</inscription><point x="516" y="360" /><size-substitution>size * 2</size-substitution></edge></net></project>
