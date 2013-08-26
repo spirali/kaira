@@ -146,7 +146,7 @@ class Edge(utils.EqMixin):
         else:
             count = 0
             for inscription in self.inscriptions:
-                if inscription.is_token():
+                if inscription.is_token() and not inscription.is_conditioned():
                     count += 1
             if count > 0:
                 return count

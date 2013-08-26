@@ -618,12 +618,11 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
             builder.line("bool $inscription_if_{0.uid};", inscription)
             builder.if_begin("!({0})", inscription.config.get("if"))
             builder.line("$inscription_if_{0.uid} = false;", inscription)
-            builder.line("$token_{0.uid} = new ca::Token<{0.edge.place.type}>;", inscription)
+            builder.line("$token_{0.uid} = new ca::Token<{0.edge.place.type} >;", inscription)
             # Set self references to survive "removing" from place
             builder.line("$token_{0.uid}->next = $token_{0.uid};", inscription)
             builder.line("$token_{0.uid}->prev = $token_{0.uid};", inscription)
-            setup_variables(inscription)
-            builder.line("}} else {{")
+            builder.write_else()
             builder.line("$inscription_if_{0.uid} = true;", inscription)
 
         prev = [ i for i in prev_inscriptions if i.edge == inscription.edge ]
@@ -631,9 +630,12 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
             start_from = "$token_{0.uid}->next;".format(prev[-1])
             while prev and inscription.has_same_pick_rule(prev[-1]):
                 prev.pop()
+            builder.line("$token_{0.uid} = {1};", inscription, builder.expand(start_from))
         else:
             start_from = "$n->place_{0.id}.begin();".format(inscription.edge.place)
-        builder.line("$token_{0.uid} = {1};", inscription, builder.expand(start_from))
+            builder.line("$token_{0.uid} = {1};", inscription, builder.expand(start_from))
+            if inscription.is_conditioned():
+                 builder.line("if ($token_{0.uid} == NULL) {1}", inscription, fail_command)
 
         filter_expr = inscription.config.get("filter")
         from_expr = inscription.config.get("from")
@@ -685,6 +687,7 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
 
         if inscription.is_conditioned():
             builder.block_end()
+            setup_variables(inscription)
 
     for edge in tr.edges_in:
         for inscription in edge.inscriptions:
