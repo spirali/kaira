@@ -13,16 +13,14 @@ processing. Under the term of 'extension' is considered to be one or more
 
 Every <<sec-operation, operation>> represents a function that takes some inputs
 data and produces some outputs data. Both of these types of data are not
-usually trivial, it means they are not numbers or strings, but data like tables
-with measurements or network describing a program that is created in Kaira,
-etc. There must be a way how these inputs/outputs data describe. For this
-purpose there is defined class <<cls-type, Type>> in the module +datatypes+.
+usually build-in types. By types in this context we mean objects like
+tracelogs, control sequences, or tables.
 
 At the first part there will be a short tutorial to those data types. There
 will be described how to work with existing data types or how to create new
 ones. In the next part follows a description of work with operations and
 there is also a short tutorial how to create a new operation. At the end of
-both part is subsection '``Inside in the module ...''' where is the reference
+both part is subsection '``Inside the module''' where is the reference
 manual for all classes of appropriate module.
 
 [[sec-datatypes]]
@@ -30,20 +28,28 @@ Data types
 ~~~~~~~~~~
 
 This section describes 'data types' used in <<sec-operation, operations>>.
-For first, these data types have nothing to do with any other types used in
-Kaira. They serve for identifying type of data and they may contain supportive
-functions, e.g. loading and storing data from/to files or data visualization.
+Every data types are represented by instances of class <<cls-type, Type>>.
+They serve as a description of basic objects with which a user can manipulate
+like tracelog, tables, etc. They contain also three basic functions for:
+*load*, *store*, and *visualization* of data.
 
 All of data types whether the existing ones or those are not implemented yet
 are located in module +datatypes+. It means that, if a user wants to add a new
 data type it will be added to +$KAIRA/gui/datatypes.py+ source file.
+// TODO: konvece je protoze, nekteri dalsi mohou chtit pouzivat tvuj typ,
+// a zda se mi lepsi to mit na jednom miste nez to lovit vsude mozne.
 
 The following example shows how to simply add a new data type. Every data type
-is consist of:
+consists:
 
 - 'name',
 - 'short name', and
 - 'list of supported file types' (files extensions).
+
+A 'name' is full name of the type which is used for example in
+<<cls-sourceview, SourceView>>. In contrast, a 'short name' is used on places
+where is not a lot of space for full name, like in the filters of files. If the
+full name is short enough, it may be the same as the short name.
 
 .Add a new data type
 [source,python]
@@ -58,13 +64,12 @@ types_repository.append(t_table) # <2>
 That is all, it is enough for create and register new data type. But a data
 type without supportive functions has quite limited use. Because data cannot
 be loaded/stored from/to a file (they can be produced only by other
-operations), etc. If it is called function which does not exist then is thrown
-an exception that informs where is the problem.
+operations), etc.
 
 The following example shows how to add supportive functions to a data type.
 For this we will use already defined type +t_table+.
 
-.Add supportive functions to a data type
+.Add basic functions to a data type
 [source, python]
 -------------------------------------------------------------------------------
 def load_csv(filename, app, setting): # <1>
@@ -95,10 +100,10 @@ t_table.get_view = table_view # <8>
 
 As you can see there is missing a function for store data in 'xls' format.
 That means the data will not be able save in this format on so defined data
-type. It will be able to load data from this format, but not store them in it.
-But still it will store them in 'csv' format. It is -- and must be -- possible
-to load data from one format and store them into other. Because a data type
-brings together one type of data with many formats of representation.
+type. But still it will be able to store them in 'csv' format. It is
+-- and must be -- possible to load data from one format and store them into
+other. Because a data type brings together one type of data with many formats
+of representation.
 
 In the following subsection you will find the referece manual for +datatypes+
 module. There is also a detailed description of arguments of functions for
