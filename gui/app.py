@@ -33,14 +33,12 @@ import neteditor
 from simconfig import SimConfigDialog
 from projectconfig import ProjectConfig
 from simulation import Simulation
-from tracelog import TraceLog
 import simview
 import codeedit
 import process
 import settings
 import loader
 import ptp
-import runview
 import codetests
 import report
 import statespace
@@ -71,9 +69,7 @@ class App:
 
         for arg in args:
             if os.path.isfile(arg):
-                if arg.endswith(".kth"):
-                    self.load_tracelog(arg)
-                elif arg.endswith(".kreport"):
+                if arg.endswith(".kreport"):
                     self.load_report(arg)
                 else:
                     self.set_project(loader.load_project(arg))
@@ -168,14 +164,6 @@ class App:
         finally:
             dlg.hide()
 
-    def export_tracelog_table(self):
-        filename = self.run_file_dialog("Export tracelog table", "save", "csv", "*.csv")
-        if filename is None:
-            return
-        tab = self.window.get_current_tab()
-        tab.widget.export_tracelog_table(filename)
-        self.console_write("Tracelog table '{0}' exported.\n".format(filename), "success")
-
     def save_sequence_into_project(self, sequence):
         if self.project is None:
             self.show_error_dialog("No project is opened.")
@@ -241,16 +229,6 @@ class App:
         p = self._catch_io_error(lambda: loader.load_project(filename))
         if p:
             self.set_project(p)
-
-    def load_tracelog(self, filename=None):
-        if filename is None:
-            filename = self.run_file_dialog(
-                "Open tracelog", "open", "Tracelog header", "*.kth")
-            if filename is None:
-                return
-        t = self._catch_io_error(lambda: TraceLog(filename))
-        rv = runview.RunView(self, t)
-        self.window.add_tab(Tab("Tracelog", rv, mainmenu_groups=("tracelog","screenshot")))
 
     def load_report(self, filename=None):
         if filename is None:

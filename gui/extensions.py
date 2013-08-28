@@ -26,9 +26,10 @@ import sys
 import imp
 
 from time import time, gmtime, strftime
+from utils import get_file_extension, trim_file_extension
 from events import EventSource, EventCallbacksList
-from datatypes import types_repository
-from datatypes import NoLoaderExists
+from datatypes import types_repository, file_extension_to_type
+from datatypes import NoLoaderExists, NoSaverExists
 from mainwindow import Tab
 
 
@@ -40,9 +41,9 @@ class ExtensionException(Exception):
 # *****************************************************************************
 # Sources
 
-class Source(object):
+class Source(object, EventSource):
 
-    def __init__(self, name, type, data):
+    def __init__(self, name, type, data, stored=False):
         """Initialize a source of data.
 
         Arguments:
@@ -51,10 +52,21 @@ class Source(object):
         data -- physical data
 
         """
-        self.name = name
+        EventSource.__init__(self)
+
+        self._name = name
         self.type = type
         self.data = data
+        self.stored = stored
 
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        self._name = name
+        self.emit_event("source-name-changed", name)
 
 class SourceView(gtk.Alignment, EventSource):
 
@@ -63,7 +75,11 @@ class SourceView(gtk.Alignment, EventSource):
         EventSource.__init__(self)
 
         self.source = source
+        self.source.set_callback("source-name-changed",
+                                 lambda n: self.entry_name.set_text(n))
+
         self.app = app # reference to the main application
+        self.data_free = False
         self.tabview = None
 
         self.set_padding(5, 0, 10, 10)
@@ -74,11 +90,11 @@ class SourceView(gtk.Alignment, EventSource):
         table.set_col_spacing(1, 2)
 
         # name of source
-        entry = gtk.Entry()
-        entry.set_size_request(40, -1)
-        entry.set_editable(False)
-        entry.set_text(self.source.name)
-        table.attach(entry, 0, 1, 0, 1)
+        self.entry_name = gtk.Entry()
+        self.entry_name.set_size_request(40, -1)
+        self.entry_name.set_editable(False)
+        self.entry_name.set_text(self.source.name)
+        table.attach(self.entry_name, 0, 1, 0, 1)
 
         # name of data type
         label = gtk.Label()
@@ -86,27 +102,40 @@ class SourceView(gtk.Alignment, EventSource):
         label.set_markup("<i>{0}</i>".format(self.source.type.name))
         table.attach(label, 0, 1, 1, 2)
 
+        self.btns_group1 = []
+        self.btns_group2 = []
         # attach button
         button = gtk.Button("Attach")
         button.connect(
             "clicked", lambda w: self.emit_event("attach-source", self.source))
         table.attach(button, 1, 2, 0, 2, xoptions=gtk.FILL)
+        self.btns_group1.append(button)
 
         # source menu
         menu = gtk.Menu()
 
         item = gtk.MenuItem("Show")
         item.connect("activate", lambda w: self._cb_show())
+        self.btns_group1.append(item)
         menu.append(item)
         menu.append(gtk.SeparatorMenuItem())
 
         item = gtk.MenuItem("Store")
-        item.set_sensitive(False)
+        item.connect("activate", lambda w: self._cb_store())
+        self.btns_group1.append(item)
         menu.append(item)
         item = gtk.MenuItem("Load")
-        item.set_sensitive(False)
+        item.connect("activate", lambda w: self._cb_load())
+        item.set_sensitive(self.data_free)
+        self.btns_group2.append(item)
         menu.append(item)
         menu.append(gtk.SeparatorMenuItem())
+
+        self.item_free = gtk.MenuItem("Free")
+        self.item_free.connect("activate", lambda w: self._cb_free())
+        self.item_free.set_sensitive(self.source.stored)
+        self.btns_group1.append(self.item_free)
+        menu.append(self.item_free)
 
         item = gtk.MenuItem("Delete")
         item.connect("activate", lambda w: self._cb_delete())
@@ -131,12 +160,87 @@ class SourceView(gtk.Alignment, EventSource):
         if self.tabview is None:
             type = self.source.type
             view = type.get_view(self.source.data, self.app)
-            self.tabview = Tab(self.source.type.short_name, view,)
+            if view is None:
+                return
+            tabname = "{0} ({1})".format(
+                self.source.type.short_name, os.path.basename(self.source.name))
+            self.tabview = Tab(tabname, view)
+
+            # modify close method
+            origin_close = self.tabview.close
+            def new_close():
+                origin_close()
+                self.tabview = None
+            self.tabview.close = new_close
             self.app.window.add_tab(self.tabview)
         else:
             self.app.window.switch_to_tab(self.tabview)
 
+    def _lock_buttons(self):
+        for btn in self.btns_group1:
+            btn.set_sensitive(not self.data_free)
+        for btn in self.btns_group2:
+            btn.set_sensitive(self.data_free)
+
+    def _cb_store(self):
+        dialog = gtk.FileChooserDialog("Source store",
+                                       self.app.window,
+                                       gtk.FILE_CHOOSER_ACTION_SAVE,
+                                       (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                                       gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+        dialog.set_default_response(gtk.RESPONSE_OK)
+
+        filter = gtk.FileFilter()
+        name = "{0} ({1})".format(
+            self.source.type.short_name, ", ".join(map(
+                lambda s: "*.{0}".format(s),
+                self.source.type.files_extensions)))
+        filter.set_name(name)
+        for file_extension in self.source.type.files_extensions:
+            filter.add_pattern("*.{0}".format(file_extension))
+        dialog.add_filter(filter)
+
+        response = dialog.run()
+        if response == gtk.RESPONSE_OK:
+            filename = dialog.get_filename()
+
+            file_extension = get_file_extension(filename)
+            if file_extension is None and self.source.type.files_extensions:
+                file_extension = self.source.type.files_extensions[0]
+            filename = trim_file_extension(filename)
+            try:
+                self.source.type.store_source(
+                    self.source.data, filename, file_extension, self.app)
+
+                self.source.name = "{0}.{1}".format(filename, file_extension)
+                self.source.stored = True
+                self.item_free.set_sensitive(True)
+            except NoSaverExists as ex:
+                self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
+            finally:
+                dialog.destroy()
+        else:
+            dialog.destroy()
+
+    def _cb_load(self):
+        self.source.data = self.source.type.load_source(
+            self.source.name, self.app, self.source.type.setting).data
+        self.data_free = False
+        self._lock_buttons()
+        self.emit_event("source-data-changed", self.source)
+
+    def _cb_free(self):
+        del self.source.data
+        self.source.data = None
+        self.data_free = True
+        self._lock_buttons()
+        if self.tabview is not None:
+            self.tabview.close()
+        self.emit_event("source-data-changed", self.source)
+
     def _cb_delete(self):
+        if self.tabview is not None:
+            self.tabview.close()
         self.emit_event("delete-source", self.source)
 
 
@@ -146,6 +250,9 @@ class SourcesRepository(object, EventSource):
         EventSource.__init__(self)
 
         self._repo = {} # (name: source)
+
+    def __len__(self):
+        return len(self._repo)
 
     def add(self, source):
         if source.name not in self._repo:
@@ -202,6 +309,7 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
                 source_view.show_all()
             else:
                 source_view.hide_all()
+        return (len(show_sources), len(self.repository))
 
     def deregister_callbacks(self):
         for source in self.repository.get_sources(None):
@@ -216,6 +324,7 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
         source_view = SourceView(source, self.app)
         source_view.set_callback("attach-source", self._cb_attach_source)
         source_view.set_callback("delete-source", self._cb_delete_source)
+        source_view.set_callback("source-data-changed", self._cb_data_changed)
         self.pack_start(source_view, False, False)
         source_view.show_all()
         self.sources_views[source] = source_view
@@ -224,11 +333,15 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
         source_view = self.sources_views[source]
         source_view.remove_callback("attach-source", self._cb_attach_source)
         source_view.remove_callback("delete-source", self._cb_delete_source)
+        source_view.remove_callback(
+            "source-data-changed", self._cb_data_changed)
         self.remove(source_view)
 
     def _cb_attach_source(self, source):
-        # redirect the event from repository
         self.emit_event("attach-source", source)
+
+    def _cb_data_changed(self, source):
+        self.emit_event("source-data-changed", source)
 
     def _cb_delete_source(self, source):
         self.repository.remove(source)
@@ -307,6 +420,8 @@ class Parameter(object, EventSource):
             return self.sources[index]
 
     def attach_source(self, source, index=None):
+        old_real_attached = self.real_attached
+
         if index is None: # attach
             attached = False
             for i in xrange(len(self.sources)):
@@ -333,15 +448,22 @@ class Parameter(object, EventSource):
                 "You try attach source to negative index"
                 "({0}) of parameter!".format(index))
 
+        if old_real_attached < self.real_attached:
+            source.set_callback("source-name-changed",
+                                self._cb_source_name_changed,
+                                self.real_attached-1)
+
         self.emit_event("parameter-changed")
 
     def detach_source(self, index=0):
         if 0 <= index < len(self.sources):
             if len(self.sources) - self.minimum <= 0:
-                self.sources[index] = None
-            else:
-                self.sources.pop(index)
+                # minimal count of parameters remain visible
+                self.sources.append(None)
+            source = self.sources.pop(index)
             self.real_attached -= 1
+            source.remove_callback("source-name-changed",
+                                   self._cb_source_name_changed, index)
             self.emit_event("parameter-changed")
 
     def get_data(self):
@@ -351,18 +473,24 @@ class Parameter(object, EventSource):
         else:
             return self.sources[0].data
 
+    def _cb_source_name_changed(self, idx, name):
+        self.emit_event("source-name-changed", idx, name)
 
 class ParameterView(gtk.Table, EventSource):
 
     def __init__(self, parameter):
         gtk.Table.__init__(self, 1, 4, False)
         EventSource.__init__(self)
+        self.entries = []
 
         self.set_border_width(2)
 
         self.parameter = parameter
-        self.event = self.parameter.set_callback(
-            "parameter-changed", self._cb_parameter_changed)
+        self.events = EventCallbacksList()
+        self.events.set_callback(
+            self.parameter, "parameter-changed", self._cb_parameter_changed)
+        self.events.set_callback(
+            self.parameter, "source-name-changed", self._cb_source_name_changed)
 
         # initialize view
         self._cb_parameter_changed()
@@ -374,6 +502,7 @@ class ParameterView(gtk.Table, EventSource):
         # remove
         for child in self.get_children():
             self.remove(child)
+        self.entries = []
 
         # create actualized view
         rows = self.parameter.sources_count() + 1
@@ -404,21 +533,30 @@ class ParameterView(gtk.Table, EventSource):
             attached_source = self.parameter.get_source(i)
             if attached_source is not None:
                 entry.set_text(attached_source.name)
+                entry.set_sensitive(attached_source.data is not None)
             self.attach(entry, 2, 3, i, i+1, xoptions=gtk.FILL)
+            self.entries.append(entry)
 
             button = gtk.Button("Detach")
             button.set_sensitive(attached_source is not None)
             button.connect(
                 "clicked",
-                lambda w, index: self.parameter.detach_source(index), i)
+                lambda w, index: self._cb_detach_source(index), i)
 
             self.attach(button, 3, 4, i, i+1, xoptions=0)
 
         self.show_all()
 
+    def _cb_source_name_changed(self, idx, name):
+        self.entries[idx].set_text(name)
+
+    def _cb_detach_source(self, index):
+        self.parameter.detach_source(index)
+        self.emit_event("detach-source", self.parameter.get_source(index))
+
     def _cb_choose_parameter(self, widget, event, index):
         self.emit_event("filter-sources", [self.parameter.type])
-        self.emit_event("select-parameter", self.parameter, index)
+        self.parameter.emit_event("select-parameter", index)
 
 
 class Operation(object, EventSource):
@@ -431,6 +569,10 @@ class Operation(object, EventSource):
         for parameter in self.parameters:
             self.events.set_callback(
                 parameter, "parameter-changed", self._cb_parameter_changed)
+            self.events.set_callback(
+                parameter,
+                "select-parameter",
+                lambda p, i: self.select_parameter(p, i), parameter)
 
         self.selected_parameter = (None, None)
         self._state = "ready" if self.all_sources_filled() else "incomplete"
@@ -458,6 +600,15 @@ class Operation(object, EventSource):
         index -- the specific position in a list (default 0)
 
         """
+        if parameter is None:
+            self.selected_parameter = (None, None)
+            return
+
+        if parameter.is_list():
+            if index > parameter.sources_count():
+                index = parameter.sources_count()
+        else:
+            index = 0
         self.selected_parameter = (parameter, index)
 
     def run(self, *args):
@@ -467,9 +618,9 @@ class Operation(object, EventSource):
         """
         return None
 
-    def execute(self):
+    def execute(self, app):
         args = [parameter.get_data() for parameter in self.parameters]
-        return self.run(*args)
+        return self.run(app, *args)
 
     def attach_source(self, source):
         parameter, index = self.selected_parameter
@@ -478,8 +629,8 @@ class Operation(object, EventSource):
             return
 
         for parameter in self.parameters:
-            if source.type == parameter.type and \
-                    (parameter.is_empty() or parameter.is_list()):
+            if (source.type == parameter.type and
+                    (parameter.is_empty() or parameter.is_list())):
                 parameter.attach_source(source)
                 return
 
@@ -488,12 +639,13 @@ class Operation(object, EventSource):
 
     def all_sources_filled(self):
         for parameter in self.parameters:
-            if parameter.get_source() is None:
+            count = 0
+            for idx in xrange(parameter.sources_count()):
+                src = parameter.get_source(idx)
+                if src is not None and src.data is not None:
+                    count += 1
+            if count < parameter.minimum:
                 return False
-            if parameter.is_list():
-                for idx in xrange(parameter.minimum):
-                    if parameter.get_source(idx) is None:
-                        return False
         return True
 
     def deregister_callbacks(self):
@@ -630,17 +782,15 @@ class OperationFullView(gtk.VBox, EventSource):
                 param_view, "filter-sources",
                 lambda f: self.emit_event("filter-sources", f))
             self.events.set_callback(
-                param_view,
-                "select-parameter",
-                lambda param, idx: self.emit_event(
-                    "select-parameter", param, idx))
+                param_view, "detach-source",
+                lambda s: self.emit_event("detach-source", s))
 
             self.pack_start(param_view, False, False)
 
         self.show_all()
 
     def _cb_run(self):
-        data = self.operation.execute()
+        data = self.operation.execute(self.app)
         self.emit_event("operation-finished", self.operation, data)
 
     def _cb_state_changed(self, state, icon, btn_run):
@@ -673,18 +823,18 @@ class ExtensionManager(gtk.VBox):
         # repository of loaded sources
         self.sources_repository = sources_repository
         self.events.set_callback(
-            self.sources_repository, "source-removed", self._cb_detach_source)
+            self.sources_repository, "source-removed",
+            self._cb_detach_source_from_all_operations)
 
         # full view of selected operation
         self.full_view = OperationFullView(self.app)
         self.__objects_with_callbacks.append(self.full_view)
         self.events.set_callback(
-            self.full_view, "select-parameter", self._cb_select_parameter)
-        self.events.set_callback(
-            self.full_view, "filter-sources",
-            lambda f: self.sources_view.set_filter(f))
+            self.full_view, "filter-sources", self._cb_filter_sources)
         self.events.set_callback(
             self.full_view, "operation-finished", self._cb_operation_finished)
+        self.events.set_callback(
+            self.full_view, "detach-source", self._cb_detach_source)
 
         # toolbar
         toolbar = gtk.HBox(False)
@@ -700,19 +850,23 @@ class ExtensionManager(gtk.VBox):
 
         # sources
         vbox = gtk.VBox(False)
+        vbox.set_size_request(80,-1)
 
-        title = gtk.Label("Sources:")
+        self.sources_title = gtk.Label()
+        self.sources_title.set_markup("Sources:")
         haling = gtk.Alignment(0, 0, 0, 0)
         haling.set_padding(0, 5, 2, 0)
-        haling.add(title)
+        haling.add(self.sources_title)
         vbox.pack_start(haling, False, False)
 
         self.sources_view = SourcesRepositoryView(
             self.sources_repository, self.app)
         self.__objects_with_callbacks.append(self.sources_view)
         self.events.set_callback(
-            self.sources_view, "attach-source",
-            lambda s: self._cb_attach_source(s))
+            self.sources_view, "attach-source", self._cb_attach_source)
+        self.events.set_callback(
+            self.sources_view,
+            "source-data-changed", self._cb_source_data_changed)
 
         scw = gtk.ScrolledWindow()
         scw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
@@ -725,10 +879,10 @@ class ExtensionManager(gtk.VBox):
 
         # list of operation's views
         vbox = gtk.VBox(False)
-        title = gtk.Label("Operations:")
+        label = gtk.Label("Operations:")
         haling = gtk.Alignment(0, 0, 0, 0)
         haling.set_padding(0, 5, 2, 0)
-        haling.add(title)
+        haling.add(label)
         vbox.pack_start(haling, False, False)
         operations = self._load_operations()
         vbox.pack_start(operations)
@@ -765,8 +919,7 @@ class ExtensionManager(gtk.VBox):
             self.loaded_operations.append(operation)
             short_view = OperationShortView(operation)
             self.events.set_callback(
-                short_view, "operation-selected",
-                lambda op: self.full_view.set_operation(op))
+                short_view, "operation-selected", self._cb_operation_selected)
             column.pack_start(short_view, False, False)
 
             self.__objects_with_callbacks.append(operation)
@@ -784,6 +937,9 @@ class ExtensionManager(gtk.VBox):
                                        gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
 
+        all_supported_types = gtk.FileFilter()
+        all_supported_types.set_name("All supported files")
+        dialog.add_filter(all_supported_types)
         for type in types_repository:
             filter = gtk.FileFilter()
             name = "{0} ({1})".format(
@@ -791,38 +947,55 @@ class ExtensionManager(gtk.VBox):
                     lambda s: "*.{0}".format(s),
                     type.files_extensions)))
             filter.set_name(name)
-            filter.set_data(name, type)
 
             for file_extension in type.files_extensions:
-                filter.add_pattern("*.{0}".format(file_extension))
+                pattern = "*.{0}".format(file_extension)
+                filter.add_pattern(pattern)
+                all_supported_types.add_pattern(pattern)
             dialog.add_filter(filter)
 
         response = dialog.run()
         if response == gtk.RESPONSE_OK:
             filename = dialog.get_filename()
 
-            filter = dialog.get_filter()
-            type = filter.get_data(filter.get_name())
-
+            file_extension = get_file_extension(filename)
+            type = file_extension_to_type(file_extension)
+            if type is None:
+                self.app.show_message_dialog(
+                    "For '{0}' files is not defined a type!".format(
+                        file_extension),
+                    gtk.MESSAGE_WARNING)
+                dialog.destroy()
+                return
             try:
-                src = type.load_source(filename)
-                self.sources_repository.add(src)
+                src = type.load_source(filename, self.app)
+                if src is not None:
+                    self.sources_repository.add(src)
             except NoLoaderExists as ex:
                 self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
             finally:
+                self._cb_filter_off()
                 dialog.destroy()
+        else:
+            dialog.destroy()
 
-        dialog.destroy()
+    def _cb_operation_selected(self, operation):
+        if self.full_view.operation == operation:
+            return
+        self._cb_filter_off()
+        self.full_view.set_operation(operation)
+
+    def _cb_filter_sources(self, type):
+        visible_sources, all_sources = self.sources_view.set_filter(type)
+        self.sources_title.set_markup(
+            "Sources (<b>visible {0} from {1}</b>):".format(
+                visible_sources, all_sources))
 
     def _cb_filter_off(self):
+        self.sources_title.set_markup("Sources:")
+        self.sources_view.set_filter(None)
         if self.full_view.operation is not None:
             self.full_view.operation.select_parameter(None, None)
-            self.sources_view.set_filter(None)
-
-    def _cb_select_parameter(self, param, index):
-        operation = self.full_view.operation
-        if operation is not None:
-            operation.select_parameter(param, index)
 
     def _cb_operation_finished(self, operation, sources):
         if sources is None:
@@ -855,7 +1028,7 @@ class ExtensionManager(gtk.VBox):
 
             if param.is_list(): # the filter will stay on,
                                 # if a parameter is list type
-                operation.select_parameter(param, idx + 1)
+                operation.select_parameter(param, param.sources_count() + 1)
             else:
                 operation.select_parameter(None, None)
                 self.sources_view.set_filter(None)
@@ -864,6 +1037,13 @@ class ExtensionManager(gtk.VBox):
                 "No operation is chosen.", gtk.MESSAGE_INFO)
 
     def _cb_detach_source(self, source):
+        operation = self.full_view.operation
+        if operation is not None:
+            param, idx = operation.selected_parameter
+            if param is not None:
+                operation.select_parameter(param, param.sources_count())
+
+    def _cb_detach_source_from_all_operations(self, source):
         """Detach source from all operation's parameters."""
 
         for operation in self.loaded_operations:
@@ -880,6 +1060,13 @@ class ExtensionManager(gtk.VBox):
                     psource = param.get_source()
                     if psource is not None and psource == source:
                         param.detach_source()
+
+    def _cb_source_data_changed(self, source):
+        for operation in self.loaded_operations:
+            for param in operation.parameters:
+                for psource in param.sources:
+                    if psource == source:
+                        param.emit_event("parameter-changed")
 
 
 # *****************************************************************************
