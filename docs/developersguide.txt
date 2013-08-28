@@ -33,12 +33,6 @@ They serve as a description of basic objects with which a user can manipulate
 like tracelog, tables, etc. They contain also three basic functions for:
 *load*, *store*, and *visualization* of data.
 
-All of data types whether the existing ones or those are not implemented yet
-are located in module +datatypes+. It means that, if a user wants to add a new
-data type it will be added to +$KAIRA/gui/datatypes.py+ source file.
-// TODO: konvece je protoze, nekteri dalsi mohou chtit pouzivat tvuj typ,
-// a zda se mi lepsi to mit na jednom miste nez to lovit vsude mozne.
-
 The following example shows how to simply add a new data type. Every data type
 consists:
 
@@ -176,7 +170,8 @@ extension (file extension: save function)
 - [[fn-load]]'load_source(filename, app, setting=None)' -- call functions
 stored in the 'loaders' dictionary by the extension of filename
 * 'filename' -- a name of file (include a path where the data will be stored)
-* 'app' -- a reference to the main application; there is a lot of useful functions
+* 'app' -- a reference to the main application; there is a lot of useful
+functions
 * 'setting' -- an optional argument (default: +None+) where may be stored some
 user's setting informations
 - [[fn-store]]'store_source(data, filename, file_extension, app, setting=None)'
@@ -197,8 +192,8 @@ Implemented data types
 ++++++++++++++++++++++
 
 .Tracelog (+t_tracelog+)
-This data type represents data produced by applications made by Kaira, if they are
-run in tracing mode.
+This data type represents data produced by applications made by Kaira, if they
+are run in tracing mode.
 
 - 'supported file types'
 * *kth* (kaira tracelog header)
