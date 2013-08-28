@@ -205,10 +205,12 @@ class CodeTestList(gtk.VBox):
         self.show_all()
 
     def save(self):
-        self.editor.save()
+        if self.editor.get_sensitive():
+            self.editor.save()
 
     def cursor_changed(self, obj):
-        self.editor.save()
+        if self.editor.get_sensitive():
+            self.editor.save()
         if obj is None:
             self.editor.set_text("")
             self.editor.set_sensitive(False)
@@ -227,18 +229,24 @@ class CodeTestList(gtk.VBox):
             if not add_test(self.app.project, codetest):
                 self.app.show_error_dialog(
                     "Test {0.name} already exists".format(codetest))
+        else:
+            return
         self.refresh_tests()
         self.objlist.select_object(codetest)
         self.cursor_changed(codetest)
 
     def remove_test(self, obj):
         if obj is not None:
+            self.cursor_changed(None)
             obj.remove()
-            self.refresh_tests()
+            tests = collect_tests(self.app.project)
+            self.objlist.clear()
+            self.objlist.fill(tests)
+            self.objlist.select_first()
 
     def execute(self, obj):
         def build(callback):
-            build_config = self.app.project.get_build_config("release")
+            build_config = self.app.project.get_build_config("lib")
             self.app.start_build(self.app.project,
                                  build_config,
                                  lambda: obj.build(self.app, callback))
