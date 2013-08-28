@@ -113,18 +113,6 @@ def get_save_file_filter(type):
         filter.add_pattern(pattern)
     return filter
 
-def load_source(filename, app, settings=None):
-    # TODO: Catch IOError
-    suffix = utils.get_filename_suffix(filename)
-    loader = get_loader_by_suffix(suffix)
-    if loader is None:
-        return None
-
-    source = loader(filename, app, settings)
-    if source is None:
-        return None
-    return extensions.Source(filename, get_type_by_suffix(suffix), source, True)
-
 # *****************************************************************************
 # supported types
 

@@ -34,9 +34,6 @@ import utils
 
 operations = {} # the list of all loaded operations
 
-class ExtensionException(Exception):
-    pass
-
 # *****************************************************************************
 # Sources
 
@@ -53,7 +50,11 @@ class Source(object, EventSource):
         """
         EventSource.__init__(self)
 
-        self._name = name
+        if name is None:
+            self._name = name
+        else:
+            self._name = utils.get_timestamp_string()
+
         self.type = type
         self.data = data
         self.stored = stored
@@ -80,6 +81,18 @@ class Source(object, EventSource):
         saver(self.data, filename, app, settings)
         self.name = filename
         self.stored = True
+
+def load_source(filename, app, settings=None):
+    # TODO: Catch IOError
+    suffix = utils.get_filename_suffix(filename)
+    loader = datatypes.get_loader_by_suffix(suffix)
+    if loader is None:
+        return None
+
+    source = loader(filename, app, settings)
+    if source is None:
+        return None
+    return Source(filename, datatypes.get_type_by_suffix(suffix), source, True)
 
 
 class SourceView(gtk.Alignment, EventSource):
@@ -262,6 +275,12 @@ class SourcesRepository(object, EventSource):
             return True
         return False
 
+    def load_source(self, filename, app, settings=None):
+        source = load_source(filename, app, settings)
+        if source is not None:
+            self.add(source)
+            return source
+
     def get_sources(self, filter=None):
         """Return a list of loaded sources. If the filter is not empty,
         the sources are filtered by the type.
@@ -340,9 +359,6 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
         self.repository.remove(source)
 
 
-# *****************************************************************************
-# Extension
-
 class Argument(object):
     """This class describes the argument of operation. It serves as persistent
      structure.
@@ -364,6 +380,7 @@ class Argument(object):
         self.type = type
         self.list = list
         self.minimum = minimum
+
 
 class Parameter(object, EventSource):
 
@@ -417,16 +434,16 @@ class Parameter(object, EventSource):
 
         if index is None: # attach
             attached = False
-            for i in xrange(len(self.sources)):
-                if self.sources[i] is None:
+            for i, s in enumerate(self.sources):
+                if s is None:
                     self.sources[i] = source
                     attached = True
                     break
             if not attached:
                 self.sources.append(source)
-
             self.real_attached += 1
-        elif index >= 0:
+        else:
+            assert(index >= 0)
             if index < len(self.sources):
                 if self.sources[index] is None:
                     # increase only if the source is None, in the other case
@@ -436,10 +453,6 @@ class Parameter(object, EventSource):
             else:
                 self.sources.append(source)
                 self.real_attached += 1
-        else: # negative index
-            raise ExtensionException(
-                "You try attach source to negative index"
-                "({0}) of parameter!".format(index))
 
         if old_real_attached < self.real_attached:
             source.set_callback("source-name-changed",
@@ -461,13 +474,14 @@ class Parameter(object, EventSource):
 
     def get_data(self):
         if self.is_list():
-            return [self.sources[idx].data
-                    for idx in xrange(self.real_attached)]
+            return [ source.data
+                     for source in self.sources[:self.real_attached] ]
         else:
             return self.sources[0].data
 
     def _cb_source_name_changed(self, idx, name):
         self.emit_event("source-name-changed", idx, name)
+
 
 class ParameterView(gtk.Table, EventSource):
 
@@ -611,9 +625,20 @@ class Operation(object, EventSource):
         """
         return None
 
-    def execute(self, app):
-        args = [parameter.get_data() for parameter in self.parameters]
-        return self.run(app, *args)
+    def execute(self, app, store_results=True):
+        args = [ parameter.get_data() for parameter in self.parameters ]
+        results = self.run(app, *args)
+        if not store_results:
+            return results
+        if results is None:
+            return
+        try:
+            sources = list(results)
+        except TypeError:
+            sources = [results]
+        for source in sources:
+            app.sources_repository.add(source)
+        return results
 
     def attach_source(self, source):
         parameter, index = self.selected_parameter
@@ -800,11 +825,11 @@ class OperationFullView(gtk.VBox, EventSource):
 
 
 # *****************************************************************************
-# Extensions manager
+# Operation manager
 
-class ExtensionManager(gtk.VBox):
+class OperationManager(gtk.VBox):
 
-    def __init__(self, sources_repository, app):
+    def __init__(self, app):
         gtk.VBox.__init__(self)
 
         self.__objects_with_callbacks = []
@@ -814,9 +839,8 @@ class ExtensionManager(gtk.VBox):
         self.events = EventCallbacksList()
 
         # repository of loaded sources
-        self.sources_repository = sources_repository
         self.events.set_callback(
-            self.sources_repository, "source-removed",
+            app.sources_repository, "source-removed",
             self._cb_detach_source_from_all_operations)
 
         # full view of selected operation
@@ -853,7 +877,7 @@ class ExtensionManager(gtk.VBox):
         vbox.pack_start(haling, False, False)
 
         self.sources_view = SourcesRepositoryView(
-            self.sources_repository, self.app)
+            app.sources_repository, self.app)
         self.__objects_with_callbacks.append(self.sources_view)
         self.events.set_callback(
             self.sources_view, "attach-source", self._cb_attach_source)
@@ -900,10 +924,7 @@ class ExtensionManager(gtk.VBox):
         self.events.remove_all()
 
     def load_source(self, filename):
-        source = datatypes.load_source(filename, self.app)
-        if source:
-            self.sources_repository.add(source)
-        return source
+        return self.app.sources_repository.load_source(filename, self.app)
 
     def _load_operations(self):
         """Load modules (operations). It returns a column with all loaded
@@ -969,21 +990,6 @@ class ExtensionManager(gtk.VBox):
             self.full_view.operation.select_parameter(None, None)
 
     def _cb_operation_finished(self, operation, sources):
-        if sources is None:
-            return
-
-        try:
-            sources = list(sources)
-        except TypeError:
-            sources = [sources]
-
-        ts = time()
-        tstring = strftime("%Y-%m-%d %H:%M:%S", gmtime(ts))
-        # add milliseconds
-        tstring = "%s.%03d" % (tstring, int(round(ts * 1e3)) - int(ts) * 1e3)
-        for source in sources:
-            source.name = "%s (%s)" % (source.name, tstring)
-            self.sources_repository.add(source)
         # destroy filter and selected_parameter
         self.full_view.operation.select_parameter(None, None)
         self.sources_view.set_filter(None)
@@ -1056,5 +1062,3 @@ def load_extensions():
             # the file is *.py and it exists
             imp.load_source("extension_" + name, fullname)
     sys.path.remove(paths.EXTENSIONS_DIR)
-
-load_extensions()

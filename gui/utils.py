@@ -21,6 +21,7 @@
 import math
 import os
 import re
+import time
 
 def empty_fn(*args, **kwords):
 	pass
@@ -385,6 +386,10 @@ def get_filename_suffix(filename):
 
 def trim_filename_suffix(filename):
     return os.path.splitext(filename)[0]
+
+def get_timestamp_string():
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
+
 
 class EqMixin(object):
 

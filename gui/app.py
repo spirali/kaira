@@ -275,8 +275,9 @@ class App:
                          lambda: self.console_write("Build finished ({0})\n".format(target), "success"))
 
     def run_tool_window(self):
-        tab = Tab("Tools", extensions.ExtensionManager(
-            self.sources_repository, self,), call_close=True)
+        tab = Tab("Tools",
+                  extensions.OperationManager(self),
+                  call_close=True)
         self.window.add_tab(tab)
 
     def run_statespace_analysis(self):
@@ -750,6 +751,7 @@ class App:
 
 if __name__ == "__main__":
     args = sys.argv[1:] # Remove "app.py"
+    extensions.load_extensions()
     app = App(args)
     app.run()
 
