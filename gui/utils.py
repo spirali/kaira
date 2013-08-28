@@ -378,19 +378,13 @@ integer_parser = re.compile("\d+")
 def is_integer(value):
     return bool(integer_parser.match(value))
 
-def get_file_extension(filename):
-    # getting file extensions (after last dot)
-    splitedname = filename.split(".")
-    if len(splitedname) >= 2:
-        file_extension = splitedname[-1]
-        return file_extension
-    return None
+def get_filename_suffix(filename):
+    suffix = os.path.splitext(filename)[1]
+    if suffix.startswith("."):
+        return suffix[1:]
 
-def trim_file_extension(filename):
-    splitedname = filename.split(".")
-    if len(splitedname) >= 2:
-        return ".".join(splitedname[:-1])
-    return filename
+def trim_filename_suffix(filename):
+    return os.path.splitext(filename)[0]
 
 class EqMixin(object):
 

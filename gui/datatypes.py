@@ -1,5 +1,6 @@
 #
 #    Copyright (C) 2013 Martin Surkovsky
+#    Copyright (C) 2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -17,42 +18,24 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import extensions
-from utils import get_file_extension
-
-# User's imports
-import gtk
 import csv
+
+import extensions
+import gtk
 import gtkutils
 import settingswindow
 import runview
+import utils
 from tracelog import TraceLog
 
 """Supported types for extensions."""
 
 types_repository = []
 
-class DataTypeException(Exception):
-    pass
-
-
-class NoLoaderExists(DataTypeException):
-
-    def __init__(self, value):
-        message = "Loader for '{0}' does not exist!".format(str(value))
-        DataTypeException.__init__(self, message)
-
-
-class NoSaverExists(DataTypeException):
-
-    def __init__(self, value):
-        message = "Saver for '{0}' does not exists!".format(str(value))
-        DataTypeException.__init__(self, message)
-
 
 class Type(object):
 
-    def __init__(self, name, short_name, files_extensions):
+    def __init__(self, name, short_name=None):
         """Initialize of type of types.
 
         Arguments:
@@ -62,36 +45,15 @@ class Type(object):
 
         """
         self.name = name
-        self.short_name = short_name
-        self.files_extensions = list(files_extensions)
+        if short_name is None:
+            self.short_name = name
+        else:
+            self.short_name = short_name
         self.setting = None
 
         self.loaders = {}
         self.savers = {}
-
-    def load_source(self, filename, app, setting=None):
-        file_extension = get_file_extension(filename)
-        if file_extension is None:
-            raise NoLoaderExists("empty file extension")
-
-        if file_extension in self.loaders:
-            fn_load = self.loaders[file_extension]
-            data = fn_load(filename, app, setting)
-            if data is None:
-                return None
-            return extensions.Source(filename, self, data, True)
-        else:
-            raise NoLoaderExists("{0} ({1})".format(self.name, file_extension))
-
-    def store_source(self, data, filename, file_extension, app, setting=None):
-        if file_extension is None:
-            raise NoSaverExists("empty file extension")
-
-        if file_extension in self.savers:
-            fn_save = self.savers[file_extension]
-            fn_save(data, filename, file_extension, app, setting)
-        else:
-            raise NoSaverExists("{0} ({1})".format(self.name, file_extension))
+        self.default_saver = None
 
     def get_view(self, data, app):
         return None
@@ -99,29 +61,79 @@ class Type(object):
     def register_load_function(self, extension, function):
         self.loaders[extension] = function
 
-    def register_store_function(self, extension, function):
+    def register_store_function(self, extension, function, default=False):
         self.savers[extension] = function
+        if default or self.default_saver is None:
+            self.default_saver = extension
 
 
 # *****************************************************************************
 # module functions
-def file_extension_to_type(file_extension):
+def get_type_by_suffix(suffix):
     for type in types_repository:
-        for type_file_extension in type.files_extensions:
-            if file_extension == type_file_extension:
-                return type
+        if suffix in type.loaders:
+            return type
     return None
 
+def get_loader_by_suffix(suffix):
+    for type in types_repository:
+        loader = type.loaders.get(suffix)
+        if loader is not None:
+            return loader
+    return None
+
+def get_saver_by_suffix(suffix):
+    for type in types_repository:
+        saver = type.savers.get(suffix)
+        if saver is not None:
+            return saver
+    return None
+
+def get_load_file_filters():
+    all_supported_types = gtk.FileFilter()
+    all_supported_types.set_name("All supported files")
+
+    result = [ all_supported_types ]
+    for type in types_repository:
+        patterns = [ "*." + s for s in type.loaders.keys() ]
+        filter = gtk.FileFilter()
+        filter.set_name("{0} ({1})".format(type.short_name, ", ".join(patterns)))
+        result.append(filter)
+
+        for pattern in patterns:
+            filter.add_pattern(pattern)
+            all_supported_types.add_pattern(pattern)
+    return result
+
+def get_save_file_filter(type):
+    patterns = [ "*." + s for s in type.loaders.keys() ]
+    filter = gtk.FileFilter()
+    filter.set_name("{0} ({1})".format(type.short_name, ", ".join(patterns)))
+    for pattern in patterns:
+        filter.add_pattern(pattern)
+    return filter
+
+def load_source(filename, app, settings=None):
+    # TODO: Catch IOError
+    suffix = utils.get_filename_suffix(filename)
+    loader = get_loader_by_suffix(suffix)
+    if loader is None:
+        return None
+
+    source = loader(filename, app, settings)
+    if source is None:
+        return None
+    return extensions.Source(filename, get_type_by_suffix(suffix), source, True)
 
 # *****************************************************************************
 # supported types
 
 # Standard data types
-t_string = Type("String", "string", [])
+t_string = Type("Plain text")
 
 # -----------------------------------------------------------------------------
 # Tracelog type
-t_tracelog = Type("Kaira tracelog", "Tracelog", ["kth"])
+t_tracelog = Type("Kaira tracelog", "Tracelog")
 def load_kth(filename, app, setting=None):
     if filename is None:
         return
@@ -136,7 +148,7 @@ types_repository.append(t_tracelog)
 
 # -----------------------------------------------------------------------------
 # Table type
-t_table = Type("Table", "Table", ["csv"])
+t_table = Type("Table")
 
 def show_csv_setting_dialog(parent_window):
     sw = settingswindow.SettingWidget()
@@ -201,20 +213,22 @@ def load_csv(filename, app, setting):
         for row in csvreader:
             data.append(row)
         return (header, data)
+
 t_table.register_load_function("csv", load_csv)
 
-def store_csv(data, filename, file_extension, app, setting):
+def store_csv(data, filename, app, settings):
     header, rows = data
-    if setting is None:
-        setting = show_csv_setting_dialog(app.window)
-    delimiter, quotechar, has_header = setting
-    with open("{0}.{1}".format(filename, file_extension), "wb") as csvfile:
+    if settings is None:
+        settings = show_csv_setting_dialog(app.window)
+    delimiter, quotechar, has_header = settings
+    with open(filename, "w") as csvfile:
         csvwriter = csv.writer(
             csvfile, delimiter=delimiter, quotechar=quotechar)
         if has_header:
             csvwriter.writerow(header)
         for row in rows:
             csvwriter.writerow(row)
+
 t_table.register_store_function("csv", store_csv)
 
 def csv_view(data, app):

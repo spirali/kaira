@@ -1,5 +1,6 @@
 #
 #    Copyright (C) 2013 Martin Surkovsky
+#                  2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -26,12 +27,10 @@ import sys
 import imp
 
 from time import time, gmtime, strftime
-from utils import get_file_extension, trim_file_extension
 from events import EventSource, EventCallbacksList
-from datatypes import types_repository, file_extension_to_type
-from datatypes import NoLoaderExists, NoSaverExists
+import datatypes
 from mainwindow import Tab
-
+import utils
 
 operations = {} # the list of all loaded operations
 
@@ -67,6 +66,21 @@ class Source(object, EventSource):
     def name(self, name):
         self._name = name
         self.emit_event("source-name-changed", name)
+
+    def store(self, filename, app, settings=None):
+        suffix = utils.get_filename_suffix(filename)
+        if suffix is None:
+            suffix = self.type.default_saver
+            filename += "." + suffix
+        saver = self.type.savers.get(suffix)
+        if saver is None:
+            app.show_message_dialog(
+                    "Cannot save '.{0}' file".format(suffix),
+                    gtk.MESSAGE_WARNING)
+        saver(self.data, filename, app, settings)
+        self.name = filename
+        self.stored = True
+
 
 class SourceView(gtk.Alignment, EventSource):
 
@@ -189,38 +203,17 @@ class SourceView(gtk.Alignment, EventSource):
                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                        gtk.STOCK_SAVE, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
+        dialog.add_filter(datatypes.get_save_file_filter(self.source.type))
 
-        filter = gtk.FileFilter()
-        name = "{0} ({1})".format(
-            self.source.type.short_name, ", ".join(map(
-                lambda s: "*.{0}".format(s),
-                self.source.type.files_extensions)))
-        filter.set_name(name)
-        for file_extension in self.source.type.files_extensions:
-            filter.add_pattern("*.{0}".format(file_extension))
-        dialog.add_filter(filter)
-
-        response = dialog.run()
-        if response == gtk.RESPONSE_OK:
+        try:
+            response = dialog.run()
             filename = dialog.get_filename()
-
-            file_extension = get_file_extension(filename)
-            if file_extension is None and self.source.type.files_extensions:
-                file_extension = self.source.type.files_extensions[0]
-            filename = trim_file_extension(filename)
-            try:
-                self.source.type.store_source(
-                    self.source.data, filename, file_extension, self.app)
-
-                self.source.name = "{0}.{1}".format(filename, file_extension)
-                self.source.stored = True
-                self.item_free.set_sensitive(True)
-            except NoSaverExists as ex:
-                self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
-            finally:
-                dialog.destroy()
-        else:
+        finally:
             dialog.destroy()
+
+        if response == gtk.RESPONSE_OK:
+            self.source.store(filename, self.app)
+            self.item_free.set_sensitive(True)
 
     def _cb_load(self):
         self.source.data = self.source.type.load_source(
@@ -906,6 +899,12 @@ class ExtensionManager(gtk.VBox):
             obj.deregister_callbacks()
         self.events.remove_all()
 
+    def load_source(self, filename):
+        source = datatypes.load_source(filename, self.app)
+        if source:
+            self.sources_repository.add(source)
+        return source
+
     def _load_operations(self):
         """Load modules (operations). It returns a column with all loaded
          operations.
@@ -937,46 +936,18 @@ class ExtensionManager(gtk.VBox):
                                        gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
 
-        all_supported_types = gtk.FileFilter()
-        all_supported_types.set_name("All supported files")
-        dialog.add_filter(all_supported_types)
-        for type in types_repository:
-            filter = gtk.FileFilter()
-            name = "{0} ({1})".format(
-                type.short_name, ", ".join(map(
-                    lambda s: "*.{0}".format(s),
-                    type.files_extensions)))
-            filter.set_name(name)
-
-            for file_extension in type.files_extensions:
-                pattern = "*.{0}".format(file_extension)
-                filter.add_pattern(pattern)
-                all_supported_types.add_pattern(pattern)
+        for filter in datatypes.get_load_file_filters():
             dialog.add_filter(filter)
 
-        response = dialog.run()
-        if response == gtk.RESPONSE_OK:
-            filename = dialog.get_filename()
-
-            file_extension = get_file_extension(filename)
-            type = file_extension_to_type(file_extension)
-            if type is None:
-                self.app.show_message_dialog(
-                    "For '{0}' files is not defined a type!".format(
-                        file_extension),
-                    gtk.MESSAGE_WARNING)
-                dialog.destroy()
-                return
-            try:
-                src = type.load_source(filename, self.app)
-                if src is not None:
-                    self.sources_repository.add(src)
-            except NoLoaderExists as ex:
-                self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
-            finally:
+        try:
+            response = dialog.run()
+            if response == gtk.RESPONSE_OK:
                 self._cb_filter_off()
-                dialog.destroy()
-        else:
+                filename = dialog.get_filename()
+                source = self.load_source(filename)
+                if source is None:
+                    self.app.show_message_dialog("Cannot load '{0}'".format(filename), gtk.MESSAGE_WARNING)
+        finally:
             dialog.destroy()
 
     def _cb_operation_selected(self, operation):
