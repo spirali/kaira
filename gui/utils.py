@@ -23,6 +23,12 @@ import os
 import re
 import time
 
+id_counter = 1000
+def get_unique_id():
+    global id_counter
+    id_counter += 1
+    return id_counter
+
 def empty_fn(*args, **kwords):
 	pass
 

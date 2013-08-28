@@ -26,7 +26,6 @@ import os
 import sys
 import imp
 
-from time import time, gmtime, strftime
 from events import EventSource, EventCallbacksList
 import datatypes
 from mainwindow import Tab
@@ -50,10 +49,11 @@ class Source(object, EventSource):
         """
         EventSource.__init__(self)
 
-        if name is None:
+        if name is not None:
             self._name = name
         else:
-            self._name = utils.get_timestamp_string()
+            self._name = "{0} ({1})".format(utils.get_timestamp_string(),
+                                            utils.get_unique_id())
 
         self.type = type
         self.data = data
@@ -645,7 +645,6 @@ class Operation(object, EventSource):
         if parameter is not None and parameter.type == source.type:
             parameter.attach_source(source, index)
             return
-
         for parameter in self.parameters:
             if (source.type == parameter.type and
                     (parameter.is_empty() or parameter.is_list())):

@@ -67,14 +67,38 @@ class App:
             "\*(?P<location>((?P<id_int>\d+)/(?P<section>[^:]*)|(?P<id_string>[^:]+))"
             "(:(?P<line>\d+))?):(?P<message>.*)")
 
+        operation = None
+        arg_index = 0
+
         for arg in args:
-            if os.path.isfile(arg):
+            if arg.startswith("OP:"):
+                operation_class = extensions.operations.get(arg[3:])
+                if operation_class is None:
+                    self.console_write("Invalid operation".format(arg), "error")
+                else:
+                    operation = operation_class()
+                continue
+
+            filename = os.path.abspath(arg)
+            if os.path.isfile(filename):
                 if arg.endswith(".kreport"):
                     self.load_report(arg)
+                elif arg.endswith(".proj"):
+                    self.set_project(loader.load_project(filename))
                 else:
-                    self.set_project(loader.load_project(arg))
+                    source = self.sources_repository.load_source(filename, self)
+                    if source is None:
+                        operation = None
+                        self.console_write("Do no know how to load '{0}' \n".format(filename), "error")
+                    if operation:
+                        operation.parameters[arg_index].attach_source(source, 0)
+                        arg_index += 1
             else:
-                self.console_write("File '{0}' not found\n".format(arg), "error")
+                self.console_write("File '{0}' not found\n".format(filename), "error")
+
+        if operation:
+            operation.execute(self)
+            self.console_write("Operation '{0}' executed\n".format(operation.name), "info")
 
     def get_settings_filename(self):
         return os.path.expanduser("~/.config/kaira/kaira.conf")
