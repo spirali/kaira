@@ -49,14 +49,18 @@ class TraceLog:
         name, ext = os.path.splitext(self.filename)
         return name
 
-    def get_event_runinstance(self, index):
-        ri = self.first_runinstance.copy()
-        for i in xrange(index):
+    def execute_events(self, ri, from_event=0, to_event=None):
+        if to_event is None:
+            to_event = len(self.timeline)
+        for i in xrange(from_event, to_event):
             event_pointer = self.timeline[i]
             trace = self.traces[event_pointer.trace_id]
             trace.pointer = event_pointer.pointer
             trace.process_event(ri)
         return ri
+
+    def get_event_runinstance(self, index):
+        return self.execute_events(self.first_runinstance.copy(), 0, index)
 
     def get_event_thread(self, index):
         if index == 0:
