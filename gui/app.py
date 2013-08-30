@@ -382,11 +382,7 @@ class App:
                 lambda tab: tab.widget.jump_to_position(position)):
             return
 
-        n = transition.get_name()
-        if not n:
-            n = "#{0}".format(transition.id)
-        name = "T: {0}".format(n)
-
+        name = "T: {0}".format(transition.get_name_or_id())
         generator = self.get_safe_generator()
         if generator is None:
             return
@@ -411,10 +407,7 @@ class App:
             return
         header = generator.get_place_user_fn_header(place.id)
 
-        n = place.get_name()
-        if not n:
-            n = "#{0}".format(place.id)
-        name = "P: {0}".format(n)
+        name = "P: {0}".format(place.get_name_or_id())
         editor = codeedit.PlaceCodeEditor(self.project, place, header)
         self.window.add_tab(Tab(name, editor, place, mainmenu_groups=("project",)))
         editor.jump_to_position(position)

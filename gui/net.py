@@ -322,6 +322,18 @@ class NetElement(NetItem):
             if area.is_inside(self):
                 return area
 
+    def get_name(self):
+        return self.box.name
+
+    def get_name_or_id(self):
+        if not self.box.name:
+            return "#{0}".format(self.id)
+        return self.box.name
+
+    def set_name(self, name):
+        self.box.name = name
+        self.changed()
+
 
 class Transition(NetElement):
 
@@ -398,13 +410,6 @@ class Transition(NetElement):
 
     def get_priroty(self):
         return self.box.corner_text
-
-    def get_name(self):
-        return self.box.name
-
-    def set_name(self, name):
-        self.box.name = name
-        self.changed()
 
     def get_guard(self):
         return self.guard.text
@@ -564,13 +569,6 @@ class Place(NetElement):
 
     def get_radius(self):
         return self.radius
-
-    def get_name(self):
-        return self.box.name
-
-    def set_name(self, name):
-        self.box.name = name
-        self.changed()
 
     def get_init_string(self):
         return self.init.text
