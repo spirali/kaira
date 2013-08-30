@@ -220,20 +220,15 @@ class MainWindow(gtk.Window):
             "project")
         add("_Connect to application", self.app.connect_to_application)
 
-        menu = add_menu("_Analysis")
+        menu = add_menu("_Tools")
 
+        add("_Run tool", self.app.run_tool_window)
+        menu.append(gtk.SeparatorMenuItem())
         add("Run state space _analysis", self.app.run_statespace_analysis, "project")
-        add("Open _report", self.app.load_report)
+        add("Open rep_ort", self.app.load_report)
 
         menu = add_menu("_Others")
         add("Save net as SV_G", self.app.save_as_svg, "screenshot")
-
-        menu = gtk.Menu()
-        item = gtk.MenuItem("Too_ls")
-        item.set_submenu(menu)
-        main_menu.append(item)
-
-        add("Run _tool", self.app.run_tool_window)
 
         return main_menu
 
