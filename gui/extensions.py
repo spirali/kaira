@@ -138,14 +138,14 @@ class SourceView(gtk.Alignment, EventSource):
         table.attach(button, 1, 2, 0, 2, xoptions=gtk.FILL)
         self.btns_group1.append(button)
 
+        button = gtk.Button("Show")
+        button.connect(
+            "clicked", lambda w: self._cb_show())
+        table.attach(button, 2, 3, 0, 2, xoptions=gtk.FILL)
+        self.btns_group1.append(button)
+
         # source menu
         menu = gtk.Menu()
-
-        item = gtk.MenuItem("Show")
-        item.connect("activate", lambda w: self._cb_show())
-        self.btns_group1.append(item)
-        menu.append(item)
-        menu.append(gtk.SeparatorMenuItem())
 
         item = gtk.MenuItem("Store")
         item.connect("activate", lambda w: self._cb_store())
@@ -174,7 +174,7 @@ class SourceView(gtk.Alignment, EventSource):
         menu_bar = gtk.MenuBar()
         menu_bar.set_child_pack_direction(gtk.PACK_DIRECTION_TTB)
         menu_bar.append(source_menu)
-        table.attach(menu_bar, 2, 3, 0, 2, xoptions=0)
+        table.attach(menu_bar, 3, 4, 0, 2, xoptions=0)
 
         # source component
         frame = gtk.Frame()
@@ -964,9 +964,7 @@ class OperationManager(gtk.VBox):
             if response == gtk.RESPONSE_OK:
                 self._cb_filter_off()
                 filename = dialog.get_filename()
-                source = self.load_source(filename)
-                if source is None:
-                    self.app.show_message_dialog("Cannot load '{0}'".format(filename), gtk.MESSAGE_WARNING)
+                self.load_source(filename)
         finally:
             dialog.destroy()
 

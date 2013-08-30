@@ -289,26 +289,25 @@ class SettingWidget(gtk.Table):
         button.connect("toggled", callback, key)
         self.add_widget(key, label, button)
 
-    def add_checkbuttons(self, key, label, items, defaults=[0], ncols=1):
+    def add_checkbuttons(self, key, label, items, ncols=1):
         """Adds to a setting widget a list of check-box buttons.
 
         Arguments:
         key -- unique key
         label -- the showed label in setting widget
-        items -- couples: (label, object)
+        items -- tuple: (label, object, state)
 
         Keywords:
-        defaults -- a list of indexes in items (default: first items)
         ncols -- a number of check-boxes which should be in one line
         (default: 1)
 
         """
         if not items:
             return
-        assert all(index < len(items) for index in defaults)
 
         self.setting[key] = []
         self.value_labels[key] = []
+
         def callback(button, key, value, vlabel):
             if value in self.setting[key]:
                 self.setting[key].remove(value)
@@ -317,43 +316,37 @@ class SettingWidget(gtk.Table):
                 self.setting[key].append(value)
                 self.value_labels[key].append(vlabel)
 
-        buttons = []
-        vbox, hbox = gtk.VBox(), gtk.HBox()
-        for idx, (vlabel, value) in enumerate(items):
+        vbox = gtk.VBox()
+        for idx, (vlabel, value, default) in enumerate(items):
+            if idx % ncols == 0:
+                hbox = gtk.HBox()
+                vbox.pack_start(hbox, False, False)
+
             button = gtk.CheckButton(vlabel)
             button.connect("toggled", callback, key, value, vlabel)
-            if idx in defaults:
-                buttons.append(button)
+            if default:
+                button.set_active(True)
             hbox.pack_start(button, False, False, 3)
-            idx += 1
-            if idx % ncols == 0:
-                vbox.pack_start(hbox, False, False)
-                hbox = gtk.HBox()
-        if idx % ncols != 0: # add last unprocessed row
-            vbox.pack_start(hbox, False, False)
 
-        map(lambda btn: btn.set_active(True), buttons) # also set default vals.
         vbox.show_all()
-
         self.add_widget(key, label, vbox)
 
-    def add_checkbuttons_list(self, key, label, items, defaults=[]):
+    def add_checkbuttons_list(self, key, label, items, header):
         """Adds a list of check button in form of two columns table, where
         the first one contains a name of a value and the second one contains a
         check-button for select/deselect values.
 
+        !! Broken works not only for a single checkbox column
+
         Arguments:
         key -- unique key
         label -- the showed name in setting widget
-        items -- a list of couples (label, object)
-
-        Keywords:
-        defaults -- a list of indexes which will be selected by default
+        items -- a list of tuples (label, object, checked1?, checked2?, ...)
+        header -- list of column names (labels, check1, check2, ...)
 
         """
         if not items:
             return
-        assert all(index< len(items) for index in defaults)
 
         self.setting[key] = []
         self.value_labels[key] = []
@@ -375,28 +368,32 @@ class SettingWidget(gtk.Table):
 
         store = gtk.ListStore(gobject.TYPE_STRING,
                               gobject.TYPE_PYOBJECT,
-                              gobject.TYPE_BOOLEAN)
-
-        data = [(vlabel, value, idx in defaults)
-                for idx, (vlabel, value) in enumerate(items)]
-        map(store.append, data) # fill store
+                              *((len(header) - 1) * [gobject.TYPE_BOOLEAN]))
 
         tree_view = gtk.TreeView(store)
         scw.add_with_viewport(tree_view)
 
         # column with labels of values
         text_renderer = gtk.CellRendererText()
-        column = gtk.TreeViewColumn("Value", text_renderer, text=0)
+        column = gtk.TreeViewColumn(header[0], text_renderer, text=0)
+        column.set_expand(True)
         column.set_sort_column_id(0)
         tree_view.append_column(column)
 
-        # column for select values
-        bool_renderer = gtk.CellRendererToggle()
-        bool_renderer.set_property("activatable", True)
-        bool_renderer.connect("toggled", callback, store)
-        column = gtk.TreeViewColumn("Select", bool_renderer, active=2)
-        column.set_sort_column_id(2)
-        tree_view.append_column(column)
+        for i, title in enumerate(header[1:]):
+            # column for select values
+            bool_renderer = gtk.CellRendererToggle()
+            bool_renderer.set_property("activatable", True)
+            bool_renderer.connect("toggled", callback, store)
+            column = gtk.TreeViewColumn(title, bool_renderer, active=2 + i)
+            column.set_sort_column_id(2)
+            tree_view.append_column(column)
+
+        for item in items:
+            if item[2]:
+                self.setting[key].append(item[1])
+                self.value_labels[key].append(item[0])
+            store.append(item)
 
         self.add_widget(key, label, scw)
 
@@ -592,7 +589,7 @@ class BasicSettingAssistant(gtk.Assistant):
         assert pages_count > 0
 
         gtk.Assistant.__init__(self)
-        self._response = None
+        self._response = False
         self._last_page = 0
 
         self.set_title(title)
@@ -660,20 +657,16 @@ class BasicSettingAssistant(gtk.Assistant):
         for n in xrange(bsa.pages_count):
             sp = bsa.get_nth_page(n)
             self.collected_setting.append(sp.get_setting())
-        self._response = gtk.RESPONSE_APPLY
+        self._response = True
 
     def _cb_cancel(self, bsa):
         bsa.destroy()
         gtk.main_quit()
-        self._response = gtk.RESPONSE_CANCEL
+        self._response = False
 
     def _cb_close(self, bsa):
         self.destroy()
         gtk.main_quit()
-        if self._response == gtk.RESPONSE_APPLY:
-            self._response = gtk.RESPONSE_OK
-            return
-        self._response = gtk.RESPONSE_CLOSE
 
     def _cb_prepare(self, bsa, sp):
         csp_num = bsa.get_current_page()
