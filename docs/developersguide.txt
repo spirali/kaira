@@ -249,6 +249,8 @@ class Filter(Operation): # <3>
         header, rows = data
 
         def f(row):
+
+
             # code of filtering function
 
         filtered_data = (header, filter(f, rows)) # <5>
@@ -635,4 +637,174 @@ is called always after import this module
 [[setting-widget-category]]
 Setting widget
 --------------
- ...
+
+The settings' widget represents a general graphics component for collecting
+data from users. It supports several graphical components for data
+visualization and manipulation with them. By these are intended components
+like editing of text, numbers, or selecting value(s) from a collection. Its
+main purpose is to bring an easy way how to create a standard dialog for
+getting information from a user.
+
+Individual parts are arranged in horizontal way. Every item has a name of the
+left-hand side and next to is a specific component. It looks like on the
+following picture.
+
+[[img-setting-dialog]]
+image:img/setting-dialog.png[alt="Setting dialog", width=400]
+
+Every value is stored in form of dictionary (key: value). For the access to
+these values there are two methods:
+
+- 'get_value(key)', and
+- 'set_value(key, value)'.
+
+There are also methods for modifying the status value or checking if a specific
+value is correct or if all of values are correct. These methods are:
+
+- 'set_value_status(key, status, message=None)' -- if a status is not correct
+then can be set a message ``what is wrong''
+- 'get_value_status_message(key)'
+- 'is_value_correct(key)'
+- 'are_values_correct()'
+
+The main method for add items to a *setting widget* is 'add_widget(key, label,
+widget, validator=lambda x: None)'. This method allows to a user add arbitrary
+widget to a *setting widget*. There are also methods which add more specific
+widgets, like 'entry' for editing text values or group of 'radio-buttons' for
+choose a value from a group, and others. The detailed description of these
+methods is in generated API documentation.
+
+The following example shows how to create an easy *setting widget*.
+
+[[src-settingwidget-exmp]]
+.Example of creating an easy setting widget
+[source, python]
+-------------------------------------------------------------------------------
+setting_widget = SettingWidget() # <1>
+setting_widget.add_entry("person-name", "Name", "John") # <2>
+setting_widget.add_entry("person-last-name", "Last name", "Smith")
+setting_widget.add_positive_int("person-age", "Age", 18) # <3>
+-------------------------------------------------------------------------------
+
+<1> create an empty setting widget
+<2> add entries for editing name and last name, the last argument is default
+value
+<3> add a widget for editing positive integers; in fact it is entry with
+changed the default validator so that it checks whether the input string
+represents a positive number
+
+A widget created by this way provides three signals:
+
+- 'value-status-changed' -- with every value is connected its *status* value,
+it serves for check whether a value is correct or not. When the status is
+changed then is emit this signal.
+- 'select-key' -- every value is represented by some graphical component, this
+signal is emit when the component gets the focus.
+- 'value-committed' -- this signal is emit when a graphical component lost the
+focus.
+
+The *setting widget* is a general graphical component independent of any Kaira
+code (it is found in module +settingswindow+). It can be used anywhere where a
+user deems appropriate. But the most probable usage will be in settings'
+dialogs. For this purpose there are defined two basic dialogs
+<<cls-basicsettingdialog, BasicSettingDialog>> and <<cls-basicsettingassistant,
+BasicSettingAssistant>> which collaborate with it.
+
+[[sec-basicsettingdialog]]
+BasicSettingDialog
+~~~~~~~~~~~~~~~~~~
++BasicSettingDialog+ is a standard single-window dialog for collecting
+information from a user. The user typically gives answers on a set of
+questions. At the end the dialog is confirmed and collected data are used to
+the next step. The following example shows how to create an easy dialog with
+<<setting-widget-category, setting widget>>.
+
+.Example of usage +BasicSettingDialog+
+[source,python]
+-------------------------------------------------------------------------------
+setting_widget = SettingWidget()
+# create a content of setting widget
+
+dialog = BasicSettingDialog(setting_widget, "Some setting", parent_window)# <1>
+dialog.set_size_request(400, 250)
+dialog.add_button(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL) # <2>
+dialog.add_button(gtk.STOCK_OK, gtk.RESPONSE_OK, True) # <3>
+
+response =  dialog.run() # <4>
+if response == gtk.RESPONSE_OK:
+    person_name = setting_widget.get("person-name") # <5>
+    # ...
+    dialog.destroy()
+
+# ...
+-------------------------------------------------------------------------------
+
+<1> create an instance of +BasicSettingDialog+, it takes a
+<<setting-widget-category, setting widget>>, name of dialog, and parent window
+(it cat be +None+)
+<2> add cancel button, it is same as in the standard dialog
+<3> add the confirm button, but as you can see, there is the third argument
+which is not in standard dialogs. This argument specifies whether the button
+is protected or not. The protection means that the button cannot be used (it
+is disabled) if there is in the associate setting dialog any of argument wrong
+(their validator failed).
+<4> show the dialog
+<5> obtain values of setting from a <<setting-widget-category, setting widget>>
+
+[[sec-basicsettingassistant]]
+BasicSettingAssistant
+~~~~~~~~~~~~~~~~~~~~~
+The basic setting *assistant* in compared to <<sec-basicsettingdialog, basic
+setting dialog>> is step-by-step dialog. Similar to installation wizard. An
+*assistant* can have a several windows because one <<setting-widget-category,
+setting widget>> can influence other. Due to the potential influence are
+individual windows -- individual setting widgets -- created in form of
+functions. This function has previous setting as an argument and can modify
+its setting widget, based on given setting. Creating of such *assistant* shows
+the following example.
+
+.Example of usage +BasicSettingAssistant+
+[source, python]
+-------------------------------------------------------------------------------
+def create_page_1(setting): # <1>
+    # code of creating first setting widget
+    return setting_widget
+
+def create_page_2(setting): # <2>
+    # get set value
+    some_value = setting["some-value"]
+    # ...
+    # code of creating second setting widget
+    return setting_widget
+
+assistant = BasicSettingAssistant(2, "Some setting", parent_window) # <3>
+assistant.set_size_request(600, 400)
+
+assistant.append_setting_widget("First setting", create_page_1)  # <4>
+assistant.append_setting_widget("Second setting", create_page_2)
+
+response = assistant.run() # <5>
+if response == gtk.RESPONSE_OK:
+    first_setting = assistant.collected_setting[0] # <6>
+    second_setting = assistant.collected_setting[1]
+
+# ...
+-------------------------------------------------------------------------------
+
+<1> a function for creating the first setting window; it does not have access
+to 'setting' argument if it is not necessary
+<2> a function for creating the second setting window; there is accessed to a
+parameter from 'setting' argument which influences the content of the window
+<3> create an instance of +BasicSettingAssistant+, it takes three arguments:
+- the first specifies a number of windows
+- the second is a title of setting assistant
+- the last one is reference to a parent window (it can be +None+)
+<4> append a function creating setting widget to the assistant, the first
+argument is a title
+<5> show the assistant to a user
+<6> settings from each window are stored in 'collected_setting' list
+
+The BasicSettingAssistant same as <<sec-basicsettingdialog, BasicSettingDialog>>
+processes the signals from each setting widgets. If there is some mistake then
+it is shows to a user and also the buttons are protected against these types
+of mistakes.

@@ -28,8 +28,8 @@ class SettingWidget(gtk.Table):
 
     Signals:
     value-status-changed -- it is emit if a value is not accepted by a
-    validator or if a value is correct. Value-status is both True or False.
-    The signal is emitted when the status is changed from True to False
+    validator or if a value is corrected back. Value-status is both True or
+    False. The signal is emitted when the status is changed from True to False
     or vice versa
     select-key -- it is emit when the view of specific parameter get a focus.
 
