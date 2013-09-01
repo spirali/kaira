@@ -20,12 +20,10 @@
 
 import csv
 
-import extensions
 import gtk
 import gtkutils
 import settingswindow
 import runview
-import utils
 from tracelog import TraceLog
 
 """Supported types for extensions."""
@@ -34,14 +32,16 @@ types_repository = []
 
 
 class Type(object):
+    """This class serves as a basic class for all data types."""
 
     def __init__(self, name, short_name=None):
         """Initialize of type of types.
 
         Arguments:
-        name -- name of type
-        short_name -- short version of name
-        files_extensions -- a list of supported file types
+        name -- a full name of a data type
+
+        Keywords:
+        short_name -- shorter version of a name (default: None)
 
         """
         self.name = name
@@ -49,22 +49,60 @@ class Type(object):
             self.short_name = name
         else:
             self.short_name = short_name
+
+        """a setting for load/store function; some of these function may want
+        some setting information from a user, there is stored the last used
+        setting.
+
+        """
         self.setting = None
 
+        """a dictionary with registered loaders for a specific file extension
+        (file extension: load function)
+
+        """
         self.loaders = {}
+
+        """a dictionary with registered savers for a specific file extension
+        (file extension: save function)
+
+        """
         self.savers = {}
         self.default_saver = None
 
     def get_view(self, data, app):
+        """Return a widget width visualized data or None if the visualization
+        is not implemented.
+
+        Arguments:
+        data -- data for visualization
+        app -- a reference to the main application
+
+        """
         return None
 
-    def register_load_function(self, extension, function):
-        self.loaders[extension] = function
+    def register_load_function(self, suffix, function):
+        """Register a loading function to a file suffix.
 
-    def register_store_function(self, extension, function, default=False):
-        self.savers[extension] = function
+        Arguments:
+        suffix -- a suffix of a filename (it specifies a type of data)
+        function -- function which can load a files with given suffix
+
+        """
+        self.loaders[suffix] = function
+
+    def register_store_function(self, suffix, function, default=False):
+        """Register a saving function to a file suffix.
+
+        Arguments:
+        suffix -- a suffix of a filename (it specifies a type of data)
+        function -- function which can store data to file with given suffix
+        default -- specify whether the given function is default saver or not
+
+        """
+        self.savers[suffix] = function
         if default or self.default_saver is None:
-            self.default_saver = extension
+            self.default_saver = suffix
 
 
 # *****************************************************************************
@@ -115,9 +153,6 @@ def get_save_file_filter(type):
 
 # *****************************************************************************
 # supported types
-
-# Standard data types
-t_string = Type("Plain text")
 
 # -----------------------------------------------------------------------------
 # Tracelog type

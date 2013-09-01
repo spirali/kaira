@@ -100,48 +100,14 @@ other. Because a data type brings together one type of data with many formats
 of representation.
 
 In the following subsection you will find the referece manual for +datatypes+
-module. There is also a detailed description of arguments of functions for
-<<fn-load,loading>>, <<fn-store, storing>>, and <<fn-visualize, visualization>>
-data.
+module.
 
 Inside of datatypes module
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .List of classes
-- <<cls-datatypeexception, DataTypeException>>
-- <<cls-noloaderexists, NoLoaderExists>>
-- <<cls-nosaverexists, NoSaverExists>>
 - <<cls-type, Type>>
 - <<impl-types, implemented data types>>
-
-[[cls-datatypeexception]]
-`DataTypeException` class
-++++++++++++++++++++++++
-
-This exception servers as super class for all the others exceptions from
-this module.
-
-.Extends
-- Exception
-
-[[cls-noloadeexists]]
-`NoLoaderExists` class
-++++++++++++++++++++
-
-Exception for situations when is not defined a loader for a specific file type
-(for a specific file extension).
-
-.Extends
-- DataTypeException
-
-[[cls-nosaverexists]]
-`NoSaverExists` class
-+++++++++++++++++++
-Exception for situations when is not defined a saver for a specific file type
-(for a specific file extension).
-
-.Extends
-- DataTypeException
 
 [[cls-type]]
 `Type` class
@@ -167,22 +133,7 @@ extension (file extension: load function)
 extension (file extension: save function)
 
 .Methods
-- [[fn-load]]'load_source(filename, app, setting=None)' -- call functions
-stored in the 'loaders' dictionary by the extension of filename
-* 'filename' -- a name of file (include a path where the data will be stored)
-* 'app' -- a reference to the main application; there is a lot of useful
-functions
-* 'setting' -- an optional argument (default: +None+) where may be stored some
-user's setting informations
-- [[fn-store]]'store_source(data, filename, file_extension, app, setting=None)'
--- call functions stored in the 'savers' dictionary by a file_extension
-* 'data' -- a reference to data in memory
-* 'filename' -- a name of file (include a path) but without extension
-* 'file_extension' -- an extension of file which determines data format
-* 'app' -- a reference to the main application
-* 'setting' -- an optional argument (default +None+) where may be stored some
-user's setting information
-- [[fn-visualize]]'get_view(data, app)' -- return a widget with visualized data
+- 'get_view(data, app)' -- return a widget with visualized data
 - 'register_load_function(extension, function)' -- register a loading
 function to a file extension
 - 'register_store_function(extension, function)' -- register a saving function
@@ -343,6 +294,13 @@ operation example>>
 - 'data' -- a reference to data that is kept there
 - 'stored' -- a flag, that is true, if data is stored somewhere
 on a disc, otherwise false.
+
+.Methods
+- 'store(filename, app, setting=None)' -- store source data into a file
+* 'filename' -- a name of file (include a path where the data will be stored)
+* 'app' -- a reference to the main application
+* 'setting' -- an optional argument where may be stored some users' setting
+information
 
 [[cls-sourceview]]
 SourceView class
@@ -626,8 +584,13 @@ sources repository>>
 Extensions module
 +++++++++++++++++
 
-A module contains two functions:
+A module contains three functions:
 
+- 'load_source(filename, app, setting=None)' -- load the source from a file
+* 'filename'' -- a name of a file where data are stored
+* 'app' -- a reference to the main application
+* 'setting' -- an optional argument where may be stored some users' setting
+information
 - 'add_operation(operation)' every user's operation must call this function
 for register his/her operation. It takes a reference to an operation's class,
 *not an instance*

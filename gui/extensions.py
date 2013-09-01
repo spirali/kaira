@@ -68,7 +68,20 @@ class Source(object, EventSource):
         self._name = name
         self.emit_event("source-name-changed", name)
 
-    def store(self, filename, app, settings=None):
+    def store(self, filename, app, setting=None):
+        """Store the source into a file. It calls a function in the 'savers'
+        dictionary by the suffix of a filename.
+
+        Arguments:
+        filename -- a name of a file (include a path where the data will be
+        stored)
+        app -- a reference to the main application
+
+        Keywords:
+        setting -- an optional argument where may be stored some users' setting
+        information
+
+        """
         suffix = utils.get_filename_suffix(filename)
         if suffix is None:
             suffix = self.type.default_saver
@@ -78,11 +91,23 @@ class Source(object, EventSource):
             app.show_message_dialog(
                     "Cannot save '.{0}' file".format(suffix),
                     gtk.MESSAGE_WARNING)
-        saver(self.data, filename, app, settings)
+        saver(self.data, filename, app, setting)
         self.name = filename
         self.stored = True
 
 def load_source(filename, app, settings=None):
+    """Load the source from a file. It calls a function in the 'loaders'
+    dictionary by the suffix of a filename.
+
+    Arguments:
+    filename -- a name of a file where are data stored
+    app -- a reference to the main application
+
+    Keywords:
+    setting -- an optional argument where may be stored some users' setting
+    information
+
+    """
     # TODO: Catch IOError
     suffix = utils.get_filename_suffix(filename)
     loader = datatypes.get_loader_by_suffix(suffix)
