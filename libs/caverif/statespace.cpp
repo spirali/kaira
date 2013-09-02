@@ -14,12 +14,24 @@ namespace ca {
 	extern char *project_description_string;
 }
 
+static int const MAX_STATES_IN_REPORT = 5;
+
 using namespace cass;
 
 static bool write_dot = false;
 static bool analyse_deadlock = false;
 static bool analyse_transition_occurrence = false;
+static bool analyse_final_marking = false;
 static std::string project_name;
+
+
+struct CmpByDistance
+{
+    bool operator()(Node *a, Node *b) const
+    {
+        return a->get_distance() < b->get_distance();
+    }
+};
 
 static void args_callback(char c, char *optarg, void *data)
 {
@@ -34,6 +46,10 @@ static void args_callback(char c, char *optarg, void *data)
 		}
 		if (!strcmp(optarg, "transition_occurrence")) {
 			analyse_transition_occurrence = true;
+			return;
+		}
+		if (!strcmp(optarg, "fmarking")) {
+			analyse_final_marking = true;
 			return;
 		}
 		fprintf(stderr, "Invalid argument in -V\n");
@@ -390,8 +406,8 @@ void Core::postprocess()
 	report.back();
 	report.back();
 
-	if (analyse_deadlock) {
-		run_analysis_deadlock(report);
+	if (analyse_deadlock || analyse_final_marking) {
+		run_analysis_final_nodes(report);
 	}
 	if (analyse_transition_occurrence) {
 		run_analysis_transition_occurrence(report);
@@ -494,40 +510,99 @@ void Core::write_suffix(const std::string &name, std::vector<Node*> &nodes, ca::
 	report.back();
 }
 
-void Core::run_analysis_deadlock(ca::Output &report)
+void Core::run_analysis_final_nodes(ca::Output &report)
 {
 	size_t deadlocks = 0;
 	Node* deadlock_node = NULL;
+	NodeMap final_markings(100, HashDigestHash(MHASH_MD5), HashDigestEq(MHASH_MD5));
 
 	NodeMap::const_iterator it;
 	for (it = nodes.begin(); it != nodes.end(); it++)
 	{
 		Node *node = it->second;
 		if (node->get_nexts().size() == 0) {
-			deadlocks++;
-			if (deadlock_node == NULL ||
-				deadlock_node->get_distance() > node->get_distance()) {
-				deadlock_node = node;
+			if (analyse_final_marking) {
+				ca::Packer packer;
+				for (int t = 0; t < ca::process_count; t++) {
+					verif_configuration.pack_final_marking(
+							node->get_state()->get_net(t), packer);
+				}
+				HashDigest hash = hash_packer(packer);
+				NodeMap::const_iterator n = final_markings.find(hash);
+				if (n != final_markings.end()) {
+					Node *node2 = n->second;
+					if (node2->get_distance() > node->get_distance()) {
+						final_markings[hash] = node;
+					}
+					free(hash);
+				} else {
+					final_markings[hash] = node;
+				}
+				packer.free();
+			}
+			if (analyse_deadlock) {
+				deadlocks++;
+				if (deadlock_node == NULL ||
+					deadlock_node->get_distance() > node->get_distance()) {
+					deadlock_node = node;
+				}
 			}
 		}
 	}
-	report.child("analysis");
-	report.set("name", "Quit analysis");
 
-	report.child("result");
-	report.set("name", "Number of deadlock states");
-	report.set("value", deadlocks);
-	if (deadlocks != 0) {
-		report.set("status", "fail");
-		report.set("text", "Deadlocks found");
-		report.child("states");
-		write_state("Deadlock with minimal distance", deadlock_node, report);
+	if (analyse_deadlock) {
+		report.child("analysis");
+		report.set("name", "Quit analysis");
+
+		report.child("result");
+		report.set("name", "Number of deadlock states");
+		report.set("value", deadlocks);
+		if (deadlocks != 0) {
+			report.set("status", "fail");
+			report.set("text", "Deadlocks found");
+			report.child("states");
+			write_state("Deadlock with minimal distance", deadlock_node, report);
+			report.back();
+		} else {
+			report.set("status", "ok");
+		}
 		report.back();
-	} else {
-		report.set("status", "ok");
+		report.back();
 	}
-	report.back();
-	report.back();
+
+	if (analyse_final_marking) {
+		report.child("analysis");
+		report.set("name", "Final marking");
+		report.child("result");
+		report.set("name", "Number of final markings");
+		report.set("value", final_markings.size());
+		if (final_markings.size() < 2) {
+			report.set("status", "ok");
+		} else {
+			report.set("status", "fail");
+			report.set("text", "There are more final markings.");
+
+			std::vector<Node*> ns;
+			ns.reserve(final_markings.size());
+
+			for (NodeMap::const_iterator it = final_markings.begin();
+				it != final_markings.end(); ++it) {
+				  ns.push_back(it->second);
+			}
+			std::sort(ns.begin(), ns.end(), CmpByDistance());
+
+			report.child("states");
+			for (int i = 0; i < ns.size() && i < MAX_STATES_IN_REPORT; i++) {
+				std::stringstream sstr;
+				sstr << i + 1 << ". final state";
+				write_state(sstr.str(), ns[i], report);
+			}
+			report.back();
+		}
+
+		report.back();
+		report.back();
+	}
 }
 
 void Core::run_analysis_transition_occurrence(ca::Output &report)
@@ -632,7 +707,7 @@ Node * Core::add_state(State *state)
 	}
 }
 
-HashDigest Core::hash_packer(ca::Packer packer)
+HashDigest Core::hash_packer(ca::Packer &packer)
 {
 	MHASH hash_thread = mhash_init(MHASH_MD5);
 	if (hash_thread == MHASH_FAILED) {

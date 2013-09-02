@@ -463,7 +463,7 @@ class Transition(NetElement):
     def get_trace_texts(self):
         return self.tracing
 
-    def get_verif_texts(self):
+    def get_verif_labels(self):
         texts = []
         if self.occurrence_analysis:
             texts.append("occurrence")
@@ -525,6 +525,9 @@ class Place(NetElement):
 
     default_size = (0, 0)
     default_radius = 20
+
+    # Verif options
+    final_marking = False
 
     def __init__(self, net, id, position):
         NetElement.__init__(self, net, id, position)
@@ -619,6 +622,12 @@ class Place(NetElement):
         e.set("radius", str(self.box.radius))
         e.set("sx", str(self.box.size[0]))
         e.set("sy", str(self.box.size[1]))
+
+        if self.final_marking:
+            element = xml.Element("verif-final-marking")
+            element.text = "True"
+            e.append(element)
+
         e.append(canvastext_to_xml(self.place_type, "place-type"))
         e.append(canvastext_to_xml(self.init, "init"))
         if self.has_code():
@@ -632,18 +641,39 @@ class Place(NetElement):
         e = self.create_xml_element("place")
         e.set("name", self.box.name)
         e.set("type", self.place_type.text)
+
+        if build_config.verification:
+            if self.final_marking:
+                element = xml.Element("verif-final-marking")
+                element.text = "True"
+                e.append(element)
+
         if not build_config.library or self.interface.interface_in is None:
             e.set("init-expr", self.init.text)
             if self.has_code():
                 e.append(self.xml_code_element())
+
         if build_config.tracing and self.tracing:
             self.tracing_to_xml(e)
+
         if build_config.library:
             if self.interface.interface_in is not None:
                 e.set("in", self.interface.interface_in)
             if self.interface.interface_out is not None:
                 e.set("out", self.interface.interface_out)
+
         return e
+
+    def get_final_marking(self):
+        return self.final_marking
+
+    def set_final_marking(self, value):
+        self.final_marking = value
+        self.changed()
+
+    def get_verif_labels(self):
+        if self.final_marking:
+            return [ "final marking" ]
 
 
 class Edge(NetItem):
@@ -987,6 +1017,10 @@ def load_place(element, net, loader):
         place.interface.interface_in = interface.get("in")
         place.interface.interface_out = interface.get("out")
         place.interface.update()
+
+    e = element.find("verif-final-marking")
+    if e is not None:
+        place.final_marking = bool(e.text)
 
 def load_transition(element, net, loader):
     id = loader.get_id(element)

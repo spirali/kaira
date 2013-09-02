@@ -237,6 +237,8 @@ def load_place(element, project, net):
     if element.find("code") is not None:
         place.code = element.find("code").text
     place.tracing = load_place_tracing(element)
+    if element.find("verif-final-marking") is not None:
+        place.final_marking = bool(element.find("verif-final-marking").text)
     place.interface_input = element.get("in")
     place.interface_output = element.get("out")
     return place

@@ -92,13 +92,13 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
                 items.append(i)
 
     def add_extra_verif_items(self, items):
-        for item in self.net.transitions():
-            size = item.box.size
-            position = utils.vector_add_t(item.box.get_position(), size, 0.5)
-            i = citems.VerifLabel(
-                None, "verifbox", citems.RelativePlacement(item.box, position))
-            i.text = item.get_verif_texts()
-            items.append(i)
+        for item in self.net.places() + self.net.transitions():
+                size = item.box.size
+                position = utils.vector_add_t(item.box.get_position(), size, 0.5)
+                i = citems.VerifLabel(
+                    None, "verifbox", citems.RelativePlacement(item.box, position))
+                i.text = item.get_verif_labels()
+                items.append(i)
 
     def configure_item(self, item):
         item.inactive = False

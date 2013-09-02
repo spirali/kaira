@@ -369,6 +369,9 @@ class Place(utils.EqByIdMixin):
     interface_input = None
     interface_output = None
 
+    # Verification
+    final_marking = False
+
     def __init__(self, net, id, type, init_type, init_value):
         self.net = net
         self.id = id

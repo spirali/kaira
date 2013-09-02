@@ -77,7 +77,16 @@ def write_verif_configuration(builder):
         builder.line("return true;")
     builder.block_end()
 
-    builder.line("}};")
+    # Final Marking
+    net = builder.project.nets[0]
+    builder.line("void pack_final_marking(ca::NetBase *net, ca::Packer &packer)")
+    builder.block_begin()
+    builder.line("Net_{0} *n = (Net_{0} *) net;", net.id)
+    for place in net.places:
+        if place.final_marking:
+            builder.line("ca::pack(packer, n->place_{0.id});", place)
+    builder.block_end()
+    builder.write_class_end()
 
 def write_core(builder):
     build.write_basic_definitions(builder)

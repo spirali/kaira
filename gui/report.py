@@ -82,7 +82,7 @@ class Report:
     def write_state(self, widget, state):
         name = state.get("name")
         sequence_element = state.find("control-sequence")
-        widget.write("  - {0} ({1}) ".format(
+        widget.write("  - {0} (distance={1}) ".format(
             name,
             state.get("distance")))
         widget.write("   ")

@@ -428,8 +428,7 @@ class NetEditor(gtk.VBox):
                 item.set_clock_substitution,
                 item.get_clock_substitution_code,
                 item.set_clock_substitution_code)
-
-        if item.is_edge():
+        elif item.is_edge():
             self._add_attribute_checkbox_code_editor(
                 "Size substitution",
                 item.get_size_substitution(),
@@ -471,6 +470,10 @@ class NetEditor(gtk.VBox):
             frame.add(box)
             frame.set_sensitive(item.occurrence_analysis)
             self.attribute_box.pack_start(frame, False, False)
+        elif item.is_place():
+            self._add_attribute_checkbox("Check in final markings",
+                                         item.get_final_marking(),
+                                         item.set_final_marking)
 
     def _add_attribute_objlist(self, text, objlist, add_fn, edit_fn, remove_fn):
         def remove(w):

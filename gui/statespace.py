@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012 Stanislav Bohm
+#    Copyright (C) 2012-2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -38,13 +38,17 @@ class StatespaceConfig(gtk.VBox):
         vbox.pack_start(self.analyze_deadlock, False, False)
         self.analyze_deadlock.set_active(True)
 
-        self.analyze_transition_occurrence = gtk.CheckButton("Transition occurrence analysis")
-        vbox.pack_start(self.analyze_transition_occurrence, False, False)
-        self.analyze_transition_occurrence.set_active(True)
-
         self.analyze_cycles = gtk.CheckButton("Detect computation cycles")
         vbox.pack_start(self.analyze_cycles, False, False)
         self.analyze_cycles.set_active(True)
+
+        self.analyze_final_marking = gtk.CheckButton("Check final marking")
+        vbox.pack_start(self.analyze_final_marking, False, False)
+        self.analyze_final_marking.set_active(True)
+
+        self.analyze_transition_occurrence = gtk.CheckButton("Transition occurrence analysis")
+        vbox.pack_start(self.analyze_transition_occurrence, False, False)
+        self.analyze_transition_occurrence.set_active(True)
 
         frame = gtk.Frame("Other options")
         self.pack_start(frame, False, False, 5)
@@ -111,6 +115,10 @@ class StatespaceConfig(gtk.VBox):
 
             if self.analyze_transition_occurrence.get_active():
                 parameters.append("-Vtransition_occurrence")
+
+            if self.analyze_final_marking.get_active():
+                parameters.append("-Vfmarking")
+
             p.start(parameters)
             self.process = p
             self.stop_button.set_sensitive(True)
