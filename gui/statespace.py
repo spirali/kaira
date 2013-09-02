@@ -28,33 +28,6 @@ class StatespaceConfig(gtk.VBox):
         self.app = app
         self.process = None
 
-        frame = gtk.Frame("Statespace settings")
-        frame.set_border_width(5)
-        self.pack_start(frame, False, False, 5)
-
-        table = gtk.Table()
-        frame.add(table)
-
-        hbox = gtk.HBox()
-        label = gtk.Label("Processes:")
-        hbox.pack_start(label, False, False)
-        self.processes = gtk.SpinButton()
-        self.processes.set_adjustment(gtk.Adjustment(2, 1, 1024, 1))
-        hbox.pack_start(self.processes, False)
-        table.attach(hbox, 0, 1, 0, 1)
-
-        hbox = gtk.HBox()
-        label = gtk.Label("Threads:")
-        hbox.pack_start(label, False, False)
-        self.threads = gtk.SpinButton()
-        self.threads.set_adjustment(gtk.Adjustment(1, 1, 1024, 1))
-        hbox.pack_start(self.threads, False)
-        table.attach(hbox, 1, 2, 0, 1)
-
-        self.indistinguishable_threads = gtk.CheckButton("Indistinguishable threads")
-        self.indistinguishable_threads.set_active(True)
-        table.attach(self.indistinguishable_threads, 1, 2, 1, 2)
-
         frame = gtk.Frame("Analyses")
         self.pack_start(frame, False, False, 5)
         frame.set_border_width(5)
@@ -84,6 +57,9 @@ class StatespaceConfig(gtk.VBox):
         self.start_button = gtk.Button("Build & Run analysis")
         self.start_button.connect("clicked", lambda w: self.start())
         vbox.pack_start(self.start_button, True, True, 5)
+        button = gtk.Button("Configure parameters")
+        button.connect("clicked", lambda w: self.app.open_simconfig_dialog())
+        vbox.pack_start(button, True, True, 5)
         self.stop_button = gtk.Button("Terminate computation")
         self.stop_button.connect("clicked", lambda w: self.stop())
         self.stop_button.set_sensitive(False)
@@ -117,14 +93,13 @@ class StatespaceConfig(gtk.VBox):
                                 on_exit)
             p.cwd = self.app.project.get_directory()
 
-            parameters = [ "-r{0}".format(self.processes.get_value_as_int()),
-                           "--threads={0}".format(self.threads.get_value_as_int()) ]
 
             simconfig = self.app.project.get_simconfig()
             if simconfig.parameters_values is None:
                 if not self.app.open_simconfig_dialog():
                     return
 
+            parameters = [ "-r{0}".format(simconfig.process_count) ]
             parameters += [ "-p{0}={1}".format(k, v)
                             for (k, v) in simconfig.parameters_values.items() ]
 
