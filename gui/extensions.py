@@ -106,7 +106,6 @@ class SourceView(gtk.Alignment, EventSource):
                                  lambda n: self.entry_name.set_text(n))
 
         self.app = app # reference to the main application
-        self.data_free = False
         self.tabview = None
 
         self.set_padding(5, 0, 10, 10)
@@ -151,15 +150,14 @@ class SourceView(gtk.Alignment, EventSource):
         item.connect("activate", lambda w: self._cb_store())
         self.btns_group1.append(item)
         menu.append(item)
-        item = gtk.MenuItem("Load")
+        item = gtk.MenuItem("Reload")
         item.connect("activate", lambda w: self._cb_load())
-        item.set_sensitive(self.data_free)
-        self.btns_group2.append(item)
+        item.set_sensitive(self.source.data is not None)
         menu.append(item)
         menu.append(gtk.SeparatorMenuItem())
 
-        self.item_free = gtk.MenuItem("Free")
-        self.item_free.connect("activate", lambda w: self._cb_free())
+        self.item_free = gtk.MenuItem("Dispose")
+        self.item_free.connect("activate", lambda w: self._cb_dispose())
         self.item_free.set_sensitive(self.source.stored)
         self.btns_group1.append(self.item_free)
         menu.append(self.item_free)
@@ -205,9 +203,9 @@ class SourceView(gtk.Alignment, EventSource):
 
     def _lock_buttons(self):
         for btn in self.btns_group1:
-            btn.set_sensitive(not self.data_free)
+            btn.set_sensitive(self.source.data is not None)
         for btn in self.btns_group2:
-            btn.set_sensitive(self.data_free)
+            btn.set_sensitive(self.source.data is None)
 
     def _cb_store(self):
         dialog = gtk.FileChooserDialog("Source store",
@@ -229,16 +227,13 @@ class SourceView(gtk.Alignment, EventSource):
             self.item_free.set_sensitive(True)
 
     def _cb_load(self):
-        self.source.data = self.source.type.load_source(
+        self.source.data = load_source(
             self.source.name, self.app, self.source.type.setting).data
-        self.data_free = False
         self._lock_buttons()
         self.emit_event("source-data-changed", self.source)
 
-    def _cb_free(self):
-        del self.source.data
+    def _cb_dispose(self):
         self.source.data = None
-        self.data_free = True
         self._lock_buttons()
         if self.tabview is not None:
             self.tabview.close()
