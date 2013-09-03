@@ -6,7 +6,7 @@ from datatypes import t_table
 class Filter(Operation):
 
     name = "Table filter"
-    description = "Data are filtered by a value(s) in specific column(s)"
+    description = "Filter rows of the table by values in columns"
     arguments = [Argument("Data", t_table)]
 
     def run(self, app, data):

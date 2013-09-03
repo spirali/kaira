@@ -756,7 +756,7 @@ class OperationFullView(gtk.VBox, EventSource):
         hbox.pack_start(halign, True, True)
 
         # button run
-        button = gtk.Button("Run")
+        button = gtk.Button("Run operation")
         button.set_sensitive(operation.state == "ready")
         button.connect("clicked", lambda w: self._cb_run())
         hbox.pack_start(button, False, False)
@@ -850,11 +850,11 @@ class OperationManager(gtk.VBox):
         # toolbar
         toolbar = gtk.HBox(False)
         toolbar.set_border_width(5)
-        button = gtk.Button("Load")
+        button = gtk.Button("Load source")
         button.connect("clicked", lambda w: self._cb_load())
         toolbar.pack_start(button, False, False)
 
-        button = gtk.Button("Filter off")
+        button = gtk.Button("Disable filter")
         button.connect("clicked", lambda w: self._cb_filter_off())
         toolbar.pack_start(button, False, False)
         self.pack_start(toolbar, False, False)
