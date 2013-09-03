@@ -541,10 +541,12 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 				packer.free();
 			}
 			if (analyse_deadlock) {
-				deadlocks++;
-				if (deadlock_node == NULL ||
-					deadlock_node->get_distance() > node->get_distance()) {
-					deadlock_node = node;
+				if (!node->get_state()->get_quit_flag()) {
+					deadlocks++;
+					if (deadlock_node == NULL ||
+						deadlock_node->get_distance() > node->get_distance()) {
+						deadlock_node = node;
+					}
 				}
 			}
 		}
