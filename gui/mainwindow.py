@@ -101,7 +101,7 @@ class MainWindow(gtk.Window):
     def close_all_tabs(self, groups=None, predicate_fn=None):
         for tab in self.tablist[:]:
             if ((not groups or set(tab.mainmenu_groups).intersection(set(groups))) and
-                    predicate_fn is None or predicate_fn(tab)):
+                    (predicate_fn is None or predicate_fn(tab))):
                 tab.close()
 
     def get_current_tab(self):
