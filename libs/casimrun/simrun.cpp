@@ -21,6 +21,13 @@ void main(RunConfiguration &run_configuration)
 {
 	ControlledTimeTraceLog::init();
 	ca::check_parameters();
+
+	if (ca::tracelog_size == 0) {
+		fprintf(stderr, "Simulated run needs enabled tracing\n"
+						"Run program with argument -T\n");
+		exit(1);
+	}
+
 	ca::NetDef *net_def = ca::defs[0]; // Take first definition
 	state = new State(run_configuration, net_def);
 	state->run();
