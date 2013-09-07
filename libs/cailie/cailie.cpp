@@ -298,6 +298,7 @@ void ca::init(int argc,
 			"MPI implementation has to support MPI_THREAD_MULTIPLE.\n");
 		exit(1);
 	}
+	MPI_Comm_size(MPI_COMM_WORLD, &process_count);
 	#endif
 
 	#ifdef CA_SHMEM
@@ -323,9 +324,8 @@ void ca::setup(int _defs_count, NetDef **_defs, bool start_process)
 
 	if (start_process) {
 		#ifdef CA_MPI
-			int process_count, process_id;
+			int process_id;
 			MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
-			MPI_Comm_size(MPI_COMM_WORLD, &process_count);
 			process = new Process(process_id, process_count, threads_count, defs_count, defs);
 			if(process_id > 0){
 				while(true){
