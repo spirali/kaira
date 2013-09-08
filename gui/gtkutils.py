@@ -144,6 +144,16 @@ class SimpleListBase(gtk.ScrolledWindow):
     def clear(self):
         self.store.clear()
 
+    def unselect_all(self):
+        self.view.get_selection().unselect_all()
+
+    def get_selection_path(self):
+        selection = self.view.get_selection()
+        model, i = selection.get_selected()
+        if i is None:
+            return None
+        return model.get_path(i)
+
     def get_selection(self, column):
         selection = self.view.get_selection()
         model, i = selection.get_selected()

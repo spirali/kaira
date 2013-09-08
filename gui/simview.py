@@ -22,7 +22,6 @@ import gtk
 import gtkutils
 import mainwindow
 import controlseq
-from copy import copy
 from netview import NetView, NetViewCanvasConfig
 
 class SimViewTab(mainwindow.Tab):
@@ -46,6 +45,8 @@ class SimCanvasConfig(NetViewCanvasConfig):
         if item.kind == "box" and item.owner.is_transition():
             self.fire_transition(item.owner)
         elif item.kind == "activation":
+            if not self.check_last_active():
+                return
             process_id, thread_id, transition = item.owner
             if self.simview.button_auto_receive.get_active():
                 callback = lambda: self.simulation.receive_all()
@@ -53,12 +54,23 @@ class SimCanvasConfig(NetViewCanvasConfig):
                 callback = None
             self.simulation.finish_transition(process_id, thread_id, callback)
         elif item.kind == "packet" and item.packet_data is not None:
+            if not self.check_last_active():
+                return
             process_id, origin_id = item.packet_data
             self.simulation.receive(process_id, origin_id)
         else:
             NetViewCanvasConfig.on_item_click(self, item, position)
 
+    def check_last_active(self):
+        if not self.simulation.is_last_instance_active():
+            self.simview.app.console_write("A history of simulation is displayed, it cannot be changed\n", "error")
+            return False
+        else:
+            return True
+
     def fire_transition(self, transition):
+        if not self.check_last_active():
+            return
         perspective = self.view.get_perspective()
         ids = [ i.process_id for i in perspective.net_instances.values()
                 if i.enabled_transitions is not None and transition.id
@@ -70,8 +82,7 @@ class SimCanvasConfig(NetViewCanvasConfig):
             callback = lambda: self.simulation.receive_all()
         else:
             callback = None
-        self.simulation.fire_transition(transition.id,
-                                        process_id,
+        self.simulation.fire_transition(transition.id, process_id,
                                         self.simview.get_fire_phases(),
                                         callback)
 
@@ -114,23 +125,39 @@ class SimView(gtk.VBox):
     def save_as_svg(self, filename):
         self.netview.save_as_svg(filename)
 
+    def on_cursor_changed(self):
+        path = self.sequence_view.get_selection_path()
+        if path is None:
+            return
+        self.simulation.set_runinstance_from_history(path[0])
+
     def _history(self):
         box = gtk.VBox()
 
         self.sequence_view = controlseq.SequenceView()
         self.sequence_view.set_size_request(130, 100)
         self.simulation.sequence.view = self.sequence_view
+        self.sequence_view.connect_view("cursor-changed",
+                                        lambda w: self.on_cursor_changed())
         box.pack_start(self.sequence_view, True, True)
 
+        button = gtk.Button("Show current")
+        button.connect("clicked",
+                       lambda w: self.simulation.set_runinstance_from_history(-1))
+        self.show_current_button = button
+
+        box.pack_start(button, False, False)
         button = gtk.Button("Save sequence")
         button.connect("clicked",
                        lambda w: self.app.save_sequence_into_project(
                             self.simulation.sequence.copy()))
         box.pack_start(button, False, False)
-
         return box
 
-    def _simulation_changed(self):
+    def _simulation_changed(self, new_state):
+        self.show_current_button.set_sensitive(not self.simulation.is_last_instance_active())
+        if new_state:
+            self.sequence_view.unselect_all()
         self.netview.set_runinstance(self.simulation.runinstance)
 
     def _toolbar(self):

@@ -47,6 +47,7 @@ class Simulation(EventSource):
         self.running = True
         self.runinstance = None
         self.sequence = controlseq.ControlSequence()
+        self.history_instances = []
 
     def connect(self, host, port):
         def inited():
@@ -130,13 +131,16 @@ class Simulation(EventSource):
                 runinstance.event_send(origin_id, 0, 0, target_id, size, edge_id)
 
             runinstance.reset_last_event_info()
+
             self.runinstance = runinstance
+            self.history_instances.append(runinstance)
+
             if self.running and utils.xml_bool(root, "quit"):
                 self.running = False
                 self.emit_event("error", "Program finished\n")
             if callback:
                 callback()
-            self.emit_event("changed")
+            self.emit_event("changed", True)
 
         self.controller.run_command("REPORTS", reports_callback)
 
@@ -277,3 +281,9 @@ class Simulation(EventSource):
                 callback,
                 fail_callback)
 
+    def set_runinstance_from_history(self, index):
+        self.runinstance = self.history_instances[index]
+        self.emit_event("changed", False)
+
+    def is_last_instance_active(self):
+        return self.history_instances and self.history_instances[-1] == self.runinstance
