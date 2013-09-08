@@ -56,13 +56,18 @@ def analyze_transition(tr):
     def inscription_out_weight(inscription):
         # Reorder edges, bulk edges first because we want them send first
         # Otherwise it can cause problems like in sending results in "workers" example
+        s = inscription.config.get("seq")
+        if s is None:
+            seq = 0
+        else:
+            seq = int(s) * 3
         if inscription.is_bulk():
-            return 0
+            return seq
         # Unconditional edges has higher priority
         if inscription.is_conditioned():
-            return 2
+            return seq + 2
         else:
-            return 1
+            return seq + 1
 
     def inscription_in_weight(inscription):
         if inscription.is_conditioned():

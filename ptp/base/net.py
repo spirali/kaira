@@ -306,7 +306,7 @@ class EdgeInscription(utils.EqMixin):
                                      "can be used only with 'bulk'")
 
     def check_edge_out(self, checker):
-        self.check_config(("bulk", "multicast", "if"))
+        self.check_config(("bulk", "multicast", "if", "seq"))
 
         if self.check_config_with_expression("if"):
             decls = self.edge.transition.get_input_decls_with_size(self.source)
@@ -314,6 +314,12 @@ class EdgeInscription(utils.EqMixin):
                                      decls,
                                      "bool",
                                      self.source)
+
+        if self.check_config_with_expression("seq"):
+            if not utils.is_integer(self.config["seq"]):
+                raise utils.PtpException("Parameter of 'seq' has to be a constant integer",
+                                         self.source)
+            self.config["seq"] = int(self.config["seq"])
 
         if self.target is not None:
             checker.check_expression(self.target,
