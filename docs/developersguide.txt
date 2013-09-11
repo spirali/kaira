@@ -8,41 +8,40 @@ components of tool Kaira (http://verif.cs.vsb.cz/kaira).
 User's extensions
 -----------------
 Kaira can be extended by user's extensions. They serve primary for data
-processing. Under the term of 'extension' is considered to be one or more
-<<sec-operation, operations>>.
+processing. An 'extension' contains one or more <<sec-operation, operations>>.
 
 Every <<sec-operation, operation>> represents a function that takes some inputs
 data and produces some outputs data. Both of these types of data are not
 usually build-in types. By types in this context we mean objects like
 tracelogs, control sequences, or tables.
 
-At the first part there will be a short tutorial to those data types. There
-will be described how to work with existing data types or how to create new
-ones. In the next part follows a description of work with operations and
-there is also a short tutorial how to create a new operation. At the end of
-both part is subsection '``Inside the module''' where is the reference
-manual for all classes of appropriate module.
+We start with a short tutorial that introduces data types. There will be
+described how to work with existing data types and how to create new ones. In
+the next part, a description of work with operations follows. At the end of
+both parts is subsection '``Inside the module''' where the reference manual for
+all classes of appropriate module is.
 
 [[sec-datatypes]]
 Data types
 ~~~~~~~~~~
 
 This section describes 'data types' used in <<sec-operation, operations>>.
-Every data types are represented by instances of class <<cls-type, Type>>.
-They serve as a description of basic objects with which a user can manipulate
-like tracelog, tables, etc. They contain also three basic functions for:
-*load*, *store*, and *visualization* of data.
+Every data type is represented by an instance of class <<cls-type, Type>>.
+They serve as a description of basic objects that a user can manipulate. For
+example tracelog, tables, etc. They contain also three basic functions for
+data *loading*, *storing*, and *visualization*.
 
-The following example shows how to simply add a new data type. Every data type
-consists:
+// TODO: zavest sources
+
+Every data type consists:
 
 - 'name',
 - 'short name', and
 - 'list of supported file types' (files extensions).
 
-A 'name' is full name of the data type which is used for example in
-<<cls-sourceview, SourceView>>. In contrast, a 'short name' is used on places
-where is not a lot of space for full name, like in the filters of files. If the
+The attribute 'name' is a full name of the data type which is used for example
+in <<cls-sourceview, SourceView>>. In contrast, a 'short name' is used on places
+where is not a lot of space for the full name, like in filters of files. If the
 full name is short enough, it may be the same as the short name.
 
 .Add a new data type
@@ -52,8 +51,8 @@ t_table = Type("Table", "Table", ["csv", "xls"]) # <1>
 types_repository.append(t_table) # <2>
 -------------------------------------------------------------------------------
 
-<1> Create new 'table' data type.
-<2> Register the data type to a types repository.
+<1> Create new type: 'table'.
+<2> Register the data type to the types repository.
 
 That is all, it is enough for create and register new data type. But a data
 type without supportive functions has quite limited use. Because data cannot
@@ -92,15 +91,11 @@ t_table.get_view = table_view # <8>
 <7> Create a function for visualization table data.
 <8> Assign the visualization function to +t_table.get_view+ function.
 
-As you can see there is missing a function for store data in 'xls' format.
-That means the data will not be able save in this format on so defined data
-type. But still it will be able to store them in 'csv' format. It is
--- and must be -- possible to load data from one format and store them into
-other. Because a data type brings together one type of data with many formats
-of representation.
+As you can see, a function for storing data in 'xls' format is missing.
+That means the data cannot be able saved in this format on so defined data
+type.
 
-In the following subsection you will find the referece manual for +datatypes+
-module.
+API reference manual for +datatypes+ module follows in the next subsection.
 
 Inside of datatypes module
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -126,11 +121,11 @@ From this class are derived all of data types.
 - 'short_name' -- shorter version of a name
 - 'files_extensions' -- a list of files extensions that are supported by the
 type
-- 'setting' -- an optional variable which can carry a setting from a user
-- 'loaders' -- a dictionary with registered loaders for a specific file
-extension (file extension: load function)
-- 'savers' -- a dictionary with registered savers for a specific file
-extension (file extension: save function)
+// TODO: setting hodit do source v Type nema co delat. -> CHYBA
+- 'settings' -- an optional variable. It can carry some arbitrary data
+depending on extension. It servers for non interactive store, hence if
+settings is none it assumed that extension open some kind of dialog, otherwise
+the process of saving should proceed without user interaction.
 
 .Methods
 - 'get_view(data, app)' -- return a widget with visualized data
@@ -143,8 +138,7 @@ Implemented data types
 ++++++++++++++++++++++
 
 .Tracelog (+t_tracelog+)
-This data type represents data produced by applications made by Kaira, if they
-are run in tracing mode.
+This data type represents 'tracelog' data generated by Kaira.
 
 - 'supported file types'
 * *kth* (kaira tracelog header)
@@ -153,7 +147,8 @@ are run in tracing mode.
 - 'visualization widget' - yes (replay)
 
 .Table (+t_table+)
-This data type represents data which they are stored in form of table.
+Tables store data in form of 2D grid. It is an ordered set of rows with the
+fixed number of columns.
 
 - 'supported file types'
 * *csv* (comma separated values)
@@ -164,22 +159,19 @@ This data type represents data which they are stored in form of table.
 
 Operations
 ~~~~~~~~~~
-As it was said, operations represent function which takes some inputs data and
-produce some outputs data. It is similar to the mathematical concept of a
-function. Operations as such do not have any side effects; but they only take
-inputs and produce outputs.
+As it was said, an operation is a function that takes some inputs data and
+produces some output data. Operations as such do not have any side effects, but
+they only take inputs and produce outputs.
 
-All of the modules with operations are stored in the directory
-+$KAIRA_DIR/gui/extensions/+. One module can bring together more operations.
-Every of registered operations is automatically loaded after start of the
-application.Operations that are contained in some module, but they are not
-registered then they are invisible for the application. How to create and
-register an operation will be shown in following examples.
+All of the modules with operations are stored in directory
++$KAIRA_DIR/gui/extensions/+. One extension may contains more operations. But
+it is necessary to register them, if they should be available in Kaira. Every
+of registered operation is automatically loaded after the start of the
+application. Not registered operations are not visible for Kaira. How to create
+and register an operation will be shown in the following example.
 
-All the supportive classes for creating a new operation are in
-+gui/extensions.py+ module. For creating a new operation is necessary to make
-a new module in +gui/extensions/+ or use one of the existing. Every operation
-extends the +extensions.Operation+ class.
+All the supportive classes for creating a new operation are in module
++gui/extensions.py+. Every operation extends class +extensions.Operation+.
 
 .Create an operation for filtering table's data
 [[src-operation-example]]
