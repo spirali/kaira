@@ -244,9 +244,7 @@ class Simulation(EventSource):
 
         transition = self.project.get_item(transition_id)
         def callback():
-            name = transition.get_name()
-            if not name:
-                name = "#{0}".format(transition.id)
+            name = transition.get_name_or_id()
             if phases == 2:
                 self.sequence.add_fire(process_id, 0, name)
             else:

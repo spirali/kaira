@@ -21,6 +21,13 @@
 import math
 import os
 import re
+import time
+
+id_counter = 1000
+def get_unique_id():
+    global id_counter
+    id_counter += 1
+    return id_counter
 
 def empty_fn(*args, **kwords):
 	pass
@@ -378,19 +385,17 @@ integer_parser = re.compile("\d+")
 def is_integer(value):
     return bool(integer_parser.match(value))
 
-def get_file_extension(filename):
-    # getting file extensions (after last dot)
-    splitedname = filename.split(".")
-    if len(splitedname) >= 2:
-        file_extension = splitedname[-1]
-        return file_extension
-    return None
+def get_filename_suffix(filename):
+    suffix = os.path.splitext(filename)[1]
+    if suffix.startswith("."):
+        return suffix[1:]
 
-def trim_file_extension(filename):
-    splitedname = filename.split(".")
-    if len(splitedname) >= 2:
-        return ".".join(splitedname[:-1])
-    return filename
+def trim_filename_suffix(filename):
+    return os.path.splitext(filename)[0]
+
+def get_timestamp_string():
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
+
 
 class EqMixin(object):
 

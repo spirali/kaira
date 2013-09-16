@@ -1,5 +1,6 @@
 #
 #    Copyright (C) 2013 Martin Surkovsky
+#                  2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -25,18 +26,12 @@ import os
 import sys
 import imp
 
-from time import time, gmtime, strftime
-from utils import get_file_extension, trim_file_extension
 from events import EventSource, EventCallbacksList
-from datatypes import types_repository, file_extension_to_type
-from datatypes import NoLoaderExists, NoSaverExists
+import datatypes
 from mainwindow import Tab
-
+import utils
 
 operations = {} # the list of all loaded operations
-
-class ExtensionException(Exception):
-    pass
 
 # *****************************************************************************
 # Sources
@@ -54,7 +49,12 @@ class Source(object, EventSource):
         """
         EventSource.__init__(self)
 
-        self._name = name
+        if name is not None:
+            self._name = name
+        else:
+            self._name = "{0} ({1})".format(utils.get_timestamp_string(),
+                                            utils.get_unique_id())
+
         self.type = type
         self.data = data
         self.stored = stored
@@ -68,6 +68,33 @@ class Source(object, EventSource):
         self._name = name
         self.emit_event("source-name-changed", name)
 
+    def store(self, filename, app, settings=None):
+        suffix = utils.get_filename_suffix(filename)
+        if suffix is None:
+            suffix = self.type.default_saver
+            filename += "." + suffix
+        saver = self.type.savers.get(suffix)
+        if saver is None:
+            app.show_message_dialog(
+                    "Cannot save '.{0}' file".format(suffix),
+                    gtk.MESSAGE_WARNING)
+        saver(self.data, filename, app, settings)
+        self.name = filename
+        self.stored = True
+
+def load_source(filename, app, settings=None):
+    # TODO: Catch IOError
+    suffix = utils.get_filename_suffix(filename)
+    loader = datatypes.get_loader_by_suffix(suffix)
+    if loader is None:
+        return None
+
+    source = loader(filename, app, settings)
+    if source is None:
+        return None
+    return Source(filename, datatypes.get_type_by_suffix(suffix), source, True)
+
+
 class SourceView(gtk.Alignment, EventSource):
 
     def __init__(self, source, app):
@@ -79,7 +106,6 @@ class SourceView(gtk.Alignment, EventSource):
                                  lambda n: self.entry_name.set_text(n))
 
         self.app = app # reference to the main application
-        self.data_free = False
         self.tabview = None
 
         self.set_padding(5, 0, 10, 10)
@@ -111,28 +137,27 @@ class SourceView(gtk.Alignment, EventSource):
         table.attach(button, 1, 2, 0, 2, xoptions=gtk.FILL)
         self.btns_group1.append(button)
 
+        button = gtk.Button("Show")
+        button.connect(
+            "clicked", lambda w: self._cb_show())
+        table.attach(button, 2, 3, 0, 2, xoptions=gtk.FILL)
+        self.btns_group1.append(button)
+
         # source menu
         menu = gtk.Menu()
-
-        item = gtk.MenuItem("Show")
-        item.connect("activate", lambda w: self._cb_show())
-        self.btns_group1.append(item)
-        menu.append(item)
-        menu.append(gtk.SeparatorMenuItem())
 
         item = gtk.MenuItem("Store")
         item.connect("activate", lambda w: self._cb_store())
         self.btns_group1.append(item)
         menu.append(item)
-        item = gtk.MenuItem("Load")
+        item = gtk.MenuItem("Reload")
         item.connect("activate", lambda w: self._cb_load())
-        item.set_sensitive(self.data_free)
-        self.btns_group2.append(item)
+        item.set_sensitive(self.source.data is not None)
         menu.append(item)
         menu.append(gtk.SeparatorMenuItem())
 
-        self.item_free = gtk.MenuItem("Free")
-        self.item_free.connect("activate", lambda w: self._cb_free())
+        self.item_free = gtk.MenuItem("Dispose")
+        self.item_free.connect("activate", lambda w: self._cb_dispose())
         self.item_free.set_sensitive(self.source.stored)
         self.btns_group1.append(self.item_free)
         menu.append(self.item_free)
@@ -147,7 +172,7 @@ class SourceView(gtk.Alignment, EventSource):
         menu_bar = gtk.MenuBar()
         menu_bar.set_child_pack_direction(gtk.PACK_DIRECTION_TTB)
         menu_bar.append(source_menu)
-        table.attach(menu_bar, 2, 3, 0, 2, xoptions=0)
+        table.attach(menu_bar, 3, 4, 0, 2, xoptions=0)
 
         # source component
         frame = gtk.Frame()
@@ -178,9 +203,9 @@ class SourceView(gtk.Alignment, EventSource):
 
     def _lock_buttons(self):
         for btn in self.btns_group1:
-            btn.set_sensitive(not self.data_free)
+            btn.set_sensitive(self.source.data is not None)
         for btn in self.btns_group2:
-            btn.set_sensitive(self.data_free)
+            btn.set_sensitive(self.source.data is None)
 
     def _cb_store(self):
         dialog = gtk.FileChooserDialog("Source store",
@@ -189,50 +214,26 @@ class SourceView(gtk.Alignment, EventSource):
                                        (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                        gtk.STOCK_SAVE, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
+        dialog.add_filter(datatypes.get_save_file_filter(self.source.type))
 
-        filter = gtk.FileFilter()
-        name = "{0} ({1})".format(
-            self.source.type.short_name, ", ".join(map(
-                lambda s: "*.{0}".format(s),
-                self.source.type.files_extensions)))
-        filter.set_name(name)
-        for file_extension in self.source.type.files_extensions:
-            filter.add_pattern("*.{0}".format(file_extension))
-        dialog.add_filter(filter)
-
-        response = dialog.run()
-        if response == gtk.RESPONSE_OK:
+        try:
+            response = dialog.run()
             filename = dialog.get_filename()
-
-            file_extension = get_file_extension(filename)
-            if file_extension is None and self.source.type.files_extensions:
-                file_extension = self.source.type.files_extensions[0]
-            filename = trim_file_extension(filename)
-            try:
-                self.source.type.store_source(
-                    self.source.data, filename, file_extension, self.app)
-
-                self.source.name = "{0}.{1}".format(filename, file_extension)
-                self.source.stored = True
-                self.item_free.set_sensitive(True)
-            except NoSaverExists as ex:
-                self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
-            finally:
-                dialog.destroy()
-        else:
+        finally:
             dialog.destroy()
 
+        if response == gtk.RESPONSE_OK:
+            self.source.store(filename, self.app)
+            self.item_free.set_sensitive(True)
+
     def _cb_load(self):
-        self.source.data = self.source.type.load_source(
+        self.source.data = load_source(
             self.source.name, self.app, self.source.type.setting).data
-        self.data_free = False
         self._lock_buttons()
         self.emit_event("source-data-changed", self.source)
 
-    def _cb_free(self):
-        del self.source.data
+    def _cb_dispose(self):
         self.source.data = None
-        self.data_free = True
         self._lock_buttons()
         if self.tabview is not None:
             self.tabview.close()
@@ -268,6 +269,12 @@ class SourcesRepository(object, EventSource):
             self.emit_event("source-removed", source)
             return True
         return False
+
+    def load_source(self, filename, app, settings=None):
+        source = load_source(filename, app, settings)
+        if source is not None:
+            self.add(source)
+            return source
 
     def get_sources(self, filter=None):
         """Return a list of loaded sources. If the filter is not empty,
@@ -347,9 +354,6 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
         self.repository.remove(source)
 
 
-# *****************************************************************************
-# Extension
-
 class Argument(object):
     """This class describes the argument of operation. It serves as persistent
      structure.
@@ -371,6 +375,7 @@ class Argument(object):
         self.type = type
         self.list = list
         self.minimum = minimum
+
 
 class Parameter(object, EventSource):
 
@@ -424,16 +429,16 @@ class Parameter(object, EventSource):
 
         if index is None: # attach
             attached = False
-            for i in xrange(len(self.sources)):
-                if self.sources[i] is None:
+            for i, s in enumerate(self.sources):
+                if s is None:
                     self.sources[i] = source
                     attached = True
                     break
             if not attached:
                 self.sources.append(source)
-
             self.real_attached += 1
-        elif index >= 0:
+        else:
+            assert(index >= 0)
             if index < len(self.sources):
                 if self.sources[index] is None:
                     # increase only if the source is None, in the other case
@@ -443,10 +448,6 @@ class Parameter(object, EventSource):
             else:
                 self.sources.append(source)
                 self.real_attached += 1
-        else: # negative index
-            raise ExtensionException(
-                "You try attach source to negative index"
-                "({0}) of parameter!".format(index))
 
         if old_real_attached < self.real_attached:
             source.set_callback("source-name-changed",
@@ -468,13 +469,14 @@ class Parameter(object, EventSource):
 
     def get_data(self):
         if self.is_list():
-            return [self.sources[idx].data
-                    for idx in xrange(self.real_attached)]
+            return [ source.data
+                     for source in self.sources[:self.real_attached] ]
         else:
             return self.sources[0].data
 
     def _cb_source_name_changed(self, idx, name):
         self.emit_event("source-name-changed", idx, name)
+
 
 class ParameterView(gtk.Table, EventSource):
 
@@ -618,16 +620,26 @@ class Operation(object, EventSource):
         """
         return None
 
-    def execute(self, app):
-        args = [parameter.get_data() for parameter in self.parameters]
-        return self.run(app, *args)
+    def execute(self, app, store_results=True):
+        args = [ parameter.get_data() for parameter in self.parameters ]
+        results = self.run(app, *args)
+        if not store_results:
+            return results
+        if results is None:
+            return
+        try:
+            sources = list(results)
+        except TypeError:
+            sources = [results]
+        for source in sources:
+            app.sources_repository.add(source)
+        return results
 
     def attach_source(self, source):
         parameter, index = self.selected_parameter
         if parameter is not None and parameter.type == source.type:
             parameter.attach_source(source, index)
             return
-
         for parameter in self.parameters:
             if (source.type == parameter.type and
                     (parameter.is_empty() or parameter.is_list())):
@@ -744,7 +756,7 @@ class OperationFullView(gtk.VBox, EventSource):
         hbox.pack_start(halign, True, True)
 
         # button run
-        button = gtk.Button("Run")
+        button = gtk.Button("Run operation")
         button.set_sensitive(operation.state == "ready")
         button.connect("clicked", lambda w: self._cb_run())
         hbox.pack_start(button, False, False)
@@ -807,11 +819,11 @@ class OperationFullView(gtk.VBox, EventSource):
 
 
 # *****************************************************************************
-# Extensions manager
+# Operation manager
 
-class ExtensionManager(gtk.VBox):
+class OperationManager(gtk.VBox):
 
-    def __init__(self, sources_repository, app):
+    def __init__(self, app):
         gtk.VBox.__init__(self)
 
         self.__objects_with_callbacks = []
@@ -821,9 +833,8 @@ class ExtensionManager(gtk.VBox):
         self.events = EventCallbacksList()
 
         # repository of loaded sources
-        self.sources_repository = sources_repository
         self.events.set_callback(
-            self.sources_repository, "source-removed",
+            app.sources_repository, "source-removed",
             self._cb_detach_source_from_all_operations)
 
         # full view of selected operation
@@ -839,11 +850,11 @@ class ExtensionManager(gtk.VBox):
         # toolbar
         toolbar = gtk.HBox(False)
         toolbar.set_border_width(5)
-        button = gtk.Button("Load")
+        button = gtk.Button("Load source")
         button.connect("clicked", lambda w: self._cb_load())
         toolbar.pack_start(button, False, False)
 
-        button = gtk.Button("Filter off")
+        button = gtk.Button("Disable filter")
         button.connect("clicked", lambda w: self._cb_filter_off())
         toolbar.pack_start(button, False, False)
         self.pack_start(toolbar, False, False)
@@ -860,7 +871,7 @@ class ExtensionManager(gtk.VBox):
         vbox.pack_start(haling, False, False)
 
         self.sources_view = SourcesRepositoryView(
-            self.sources_repository, self.app)
+            app.sources_repository, self.app)
         self.__objects_with_callbacks.append(self.sources_view)
         self.events.set_callback(
             self.sources_view, "attach-source", self._cb_attach_source)
@@ -906,6 +917,9 @@ class ExtensionManager(gtk.VBox):
             obj.deregister_callbacks()
         self.events.remove_all()
 
+    def load_source(self, filename):
+        return self.app.sources_repository.load_source(filename, self.app)
+
     def _load_operations(self):
         """Load modules (operations). It returns a column with all loaded
          operations.
@@ -937,46 +951,16 @@ class ExtensionManager(gtk.VBox):
                                        gtk.STOCK_OPEN, gtk.RESPONSE_OK))
         dialog.set_default_response(gtk.RESPONSE_OK)
 
-        all_supported_types = gtk.FileFilter()
-        all_supported_types.set_name("All supported files")
-        dialog.add_filter(all_supported_types)
-        for type in types_repository:
-            filter = gtk.FileFilter()
-            name = "{0} ({1})".format(
-                type.short_name, ", ".join(map(
-                    lambda s: "*.{0}".format(s),
-                    type.files_extensions)))
-            filter.set_name(name)
-
-            for file_extension in type.files_extensions:
-                pattern = "*.{0}".format(file_extension)
-                filter.add_pattern(pattern)
-                all_supported_types.add_pattern(pattern)
+        for filter in datatypes.get_load_file_filters():
             dialog.add_filter(filter)
 
-        response = dialog.run()
-        if response == gtk.RESPONSE_OK:
-            filename = dialog.get_filename()
-
-            file_extension = get_file_extension(filename)
-            type = file_extension_to_type(file_extension)
-            if type is None:
-                self.app.show_message_dialog(
-                    "For '{0}' files is not defined a type!".format(
-                        file_extension),
-                    gtk.MESSAGE_WARNING)
-                dialog.destroy()
-                return
-            try:
-                src = type.load_source(filename, self.app)
-                if src is not None:
-                    self.sources_repository.add(src)
-            except NoLoaderExists as ex:
-                self.app.show_message_dialog(str(ex), gtk.MESSAGE_WARNING)
-            finally:
+        try:
+            response = dialog.run()
+            if response == gtk.RESPONSE_OK:
                 self._cb_filter_off()
-                dialog.destroy()
-        else:
+                filename = dialog.get_filename()
+                self.load_source(filename)
+        finally:
             dialog.destroy()
 
     def _cb_operation_selected(self, operation):
@@ -998,21 +982,6 @@ class ExtensionManager(gtk.VBox):
             self.full_view.operation.select_parameter(None, None)
 
     def _cb_operation_finished(self, operation, sources):
-        if sources is None:
-            return
-
-        try:
-            sources = list(sources)
-        except TypeError:
-            sources = [sources]
-
-        ts = time()
-        tstring = strftime("%Y-%m-%d %H:%M:%S", gmtime(ts))
-        # add milliseconds
-        tstring = "%s.%03d" % (tstring, int(round(ts * 1e3)) - int(ts) * 1e3)
-        for source in sources:
-            source.name = "%s (%s)" % (source.name, tstring)
-            self.sources_repository.add(source)
         # destroy filter and selected_parameter
         self.full_view.operation.select_parameter(None, None)
         self.sources_view.set_filter(None)
@@ -1085,5 +1054,3 @@ def load_extensions():
             # the file is *.py and it exists
             imp.load_source("extension_" + name, fullname)
     sys.path.remove(paths.EXTENSIONS_DIR)
-
-load_extensions()

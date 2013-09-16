@@ -41,6 +41,7 @@ class RunInstance:
         self.last_event = None # "fire" / "finished" / "receive" / None
         self.last_event_activity = None
         self.last_event_instance = None
+        self.last_event_time = None
         self.packets = [ [] for i in xrange(self.process_count * self.process_count)]
 
     def add_token(self, place_id, token_pointer, token_value, send_time=None):
@@ -69,6 +70,7 @@ class RunInstance:
         self.last_event = None
         self.last_event_activity = None
         self.last_event_instance = None
+        self.last_event_time = None
 
     def event_spawn(self, process_id, thread_id, time, net_id):
         self.net = self.project.find_net(net_id)
@@ -80,11 +82,14 @@ class RunInstance:
         instance = NetInstance(process_id)
         self.net_instances[process_id] = instance
         self.last_event_instance = instance
+        self.last_event_process = process_id
+        self.last_event_time = time
 
     def event_quit(self, process_id, thread_id, time):
         self.last_event = "quit"
         self.last_event_process = process_id
         self.last_event_thread = thread_id
+        self.last_event_time = time
         index = process_id * self.threads_count + thread_id
         self.last_event_activity = self.activites[index]
         if self.last_event_activity is not None:
@@ -97,6 +102,7 @@ class RunInstance:
         self.last_event = "idle"
         self.last_event_process = process_id
         self.last_event_thread = thread_id
+        self.last_event_time = time
         self.last_event_activity = None
         self.last_event_instance = self.net_instances[process_id]
 
@@ -111,6 +117,7 @@ class RunInstance:
         self.last_event = "receive"
         self.last_event_process = process_id
         self.last_event_thread = thread_id
+        self.last_event_time = time
         packets = self.packets[process_id * self.process_count + origin_id]
         packet = packets[0]
         del packets[0]
@@ -125,6 +132,7 @@ class RunInstance:
         self.last_event_instance = self.net_instances[process_id]
         self.last_event_process = process_id
         self.last_event_thread = thread_id
+        self.last_event_time = time
         transition = self.net.item_by_id(transition_id)
         self.last_event_activity = \
             TransitionFire(time, process_id, thread_id, transition, values)
@@ -136,6 +144,7 @@ class RunInstance:
         self.last_event = "finish"
         self.last_event_process = process_id
         self.last_event_thread = thread_id
+        self.last_event_time = time
         index = process_id * self.threads_count + thread_id
         self.last_event_activity = self.activites[index]
         self.last_event_instance = self.net_instances[process_id]

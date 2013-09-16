@@ -1,5 +1,4 @@
 
-import gtk
 import settingswindow
 from extensions import Argument, Source, Operation, add_operation
 from datatypes import t_table
@@ -7,7 +6,7 @@ from datatypes import t_table
 class Filter(Operation):
 
     name = "Table filter"
-    description = "Data are filtered by a value(s) in specific column(s)"
+    description = "Filter rows of the table by values in columns"
     arguments = [Argument("Data", t_table)]
 
     def run(self, app, data):
@@ -44,8 +43,7 @@ class Filter(Operation):
         assistant.append_setting_widget("Select columns", create_page_1)
         assistant.append_setting_widget("Set filters", create_page_2)
 
-        response = assistant.run()
-        if response != gtk.RESPONSE_OK:
+        if not assistant.run():
             return None
 
         selected_columns = assistant.collected_setting[0]["selected_cols"]

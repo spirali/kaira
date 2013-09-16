@@ -101,7 +101,7 @@ class MainWindow(gtk.Window):
     def close_all_tabs(self, groups=None, predicate_fn=None):
         for tab in self.tablist[:]:
             if ((not groups or set(tab.mainmenu_groups).intersection(set(groups))) and
-                    predicate_fn is None or predicate_fn(tab)):
+                    (predicate_fn is None or predicate_fn(tab))):
                 tab.close()
 
     def get_current_tab(self):
@@ -220,20 +220,15 @@ class MainWindow(gtk.Window):
             "project")
         add("_Connect to application", self.app.connect_to_application)
 
-        menu = add_menu("_Analysis")
+        menu = add_menu("_Tools")
 
+        add("_Run tool", self.app.run_tool_window)
+        menu.append(gtk.SeparatorMenuItem())
         add("Run state space _analysis", self.app.run_statespace_analysis, "project")
-        add("Open _report", self.app.load_report)
+        add("Open rep_ort", self.app.load_report)
 
         menu = add_menu("_Others")
         add("Save net as SV_G", self.app.save_as_svg, "screenshot")
-
-        menu = gtk.Menu()
-        item = gtk.MenuItem("Too_ls")
-        item.set_submenu(menu)
-        main_menu.append(item)
-
-        add("Run _tool", self.app.run_tool_window)
 
         return main_menu
 
