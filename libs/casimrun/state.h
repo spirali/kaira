@@ -41,6 +41,10 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 		return get_thread_info(process_id, 0).release_time <= global_time;
 	}
 
+	PacketQueue get_current_packets(int process_id1, int process_id2);
+	int get_packets_count(int process_id1, int process_id2);
+	size_t get_data_size(int process_id1, int process_id2);
+
 	protected:
 	ca::TraceLog* get_tracelog(int process_id, int thread_id) {
 		return get_thread_info(process_id, thread_id).tracelog;

@@ -17,6 +17,18 @@ namespace casr {
 			ca::IntTime time() {
 				return state->get_global_time();
 			}
+
+			int get_packets_count(int process_id1, int process_id2) {
+				return state->get_packets_count(process_id1, process_id2);
+			}
+
+			int get_data_size(int process_id1, int process_id2) {
+				return state->get_data_size(process_id1, process_id2);
+			}
+
+			casr::State::PacketQueue get_packet_queue(int process_id1, int process_id2) {
+				return state->get_current_packets(process_id1, process_id2);
+			}
 	};
 
 }

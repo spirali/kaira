@@ -137,6 +137,36 @@ void casr::State::packet_preprocess(
 	StateThread thread(this, target_id, 0);
 	Context ctx(&thread);
 	packet.start_time = tracelog->get_time();
-	packet.release_time = tracelog->get_time() +
+	packet.release_time = packet.start_time +
 		run_configuration.packet_time(ctx, origin_id, target_id, fake_size);
 }
+
+casr::State::PacketQueue casr::State::get_current_packets(int process_id1, int process_id2)
+{
+	PacketQueue &pq = get_packets(process_id1, process_id2);
+	PacketQueue result;
+	int t;
+	for (t = 0; t < pq.size(); t++) {
+		if (global_time >= pq[t].start_time) {
+			result.push_back(pq[t]);
+		}
+	}
+	return result;
+}
+
+int casr::State::get_packets_count(int process_id1, int process_id2)
+{
+	PacketQueue &pq = get_packets(process_id1, process_id2);
+	return pq.size();
+}
+
+size_t casr::State::get_data_size(int process_id1, int process_id2)
+{
+	PacketQueue &pq = get_packets(process_id1, process_id2);
+	size_t size = 0;
+	for (int t = 0; t < pq.size(); t++) {
+		size += pq[t].size;
+	}
+	return size;
+}
+
