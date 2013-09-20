@@ -44,17 +44,19 @@ casr::State::~State()
 }
 
 void casr::State::run() {
+
+	quit_time = ca::MAX_INT_TIME;
 	for (;;) {
+		if (quit_time <= global_time) {
+			global_time = quit_time;
+			return;
+		}
 		ca::IntTime next_time = ca::MAX_INT_TIME;
 		for (int p = 0; p < ca::process_count; p++) {
 			ca::IntTime t = run_process(p);
 			if (t < next_time) {
 				next_time = t;
 			}
-		}
-		if (quit) {
-			global_time = next_time;
-			return;
 		}
 		if (next_time == ca::MAX_INT_TIME) {
 			fprintf(stderr, "Deadlock detected\n");
@@ -117,11 +119,14 @@ ca::IntTime casr::State::run_process(int process_id) {
 		ti.idle = true;
 		return next_time;
 	}
-    ti.idle = false;
+        ti.idle = false;
 	if (!fire_transition_full(process_id, tr->get_def())) {
 		tr->set_active(false);
 	}
 	ti.release_time = tracelog->get_time();
+	if (quit && quit_time != ca::MAX_INT_TIME) {
+		quit_time = ti.release_time;
+	}
 	return ti.release_time;
 }
 
@@ -131,6 +136,7 @@ void casr::State::packet_preprocess(
 		(ControlledTimeTraceLog*) get_tracelog(origin_id, 0);
 	StateThread thread(this, target_id, 0);
 	Context ctx(&thread);
+	packet.start_time = tracelog->get_time();
 	packet.release_time = tracelog->get_time() +
 		run_configuration.packet_time(ctx, origin_id, target_id, fake_size);
 }

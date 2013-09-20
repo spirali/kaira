@@ -12,6 +12,7 @@ namespace casr {
 struct Packet : public ca::Packet
 {
 	ca::IntTime release_time;
+	ca::IntTime start_time;
 };
 
 struct ThreadInfo
@@ -50,6 +51,7 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 	}
 
 	ca::IntTime global_time;
+	ca::IntTime quit_time;
 	std::vector<int> free_threads;
 	std::vector<ThreadInfo> thread_info;
 	RunConfiguration& run_configuration;
