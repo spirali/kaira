@@ -159,6 +159,7 @@ HashDigest State::compute_hash(hashid hash_id)
 		fprintf(stderr, "Hash failed\n");
 		exit(1);
 	}
+	mhash(hash_thread, &quit, sizeof(quit));
 	hash_activations(hash_thread);
 	hash_packets(hash_thread);
 	ca::Packer packer;
