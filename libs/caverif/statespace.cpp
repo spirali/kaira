@@ -608,52 +608,66 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 	}
 }
 
+bool operator==(const ParikhVector &p1, const ParikhVector &p2) {
+	if (p1.size() != p2.size()) {
+		return false;
+	}
+	for (ParikhVector::const_iterator it = p1.begin(); it != p1.end(); it++) {
+		ParikhVector::const_iterator it2 = p2.find(it->first);
+		if (it2 == p2.end() || it->second != it2->second) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool operator!=(const ParikhVector &p1, const ParikhVector &p2) {
+	return !(p1 == p2);
+}
+
 void Core::run_analysis_transition_occurrence(ca::Output &report)
 {
 	ArcCompare arcCmp(verif_configuration);
-	ParikhVector *actual, *next;
+	ParikhVector *current, *next;
 	std::queue<Node*> node_queue;
-	std::vector<Node*> second_sequence;
-	Node *first_sequence;
+	std::vector<Node*> error_node2;
+	Node *error_node = NULL;
 	Node *node;
-	int errors = 0;
 
-	actual = new ParikhVector(arcCmp);
+	current = new ParikhVector(arcCmp);
 	const std::vector<ca::TransitionDef*> transitions = net_def->get_transition_defs();
-	initial_node->set_data(actual);
+	initial_node->set_data(current);
 	node_queue.push(initial_node);
 
-	while (!node_queue.empty() && !errors) {
+	while (!node_queue.empty() && error_node == NULL) {
 		node = node_queue.front();
 		node_queue.pop();
-		actual = (ParikhVector*)(node->get_data());
+		current = (ParikhVector*)(node->get_data());
 		const std::vector<NextNodeInfo> &nexts_nodes = node->get_nexts();
 		for (int i = 0; i < nexts_nodes.size(); i++) {
-			if (errors) {
-				break;
-			}
-			next = new ParikhVector(*actual);
+			next = new ParikhVector(*current);
 			if (nexts_nodes[i].action == ActionFire) {
 				Arc arc(node, &nexts_nodes[i]);
 				if (verif_configuration.is_transition_analyzed(nexts_nodes[i].data.fire.transition_id)) {
-					if (next->count(arc)) {
-						next->at(arc) += 1;
-					} else {
+					ParikhVector::iterator i = next->find(arc);
+					if (i == next->end()) {
 						next->insert(std::pair<Arc, int>(arc, 1));
+					} else {
+						i->second += 1;
 					}
 				}
 			}
-			if (nexts_nodes[i].node->get_data() != NULL) {
+
+			Node *n = nexts_nodes[i].node;
+			ParikhVector *v = (ParikhVector*) n->get_data();
+			if (v != NULL) {
 				ParikhVector::const_iterator it;
-				ParikhVector *old = (ParikhVector*)nexts_nodes[i].node->get_data();
-				for (it = next->begin(); it != next->end(); it++) {
-					if (old->count(it->first) == 0 || it->second != old->at(it->first)) {
-						first_sequence = nexts_nodes[i].node;
-						second_sequence.push_back(node);
-						second_sequence.push_back(nexts_nodes[i].node);
-						errors++;
-						break;
-					}
+				if (*v != *next) {
+					error_node = n;
+					error_node2.push_back(node);
+					error_node2.push_back(n);
+					delete next;
+					break;
 				}
 				delete next;
 			} else {
@@ -664,27 +678,44 @@ void Core::run_analysis_transition_occurrence(ca::Output &report)
 	}
 
 	NodeMap::const_iterator it;
+	current = NULL;
+	Node *current_node = NULL;
 	for (it = nodes.begin(); it != nodes.end(); it++)
 	{
 		Node *node = it->second;
-		if (node->get_data() != NULL) {
-			delete (ParikhVector*)node->get_data();
+		ParikhVector *v = (ParikhVector*) node->get_data();
+		if (v != NULL) {
+			if (node->get_state()->get_quit_flag() && error_node == NULL) {
+				if (current == NULL) {
+					current_node = node;
+					current = v;
+					continue;
+				}
+				if (*current != *v) {
+					error_node = current_node;
+					error_node2.push_back(node);
+				}
+			}
+			delete v;
 			node->set_data(NULL);
 		}
 	}
 
+	if (current) {
+		delete current;
+	}
+
 	report.child("analysis");
-	report.set("name", "Transition occurrence analysis");
+	report.set("name", "Analysis of characteristic vectors");
 
 	report.child("result");
-	report.set("name", "Number of errors");
-	report.set("value", errors);
-	if (errors > 0) {
+	report.set("name", "Uniqueness of characteristic vector");
+	if (error_node) {
 		report.set("status", "fail");
-		report.set("text", "Sequences with different transition occurrence found");
+		report.set("text", "Different characteristic vectors found");
 		report.child("states");
-		write_state("First witness path", first_sequence, report);
-		write_suffix("Second witness path", second_sequence, report);
+		write_state("First witness path", error_node, report);
+		write_suffix("Second witness path", error_node2, report);
 		report.back();
 	} else {
 		report.set("status", "ok");
