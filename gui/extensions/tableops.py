@@ -1,13 +1,13 @@
 
 import settingswindow
-from extensions import Argument, Source, Operation, add_operation
+from extensions import Parameter, Source, Operation, add_operation
 from datatypes import t_table
 
 class Filter(Operation):
 
     name = "Table filter"
     description = "Filter rows of the table by values in columns"
-    arguments = [Argument("Data", t_table)]
+    parameters = [Parameter("Data", t_table)]
 
     def run(self, app, data):
         header, rows = data
