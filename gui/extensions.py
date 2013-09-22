@@ -70,8 +70,9 @@ class Source(object, EventSource):
 
     @name.setter
     def name(self, name):
+        old_name = self._name
         self._name = name
-        self.emit_event("source-name-changed", name)
+        self.emit_event("source-name-changed", old_name, name)
 
     def store(self, filename, app, settings=None):
         """Store the source into a file. It calls a function in the 'savers'
@@ -136,7 +137,7 @@ class SourceView(gtk.Alignment, EventSource):
 
         self.source = source
         self.source.set_callback("source-name-changed",
-                                 lambda n: self.entry_name.set_text(n))
+                                 lambda old, new: self.entry_name.set_text(new))
 
         self.app = app # reference to the main application
         self.tabview = None
@@ -289,11 +290,13 @@ class SourcesRepository(object, EventSource):
         return len(self._repo)
 
     def add(self, source):
+        source.set_callback("source-name-changed",
+                             self._cb_source_name_changed)
         if source.name not in self._repo:
             self._repo[source.name] = source
             self.emit_event("source-added", source)
-            return True
-        return False
+        else:
+            self._repo[source.name] = source
 
     def remove(self, source):
         if source.name in self._repo:
@@ -320,6 +323,11 @@ class SourcesRepository(object, EventSource):
         """
         return [source for name, source in self._repo.items()
                 if filter is None or source.type in filter]
+
+    def _cb_source_name_changed(self, old_name, new_name):
+        source = self._repo[old_name]
+        del self._repo[old_name]
+        self._repo[new_name] = source
 
 
 class SourcesRepositoryView(gtk.VBox, EventSource):
@@ -509,8 +517,8 @@ class Argument(object, EventSource):
         else:
             return self.sources[0].data
 
-    def _cb_source_name_changed(self, idx, name):
-        self.emit_event("source-name-changed", idx, name)
+    def _cb_source_name_changed(self, idx, old_name, new_name):
+        self.emit_event("source-name-changed", idx, new_name)
 
 
 class ArgumentView(gtk.Table, EventSource):
@@ -584,8 +592,8 @@ class ArgumentView(gtk.Table, EventSource):
 
         self.show_all()
 
-    def _cb_source_name_changed(self, idx, name):
-        self.entries[idx].set_text(name)
+    def _cb_source_name_changed(self, idx, old_name, new_name):
+        self.entries[idx].set_text(new_name)
 
     def _cb_detach_source(self, index):
         self.argument.detach_source(index)
