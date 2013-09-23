@@ -1,9 +1,0 @@
-Usage
------
-
-$ python basicset.py my_original_data
-
-< ... improve Kaira ... >
-
-$ python basicset.py my_new_data
-$ python compare.py original-data new-data
