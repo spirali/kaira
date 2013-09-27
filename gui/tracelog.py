@@ -317,6 +317,10 @@ class Trace:
             return self._process_event_spawn(runinstance)
         elif t == "I":
             return self._process_event_idle(runinstance)
+        elif t == "Q":
+            # This is called only when transition that call ctx.quit is not traced
+            self.pointer -= 1 # _process_event_quit expect the pointer at "Q"
+            self._process_event_quit(runinstance)
         else:
             raise Exception("Invalid event type '{0}/{1}' (pointer={2}, process={3})"
                                 .format(t, ord(t), hex(self.pointer), self.process_id))
