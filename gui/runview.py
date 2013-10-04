@@ -201,7 +201,7 @@ class RunView(gtk.VBox):
                 values,
                 "Histograms of transition execution times",
                 "Time",
-                "Densitiy")
+                "Density")
 
 
     def _transitions_time_sum(self):

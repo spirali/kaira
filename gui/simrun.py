@@ -29,7 +29,7 @@ class SimRunConfig(gtk.VBox):
         hbox = gtk.HBox()
         self.pack_start(hbox, False, False)
         hbox.pack_start(gtk.Label("Predefined models:"), False, False, 5)
-        button = gtk.Button("Hockney")
+        button = gtk.Button("Linear")
         button.connect("clicked", lambda w: self.set_hockney())
         hbox.pack_start(button, False, False)
 
