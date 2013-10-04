@@ -119,6 +119,10 @@ class StatespaceConfig(gtk.VBox):
             if self.analyze_final_marking.get_active():
                 parameters.append("-Vfmarking")
 
+            if self.analyze_cycles.get_active():
+                parameters.append("-Vcycle")
+
+
             p.start(parameters)
             self.process = p
             self.stop_button.set_sensitive(True)

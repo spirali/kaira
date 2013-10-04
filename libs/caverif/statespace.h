@@ -130,19 +130,22 @@ namespace cass {
 	class Node
 	{
 		public:
-			Node(HashDigest hash, State *state);
+			Node(HashDigest hash, State *state, Node *prev);
 			~Node();
 			const std::vector<NextNodeInfo> & get_nexts() const { return nexts; }
 			void generate(Core *statespace);
-			HashDigest get_hash() { return hash; }
+			HashDigest get_hash() const { return hash; }
 
-			State* get_state() { return state; }
-			Node* get_prev() { return prev; }
-			int get_distance() { return distance; }
-			void* get_data() { return data; };
+			State* get_state() const { return state; }
+			Node* get_prev() const { return prev; }
+			int get_distance() const { return distance; }
+			void* get_data() const { return data; };
 			void set_data(void* data) { this->data = data; };
 			void set_prev(Node *prev);
-			const NextNodeInfo& get_next_node_info(Node *node);
+			const NextNodeInfo& get_next_node_info(Node *node) const;
+
+			int get_tag() const { return tag; }
+			void set_tag(int tag) { this->tag = tag; }
 		protected:
 			HashDigest hash;
 			State* state;
@@ -151,6 +154,7 @@ namespace cass {
 			int distance;
 
 			// Generic data used in during analysis
+			int tag;
 			void* data;
 	};
 
@@ -186,7 +190,7 @@ namespace cass {
 			void generate();
 			void postprocess();
 			void write_dot_file(const std::string &filename);
-			Node * add_state(State *state);
+			Node * add_state(State *state, Node *prev);
 			HashDigest hash_packer(ca::Packer &packer);
 			ca::NetDef * get_net_def() { return net_def; }
 			bool generate_binding_in_nni(int transition_id);
@@ -196,6 +200,8 @@ namespace cass {
 			void write_suffix(const std::string &name, std::vector<Node*> &nodes, ca::Output &report);
 			void run_analysis_final_nodes(ca::Output &report);
 			void run_analysis_transition_occurrence(ca::Output &report);
+			void run_analysis_cycle(ca::Output &report);
+			void set_tags(int tag);
 
 			bool is_known_node(Node *node) const;
 			Node *get_node(HashDigest digest) const;

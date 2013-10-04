@@ -22,6 +22,7 @@ static bool write_dot = false;
 static bool analyse_deadlock = false;
 static bool analyse_transition_occurrence = false;
 static bool analyse_final_marking = false;
+static bool analyse_cycle = false;
 static std::string project_name;
 
 
@@ -52,6 +53,11 @@ static void args_callback(char c, char *optarg, void *data)
 			analyse_final_marking = true;
 			return;
 		}
+		if (!strcmp(optarg, "cycle")) {
+			analyse_cycle = true;
+			return;
+		}
+
 		fprintf(stderr, "Invalid argument in -V\n");
 		exit(1);
 	}
@@ -171,8 +177,8 @@ HashDigest State::compute_hash(hashid hash_id)
 	return mhash_end(hash_thread);
 }
 
-Node::Node(HashDigest hash, State *state)
-	: hash(hash), state(state), prev(NULL), distance(0), data(NULL)
+Node::Node(HashDigest hash, State *state, Node *prev)
+	: hash(hash), state(state), prev(prev), distance(0), data(NULL)
 {
 
 }
@@ -184,7 +190,7 @@ Node::~Node()
 
 void Node::set_prev(Node *node)
 {
-	if (prev == NULL || node->get_distance() + 1 < get_distance()) {
+	if (prev != NULL || node->get_distance() + 1 < get_distance()) {
 		prev = node;
 		distance = node->get_distance() + 1;
 	}
@@ -217,8 +223,7 @@ void Node::generate(Core *core)
 					fired = s->fire_transition_full(p, transitions[i]);
 				}
 				if (fired) {
-					Node *n = core->add_state(s);
-					n->set_prev(this);
+					Node *n = core->add_state(s, this);
 					NextNodeInfo nninfo;
 					nninfo.node = n;
 					nninfo.action = ActionFire;
@@ -287,8 +292,7 @@ void Node::generate(Core *core)
 		if (!s->receive(target, source, false)) {
 			continue;
 		}
-		Node *n = core->add_state(s);
-		n->set_prev(this);
+		Node *n = core->add_state(s, this);
 		NextNodeInfo nninfo;
 		nninfo.node = n;
 		nninfo.action = ActionReceive;
@@ -322,7 +326,7 @@ void Core::generate()
 
 	net_def = ca::defs[0]; // Take first definition
 	State *initial_state = new State(net_def);
-	initial_node = add_state(initial_state);
+	initial_node = add_state(initial_state, NULL);
 	int count = 0;
 	do {
 		count++;
@@ -356,11 +360,12 @@ void Core::write_dot_file(const std::string &filename)
 				packets_count += node->get_state()->get_packets(
 					i / ca::process_count, i % ca::process_count).size();
 			}
-			fprintf(f, "S%p [label=\"%s|%i|%i\"]\n",
+			fprintf(f, "S%p [label=\"%s|%i|%i|%i\"]\n",
 				node,
 				hashstr,
 				(int) node->get_state()->get_activations().size(),
-				packets_count);
+				packets_count,
+				node->get_distance());
 		}
 		for (size_t i = 0; i < nexts.size(); i++) {
 			fprintf(f, "S%p -> S%p [label=\"", node, nexts[i].node);
@@ -412,6 +417,9 @@ void Core::postprocess()
 	}
 	if (analyse_transition_occurrence) {
 		run_analysis_transition_occurrence(report);
+	}
+	if (analyse_cycle) {
+		run_analysis_cycle(report);
 	}
 
 	report.child("description");
@@ -724,19 +732,85 @@ void Core::run_analysis_transition_occurrence(ca::Output &report)
 	report.back();
 }
 
-Node * Core::add_state(State *state)
+void Core::set_tags(int tag)
+{
+	NodeMap::const_iterator it;
+	for (it = nodes.begin(); it != nodes.end(); it++)
+	{
+		Node *node = it->second;
+		node->set_tag(tag);
+	}
+}
+
+void Core::run_analysis_cycle(ca::Output &report)
+{
+	set_tags(-1);
+	std::stack<Node*> stack;
+	stack.push(initial_node);
+	initial_node->set_tag(0);
+
+	std::vector<Node*> error_suffix;
+
+	while (!stack.empty()) {
+		Node *n = stack.top();
+		int tag = n->get_tag();
+		const std::vector<NextNodeInfo> &nexts = n->get_nexts();
+		if (tag == nexts.size()) {
+			n->set_tag(-2);
+			stack.pop();
+			continue;
+		}
+		n->set_tag(tag + 1);
+		Node *next = nexts[tag].node;
+
+		if (next->get_tag() == -1) {
+			next->set_tag(0);
+			stack.push(next);
+			continue;
+		}
+
+		if (next->get_tag() >= 0) {
+			error_suffix.push_back(n);
+			error_suffix.push_back(next);
+			break;
+		}
+	}
+
+	report.child("analysis");
+	report.set("name", "Cycle detection");
+
+	report.child("result");
+	report.set("name", "Cycle detection");
+	if (!error_suffix.empty()) {
+		report.set("status", "fail");
+		report.set("text", "A cyclic computation detected");
+		report.child("states");
+		write_state("Start of the cycle", error_suffix[1], report);
+		write_suffix("The full cycle", error_suffix, report);
+		report.back();
+	} else {
+		report.set("status", "ok");
+	}
+	report.back();
+	report.back();
+}
+
+Node * Core::add_state(State *state, Node *prev)
 {
 	HashDigest hash = state->compute_hash(MHASH_MD5);
 
 	Node *node = get_node(hash);
 	if (node == NULL) {
-		node = new Node(hash, state);
+		node = new Node(hash, state, prev);
 		nodes[hash] = node;
 		not_processed.push(node);
 		return node;
 	} else {
 		free(hash);
 		delete state;
+		if (prev) {
+			node->set_prev(prev);
+		}
 		return node;
 	}
 }
@@ -752,7 +826,7 @@ HashDigest Core::hash_packer(ca::Packer &packer)
 	return mhash_end(hash_thread);
 }
 
-const NextNodeInfo& Node::get_next_node_info(Node *node)
+const NextNodeInfo& Node::get_next_node_info(Node *node) const
 {
 	for (int i = 0; nexts.size(); i++) {
 		if (nexts[i].node == node) {
