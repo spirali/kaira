@@ -86,6 +86,10 @@ class CppWriter(Writer):
         self.indent_pop()
         self.line("}}")
 
+    def switch_begin(self, expr):
+        self.line("switch ({0}) {{", expr)
+        self.indent_push()
+
     def if_begin(self, expr, *args, **kw):
         self.line("if ({0}) {{", self.expand(expr, *args, **kw))
         self.indent_push()
