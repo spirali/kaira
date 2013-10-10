@@ -126,6 +126,7 @@ namespace ca {
 				protected:
 					StateBase<NetT, ActivationT, PacketT> *state;
 					int process_id;
+					int thread_id;
 			};
 
 			typedef std::deque<PacketT> PacketQueue;
