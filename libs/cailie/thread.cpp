@@ -8,7 +8,7 @@
 
 using namespace ca;
 
-Thread::Thread() : messages(NULL)
+Thread::Thread() : messages(NULL), process(), thread(0)
 {
 	pthread_mutex_init(&messages_mutex, NULL);
 }

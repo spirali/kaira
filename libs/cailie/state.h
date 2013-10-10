@@ -45,7 +45,8 @@ namespace ca {
 						: ThreadBase(thread_id,
 									 state->get_tracelog(process_id, thread_id)),
 						  state(state),
-						  process_id(process_id) {}
+						  process_id(process_id),
+						  thread_id(0) {}
 
 					void quit_all() {
 							state->set_quit_flag();

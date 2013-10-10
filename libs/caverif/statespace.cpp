@@ -177,7 +177,7 @@ HashDigest State::compute_hash(hashid hash_id)
 }
 
 Node::Node(HashDigest hash, State *state, Node *prev)
-	: hash(hash), state(state), prev(prev), distance(0), data(NULL)
+	: hash(hash), state(state), prev(prev), distance(0), data(NULL), tag(0)
 {
 
 }
