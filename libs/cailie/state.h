@@ -170,7 +170,7 @@ namespace ca {
 				}
 			}
 
-			~StateBase()
+			virtual ~StateBase()
 			{
 				delete [] packets;
 			}
