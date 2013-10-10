@@ -9,7 +9,6 @@
 
 namespace ca {
 extern size_t tracelog_size;
-extern char * project_description_string;
 }
 
 using namespace ca;
