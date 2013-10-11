@@ -1,19 +1,18 @@
-
 Kaira Developer's Guide
 =======================
 
-This guide serves as a manual for developers. There are described the basic
-components of tool Kaira (http://verif.cs.vsb.cz/kaira).
+This developer's guide serves as a manual for developers. There are described
+basic components of tool Kaira (http://verif.cs.vsb.cz/kaira).
 
 User's extensions
 -----------------
-Kaira can be extended by user's extensions. They serve primary for data
+Kaira can be extended by user's extensions. They primary serve for data
 processing. An 'extension' contains one or more <<sec-operation, operations>>.
 
 Every <<sec-operation, operation>> represents a function that takes some inputs
-data and produces some outputs data. Both of these types of data are not
-usually build-in types. By types in this context we mean objects like
-tracelogs, control sequences, or tables.
+data and produces some outputs data. Both of these data types are not build-in
+types. By types in this context we mean objects like tracelogs, control
+sequences, tables, etc.
 
 We start with a short tutorial that introduces data types. There will be
 described how to work with existing data types and how to create new ones. In
@@ -25,39 +24,39 @@ all classes of appropriate module is.
 Data types
 ~~~~~~~~~~
 
-This section describes 'data types' used in <<sec-operation, operations>>.
-Every data type is represented by an instance of class <<cls-type, Type>>.
-They serve as a description of basic objects that a user can manipulate. For
-example tracelog, tables, etc. They contain also three basic functions for
-data *loading*, *storing*, and *visualization*.
+This section describes 'data types' that are used in <<sec-operation,
+operations>>. Every data type is represented by an instance of class
+<<cls-type, Type>>. They serve as a description of basic objects that a user
+can manipulate (mentioned tracelogs, tables, etc.). They also contain three
+basic functions for data *loading*, *storing*, and *visualization*.
 
 // TODO: zavest sources
 
 Every data type consists:
 
 - 'name',
-- 'short name', and
-- 'list of supported file types' (files extensions).
+- 'short name' (optional)
 
 The attribute 'name' is a full name of the data type which is used for example
 in <<cls-sourceview, SourceView>>. In contrast, a 'short name' is used on places
-where is not a lot of space for the full name, like in filters of files. If the
-full name is short enough, it may be the same as the short name.
+where is not a lot of space for the full name, like in filters for files.
+A 'short name' is an optional parameter, if it is empty then a 'full_name'
+is used.
 
 .Add a new data type
 [source,python]
 -------------------------------------------------------------------------------
-t_table = Type("Table", "Table", ["csv", "xls"]) # <1>
+t_table = Type("Table") # <1>
 types_repository.append(t_table) # <2>
 -------------------------------------------------------------------------------
 
-<1> Create new type: 'table'.
-<2> Register the data type to the types repository.
+<1> Create new type: 't_table'.
+<2> Register the new data type to the types repository.
 
-That is all, it is enough for create and register new data type. But a data
-type without supportive functions has quite limited use. Because data cannot
-be loaded/stored from/to a file (they can be produced only by other
-operations), etc.
+That is all, it is enough for creating and registration a new data type.
+But a data type without supportive functions has quite limited usage. Because
+data cannot be loaded/stored from/to a file (they can be produced only by other
+operations), also they cannot be shown (visualized) by Kaira.
 
 The following example shows how to add supportive functions to a data type.
 For this we will use already defined data type +t_table+.
@@ -92,7 +91,7 @@ t_table.get_view = table_view # <8>
 <8> Assign the visualization function to +t_table.get_view+ function.
 
 As you can see, a function for storing data in 'xls' format is missing.
-That means the data cannot be able saved in this format on so defined data
+That means the data cannot be saved in this format on so defined data
 type.
 
 API reference manual for +datatypes+ module follows in the next subsection.
@@ -114,18 +113,11 @@ From this class are derived all of data types.
 - object
 
 .Constructor
-- Type(name, short_name, files_extensions)
+- Type(name, short_name)
 
 .Properties
 - 'name' -- a full name of a data type
 - 'short_name' -- shorter version of a name
-- 'files_extensions' -- a list of files extensions that are supported by the
-type
-// TODO: setting hodit do source v Type nema co delat. -> CHYBA
-- 'settings' -- an optional variable. It can carry some arbitrary data
-depending on extension. It servers for non interactive store, hence if
-settings is none it assumed that extension open some kind of dialog, otherwise
-the process of saving should proceed without user interaction.
 
 .Methods
 - 'get_view(data, app)' -- return a widget with visualized data
@@ -138,7 +130,6 @@ Implemented data types
 ++++++++++++++++++++++
 
 .Tracelog (+t_tracelog+)
-This data type represents 'tracelog' data generated by Kaira.
 
 - 'supported file types'
 * *kth* (kaira tracelog header)
@@ -147,15 +138,14 @@ This data type represents 'tracelog' data generated by Kaira.
 - 'visualization widget' - yes (replay)
 
 .Table (+t_table+)
-Tables store data in form of 2D grid. It is an ordered set of rows with the
-fixed number of columns.
+A table stores data in form of 2D grid. It is an ordered set of rows with fixed
+number of columns.
 
 - 'supported file types'
 * *csv* (comma separated values)
 ** 'loader' -- yes
 ** 'saver' -- yes
 - 'visualization widget' - yes
-
 
 Operations
 ~~~~~~~~~~
@@ -165,10 +155,10 @@ they only take inputs and produce outputs.
 
 All of the modules with operations are stored in directory
 +$KAIRA_DIR/gui/extensions/+. One extension may contains more operations. But
-it is necessary to register them, if they should be available in Kaira. Every
-of registered operation is automatically loaded after the start of the
-application. Not registered operations are not visible for Kaira. How to create
-and register an operation will be shown in the following example.
+it is necessary to register all of them, otherwise they will not be available
+in Kaira. Every of registered operation is automatically loaded after the start
+of the application. Not registered operations are invisible for Kaira.
+How to create and register an operation will be shown in the following example.
 
 All the supportive classes for creating a new operation are in module
 +gui/extensions.py+. Every operation extends class +extensions.Operation+.
@@ -192,8 +182,6 @@ class Filter(Operation): # <3>
         header, rows = data
 
         def f(row):
-
-
             # code of filtering function
 
         filtered_data = (header, filter(f, rows)) # <5>
@@ -211,38 +199,37 @@ class'.
 arguments of a class. They represent constants that cannot be changed.
 * 'name' -- a name of an operation,
 * 'description' -- a short description about what an operation does,
-* 'arguments' -- a list of <<cls-argument, arguments>> instances, from
-them are generated functions parameters. The difference between
-<<cls-argument,arguments>> and <<cls-parameter, parameters>> is that parameters
+* 'parameters' -- a list of <<cls-parameter, parameters>> instances, from
+them are generated arguments of a function. The difference between
+<<cls-parameter,parameters>> and <<cls-argument, arguments>> is that arguments
 are carrier of data.
 <5> filter data and prepare a result for creating output <<cls-source,source>>.
 <6> Resulting data is packed to a <<cls-source,Source>> and it is returned
 as the result of the function. The all of functions must return a
 <<cls-source, Source>> type or a list of sources.
-<7> The last and the most important thing is: *every operations* which should
-be visible in the extension manager *must be registered*. For this, there is
-method +extensions.add_operation+. It takes a reference to a class of
-an operation.
+<7> The last and the most important thing is, that: *every operations* which
+should be visible in the extension manager *must be registered*. For this,
+there is defined method +extensions.add_operation+ that takes a reference to a
+operation class.
 
 Visualization of operations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-When a developer finishes his/her operation and it is successfully loaded into
-the application then it can be seen in tools window. It looks like on the
-following picture:
+When a developer finishes his/her operation and if it is successfully loaded
+into the application then it can be seen in tools window. It looks like on the
+following scheme:
 
 [[img-tool-window]]
 image:img/tool-window.png[alt="Tools window visualization", width=800]
 
-If a user create his/her operation in the same way as it was described above
-than the visualization of an operation and its integration to the extension
-manager is done automatically.
+The whole visualization of an operation and its integration to the 'extension
+manager' is done automatically.
 
 Inside of extensions module
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This subsection detailing describes all parts of extensions' module. At the
-beginning there is a picture showing a class digram of all classes in module
-+extensions+ and their relations.
+This subsection describes in detail all parts of extensions' module. At the
+beginning there is a scheme showing a class digram of all classes in module
++extensions+ with their relations.
 
 [[img-extensions-cls-diag]]
 image:img/extensions-class-diagram.png[alt="Class diagram of module's classes",
@@ -255,14 +242,13 @@ image:img/extensions-class-diagram.png[alt="Class diagram of module's classes",
 - <<cls-sourceview, SourceView>>
 - <<cls-sourcerepository, SourceRepository>>
 - <<cls-sourcerepositoryview, SourceRepositoryView>>
-- <<cls-argument, Argument>>
 - <<cls-parameter, Parameter>>
+- <<cls-argument, Argument>>
 - <<cls-parameterview, ParameterView>>
 - <<cls-operation, Operation>>
 - <<cls-operationshortview, OperationShortView>>
 - <<cls-operationfullview, OperationFullView>>
 - <<cls-extensionmanager, ExtensionManager>>
-
 
 [[cls-source]]
 Source class
@@ -276,14 +262,14 @@ Source class
 - Source(name, type, data, stored=False)
 
 .Properties
-- 'name' -- a name of a source, typically it is a name of file where are data
+- 'name' -- a name of a source, typically it is a name of file where data are
 stored. The *name must be unique* in the frame of <<cls-sourcesrepository,
 sources repository>>. If the name is changed than it is emit
 'source-name-changed' event.
 - 'type' -- a type of a source, it is a reference to a specific data type from
-module +datatypes+, e.g. +t_table+ in <<src-operation-example,
+the module +datatypes+, e.g. +t_table+ in <<src-operation-example,
 operation example>>
-- 'data' -- a reference to data that is kept there
+- 'data' -- a reference to data that is kept in <<cls-source, source>>
 - 'stored' -- a flag, that is true, if data is stored somewhere
 on a disc, otherwise false.
 
@@ -291,8 +277,10 @@ on a disc, otherwise false.
 - 'store(filename, app, setting=None)' -- store source data into a file
 * 'filename' -- a name of file (include a path where the data will be stored)
 * 'app' -- a reference to the main application
-* 'setting' -- an optional argument where may be stored some users' setting
-information
+- 'settings' -- an optional variable. It can carry some arbitrary data
+depending on an operation. It servers for non interactive store, hence if
+settings is none it assumed that extension open some kind of dialog, otherwise
+the process of saving should proceed without user interaction.
 
 [[cls-sourceview]]
 SourceView class
@@ -307,11 +295,11 @@ SourceView class
 
 .Properties
 - 'source' -- a reference to a <<cls-source, source>> object
-- 'app' -- a reference main application (+app.App+)
+- 'app' -- a reference to the main application (+app.App+)
 - 'tabview' -- a reference to a tab with a visualization of data
 (default: +None+)
 - 'data_free' -- a flag, that is true, if data is free from the memory
-(it means stored somewhere on a disc), otherwise they are kept in a memory
+(it means stored somewhere in a disc), otherwise they are kept in a memory
 (default: +False+)
 
 [[cls-sourcerepository]]
@@ -332,9 +320,8 @@ it is successful, otherwise false. It emits 'source-added' event
 repository; returns true if it is successful, otherwise false
 It emits 'source-removed' event
 - 'get_sources(filter=None)' -- returns a list of stored <<cls-source,
-sources>>. If it is a filter given then are sources filtered by data types
-A [[sources-filter]]filter is a list of <<cls-type, types>> which
-should be returned
+sources>>. If a filter is given then are sources filtered by data types.
+A [[sources-filter]]filter is a list of sources <<cls-type, types>> which pass.
 
 [[cls-sourcerepositoryview]]
 SourcesRepositoryView class
@@ -351,39 +338,39 @@ SourcesRepositoryView class
 - 'repository' -- a reference to a <<cls-sourcerepository, source repository>>
 object
 - 'events' -- a reference to a list of callbacks (+events.EventCallbackList+)
-- 'app' -- a reference main application (+app.App+)
-- 'sources_views' -- a dictionary of a <<cls-source, source>> object
-and his <<cls-sourceview, source view>> object
+- 'app' -- a reference to the main application (+app.App+)
+- 'sources_views' -- a list of couples: <<cls-source, source>> and associated
+<<cls-sourceview, source view>>
 
 .Methods
 - 'set_filter(filter)' -- show/hide sources by a given <<sources-filter,
 filter>>
-- 'deregister_callbacks()' -- deregister all of registered callbacks
+- 'deregister_callbacks()' -- unregister all of registered callbacks
 
-[[cls-argument]]
-Argument class
+[[cls-parameter]]
+Parameter class
 +++++++++++++++
 
-The parameters of an argument object are not changed in the application, they
-are fixed.
+Items of a parameter object cannot be changed by the application. They
+represents fixed values.
 
 .Extends
 - object
 
 .Constructor
-- Argument(name, type, list=False, minimum=1)
+- Parameter(name, type, list=False, minimum=1)
 
 .Properties
-- 'name' -- displayed name
-- 'type' -- a type of argument (reference to some of specific instance of data
-<<cls-type, types>>)
-- 'list' -- a flag, if it is true then an argument represents a list of
-values. If it is represents only one value then the 'list' is set up to false
-- 'minimum' -- it has sense for arguments representing a list of values and
-indicates a minimum count of values
+- 'name' -- a displayed name
+- 'type' -- a type of a parameter (reference to some of specific instance of
+data <<cls-type, types>>)
+- 'list' -- a flag, if it is true then a parameter represents a list of
+values. If it represents only one value then the 'list' is set up to false.
+- 'minimum' -- it gives a sense for parameters representing a list of values
+and indicates their minimum count.
 
-[[cls-parameter]]
-Parameter class
+[[cls-argument]]
+Argument class
 +++++++++++++++
 
 .Extends
@@ -391,42 +378,42 @@ Parameter class
 - events.EventSource
 
 .Constructor
-- Parameter(argument)
+- Argument(parameter)
 
 .Properties
-- 'name' -- a name from an argument (read-only)
-- 'type' -- a type from an argument (read-only)
-- 'minimum' -- a minimum value from an argument (read-only)
+- 'name' -- a name from a parameter (read-only)
+- 'type' -- a type from a parameter (read-only)
+- 'minimum' -- a minimum value from a parameter (read-only)
 - 'real_attached' -- indicate how many <<cls-source, sources>> are attached to
-a parameter
+an argument
 - 'sources' -- a list of attached sources
 
 .Methods
 - 'is_list()' -- return true if the parameter represents a list of values,
 otherwise false
 - 'is_empty()' -- return true if the 'real_attached' parameter is equal to zero,
-otherwise
-- 'sources_count()' -- return a value stored in the 'real_attached' parameter
-- 'get_source(index=-1)' -- return a attached source. If the parameter
-represents a list of values then is returned the last attached source
-('index=-1'). If the index is given then is returned a source attached on
-a specific position
+otherwise false
+- 'sources_count()' -- return a value of the real attached sources
+- 'get_source(index=-1)' -- return an attached source. If the parameter
+represents a list of values then the last attached source ('index=-1') is
+returned. If the index is given then is returned a source attached on a
+specific position.
 - 'attach_source(source, index=None)' -- attach a given <<cls-source, source>>
-to the <<cls-parameter, parameter>>. There are three possibilities of the index
+to the <<cls-argument, argument>>. There are three possibilities of the index
 value, the given index is:
-1. equal to +None+ then a <<cls-source,source>> is attached at the end of
-'sources'' list,
-2. from range (from zero to 'real_attached') then a <<cls-source,source>> is
+1. equal to +None+ then a <<cls-source,source>> is attached to the end of
+'sources' list,
+2. from range (zero to 'real_attached') then a <<cls-source,source>> is
 attached to the given position (index),
-3. out of range then it is a wrong input.
-- 'detach-source(index)' -- remove a <<cls-source, source>> from the 'sources''
-list on the given position. It emits a 'parameter-changed' event
+3. out of range (wrong input).
+- 'detach-source(index)' -- remove a <<cls-source, source>> from the 'sources'
+list at a given position. It emits a 'parameter-changed' event
 - 'get_data()' -- return data from attached sources. If the <<cls-parameter,
-parameter>> represents a list then it is returned a list of attached sources'
-data. If it is not then it is returned a reference to a source data
+parameter>> represents a list then it is returned a list of attached sources
+data. If it is not then a reference to a source data is returned.
 
-[[cls-parameterview]]
-ParameterView class
+[[cls-argumentview]]
+ArgumentView class
 +++++++++++++++++++
 
 .Extends
@@ -434,21 +421,21 @@ ParameterView class
 - events.EventSource
 
 .Constructor
-- ParameterView(parameter)
+- ArgumentView(argument)
 
 .Properties
-- 'parameter' -- a reference to a <<cls-parameter, parameter>> object
+- 'argument' -- a reference to a <<cls-argument, argument>> object
 - 'events' -- a reference to a list of callbacks (+events.EventCallbackList+)
 - 'entries' -- a list of +gtk.Entry+ objects
 
 .Methods
-- 'deregister_callbacks()' -- deregister all of registered callbacks
+- 'deregister_callbacks()' -- unregister all of registered callbacks
 
 [[cls-operation]]
 Operation class
 +++++++++++++++
 
-One of the most important classes, because from this are derived all of
+One of the most important class because from this one are derived all of
 user's operations.
 
 .Extends
@@ -460,50 +447,43 @@ user's operations.
 
 .Properties
 - 'name' -- a name of an operation ('class property', 'read-only')
-- 'description' -- a short description about what an operation does
+- 'description' -- a short description, what an operation does
 ('class property', 'read-only')
-- 'arguments' -- a list of <<cls-argument, arguments>> objects
-('class-property', 'read-only'); it serves as a description of inputs of an
-operation
-- 'parameters' -- a list of <<cls-parameter, parameter>> objects which are
-initialized based of 'arguments'; they are used for a manipulating with inputs
-of an operation, they are carrier of data
-- 'selected_parameter' -- store an information about <<cls-parameter,
-parameter>>> and their index; it is a couple of <<cls-parameter,parameter>> and
-index
+- 'parameters' -- a list of <<cls-parameter, parameters>> objects
+('class-property', 'read-only'); it serves as a description of operation inputs
+- 'arguments' -- a list of <<cls-argument, arguments>> objects which are
+initialized based on 'parameters'; they carry data and serve for manipulation
+with operations inputs
+- 'selected_argument' -- store an information about <<cls-argument,
+argument>> and his index
 - 'events' -- a reference to a list of callbacks (+events.EventCallbackList+)
 - 'state' -- a state of an operation, possible values are in the following
-list. When the state is changed than it is emitted a 'state-changed' event
-* *ready* -- when an operation has all of required sources; it can be run
+list. When the state is changed than a new state is emitted through the
+'state-changed' event
+* *ready* -- when an operation has all of required sources; it can be executed
 * *incomplete* -- when some of required sources are missing
 * *incorrect* -- reserved value, it is not used yet
 
 .Methods
-- 'select_parameter(parameter, index)' -- set a <<cls-parameter, parameter>>
+- 'select_argument(argument, index)' -- set a <<cls-argument, argument>>
 as a selected
 - 'run(app, \*args)' -- the method which a developer of some his/her operation
-must implement. It takes the same arguments which are specified in a list
-'arguments'. It *is not* references to items in that list, but a names of
-``real parameters'' which represent some of real data
-- 'execute(app)' -- take data stored in all of <<cls-parameter, parameters>>,
-collect them and call the 'run' method
-[source, python]
--------------------------------------------------------------------------------
-def execute(self, app):
-    args = [parameter.get_data() for parameter in self.parameters]
-    return self.run(app, *args)
--------------------------------------------------------------------------------
+must implements. It takes the same arguments which are specified in a
+'parameters' list. It *is not* references to items in that list, but names of
+``real parameters'' which represent some of real data.
+- 'execute(app)' -- take all data stored in <<cls-argument, arguments>>,
+collect them and call the 'run' method.
 - 'attach-source(source)' -- attach source to a first free slot; if there is
-no one then it is emitted a 'no-free-slot' event
-- 'all_sources_filled()' -- check whether all parameter has attached a source
+no free slot then 'no-free-slot' event is emitted.
+- 'all_sources_filled()' -- check whether all arguments have attached a source
 or not
-- 'deregister_callbacks()' -- deregister all of registered callbacks
+- 'deregister_callbacks()' -- unregister all of registered callbacks
 
 [[cls-operationshortview]]
 OperationShortView class
 ++++++++++++++++++++++++
 
-This component is used for showing all of loaded operations.
+This component is used for visualization of sources in a sources repository.
 
 .Extends
 - gtk.Alignment
@@ -516,15 +496,16 @@ This component is used for showing all of loaded operations.
 - 'operation' -- a reference to an <<cls-operation, operation>> object
 
 .Methods
-- 'deregister_callbacks()' -- deregister all of registered callbacks
+- 'deregister_callbacks()' -- unregister all of registered callbacks
 
 
 [[cls-operationfullview]]
 OperationFullView class
 +++++++++++++++++++++++
 
-A full view widget is used for selected operation, there can be sources
-attached or operation can be fired
+<<cls-operation, Operation>> full view widget is used for visualization of a
+selected operation. To a selected operation sources can be attached or it can
+be fired.
 
 .Extends
 - gtk.VBox
@@ -535,21 +516,22 @@ attached or operation can be fired
 
 .Properties
 - 'events' -- a reference to a list of callbacks (+events.EventCallbackList+)
-- 'app' -- a reference main application (+app.App+)
+- 'app' -- a reference to the main application (+app.App+)
 - 'operation' -- a reference to an <<cls-operation, operation>> object
 (default: None)
 
 .Methods
-- 'set_operation(operation)' -- destroy widget and make them again based on
-the given <<cls-operation, operation>>
-- 'deregister_callbacks()' -- deregister all of registered callbacks
+- 'set_operation(operation)' -- destroys a current widget and creates it again,
+based on a given <<cls-operation, operation>>
+- 'deregister_callbacks()' -- unregister all of registered callbacks
 
 [[cls-extensionmanager]]
 ExtensionManager class
 +++++++++++++++++++++++
 
-Extension manager is a top-level widget that cares about all of operations and
-their usage. It is responsible for communication between other components.
+Extension manager is the top-level widget that manages operations, sources and
+their usage. It represents an environment that is used by users for working
+with sources and operations.
 
 .Extends
 - gtk.VBox
@@ -558,16 +540,16 @@ their usage. It is responsible for communication between other components.
 - ExtensionManager(sources_repository, app)
 
 .Properties
-- 'app' -- a reference main application (+app.App+)
-- 'loaded_operations' -- a list of all loaded operations from a +gui/extensions+
-directory
+- 'app' -- a reference to the main application (+app.App+)
+- 'loaded_operations' -- a list of all loaded operations from a
++$KAIRA_DIR/gui/extensions+ directory
 - 'full_view' -- reference to an <<cls-operationfullview, operation full view>>
-widget. It is known as visualization of a selected operation
+widget. A reference to the widget with a selected operation.
 - 'sources_repository' -- reference to a <<cls-sourcesrepository,
 repository with all sources>>
-- 'sources_tile' -- a reference to a title above  <<cls-sourcesrepositoryview,
-view of sources repository>>; when the filter is activated then in a label is
-showed how many items is visible from all of them
+- 'sources_title' -- a reference to a title above  <<cls-sourcesrepositoryview,
+view of sources repository>>; when the filter is activated then the label shows
+ how many items is visible.
 - 'sources_view' -- a reference to a <<cls-sourcesrepositoryview, view of
 sources repository>>
 - 'events' -- a reference to a list of callbacks (+events.EventCallbackList+)
@@ -576,55 +558,58 @@ sources repository>>
 Extensions module
 +++++++++++++++++
 
-A module contains three functions:
+This module contains three functions:
 
-- 'load_source(filename, app, setting=None)' -- load the source from a file
-* 'filename'' -- a name of a file where data are stored
+- 'load_source(filename, app, settings=None)' -- load the source from a file
+* 'filename' -- a name of a file where data is stored
 * 'app' -- a reference to the main application
-* 'setting' -- an optional argument where may be stored some users' setting
-information
-- 'add_operation(operation)' every user's operation must call this function
-for register his/her operation. It takes a reference to an operation's class,
-*not an instance*
+* 'settings' -- an optional variable. It can carry some arbitrary data
+depending on an operation. It servers for non interactive store, hence if
+settings is none it assumed that extension open some kind of dialog, otherwise
+the process of saving should proceed without user interaction.
+- 'add_operation(operation)' -- every operation that should be visible for
+Kaira must be registered through this function. It takes a reference to an
+operation's class, *not an instance*.
 - 'load_extensions()' it is responsible for loading all user's operations. It
-is called always after import this module
+is called always after import ``extension'' module.
 
 [[setting-widget-category]]
 Setting widget
 --------------
 
-The settings' widget represents a general graphics component for collecting
-data from users. It supports several graphical components for data
-visualization and manipulation with them. By these are intended components
-like editing of text, numbers, or selecting value(s) from a collection. Its
-main purpose is to bring an easy way how to create a standard dialog for
-getting information from a user.
+The settings' widget represents a general graphical component for collecting
+data from users. It is a kind of a form. It supports several graphical
+components for data visualization and manipulation with them. For example
+components for editing texts, numbers or to select value(s) from a collection.
+Its main purpose is to bring an easy way how to create a standard dialog for
+getting information from users.
 
-Individual parts are arranged in horizontal way. Every item has a name of the
-left-hand side and next to is a specific component. It looks like on the
+Individual parts are arranged in horizontal way. Every item has a name on the
+left-hand side and next to is a particular component. It may look like on the
 following picture.
 
 [[img-setting-dialog]]
 image:img/setting-dialog.png[alt="Setting dialog", width=400]
 
-Every value is stored in form of dictionary (key: value). For the access to
-these values there are two methods:
+Every value is stored in form of dictionary (unique key: value). The access to
+these values is provided by the following two methods:
 
 - 'get_value(key)', and
 - 'set_value(key, value)'.
 
-There are also methods for modifying the status value or checking if a specific
-value is correct or if all of values are correct. These methods are:
+There are also methods for modifying the status of a value or checking if a
+particular value is correct or if all of them are correct. These methods are:
 
-- 'set_value_status(key, status, message=None)' -- if a status is not correct
-then can be set a message ``what is wrong''
+- 'set_value_status(key, status, message=None)' -- set a status of a value;
+a message says ``what is wrong'' (if everything is correct then message is
+None).
 - 'get_value_status_message(key)'
 - 'is_value_correct(key)'
 - 'are_values_correct()'
 
 The main method for add items to a *setting widget* is 'add_widget(key, label,
 widget, validator=lambda x: None)'. This method allows to a user add arbitrary
-widget to a *setting widget*. There are also methods which add more specific
+widget to a *setting widget*. There are also methods that add more specific
 widgets, like 'entry' for editing text values or group of 'radio-buttons' for
 choose a value from a group, and others. The detailed description of these
 methods is in generated API documentation.
@@ -642,25 +627,25 @@ setting_widget.add_positive_int("person-age", "Age", 18) # <3>
 -------------------------------------------------------------------------------
 
 <1> create an empty setting widget
-<2> add entries for editing name and last name, the last argument is default
-value
-<3> add a widget for editing positive integers; in fact it is entry with
-changed the default validator so that it checks whether the input string
-represents a positive number
+<2> add entries for editing name, last name; the first argument is a key, the
+second is a title, and the last one is default value
+<3> add a widget for editing positive integers; in fact it is just an entry
+widget with changed the default validation function, so it checks whether the
+input string represents a positive number or not
 
 A widget created by this way provides three signals:
 
 - 'value-status-changed' -- with every value is connected its *status* value,
 it serves for check whether a value is correct or not. When the status is
-changed then is emit this signal.
+changed then is emitted this signal.
 - 'select-key' -- every value is represented by some graphical component, this
-signal is emit when the component gets the focus.
-- 'value-committed' -- this signal is emit when a graphical component lost the
-focus.
+signal is emitted when the component gets the focus.
+- 'value-committed' -- this signal is emitted when a graphical component lose
+the focus.
 
 The *setting widget* is a general graphical component independent of any Kaira
 code (it is found in module +settingswindow+). It can be used anywhere where a
-user deems appropriate. But the most probable usage will be in settings'
+user deems it appropriate. But the most probable usage will be in settings'
 dialogs. For this purpose there are defined two basic dialogs
 <<cls-basicsettingdialog, BasicSettingDialog>> and <<cls-basicsettingassistant,
 BasicSettingAssistant>> which collaborate with it.
@@ -669,9 +654,9 @@ BasicSettingAssistant>> which collaborate with it.
 BasicSettingDialog
 ~~~~~~~~~~~~~~~~~~
 +BasicSettingDialog+ is a standard single-window dialog for collecting
-information from a user. The user typically gives answers on a set of
-questions. At the end the dialog is confirmed and collected data are used to
-the next step. The following example shows how to create an easy dialog with
+information from users. A user typically gives answers on a set of questions.
+He/she confirms the dialog at the end and collected data are used for other
+proceeding. The following example shows how to create an easy dialog with
 <<setting-widget-category, setting widget>>.
 
 .Example of usage +BasicSettingDialog+
@@ -695,27 +680,27 @@ if response == gtk.RESPONSE_OK:
 -------------------------------------------------------------------------------
 
 <1> create an instance of +BasicSettingDialog+, it takes a
-<<setting-widget-category, setting widget>>, name of dialog, and parent window
-(it cat be +None+)
+<<setting-widget-category, setting widget>>, a name of a dialog, and a
+reference to the parent window (it cat be +None+)
 <2> add cancel button, it is same as in the standard dialog
 <3> add the confirm button, but as you can see, there is the third argument
 which is not in standard dialogs. This argument specifies whether the button
 is protected or not. The protection means that the button cannot be used (it
-is disabled) if there is in the associate setting dialog any of argument wrong
-(their validator failed).
+is disabled) if there is any argument wrong in the associate setting dialog
+(their validation function failed).
 <4> show the dialog
-<5> obtain values of setting from a <<setting-widget-category, setting widget>>
+<5> obtain a setting value fro the <<setting-widget-category, setting widget>>
 
 [[sec-basicsettingassistant]]
 BasicSettingAssistant
 ~~~~~~~~~~~~~~~~~~~~~
 The basic setting *assistant* in compared to <<sec-basicsettingdialog, basic
-setting dialog>> is step-by-step dialog. Similar to installation wizard. An
+setting dialog>> is several step dialog, similar to installation wizard. An
 *assistant* can have a several windows because one <<setting-widget-category,
-setting widget>> can influence other. Due to the potential influence are
-individual windows -- individual setting widgets -- created in form of
-functions. This function has previous setting as an argument and can modify
-its setting widget, based on given setting. Creating of such *assistant* shows
+setting widget>> can influence other. Due to the possible influence of next
+step are individual windows -- individual setting widgets -- created in form of
+functions. This function takes previous setting as an argument and can modify
+its setting widget, based on it. Creating of such *assistant* shows
 the following example.
 
 .Example of usage +BasicSettingAssistant+
@@ -732,7 +717,8 @@ def create_page_2(setting): # <2>
     # code of creating second setting widget
     return setting_widget
 
-assistant = BasicSettingAssistant(2, "Some setting", parent_window) # <3>
+pages = 2
+assistant = BasicSettingAssistant(pages, "Some setting", parent_window) # <3>
 assistant.set_size_request(600, 400)
 
 assistant.append_setting_widget("First setting", create_page_1)  # <4>
@@ -746,20 +732,21 @@ if response == gtk.RESPONSE_OK:
 # ...
 -------------------------------------------------------------------------------
 
-<1> a function for creating the first setting window; it does not have access
-to 'setting' argument if it is not necessary
-<2> a function for creating the second setting window; there is accessed to a
-parameter from 'setting' argument which influences the content of the window
+<1> a function for creating the first setting window; the first function do not
+use a given setting
+<2> a function for creating the second setting window; this function use a
+values from 'setting' argument which influences the content of the final
+setting widget
 <3> create an instance of +BasicSettingAssistant+, it takes three arguments:
-- the first specifies a number of windows
-- the second is a title of setting assistant
+- the first argument specifies a number of windows
+- the second argument is a title of setting assistant
 - the last one is reference to a parent window (it can be +None+)
 <4> append a function creating setting widget to the assistant, the first
-argument is a title
-<5> show the assistant to a user
+argument is a title of window
+<5> show the assistant
 <6> settings from each window are stored in 'collected_setting' list
 
-The BasicSettingAssistant same as <<sec-basicsettingdialog, BasicSettingDialog>>
-processes the signals from each setting widgets. If there is some mistake then
-it is shows to a user and also the buttons are protected against these types
-of mistakes.
+The BasicSettingAssistant as same as <<sec-basicsettingdialog,
+BasicSettingDialog>> processes the signals from each setting widgets. If there
+is anything wrong then it is shown a message with description of a mistake to
+the user.
