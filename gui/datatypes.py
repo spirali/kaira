@@ -50,13 +50,6 @@ class Type(object):
         else:
             self.short_name = short_name
 
-        """a setting for load/store function; some of these function may want
-        some setting information from a user, there is stored the last used
-        setting.
-
-        """
-        self.setting = None
-
         """a dictionary with registered loaders for a specific file extension
         (file extension: load function)
 
@@ -157,10 +150,10 @@ def get_save_file_filter(type):
 # -----------------------------------------------------------------------------
 # Tracelog type
 t_tracelog = Type("Kaira tracelog", "Tracelog")
-def load_kth(filename, app, setting=None):
+def load_kth(filename, app, settings=None):
     if filename is None:
         return
-    return app._catch_io_error(lambda: TraceLog(filename))
+    return (app._catch_io_error(lambda: TraceLog(filename)), settings)
 t_tracelog.register_load_function("kth", load_kth)
 
 def tracelog_view(data, app):
@@ -173,7 +166,7 @@ types_repository.append(t_tracelog)
 # Table type
 t_table = Type("Table")
 
-def show_csv_setting_dialog(parent_window):
+def show_csv_settings_dialog(parent_window):
     sw = settingswindow.SettingWidget()
 
     sw.add_combobox("delimiter",
@@ -209,14 +202,13 @@ def show_csv_setting_dialog(parent_window):
     dialog.destroy()
     return None
 
-def load_csv(filename, app, setting):
-    if setting is None:
-        setting = show_csv_setting_dialog(app.window)
-        t_table.setting = setting
-    if setting is None:
-        return # setting was canceled
+def load_csv(filename, app, settings):
+    if settings is None:
+        settings = show_csv_settings_dialog(app.window)
+    if settings is None:
+        return # settings was canceled
 
-    delimiter, quotechar, has_header = setting
+    delimiter, quotechar, has_header = settings
     with open(filename, "rb") as csvfile:
         csvreader = csv.reader(
             csvfile, delimiter=delimiter, quotechar=quotechar)
@@ -235,14 +227,16 @@ def load_csv(filename, app, setting):
 
         for row in csvreader:
             data.append(row)
-        return (header, data)
+        return ((header, data), settings)
 
 t_table.register_load_function("csv", load_csv)
 
 def store_csv(data, filename, app, settings):
     header, rows = data
     if settings is None:
-        settings = show_csv_setting_dialog(app.window)
+        settings = show_csv_settings_dialog(app.window)
+    if settings is None:
+        return (False, None)
     delimiter, quotechar, has_header = settings
     with open(filename, "w") as csvfile:
         csvwriter = csv.writer(
@@ -251,6 +245,7 @@ def store_csv(data, filename, app, settings):
             csvwriter.writerow(header)
         for row in rows:
             csvwriter.writerow(row)
+    return (True, settings)
 
 t_table.register_store_function("csv", store_csv)
 

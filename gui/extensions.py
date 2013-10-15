@@ -38,13 +38,17 @@ operations = {} # the list of all loaded operations
 
 class Source(object, EventSource):
 
-    def __init__(self, name, type, data, stored=False):
+    def __init__(self, name, type, data, stored=False, settings=None):
         """Initialize a source of data.
 
         Arguments:
         name -- file name (source file on disk)
         type -- type of the data (stype.Type)
         data -- physical data
+
+        Keyword:
+        stored -- flag informs that source is stored in a file
+        settings -- a settings that was used by creating the source
 
         """
         EventSource.__init__(self)
@@ -58,6 +62,7 @@ class Source(object, EventSource):
         self.type = type
         self.data = data
         self.stored = stored
+        self.settings = settings
 
     @property
     def name(self):
@@ -68,7 +73,7 @@ class Source(object, EventSource):
         self._name = name
         self.emit_event("source-name-changed", name)
 
-    def store(self, filename, app, setting=None):
+    def store(self, filename, app, settings=None):
         """Store the source into a file. It calls a function in the 'savers'
         dictionary by the suffix of a filename.
 
@@ -78,8 +83,8 @@ class Source(object, EventSource):
         app -- a reference to the main application
 
         Keywords:
-        setting -- an optional argument where may be stored some users' setting
-        information
+        settings -- an optional argument where may be stored some users'
+        setting information
 
         """
         suffix = utils.get_filename_suffix(filename)
@@ -91,9 +96,12 @@ class Source(object, EventSource):
             app.show_message_dialog(
                     "Cannot save '.{0}' file".format(suffix),
                     gtk.MESSAGE_WARNING)
-        saver(self.data, filename, app, setting)
-        self.name = filename
-        self.stored = True
+
+        correct, settings = saver(self.data, filename, app, settings)
+        if correct:
+            self.name = filename
+            self.settings = settings
+            self.stored = True
 
 def load_source(filename, app, settings=None):
     """Load the source from a file. It calls a function in the 'loaders'
@@ -114,11 +122,11 @@ def load_source(filename, app, settings=None):
     if loader is None:
         return None
 
-    source = loader(filename, app, settings)
-    if source is None:
+    data, settings = loader(filename, app, settings)
+    if data is None:
         return None
-    return Source(filename, datatypes.get_type_by_suffix(suffix), source, True)
-
+    return Source(
+        filename, datatypes.get_type_by_suffix(suffix), data, True, settings)
 
 class SourceView(gtk.Alignment, EventSource):
 
@@ -253,7 +261,7 @@ class SourceView(gtk.Alignment, EventSource):
 
     def _cb_load(self):
         self.source.data = load_source(
-            self.source.name, self.app, self.source.type.setting).data
+            self.source.name, self.app, self.source.settings).data
         self._lock_buttons()
         self.emit_event("source-data-changed", self.source)
 
