@@ -64,15 +64,15 @@ For this we will use already defined data type +t_table+.
 .Add basic functions to a data type
 [source, python]
 -------------------------------------------------------------------------------
-def load_csv(filename, app, setting): # <1>
+def load_csv(filename, app, settings): # <1>
     # code of the function
 t_table.register_load_function("csv", load_csv) # <2>
 
-def load_xls(filename, app, setting): # <3>
+def load_xls(filename, app, settings): # <3>
     # code of the function
 t_table.register_load_function("xls", load_xls) # <4>
 
-def store_csv(data, filename, file_extension, app, setting) # <5>
+def store_csv(data, filename, app, settings) # <5>
     # code of the function
 t_table.register_store_function("csv", store_csv) # <6>
 
@@ -101,7 +101,8 @@ Inside of datatypes module
 
 .List of classes
 - <<cls-type, Type>>
-- <<impl-types, implemented data types>>
+- <<datatypes-module-methods, Module's methods>>
+- <<impl-types, Implemented data types>>
 
 [[cls-type]]
 `Type` class
@@ -113,7 +114,7 @@ From this class are derived all of data types.
 - object
 
 .Constructor
-- Type(name, short_name)
+- Type(name, short_name=None)
 
 .Properties
 - 'name' -- a full name of a data type
@@ -121,11 +122,26 @@ From this class are derived all of data types.
 
 .Methods
 - 'get_view(data, app)' -- return a widget with visualized data
-- 'register_load_function(extension, function)' -- register a loading
-function to a file extension
-- 'register_store_function(extension, function)' -- register a saving function
-to a file extension
+- 'register_load_function(suffix, function)' -- register a loading
+function for a particular file format specified by a file suffix
+- 'register_store_function(suffix, function)' -- register a saving function
+for a particular file format specified by a file suffix
 
+[[datatypes-module-methods]]
+Module's methods
+++++++++++++++++
+- 'get_type_by_suffix(suffix)' -- return an instance to a data type that can
+manipulate with specified file format
+- 'get_loader_by_suffix(suffix)' -- return a loading function for a given file
+format
+- 'get_saver_by_suffix(suffix)' -- return a saving function for a given file
+format
+- 'get_load_file_filters()' -- return file filters for all assigned loading
+functions through all registered data types
+- 'get_save_file_filter(type)' -- return file filter for all assigned saving
+function in a specified type
+
+[[impl-types]]
 Implemented data types
 ++++++++++++++++++++++
 
