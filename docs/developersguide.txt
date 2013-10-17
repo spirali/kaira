@@ -166,7 +166,7 @@ number of columns.
 Operations
 ~~~~~~~~~~
 As it was said, an operation is a function that takes some inputs data and
-produces some output data. Operations as such do not have any side effects, but
+produces some output data. Operations as such do not have any side effects,
 they only take inputs and produce outputs.
 
 All of the modules with operations are stored in directory
@@ -176,7 +176,7 @@ in Kaira. Every of registered operation is automatically loaded after the start
 of the application. Not registered operations are invisible for Kaira.
 How to create and register an operation will be shown in the following example.
 
-All the supportive classes for creating a new operation are in module
+All the supportive classes for creating new operations are in module
 +gui/extensions.py+. Every operation extends class +extensions.Operation+.
 
 .Create an operation for filtering table's data
@@ -184,15 +184,15 @@ All the supportive classes for creating a new operation are in module
 [source,python]
 -------------------------------------------------------------------------------
 import gtk
-from extensions import Argument, Source, Operation, add_operation # <1>
+from extensions import Parameter, Source, Operation, add_operation # <1>
 from datatypes import t_table # <2>
 
 class Filter(Operation): # <3>
 
     # <4>
     name = "Table filter"
-    description = "Data are filtered by a value(s) in specific column(s)"
-    arguments = [Argument("Data", t_table)]
+    description = "Filter rows of the table by values in columns."
+    arguments = [Parameter("Data", t_table)]
 
     def run(self, app, data):
         header, rows = data
@@ -212,13 +212,13 @@ add_operation(Filter) # <7>
 <3> Define a new operation. 'It must extends <<cls-operation, Operation>>
 class'.
 <4> Defining of the standard parameters of an operation. These must be
-arguments of a class. They represent constants that cannot be changed.
+parameters of a class. They represent constants that cannot be changed.
 * 'name' -- a name of an operation,
 * 'description' -- a short description about what an operation does,
 * 'parameters' -- a list of <<cls-parameter, parameters>> instances, from
-them are generated arguments of a function. The difference between
-<<cls-parameter,parameters>> and <<cls-argument, arguments>> is that arguments
-are carrier of data.
+them are generated arguments of operation's 'run' function. The difference
+between <<cls-parameter,parameters>> and <<cls-argument, arguments>> is that
+arguments carries data while parameters only describes them.
 <5> filter data and prepare a result for creating output <<cls-source,source>>.
 <6> Resulting data is packed to a <<cls-source,Source>> and it is returned
 as the result of the function. The all of functions must return a
@@ -243,9 +243,9 @@ manager' is done automatically.
 Inside of extensions module
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This subsection describes in detail all parts of extensions' module. At the
-beginning there is a scheme showing a class digram of all classes in module
-+extensions+ with their relations.
+This subsection describes, in detail, all parts of +extensions+ module. At the
+beginning there is a scheme showing a class digram of all classes in this
+module with their relations.
 
 [[img-extensions-cls-diag]]
 image:img/extensions-class-diagram.png[alt="Class diagram of module's classes",
@@ -264,7 +264,7 @@ image:img/extensions-class-diagram.png[alt="Class diagram of module's classes",
 - <<cls-operation, Operation>>
 - <<cls-operationshortview, OperationShortView>>
 - <<cls-operationfullview, OperationFullView>>
-- <<cls-extensionmanager, ExtensionManager>>
+- <<cls-operationmanager, OperationManager>>
 
 [[cls-source]]
 Source class
@@ -275,7 +275,7 @@ Source class
 - events.EventSource
 
 .Constructor
-- Source(name, type, data, stored=False)
+- Source(name, type, data, stored=False, settings=None)
 
 .Properties
 - 'name' -- a name of a source, typically it is a name of file where data are
@@ -288,15 +288,15 @@ operation example>>
 - 'data' -- a reference to data that is kept in <<cls-source, source>>
 - 'stored' -- a flag, that is true, if data is stored somewhere
 on a disc, otherwise false.
-
-.Methods
-- 'store(filename, app, setting=None)' -- store source data into a file
-* 'filename' -- a name of file (include a path where the data will be stored)
-* 'app' -- a reference to the main application
 - 'settings' -- an optional variable. It can carry some arbitrary data
 depending on an operation. It servers for non interactive store, hence if
 settings is none it assumed that extension open some kind of dialog, otherwise
 the process of saving should proceed without user interaction.
+
+.Methods
+- 'store(filename, app, settings=None)' -- store source data into a file
+* 'filename' -- a name of file (include a path where the data will be stored)
+* 'app' -- a reference to the main application
 
 [[cls-sourceview]]
 SourceView class
@@ -314,9 +314,6 @@ SourceView class
 - 'app' -- a reference to the main application (+app.App+)
 - 'tabview' -- a reference to a tab with a visualization of data
 (default: +None+)
-- 'data_free' -- a flag, that is true, if data is free from the memory
-(it means stored somewhere in a disc), otherwise they are kept in a memory
-(default: +False+)
 
 [[cls-sourcerepository]]
 SourcesRepository class
@@ -331,13 +328,20 @@ SourcesRepository class
 
 .Methods
 - 'add(source)' -- adds a given <<cls-source, source>>; returns true if
-it is successful, otherwise false. It emits 'source-added' event
+it is successful, otherwise false. It emits 'source-added' event.
 - 'remove(source)' -- remove a given <<cls-source, source>> if it is in
-repository; returns true if it is successful, otherwise false
-It emits 'source-removed' event
+repository; returns true if it is successful, otherwise false.
+It emits 'source-removed' event.
 - 'get_sources(filter=None)' -- returns a list of stored <<cls-source,
 sources>>. If a filter is given then are sources filtered by data types.
 A [[sources-filter]]filter is a list of sources <<cls-type, types>> which pass.
+- 'load_source(filename, app, settings=None)' -- load the source from a file
+* 'filename' -- a name of a file where data is stored
+* 'app' -- a reference to the main application
+* 'settings' -- an optional variable. It can carry some arbitrary data
+depending on an operation. It servers for non interactive store, hence if
+settings is none it assumed that extension open some kind of dialog, otherwise
+the process of saving should proceed without user interaction.
 
 [[cls-sourcerepositoryview]]
 SourcesRepositoryView class
@@ -367,8 +371,8 @@ filter>>
 Parameter class
 +++++++++++++++
 
-Items of a parameter object cannot be changed by the application. They
-represents fixed values.
+Parameters of an instance of this class cannot be changed by the application.
+They represents constant values.
 
 .Extends
 - object
@@ -377,11 +381,11 @@ represents fixed values.
 - Parameter(name, type, list=False, minimum=1)
 
 .Properties
-- 'name' -- a displayed name
-- 'type' -- a type of a parameter (reference to some of specific instance of
-data <<cls-type, types>>)
-- 'list' -- a flag, if it is true then a parameter represents a list of
-values. If it represents only one value then the 'list' is set up to false.
+- 'name' -- a displayed name.
+- 'type' -- a type of a parameter (reference to a specific instance of
+<<cls-type, data type>>).
+- 'list' -- a flag which says whether the parameter represents a list of values
+or only one value.
 - 'minimum' -- it gives a sense for parameters representing a list of values
 and indicates their minimum count.
 
@@ -397,19 +401,16 @@ Argument class
 - Argument(parameter)
 
 .Properties
-- 'name' -- a name from a parameter (read-only)
-- 'type' -- a type from a parameter (read-only)
-- 'minimum' -- a minimum value from a parameter (read-only)
-- 'real_attached' -- indicate how many <<cls-source, sources>> are attached to
-an argument
-- 'sources' -- a list of attached sources
+- 'name' -- a name from a parameter (read-only).
+- 'type' -- a type from a parameter (read-only).
+- 'minimum' -- a minimum value from a parameter (read-only).
 
 .Methods
 - 'is_list()' -- return true if the parameter represents a list of values,
-otherwise false
+otherwise false.
 - 'is_empty()' -- return true if the 'real_attached' parameter is equal to zero,
-otherwise false
-- 'sources_count()' -- return a value of the real attached sources
+otherwise false.
+- 'sources_count()' -- return a value of the real attached sources.
 - 'get_source(index=-1)' -- return an attached source. If the parameter
 represents a list of values then the last attached source ('index=-1') is
 returned. If the index is given then is returned a source attached on a
@@ -451,8 +452,8 @@ ArgumentView class
 Operation class
 +++++++++++++++
 
-One of the most important class because from this one are derived all of
-user's operations.
+This class is one of the most important classes, because from it every user's
+operation is derived.
 
 .Extends
 - object
@@ -462,37 +463,38 @@ user's operations.
 - Operation()
 
 .Properties
-- 'name' -- a name of an operation ('class property', 'read-only')
+- 'name' -- a name of an operation ('class property', 'read-only').
 - 'description' -- a short description, what an operation does
-('class property', 'read-only')
+('class property', 'read-only').
 - 'parameters' -- a list of <<cls-parameter, parameters>> objects
-('class-property', 'read-only'); it serves as a description of operation inputs
+('class-property', 'read-only'); it describes operation inputs.
 - 'arguments' -- a list of <<cls-argument, arguments>> objects which are
 initialized based on 'parameters'; they carry data and serve for manipulation
-with operations inputs
-- 'selected_argument' -- store an information about <<cls-argument,
-argument>> and his index
-- 'events' -- a reference to a list of callbacks (+events.EventCallbackList+)
+with operations inputs.
+- 'selected_argument' -- store an information about selected <<cls-argument,
+argument>> and his index.
+- 'events' -- a reference to a list of callbacks (+events.EventCallbackList+).
 - 'state' -- a state of an operation, possible values are in the following
-list. When the state is changed than a new state is emitted through the
-'state-changed' event
-* *ready* -- when an operation has all of required sources; it can be executed
-* *incomplete* -- when some of required sources are missing
-* *incorrect* -- reserved value, it is not used yet
+list. When the state is changed then a new state is emitted through the
+'state-changed' event.
+* *ready* -- when an operation has all of required sources; it can be executed.
+* *incomplete* -- when some of required sources are missing.
+* *incorrect* -- reserved value, it is not used yet.
 
 .Methods
-- 'select_argument(argument, index)' -- set a <<cls-argument, argument>>
+- 'select_argument(argument, index=0)' -- set an <<cls-argument, argument>>
 as a selected
 - 'run(app, \*args)' -- the method which a developer of some his/her operation
 must implements. It takes the same arguments which are specified in a
 'parameters' list. It *is not* references to items in that list, but names of
 ``real parameters'' which represent some of real data.
-- 'execute(app)' -- take all data stored in <<cls-argument, arguments>>,
-collect them and call the 'run' method.
-- 'attach-source(source)' -- attach source to a first free slot; if there is
+- 'execute(app, store_results=True)' -- take all data stored in <<cls-argument, arguments>>,
+collect them and call the 'run' method. If the +store_results+ is true then
+the results will be stored in <<cls-sourcerepositoryview, sources repository>>.
+- 'attach-source(source)' -- attach a source to a first free slot; if there is
 no free slot then 'no-free-slot' event is emitted.
-- 'all_sources_filled()' -- check whether all arguments have attached a source
-or not
+- 'all_sources_filled()' -- check whether all arguments have attached some
+source or not
 - 'deregister_callbacks()' -- unregister all of registered callbacks
 
 [[cls-operationshortview]]
@@ -519,9 +521,9 @@ This component is used for visualization of sources in a sources repository.
 OperationFullView class
 +++++++++++++++++++++++
 
-<<cls-operation, Operation>> full view widget is used for visualization of a
-selected operation. To a selected operation sources can be attached or it can
-be fired.
+Operation full view widget is used for visualization of a selected
+<<cls-operation, operation>>. To the selected operation sources can be attached
+or it can be fired through this view.
 
 .Extends
 - gtk.VBox
@@ -531,21 +533,21 @@ be fired.
 - OperationFullView(app)
 
 .Properties
-- 'events' -- a reference to a list of callbacks (+events.EventCallbackList+)
-- 'app' -- a reference to the main application (+app.App+)
-- 'operation' -- a reference to an <<cls-operation, operation>> object
+- 'operation' -- a reference to an <<cls-operation, operation>> instance
 (default: None)
+- 'app' -- a reference to the main application (+app.App+)
+- 'events' -- a reference to a list of callbacks (+events.EventCallbackList+)
 
 .Methods
 - 'set_operation(operation)' -- destroys a current widget and creates it again,
 based on a given <<cls-operation, operation>>
 - 'deregister_callbacks()' -- unregister all of registered callbacks
 
-[[cls-extensionmanager]]
-ExtensionManager class
+[[cls-operationmanager]]
+OperationManager class
 +++++++++++++++++++++++
 
-Extension manager is the top-level widget that manages operations, sources and
+Operation manager is the top-level widget that manages operations, sources and
 their usage. It represents an environment that is used by users for working
 with sources and operations.
 
@@ -553,22 +555,23 @@ with sources and operations.
 - gtk.VBox
 
 .Constructor
-- ExtensionManager(sources_repository, app)
+- OperationManager(sources_repository, app)
 
 .Properties
 - 'app' -- a reference to the main application (+app.App+)
 - 'loaded_operations' -- a list of all loaded operations from a
 +$KAIRA_DIR/gui/extensions+ directory
-- 'full_view' -- reference to an <<cls-operationfullview, operation full view>>
-widget. A reference to the widget with a selected operation.
-- 'sources_repository' -- reference to a <<cls-sourcesrepository,
-repository with all sources>>
+- 'full_view' -- a reference to an <<cls-operationfullview,
+operation full view>> widget, the widget with a selected operation.
 - 'sources_title' -- a reference to a title above  <<cls-sourcesrepositoryview,
 view of sources repository>>; when the filter is activated then the label shows
- how many items is visible.
+ how many items are visible.
 - 'sources_view' -- a reference to a <<cls-sourcesrepositoryview, view of
 sources repository>>
 - 'events' -- a reference to a list of callbacks (+events.EventCallbackList+)
+
+.Methods
+- 'load_source(filename)' -- load a <<cls-source, source>> from a file.
 
 [[module-extensions]]
 Extensions module
@@ -576,9 +579,9 @@ Extensions module
 
 This module contains three functions:
 
-- 'load_source(filename, app, settings=None)' -- load the source from a file
-* 'filename' -- a name of a file where data is stored
-* 'app' -- a reference to the main application
+- 'load_source(filename, app, settings=None)' -- load a source from a file
+* 'filename' -- a name of a file where data is stored.
+* 'app' -- a reference to the main application.
 * 'settings' -- an optional variable. It can carry some arbitrary data
 depending on an operation. It servers for non interactive store, hence if
 settings is none it assumed that extension open some kind of dialog, otherwise
