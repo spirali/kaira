@@ -69,7 +69,7 @@ class Project:
 
     server = None
 
-    def __init__(self, name, directory_name=None, mpi=False, rpc=False, trace=False):
+    def __init__(self, name, directory_name=None, mpi=False, rpc=False, trace=False, lib=False):
         self.name = name
         if directory_name is None:
             self.directory_name = name
@@ -79,6 +79,7 @@ class Project:
         self.mpi = mpi
         self.rpc = rpc
         self.trace = trace
+        self.lib = lib
 
         self.clean()
 
@@ -112,6 +113,8 @@ class Project:
         args = [ CMDUTILS, "--export", self.get_filename() ]
         if self.trace:
             args.append("--trace")
+        if self.lib:
+            args.append("--lib")
         RunProgram("python", args).run()
 
     def run_ptp(self, operation=None):
@@ -209,7 +212,7 @@ class Project:
         return xml.parse(kreport).getroot()
 
     def build_main(self):
-        self.build()
+        self.build("lib")
         if self.mpi and not self.rpc:
             self._make(["-f", "makefile.main", "main_mpi"])
         else:
