@@ -14,6 +14,7 @@
 #include "caserver.h"
 #include "client.h"
 
+using namespace caserver;
 
 CaServer::CaServer()
 {

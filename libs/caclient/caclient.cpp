@@ -12,6 +12,8 @@
 
 #include "caclient.h"
 
+using namespace caclient;
+
 CaClient::CaClient() : connection_socket(-1)
 {
 	setup_host();

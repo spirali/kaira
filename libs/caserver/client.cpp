@@ -15,6 +15,8 @@
 #include "client.h"
 
 
+using namespace caserver;
+
 struct CaCallHeader {
 	unsigned int fn;
 	size_t size;
