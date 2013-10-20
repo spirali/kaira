@@ -23,10 +23,10 @@ of Linux.
 Installation
 ------------
 
-.Instructions for Debian based distributions
+.Full instalation - Instructions for Debian based distributions
 ************
 
-These steps describe how to install the full version of Kaira.
+These steps describe how to install the *full* version of Kaira.
 How to disable some of subsystems is described below.
 
   - Installation of necessary packages
@@ -41,6 +41,10 @@ How to disable some of subsystems is described below.
 
   $ apt-get install sparsehash libmhash-dev
 
+  - Octave
+
+  $ apt-get install liboctave-dev
+
   - Documentation
 
   $ apt-get install asciidoc
@@ -48,6 +52,30 @@ How to disable some of subsystems is described below.
   - Configure Kaira
 
   $ ./waf configure
+
+  - Build Kaira
+
+  $ ./waf
+
+  - Start Kaira
+
+  $ ./start.sh
+
+************
+
+.Minimal instalation - Instructions for Debian based distributions
+************
+
+These steps describe how to install the a *minimal* version of Kaira,
+where some features are disabled.
+
+  - Installation of necessary packages
+
+  $ apt-get install python-gtksourceview2 python-pyparsing g++ python-matplotlib
+
+  - Configure Kaira
+
+  $ ./waf configure --disable-octave --disable-verif --disable-doc
 
   - Build Kaira
 
@@ -81,6 +109,7 @@ To run Kaira, you need the following software.
 Optional dependencies:
 
   - MPI implementation (tested with: MPICH2, OpenMP, LAM)
+  - Octave
   - sparsehash
   - mhash
   - asciidoc
@@ -117,6 +146,7 @@ In the configuration step, additional parameters can be specified.
 The basic ones are:
 
 - '--disable-mpi' -- Kaira is built without MPI support
+- '--disable-octave' -- Building Octave modules are disabled
 - '--disable-verif' -- Kaira is built without the verification support,
   i.e. libraries 'sparsehash' and 'libmhash' are not necessary
 - '--disable-doc' -- Documentation is not generated
@@ -136,234 +166,96 @@ The full list of parameters can be displayed by
 ./waf configure --help
 -------------------------------------------------------------------------------
 
-The first program
------------------
+Public C++ API
+--------------
 
-...
+Namespace ca
+~~~~~~~~~~~~
 
+Class ca::Context
+^^^^^^^^^^^^^^^^^
 
-Syntax and semantics
---------------------
+int process_id() :: returns rank of the process
+int process_count() :: returns number of processes
+void quit() :: terminates the program (or the function call when the project
+               is built as a library)
 
-A program (project) in Kaira consists of 'visual model', 'sequential codes'
-embedded into model and 'configuration'. This section contains the description
-of the visual model and its behavior. The next section is about integration of
-C++ codes, followed by the section covering the configuration.
+Class ca::TokenList<T>
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-The visual model consists of the following items:
+This class represents a list of tokens.
 
-Places::
-   Places serve as memory spaces
-Transitions::
-   Transitions represent computations
-Edges::
-   Edges define what data are needed to start a transition and what is produced
-   after its computation is finished
-Init areas::
-   Init areas serve to define processes where places are initialized
+void add(T value) :: creates new token and adds it into the list.
+void add_token(ca::Token<T> *token) :: adds a token into the list.
+void remove(ca::Token<T> *token) :: removes a token from the list.
+void clear() :: removes all tokens from the list and deletes them.
+Token<T>* last() :: returns the last token in the list.
+Token<T>* begin() :: returns the first token in the list.
+size_t size() const :: returns number of tokens in the list.
+bool is_empty() const :: returns true if the list is empty.
+void overtake(TokenList<T> &list) :: takes all tokens from list in an efficient way.
 
-Places
-~~~~~~
+Class ca::Clock
+^^^^^^^^^^^^^^^
 
-The places serve as memory spaces for the program. Values stored in places are
-called 'tokens'. Places works as queues so they remember order of tokens using
-First-In-First-Out access.
-(In this aspect, our model diverges from Colored Petri nets, where tokens are
-stored in multisets, i.e. there is no order of tokens).
+void tick() :: see *tock()*
+ca::IntTime tock() :: returns the number of nanoseconds from last call of *tick()*.
 
-Each place has the following properties:
+Functions
+^^^^^^^^^
 
-Name::
-    An arbitrary string to describe the place with no actual meaning.
-Type::
-    Any C\++ type. Standard types (like 'int', 'std::vector') can be used
-    directly; all supported types are listed in
-    <<Types,Supported standard types>>. How to use user defined types is
-    covered in Section Integration of C\++.
-Init expression::
-    An expression that initializes the place. In other words, it sets tokens of
-    the place at the beginning of the program. It can be empty or can have
-    the following two forms:
-      - C++ expression of type 'std::vector<T>' where 'T' is the type of the
-        place.
-      - The list of C\++ expressions of the place's type. It has to
-        starts with character '[' and ends with ']'. Each C++ expression has to
-        be separated by ';'. Example: when the type of the place is 'double'
-        we can use the expression as follows: '[1.0; 1.5; 2.8]'
-Init code::
-    A C++ code that allows generic place initialization.
-    More in Section <<InitCode, Place init code>>.
+ca::token_name(T &value) :: returns text representation of token value of type T for
+                            the visual simulation.
+                            This function is predefined for types listed in
+                            Section <<Types, Supported standard types>>.
+ca::pack(ca::Packer &packer, const T &value) :: serializes type T.
+                            This function is predefined for types listed in
+                            Section <<Types, Supported standard types>>.
 
-Transitions
-~~~~~~~~~~~
-
-Transitions defines the behavior of the model. A program modelled in Kaira
-evolves by firing transitions. A transition takes tokens from its input places,
-computes new values and then put tokens into output places. What tokens are
-needed to fire a transition and what tokens are produced when the transition
-is fired is defined by 'edges'. Edges are the topic of the next section.
-Here we describe properties of a transition not described by edges.
-
-Name::
-    An arbitrary string to describe the place with no actual meaning.
-Guard expression::
-    A boolean C\++ expression that can contain input variables. The guard
-    expression has to be evaluated to 'true' to fire a transition.
-Priority::
-    An integer value that specifies the priority of the transition.
-    When a transition is enabled then all transitions with lower priorities
-    in the same process cannot be fired. If the priority is unspecified then
-    the transition is considered as a transition with priority 0.
-Fire code::
-    A C++ code that is processed each time when the transition is fired.
-    More in Section <<FireCode, Transition fire code>>.
+template<> T ca::unpack(ca::Unpacker &unpacker) :: deserializes type T.
+                            This function is predefined for types listed in
+                            Section <<Types, Supported standard types>>.
 
 
-The syntax of edges
-~~~~~~~~~~~~~~~~~~~
+ca::direct_pack(ca::Packer &packer, const T &value) ::
+    Serialization for trivially copyable types
+ca::direct_unpack(ca::Unpacker &unpacker) ::
+    Deserialization for trivially copyable types
 
-For the following text we fix a transition, i.e. the following terms like
-'input edge' are defined in context of this transition. Therefore each
-transition can have different input edges.
+std::vector<int> ca::range(int from, int upto) ::
+    returns vector of integeres in range [from, upto)
 
-There are two types of edges: 'Input edge' (from a place to a transition) and
-'Output edge' (from a transition to a place). Semantics for them is described
-in the next sections, but edges of both types have associated expressions with
-the same structure. An edge expression consists of three parts:
-'configurations', 'token-expressions' and 'target'.
-The syntax in EBNF is the following:
+Namespace casr
+~~~~~~~~~~~~~~
 
---------------------------
-edge-exp ::= [ `[', <configurations>, `]' ], [ <token-expressions> ], [ `@', <target> ] ;
-configurations ::= { <configuration> } ;
-configuration ::= identifier, [ `(', CPP-EXP, `)' ] ;
-token-expressions ::= CPP-EXPR, { `;', CPP-EXPR } ;
-target ::= CPP-EXPR
-identifier ::= { letter or underscope } ;
---------------------------
+Class casr::Context
+^^^^^^^^^^^^^^^^^^^
+Inherits from *ca::Context*
 
-Examples of valid edge expressions:
+ca::IntTime time() ::
+    returns current time from start of the simulation in nanoseconds
+int ca::get_packets_count(int process_id1, int process_id2) ::
+    returns the number of packets sent from process_id1 to process_id2
+    that are currenlty on the way (that was not received).
+int ca::get_data_size(int process_id1, int process_id2) ::
+    returns the total size of packets sent from process_id1 to process_id2
+    that are currently on the way.
+std::deque<casr::Packet> ca::get_data_size(int process_id1, int process_id2) ::
+    returns the qeueu with packets sent from process_id1 to process_id2
+    that are currently on the way.
 
---------------------------
-x + 1
-10;30;40@x*2
-[bulk] y
-[if(x>2), multicast] x1; x2@where
---------------------------
+Struct casr::Packet
+^^^^^^^^^^^^^^^^^^^
 
-An 'input edge' is an edge from a place to the transition.
-Basic properties are:
-
-  - There can be at most one arc between each place and the transition
-  - 'target' is not allowed
-  - allowed configurations: 'bulk', 'guard(CPP-EXPR)', 'origin'
-  - 'token-expressions' or 'configurations' has to be nonempty
-
-An 'output edge' is an edge from a place to the transition.
-Basic properties are:
-
-  - There can be an arbitrary number of edges between each place and transition
-  - 'target' is allowed
-  - allowed configurations: 'bulk', 'if(CPP-EXPR)', 'multicast'
-  - 'token-expressions' has to be nonempty.
-
-Edge related terms
-^^^^^^^^^^^^^^^^^^
-
-Input variable::
-    A variable that appears in an expression on an input edge
-    (in configurations and token-expressions).
-Output variable::
-    A variable that appears in an expression on an output edge
-    (in configurations, token-expressions or target)
-Transition variables::
-    A union of input variables and output variables.
-
-Semantics of transitions
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Here we discuss two topics: when the transition is 'enabled' and if
-the transition enabled what happens when it is 'fired'.
-
-Generally, input edges (together with the guard expression) control when
-the transition is enabled. The most common case is an edge without
-configurations, hence there are only token-expressions.
-
---------------------------
-expr1; expr2; ... exprN
---------------------------
-
-In this case the transition of the arc can be fired under binding *B* only
-if there is at least *N* tokens in the place of the and first token in the
-place's queue is equal to +eval(expr1, B)+, the second token is equal to
-+eval(expr2, B)+, ... .
-
-Evolution of the program
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-...
-
-Init areas
-~~~~~~~~~~
-
-...
-
-Integration of C++ code
------------------------
-
-...
-
-[[InitCode]]
-Place init code
-~~~~~~~~~~~~~~~
-
-...
-
-[[FireCode]]
-Transition fire code
-~~~~~~~~~~~~~~~~~~~~
-
-...
-
-Project configuration
----------------------
-
-Simulation
-----------
-
-
-Generating applications
------------------------
-
-Kaira generates the following application from a project:
-
-release ::
-traced ::
-statespace ::
-simulation :: Only for the internal usage by simulator, it is not inteded to be manually run by the user.
-
-
-Tracing
--------
-
-
-
-State space analysis
---------------------
-
-
-
-Libraries
----------
-
-
-
-Appendix
---------
+ca::IntTime start_time :: when was the packet sent
+ca::IntTime release_time :: the earliest time when the packet can be received
+int from_process :: process id of the sender
+size_t size :: size of the packet
+void *data :: data of the packet
 
 [[Types]]
 Supported standard types
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------
 
 The following types are natively supported by Kaira, so the user does not have
 to write own 'token_name', 'pack' and 'unpack' functions.
@@ -386,7 +278,10 @@ to write own 'token_name', 'pack' and 'unpack' functions.
 
 
 Arguments of generated programs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------
+
+Release mode
+~~~~~~~~~~~~
 
 -p *NAME=VALUE* :: Set the project parameter *NAME*
 -t *N* --threads=*N* :: Set the number of threads per each process
@@ -401,5 +296,29 @@ Arguments of generated programs
       wait for the first connection via port defined by -s argument.
 -S :: Sequential mode. The application runs sequentially independently on
      number of processes or threads.
--T *SIZE* :: Enables tracelogging with the in-memory buffer of *SIZE* bytes for
-    each process; The following suffixes can be used for in *SIZE*: K, M or G.
+
+
+Trace mode
+~~~~~~~~~~
+
+All arguments from 'release mode' are allowed.
+
+-T *SIZE* :: Enables tracelogging with an in-memory buffer of *SIZE* bytes for
+    each process. The following suffixes can be used for in *SIZE*: K, M or G.
+
+
+Simrun mode
+~~~~~~~~~~~
+
+All arguments from 'trace mode' are allowed.
+
+Statespace mode
+~~~~~~~~~~~~~~~
+
+Arguments '-p', '-h', '-r' from 'release mode' are supported.
+
+-Vdeadlock :: Deadlock detection is performed
+-Vcycle :: Detection of a cyclic computation is performed
+-Vfmarking :: Uniqueness of final markings
+-Vtchv :: Uniqueness of characteristic transition vectors
+-Vdot :: The graph of the statespace is saved as 'statespace.dot'
