@@ -38,15 +38,15 @@ class StatespaceConfig(gtk.VBox):
         vbox.pack_start(self.analyze_deadlock, False, False)
         self.analyze_deadlock.set_active(True)
 
-        self.analyze_cycles = gtk.CheckButton("Detect computation cycles")
+        self.analyze_cycles = gtk.CheckButton("Computation cycles")
         vbox.pack_start(self.analyze_cycles, False, False)
         self.analyze_cycles.set_active(True)
 
-        self.analyze_final_marking = gtk.CheckButton("Check final marking")
+        self.analyze_final_marking = gtk.CheckButton("Uniqueness of final markings")
         vbox.pack_start(self.analyze_final_marking, False, False)
         self.analyze_final_marking.set_active(True)
 
-        self.analyze_transition_occurrence = gtk.CheckButton("Transition occurrence analysis")
+        self.analyze_transition_occurrence = gtk.CheckButton("Uniqueness of characteristic transition vectors")
         vbox.pack_start(self.analyze_transition_occurrence, False, False)
         self.analyze_transition_occurrence.set_active(True)
 
@@ -114,7 +114,7 @@ class StatespaceConfig(gtk.VBox):
                 parameters.append("-Vdeadlock")
 
             if self.analyze_transition_occurrence.get_active():
-                parameters.append("-Vtransition_occurrence")
+                parameters.append("-Vtchv")
 
             if self.analyze_final_marking.get_active():
                 parameters.append("-Vfmarking")

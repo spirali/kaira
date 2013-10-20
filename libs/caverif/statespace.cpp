@@ -45,7 +45,7 @@ static void args_callback(char c, char *optarg, void *data)
 			analyse_deadlock = true;
 			return;
 		}
-		if (!strcmp(optarg, "transition_occurrence")) {
+		if (!strcmp(optarg, "tchv")) {
 			analyse_transition_occurrence = true;
 			return;
 		}
