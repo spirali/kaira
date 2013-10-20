@@ -598,7 +598,7 @@ Setting widget
 
 The settings' widget represents a general graphical component for collecting
 data from users. It is a kind of a form. It supports several graphical
-components for data visualization and manipulation with them. For example
+components for data visualization and manipulation with data. For example
 components for editing texts, numbers or to select value(s) from a collection.
 Its main purpose is to bring an easy way how to create a standard dialog for
 getting information from users.
@@ -613,8 +613,8 @@ image:img/setting-dialog.png[alt="Setting dialog", width=400]
 Every value is stored in form of dictionary (unique key: value). The access to
 these values is provided by the following two methods:
 
-- 'get_value(key)', and
-- 'set_value(key, value)'.
+- 'get(key)', and
+- 'set(key, value)'.
 
 There are also methods for modifying the status of a value or checking if a
 particular value is correct or if all of them are correct. These methods are:
@@ -628,10 +628,9 @@ None).
 
 The main method for add items to a *setting widget* is 'add_widget(key, label,
 widget, validator=lambda x: None)'. This method allows to a user add arbitrary
-widget to a *setting widget*. There are also methods that add more specific
-widgets, like 'entry' for editing text values or group of 'radio-buttons' for
-choose a value from a group, and others. The detailed description of these
-methods is in generated API documentation.
+widget to a *setting widget*. There are also some prepared methods for adding
+ ``standard'' widgets, like 'entry' for editing text values or group of
+ 'radio-buttons' for choose a value from a collection, and others.
 
 The following example shows how to create an easy *setting widget*.
 
@@ -645,12 +644,12 @@ setting_widget.add_entry("person-last-name", "Last name", "Smith")
 setting_widget.add_positive_int("person-age", "Age", 18) # <3>
 -------------------------------------------------------------------------------
 
-<1> create an empty setting widget
-<2> add entries for editing name, last name; the first argument is a key, the
-second is a title, and the last one is default value
+<1> create an empty setting widget.
+<2> add entries for editing name and last name; the first argument of the
+method is a key, the second is a title, and the last one is default value.
 <3> add a widget for editing positive integers; in fact it is just an entry
 widget with changed the default validation function, so it checks whether the
-input string represents a positive number or not
+input string represents a positive number or not.
 
 A widget created by this way provides three signals:
 
@@ -665,7 +664,7 @@ the focus.
 The *setting widget* is a general graphical component independent of any Kaira
 code (it is found in module +settingswindow+). It can be used anywhere where a
 user deems it appropriate. But the most probable usage will be in settings'
-dialogs. For this purpose there are defined two basic dialogs
+dialogs. For this purpose there are defined two basic dialogs,
 <<cls-basicsettingdialog, BasicSettingDialog>> and <<cls-basicsettingassistant,
 BasicSettingAssistant>> which collaborate with it.
 
@@ -674,7 +673,7 @@ BasicSettingDialog
 ~~~~~~~~~~~~~~~~~~
 +BasicSettingDialog+ is a standard single-window dialog for collecting
 information from users. A user typically gives answers on a set of questions.
-He/she confirms the dialog at the end and collected data are used for other
+Ath the end he/she confirms the dialog and collected data can be used for other
 proceeding. The following example shows how to create an easy dialog with
 <<setting-widget-category, setting widget>>.
 
@@ -701,11 +700,11 @@ if response == gtk.RESPONSE_OK:
 <1> create an instance of +BasicSettingDialog+, it takes a
 <<setting-widget-category, setting widget>>, a name of a dialog, and a
 reference to the parent window (it cat be +None+)
-<2> add cancel button, it is same as in the standard dialog
-<3> add the confirm button, but as you can see, there is the third argument
+<2> add a cancel button, it is same as in the standard dialog
+<3> add a confirm button, but as you can see, there is the third argument
 which is not in standard dialogs. This argument specifies whether the button
 is protected or not. The protection means that the button cannot be used (it
-is disabled) if there is any argument wrong in the associate setting dialog
+is disabled), if there is any argument wrong in the associate setting dialog
 (their validation function failed).
 <4> show the dialog
 <5> obtain a setting value fro the <<setting-widget-category, setting widget>>
@@ -714,7 +713,7 @@ is disabled) if there is any argument wrong in the associate setting dialog
 BasicSettingAssistant
 ~~~~~~~~~~~~~~~~~~~~~
 The basic setting *assistant* in compared to <<sec-basicsettingdialog, basic
-setting dialog>> is several step dialog, similar to installation wizard. An
+setting dialog>> is several step dialog, similar to an installation wizard. An
 *assistant* can have a several windows because one <<setting-widget-category,
 setting widget>> can influence other. Due to the possible influence of next
 step are individual windows -- individual setting widgets -- created in form of
@@ -752,20 +751,20 @@ if response == gtk.RESPONSE_OK:
 -------------------------------------------------------------------------------
 
 <1> a function for creating the first setting window; the first function do not
-use a given setting
+use a given setting.
 <2> a function for creating the second setting window; this function use a
 values from 'setting' argument which influences the content of the final
-setting widget
+setting widget.
 <3> create an instance of +BasicSettingAssistant+, it takes three arguments:
 - the first argument specifies a number of windows
 - the second argument is a title of setting assistant
 - the last one is reference to a parent window (it can be +None+)
 <4> append a function creating setting widget to the assistant, the first
-argument is a title of window
-<5> show the assistant
-<6> settings from each window are stored in 'collected_setting' list
+argument is a title of a window.
+<5> show the assistant.
+<6> settings from each window are stored in 'collected_setting' list.
 
 The BasicSettingAssistant as same as <<sec-basicsettingdialog,
 BasicSettingDialog>> processes the signals from each setting widgets. If there
-is anything wrong then it is shown a message with description of a mistake to
+is anything wrong then it is shown a message with description of the mistake to
 the user.
