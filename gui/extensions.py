@@ -104,31 +104,6 @@ class Source(object, EventSource):
             self.settings = settings
             self.stored = True
 
-def load_source(filename, app, settings=None):
-    """Load the source from a file. It calls a function in the 'loaders'
-    dictionary by the suffix of a filename.
-
-    Arguments:
-    filename -- a name of a file where are data stored
-    app -- a reference to the main application
-
-    Keywords:
-    setting -- an optional argument where may be stored some users' setting
-    information
-
-    """
-    # TODO: Catch IOError
-    suffix = utils.get_filename_suffix(filename)
-    loader = datatypes.get_loader_by_suffix(suffix)
-    if loader is None:
-        return None
-
-    data, settings = loader(filename, app, settings)
-    if data is None:
-        return None
-    return Source(
-        filename, datatypes.get_type_by_suffix(suffix), data, True, settings)
-
 class SourceView(gtk.Alignment, EventSource):
 
     def __init__(self, source, app):
@@ -190,11 +165,11 @@ class SourceView(gtk.Alignment, EventSource):
         menu.append(item)
         menu.append(gtk.SeparatorMenuItem())
 
-        self.item_free = gtk.MenuItem("Dispose")
-        self.item_free.connect("activate", lambda w: self._cb_dispose())
-        self.item_free.set_sensitive(self.source.stored)
-        self.btns_group1.append(self.item_free)
-        menu.append(self.item_free)
+        self.item_dispose = gtk.MenuItem("Dispose")
+        self.item_dispose.connect("activate", lambda w: self._cb_dispose())
+        self.item_dispose.set_sensitive(self.source.stored)
+        self.btns_group1.append(self.item_dispose)
+        menu.append(self.item_dispose)
 
         item = gtk.MenuItem("Delete")
         item.connect("activate", lambda w: self._cb_delete())
@@ -258,7 +233,7 @@ class SourceView(gtk.Alignment, EventSource):
 
         if response == gtk.RESPONSE_OK:
             self.source.store(filename, self.app)
-            self.item_free.set_sensitive(True)
+            self.item_dispose.set_sensitive(True)
 
     def _cb_load(self):
         self.source.data = load_source(
@@ -427,8 +402,8 @@ class Argument(object, EventSource):
 
         self._parameter = parameter
 
-        self.real_attached = 0
-        self.sources = [None] * self._parameter.minimum
+        self._real_attached = 0
+        self._sources = [None] * self._parameter.minimum
 
     @property
     def name(self):
@@ -446,14 +421,14 @@ class Argument(object, EventSource):
         return self._parameter.list
 
     def is_empty(self):
-        return self.real_attached == 0
+        return self._real_attached == 0
 
     def sources_count(self):
         """Return a number of real attached sources, without respect to a
         minimum count.
 
         """
-        return self.real_attached
+        return self._real_attached
 
     def get_source(self, index=-1):
         """Return a chosen source.
@@ -462,50 +437,50 @@ class Argument(object, EventSource):
         index -- index of chosen source (default -1; last added)
 
         """
-        if not self.sources or index >= len(self.sources):
+        if not self._sources or index >= len(self._sources):
             return None
         else:
-            return self.sources[index]
+            return self._sources[index]
 
     def attach_source(self, source, index=None):
-        old_real_attached = self.real_attached
+        old_real_attached = self._real_attached
 
         if index is None: # attach
             attached = False
-            for i, s in enumerate(self.sources):
+            for i, s in enumerate(self._sources):
                 if s is None:
-                    self.sources[i] = source
+                    self._sources[i] = source
                     attached = True
                     break
             if not attached:
-                self.sources.append(source)
-            self.real_attached += 1
+                self._sources.append(source)
+            self._real_attached += 1
         else:
             assert(index >= 0)
-            if index < len(self.sources):
-                if self.sources[index] is None:
+            if index < len(self._sources):
+                if self._sources[index] is None:
                     # increase only if the source is None, in the other case
                     # it is only exchange of attached object
-                    self.real_attached += 1
-                self.sources[index] = source
+                    self._real_attached += 1
+                self._sources[index] = source
             else:
-                self.sources.append(source)
-                self.real_attached += 1
+                self._sources.append(source)
+                self._real_attached += 1
 
-        if old_real_attached < self.real_attached:
+        if old_real_attached < self._real_attached:
             source.set_callback("source-name-changed",
                                 self._cb_source_name_changed,
-                                self.real_attached-1)
+                                self._real_attached-1)
 
         self.emit_event("argument-changed")
 
     def detach_source(self, index=0):
-        if 0 <= index < len(self.sources):
-            if len(self.sources) - self.minimum <= 0:
+        if 0 <= index < len(self._sources):
+            if len(self._sources) - self.minimum <= 0:
                 # minimal count of arguments remain visible
-                self.sources.append(None)
-            source = self.sources.pop(index)
-            self.real_attached -= 1
+                self._sources.append(None)
+            source = self._sources.pop(index)
+            self._real_attached -= 1
             source.remove_callback("source-name-changed",
                                    self._cb_source_name_changed, index)
             self.emit_event("argument-changed")
@@ -513,9 +488,9 @@ class Argument(object, EventSource):
     def get_data(self):
         if self.is_list():
             return [ source.data
-                     for source in self.sources[:self.real_attached] ]
+                     for source in self._sources[:self._real_attached] ]
         else:
-            return self.sources[0].data
+            return self._sources[0].data
 
     def _cb_source_name_changed(self, idx, old_name, new_name):
         self.emit_event("source-name-changed", idx, new_name)
@@ -658,7 +633,7 @@ class Operation(object, EventSource):
 
     def run(self, *args):
         """This method is called with attached arguments. Method must not
-         any side effect and it must not modify argument.
+         have any side effect and it must not modifies its input arguments.
 
         """
         return None
@@ -757,10 +732,9 @@ class OperationFullView(gtk.VBox, EventSource):
         gtk.VBox.__init__(self)
         EventSource.__init__(self)
 
-        self.events = EventCallbacksList()
-
-        self.app = app
         self.operation = None
+        self.app = app
+        self.events = EventCallbacksList()
 
     def deregister_callbacks(self):
         self.events.remove_all()
@@ -1075,14 +1049,40 @@ class OperationManager(gtk.VBox):
 
     def _cb_source_data_changed(self, source):
         for operation in self.loaded_operations:
-            for param in operation.arguments:
-                for psource in param.sources:
-                    if psource == source:
-                        param.emit_event("argument-changed")
+            for argument in operation.arguments:
+                for i in xrange(argument.sources_count()):
+                    arg_source = argument.get_source(i)
+                    if arg_source == source:
+                        argument.emit_event("argument-changed")
 
 
 # *****************************************************************************
 # Modules methods
+
+def load_source(filename, app, settings=None):
+    """Load the source from a file. It calls a function in the 'loaders'
+    dictionary by the suffix of a filename.
+
+    Arguments:
+    filename -- a name of a file where are data stored
+    app -- a reference to the main application
+
+    Keywords:
+    settings -- an optional argument where may be stored some users' setting
+    information
+
+    """
+    # TODO: Catch IOError
+    suffix = utils.get_filename_suffix(filename)
+    loader = datatypes.get_loader_by_suffix(suffix)
+    if loader is None:
+        return None
+
+    data, settings = loader(filename, app, settings)
+    if data is None:
+        return None
+    return Source(
+        filename, datatypes.get_type_by_suffix(suffix), data, True, settings)
 
 def add_operation(operation):
     operations[operation.name] = operation
