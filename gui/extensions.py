@@ -159,10 +159,10 @@ class SourceView(gtk.Alignment, EventSource):
         item.connect("activate", lambda w: self._cb_store())
         self.btns_group1.append(item)
         menu.append(item)
-        item = gtk.MenuItem("Reload")
-        item.connect("activate", lambda w: self._cb_load())
-        item.set_sensitive(self.source.data is not None)
-        menu.append(item)
+        self.item_reload = gtk.MenuItem("Reload")
+        self.item_reload.connect("activate", lambda w: self._cb_load())
+        self.item_reload.set_sensitive(self.source.stored)
+        menu.append(self.item_reload)
         menu.append(gtk.SeparatorMenuItem())
 
         self.item_dispose = gtk.MenuItem("Dispose")
@@ -233,6 +233,7 @@ class SourceView(gtk.Alignment, EventSource):
 
         if response == gtk.RESPONSE_OK:
             self.source.store(filename, self.app)
+            self.item_reload.set_sensitive(True)
             self.item_dispose.set_sensitive(True)
 
     def _cb_load(self):
