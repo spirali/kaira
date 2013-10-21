@@ -59,7 +59,7 @@ class RunProgram:
         if f is None:
             f = lambda a, b: a == b
         if expected is not None and not f(expected, output):
-			self.error("Excepted >>{0}<<, got >>{1}<<".format(expected, output))
+            self.error("Excepted >>{0}<<, got >>{1}<<".format(expected, output))
 
     def error(self, text):
         raise Exception("Program '{0}/{1}': {2}".format(self.filename, self.parameters, text))

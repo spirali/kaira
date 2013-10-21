@@ -10,8 +10,8 @@ int main(int argc, char **argv) {
 	std::vector<int > v (4,1);
 	std::vector<int > w;
 	for(int i = 0 ; i < 5 ; i++) {
-		set_pararameter_EXP(i);
-		set_pararameter_Size(i);
+		set_parameter_EXP(i);
+		set_parameter_Size(i);
 		parameters(x, v, w);
 		for (int i = 0; i < 4; i++) {
 			printf("%d ", w[i]);
