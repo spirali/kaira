@@ -214,8 +214,6 @@ class SettingWidget(gtk.Table):
         default -- index of default item
 
         """
-        if not items:
-            return
         assert default < len(items)
 
         def callback(combo, key, items):
@@ -249,8 +247,6 @@ class SettingWidget(gtk.Table):
         (default: 1)
 
         """
-        if not items:
-            return
         assert default < len(items)
 
         def callback(button, key, value, vlabel):
@@ -302,8 +298,6 @@ class SettingWidget(gtk.Table):
         (default: 1)
 
         """
-        if not items:
-            return
 
         self.setting[key] = []
         self.value_labels[key] = []
@@ -345,8 +339,6 @@ class SettingWidget(gtk.Table):
         header -- list of column names (labels, check1, check2, ...)
 
         """
-        if not items:
-            return
 
         self.setting[key] = []
         self.value_labels[key] = []
