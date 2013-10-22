@@ -42,8 +42,12 @@ def write_library(builder, header_filename):
     buildnet.write_user_functions(builder)
 
 def get_library_function_declaration(net):
-    return writer.emit_declarations(get_library_function_arguments(net),
-                                    reference=True)
+    inputs = net.get_input_places()
+    input_names = set(place.interface_input for place in inputs)
+    outputs = [ place for place in net.get_output_places()
+                if place.interface_output not in input_names ]
+    return  ",".join([ "{0} &{1}".format(place.type, place.interface_input) for place in inputs ] +
+           [ "{0} &{1}".format(place.type, place.interface_output) for place in outputs ])
 
 def write_library_header_file(builder):
     build.write_header_file(builder, close_guard=False)
@@ -103,8 +107,4 @@ def write_library_function(builder, net, rpc=False):
     builder.line("delete $n;")
     builder.block_end()
 
-def get_library_function_arguments(net):
-    inputs = net.get_input_places()
-    outputs = [ place for place in net.get_output_places() if place not in inputs ]
-    return [ (place.interface_input, place.type) for place in inputs ] + \
-           [ (place.interface_output, place.type) for place in outputs ]
+
