@@ -11,8 +11,8 @@ namespace ca {
 template<typename T> class Token {
 
 	public:
-		Token() {}
-		Token(const T &value) : value(value) {}
+		Token() : prev(NULL), next(NULL) {}
+		Token(const T &value) : value(value), prev(NULL), next(NULL) {}
 
 		void remove() {
 			next->prev = prev;

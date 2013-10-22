@@ -6,9 +6,6 @@
 
 namespace ca {
 	extern ca::NetDef **defs;
-	extern int defs_count;
-	extern int process_count;
-	extern char *project_description_string;
 	extern size_t tracelog_size;
 }
 

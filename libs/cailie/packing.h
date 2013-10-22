@@ -13,7 +13,7 @@ namespace ca {
 class Unpacker {
 
 	public:
-		Unpacker() {}
+		Unpacker(): buffer_pos(NULL) {}
 		Unpacker(void *mem) { buffer_pos = (char*) mem; }
 		void * unpack_data(size_t size) { void *p = buffer_pos; buffer_pos += size; return p; }
 		void * peek() { return buffer_pos; }

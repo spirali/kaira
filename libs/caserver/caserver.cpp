@@ -14,8 +14,9 @@
 #include "caserver.h"
 #include "client.h"
 
+using namespace caserver;
 
-CaServer::CaServer()
+CaServer::CaServer() : verbose(false)
 {
 	setup_port();
 }
@@ -94,12 +95,14 @@ void CaServer::run()
 
 		send(client_socket, welcome_message.get_buffer(), welcome_message.get_size(), 0);
 
-		printf("New connection from %s\n", inet_ntoa(client_addr.sin_addr));
+		if (verbose)
+			printf("New connection from %s\n", inet_ntoa(client_addr.sin_addr));
 
 		CaClient client(*this, client_socket);
 		client.run();
 
-		printf("Connection closed\n");
+		if (verbose)
+			printf("Connection closed\n");
 		close(client_socket);
 	}
 

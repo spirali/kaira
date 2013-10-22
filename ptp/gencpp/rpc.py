@@ -24,6 +24,7 @@ import writer
 def write_client(builder, header_filename):
     builder.line("#include \"{0}\"", header_filename)
     builder.line("#include <caclient.h>")
+    builder.line("using namespace caclient;")
     builder.line("static CaClient client;")
     builder.emptyline()
     for net in builder.project.nets:
@@ -68,6 +69,7 @@ def write_server(builder):
     builder.line("#include <caserver.h>")
     builder.line("#include \"{0}.h\"", builder.project.get_name())
     builder.emptyline()
+    builder.line("using namespace caserver;")
     buildnet.write_core(builder)
     for net in builder.project.nets:
         library.write_library_function(builder, net, rpc=True)

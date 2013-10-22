@@ -6,57 +6,67 @@
 #include <string>
 #include <cailie.h>
 
-typedef void (CaPublicFn)(void *, ca::Packer&);
+namespace caserver {
 
-class CaPublicFunction {
-	public:
-		CaPublicFunction(const std::string &name,
+	typedef void (CaPublicFn)(void *, ca::Packer&);
+
+	class CaPublicFunction {
+		public:
+			CaPublicFunction(const std::string &name,
+				const std::string &definition,
+				CaPublicFn *fn) : fn(fn), name(name), definition(definition) {}
+
+			std::string get_name() const {
+				return name;
+			}
+
+			std::string get_definition() const {
+				return definition;
+			}
+
+			void call(void *buffer, ca::Packer &packer) const {
+				fn(buffer, packer);
+			}
+
+		private:
+			CaPublicFn *fn;
+			std::string name;
+			std::string definition;
+	};
+
+	class CaServer {
+
+		public:
+		CaServer();
+		~CaServer();
+
+		void register_function(const std::string &name,
 			const std::string &definition,
-			CaPublicFn *fn) : fn(fn), name(name), definition(definition) {}
+			CaPublicFn *fn);
 
-		std::string get_name() const {
-			return name;
+		void run();
+
+		const std::vector<CaPublicFunction> & get_functions() {
+			return functions;
 		}
 
-		std::string get_definition() const {
-			return definition;
+		void set_verbose_mode(bool value) {
+			verbose = value;
 		}
 
-		void call(void *buffer, ca::Packer &packer) const {
-			fn(buffer, packer);
-		}
+		protected:
 
-	private:
-		CaPublicFn *fn;
-		std::string name;
-		std::string definition;
-};
+		void setup_port();
+		void init_listen_socket();
 
-class CaServer {
+		int listen_socket;
+		int port;
 
-	public:
-	CaServer();
-	~CaServer();
+		std::vector<CaPublicFunction> functions;
 
-	void register_function(const std::string &name,
-		const std::string &definition,
-		CaPublicFn *fn);
+		bool verbose;
+	};
 
-	void run();
-
-	const std::vector<CaPublicFunction> & get_functions() {
-		return functions;
-	}
-
-	protected:
-
-	void setup_port();
-	void init_listen_socket();
-
-	int listen_socket;
-	int port;
-
-	std::vector<CaPublicFunction> functions;
-};
+}
 
 #endif // CASERVER_H

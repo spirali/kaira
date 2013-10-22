@@ -11,6 +11,7 @@ class RunConfiguration {
 	public:
 		virtual ca::IntTime packet_time(
 				Context &context, int source_id, int target_id, size_t size) = 0;
+		virtual ~RunConfiguration() { };
 
 };
 

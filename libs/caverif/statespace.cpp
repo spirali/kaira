@@ -9,7 +9,6 @@
 
 namespace ca {
 	extern ca::NetDef **defs;
-	extern int defs_count;
 	extern int process_count;
 	extern char *project_description_string;
 }
@@ -178,7 +177,7 @@ HashDigest State::compute_hash(hashid hash_id)
 }
 
 Node::Node(HashDigest hash, State *state, Node *prev)
-	: hash(hash), state(state), prev(prev), distance(0), data(NULL)
+	: hash(hash), state(state), prev(prev), distance(0), data(NULL), tag(0)
 {
 
 }

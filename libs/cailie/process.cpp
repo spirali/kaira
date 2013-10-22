@@ -9,7 +9,6 @@
 
 namespace ca {
 extern size_t tracelog_size;
-extern char * project_description_string;
 }
 
 using namespace ca;
@@ -157,6 +156,7 @@ Process::Process(
 	this->threads_count = threads_count;
 	this->net_is_quit = false;
 	this->quit_flag = false;
+	this->net = NULL;
 	threads = new Thread[threads_count];
 	// TODO: ALLOCTEST
 	for (int t = 0; t < threads_count; t++) {

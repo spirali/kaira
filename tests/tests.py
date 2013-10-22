@@ -140,22 +140,21 @@ class BuildTest(unittest.TestCase):
     def test_tracelog(self):
         p = Project("tracelog", trace=True)
         p.quick_test(processes=2, extra_args=["-T100K"])
-        p.check_tracelog("15\n")
-
+        p.check_tracelog("14\n")
 
 class LibTest(unittest.TestCase):
     def test_lib_parameters(self):
         result = "1 1 1 1 \n2 1 1 1 \n4 4 1 1 \n8 8 8 1 \n16 16 16 16 \n"
-        Project("parameters", "lib_parameters").quick_test_main(
-			result,	processes=5, threads=5, params={"Size" : 4, "EXP" : 4})
+        Project("parameters", "lib_parameters", lib=True).quick_test_main(
+                result, processes=5, threads=5, params={"Size" : 4, "EXP" : 4})
 
     def test_libhelloworld(self):
         result = "40 10 Hello world\n80 10 Hello world\n"\
             "160 10 Hello world\n320 10 Hello world\n640 10 Hello world\n"
-        Project("libhelloworld").quick_test_main(result)
+        Project("libhelloworld", lib=True).quick_test_main(result)
 
     def test_rpc(self):
-        p = Project("rpc",rpc=True)
+        p = Project("rpc",rpc=True, lib=True)
         p.build_main()
         p.start_server()
         try:
@@ -179,27 +178,20 @@ class StateSpaceTest(unittest.TestCase):
         raise Exception("Result '{0}' not found".format(result))
 
     def test_statespace1(self):
-        report = Project("statespace1").statespace(["quit"])
+        report = Project("statespace1").statespace(["deadlock"])
         result = self.get_result(report, "Overall statistics", "Number of states")
-        self.assertEquals(result.get("value"), "15")
-        result = self.get_result(report, "Quit analysis", "Number of quit states")
         self.assertEquals(result.get("value"), "4")
-        self.assertEquals(result.get("status"), "ok")
         result = self.get_result(report, "Quit analysis", "Number of deadlock states")
         self.assertEquals(result.get("value"), "0")
         self.assertEquals(result.get("status"), "ok")
 
     def test_statespace2(self):
-        report = Project("statespace2").statespace(["quit"], processes=4)
+        report = Project("statespace2").statespace(["deadlock"], processes=4)
         result = self.get_result(report, "Overall statistics", "Number of states")
-        self.assertEquals(result.get("value"), "311")
-        result = self.get_result(report, "Quit analysis", "Number of quit states")
-        self.assertEquals(result.get("value"), "16")
-        self.assertEquals(result.get("status"), "ok")
+        self.assertEquals(result.get("value"), "50")
         result = self.get_result(report, "Quit analysis", "Number of deadlock states")
-        self.assertEquals(result.get("value"), "5")
+        self.assertEquals(result.get("value"), "1")
         self.assertEquals(result.get("status"), "fail")
-
 
 if __name__ == '__main__':
     unittest.main()

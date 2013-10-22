@@ -688,6 +688,18 @@ class Net(object):
         for area in self.areas:
             area.check(checker)
 
+        place = utils.check_uniquness(self.get_input_places(),
+                                      lambda p: p.interface_input)
+        if place is not None:
+            raise utils.PtpException("Input iterfaces have not unique names",
+                                     place.get_source("type"))
+
+        place = utils.check_uniquness(self.get_output_places(),
+                                      lambda p: p.interface_output)
+        if place is not None:
+            raise utils.PtpException("Output iterfaces have not unique names",
+                                     place.get_source("type"))
+
     def analyze(self):
         for tr in self.transitions:
             analysis.analyze_transition(tr)

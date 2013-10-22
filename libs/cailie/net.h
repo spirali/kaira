@@ -153,6 +153,8 @@ class NetBase {
 			virtual void receive(ThreadBase *thread, int process, int place, Unpacker &unpacker) = 0;
 			virtual NetBase *copy() = 0;
 			void write_reports(ThreadBase *thread, Output &output);
+
+			virtual ~NetBase() { };
 		protected:
 			virtual void write_reports_content(ThreadBase *thread, Output &output) = 0;
 };

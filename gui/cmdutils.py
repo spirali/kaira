@@ -25,10 +25,14 @@ import loader
 import os
 import tracelog
 
-def export(filename, directory, trace):
+def export(filename, directory, trace, lib):
     p = loader.load_project(filename)
-    if trace:
+    if trace and lib:
+        target = "libtraced"
+    elif trace:
         target = "traced"
+    elif lib:
+        target = "lib"
     else:
         target = "release"
     build_config = p.get_build_config(target)
@@ -48,9 +52,10 @@ def main():
     parser.add_argument('--output', metavar='directory', type=str)
     parser.add_argument("--trace", action='store_true')
     parser.add_argument('--tracelog', metavar='filename', type=str)
+    parser.add_argument("--lib", action='store_true')
     args = parser.parse_args()
     if args.export:
-        export(args.export, args.output, args.trace)
+        export(args.export, args.output, args.trace, args.lib)
         return
     if args.tracelog:
         check_tracelog(args.tracelog)

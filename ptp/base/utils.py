@@ -191,6 +191,13 @@ def get_source_path(id, name):
 def first(lst):
     return lst[0]
 
+def check_uniquness(items, key_fn):
+    keys = [ key_fn(item) for item in items ]
+
+    for item, key in zip(items, keys):
+        if keys.count(key) != 1:
+            return item
+
 integer_parser = re.compile("[-+]?\d+")
 def is_integer(value):
     return bool(integer_parser.match(value))

@@ -279,7 +279,7 @@ void ca::init(int argc,
 					extra_args_callback(c, optarg, extra_args_data);
 				} else {
 					exit(1);
-				}
+				} break;
 			}
 
 	#ifdef CA_MPI
