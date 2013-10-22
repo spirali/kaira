@@ -50,6 +50,10 @@ namespace caserver {
 			return functions;
 		}
 
+		void set_verbose_mode(bool value) {
+			verbose = value;
+		}
+
 		protected:
 
 		void setup_port();
@@ -59,6 +63,8 @@ namespace caserver {
 		int port;
 
 		std::vector<CaPublicFunction> functions;
+
+		bool verbose;
 	};
 
 }
