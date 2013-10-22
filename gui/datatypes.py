@@ -20,12 +20,10 @@
 
 import csv
 
-import extensions
 import gtk
 import gtkutils
 import settingswindow
 import runview
-import utils
 from tracelog import TraceLog
 
 """Supported types for extensions."""
@@ -34,14 +32,16 @@ types_repository = []
 
 
 class Type(object):
+    """This class serves as a basic class for all data types."""
 
     def __init__(self, name, short_name=None):
         """Initialize of type of types.
 
         Arguments:
-        name -- name of type
-        short_name -- short version of name
-        files_extensions -- a list of supported file types
+        name -- a full name of a data type
+
+        Keywords:
+        short_name -- shorter version of a name (default: None)
 
         """
         self.name = name
@@ -49,22 +49,53 @@ class Type(object):
             self.short_name = name
         else:
             self.short_name = short_name
-        self.setting = None
 
+        """a dictionary with registered loaders for a specific file extension
+        (file extension: load function)
+
+        """
         self.loaders = {}
+
+        """a dictionary with registered savers for a specific file extension
+        (file extension: save function)
+
+        """
         self.savers = {}
         self.default_saver = None
 
     def get_view(self, data, app):
+        """Return a widget width visualized data or None if the visualization
+        is not implemented.
+
+        Arguments:
+        data -- data for visualization
+        app -- a reference to the main application
+
+        """
         return None
 
-    def register_load_function(self, extension, function):
-        self.loaders[extension] = function
+    def register_load_function(self, suffix, function):
+        """Register a loading function to a file suffix.
 
-    def register_store_function(self, extension, function, default=False):
-        self.savers[extension] = function
+        Arguments:
+        suffix -- a suffix of a filename (it specifies a type of data)
+        function -- function which can load a files with given suffix
+
+        """
+        self.loaders[suffix] = function
+
+    def register_store_function(self, suffix, function, default=False):
+        """Register a saving function to a file suffix.
+
+        Arguments:
+        suffix -- a suffix of a filename (it specifies a type of data)
+        function -- function which can store data to file with given suffix
+        default -- specify whether the given function is default saver or not
+
+        """
+        self.savers[suffix] = function
         if default or self.default_saver is None:
-            self.default_saver = extension
+            self.default_saver = suffix
 
 
 # *****************************************************************************
@@ -116,16 +147,13 @@ def get_save_file_filter(type):
 # *****************************************************************************
 # supported types
 
-# Standard data types
-t_string = Type("Plain text")
-
 # -----------------------------------------------------------------------------
 # Tracelog type
 t_tracelog = Type("Kaira tracelog", "Tracelog")
-def load_kth(filename, app, setting=None):
+def load_kth(filename, app, settings=None):
     if filename is None:
         return
-    return app._catch_io_error(lambda: TraceLog(filename))
+    return (app._catch_io_error(lambda: TraceLog(filename)), settings)
 t_tracelog.register_load_function("kth", load_kth)
 
 def tracelog_view(data, app):
@@ -138,7 +166,7 @@ types_repository.append(t_tracelog)
 # Table type
 t_table = Type("Table")
 
-def show_csv_setting_dialog(parent_window):
+def show_csv_settings_dialog(parent_window):
     sw = settingswindow.SettingWidget()
 
     sw.add_combobox("delimiter",
@@ -174,14 +202,13 @@ def show_csv_setting_dialog(parent_window):
     dialog.destroy()
     return None
 
-def load_csv(filename, app, setting):
-    if setting is None:
-        setting = show_csv_setting_dialog(app.window)
-        t_table.setting = setting
-    if setting is None:
-        return # setting was canceled
+def load_csv(filename, app, settings):
+    if settings is None:
+        settings = show_csv_settings_dialog(app.window)
+    if settings is None:
+        return # settings was canceled
 
-    delimiter, quotechar, has_header = setting
+    delimiter, quotechar, has_header = settings
     with open(filename, "rb") as csvfile:
         csvreader = csv.reader(
             csvfile, delimiter=delimiter, quotechar=quotechar)
@@ -200,14 +227,16 @@ def load_csv(filename, app, setting):
 
         for row in csvreader:
             data.append(row)
-        return (header, data)
+        return ((header, data), settings)
 
 t_table.register_load_function("csv", load_csv)
 
 def store_csv(data, filename, app, settings):
     header, rows = data
     if settings is None:
-        settings = show_csv_setting_dialog(app.window)
+        settings = show_csv_settings_dialog(app.window)
+    if settings is None:
+        return (False, None)
     delimiter, quotechar, has_header = settings
     with open(filename, "w") as csvfile:
         csvwriter = csv.writer(
@@ -216,6 +245,7 @@ def store_csv(data, filename, app, settings):
             csvwriter.writerow(header)
         for row in rows:
             csvwriter.writerow(row)
+    return (True, settings)
 
 t_table.register_store_function("csv", store_csv)
 

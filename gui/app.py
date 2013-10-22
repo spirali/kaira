@@ -56,7 +56,7 @@ class App:
     """
     def __init__(self, args):
         self.window = MainWindow(self)
-        self.window.set_size_request(800,660)
+        self.window.set_size_request(950,660)
         self.neteditor = None
         self.project = None
         self.sources_repository = extensions.SourcesRepository()
@@ -93,6 +93,8 @@ class App:
                     if operation:
                         operation.parameters[arg_index].attach_source(source, 0)
                         arg_index += 1
+                    if len(self.sources_repository) > 0:
+                        self.run_tool_window()
             else:
                 self.console_write("File '{0}' not found\n".format(filename), "error")
 

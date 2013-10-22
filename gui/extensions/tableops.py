@@ -1,13 +1,14 @@
 
 import settingswindow
-from extensions import Argument, Source, Operation, add_operation
+import utils
+from extensions import Parameter, Source, Operation, add_operation
 from datatypes import t_table
 
 class Filter(Operation):
 
     name = "Table filter"
     description = "Filter rows of the table by values in columns"
-    arguments = [Argument("Data", t_table)]
+    parameters = [Parameter("Data", t_table)]
 
     def run(self, app, data):
         header, rows = data
@@ -18,10 +19,10 @@ class Filter(Operation):
         assistant.set_size_request(600, 400)
 
         def create_page_1(setting):
-            items = [(label, idx) for idx, label in enumerate(header)]
+            items = [(label, idx, False) for idx, label in enumerate(header)]
             s_widget = settingswindow.SettingWidget()
             s_widget.add_checkbuttons_list(
-                "selected_cols", "Columns", items)
+                "selected_cols", "Columns", items, ["Column", "Select?"])
             return s_widget
 
         def create_page_2(setting):
@@ -59,6 +60,8 @@ class Filter(Operation):
                        for idx in selected_columns)
 
         filtered_data = (header, filter(f, rows))
-        return Source("Filtered table", t_table, filtered_data)
+        return Source("Filtered table " + utils.get_timestamp_string(),
+                      t_table,
+                      filtered_data)
 
 add_operation(Filter)

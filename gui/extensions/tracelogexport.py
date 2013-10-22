@@ -98,7 +98,7 @@ class TracelogExport(extensions.Operation):
     name = "Tracelog export"
     description = "Export data from tracelog into a table"
 
-    arguments = [ extensions.Argument("Tracelog", datatypes.t_tracelog) ]
+    parameters = [ extensions.Parameter("Tracelog", datatypes.t_tracelog) ]
 
     def run(self, app, tracelog):
         assistant = settingswindow.BasicSettingAssistant(2,

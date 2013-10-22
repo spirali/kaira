@@ -38,13 +38,17 @@ operations = {} # the list of all loaded operations
 
 class Source(object, EventSource):
 
-    def __init__(self, name, type, data, stored=False):
+    def __init__(self, name, type, data, stored=False, settings=None):
         """Initialize a source of data.
 
         Arguments:
         name -- file name (source file on disk)
         type -- type of the data (stype.Type)
         data -- physical data
+
+        Keyword:
+        stored -- flag informs that source is stored in a file
+        settings -- a settings that was used by creating the source
 
         """
         EventSource.__init__(self)
@@ -58,6 +62,7 @@ class Source(object, EventSource):
         self.type = type
         self.data = data
         self.stored = stored
+        self.settings = settings
 
     @property
     def name(self):
@@ -65,10 +70,24 @@ class Source(object, EventSource):
 
     @name.setter
     def name(self, name):
+        old_name = self._name
         self._name = name
-        self.emit_event("source-name-changed", name)
+        self.emit_event("source-name-changed", old_name, name)
 
     def store(self, filename, app, settings=None):
+        """Store the source into a file. It calls a function in the 'savers'
+        dictionary by the suffix of a filename.
+
+        Arguments:
+        filename -- a name of a file (include a path where the data will be
+        stored)
+        app -- a reference to the main application
+
+        Keywords:
+        settings -- an optional argument where may be stored some users'
+        setting information
+
+        """
         suffix = utils.get_filename_suffix(filename)
         if suffix is None:
             suffix = self.type.default_saver
@@ -78,22 +97,12 @@ class Source(object, EventSource):
             app.show_message_dialog(
                     "Cannot save '.{0}' file".format(suffix),
                     gtk.MESSAGE_WARNING)
-        saver(self.data, filename, app, settings)
-        self.name = filename
-        self.stored = True
 
-def load_source(filename, app, settings=None):
-    # TODO: Catch IOError
-    suffix = utils.get_filename_suffix(filename)
-    loader = datatypes.get_loader_by_suffix(suffix)
-    if loader is None:
-        return None
-
-    source = loader(filename, app, settings)
-    if source is None:
-        return None
-    return Source(filename, datatypes.get_type_by_suffix(suffix), source, True)
-
+        correct, settings = saver(self.data, filename, app, settings)
+        if correct:
+            self.name = filename
+            self.settings = settings
+            self.stored = True
 
 class SourceView(gtk.Alignment, EventSource):
 
@@ -103,7 +112,7 @@ class SourceView(gtk.Alignment, EventSource):
 
         self.source = source
         self.source.set_callback("source-name-changed",
-                                 lambda n: self.entry_name.set_text(n))
+                                 lambda old, new: self.entry_name.set_text(new))
 
         self.app = app # reference to the main application
         self.tabview = None
@@ -150,17 +159,17 @@ class SourceView(gtk.Alignment, EventSource):
         item.connect("activate", lambda w: self._cb_store())
         self.btns_group1.append(item)
         menu.append(item)
-        item = gtk.MenuItem("Reload")
-        item.connect("activate", lambda w: self._cb_load())
-        item.set_sensitive(self.source.data is not None)
-        menu.append(item)
+        self.item_reload = gtk.MenuItem("Reload")
+        self.item_reload.connect("activate", lambda w: self._cb_load())
+        self.item_reload.set_sensitive(self.source.stored)
+        menu.append(self.item_reload)
         menu.append(gtk.SeparatorMenuItem())
 
-        self.item_free = gtk.MenuItem("Dispose")
-        self.item_free.connect("activate", lambda w: self._cb_dispose())
-        self.item_free.set_sensitive(self.source.stored)
-        self.btns_group1.append(self.item_free)
-        menu.append(self.item_free)
+        self.item_dispose = gtk.MenuItem("Dispose")
+        self.item_dispose.connect("activate", lambda w: self._cb_dispose())
+        self.item_dispose.set_sensitive(self.source.stored)
+        self.btns_group1.append(self.item_dispose)
+        menu.append(self.item_dispose)
 
         item = gtk.MenuItem("Delete")
         item.connect("activate", lambda w: self._cb_delete())
@@ -224,11 +233,12 @@ class SourceView(gtk.Alignment, EventSource):
 
         if response == gtk.RESPONSE_OK:
             self.source.store(filename, self.app)
-            self.item_free.set_sensitive(True)
+            self.item_reload.set_sensitive(True)
+            self.item_dispose.set_sensitive(True)
 
     def _cb_load(self):
         self.source.data = load_source(
-            self.source.name, self.app, self.source.type.setting).data
+            self.source.name, self.app, self.source.settings).data
         self._lock_buttons()
         self.emit_event("source-data-changed", self.source)
 
@@ -256,11 +266,13 @@ class SourcesRepository(object, EventSource):
         return len(self._repo)
 
     def add(self, source):
+        source.set_callback("source-name-changed",
+                             self._cb_source_name_changed)
         if source.name not in self._repo:
             self._repo[source.name] = source
             self.emit_event("source-added", source)
-            return True
-        return False
+        else:
+            self._repo[source.name] = source
 
     def remove(self, source):
         if source.name in self._repo:
@@ -287,6 +299,11 @@ class SourcesRepository(object, EventSource):
         """
         return [source for name, source in self._repo.items()
                 if filter is None or source.type in filter]
+
+    def _cb_source_name_changed(self, old_name, new_name):
+        source = self._repo[old_name]
+        del self._repo[old_name]
+        self._repo[new_name] = source
 
 
 class SourcesRepositoryView(gtk.VBox, EventSource):
@@ -354,21 +371,23 @@ class SourcesRepositoryView(gtk.VBox, EventSource):
         self.repository.remove(source)
 
 
-class Argument(object):
-    """This class describes the argument of operation. It serves as persistent
-     structure.
+class Parameter(object):
+    """This class describes the parameter of an operation. It serves as a
+    persistent structure.
 
     """
 
     def __init__(self, name, type, list=False, minimum=1):
-        """Initialize of an argument.
+        """Initialize of a parameter.
 
         Arguments:
         name -- display name of argument
         type -- data type of argument (datatypes.Type)
         list -- True if the argument represents a list of arguments, otherwise
                 False
-        minimum -- minimal count of values in list
+
+        Keywords:
+        minimum -- minimal count of values in list (default: 1)
 
         """
         self.name = name
@@ -377,40 +396,40 @@ class Argument(object):
         self.minimum = minimum
 
 
-class Parameter(object, EventSource):
+class Argument(object, EventSource):
 
-    def __init__(self, argument):
+    def __init__(self, parameter):
         EventSource.__init__(self)
 
-        self._argument = argument
+        self._parameter = parameter
 
-        self.real_attached = 0
-        self.sources = [None] * self._argument.minimum
+        self._real_attached = 0
+        self._sources = [None] * self._parameter.minimum
 
     @property
     def name(self):
-        return self._argument.name
+        return self._parameter.name
 
     @property
     def type(self):
-        return self._argument.type
+        return self._parameter.type
 
     @property
     def minimum(self):
-        return self._argument.minimum
+        return self._parameter.minimum
 
     def is_list(self):
-        return self._argument.list
+        return self._parameter.list
 
     def is_empty(self):
-        return self.real_attached == 0
+        return self._real_attached == 0
 
     def sources_count(self):
-        """Return a number of real attached sources, with no respect
-        to minimum count.
+        """Return a number of real attached sources, without respect to a
+        minimum count.
 
         """
-        return self.real_attached
+        return self._real_attached
 
     def get_source(self, index=-1):
         """Return a chosen source.
@@ -419,120 +438,120 @@ class Parameter(object, EventSource):
         index -- index of chosen source (default -1; last added)
 
         """
-        if not self.sources or index >= len(self.sources):
+        if not self._sources or index >= len(self._sources):
             return None
         else:
-            return self.sources[index]
+            return self._sources[index]
 
     def attach_source(self, source, index=None):
-        old_real_attached = self.real_attached
+        old_real_attached = self._real_attached
 
         if index is None: # attach
             attached = False
-            for i, s in enumerate(self.sources):
+            for i, s in enumerate(self._sources):
                 if s is None:
-                    self.sources[i] = source
+                    self._sources[i] = source
                     attached = True
                     break
             if not attached:
-                self.sources.append(source)
-            self.real_attached += 1
+                self._sources.append(source)
+            self._real_attached += 1
         else:
             assert(index >= 0)
-            if index < len(self.sources):
-                if self.sources[index] is None:
+            if index < len(self._sources):
+                if self._sources[index] is None:
                     # increase only if the source is None, in the other case
                     # it is only exchange of attached object
-                    self.real_attached += 1
-                self.sources[index] = source
+                    self._real_attached += 1
+                self._sources[index] = source
             else:
-                self.sources.append(source)
-                self.real_attached += 1
+                self._sources.append(source)
+                self._real_attached += 1
 
-        if old_real_attached < self.real_attached:
+        if old_real_attached < self._real_attached:
             source.set_callback("source-name-changed",
                                 self._cb_source_name_changed,
-                                self.real_attached-1)
+                                self._real_attached-1)
 
-        self.emit_event("parameter-changed")
+        self.emit_event("argument-changed")
 
     def detach_source(self, index=0):
-        if 0 <= index < len(self.sources):
-            if len(self.sources) - self.minimum <= 0:
-                # minimal count of parameters remain visible
-                self.sources.append(None)
-            source = self.sources.pop(index)
-            self.real_attached -= 1
+        if 0 <= index < len(self._sources):
+            if len(self._sources) - self.minimum <= 0:
+                # minimal count of arguments remain visible
+                self._sources.append(None)
+            source = self._sources.pop(index)
+            self._real_attached -= 1
             source.remove_callback("source-name-changed",
                                    self._cb_source_name_changed, index)
-            self.emit_event("parameter-changed")
+            self.emit_event("argument-changed")
 
     def get_data(self):
         if self.is_list():
             return [ source.data
-                     for source in self.sources[:self.real_attached] ]
+                     for source in self._sources[:self._real_attached] ]
         else:
-            return self.sources[0].data
+            return self._sources[0].data
 
-    def _cb_source_name_changed(self, idx, name):
-        self.emit_event("source-name-changed", idx, name)
+    def _cb_source_name_changed(self, idx, old_name, new_name):
+        self.emit_event("source-name-changed", idx, new_name)
 
 
-class ParameterView(gtk.Table, EventSource):
+class ArgumentView(gtk.Table, EventSource):
 
-    def __init__(self, parameter):
+    def __init__(self, argument):
         gtk.Table.__init__(self, 1, 4, False)
         EventSource.__init__(self)
         self.entries = []
 
         self.set_border_width(2)
 
-        self.parameter = parameter
+        self.argument = argument
         self.events = EventCallbacksList()
         self.events.set_callback(
-            self.parameter, "parameter-changed", self._cb_parameter_changed)
+            self.argument, "argument-changed", self._cb_argument_changed)
         self.events.set_callback(
-            self.parameter, "source-name-changed", self._cb_source_name_changed)
+            self.argument, "source-name-changed", self._cb_source_name_changed)
 
         # initialize view
-        self._cb_parameter_changed()
+        self._cb_argument_changed()
 
     def deregister_callbacks(self):
         self.event.remove()
 
-    def _cb_parameter_changed(self):
+    def _cb_argument_changed(self):
         # remove
         for child in self.get_children():
             self.remove(child)
         self.entries = []
 
         # create actualized view
-        rows = self.parameter.sources_count() + 1
+        rows = self.argument.sources_count() + 1
         columns = 4
         self.resize(rows, columns)
 
         label = gtk.Label()
         label.set_alignment(0, 0.5)
-        label.set_markup("<b>{0}</b>".format(self.parameter.name))
+        label.set_markup("<b>{0}</b>".format(self.argument.name))
         self.attach(label, 0, 1, 0, 1, xoptions=0)
 
         label = gtk.Label()
         label.set_alignment(0, 0.5)
         label.set_markup(
-            " ({0})".format(self.parameter.type.short_name))
+            " ({0})".format(self.argument.type.short_name))
         self.attach(label, 1, 2, 0, 1)
 
         until = 1
-        if self.parameter.is_list():
-            until = self.parameter.sources_count() + 1
-            if self.parameter.minimum > self.parameter.sources_count():
-                until = self.parameter.minimum
+        if self.argument.is_list():
+            until = self.argument.sources_count() + 1
+            if self.argument.minimum > self.argument.sources_count():
+                until = self.argument.minimum
 
         for i in xrange(until):
             entry = gtk.Entry()
             entry.set_editable(False)
-            entry.connect("focus-in-event", self._cb_choose_parameter, i)
-            attached_source = self.parameter.get_source(i)
+            entry.connect("focus-in-event", self._cb_choose_argument, i)
+            attached_source = self.argument.get_source(i)
             if attached_source is not None:
                 entry.set_text(attached_source.name)
                 entry.set_sensitive(attached_source.data is not None)
@@ -549,16 +568,16 @@ class ParameterView(gtk.Table, EventSource):
 
         self.show_all()
 
-    def _cb_source_name_changed(self, idx, name):
-        self.entries[idx].set_text(name)
+    def _cb_source_name_changed(self, idx, old_name, new_name):
+        self.entries[idx].set_text(new_name)
 
     def _cb_detach_source(self, index):
-        self.parameter.detach_source(index)
-        self.emit_event("detach-source", self.parameter.get_source(index))
+        self.argument.detach_source(index)
+        self.emit_event("detach-source", self.argument.get_source(index))
 
-    def _cb_choose_parameter(self, widget, event, index):
-        self.emit_event("filter-sources", [self.parameter.type])
-        self.parameter.emit_event("select-parameter", index)
+    def _cb_choose_argument(self, widget, event, index):
+        self.emit_event("filter-sources", [self.argument.type])
+        self.argument.emit_event("select-argument", index)
 
 
 class Operation(object, EventSource):
@@ -567,16 +586,16 @@ class Operation(object, EventSource):
         EventSource.__init__(self)
 
         self.events = EventCallbacksList()
-        self.parameters = [Parameter(arg) for arg in self.arguments]
-        for parameter in self.parameters:
+        self.arguments = [Argument(param) for param in self.parameters]
+        for argument in self.arguments:
             self.events.set_callback(
-                parameter, "parameter-changed", self._cb_parameter_changed)
+                argument, "argument-changed", self._cb_argument_changed)
             self.events.set_callback(
-                parameter,
-                "select-parameter",
-                lambda p, i: self.select_parameter(p, i), parameter)
+                argument,
+                "select-argument",
+                lambda p, i: self.select_argument(p, i), argument)
 
-        self.selected_parameter = (None, None)
+        self.selected_argument = (None, None)
         self._state = "ready" if self.all_sources_filled() else "incomplete"
 
     @property
@@ -591,37 +610,37 @@ class Operation(object, EventSource):
         self._state = state
         self.emit_event("state-changed", state)
 
-    def select_parameter(self, parameter, index=0):
-        """Select a specific parameter. The index is important if the selected
-         parameter is a list. Then the index specify the position in the list.
+    def select_argument(self, argument, index=0):
+        """Select a specific argument. The index is important if the selected
+         argument is a list. Then the index specify the position in the list.
 
         Arguments:
-        parameter -- selected parameter
+        argument -- selected argument
 
         Keyword arguments:
         index -- the specific position in a list (default 0)
 
         """
-        if parameter is None:
-            self.selected_parameter = (None, None)
+        if argument is None:
+            self.selected_argument = (None, None)
             return
 
-        if parameter.is_list():
-            if index > parameter.sources_count():
-                index = parameter.sources_count()
+        if argument.is_list():
+            if index > argument.sources_count():
+                index = argument.sources_count()
         else:
             index = 0
-        self.selected_parameter = (parameter, index)
+        self.selected_argument = (argument, index)
 
     def run(self, *args):
         """This method is called with attached arguments. Method must not
-         any side effect and it must not modify argument.
+         have any side effect and it must not modifies its input arguments.
 
         """
         return None
 
     def execute(self, app, store_results=True):
-        args = [ parameter.get_data() for parameter in self.parameters ]
+        args = [ argument.get_data() for argument in self.arguments ]
         results = self.run(app, *args)
         if not store_results:
             return results
@@ -636,34 +655,34 @@ class Operation(object, EventSource):
         return results
 
     def attach_source(self, source):
-        parameter, index = self.selected_parameter
-        if parameter is not None and parameter.type == source.type:
-            parameter.attach_source(source, index)
+        argument, index = self.selected_argument
+        if argument is not None and argument.type == source.type:
+            argument.attach_source(source, index)
             return
-        for parameter in self.parameters:
-            if (source.type == parameter.type and
-                    (parameter.is_empty() or parameter.is_list())):
-                parameter.attach_source(source)
+        for argument in self.arguments:
+            if (source.type == argument.type and
+                    (argument.is_empty() or argument.is_list())):
+                argument.attach_source(source)
                 return
 
         # not attached source
         self.emit_event("no-free-slot", source)
 
     def all_sources_filled(self):
-        for parameter in self.parameters:
+        for argument in self.arguments:
             count = 0
-            for idx in xrange(parameter.sources_count()):
-                src = parameter.get_source(idx)
+            for idx in xrange(argument.sources_count()):
+                src = argument.get_source(idx)
                 if src is not None and src.data is not None:
                     count += 1
-            if count < parameter.minimum:
+            if count < argument.minimum:
                 return False
         return True
 
     def deregister_callbacks(self):
         self.events.remove_all()
 
-    def _cb_parameter_changed(self):
+    def _cb_argument_changed(self):
         if self.all_sources_filled():
             self.state = "ready"
         else:
@@ -714,10 +733,9 @@ class OperationFullView(gtk.VBox, EventSource):
         gtk.VBox.__init__(self)
         EventSource.__init__(self)
 
-        self.events = EventCallbacksList()
-
-        self.app = app
         self.operation = None
+        self.app = app
+        self.events = EventCallbacksList()
 
     def deregister_callbacks(self):
         self.events.remove_all()
@@ -787,9 +805,9 @@ class OperationFullView(gtk.VBox, EventSource):
             align.add(frame)
             self.pack_start(align, False, False)
 
-        # parameters
-        for parameter in operation.parameters:
-            param_view = ParameterView(parameter)
+        # arguments
+        for argument in operation.arguments:
+            param_view = ArgumentView(argument)
             self.events.set_callback(
                 param_view, "filter-sources",
                 lambda f: self.emit_event("filter-sources", f))
@@ -979,11 +997,11 @@ class OperationManager(gtk.VBox):
         self.sources_title.set_markup("Sources:")
         self.sources_view.set_filter(None)
         if self.full_view.operation is not None:
-            self.full_view.operation.select_parameter(None, None)
+            self.full_view.operation.select_argument(None, None)
 
     def _cb_operation_finished(self, operation, sources):
-        # destroy filter and selected_parameter
-        self.full_view.operation.select_parameter(None, None)
+        # destroy filter and selected_argument
+        self.full_view.operation.select_argument(None, None)
         self.sources_view.set_filter(None)
 
     def _cb_attach_source(self, source):
@@ -991,15 +1009,15 @@ class OperationManager(gtk.VBox):
         if operation is not None:
             operation.attach_source(source)
 
-            param, idx = operation.selected_parameter
+            param, idx = operation.selected_argument
             if param is None:
                 return
 
             if param.is_list(): # the filter will stay on,
-                                # if a parameter is list type
-                operation.select_parameter(param, param.sources_count() + 1)
+                                # if a argument is list type
+                operation.select_argument(param, param.sources_count() + 1)
             else:
-                operation.select_parameter(None, None)
+                operation.select_argument(None, None)
                 self.sources_view.set_filter(None)
         else:
             self.app.show_message_dialog(
@@ -1008,15 +1026,15 @@ class OperationManager(gtk.VBox):
     def _cb_detach_source(self, source):
         operation = self.full_view.operation
         if operation is not None:
-            param, idx = operation.selected_parameter
+            param, idx = operation.selected_argument
             if param is not None:
-                operation.select_parameter(param, param.sources_count())
+                operation.select_argument(param, param.sources_count())
 
     def _cb_detach_source_from_all_operations(self, source):
-        """Detach source from all operation's parameters."""
+        """Detach source from all operation's arguments."""
 
         for operation in self.loaded_operations:
-            for param in operation.parameters:
+            for param in operation.arguments:
                 if param.is_list():
                     idx = 0
                     while idx < param.minimum + param.sources_count():
@@ -1032,14 +1050,40 @@ class OperationManager(gtk.VBox):
 
     def _cb_source_data_changed(self, source):
         for operation in self.loaded_operations:
-            for param in operation.parameters:
-                for psource in param.sources:
-                    if psource == source:
-                        param.emit_event("parameter-changed")
+            for argument in operation.arguments:
+                for i in xrange(argument.sources_count()):
+                    arg_source = argument.get_source(i)
+                    if arg_source == source:
+                        argument.emit_event("argument-changed")
 
 
 # *****************************************************************************
 # Modules methods
+
+def load_source(filename, app, settings=None):
+    """Load the source from a file. It calls a function in the 'loaders'
+    dictionary by the suffix of a filename.
+
+    Arguments:
+    filename -- a name of a file where are data stored
+    app -- a reference to the main application
+
+    Keywords:
+    settings -- an optional argument where may be stored some users' setting
+    information
+
+    """
+    # TODO: Catch IOError
+    suffix = utils.get_filename_suffix(filename)
+    loader = datatypes.get_loader_by_suffix(suffix)
+    if loader is None:
+        return None
+
+    data, settings = loader(filename, app, settings)
+    if data is None:
+        return None
+    return Source(
+        filename, datatypes.get_type_by_suffix(suffix), data, True, settings)
 
 def add_operation(operation):
     operations[operation.name] = operation
