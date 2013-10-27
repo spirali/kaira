@@ -1,9 +1,8 @@
 
 from waflib import Logs, Context
-import os
 
 APPNAME = "Kaira"
-VERSION = "0.7"
+VERSION = "1.0"
 
 def options(ctx):
     ctx.add_option("--icc",

@@ -47,7 +47,6 @@ import controlseq
 import simrun
 import extensions
 
-VERSION_STRING = '0.7'
 
 class App:
     """
@@ -745,7 +744,7 @@ class App:
         label = gtk.Label()
         line = "<span size='xx-large'>Kaira</span>\nv{0}\n\n" \
                 "<a href='http://verif.cs.vsb.cz/kaira'>http://verif.cs.vsb.cz/kaira</a>" \
-                    .format(VERSION_STRING)
+                    .format(ptp.get_config("Main", "VERSION"))
         label.set_markup(line)
         label.set_justify(gtk.JUSTIFY_CENTER)
         self.window.add_tab(Tab("Welcome",
