@@ -23,7 +23,7 @@ static bool analyse_transition_occurrence = false;
 static bool analyse_final_marking = false;
 static bool analyse_cycle = false;
 static bool partial_order = true;
-static bool write_long_names = false;
+static bool testing_mode = false;
 static std::string project_name;
 
 
@@ -62,8 +62,8 @@ static void args_callback(char c, char *optarg, void *data)
 			partial_order = false;
 			return;
 		}
-		if (!strcmp(optarg, "long_names")) {
-			write_long_names = true;
+		if (!strcmp(optarg, "test")) {
+			testing_mode = true;
 			return;
 		}
 		fprintf(stderr, "Invalid argument in -V\n");
@@ -327,7 +327,7 @@ void Core::generate()
 	int count = 0;
 	do {
 		count++;
-		if (count % 1000 == 0) {
+		if (count % 1000 == 0 && !testing_mode) {
 			fprintf(stderr, "Nodes %i\n", count);
 		}
 		Node *node = not_processed.top();
@@ -400,7 +400,7 @@ void Core::write_dot_file(const std::string &filename)
 		Node *node = it->second;
 		const std::vector<NextNodeInfo> &nexts = node->get_nexts();
 		if (node == initial_node) {
-			if (write_long_names) {
+			if (testing_mode) {
 				hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
 				fprintf(f, "S%p [label=\"%s\", style=filled]\n", node, hashstr);
 			} else {
@@ -408,7 +408,7 @@ void Core::write_dot_file(const std::string &filename)
 			}
 		} else {
 			hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
-			if (!write_long_names) {
+			if (!testing_mode) {
 				hashstr[5] = 0;
 			}
 			int packets_count = 0;
@@ -416,8 +416,15 @@ void Core::write_dot_file(const std::string &filename)
 				packets_count += node->get_state()->get_packets(
 					i / ca::process_count, i % ca::process_count).size();
 			}
-			fprintf(f, "S%p [label=\"%s|%i|%i|%i\"]\n",
+			const char *quit_flag;
+			if (node->get_state()->get_quit_flag()) {
+				quit_flag = "!";
+			} else {
+				quit_flag = "";
+			}
+			fprintf(f, "S%p [label=\"%s%s|%i|%i|%i\"]\n",
 				node,
+				quit_flag,
 				hashstr,
 				(int) node->get_state()->get_activations().size(),
 				packets_count,

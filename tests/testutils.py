@@ -211,6 +211,19 @@ class Project:
         kreport = os.path.join(self.get_directory(), self.name + ".kreport")
         return xml.parse(kreport).getroot()
 
+    def partial_order(self, args, **kw):
+        self.build("statespace")
+        if args:
+            extra_args = [ "-V" + a for a in args ]
+        else:
+            extra_args = []
+        extra_args.append("-Vdot")
+        extra_args.append("-Vtest")
+        self.run(None, extra_args=extra_args, **kw)
+        statespace = os.path.join(self.get_directory(), "statespace.dot")
+        with open(statespace, "r") as f:
+            return f.read()
+
     def build_main(self):
         self.build("lib")
         if self.mpi and not self.rpc:
