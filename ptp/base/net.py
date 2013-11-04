@@ -306,6 +306,10 @@ class EdgeInscription(utils.EqMixin):
                                      "can be used only with 'bulk'")
 
     def check_edge_out(self, checker):
+        if not self.expr:
+            raise utils.PtpException("Main expression of output inscription is empty",
+                                     self.source)
+
         self.check_config(("bulk", "multicast", "if", "seq"))
 
         if self.check_config_with_expression("if"):
