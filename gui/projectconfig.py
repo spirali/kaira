@@ -19,7 +19,6 @@
 
 from parameters import ParametersWidget
 from build import BuildOptionsWidget
-from packages import PackagesWidget
 
 import gtk
 
@@ -55,9 +54,6 @@ class ProjectConfig(gtk.Notebook):
 
         w = LibraryConfig(app.project)
         self.append_page(w, gtk.Label("Library"))
-
-        w = PackagesWidget(app.project)
-        self.append_page(w, gtk.Label("Packages"))
 
         w = ParametersWidget(app.project, app.window)
         self.append_page(w, gtk.Label("Parameters"))
