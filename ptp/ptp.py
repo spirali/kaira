@@ -10,7 +10,7 @@ config = ConfigParser.RawConfigParser()
 if not config.read(base.paths.KAIRA_CONFIG_INI):
     print "File '{0}' was not found.".format(
         base.paths.KAIRA_CONFIG_INI)
-    print "Run './waf configure' in Kaira top directory"
+    print "See 'docs/userguide.txt' the for installation instructions."
     sys.exit(1)
 
 import base.project as project
