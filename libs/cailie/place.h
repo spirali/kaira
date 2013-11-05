@@ -75,6 +75,16 @@ template <typename T> class PlaceWithSource : public Place<T>
 {
 	public:
 
+		PlaceWithSource() {}
+
+		PlaceWithSource(PlaceWithSource &place) : Place<T>(place), default_source(place.default_source) {
+			Token<T> *s = this->token_list.begin();
+			for (Token<T> *t = place.token_list.begin(); t != NULL; t = place.token_list.next(t)) {
+				this->sources[s] = place.sources[t];
+				s = this->token_list.next(s);
+			}
+		}
+
 		void set_default_source(int source) {
 			default_source = source;
 		}
