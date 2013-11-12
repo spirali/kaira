@@ -177,9 +177,13 @@ HashDigest State::compute_hash(hashid hash_id)
 }
 
 Node::Node(HashDigest hash, State *state, Node *prev)
-	: hash(hash), state(state), prev(prev), distance(0), data(NULL), tag(0)
+	: hash(hash), state(state), prev(prev), data(NULL), tag(0)
 {
-
+    if (prev != NULL) {
+        distance = prev->get_distance() + 1;
+    } else {
+        distance = 0;
+    }
 }
 
 Node::~Node()
@@ -189,7 +193,7 @@ Node::~Node()
 
 void Node::set_prev(Node *node)
 {
-	if (prev != NULL || node->get_distance() + 1 < get_distance()) {
+	if (prev != NULL && node->get_distance() + 1 < get_distance()) {
 		prev = node;
 		distance = node->get_distance() + 1;
 	}
