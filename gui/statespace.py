@@ -50,6 +50,10 @@ class StatespaceConfig(gtk.VBox):
         vbox.pack_start(self.analyze_transition_occurrence, False, False)
         self.analyze_transition_occurrence.set_active(True)
 
+        self.disable_partial_order = gtk.CheckButton("Disable partial order")
+        vbox.pack_start(self.disable_partial_order, False, False)
+        self.disable_partial_order.set_active(False)
+
         frame = gtk.Frame("Other options")
         self.pack_start(frame, False, False, 5)
         frame.set_border_width(5)
@@ -121,6 +125,9 @@ class StatespaceConfig(gtk.VBox):
 
             if self.analyze_cycles.get_active():
                 parameters.append("-Vcycle")
+
+            if self.disable_partial_order.get_active():
+                parameters.append("-Vdisable_partial_order")
 
 
             p.start(parameters)
