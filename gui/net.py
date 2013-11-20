@@ -28,21 +28,17 @@ import tracing
 
 class Net:
 
-    def __init__(self, project, name, id=None, main=False):
+    def __init__(self, project, name, id=None):
         if id is None:
             self.id = project.new_id()
         else:
             self.id = id
         self.project = project
-        self.main = main
         self.name = name
         self.items = []
         self.change_callback = lambda n: None
         self.change_item_callback = lambda n, i: None
         self.undo_manager = undo.UndoManager()
-
-    def is_main(self):
-        return self.main
 
     def get_name(self):
         return self.name

@@ -650,8 +650,9 @@ class NetList(ObjectTree):
         obj = self.selected_object()
         if isinstance(obj, str):
             return
-        if obj.is_main():
-            self.neteditor.app.show_info_dialog("Main net cannot be removed.")
+        if len(self.project.nets) == 1:
+            self.neteditor.app.show_error_dialog("Net cannot be removed.\n"
+                                                 "Project has to have at least one net.")
         else:
             self.project.remove_net(obj)
             net = self.project.get_nets()[0]

@@ -54,10 +54,9 @@ def load_project_from_xml(root, filename):
     for e in root.findall("net"):
         project.add_net(load_net(e, project, loader))
     assert project.nets
-    project.nets[0].main = True
     for e in root.findall("sequence"):
         project.sequences.append(controlseq.ControlSequence(element=e))
-    project.build_net = project.get_main_net()
+    project.build_net = project.nets[0]
 
     project.id_counter += 1
 
@@ -112,8 +111,8 @@ def new_empty_project(directory, target_env_name):
     project_filename = os.path.join(directory,name + ".proj")
     project = create_project(project_filename, target_env_name)
 
-    project.add_net(Net(project, name, main=True))
-    project.build_net = project.get_main_net()
+    project.add_net(Net(project, name))
+    project.build_net = project.nets[0]
 
     project.save()
     return project

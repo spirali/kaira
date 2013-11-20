@@ -54,9 +54,6 @@ class Project(EventSource):
         self.library_rpc = False
         self.library_octave = False
 
-    def get_main_net(self):
-        return self.nets[0]
-
     def get_build_option(self, name):
         if name in self.build_options:
             return self.build_options[name]
@@ -142,7 +139,7 @@ class Project(EventSource):
     def remove_net(self, net):
         self.nets.remove(net)
         if self.build_net == net:
-            self.build_net = self.get_main_net()
+            self.build_net = self.nets[0]
         self.emit_event("netlist_changed")
 
     def get_modules(self):
