@@ -149,19 +149,18 @@ class NetViewCanvasConfig(cconfig.NetCanvasConfig):
 
 class NetView(gtk.HPaned):
 
-    def __init__(self, app, config=None, other_tabs=None):
+    def __init__(self, app, config=None, other_tabs=None, other_widgets=None):
         gtk.HPaned.__init__(self)
         self.app = app
         if other_tabs:
             notebook = gtk.Notebook()
-
-            notebook.append_page(self._perspectives(), gtk.Label("Views"))
+            notebook.append_page(self._perspectives(other_widgets), gtk.Label("Views"))
             for name, widget in other_tabs:
                 notebook.append_page(widget, gtk.Label(name))
             self.perspectives.hide_headers()
             self.pack1(notebook)
         else:
-            self.pack1(self._perspectives(), False)
+            self.pack1(self._perspectives(other_widgets), False)
         self.config = config
         self.canvas = Canvas(self.config, zoom=1)
         self.pack2(self.canvas, True)
@@ -201,11 +200,19 @@ class NetView(gtk.HPaned):
             self.perspectives.select_first()
         self._perspectives_changed(None)
 
-    def _perspectives(self):
+    def _perspectives(self, other_widgets):
         self.perspectives = gtkutils.SimpleList((("_", object), ("Views",str)))
         self.perspectives.set_size_request(80,10)
         self.perspectives.connect_view("cursor-changed", self._perspectives_changed);
-        return self.perspectives
+
+        if other_widgets:
+            box = gtk.VBox()
+            box.pack_start(self.perspectives, True, True)
+            for widget in other_widgets:
+                box.pack_start(widget, False, False)
+            return box
+        else:
+            return self.perspectives
 
     def _perspectives_changed(self, w):
         perspective = self.get_perspective()

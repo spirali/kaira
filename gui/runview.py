@@ -30,7 +30,11 @@ class RunView(gtk.VBox):
         gtk.VBox.__init__(self)
         self.tracelog = tracelog
 
-        self.netinstance_view = netview.NetView(app, None)
+        button = gtk.Button("Export sequence")
+        button.connect("clicked", lambda w:
+                app.save_sequence_into_project(self.export_sequence()))
+
+        self.netinstance_view = netview.NetView(app, None, other_widgets=[button])
         self.netinstance_view.set_config(
             netview.NetViewCanvasConfig(self.netinstance_view))
         self.netinstance_view.set_runinstance(self.tracelog.first_runinstance)
