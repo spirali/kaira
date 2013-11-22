@@ -113,7 +113,14 @@ class Project(object):
             import ptp # Import here to avoid cyclyc import
             if ptp.get_config("Main", "OCTAVE") != "True":
                 raise utils.PtpException("Cannot build a module for Octave, "
-                                         "Kaira is not configured with Octave support.\n"
+                                         "Kaira is not build with Octave support.\n"
+                                         "Run './waf configure' in Kaira root directory")
+
+        if self.get_build_with_octave():
+            import ptp # Import here to avoid cyclyc import
+            if ptp.get_config("Main", "OCTAVE") != "True":
+                raise utils.PtpException("Cannot build a project with Octave C++ API, "
+                                         "Kaira is not build with Octave support.\n"
                                          "Run './waf configure' in Kaira root directory")
 
         checker = self.target_env.get_checker(self)
