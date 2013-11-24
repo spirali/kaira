@@ -249,7 +249,7 @@ class Simulation(EventSource):
                 self.sequence.add_fire(process_id, 0, name)
             else:
                 self.sequence.add_transition_start(process_id, 0, name)
-                if transition.has_code():
+                if not transition.has_code():
                     self.sequence.add_transition_finish(process_id, 0)
             if query_reports:
                 self.query_reports(ok_callback)
