@@ -163,6 +163,9 @@ class Edge(utils.EqMixin):
     def is_local(self):
         return all(inscription.is_local() for inscription in self.inscriptions)
 
+    def has_fixed_target(self):
+        return all(i.has_fixed_target() for i in self.inscriptions)
+
 
 class EdgeInscription(utils.EqMixin):
 
@@ -357,6 +360,12 @@ class EdgeInscription(utils.EqMixin):
     def is_token(self):
         return not self.is_bulk() and self.has_expr()
 
+    def has_fixed_target(self):
+        vars = self.edge.transition.net.project.get_expr_variables(self.target)
+        if any('ctx' != v for v in vars) or self.is_multicast():
+            return False
+        return True
+
     def is_multicast(self):
         return "multicast" in self.config
 
@@ -421,6 +430,18 @@ class Place(utils.EqByIdMixin):
 
     def is_io_place(self):
         return self.interface_input is None or self.interface_output is None
+
+    def get_token_prefix_size(self):
+        count = 0
+        for edge in self.get_edges_out():
+            if edge.is_bulk():
+                return None
+            for inscription in edge.inscriptions:
+                if "filter" in inscription.config or "from" in inscription.config:
+                    return None
+                if inscription.is_token():
+                    count += 1
+        return count
 
     def check(self, checker):
         functions = [ "token_name" ]
@@ -516,7 +537,7 @@ class Transition(utils.EqByIdMixin):
         return [ edge for edge in self.edges_in if edge.is_bulk() ]
 
     def get_bulk_edges_out(self):
-        return [ edge for edge in self.edges_out if edge.is_bulkdge() ]
+        return [ edge for edge in self.edges_out if edge.is_bulk() ]
 
     def need_trace(self):
         if self.is_any_place_traced():
@@ -543,6 +564,9 @@ class Transition(utils.EqByIdMixin):
 
     def is_local(self):
         return all((edge.is_local() for edge in self.edges_out))
+
+    def has_fixed_target(self):
+        return all((edge.has_fixed_target() for edge in self.edges_out))
 
     def get_source(self, location=None):
         if location is None:
