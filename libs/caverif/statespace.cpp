@@ -24,6 +24,7 @@ static bool analyse_final_marking = false;
 static bool analyse_cycle = false;
 static bool partial_order = true;
 static bool testing_mode = false;
+static bool debug = false;
 static std::string project_name;
 
 
@@ -40,6 +41,10 @@ static void args_callback(char c, char *optarg, void *data)
 	if (c == 'V') {
 		if (!strcmp(optarg, "dot")) {
 			write_dot = true;
+			return;
+		}
+		if (!strcmp(optarg, "debug")) {
+			debug = true;
 			return;
 		}
 		if (!strcmp(optarg, "deadlock")) {
@@ -333,6 +338,9 @@ void Core::generate()
 		Node *node = not_processed.top();
 		not_processed.pop();
 		node->generate(this);
+		if (debug) {
+			getchar();
+		}
 	} while (!not_processed.empty());
 }
 
@@ -340,10 +348,28 @@ WorkSet* Core::compute_ample_set(State *s, WorkSet *ws)
 {
 	WorkSet::iterator it;
 
+	if (debug) {
+		// print state name
+		char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
+		hashdigest_to_string(MHASH_MD5, s->compute_hash(MHASH_MD5) , hashstr);
+		hashstr[5] = 0;
+		printf(">>>>> %s <<<<<\n", hashstr);
+		for (it = ws->begin(); it != ws->end(); it++) {
+			it->print("", " | ");
+		}
+		printf("\n");
+	}
+
 	for (it = ws->begin(); it != ws->end(); it++) {
 		WorkSet *subset = new WorkSet();
 		subset->insert(*it);
+		if (debug) {
+			it->print("CHECK ", "");
+		}
 		if (check_C1(ws, subset, s) && check_C2(subset) && check_C3(s)) {
+			if (debug) {
+				printf(" ::>> OK\n");
+			}
 			delete ws;
 			return subset;
 		}
@@ -360,9 +386,15 @@ bool Core::check_C1(WorkSet *ws, WorkSet *subset, State *s)
 		for (it2 = ws->begin(); it2 != ws->end(); it2++) {
 			if (subset->count(*it2)) continue;
 			if (verif_configuration.is_dependent(*it1, *it2, *s)) {
+				if (debug) {
+					it2->print(" IS DEP ON ", "\n");
+				}
 				return false;
 			}
-			if (verif_configuration.is_predecesor(*it2, *it1, *s)) {
+			if (verif_configuration.is_predecesor(*it2, *it1, *s, debug)) {
+				if (debug) {
+					it2->print("", "\n");
+				}
 				return false;
 			}
 		}

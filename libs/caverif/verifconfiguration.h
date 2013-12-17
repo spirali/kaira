@@ -32,6 +32,17 @@ struct Action
 			int edge_id;
 		} receive;
 	} data;
+
+	void print(const std::string &start, const std::string &end) const {
+		switch (type) {
+			case ActionFire: {
+				printf("%s(fire %d %d)%s", start.c_str(), process, data.fire.transition_def->get_id(), end.c_str());
+			} break;
+			case ActionReceive: {
+				printf("%s(receive %d %d %d)%s", start.c_str(), process, data.receive.source, data.receive.edge_id, end.c_str());
+			} break;
+		}
+	}
 };
 
 struct ActionCompare
@@ -67,7 +78,7 @@ class VerifConfiguration {
 		virtual void pack_final_marking(ca::NetBase *net, ca::Packer &packer) = 0;
 		virtual ~VerifConfiguration() {};
 
-		bool is_predecesor(const Action &pred, const Action &succ, State &s)
+		bool is_predecesor(const Action &pred, const Action &succ, State &s, bool debug)
 		{
 			std::list<Action> successors;
 			std::set<Action, ActionCompare> analyzed;
@@ -75,6 +86,9 @@ class VerifConfiguration {
 			while(successors.size())
 			{
 				if (is_dependent(succ, successors.front(), s)) {
+					if (debug) {
+						successors.front().print(" IS DEP ON ", " PRE OF ");
+					}
 					return true;
 				}
 				if (!analyzed.count(successors.front())) {
