@@ -11,6 +11,8 @@
 #include "verifconfiguration.h"
 
 #include <set>
+#include <list>
+#include <vector>
 
 namespace cass {
 
@@ -18,6 +20,9 @@ namespace cass {
 	class Node;
 	class VerifConfiguration;
 	typedef void* HashDigest;
+	struct Arc;
+	struct ArcCompare;
+	typedef std::map<Arc, int, ArcCompare> ParikhVector;
 
 	struct Activation : public ca::Activation
 	{
@@ -78,12 +83,6 @@ namespace cass {
 			void pack_packets(ca::Packer &packer);
 	};
 
-	enum ActionType {
-		ActionFire,
-		ActionFinish,
-		ActionReceive
-	};
-
 	struct NextNodeInfo {
 		Node *node;
 		ActionType action;
@@ -125,8 +124,6 @@ namespace cass {
 		VerifConfiguration &verif_configuration;
 	};
 
-	typedef std::map<Arc, int, ArcCompare> ParikhVector;
-
 	class Node
 	{
 		public:
@@ -147,6 +144,7 @@ namespace cass {
 			int get_tag() const { return tag; }
 			void set_tag(int tag) { this->tag = tag; }
 		protected:
+			WorkSet* compute_work_set(Core *core);
 			HashDigest hash;
 			State* state;
 			std::vector<NextNodeInfo> nexts;
@@ -194,6 +192,8 @@ namespace cass {
 			HashDigest hash_packer(ca::Packer &packer);
 			ca::NetDef * get_net_def() { return net_def; }
 			bool generate_binding_in_nni(int transition_id);
+
+			WorkSet* compute_ample_set(State *s, WorkSet *ws);
 		protected:
 			void write_control_sequence(std::vector<Node*> &nodes, ca::Output &report);
 			void write_state(const std::string &name, Node *node, ca::Output &report);
@@ -205,6 +205,10 @@ namespace cass {
 
 			bool is_known_node(Node *node) const;
 			Node *get_node(HashDigest digest) const;
+
+			bool check_C1(WorkSet *ws, WorkSet *subset, State *s);
+			bool check_C2(WorkSet *ws);
+			bool check_C3(State *s);
 			std::stack<Node*> not_processed;
 			NodeMap nodes;
 			Node *initial_node;

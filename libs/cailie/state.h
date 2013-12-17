@@ -323,7 +323,7 @@ namespace ca {
 			}
 
 			NetDef* get_net_def() { return net_def; }
-			NetBase* get_net(int id) { return nets[id]; }
+			NetT* get_net(int id) { return nets[id]; }
 
 			int get_idle_thread(int process_id) {
 				for (int i = 0; i < threads_count; i++) {

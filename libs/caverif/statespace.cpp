@@ -22,6 +22,8 @@ static bool analyse_deadlock = false;
 static bool analyse_transition_occurrence = false;
 static bool analyse_final_marking = false;
 static bool analyse_cycle = false;
+static bool partial_order = true;
+static bool write_long_names = false;
 static std::string project_name;
 
 
@@ -56,7 +58,14 @@ static void args_callback(char c, char *optarg, void *data)
 			analyse_cycle = true;
 			return;
 		}
-
+		if (!strcmp(optarg, "disable_partial_order")) {
+			partial_order = false;
+			return;
+		}
+		if (!strcmp(optarg, "long_names")) {
+			write_long_names = true;
+			return;
+		}
 		fprintf(stderr, "Invalid argument in -V\n");
 		exit(1);
 	}
@@ -199,6 +208,43 @@ void Node::set_prev(Node *node)
 	}
 }
 
+WorkSet* Node::compute_work_set(Core *core)
+{
+	WorkSet *ws = new WorkSet;
+
+	ca::NetDef *def = core->get_net_def();
+	const std::vector<ca::TransitionDef*> &transitions = def->get_transition_defs();
+
+	for (int p = 0; p < ca::process_count; p++) {
+		for (int i = 0; i < def->get_transitions_count(); i++) {
+			if (state->is_transition_enabled(p, transitions[i])) {
+				Action action;
+				action.type = ActionFire;
+				action.data.fire.transition_def = transitions[i];
+				action.process = p;
+				ws->insert(action);
+			}
+		}
+	}
+
+	for (int pq = 0; pq < ca::process_count * ca::process_count; pq++) {
+		int target = pq / ca::process_count;
+		int source = pq % ca::process_count;
+		int edge_id = state->get_receiving_edge(target, source, 0);
+
+		if (edge_id != -1) {
+			Action action;
+			action.type = ActionReceive;
+			action.data.receive.source = source;
+			action.data.receive.edge_id = edge_id;
+			action.process = target;
+			ws->insert(action);
+		}
+	}
+
+	return ws;
+}
+
 void Node::generate(Core *core)
 {
 	if (state->get_quit_flag()) {
@@ -206,107 +252,55 @@ void Node::generate(Core *core)
 	}
 
 	ca::NetDef *def = core->get_net_def();
-	const std::vector<ca::TransitionDef*> &transitions =
-		def->get_transition_defs();
-	int transitions_count = def->get_transitions_count();
+	const std::vector<ca::TransitionDef*> &transitions = def->get_transition_defs();
+	WorkSet *ws = compute_work_set(core);
+	if (partial_order) {
+		ws = core->compute_ample_set(state, ws);
+	}
 
-	State *s = NULL;
+	State *s;
 
-	/* Full fire transition */
-	for (int p = 0; p < ca::process_count; p++) {
-			for (int i = 0; i < transitions_count; i++) {
-				if (s == NULL) {
-					s = new State(*state);
-				}
+	WorkSet::iterator it;
+	for (it = ws->begin(); it != ws->end(); it++) {
+		s = new State(*state);
+		switch (it->type) {
+
+			case ActionFire:
+			{
 				ca::Packer packer;
-				bool fired;
-				if (core->generate_binding_in_nni(transitions[i]->get_id())) {
-					fired = s->fire_transition_full_with_binding(p, transitions[i], packer);
+				if (core->generate_binding_in_nni(it->data.fire.transition_def->get_id())) {
+					s->fire_transition_full_with_binding(it->process, it->data.fire.transition_def, packer);
 				} else {
-					fired = s->fire_transition_full(p, transitions[i]);
+					s->fire_transition_full(it->process, it->data.fire.transition_def);
 				}
-				if (fired) {
-					Node *n = core->add_state(s, this);
-					NextNodeInfo nninfo;
-					nninfo.node = n;
-					nninfo.action = ActionFire;
-					nninfo.data.fire.process_id = p;
-					nninfo.data.fire.thread_id = 0;
-					nninfo.data.fire.transition_id = transitions[i]->get_id();
-					if (core->generate_binding_in_nni(transitions[i]->get_id())) {
-						nninfo.data.fire.binding = core->hash_packer(packer);
-					}
-					nexts.push_back(nninfo);
-					s = NULL;
-				}
-			}
-		}
-
-	/* we do not support threads
-	// Fire transitions
-	for (int p = 0; p < ca::process_count; p++) {
-		for (int i = 0; i < transitions_count; i++) {
-			if (s == NULL) {
-				s = new State(*state);
-			}
-			bool fired = s->fire_transition_phase1(p, transitions[i]);
-			if (fired) {
-				Node *n = core->add_state(s);
-				n->set_prev(this);
+				Node *n = core->add_state(s, this);
 				NextNodeInfo nninfo;
 				nninfo.node = n;
 				nninfo.action = ActionFire;
-				nninfo.data.fire.process_id = p;
+				nninfo.data.fire.process_id = it->process;
 				nninfo.data.fire.thread_id = 0;
-				nninfo.data.fire.transition_id = transitions[i]->get_id();
+				nninfo.data.fire.transition_id = it->data.fire.transition_def->get_id();
+				if (core->generate_binding_in_nni(it->data.fire.transition_def->get_id())) {
+					nninfo.data.fire.binding = core->hash_packer(packer);
+				}
 				nexts.push_back(nninfo);
-				s = NULL;
-			}
+			} break;
+
+			case ActionReceive:
+			{
+				s->receive(it->process, it->data.receive.source, false);
+				Node *n = core->add_state(s, this);
+				NextNodeInfo nninfo;
+				nninfo.node = n;
+				nninfo.action = ActionReceive;
+				nninfo.data.receive.process_id = it->process;
+				nninfo.data.receive.source_id = it->data.receive.source;
+				nexts.push_back(nninfo);
+			} break;
 		}
 	}
 
-	// Finish transitions
-	std::vector<Activation> &activations = state->get_activations();
-	for (int i = 0; i < activations.size(); i++)
-	{
-		if (s == NULL) {
-			s = new State(*state);
-		}
-		s->finish_transition_ro_binding(i);
-		Node *n = core->add_state(s);
-		n->set_prev(this);
-		NextNodeInfo nninfo;
-		nninfo.node = n;
-		nninfo.action = ActionFinish;
-		nninfo.data.finish.process_id = activations[i].process_id;
-		nninfo.data.finish.thread_id = activations[i].thread_id;
-		nexts.push_back(nninfo);
-		s = NULL;
-	}
-	*/
-
-	/* Receive packets */
-	for (int pq = 0; pq < ca::process_count * ca::process_count; pq++) {
-		int target = pq / ca::process_count;
-		int source = pq % ca::process_count;
-		if (s == NULL) {
-			s = new State(*state);
-		}
-		if (!s->receive(target, source, false)) {
-			continue;
-		}
-		Node *n = core->add_state(s, this);
-		NextNodeInfo nninfo;
-		nninfo.node = n;
-		nninfo.action = ActionReceive;
-		nninfo.data.receive.process_id = target;
-		nninfo.data.receive.source_id = source;
-		nexts.push_back(nninfo);
-		s = NULL;
-	}
-	if (s != NULL) {
-		delete s;
-	}
+	delete ws;
 }
 
 Core::Core(VerifConfiguration &verif_configuration) : initial_node(NULL), nodes(10000, HashDigestHash(MHASH_MD5),
@@ -342,6 +336,59 @@ void Core::generate()
 	} while (!not_processed.empty());
 }
 
+WorkSet* Core::compute_ample_set(State *s, WorkSet *ws)
+{
+	WorkSet::iterator it;
+
+	for (it = ws->begin(); it != ws->end(); it++) {
+		WorkSet *subset = new WorkSet();
+		subset->insert(*it);
+		if (check_C1(ws, subset, s) && check_C2(subset) && check_C3(s)) {
+			delete ws;
+			return subset;
+		}
+		delete subset;
+	}
+	return ws;
+}
+
+bool Core::check_C1(WorkSet *ws, WorkSet *subset, State *s)
+{
+	WorkSet::iterator it1;
+	WorkSet::iterator it2;
+	for (it1 = subset->begin(); it1 != subset->end(); it1++) {
+		for (it2 = ws->begin(); it2 != ws->end(); it2++) {
+			if (subset->count(*it2)) continue;
+			if (verif_configuration.is_dependent(*it1, *it2, *s)) {
+				return false;
+			}
+			if (verif_configuration.is_predecesor(*it2, *it1, *s)) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+bool Core::check_C2(WorkSet *ws)
+{
+	WorkSet::iterator it;
+	for (it = ws->begin(); it != ws->end(); it++) {
+		if (it->type == ActionFire) {
+			if (verif_configuration.is_visible(*it)) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+bool Core::check_C3(State *s)
+{
+	// TODO: Checking for cycles
+	return true;
+}
+
 void Core::write_dot_file(const std::string &filename)
 {
 	FILE *f = fopen(filename.c_str(), "w");
@@ -353,11 +400,17 @@ void Core::write_dot_file(const std::string &filename)
 		Node *node = it->second;
 		const std::vector<NextNodeInfo> &nexts = node->get_nexts();
 		if (node == initial_node) {
-			fprintf(f, "S%p [style=filled, label=init]\n",
-				node);
+			if (write_long_names) {
+				hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
+				fprintf(f, "S%p [label=\"%s\", style=filled]\n", node, hashstr);
+			} else {
+				fprintf(f, "S%p [style=filled, label=init]\n", node);
+			}
 		} else {
 			hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
-			hashstr[5] = 0;
+			if (!write_long_names) {
+				hashstr[5] = 0;
+			}
 			int packets_count = 0;
 			for (int i = 0; i < ca::process_count * ca::process_count; i++) {
 				packets_count += node->get_state()->get_packets(
