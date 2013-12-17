@@ -176,8 +176,7 @@ class Simulation(EventSource):
             self.fire_transition(t.id,
                                  process_id,
                                  2,
-                                 ok_callback=next_command,
-                                 query_reports=False)
+                                 ok_callback=next_command)
 
         def start(process_id, thread_id, transition):
             t = transitions.get(transition)
@@ -186,22 +185,19 @@ class Simulation(EventSource):
             self.fire_transition(t.id,
                                  process_id,
                                  1,
-                                 ok_callback=next_command,
-                                 query_reports=False)
+                                 ok_callback=next_command)
 
         def finish(process_id, thread_id):
             self.finish_transition(process_id,
                                    thread_id,
                                    ok_callback=next_command,
-                                   fail_callback=fail_callback,
-                                   query_reports=False)
+                                   fail_callback=fail_callback)
 
         def receive(process_id, thread_id, from_process):
             self.receive(process_id,
                          from_process,
                          ok_callback=next_command,
-                         fail_callback=fail_callback,
-                         query_reports=False)
+                         fail_callback=fail_callback)
 
         next_command()
 
