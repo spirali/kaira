@@ -47,7 +47,7 @@ How to disable some of subsystems is described below.
 
   - Documentation
 
-  $ apt-get install asciidoc
+  $ apt-get install asciidoc source-highlight
 
   - Configure Kaira
 
