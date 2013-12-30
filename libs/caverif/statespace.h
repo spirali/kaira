@@ -151,7 +151,7 @@ namespace cass {
 			Node* prev;
 			int distance;
 
-			// Generic data used in during analysis
+			// Generic data used during analysis
 			int tag;
 			void* data;
 	};
@@ -195,9 +195,12 @@ namespace cass {
 
 			WorkSet* compute_ample_set(State *s, WorkSet *ws);
 		protected:
+			void write_report();
 			void write_control_sequence(std::vector<Node*> &nodes, ca::Output &report);
 			void write_state(const std::string &name, Node *node, ca::Output &report);
 			void write_suffix(const std::string &name, std::vector<Node*> &nodes, ca::Output &report);
+			void write_xml_statespace(ca::Output &report);
+
 			void run_analysis_final_nodes(ca::Output &report);
 			void run_analysis_transition_occurrence(ca::Output &report);
 			void run_analysis_cycle(ca::Output &report);
@@ -215,6 +218,7 @@ namespace cass {
 			ca::NetDef *net_def;
 			VerifConfiguration &verif_configuration;
 			bool generate_binging_in_nni;
+
 	};
 
 	void init(int argc, char **argv, std::vector<ca::Parameter*> &parameters);

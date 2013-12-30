@@ -18,6 +18,7 @@ static int const MAX_STATES_IN_REPORT = 5;
 using namespace cass;
 
 static bool write_dot = false;
+static bool write_statespace = false;
 static bool analyse_deadlock = false;
 static bool analyse_transition_occurrence = false;
 static bool analyse_final_marking = false;
@@ -71,6 +72,11 @@ static void args_callback(char c, char *optarg, void *data)
 			testing_mode = true;
 			return;
 		}
+		if (!strcmp(optarg, "write-statespace")) {
+			write_statespace = true;
+			return;
+		}
+
 		fprintf(stderr, "Invalid argument in -V\n");
 		exit(1);
 	}
@@ -494,6 +500,11 @@ void Core::postprocess()
 		write_dot_file("statespace.dot");
 	}
 
+	write_report();
+}
+
+void Core::write_report()
+{
 	FILE *f = fopen((project_name + ".kreport").c_str(), "w");
 	ca::Output report(f);
 	report.child("report");
@@ -521,8 +532,55 @@ void Core::postprocess()
 	report.text(ca::project_description_string);
 	report.back();
 
+	if (write_statespace) {
+		write_xml_statespace(report);
+	}
+
 	report.back();
 	fclose(f);
+}
+
+void Core::write_xml_statespace(ca::Output &report)
+{
+	char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
+	report.child("statespace");
+	NodeMap::const_iterator it;
+	for (it = nodes.begin(); it != nodes.end(); it++)
+	{
+		report.child("state");
+		Node *node = it->second;
+		hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
+		report.set("hash", hashstr);
+		if (node->get_state()->get_quit_flag()) {
+			report.set("quit", true);
+		}
+
+		const std::vector<NextNodeInfo> &nexts = node->get_nexts();
+		for (size_t i = 0; i < nexts.size(); i++) {
+			report.child("child");
+			hashdigest_to_string(MHASH_MD5, nexts[i].node->get_hash(), hashstr);
+			report.set("hash", hashstr);
+			switch(nexts[i].action) {
+				case ActionFire:
+					report.set("action", "fire");
+					report.set("process", nexts[i].data.fire.process_id);
+					report.set("transition", nexts[i].data.fire.transition_id);
+					break;
+				case ActionFinish:
+					report.set("action", "finish");
+					report.set("process", nexts[i].data.finish.process_id);
+					break;
+				case ActionReceive:
+					report.set("action", "receive");
+					report.set("process", nexts[i].data.receive.process_id);
+					report.set("source", nexts[i].data.receive.source_id);
+					break;
+			}
+			report.back();
+		}
+		report.back();
+	}
+	report.back();
 }
 
 bool Core::generate_binding_in_nni(int transition_id)
