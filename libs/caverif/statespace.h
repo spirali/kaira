@@ -144,7 +144,7 @@ namespace cass {
 			int get_tag() const { return tag; }
 			void set_tag(int tag) { this->tag = tag; }
 		protected:
-			WorkSet* compute_work_set(Core *core);
+			ActionSet compute_enable_set(Core *core);
 			HashDigest hash;
 			State* state;
 			std::vector<NextNodeInfo> nexts;
@@ -193,7 +193,7 @@ namespace cass {
 			ca::NetDef * get_net_def() { return net_def; }
 			bool generate_binding_in_nni(int transition_id);
 
-			WorkSet* compute_ample_set(State *s, WorkSet *ws);
+			ActionSet compute_ample_set(State *s, const ActionSet &enable);
 		protected:
 			void write_report();
 			void write_control_sequence(std::vector<Node*> &nodes, ca::Output &report);
@@ -209,8 +209,8 @@ namespace cass {
 			bool is_known_node(Node *node) const;
 			Node *get_node(HashDigest digest) const;
 
-			bool check_C1(WorkSet *ws, WorkSet *subset, State *s);
-			bool check_C2(WorkSet *ws);
+			bool check_C1(const ActionSet &enabled, const ActionSet &ample, State *s);
+			bool check_C2(const ActionSet &ws);
 			bool check_C3(State *s);
 			std::stack<Node*> not_processed;
 			NodeMap nodes;

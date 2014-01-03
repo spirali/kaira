@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012-2013 Stanislav Bohm
+#    Copyright (C) 2012-2014 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -22,94 +22,136 @@ import build
 import buildnet
 import base.utils as utils
 
+def switch_by_id(builder, expr, items, callback, exclude=None):
+    builder.switch_begin(expr)
+    for i in items:
+        if i == exclude:
+            continue
+        builder.line("case {0.id}:", i)
+        builder.block_begin()
+        callback(builder, i)
+        builder.block_end()
+        builder.emptyline()
+    builder.line("default:")
+    builder.line("fprintf(stderr, \"Internal error\");")
+    builder.line("abort();")
+    builder.block_end()
+
 def write_dependent(builder):
-    def write_transition_dependency(builder, t1, t2):
-        # Transitions without known target
-        if not (t1.has_fixed_target() and t2.has_fixed_target()) and not (t1.is_local() or t2.is_local()):
-            builder.line("// Transitions without known target")
-            builder.line("if (a2.data.fire.transition_def->get_id() == {0.id}) return true;", t2)
+    net = builder.project.nets[0]
+
+    def write_fire_fire(t1, t2):
+        def get_place(edge):
+            return edge.place
+
+        # Both transitions send tokens but we don't know exactly where
+        if not t1.is_local() and not t2.is_local() and \
+                not (t1.has_fixed_target() and t2.has_fixed_target()):
+            builder.line("return true; "
+                         "// Both transitions send tokens but we don't know exactly where")
             return
 
         # Transitions taking tokens from the same input place
         if t1.get_input_places().intersection(t2.get_input_places()):
-            builder.line("// Transitions taking tokens from the same input place")
-            builder.line("if (a2.data.fire.transition_def->get_id() == {0.id}) return true;", t2)
+            builder.line("return true; "
+                         "// Transitions taking tokens from the same input place")
             return
 
         # A transition putting tokens to a input place of a bulk transition
-        edges1 = [ e2 for e1, e2 in utils.objects_with_same_attribute(t1.edges_in, t2.edges_out, lambda e: e.place) if e1.is_bulk()]
-        edges2 = [ e2 for e1, e2 in utils.objects_with_same_attribute(t2.edges_in, t1.edges_out, lambda e: e.place) if e1.is_bulk()]
+        edges1 = [ e2 for e1, e2 in utils.objects_with_same_attribute(
+                                        t1.edges_in, t2.edges_out, get_place)
+                      if e1.is_bulk() ]
+
+        edges2 = [ e2 for e1, e2 in utils.objects_with_same_attribute(
+                                        t2.edges_in, t1.edges_out, get_place)
+                   if e1.is_bulk() ]
+
         for e in edges1 + edges2:
-            if e.has_fixed_target() and all(i.target is not None for i in e.inscriptions):
-                condition = " || ".join("a1.process == " + str(i.target) for i in e.inscriptions)
-                builder.if_begin("a2.data.fire.transition_def->get_id() == {0.id}", t2)
-                builder.line("// A transition putting tokens to a input place of a bulk transition")
+            builder.line("// A transition putting tokens to a input place of a bulk transition")
+            if e.has_fixed_target() and all(not i.is_local() for i in e.inscriptions):
+                condition = " || ".join("a1.process == ({0})".format(i.target)
+                                        for i in e.inscriptions)
                 builder.line("if ({0}) return true;", condition)
-                builder.block_end()
             else:
-                builder.line("// A transition putting tokens to a input place of a bulk transition")
-                builder.line("if (a2.data.fire.transition_def->get_id() == {0.id}) return true;", t2)
+                builder.line("return true;", t2)
                 return
 
         # Transitions putting tokens to the same local place
-        for e1, e2 in utils.objects_with_same_attribute(t1.edges_out, t2.edges_out, lambda e: e.place):
+        for e1, e2 in utils.objects_with_same_attribute(t1.edges_out, t2.edges_out, get_place):
             if e1.has_fixed_target() and e2.has_fixed_target():
-                builder.if_begin("a2.data.fire.transition_def->get_id() == {0.id}", t2)
-                if all(i.target is not None for i in e1.inscriptions):
-                    condition1 = " || ".join("a1.process == " + str(i.target) for i in e1.inscriptions)
+                if all(not i.is_local() for i in e1.inscriptions):
+                    condition1 = " || ".join("(a1.process == ({0}))".format(i.target)
+                                             for i in e1.inscriptions)
                 else:
                     condition1 = "true"
-                if all(i.target is not None for i in e2.inscriptions):
-                    condition2 = " || ".join("a1.process == " + str(i.target) for i in e2.inscriptions)
+                if all(not i.is_local() for i in e2.inscriptions):
+                    condition2 = " || ".join("(a1.process == ({0}))".format(i.target)
+                                             for i in e2.inscriptions)
                 else:
                     condition2 = "true"
                 builder.line("// Transitions putting tokens to the same local place")
                 builder.line("if (({0}) && ({1})) return true;", condition1, condition2)
-                builder.block_end()
 
-        # Transitions putting tokens to the same process
+        # Transitions sending tokens to the same process
         edges1 = [ e for e in t1.edges_out if e.has_fixed_target() and not e.is_local() ]
         edges2 = [ e for e in t2.edges_out if e.has_fixed_target() and not e.is_local() ]
         for e1 in edges1:
             for e2 in edges2:
                 targets1 = [i.target for i in e1.inscriptions if i.target is not None]
                 targets2 = [i.target for i in e2.inscriptions if i.target is not None]
-                pairs = [ (tar1, tar2) for tar1 in targets1 for tar2 in targets2]
-                builder.if_begin("a2.data.fire.transition_def->get_id() == {0.id}", t2)
-                builder.line("// Transitions putting tokens to the same process")
-                builder.line("if ({0}) return true;", " || ".join(str(c1) + " == " + str(c2) for c1 ,c2 in pairs))
-                builder.block_end()
+                builder.line("// Transitions sending tokens to the same process")
+                builder.line("if ({0}) return true;",
+                             " || ".join("({0}) == ({1})".format(t1, t2)
+                                    for t1 in targets1 for t2 in targets2))
+        builder.line("return false;")
 
-    def compare_fire_receive(builder, fire, receive):
-        builder.switch_begin("a{0}.data.fire.transition_def->get_id()".format(fire))
-        for net in builder.project.nets:
-            for transition in net.transitions:
-                builder.line("case {0.id}:", transition)
-                builder.block_begin()
-                # Receive token to the transition's output place
-                for t_edge in transition.edges_out:
-                    for r_edge in t_edge.place.get_edges_in():
-                        builder.line("// t {0.transition.id} --> p {0.place.id}", r_edge)
-                        builder.if_begin("a{1}.data.receive.edge_id == {0.id}", r_edge, receive)
-                        targets = [ i.target for i in t_edge.inscriptions ]
-                        if t_edge.has_fixed_target() and None not in targets:
-                            builder.if_begin(" && ".join("a1.process != " + str(t) for t in targets))
-                            builder.line("return false;")
-                            builder.block_end()
-                        builder.line("return true;")
+    def write_fire_receive(fire, receive):
+        def callback(builder, transition):
+            for t_edge in transition.edges_out:
+                for r_edge in t_edge.place.get_edges_in():
+                    builder.line("// t {0.transition.id} --> p {0.place.id}", r_edge)
+                    builder.if_begin("a{1}.data.receive.edge_id == {0.id}", r_edge, receive)
+                    targets = [ i.target for i in t_edge.inscriptions ]
+                    if t_edge.has_fixed_target() and None not in targets:
+                        builder.if_begin(" && ".join("a1.process != ({0})".format(t)
+                                         for t in targets))
+                        builder.line("return false;")
                         builder.block_end()
+                    builder.line("return true;")
+                    builder.block_end()
 
-                # Receive token to a place with transition's input place with bulk edge
-                for t_edge in transition.get_bulk_edges_in():
-                    for r_edge in t_edge.place.get_edges_in():
-                        builder.line("// t {0.transition.id} --> p {0.place.id}", r_edge)
-                        builder.line("if (a{1}.data.receive.edge_id == {0.id}) return true;", r_edge, receive)
+            # Receive token to a place with transition's input place with bulk edge
+            for t_edge in transition.get_bulk_edges_in():
+                for r_edge in t_edge.place.get_edges_in():
+                    builder.line("// t {0.transition.id} --> p {0.place.id}", r_edge)
+                    builder.line("if (a{1}.data.receive.edge_id == {0.id}) return true;",
+                                 r_edge, receive)
+            builder.line("return false;")
+
+        switch_by_id(builder,
+                     "a{0}.data.fire.transition_def->get_id()".format(fire),
+                     net.transitions,
+                     callback)
+
+    def write_receive_receive():
+        builder.if_begin("a1.data.receive.edge_id == a2.data.receive.edge_id")
+        builder.line("return true;")
+        builder.block_end()
+
+        edges = [ edge for edge in net.get_edges_out() if not edge.is_local() ]
+        builder.switch_begin("a1.data.receive.edge_id")
+        for edge in edges:
+            if not edge.is_local():
+                builder.line("case {0.id}: // t {0.transition.id} --> p {0.place.id}", edge)
+                for e in edge.place.get_edges_in():
+                    if e is not edge and not e.is_local():
+                        builder.line("if (a2.data.receive.edge_id == {0.id}) return true;", e)
                 builder.line("return false;")
-                builder.block_end()
-        builder.block_end()
+        builder.line("default: return false;")
         builder.block_end()
 
-    builder.line("bool is_dependent(const cass::Action &a1, const cass::Action &a2, cass::State &s)")
+    builder.line("bool is_dependent("
+                 "const cass::Action &a1, const cass::Action &a2, cass::State *s)")
     builder.block_begin()
     builder.if_begin("a1.process != a2.process")
     builder.line("return false;")
@@ -118,56 +160,48 @@ def write_dependent(builder):
     builder.line("ca::Context ctx(&thread, NULL);");
 
     builder.if_begin("a1.type == cass::ActionFire && a2.type == cass::ActionFire")
-    builder.switch_begin("a1.data.fire.transition_def->get_id()")
-    for net in builder.project.nets:
-        for t1 in net.transitions:
-            builder.line("case {0.id}:", t1)
-            builder.block_begin()
-            for t2 in net.transitions:
-                if t1 is not t2:
-                    write_transition_dependency(builder, t1, t2)
-            builder.line("return false;")
-            builder.block_end()
 
+    builder.if_begin("a1.data.fire.transition_def->get_id() == "
+                     "a2.data.fire.transition_def->get_id()")
+    builder.line("return true;")
     builder.block_end()
+
+    switch_by_id(builder,
+                 "a1.data.fire.transition_def->get_id()",
+                 net.transitions,
+                 lambda builder, t1:
+                     switch_by_id(builder,
+                         "a2.data.fire.transition_def->get_id()",
+                         net.transitions,
+                         lambda builder, t2: write_fire_fire(t1, t2),
+                         exclude=t1))
     builder.block_end()
 
     builder.if_begin("a1.type == cass::ActionFire && a2.type == cass::ActionReceive")
-    builder.line("cass::VerifThread thread(a1.process, 0);")
-    builder.line("ca::Context ctx(&thread, NULL);");
-    compare_fire_receive(builder, 1, 2)
+    write_fire_receive(1, 2)
+    builder.block_end()
 
     builder.if_begin("a1.type == cass::ActionReceive && a2.type == cass::ActionFire")
-    compare_fire_receive(builder, 2, 1)
+    write_fire_receive(2, 1)
+    builder.block_end()
 
     builder.if_begin("a1.type == cass::ActionReceive && a2.type == cass::ActionReceive")
-    builder.switch_begin("a1.data.receive.edge_id")
-    for net in builder.project.nets:
-        for edge in net.get_edges_out():
-            if not edge.is_local():
-                builder.line("case {0.id}: // t {0.transition.id} --> p {0.place.id}", edge)
-                builder.block_begin()
-                for e in edge.place.get_edges_in():
-                    if not e.is_local():
-                        builder.line("if (a2.data.receive.edge_id == {0.id}) return true;", e)
-                builder.line("return false;")
-                builder.block_end()
-    builder.block_end()
+    write_receive_receive()
     builder.block_end()
     builder.block_end()
 
-def write_visible_transitions(builder):
-    builder.line("cass::Action action;")
-    builder.line("action.type = cass::ActionFire;")
-    for net in builder.project.nets:
-        for tr in net.transitions:
-            if tr.calls_quit:
-                builder.line("action.data.fire.transition_def = &transition_{0.id};", tr)
-                builder.line("for (int i = 0; i < ca::process_count; i++)")
-                builder.block_begin()
-                builder.line("action.process = i;")
-                builder.line("visible.insert(action);")
-                builder.block_end()
+def write_is_visible(builder):
+    builder.line("bool is_visible(const cass::Action &action)")
+    builder.block_begin()
+    builder.if_begin("action.type == cass::ActionFire")
+    for tr in builder.project.nets[0].transitions:
+        if tr.calls_quit:
+            builder.if_begin("action.data.fire.transition_def == &transition_{0.id}", tr)
+            builder.line("return true;")
+            builder.block_end()
+    builder.block_end()
+    builder.line("return false;")
+    builder.block_end()
 
 def write_compare_function(builder, compared):
     builder.line("bool compare(const cass::Arc &arc1, const cass::Arc &arc2)")
@@ -207,7 +241,6 @@ def write_compare_function(builder, compared):
 def write_constructor(builder, ignored):
     builder.line("VerifConfiguration()")
     builder.block_begin()
-    write_visible_transitions(builder)
     if ignored:
         builder.line("int transitions[] = {{{0}}};", ", ".join(str(i.id) for i in ignored))
         builder.line("for (int i = 0; i < {0}; i++)", len(ignored))
@@ -217,17 +250,70 @@ def write_constructor(builder, ignored):
     builder.block_end();
 
 def write_compute_successors(builder):
-    def push_successor(builder, edge, net):
-        builder.line("receiving = s.get_token_count_in_edge(action.process, a.process, {0.id});", edge)
-        builder.line("place_tokens = ((Net_{0.id}*)s.get_net(action.process))->place_{1.id}.size();", net, edge.place)
-        prefix = edge.place.get_token_prefix_size()
-        if prefix is not None:
-            builder.if_begin("receiving + place_tokens < {0}", prefix)
-        builder.line("successors.push_back(action);")
-        if prefix is not None:
-            builder.block_end()
 
-    builder.line("void compute_successors(const cass::Action &a, std::list<cass::Action> &successors, cass::State &s)")
+    def push_fire(transition):
+        builder.line("action.type = cass::ActionFire;")
+        builder.line("action.process = a.process;")
+        builder.line("action.data.fire.transition_def = &transition_{0.id};", transition)
+        builder.if_begin("processed.find(action) == processed.end()")
+        builder.line("queue.push_back(action);")
+        builder.block_end()
+
+    def push_receive(edge, process):
+        builder.line("action.type = cass::ActionReceive;")
+        builder.line("action.process = {0};", process)
+        builder.line("action.data.receive.source = a.process;")
+        builder.line("action.data.receive.edge_id = {0.id};", edge)
+        builder.line("queue.push_back(action);")
+        builder.if_begin("!receive_blocked[action.process] && "
+                            "processed.find(action) == processed.end()")
+        builder.line("queue.push_back(action);")
+        builder.block_end()
+
+    def push_transitions_of_place(place, ignore_transition=None):
+        for edge in place.get_edges_out():
+            if edge.transition != ignore_transition:
+                push_fire(edge.transition)
+
+    def sucessors_of_transition(transition):
+        for edge in transition.edges_out:
+            builder.line("// place {0.place.id}", edge)
+            if edge.is_local():
+                push_transitions_of_place(edge.place, transition)
+            elif edge.has_fixed_target():
+                for i in edge.inscriptions:
+                    if i.is_local():
+                        push_transitions_of_place(edge.place, transition)
+                    else:
+                        builder.block_begin()
+                        builder.line("int $target = {0.target};", i)
+                        builder.if_begin("a.process == $target")
+                        push_transitions_of_place(edge.place, transition)
+                        builder.write_else()
+                        push_receive(edge, builder.expand("$target"))
+                        builder.block_end()
+                        builder.block_end()
+            else:
+                multicast = any(i.is_multicast() for i in edge.inscriptions)
+                push_transitions_of_place(edge.place, transition)
+                builder.line("for (int $p = 0; $p < ca::process_count; $p++)")
+                builder.block_begin()
+                if not multicast:
+                    builder.if_begin("$p != a.process")
+                push_receive(edge, builder.expand("$p"))
+                if not multicast:
+                    builder.block_end()
+                builder.block_end()
+        builder.line("return;")
+
+    net = builder.project.nets[0]
+    builder.line("void compute_successors"
+                    "(const cass::Action &a,"
+                    "std::deque<cass::Action> &queue,"
+                    "cass::ActionSet &processed,"
+                    "const std::vector<bool> &receive_blocked,"
+                    "cass::State *s)")
+
     builder.block_begin()
     builder.line("cass::Action action;")
     builder.line("cass::VerifThread thread(a.process, 0);")
@@ -235,56 +321,13 @@ def write_compute_successors(builder):
     builder.line("int receiving, place_tokens;")
     builder.switch_begin("a.type")
     builder.line("case cass::ActionFire:")
-    builder.block_begin()
-    builder.switch_begin("a.data.fire.transition_def->get_id()")
-    for net in builder.project.nets:
-        for tr in net.transitions:
-            builder.line("case {0.id}:", tr)
-            builder.block_begin()
-            for edge in tr.edges_out:
-                builder.line("// t {0.transition.id} --> p {0.place.id}", edge)
-                if edge.is_local():
-                    for e in edge.place.get_edges_out():
-                        if tr.id is not e.transition.id:
-                            builder.line("action.process = a.process;")
-                            builder.line("action.type = cass::ActionFire;")
-                            builder.line("action.data.fire.transition_def = &transition_{0.id};", e.transition)
-                            builder.if_not_begin("s.is_transition_enabled(action.process, action.data.fire.transition_def)")
-                            builder.line("successors.push_back(action);")
-                            builder.block_end()
-                else:
-                    builder.line("action.type = cass::ActionReceive;")
-                    builder.line("action.data.receive.source = a.process;")
-                    builder.line("action.data.receive.edge_id = {0.id};", edge)
-                    if edge.has_fixed_target():
-                        for insc in edge.inscriptions:
-                            if insc.target is not None:
-                                builder.line("action.process = {0};", insc.target)
-                                push_successor(builder, edge, net)
-                    else:
-                        builder.line("for (int p = 0; p < ca::process_count; p++)")
-                        builder.block_begin()
-                        builder.line("action.process = p;")
-                        push_successor(builder, edge, net)
-                        builder.block_end()
-            builder.line("return;")
-            builder.block_end()
-    builder.block_end()
-    builder.line("return;")
-    builder.block_end()
+    switch_by_id(builder,
+                 "a.data.fire.transition_def->get_id()",
+                 net.transitions,
+                 lambda builder, transition: sucessors_of_transition(transition))
 
     builder.line("case cass::ActionReceive:")
     builder.block_begin()
-    builder.line("int edge_id = s.get_receiving_edge(a.process, a.data.receive.source, 1);")
-    builder.if_begin("edge_id != -1")
-    builder.line("action.type = cass::ActionReceive;")
-    builder.line("action.process = a.process;")
-    builder.line("action.data.receive.source = a.data.receive.source;")
-    builder.line("action.data.receive.edge_id = edge_id;")
-    builder.line("successors.push_back(action);")
-    builder.block_end()
-    builder.line("action.type = cass::ActionFire;")
-    builder.line("action.process = a.process;")
     builder.switch_begin("a.data.receive.edge_id")
     for net in builder.project.nets:
         for edge in net.get_edges_out():
@@ -292,13 +335,7 @@ def write_compute_successors(builder):
                 continue
             builder.line("case {0.id}: // t {0.transition.id} --> p {0.place.id}", edge)
             builder.block_begin()
-            if edge.place.get_token_prefix_size():
-                builder.if_begin("((Net_{0.id}*)s.get_net(a.process))->place_{1.id}.size() >= {2}", net, edge.place, edge.place.get_token_prefix_size())
-                builder.line("return;")
-                builder.block_end()
-            for tr in edge.place.get_transitions_out():
-                builder.line("action.data.fire.transition_def = &transition_{0.id};", tr)
-                builder.line("successors.push_back(action);")
+            push_transitions_of_place(edge.place)
             builder.line("return;")
             builder.block_end()
     builder.block_end()
@@ -319,6 +356,7 @@ def write_verif_configuration(builder):
 
     write_constructor(builder, ignored)
     write_dependent(builder)
+    write_is_visible(builder)
     write_compare_function(builder, compared)
     builder.line("private:")
     write_compute_successors(builder)

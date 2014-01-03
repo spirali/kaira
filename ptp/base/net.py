@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2011-2013 Stanislav Bohm
+#    Copyright (C) 2011-2014 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -152,6 +152,20 @@ class Edge(utils.EqMixin):
                 return count
             else:
                 return None
+
+    def get_token_prefix_size(self):
+        """ Returns the number of (first) tokens in the place that can influence the inscription """
+
+        if self.is_bulk():
+            return None
+
+        count = 0
+        for inscription in self.inscriptions:
+            if "filter" in inscription.config or "from" in inscription.config:
+                return None
+            if inscription.is_token():
+                count += 1
+        return count
 
     def get_token_inscriptions(self):
         if self.is_bulk():
@@ -361,10 +375,10 @@ class EdgeInscription(utils.EqMixin):
         return not self.is_bulk() and self.has_expr()
 
     def has_fixed_target(self):
-        vars = self.edge.transition.net.project.get_expr_variables(self.target)
-        if any('ctx' != v for v in vars) or self.is_multicast():
+        if self.is_multicast():
             return False
-        return True
+        v = self.edge.transition.net.project.get_expr_variables(self.target)
+        return v == set() or v == set(["ctx"])
 
     def is_multicast(self):
         return "multicast" in self.config
@@ -432,16 +446,12 @@ class Place(utils.EqByIdMixin):
         return self.interface_input is None or self.interface_output is None
 
     def get_token_prefix_size(self):
-        count = 0
-        for edge in self.get_edges_out():
-            if edge.is_bulk():
-                return None
-            for inscription in edge.inscriptions:
-                if "filter" in inscription.config or "from" in inscription.config:
-                    return None
-                if inscription.is_token():
-                    count += 1
-        return count
+        sizes = [ edge.get_token_prefix_size() for edge in self.get_edges_out() ]
+        if not sizes:
+            return 0
+        if any(s is None for s in sizes):
+            return None
+        return max(sizes)
 
     def check(self, checker):
         functions = [ "token_name" ]

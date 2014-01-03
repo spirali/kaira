@@ -31,10 +31,10 @@ static std::string project_name;
 
 struct CmpByDistance
 {
-    bool operator()(Node *a, Node *b) const
-    {
-        return a->get_distance() < b->get_distance();
-    }
+	bool operator()(Node *a, Node *b) const
+	{
+		return a->get_distance() < b->get_distance();
+	}
 };
 
 static void args_callback(char c, char *optarg, void *data)
@@ -199,11 +199,11 @@ HashDigest State::compute_hash(hashid hash_id)
 Node::Node(HashDigest hash, State *state, Node *prev)
 	: hash(hash), state(state), prev(prev), data(NULL), tag(0)
 {
-    if (prev != NULL) {
-        distance = prev->get_distance() + 1;
-    } else {
-        distance = 0;
-    }
+	if (prev != NULL) {
+		distance = prev->get_distance() + 1;
+	} else {
+		distance = 0;
+	}
 }
 
 Node::~Node()
@@ -219,9 +219,9 @@ void Node::set_prev(Node *node)
 	}
 }
 
-WorkSet* Node::compute_work_set(Core *core)
+ActionSet Node::compute_enable_set(Core *core)
 {
-	WorkSet *ws = new WorkSet;
+	ActionSet enable;
 
 	ca::NetDef *def = core->get_net_def();
 	const std::vector<ca::TransitionDef*> &transitions = def->get_transition_defs();
@@ -233,7 +233,7 @@ WorkSet* Node::compute_work_set(Core *core)
 				action.type = ActionFire;
 				action.data.fire.transition_def = transitions[i];
 				action.process = p;
-				ws->insert(action);
+				enable.insert(action);
 			}
 		}
 	}
@@ -249,11 +249,11 @@ WorkSet* Node::compute_work_set(Core *core)
 			action.data.receive.source = source;
 			action.data.receive.edge_id = edge_id;
 			action.process = target;
-			ws->insert(action);
+			enable.insert(action);
 		}
 	}
 
-	return ws;
+	return enable;
 }
 
 void Node::generate(Core *core)
@@ -264,18 +264,17 @@ void Node::generate(Core *core)
 
 	ca::NetDef *def = core->get_net_def();
 	const std::vector<ca::TransitionDef*> &transitions = def->get_transition_defs();
-	WorkSet *ws = compute_work_set(core);
+	ActionSet ws = compute_enable_set(core);
 	if (partial_order) {
 		ws = core->compute_ample_set(state, ws);
 	}
 
 	State *s;
 
-	WorkSet::iterator it;
-	for (it = ws->begin(); it != ws->end(); it++) {
+	ActionSet::iterator it;
+	for (it = ws.begin(); it != ws.end(); it++) {
 		s = new State(*state);
 		switch (it->type) {
-
 			case ActionFire:
 			{
 				ca::Packer packer;
@@ -295,7 +294,8 @@ void Node::generate(Core *core)
 					nninfo.data.fire.binding = core->hash_packer(packer);
 				}
 				nexts.push_back(nninfo);
-			} break;
+				break;
+			}
 
 			case ActionReceive:
 			{
@@ -307,11 +307,10 @@ void Node::generate(Core *core)
 				nninfo.data.receive.process_id = it->process;
 				nninfo.data.receive.source_id = it->data.receive.source;
 				nexts.push_back(nninfo);
-			} break;
+				break;
+			}
 		}
 	}
-
-	delete ws;
 }
 
 Core::Core(VerifConfiguration &verif_configuration) : initial_node(NULL), nodes(10000, HashDigestHash(MHASH_MD5),
@@ -350,9 +349,9 @@ void Core::generate()
 	} while (!not_processed.empty());
 }
 
-WorkSet* Core::compute_ample_set(State *s, WorkSet *ws)
+ActionSet Core::compute_ample_set(State *s, const ActionSet &enable)
 {
-	WorkSet::iterator it;
+	ActionSet::iterator it;
 
 	if (debug) {
 		// print state name
@@ -360,58 +359,78 @@ WorkSet* Core::compute_ample_set(State *s, WorkSet *ws)
 		hashdigest_to_string(MHASH_MD5, s->compute_hash(MHASH_MD5) , hashstr);
 		hashstr[5] = 0;
 		printf(">>>>> %s <<<<<\n", hashstr);
-		for (it = ws->begin(); it != ws->end(); it++) {
+		for (it = enable.begin(); it != enable.end(); it++) {
 			it->print("", " | ");
 		}
 		printf("\n");
 	}
 
-	for (it = ws->begin(); it != ws->end(); it++) {
-		WorkSet *subset = new WorkSet();
-		subset->insert(*it);
-		if (debug) {
-			it->print("CHECK ", "");
+	for (it = enable.begin(); it != enable.end(); it++) {
+		ActionSet ample;
+		ample.insert(*it);
+		if (check_C1(enable, ample, s) && check_C2(ample) && check_C3(s)) {
+			return ample;
 		}
-		if (check_C1(ws, subset, s) && check_C2(subset) && check_C3(s)) {
-			if (debug) {
-				printf(" ::>> OK\n");
-			}
-			delete ws;
-			return subset;
-		}
-		delete subset;
 	}
-	return ws;
+	return enable;
 }
 
-bool Core::check_C1(WorkSet *ws, WorkSet *subset, State *s)
+bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 {
-	WorkSet::iterator it1;
-	WorkSet::iterator it2;
-	for (it1 = subset->begin(); it1 != subset->end(); it1++) {
-		for (it2 = ws->begin(); it2 != ws->end(); it2++) {
-			if (subset->count(*it2)) continue;
-			if (verif_configuration.is_dependent(*it1, *it2, *s)) {
-				if (debug) {
-					it2->print(" IS DEP ON ", "\n");
-				}
-				return false;
+	ActionSet::iterator it1;
+	ActionSet::iterator it2;
+
+	std::deque<Action> queue;
+	ActionSet processed = ample;
+	std::vector<bool> receive_blocked(ca::process_count, false);
+
+	for (ActionSet::iterator i = enabled.begin(); i != enabled.end(); i++) {
+		if (ample.find(*i) != ample.end()) {
+			processed.insert(*i);
+			if (i->type == ActionReceive) {
+				receive_blocked[i->process] = true;
 			}
-			if (verif_configuration.is_predecesor(*it2, *it1, *s, debug)) {
-				if (debug) {
-					it2->print("", "\n");
+		} else {
+			if (i->type == ActionReceive) {
+				for (int source = 0; source < ca::process_count; source++) {
+					const State::PacketQueue& pq = s->get_packets(i->process, source);
+					for (size_t p = 0; p < pq.size(); p++) {
+						Action a;
+						a.type = ActionReceive;
+						a.process = i->process;
+						a.data.receive.source = source;
+						ca::Tokens *tokens = (ca::Tokens *) pq[p].data;
+						a.data.receive.edge_id = tokens->edge_id;
+						if (processed.find(a) == processed.end()) {
+							processed.insert(a);
+							queue.push_back(a);
+						}
+					}
 				}
+			} else {
+				if (processed.find(*i) == processed.end()) {
+					processed.insert(*i);
+					queue.push_back(*i);
+				}
+			}
+		}
+	}
+
+	while(queue.size() > 0) {
+		for (ActionSet::iterator a = ample.begin(); a != ample.end(); a++) {
+			if (verif_configuration.is_dependent(*a, queue.front(), s)) {
 				return false;
 			}
 		}
+		verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, s);
+		queue.pop_front();
 	}
 	return true;
 }
 
-bool Core::check_C2(WorkSet *ws)
+bool Core::check_C2(const ActionSet &ample)
 {
-	WorkSet::iterator it;
-	for (it = ws->begin(); it != ws->end(); it++) {
+	for (ActionSet::iterator it = ample.begin(); it != ample.end(); it++) {
 		if (it->type == ActionFire) {
 			if (verif_configuration.is_visible(*it)) {
 				return false;
