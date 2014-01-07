@@ -40,18 +40,4 @@ namespace ca {
 		printf("%i\n", t-&gt;value);
 	}
 	ctx.quit();
-</code><trace>fire</trace></transition><edge from_item="103" id="110" to_item="107"><inscription x="132.0" y="192.0">start</inscription></edge><edge from_item="107" id="111" to_item="103"><inscription x="51.0" y="88.0">start + param::SIZE()</inscription><point x="37" y="107" /></edge><edge from_item="104" id="112" to_item="107"><inscription x="217.0" y="180.0">worker</inscription></edge><edge from_item="105" id="113" to_item="108"><inscription x="424.0" y="206.0">job</inscription></edge><edge from_item="103" id="114" to_item="109"><inscription x="0.0" y="305.0">param::LIMIT()</inscription></edge><edge from_item="104" id="115" to_item="109"><inscription x="163.0" y="301.0">[guard(size == ctx.process_count() - 1 ) ]</inscription></edge><edge from_item="106" id="116" to_item="109"><inscription x="180.0" y="345.0">[bulk] results</inscription></edge><edge from_item="108" id="117" to_item="104"><inscription x="260.0" y="258.0">ctx.process_id()@0</inscription></edge><edge from_item="108" id="118" to_item="106"><inscription x="316.0" y="344.0">[bulk] results@0</inscription><point x="415" y="360" /></edge><edge from_item="107" id="119" to_item="105"><inscription x="313.0" y="88.0">Job(start, start + param::SIZE())@worker</inscription><point x="415" y="107" /></edge></net><sequence name="sdsadsa">0 0 T divide
-1 0 R 0
-0 0 T divide
-2 0 R 0
-0 0 T divide
-3 0 R 0
-1 0 T compute
-0 0 R 1
-0 0 R 1
-3 0 T compute
-0 0 R 3
-0 0 R 3
-2 0 T compute
-0 0 R 2
-0 0 R 2</sequence></project>
+</code><trace>fire</trace></transition><edge from_item="103" id="110" to_item="107"><inscription x="132.0" y="192.0">start</inscription></edge><edge from_item="107" id="111" to_item="103"><inscription x="51.0" y="88.0">start + param::SIZE()</inscription><point x="37" y="107" /></edge><edge from_item="104" id="112" to_item="107"><inscription x="217.0" y="180.0">worker</inscription></edge><edge from_item="105" id="113" to_item="108"><inscription x="424.0" y="206.0">job</inscription></edge><edge from_item="103" id="114" to_item="109"><inscription x="0.0" y="305.0">param::LIMIT()</inscription></edge><edge from_item="104" id="115" to_item="109"><inscription x="163.0" y="301.0">[guard(size == ctx.process_count() - 1 ) ]</inscription></edge><edge from_item="106" id="116" to_item="109"><inscription x="180.0" y="345.0">[bulk] results</inscription></edge><edge from_item="108" id="117" to_item="104"><inscription x="260.0" y="258.0">ctx.process_id()@0</inscription></edge><edge from_item="108" id="118" to_item="106"><inscription x="316.0" y="344.0">[bulk] results@0</inscription><point x="415" y="360" /></edge><edge from_item="107" id="119" to_item="105"><inscription x="313.0" y="88.0">Job(start, start + param::SIZE())@worker</inscription><point x="415" y="107" /></edge></net></project>
