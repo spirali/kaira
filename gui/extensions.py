@@ -89,7 +89,7 @@ class Source(object, EventSource):
 
         """
         suffix = utils.get_filename_suffix(filename)
-        if suffix is None:
+        if suffix is None and self.type.default_saver is not None:
             suffix = self.type.default_saver
             filename += "." + suffix
         saver = self.type.savers.get(suffix)
@@ -97,6 +97,7 @@ class Source(object, EventSource):
             app.show_message_dialog(
                     "Cannot save '.{0}' file".format(suffix),
                     gtk.MESSAGE_WARNING)
+            return
 
         correct, settings = saver(self.data, filename, app, settings)
         if correct:
@@ -217,6 +218,12 @@ class SourceView(gtk.Alignment, EventSource):
             btn.set_sensitive(self.source.data is None)
 
     def _cb_store(self):
+        if len(self.source.type.savers) == 0:
+            self.app.show_message_dialog(
+                    "The type '{0}' cannot be saved.".format(
+                        self.source.type.name),
+                    gtk.MESSAGE_WARNING)
+            return
         dialog = gtk.FileChooserDialog("Source store",
                                        self.app.window,
                                        gtk.FILE_CHOOSER_ACTION_SAVE,

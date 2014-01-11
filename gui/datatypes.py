@@ -137,7 +137,7 @@ def get_load_file_filters():
     return result
 
 def get_save_file_filter(type):
-    patterns = [ "*." + s for s in type.loaders.keys() ]
+    patterns = [ "*." + s for s in type.savers.keys() ]
     filter = gtk.FileFilter()
     filter.set_name("{0} ({1})".format(type.short_name, ", ".join(patterns)))
     for pattern in patterns:
