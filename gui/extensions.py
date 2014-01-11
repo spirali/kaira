@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2013 Martin Surkovsky
+#    Copyright (C) 2013, 2014 Martin Surkovsky
 #                  2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
@@ -494,7 +494,7 @@ class Argument(object, EventSource):
             return self._sources[0].data
 
     def _cb_source_name_changed(self, idx, old_name, new_name):
-        self.emit_event("source-name-changed", idx, new_name)
+        self.emit_event("source-name-changed", idx, old_name, new_name)
 
 
 class ArgumentView(gtk.Table, EventSource):
