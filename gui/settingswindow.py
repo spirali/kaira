@@ -46,7 +46,7 @@ class SettingWidget(gtk.Table):
         self.widgets = {} # key: widget
         self.labels = {}  # key: label
         self.value_labels = {} #key: value label; if it has
-        self.keys_order = []
+        self.keys = []
         self.row = 0 # index of current row
 
     def set(self, key, value):
@@ -105,7 +105,7 @@ class SettingWidget(gtk.Table):
         is wrong (default: a function returns None)
 
         """
-        self.keys_order.append(key)
+        self.keys.append(key)
         self.value_status[key] = (True, None)
         self.widgets[key] = widget
         self.labels[key] = label
@@ -569,6 +569,9 @@ class BasicSettingDialog(gtk.Dialog):
             self.protected_buttons.append(button)
         return button
 
+    def get_setting(self, key):
+        return self.setting_widet.get(key)
+
     def _cb_value_status_changed(self, setting_widget, key):
         status = setting_widget.are_values_correct()
         for button in self.protected_buttons:
@@ -581,7 +584,9 @@ class BasicSettingAssistant(gtk.Assistant):
         assert pages_count > 0
 
         gtk.Assistant.__init__(self)
-        self._response = False
+        self.key_on_page = {}
+        self._response = False # TODO: it should contains values from gtk
+                               # gtk.RESONSE_OK, etc.
         self._last_page = 0
 
         self.set_title(title)
@@ -628,7 +633,7 @@ class BasicSettingAssistant(gtk.Assistant):
             sp = self.get_nth_page(n)
             sw = sp.setting_widget
             smp.add_page_title(self.get_page_title(sp))
-            for key in sw.keys_order:
+            for key in sw.keys:
                 vlbl = sw.value_labels[key] if key in sw.value_labels else None
                 smp.add_setting_value(sw.labels[key], sw.setting[key], vlbl)
         smp.show_all()
@@ -644,11 +649,16 @@ class BasicSettingAssistant(gtk.Assistant):
         gtk.main()
         return self._response
 
+    def get_setting(self, key):
+        return self.key_on_page[key].get(key) # TODO: call a stored `get` function
+
     def _cb_apply(self, bsa):
-        self.collected_setting = []
         for n in xrange(bsa.pages_count):
             sp = bsa.get_nth_page(n)
-            self.collected_setting.append(sp.get_setting())
+            sw = sp.setting_widget
+            for key in sw.keys:
+                assert key not in self.key_on_page
+                self.key_on_page[key] = sw # TODO: there can be stored a specific `get` function from the setting widget
         self._response = True
 
     def _cb_cancel(self, bsa):

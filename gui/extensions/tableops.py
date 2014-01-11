@@ -33,7 +33,9 @@ class Filter(Operation):
             for idx, col_idx in enumerate(selected_columns):
                 if idx > 0:
                     s_widget.add_separator()
-                s_widget.add_entry(col_idx, header[col_idx], "")
+                s_widget.add_entry("filter_value{0}".format(col_idx),
+                                   header[col_idx],
+                                   "")
                 s_widget.add_radiobuttons("cmp_fn{0}".format(col_idx),
                                           "Compare",
                                           [("Equal", lambda x, y: x == y),
@@ -47,16 +49,17 @@ class Filter(Operation):
         if not assistant.run():
             return None
 
-        selected_columns = assistant.collected_setting[0]["selected_cols"]
-        filter_by = assistant.collected_setting[1]
+        selected_columns = assistant.get_setting("selected_cols")
 
         cmp_fns = {}
         for col_idx in selected_columns:
-            cmp_fns[col_idx] = filter_by.get("cmp_fn{0}".format(col_idx))
+            cmp_fns[col_idx] = assistant.get_setting("cmp_fn{0}".format(col_idx))
 
         # filter data
         def f(row):
-            return all(cmp_fns[idx](filter_by[idx], row[idx])
+            return all(cmp_fns[idx](assistant.get_setting(
+                                        "filter_value{0}".format(idx)),
+                                    row[idx])
                        for idx in selected_columns)
 
         filtered_data = (header, filter(f, rows))
