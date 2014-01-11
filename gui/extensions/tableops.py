@@ -59,7 +59,7 @@ class Filter(Operation):
         def f(row):
             return all(cmp_fns[idx](assistant.get_setting(
                                         "filter_value{0}".format(idx)),
-                                    row[idx])
+                                    str(row[idx]))
                        for idx in selected_columns)
 
         filtered_data = (header, filter(f, rows))
