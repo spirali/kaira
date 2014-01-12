@@ -1,8 +1,27 @@
+#    Copyright (C) 2013, 2014 Martin Surkovsky
+#                  2013 Stanislav Bohm
+#
+#    This file is part of Kaira.
+#
+#    Kaira is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Kaira is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 import settingswindow
 import utils
 from extensions import Parameter, Source, Operation, add_operation
 from datatypes import t_table
+from gtk import RESPONSE_APPLY
 
 class Filter(Operation):
 
@@ -26,7 +45,7 @@ class Filter(Operation):
             return s_widget
 
         def create_page_2(setting):
-            selected_columns = setting["selected_cols"]
+            selected_columns = setting.get_value("selected_cols")
             selected_columns.sort()
             s_widget = settingswindow.SettingWidget()
 
@@ -46,8 +65,8 @@ class Filter(Operation):
         assistant.append_setting_widget("Select columns", create_page_1)
         assistant.append_setting_widget("Set filters", create_page_2)
 
-        if not assistant.run():
-            return None
+        if assistant.run() != RESPONSE_APPLY:
+            return
 
         selected_columns = assistant.get_setting("selected_cols")
 
