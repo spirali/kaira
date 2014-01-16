@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2013 Martin Surkovsky
+#    Copyright (C) 2013, 2014 Martin Surkovsky
 #    Copyright (C) 2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
@@ -137,7 +137,7 @@ def get_load_file_filters():
     return result
 
 def get_save_file_filter(type):
-    patterns = [ "*." + s for s in type.loaders.keys() ]
+    patterns = [ "*." + s for s in type.savers.keys() ]
     filter = gtk.FileFilter()
     filter.set_name("{0} ({1})".format(type.short_name, ", ".join(patterns)))
     for pattern in patterns:
@@ -194,9 +194,9 @@ def show_csv_settings_dialog(parent_window):
     response = dialog.run()
     if response == gtk.RESPONSE_OK:
         dialog.destroy()
-        delimiter = sw.get("delimiter")
-        quotechar = sw.get("quotechar")
-        has_header = sw.get("header")
+        delimiter = dialog.get_setting("delimiter")
+        quotechar = dialog.get_setting("quotechar")
+        has_header = dialog.get_setting("header")
         return (delimiter, quotechar, has_header)
 
     dialog.destroy()
@@ -206,7 +206,7 @@ def load_csv(filename, app, settings):
     if settings is None:
         settings = show_csv_settings_dialog(app.window)
     if settings is None:
-        return # settings was canceled
+        return (None, None)# settings was canceled
 
     delimiter, quotechar, has_header = settings
     with open(filename, "rb") as csvfile:

@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2013 Martin Surkovsky
+#    Copyright (C) 2013, 2014 Martin Surkovsky
 #                  2013 Stanislav Bohm
 #
 #    This file is part of Kaira.
@@ -89,7 +89,7 @@ class Source(object, EventSource):
 
         """
         suffix = utils.get_filename_suffix(filename)
-        if suffix is None:
+        if suffix is None and self.type.default_saver is not None:
             suffix = self.type.default_saver
             filename += "." + suffix
         saver = self.type.savers.get(suffix)
@@ -97,6 +97,7 @@ class Source(object, EventSource):
             app.show_message_dialog(
                     "Cannot save '.{0}' file".format(suffix),
                     gtk.MESSAGE_WARNING)
+            return
 
         correct, settings = saver(self.data, filename, app, settings)
         if correct:
@@ -217,6 +218,12 @@ class SourceView(gtk.Alignment, EventSource):
             btn.set_sensitive(self.source.data is None)
 
     def _cb_store(self):
+        if len(self.source.type.savers) == 0:
+            self.app.show_message_dialog(
+                    "The type '{0}' cannot be saved.".format(
+                        self.source.type.name),
+                    gtk.MESSAGE_WARNING)
+            return
         dialog = gtk.FileChooserDialog("Source store",
                                        self.app.window,
                                        gtk.FILE_CHOOSER_ACTION_SAVE,
@@ -402,6 +409,7 @@ class Argument(object, EventSource):
         EventSource.__init__(self)
 
         self._parameter = parameter
+        self._src_name_changed_events = EventCallbacksList()
 
         self._real_attached = 0
         self._sources = [None] * self._parameter.minimum
@@ -449,7 +457,7 @@ class Argument(object, EventSource):
         if index is None: # attach
             attached = False
             for i, s in enumerate(self._sources):
-                if s is None:
+                if s is None: # fill required sources firstly
                     self._sources[i] = source
                     attached = True
                     break
@@ -469,9 +477,7 @@ class Argument(object, EventSource):
                 self._real_attached += 1
 
         if old_real_attached < self._real_attached:
-            source.set_callback("source-name-changed",
-                                self._cb_source_name_changed,
-                                self._real_attached-1)
+            self.set_src_name_changed_callback(source, self._real_attached - 1)
 
         self.emit_event("argument-changed")
 
@@ -480,10 +486,8 @@ class Argument(object, EventSource):
             if len(self._sources) - self.minimum <= 0:
                 # minimal count of arguments remain visible
                 self._sources.append(None)
-            source = self._sources.pop(index)
+            self._sources.pop(index)
             self._real_attached -= 1
-            source.remove_callback("source-name-changed",
-                                   self._cb_source_name_changed, index)
             self.emit_event("argument-changed")
 
     def get_data(self):
@@ -493,8 +497,15 @@ class Argument(object, EventSource):
         else:
             return self._sources[0].data
 
+    def set_src_name_changed_callback(self, source, index):
+        self._src_name_changed_events.set_callback(
+            source, "source-name-changed", self._cb_source_name_changed, index)
+
+    def remove_src_name_changed_callbacks(self):
+        self._src_name_changed_events.remove_all()
+
     def _cb_source_name_changed(self, idx, old_name, new_name):
-        self.emit_event("source-name-changed", idx, new_name)
+        self.emit_event("source-name-changed", idx, old_name, new_name)
 
 
 class ArgumentView(gtk.Table, EventSource):
@@ -521,6 +532,7 @@ class ArgumentView(gtk.Table, EventSource):
 
     def _cb_argument_changed(self):
         # remove
+        self.argument.remove_src_name_changed_callbacks()
         for child in self.get_children():
             self.remove(child)
         self.entries = []
@@ -553,6 +565,8 @@ class ArgumentView(gtk.Table, EventSource):
             entry.connect("focus-in-event", self._cb_choose_argument, i)
             attached_source = self.argument.get_source(i)
             if attached_source is not None:
+                # reset callback, make right index
+                self.argument.set_src_name_changed_callback(attached_source, i)
                 entry.set_text(attached_source.name)
                 entry.set_sensitive(attached_source.data is not None)
             self.attach(entry, 2, 3, i, i+1, xoptions=gtk.FILL)

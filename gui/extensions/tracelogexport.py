@@ -1,5 +1,6 @@
 #
 #    Copyright (C) 2013 Stanislav Bohm
+#                  2014 Martin Surkovsky
 #
 #    This file is part of Kaira.
 #
@@ -23,6 +24,7 @@ import datatypes
 import settingswindow
 import utils
 from runinstance import RunInstance
+from gtk import RESPONSE_APPLY
 
 class ExportRunInstance(RunInstance):
 
@@ -128,13 +130,13 @@ class TracelogExport(extensions.Operation):
         assistant.append_setting_widget("Events", page_1)
         assistant.append_setting_widget("Columns", page_2)
 
-        if not assistant.run():
+        if assistant.run() != RESPONSE_APPLY:
             return
 
         ri = ExportRunInstance(tracelog,
-                               assistant.collected_setting[0]["transitions"],
-                               assistant.collected_setting[0]["place_functions"],
-                               assistant.collected_setting[1]["columns"])
+                               assistant.get_setting("transitions"),
+                               assistant.get_setting("place_functions"),
+                               assistant.get_setting("columns"))
         tracelog.execute_events(ri)
         return extensions.Source("Tracelog Table " + utils.get_timestamp_string(),
                                  datatypes.t_table,
