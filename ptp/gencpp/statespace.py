@@ -30,6 +30,7 @@ def switch_by_id(builder, expr, items, callback, exclude=None):
         builder.line("case {0.id}:", i)
         builder.block_begin()
         callback(builder, i)
+        builder.line("break;")
         builder.block_end()
         builder.emptyline()
     builder.line("default:")
@@ -134,10 +135,6 @@ def write_dependent(builder):
                      callback)
 
     def write_receive_receive():
-        builder.if_begin("a1.data.receive.edge_id == a2.data.receive.edge_id")
-        builder.line("return true;")
-        builder.block_end()
-
         edges = [ edge for edge in net.get_edges_out() if not edge.is_local() ]
         builder.switch_begin("a1.data.receive.edge_id")
         for edge in edges:
@@ -163,7 +160,8 @@ def write_dependent(builder):
 
     builder.if_begin("a1.data.fire.transition_def->get_id() == "
                      "a2.data.fire.transition_def->get_id()")
-    builder.line("return true;")
+    builder.line("fprintf(stderr, \"Internal error - The same transitions in POR\");")
+    builder.line("abort();")
     builder.block_end()
 
     switch_by_id(builder,
@@ -186,6 +184,13 @@ def write_dependent(builder):
     builder.block_end()
 
     builder.if_begin("a1.type == cass::ActionReceive && a2.type == cass::ActionReceive")
+
+    builder.if_begin("a1.data.receive.edge_id == a2.data.receive.edge_id &&"
+                     "a1.data.receive.source == a2.data.receive.source")
+    builder.line("fprintf(stderr, \"Internal error - The same receive actions in POR\");")
+    builder.line("abort();")
+    builder.block_end()
+
     write_receive_receive()
     builder.block_end()
     builder.block_end()
@@ -257,6 +262,7 @@ def write_compute_successors(builder):
         builder.line("action.data.fire.transition_def = &transition_{0.id};", transition)
         builder.if_begin("processed.find(action) == processed.end()")
         builder.line("queue.push_back(action);")
+        builder.line("processed.insert(action);")
         builder.block_end()
 
     def push_receive(edge, process):
@@ -264,10 +270,10 @@ def write_compute_successors(builder):
         builder.line("action.process = {0};", process)
         builder.line("action.data.receive.source = a.process;")
         builder.line("action.data.receive.edge_id = {0.id};", edge)
+        builder.if_begin("!receive_blocked[action.process * ca::process_count + a.process] && "
+                         "processed.find(action) == processed.end()")
         builder.line("queue.push_back(action);")
-        builder.if_begin("!receive_blocked[action.process] && "
-                            "processed.find(action) == processed.end()")
-        builder.line("queue.push_back(action);")
+        builder.line("processed.insert(action);")
         builder.block_end()
 
     def push_transitions_of_place(place, ignore_transition=None):
