@@ -381,37 +381,33 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 	ActionSet::iterator it2;
 
 	std::deque<Action> queue;
+	// This assume that there is no optimization for number of tokens in places
 	ActionSet processed = ample;
-	std::vector<bool> receive_blocked(ca::process_count, false);
+	std::vector<bool> receive_blocked(ca::process_count * ca::process_count, false);
 
 	for (ActionSet::iterator i = enabled.begin(); i != enabled.end(); i++) {
 		if (ample.find(*i) != ample.end()) {
-			processed.insert(*i);
 			if (i->type == ActionReceive) {
-				receive_blocked[i->process] = true;
+				receive_blocked[i->process * ca::process_count + i->data.receive.source] = true;
 			}
 		} else {
 			if (i->type == ActionReceive) {
-				for (int source = 0; source < ca::process_count; source++) {
-					const State::PacketQueue& pq = s->get_packets(i->process, source);
-					for (size_t p = 0; p < pq.size(); p++) {
-						Action a;
-						a.type = ActionReceive;
-						a.process = i->process;
-						a.data.receive.source = source;
-						ca::Tokens *tokens = (ca::Tokens *) pq[p].data;
-						a.data.receive.edge_id = tokens->edge_id;
-						if (processed.find(a) == processed.end()) {
-							processed.insert(a);
-							queue.push_back(a);
-						}
+				const State::PacketQueue& pq = s->get_packets(i->process, i->data.receive.source);
+				for (size_t p = 0; p < pq.size(); p++) {
+					Action a;
+					a.type = ActionReceive;
+					a.process = i->process;
+					a.data.receive.source = i->data.receive.source;
+					ca::Tokens *tokens = (ca::Tokens *) pq[p].data;
+					a.data.receive.edge_id = tokens->edge_id;
+					if (processed.find(a) == processed.end()) {
+						processed.insert(a);
+						queue.push_back(a);
 					}
 				}
 			} else {
-				if (processed.find(*i) == processed.end()) {
-					processed.insert(*i);
-					queue.push_back(*i);
-				}
+				processed.insert(*i);
+				queue.push_back(*i);
 			}
 		}
 	}
