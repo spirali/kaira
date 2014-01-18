@@ -566,6 +566,9 @@ void Core::write_xml_statespace(ca::Output &report)
 		Node *node = it->second;
 		hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
 		report.set("hash", hashstr);
+		if (initial_node == node) {
+			report.set("initial", true);
+		}
 		if (node->get_state()->get_quit_flag()) {
 			report.set("quit", true);
 		}
