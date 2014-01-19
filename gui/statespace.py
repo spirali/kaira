@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012-2013 Stanislav Bohm
+#    Copyright (C) 2012-2014 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -50,15 +50,18 @@ class StatespaceConfig(gtk.VBox):
         vbox.pack_start(self.analyze_transition_occurrence, False, False)
         self.analyze_transition_occurrence.set_active(True)
 
-        self.disable_partial_order = gtk.CheckButton("Disable partial order")
-        vbox.pack_start(self.disable_partial_order, False, False)
-        self.disable_partial_order.set_active(False)
-
         frame = gtk.Frame("Other options")
-        self.pack_start(frame, False, False, 5)
         frame.set_border_width(5)
+        vbox = gtk.VBox()
+        frame.add(vbox)
+
+        self.por = gtk.CheckButton("Enable Partial Order Reduction")
+        vbox.pack_start(self.por, False, False)
+        self.por.set_active(True)
+
+        self.pack_start(frame, False, False, 5)
         self.create_dot = gtk.CheckButton("Create 'statespace.dot'")
-        frame.add(self.create_dot)
+        vbox.pack_start(self.create_dot, False, False)
 
         vbox = gtk.HBox(homogeneous=True)
         self.pack_start(vbox, False, False)
@@ -126,9 +129,8 @@ class StatespaceConfig(gtk.VBox):
             if self.analyze_cycles.get_active():
                 parameters.append("-Vcycle")
 
-            if self.disable_partial_order.get_active():
+            if not self.por.get_active():
                 parameters.append("-Vdisable-por")
-
 
             p.start(parameters)
             self.process = p
