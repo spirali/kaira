@@ -17,15 +17,15 @@ static int const MAX_STATES_IN_REPORT = 5;
 
 using namespace cass;
 
-static bool write_dot = false;
-static bool write_statespace = false;
-static bool analyse_deadlock = false;
-static bool analyse_transition_occurrence = false;
-static bool analyse_final_marking = false;
-static bool analyse_cycle = false;
-static bool partial_order_reduction = true;
-static bool silent = false;
-static bool debug = false;
+static bool cfg_write_dot = false;
+static bool cfg_write_statespace = false;
+static bool cfg_analyse_deadlock = false;
+static bool cfg_analyse_transition_occurence = false;
+static bool cfg_analyse_final_marking = false;
+static bool cfg_analyse_cycle = false;
+static bool cfg_partial_order_reduction = true;
+static bool cfg_silent = false;
+static bool cfg_debug = false;
 static std::string project_name;
 
 
@@ -41,40 +41,40 @@ static void args_callback(char c, char *optarg, void *data)
 {
 	if (c == 'V') {
 		if (!strcmp(optarg, "dot")) {
-			write_dot = true;
+			cfg_write_dot = true;
 			return;
 		}
 
 		if (!strcmp(optarg, "debug")) {
-			debug = true;
+			cfg_debug = true;
 			return;
 		}
 		if (!strcmp(optarg, "deadlock")) {
-			analyse_deadlock = true;
+			cfg_analyse_deadlock = true;
 			return;
 		}
 		if (!strcmp(optarg, "tchv")) {
-			analyse_transition_occurrence = true;
+			cfg_analyse_transition_occurence = true;
 			return;
 		}
 		if (!strcmp(optarg, "fmarking")) {
-			analyse_final_marking = true;
+			cfg_analyse_final_marking = true;
 			return;
 		}
 		if (!strcmp(optarg, "cycle")) {
-			analyse_cycle = true;
+			cfg_analyse_cycle = true;
 			return;
 		}
 		if (!strcmp(optarg, "disable-por")) {
-			partial_order_reduction = false;
+			cfg_partial_order_reduction = false;
 			return;
 		}
 		if (!strcmp(optarg, "silent")) {
-			silent = true;
+			cfg_silent = true;
 			return;
 		}
 		if (!strcmp(optarg, "write-statespace")) {
-			write_statespace = true;
+			cfg_write_statespace = true;
 			return;
 		}
 
@@ -267,7 +267,7 @@ void Node::generate(Core *core)
 	const std::vector<ca::TransitionDef*> &transitions = def->get_transition_defs();
 	ActionSet enabled = compute_enable_set(core);
 	ActionSet ws;
-	if (partial_order_reduction) {
+	if (cfg_partial_order_reduction) {
 		ws = core->compute_ample_set(state, enabled);
 	} else {
 		ws = enabled;
@@ -320,7 +320,7 @@ void Node::generate(Core *core)
 Core::Core(VerifConfiguration &verif_configuration) : initial_node(NULL), nodes(10000, HashDigestHash(MHASH_MD5),
 		HashDigestEq(MHASH_MD5)), net_def(NULL), verif_configuration(verif_configuration)
 {
-	if (analyse_transition_occurrence) {
+	if (cfg_analyse_transition_occurence) {
 		generate_binging_in_nni = true;
 	} else {
 		generate_binging_in_nni = false;
@@ -341,13 +341,13 @@ void Core::generate()
 	int count = 0;
 	do {
 		count++;
-		if (count % 1000 == 0 && !silent) {
+		if (count % 1000 == 0 && !cfg_silent) {
 			fprintf(stderr, "Nodes %i\n", count);
 		}
 		Node *node = not_processed.top();
 		not_processed.pop();
 		node->generate(this);
-		if (debug) {
+		if (cfg_debug) {
 			getchar();
 		}
 	} while (!not_processed.empty());
@@ -357,7 +357,7 @@ ActionSet Core::compute_ample_set(State *s, const ActionSet &enable)
 {
 	ActionSet::iterator it;
 
-	if (debug) {
+	if (cfg_debug) {
 		// print state name
 		char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
 		hashdigest_to_string(MHASH_MD5, s->compute_hash(MHASH_MD5) , hashstr);
@@ -504,7 +504,7 @@ void Core::write_dot_file(const std::string &filename)
 
 void Core::postprocess()
 {
-	if (write_dot) {
+	if (cfg_write_dot) {
 		write_dot_file("statespace.dot");
 	}
 
@@ -526,13 +526,13 @@ void Core::write_report()
 	report.back();
 	report.back();
 
-	if (analyse_deadlock || analyse_final_marking) {
+	if (cfg_analyse_deadlock || cfg_analyse_final_marking) {
 		run_analysis_final_nodes(report);
 	}
-	if (analyse_transition_occurrence) {
+	if (cfg_analyse_transition_occurence) {
 		run_analysis_transition_occurrence(report);
 	}
-	if (analyse_cycle) {
+	if (cfg_analyse_cycle) {
 		run_analysis_cycle(report);
 	}
 
@@ -540,7 +540,7 @@ void Core::write_report()
 	report.text(ca::project_description_string);
 	report.back();
 
-	if (write_statespace) {
+	if (cfg_write_statespace) {
 		write_xml_statespace(report);
 	}
 
@@ -694,7 +694,7 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 	{
 		Node *node = it->second;
 		if (node->get_nexts().size() == 0) {
-			if (analyse_final_marking) {
+			if (cfg_analyse_final_marking) {
 				ca::Packer packer;
 				for (int t = 0; t < ca::process_count; t++) {
 					verif_configuration.pack_final_marking(
@@ -713,7 +713,7 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 				}
 				packer.free();
 			}
-			if (analyse_deadlock) {
+			if (cfg_analyse_deadlock) {
 				if (!node->get_state()->get_quit_flag()) {
 					deadlocks++;
 					if (deadlock_node == NULL ||
@@ -725,7 +725,7 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 		}
 	}
 
-	if (analyse_deadlock) {
+	if (cfg_analyse_deadlock) {
 		report.child("analysis");
 		report.set("name", "Quit analysis");
 
@@ -745,7 +745,7 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 		report.back();
 	}
 
-	if (analyse_final_marking) {
+	if (cfg_analyse_final_marking) {
 		report.child("analysis");
 		report.set("name", "Final marking");
 		report.child("result");
