@@ -12,9 +12,9 @@ class Project(testutils.Project):
                    write_statespace=False,
                    **kw):
         self.build("statespace")
-        extra_args = [ "-Vtest" ]
+        extra_args = [ "-Vsilent" ]
         if not por:
-            extra_args.append("-Vdisable_partial_order")
+            extra_args.append("-Vdisable-por")
         if write_statespace:
             extra_args.append("-Vwrite-statespace")
         if analyses:

@@ -23,8 +23,8 @@ static bool analyse_deadlock = false;
 static bool analyse_transition_occurrence = false;
 static bool analyse_final_marking = false;
 static bool analyse_cycle = false;
-static bool partial_order = true;
-static bool testing_mode = false;
+static bool partial_order_reduction = true;
+static bool silent = false;
 static bool debug = false;
 static std::string project_name;
 
@@ -44,6 +44,7 @@ static void args_callback(char c, char *optarg, void *data)
 			write_dot = true;
 			return;
 		}
+
 		if (!strcmp(optarg, "debug")) {
 			debug = true;
 			return;
@@ -64,12 +65,12 @@ static void args_callback(char c, char *optarg, void *data)
 			analyse_cycle = true;
 			return;
 		}
-		if (!strcmp(optarg, "disable_partial_order")) {
-			partial_order = false;
+		if (!strcmp(optarg, "disable-por")) {
+			partial_order_reduction = false;
 			return;
 		}
-		if (!strcmp(optarg, "test")) {
-			testing_mode = true;
+		if (!strcmp(optarg, "silent")) {
+			silent = true;
 			return;
 		}
 		if (!strcmp(optarg, "write-statespace")) {
@@ -264,9 +265,12 @@ void Node::generate(Core *core)
 
 	ca::NetDef *def = core->get_net_def();
 	const std::vector<ca::TransitionDef*> &transitions = def->get_transition_defs();
-	ActionSet ws = compute_enable_set(core);
-	if (partial_order) {
-		ws = core->compute_ample_set(state, ws);
+	ActionSet enabled = compute_enable_set(core);
+	ActionSet ws;
+	if (partial_order_reduction) {
+		ws = core->compute_ample_set(state, enabled);
+	} else {
+		ws = enabled;
 	}
 
 	State *s;
@@ -337,7 +341,7 @@ void Core::generate()
 	int count = 0;
 	do {
 		count++;
-		if (count % 1000 == 0 && !testing_mode) {
+		if (count % 1000 == 0 && !silent) {
 			fprintf(stderr, "Nodes %i\n", count);
 		}
 		Node *node = not_processed.top();
@@ -452,37 +456,26 @@ void Core::write_dot_file(const std::string &filename)
 	{
 		Node *node = it->second;
 		const std::vector<NextNodeInfo> &nexts = node->get_nexts();
-		if (node == initial_node) {
-			if (testing_mode) {
-				hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
-				fprintf(f, "S%p [label=\"%s\", style=filled]\n", node, hashstr);
-			} else {
-				fprintf(f, "S%p [style=filled, label=init]\n", node);
-			}
-		} else {
-			hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
-			if (!testing_mode) {
-				hashstr[5] = 0;
-			}
-			int packets_count = 0;
-			for (int i = 0; i < ca::process_count * ca::process_count; i++) {
-				packets_count += node->get_state()->get_packets(
-					i / ca::process_count, i % ca::process_count).size();
-			}
-			const char *quit_flag;
-			if (node->get_state()->get_quit_flag()) {
-				quit_flag = "!";
-			} else {
-				quit_flag = "";
-			}
-			fprintf(f, "S%p [label=\"%s%s|%i|%i|%i\"]\n",
-				node,
-				quit_flag,
-				hashstr,
-				(int) node->get_state()->get_activations().size(),
-				packets_count,
-				node->get_distance());
+		hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
+		hashstr[5] = 0; // Take just prefix
+		int packets_count = 0;
+		for (int i = 0; i < ca::process_count * ca::process_count; i++) {
+			packets_count += node->get_state()->get_packets(
+				i / ca::process_count, i % ca::process_count).size();
 		}
+		const char *quit_flag;
+		if (node->get_state()->get_quit_flag()) {
+			quit_flag = "!";
+		} else {
+			quit_flag = "";
+		}
+		fprintf(f, "S%p [label=\"%s%s|%i|%i|%i\"]\n",
+			node,
+			quit_flag,
+			hashstr,
+			(int) node->get_state()->get_activations().size(),
+			packets_count,
+			node->get_distance());
 		for (size_t i = 0; i < nexts.size(); i++) {
 			fprintf(f, "S%p -> S%p [label=\"", node, nexts[i].node);
 			char c;

@@ -127,7 +127,7 @@ class StatespaceConfig(gtk.VBox):
                 parameters.append("-Vcycle")
 
             if self.disable_partial_order.get_active():
-                parameters.append("-Vdisable_partial_order")
+                parameters.append("-Vdisable-por")
 
 
             p.start(parameters)
