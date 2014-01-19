@@ -42,6 +42,9 @@ class StateSpaceTest(unittest.TestCase):
     def test_por2(self):
         Project("por2").check_por(processes=2)
 
+    def test_por3(self):
+        Project("por3").check_por(processes=2)
+
     def test_heatflow(self):
         Project("heatflow").check_por(processes=3)
 
