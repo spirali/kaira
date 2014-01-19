@@ -342,7 +342,7 @@ void Core::generate()
 	do {
 		count++;
 		if (count % 1000 == 0 && !cfg_silent) {
-			fprintf(stderr, "Nodes %i\n", count);
+			fprintf(stderr, "==KAIRA== Nodes %i\n", count);
 		}
 		Node *node = not_processed.top();
 		not_processed.pop();

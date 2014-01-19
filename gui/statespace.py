@@ -82,9 +82,10 @@ class StatespaceConfig(gtk.VBox):
     def start(self):
         def build_ok():
             self.info_label.set_text("Running computation ...")
-
+            prefix = "==KAIRA=="
             def on_line(line, stream):
-                self.info_label.set_text("Running computation ... " + line)
+                if line.startswith(prefix):
+                    self.info_label.set_text("Running computation ... " + line[len(prefix):])
                 return True
 
             def on_exit(code):
