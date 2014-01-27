@@ -234,9 +234,9 @@ class NetItem(object):
         element.set("id", str(self.id))
         return element
 
-    def get_canvas_items_dict(self):
+    def get_canvas_items_dict(self, view_mode):
         result = {}
-        for i in self.get_canvas_items():
+        for i in self.get_canvas_items(view_mode):
             result[i.kind] = i
         return result
 
@@ -245,7 +245,7 @@ class NetItem(object):
         messages = self.net.project.get_error_messages(self)
         if not messages:
             return result
-        items = self.get_canvas_items_dict()
+        items = self.get_canvas_items_dict(None)
         for name in messages:
             item = items.get(name)
             if item is None:
@@ -280,6 +280,28 @@ class NetElement(NetItem):
             self.default_size,
             self.default_radius)
         self.tracing = []
+
+        self.label_placement = self.box.get_relative_placement(
+            utils.vector_add_t(position, self.default_size, 0.5))
+        self.label_trace = citems.TraceLabel(self, "tracebox", self.label_placement)
+        self.label_trace.text_fn = self.get_trace_label_text
+
+        self.label_simrun = citems.SimRunLabel(self, "simrunbox", self.label_placement)
+        self.label_simrun.text_fn = self.get_simrun_label_text
+
+        self.label_verif = citems.VerifLabel(self, "verifbox", self.label_placement)
+        self.label_verif.text_fn = self.get_verif_label_text
+
+
+    def get_canvas_items(self, view_mode):
+        items = [ self.box ]
+        if view_mode == "tracing":
+            items.append(self.label_trace)
+        elif view_mode == "verif":
+            items.append(self.label_verif)
+        elif view_mode == "simrun":
+            items.append(self.label_simrun)
+        return items
 
     def has_code(self):
         return self.code != ""
@@ -355,8 +377,10 @@ class Transition(NetElement):
         p = (position[0], position[1] - 20)
         self.guard = citems.Text(self, "guard", self.box.get_relative_placement(p))
 
-    def get_canvas_items(self):
-        items = [ self.box, self.guard ]
+    def get_canvas_items(self, view_mode):
+        items = NetElement.get_canvas_items(self, view_mode)
+        items.append(self.guard)
+
         if self.clock:
             p = utils.vector_add(self.box.get_position(), (-9, 7))
             items.append(citems.ClockIcon(
@@ -430,6 +454,8 @@ class Transition(NetElement):
         e.set("sx", str(self.box.size[0]))
         e.set("sy", str(self.box.size[1]))
         e.set("clock", str(self.has_clock()))
+        e.set("label-x", str(self.label_placement.get_position()[0]))
+        e.set("label-y", str(self.label_placement.get_position()[1]))
 
         e.append(canvastext_to_xml(self.guard, "guard"))
         if self.has_code():
@@ -461,10 +487,10 @@ class Transition(NetElement):
             e.append(element)
         return e
 
-    def get_trace_texts(self):
+    def get_trace_label_text(self):
         return self.tracing
 
-    def get_verif_labels(self):
+    def get_verif_label_text(self):
         texts = []
         if self.occurrence_analysis:
             texts.append("occurrence")
@@ -475,6 +501,14 @@ class Transition(NetElement):
         if self.calls_quit:
             texts.append("call quit")
         return texts
+
+    def get_simrun_label_text(self):
+        items = []
+        if self.get_time_substitution():
+            items.append("time: {0}".format(self.get_time_substitution_code()))
+        if self.get_clock_substitution():
+            items.append("clock: {0}".format(self.get_clock_substitution_code()))
+        return "\n".join(items)
 
     def export_xml(self, build_config):
         e = self.create_xml_element("transition")
@@ -542,12 +576,14 @@ class Place(NetElement):
         p = self.box.get_relative_placement((- self.box.radius - 5, -5), absolute=False)
         self.interface = citems.PlaceInterface(self, "interface", p)
 
-    def get_canvas_items(self):
-        items = [ self.box,
-                 self.place_type,
-                 self.init ]
+    def get_canvas_items(self, view_mode):
+        items = NetElement.get_canvas_items(self, view_mode)
+        items.append(self.place_type)
+        items.append(self.init)
+
         if self.interface.is_visible():
             items.append(self.interface)
+
         return items
 
     def get_interface_in(self):
@@ -586,8 +622,15 @@ class Place(NetElement):
     def is_place(self):
         return True
 
-    def get_trace_texts(self):
+    def get_trace_label_text(self):
         return [ trace_function.name for trace_function in self.tracing ]
+
+    def get_verif_label_text(self):
+        if self.final_marking:
+            return [ "final marking" ]
+
+    def get_simrun_label_text(self):
+        return ""
 
     def tracing_to_xml(self, element):
         for trace_function in self.tracing:
@@ -616,6 +659,8 @@ class Place(NetElement):
         e.set("radius", str(self.box.radius))
         e.set("sx", str(self.box.size[0]))
         e.set("sy", str(self.box.size[1]))
+        e.set("label-x", str(self.label_placement.get_position()[0]))
+        e.set("label-y", str(self.label_placement.get_position()[1]))
 
         if self.final_marking:
             element = xml.Element("verif-final-marking")
@@ -655,7 +700,6 @@ class Place(NetElement):
                 e.set("in", self.interface.interface_in)
             if self.interface.interface_out is not None:
                 e.set("out", self.interface.interface_out)
-
         return e
 
     def get_final_marking(self):
@@ -664,10 +708,6 @@ class Place(NetElement):
     def set_final_marking(self, value):
         self.final_marking = value
         self.changed()
-
-    def get_verif_labels(self):
-        if self.final_marking:
-            return [ "final marking" ]
 
 
 class Edge(NetItem):
@@ -686,6 +726,13 @@ class Edge(NetItem):
                                        "inscription",
                                        self.line.get_relative_placement(None),
                                        "")
+        self.label_simrun = citems.SimRunLabel(self, "simrunbox",
+                                self.inscription.get_relative_placement((0, 18), absolute=False))
+        self.label_simrun.text_fn = self.get_simrun_label_text
+
+    def get_simrun_label_text(self):
+        if self.size_substitution:
+            return "size: {0}".format(self.size_substitution_code)
 
     def get_size_substitution(self):
         return self.size_substitution
@@ -710,8 +757,11 @@ class Edge(NetItem):
         e.size_substitution_code = self.size_substitution_code
         return e
 
-    def get_canvas_items(self):
-        return [ self.line, self.inscription ] + self.points
+    def get_canvas_items(self, view_mode):
+        items = [ self.line, self.inscription ] + self.points
+        if view_mode == "simrun":
+            items.append(self.label_simrun)
+        return items
 
     def add_point(self, position):
         inscription_position = self.inscription.get_position()
@@ -867,7 +917,7 @@ class NetArea(RectItem):
         position = utils.vector_add(self.point1.get_position(), (0, -15))
         self.init = citems.Text(self, "init", self.point1.get_relative_placement(position))
 
-    def get_canvas_items(self):
+    def get_canvas_items(self, view_mode):
         return [ self.point1, self.point2,
                  self.init, self.area ]
 
@@ -992,6 +1042,11 @@ def load_place(element, net, loader):
     place.box.radius = xml_int(element,"radius")
     place.box.size = (xml_int(element,"sx", 0), xml_int(element,"sy", 0))
 
+    if element.get("label-x") and element.get("label-y"):
+        label_x = xml_int(element, "label-x")
+        label_y = xml_int(element, "label-y")
+        place.label_placement.set_position((label_x, label_y))
+
     if element.find("place-type") is not None:
         canvastext_from_xml(element.find("place-type"), place.place_type)
     else:
@@ -1001,6 +1056,7 @@ def load_place(element, net, loader):
         canvastext_from_xml(element.find("init"), place.init)
     else:
         place.init.text = element.get("init_string", "") # Backward compatability
+
     place.set_code(load_code(element))
     place.tracing = load_place_tracing(element)
 
@@ -1021,6 +1077,12 @@ def load_transition(element, net, loader):
     transition = net.add_transition((xml_int(element,"x"), xml_int(element, "y")), id)
     sx = xml_int(element,"sx")
     sy = xml_int(element,"sy")
+
+    if element.get("label-x") and element.get("label-y"):
+        label_x = xml_int(element, "label-x")
+        label_y = xml_int(element, "label-y")
+        transition.label_placement.set_position((label_x, label_y))
+
     transition.box.size = (sx, sy)
     transition.box.name = xml_str(element,"name", "")
     if element.find("guard") is not None:

@@ -49,9 +49,6 @@ class CodeEditor(gtk.ScrolledWindow):
         self.show_all()
         self.jump_to_position(start_pos)
 
-    def grab_focus(self):
-        self.view.grab_focus()
-
     def _create_buffer(self, key, sections, head_paragraph):
         manager = gtksourceview.LanguageManager()
         lan = manager.get_language(key)
@@ -116,6 +113,8 @@ class CodeEditor(gtk.ScrolledWindow):
         return self.buffer.get_text(start_iter, end_iter)
 
     def set_text(self, text, section_name=""):
+        if text is None:
+            text = ""
         start_iter, end_iter = self.get_section_iters(section_name)
         mark = self.buffer.create_mark("tmp_end", end_iter, True)
         self.buffer.insert_with_tags_by_name(end_iter, text, "normal")

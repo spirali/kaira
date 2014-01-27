@@ -231,11 +231,15 @@ class NetCanvasConfig(CanvasConfig):
         self.items.sort(key=lambda i: i.z_level, reverse=True)
         self.set_highlight()
 
+    def get_view_mode(self):
+        return None
+
     def collect_items(self):
         canvas_items = []
+        view_mode = self.get_view_mode()
         if self.net is not None:
             for item in self.net.items:
-                i = item.get_canvas_items()
+                i = item.get_canvas_items(view_mode)
                 citems.make_group(i)
                 canvas_items += i
             for item in canvas_items:

@@ -230,6 +230,8 @@ class Label(CanvasItem):
     z_level = 5
     color = (1,1,1)
     background_color = (0,0,0)
+    action = "move"
+    size = None
 
     def draw(self, cr):
         text = None
@@ -239,9 +241,22 @@ class Label(CanvasItem):
             text = self.text_fn()
         if text:
             px, py = self.get_position()
-            drawing.draw_label(
-                cr, px, py, text, self.symbol,
-                self.color, self.background_color)
+            if not self.highlight:
+                self.size = drawing.draw_label(
+                        cr, px, py, text, self.symbol,
+                        self.color, self.background_color)
+            else:
+                self.size = drawing.draw_label(
+                        cr, px, py, text, self.symbol,
+                        (0,0,0), self.highlight)
+
+    def is_at_position(self, position):
+        if not self.size:
+            return False
+        px, py = position
+        x, y = self.get_position()
+        return (x < px and y < py and
+                x + self.size[0] > px and y + self.size[1] > py)
 
 
 class TraceLabel(Label):
@@ -253,9 +268,11 @@ class SimRunLabel(Label):
     background_color = (0.2, 0.5, 1.0)
     symbol = "arrow"
 
+
 class VerifLabel(Label):
     background_color = (0.7, 0, 0.8)
     symbol = "tick"
+
 
 class ArrowLine(CanvasItem):
 
@@ -319,8 +336,10 @@ class Text(CanvasItem):
     size = (0, 0)
     background_color = None
     border_color = None
-    padding_x = 6
-    padding_y = 2
+    padding_left = 6
+    padding_right = 6
+    padding_top = 2
+    padding_bottom = 2
     align_x = 0
     align_y = 1
     radius = None
@@ -353,8 +372,10 @@ class Text(CanvasItem):
 
             self.size = drawing.draw_text(
                    cr, px, py, self.text, self.align_x, self.align_y,
-                   padding_x=self.padding_x,
-                   padding_y=self.padding_y,
+                   padding_left=self.padding_left,
+                   padding_right=self.padding_right,
+                   padding_top=self.padding_top,
+                   padding_bottom=self.padding_bottom,
                    radius=self.radius,
                    background_color=background_color,
                    border_color=self.border_color)
