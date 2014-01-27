@@ -39,17 +39,7 @@ class RunView(gtk.VBox):
             netview.NetViewCanvasConfig(self.netinstance_view))
         self.netinstance_view.set_runinstance(self.tracelog.first_runinstance)
 
-        self.views = [
-            ("Replay", self.netinstance_view),
-            ("Utilizations of processes", self._processes_utilization()),
-            ("Utilizations of transitions", self._transitions_utilization()),
-            ("Utilizations of trans. (by threads)", self._transition_utilization_group_threads()),
-            ("Numbers of tokens", self._place_chart()),
-            # TET = Transition Execution Time
-            ("TETs per process", self._processes_histogram()),
-            ("Summations of TETs per process", self._processes_time_sum()),
-            ("Summations of TETs per transition", self._transitions_time_sum())
-        ]
+        self.views = [ ("Replay", self.netinstance_view) ]
 
         self.pack_start(self._controlls(), False, False)
         for name, item in self.views:
@@ -101,9 +91,6 @@ class RunView(gtk.VBox):
         self.netinstance_view.set_runinstance(runinstance)
         self.update_labels()
 
-    def export_tracelog_table(self, filename):
-        self.tracelog.bigtable.export(filename)
-
     def export_sequence(self):
         return self.tracelog.export_sequence(self.get_event_index())
 
@@ -141,89 +128,3 @@ class RunView(gtk.VBox):
             self.tracelog.get_event_name(index),
             time)
         self.info_label.set_markup(text)
-
-    def _processes_utilization(self):
-        values = self.tracelog.statistics["threads"]
-        idles = self.tracelog.statistics["idles"]
-
-        names = []
-        for p in range(self.tracelog.process_count):
-            for t in range(self.tracelog.threads_count):
-                names.append("process {0}`{1}".format(p, t))
-
-        names.reverse()
-        values.reverse()
-        idles.reverse()
-        return charts.utilization_chart(
-                   names,
-                   values,
-                   "Utilizations of processes", "Time", "Processes",
-                   idles=idles)
-
-    def _transitions_utilization(self):
-        names = self.tracelog.statistics["transition_names"]
-        values = self.tracelog.statistics["transition_values"]
-
-        values.reverse()
-        names.reverse()
-        return charts.utilization_chart(
-                   names,
-                   values,
-                   "Utilizations of transitions",
-                   "Time",
-                   "Transition")
-
-    def _transition_utilization_group_threads(self):
-        names = self.tracelog.statistics["trans_gthreads_names"]
-        values = self.tracelog.statistics["trans_gthreads_values"]
-
-        values.reverse()
-        names.reverse()
-        return charts.utilization_chart(
-                names,
-                values,
-                "Utilization of transitions (group by threads)",
-                "Time",
-                "Transition", self.tracelog.threads_count)
-
-    def _place_chart(self):
-        values = self.tracelog.statistics["tokens_values"]
-        names = self.tracelog.statistics["tokens_names"]
-
-        return charts.place_chart(
-                names,
-                values,
-                "Number of tokens in places",
-                "Time",
-                "Number of tokens")
-
-    def _processes_histogram(self):
-        names = self.tracelog.statistics["proc_hist_names"]
-        values = self.tracelog.statistics["proc_hist_values"]
-        return charts.histogram(
-                names,
-                values,
-                "Histograms of transition execution times",
-                "Time",
-                "Density")
-
-
-    def _transitions_time_sum(self):
-        values = self.tracelog.statistics["tr_tsum_values"]
-        names = self.tracelog.statistics["tr_tsum_names"]
-        return charts.time_sum_chart(
-                names,
-                values,
-                "Summations of transition execution times",
-                "Transitions",
-                "Sum of times")
-
-    def _processes_time_sum(self):
-        values = self.tracelog.statistics["proc_tsum_values"]
-        names = self.tracelog.statistics["proc_tsum_names"]
-        return charts.time_sum_chart(
-                names,
-                values,
-                "Summations of transition execution times for each processes",
-                "Processes",
-                "Sum of times")
