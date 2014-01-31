@@ -60,6 +60,9 @@ class CanvasConfig:
         self.drag_items_origin = None
         self.drag_items = None
         self.scroll_point = None
+        self.mass_selection = False
+        self.mass_selection_origin = None
+        self.mass_selection_cursor = None
 
     def on_items_selected(self):
         pass
@@ -82,6 +85,14 @@ class CanvasConfig:
     def draw(self, cr):
         for item in reversed(self.items):
             item.draw(cr)
+        if self.mass_selection_origin:
+            cr.new_sub_path()
+            cr.set_source_rgba(1, 1, 1, 0.5)
+            cr.rectangle(self.mass_selection_origin[0],
+                         self.mass_selection_origin[1],
+                         self.mass_selection_cursor[0] - self.mass_selection_origin[0],
+                         self.mass_selection_cursor[1] - self.mass_selection_origin[1])
+            cr.fill()
 
     def get_bounding_box(self):
         boxes = [ item.get_bounding_box() for item in self.items if item is not None ]
@@ -108,11 +119,27 @@ class CanvasConfig:
             if item.is_at_position(position):
                 return item
 
+    def get_items_in_rect(self, rect_position, rect_size):
+        return [ item for item in self.items if item.is_in_rect(rect_position, rect_size) ]
+
+    def get_items_in_mass_selection(self):
+        position, size = utils.make_rect(self.mass_selection_origin, self.mass_selection_cursor)
+        items = []
+        for item in self.get_items_in_rect(position, size):
+            items += item.get_group()
+        return items
+
     def on_mouse_move(self, event, position):
         if self.scroll_point:
             change = utils.make_vector(position, self.scroll_point)
             self.canvas.set_viewport(
                 utils.vector_add(self.canvas.get_viewport(), change))
+            return
+
+        if self.mass_selection_origin:
+            self.mass_selection_cursor = position
+            self.mouseover_items = self.get_items_in_mass_selection()
+            self.set_highlight()
             return
 
         if self.drag_items:
@@ -140,7 +167,13 @@ class CanvasConfig:
     def on_mouse_left_down(self, event, position):
         item = self.get_item_at_position(position)
         if item:
-            if item.action is not None:
+            if self.mass_selection and item in self.selected_items:
+                # dirty hack
+                self.drag_items = [ i for i in self.selected_items if i.kind == "box" or i.kind == "point" ]
+                self.drag_items_origin = self.drag_items_origin = [ i.get_position()
+                                                                    for i in self.drag_items ]
+                self.drag_mouse_origin = position
+            elif item.action is not None:
                 self.drag_items = [item]
                 self.drag_items_origin = [ i.get_position()
                                                for i in self.drag_items ]
@@ -149,6 +182,8 @@ class CanvasConfig:
                 pass
         else:
             self.select_item(None)
+            self.mass_selection_origin = position
+            self.mass_selection_cursor = position
         self.set_highlight()
 
     def select_item(self, item):
@@ -165,7 +200,19 @@ class CanvasConfig:
         self.on_items_selected()
         self.set_highlight()
 
+    def mass_select_items(self, items):
+        self.selected_items = items
+        self.on_items_selected()
+        self.set_highlight()
+
     def on_mouse_left_up(self, event, position):
+        if self.mass_selection_origin:
+            items = self.get_items_in_mass_selection()
+            self.mass_select_items(items)
+            self.mass_selection_origin = None
+            self.mass_selection_cursor = None
+            self.mass_selection = bool(items)
+            self.canvas.redraw()
         item = self.get_item_at_position(position)
         if item:
             self.on_item_click(item, position)
@@ -248,3 +295,13 @@ class NetCanvasConfig(CanvasConfig):
 
     def configure_item(self, item):
         pass
+
+    def get_items_in_mass_selection(self):
+        items = CanvasConfig.get_items_in_mass_selection(self)
+        owners = [ item.owner for item in items ]
+        for item in items[:]:
+            if item.kind == "box":
+                for edge in item.owner.edges_from():
+                    if edge.to_item in owners:
+                        items += edge.get_canvas_items(None)
+        return items

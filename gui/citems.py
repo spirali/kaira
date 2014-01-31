@@ -106,6 +106,9 @@ class CanvasItem:
     def is_at_position(self, position):
         return False
 
+    def is_in_rect(self, rect_position, rect_size):
+        return False
+
     def draw(self, cr):
         pass
 
@@ -150,7 +153,6 @@ class ElementBox(CanvasItem):
         cr.set_source_rgb(1, 1, 1)
         cr.fill()
 
-
         if self.highlight:
             drawing.draw_round_rectangle(cr, px, py, sx, sy, self.radius)
             cr.set_line_width(6.5)
@@ -179,6 +181,10 @@ class ElementBox(CanvasItem):
     def is_at_position(self, position):
         return utils.is_in_round_rectangle(
             self.get_position(), self.size, self.radius, position, 10)
+
+    def is_in_rect(self, rect_position, rect_size):
+        return utils.is_round_rectangle_in_rect(
+            self.get_position(), self.size, self.radius, rect_position, rect_size)
 
     def get_border_point(self, outer_point):
         e = 0.01
