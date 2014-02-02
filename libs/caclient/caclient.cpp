@@ -109,10 +109,13 @@ void CaClient::process_inital_data(void *buffer, size_t size)
 {
 	std::vector<bool> checked(functions.size(), false);
 	ca::Unpacker unpacker(buffer);
-	int count = ca::unpack<int>(unpacker);
+	int count;
+	ca::unpack(unpacker, count);
 	for (int t = 0; t < count; t++) {
-		std::string name = ca::unpack<std::string>(unpacker);
-		std::string definition = ca::unpack<std::string>(unpacker);
+		std::string name;
+		ca::unpack(unpacker, name);
+		std::string definition;
+		ca::unpack(unpacker, definition);
 		functions[name].first = definition;
 		functions[name].second = t;
 	}

@@ -59,7 +59,7 @@ template <typename T> class Place {
 		}
 
 		void pack(Packer &packer) {
-			ca::pack(packer, this->token_list);
+			packer << this->token_list;
 		}
 
 		bool is_empty() const {
@@ -173,11 +173,12 @@ template <typename T> class PlaceWithSource : public Place<T>
 
 		void pack(Packer &packer)
 		{
+			packer << this->token_list;
 			ca::pack(packer, this->token_list);
 			for (Token<T> *t = this->token_list.begin();
-				 t != NULL;
-				 t = this->token_list.next(t)) {
-				ca::pack(packer, (sources[t]));
+				t != NULL;
+				t = this->token_list.next(t)) {
+				packer << sources[t];
 			}
 		}
 
@@ -190,16 +191,6 @@ template <typename T> class PlaceWithSource : public Place<T>
 			return p1.second < p2.second;
 		}
 };
-
-template<typename T> void pack(Packer &packer, Place<T> &place)
-{
-	place.pack(packer);
-}
-
-template<typename T> void pack(Packer &packer, PlaceWithSource<T> &place)
-{
-	place.pack(packer);
-}
 
 }
 
