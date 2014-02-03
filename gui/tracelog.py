@@ -22,13 +22,12 @@ import xml.etree.ElementTree as xml
 import utils
 import loader
 import struct
-import os
 import controlseq
 
+from table import Table
 from runinstance import RunInstance
 
 zero_char = chr(0)
-
 
 class TraceLog:
 
@@ -46,17 +45,13 @@ class TraceLog:
 
         self._preprocess()
 
-    def get_filename_without_ext(self):
-        name, ext = os.path.splitext(self.filename)
-        return name
-
     def execute_visible_events(self, ri, from_event=0, to_event=None):
         if to_event is None:
             to_event = len(self.timeline)
         for i in xrange(from_event, to_event):
             event_pointer = self.timeline[i]
-            trace = self.traces[event_pointer.trace_id]
-            trace.pointer = event_pointer.pointer
+            trace = self.traces[event_pointer["trace-id"]]
+            trace.pointer = event_pointer["pointer"]
             trace.process_event(ri)
         return ri
 
@@ -65,8 +60,8 @@ class TraceLog:
             to_event = len(self.full_timeline)
         for i in xrange(from_event, to_event):
             event_pointer = self.full_timeline[i]
-            trace = self.traces[event_pointer.trace_id]
-            trace.pointer = event_pointer.pointer
+            trace = self.traces[event_pointer["trace-id"]]
+            trace.pointer = event_pointer["pointer"]
             trace.process_event(ri)
         return ri
 
@@ -79,22 +74,22 @@ class TraceLog:
             return "X"
         index -= 1
         event_pointer = self.timeline[index]
-        return event_pointer.trace_id % self.threads_count
+        return event_pointer["trace-id"] % self.threads_count
 
     def get_event_process(self, index):
         if index == 0:
             return "X"
         index -= 1
         event_pointer = self.timeline[index]
-        return event_pointer.trace_id / self.threads_count
+        return event_pointer["trace-id"] / self.threads_count
 
     def get_event_time(self, index):
         if index == 0:
             return 0
         index -= 1
         event_pointer = self.timeline[index]
-        trace = self.traces[event_pointer.trace_id]
-        trace.pointer = event_pointer.pointer
+        trace = self.traces[event_pointer["trace-id"]]
+        trace.pointer = event_pointer["pointer"]
         return trace.get_next_event_time()
 
     def get_event_name(self, index):
@@ -102,8 +97,8 @@ class TraceLog:
             return "Init "
         index -= 1
         event_pointer = self.timeline[index]
-        trace = self.traces[event_pointer.trace_id]
-        trace.pointer = event_pointer.pointer
+        trace = self.traces[event_pointer["trace-id"]]
+        trace.pointer = event_pointer["pointer"]
         return trace.get_next_event_name()
 
     def get_runinstances_count(self):
@@ -119,8 +114,8 @@ class TraceLog:
         ri = self.first_runinstance.copy()
         for i in xrange(index):
             event_pointer = self.timeline[i]
-            trace = self.traces[event_pointer.trace_id]
-            trace.pointer = event_pointer.pointer
+            trace = self.traces[event_pointer["trace-id"]]
+            trace.pointer = event_pointer["pointer"]
             trace.process_event(ri)
             if ri.last_event == "fire":
                 sequence.add_transition_start(ri.last_event_process,
@@ -145,7 +140,7 @@ class TraceLog:
 
     def _read_thread_trace(self, process_id, thread_id):
         filename = "{0}-{1}-{2}.ktt".format(
-            self.get_filename_without_ext(),
+            utils.trim_filename_suffix(self.filename),
             process_id,
             thread_id)
         with open(filename, "rb") as f:
@@ -162,7 +157,8 @@ class TraceLog:
         ri = RunInstance(self.project, self.process_count, self.threads_count)
 
         index = 0
-        timeline, full_timeline = [], []
+        timeline = Table([("trace-id", "<i4"), ("pointer", "<i4")], 100)
+        full_timeline = Table([("trace-id", "<i4"), ("pointer", "<i4")], 100)
         while True:
 
             # Searching for trace with minimal event time
@@ -172,52 +168,20 @@ class TraceLog:
 
             trace = self.traces[minimal_time_index]
 
-            full_timeline.append(
-                EventPointer(minimal_time_index, trace.pointer))
+            full_timeline.add_row((minimal_time_index, trace.pointer))
 
             # Timeline update
             if trace.is_next_event_visible():
-                timeline.append(full_timeline[index])
+                timeline.add_row(full_timeline[index])
 
             trace.process_event(ri)
             trace_times[minimal_time_index] = trace.get_next_event_time()
 
             index += 1
 
+        timeline.trim()
+        full_timeline.trim()
         self.timeline, self.full_timeline = timeline, full_timeline
-
-    def _make_processes_his(self, data):
-        names = []
-        for p in range(self.process_count):
-            for t in range(self.threads_count):
-                names.append("process {0}`{1}".format(p, t))
-
-        values = []
-        for thread in data:
-            hist = dict()
-            for times in thread:
-                t = times[1]
-                if t in hist:
-                    hist[t] += 1
-                else:
-                    hist[t] = 1
-            if hist:
-                # add value iff hist dict. is not empty.
-                values.append(hist)
-
-        return names, values
-
-    def _make_processes_time_sum(self, data):
-        names =  ["process {0}".format(p) for p in xrange(self.process_count)]
-        values = []
-
-        for process in data:
-            sum = 0
-            for time in process:
-                sum += time[1]
-            values.append(sum)
-
-        return names, values
 
 
 class Trace:
@@ -526,46 +490,3 @@ class Trace:
             else:
                 break
         return values
-
-
-class EventPointer:
-
-    def __init__(self, trace_id, pointer):
-        self.trace_id = trace_id
-        self.pointer = pointer
-
-    def execute(self, runinstance):
-        self.tr
-
-
-class EventInformation:
-
-    def __init__(self, name, time, process, thread, transition, transition_value, time_length):
-        self.name = name
-        self.time = time
-        self.process = process
-        self.thread =  thread
-        self.transition = transition
-        self.transition_value = transition_value
-        self.time_length = time_length
-
-    def get_name(self):
-        return self.name
-
-    def get_time(self):
-        return self.time
-
-    def get_process(self):
-        return self.process
-
-    def get_thread(self):
-        return self.thread
-
-    def get_transition(self):
-        return self.transition
-
-    def get_transition_value(self):
-        return self.transition_value
-
-    def get_time_length(self):
-        return self.time_length
