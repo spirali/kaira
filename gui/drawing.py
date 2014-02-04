@@ -57,8 +57,8 @@ def draw_text(cr, px, py, text,
               border_color=None,
               border_width=1,
               radius=None):
-    if isinstance(text, str):
-        lines = text.strip().replace("\t", "    ").split("\n")
+    if isinstance(text, str) or isinstance(text, unicode):
+        lines = text.replace("\t", "    ").split("\n")
     else:
         lines = text
     sizes = [ utils.text_size(cr, text)[0] for text in lines ]
