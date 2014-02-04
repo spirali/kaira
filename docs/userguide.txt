@@ -166,6 +166,150 @@ The full list of parameters can be displayed by
 ./waf configure --help
 -------------------------------------------------------------------------------
 
+Binding user-defined types
+--------------------------
+
+This section describes how can be user-defined types used in the visual
+program. Each such type needs function 'token_name' and optionally 'pack' and
+'unpack'. For standard types listed in Section <<Types,
+Supported standard types>>, all these functions are already defined, hence no
+additional definition is needed to use them. In the following text, it is shown
+how to define these functions for user-defined types.
+
+token_name
+~~~~~~~~~~
+
+This function is to used to obtain a textual representation of a token that is
+used during visual simulations. It is used only for informative puproses,
+hence an arbitrary string can be returned without influence on an actual run of
+the program.
+
+Let us assume that we want to use the following user-defined type in Kaira:
+
+[source,cpp]
+-------------------------------------------------------------------------------
+struct Point3D {
+	double x, y, z;
+}
+-------------------------------------------------------------------------------
+
+There are two ways how to define 'token_name' for this type, _invasive_ and
+_non-invasive_. The former means just placing method 'token_name' directly into
+the class. For example:
+
+[source,cpp]
+-------------------------------------------------------------------------------
+struct Point3D {
+	double x, y, z;
+
+	std::string token_name() const { // 'const' is important here!
+		std::stringstream s;
+		s << x << " " << y << " " << z;
+		return s.str();
+	}
+}
+-------------------------------------------------------------------------------
+
+In some cases, when we do not want or we cannot modifiy the original class;
+therefore there is a non-invasive version of 'token_name'; it can be defined
+as follows:
+
+[source,cpp]
+-------------------------------------------------------------------------------
+struct Point3D {
+	double x, y, z;
+}
+
+namespace ca {
+	CA_TOKEN_NAME(Point3D, point) {
+		std::stringstream s;
+		s << point.x << " " << point.y << " " << point.z;
+		return s.str();
+	}
+
+}
+-------------------------------------------------------------------------------
+
+The first parameter of macro 'CA_TOKEN_NAME' is the name of the type, the
+second one is the name of the variable with a token in the function
+body. Please note, that it is necessary to place this definition into
+namespace 'ca'.
+
+pack & unpack
+~~~~~~~~~~~~~
+
+If the user-defined type is used for tokens that is transferred between
+processes, it is also necessary to define serialization functions called as
+'pack' and 'unpack'.
+
+Let us assume type 'Point3D' from the previous example. It is a simple
+structure of basic types, hence such structure can be simply copied. In such
+cases, we can just mark the structure as 'trivially packable' by the following
+code:
+
+[source,cpp]
+-------------------------------------------------------------------------------
+struct Point3D {
+	double x, y, z;
+}
+
+namespace ca { // namespace 'ca' is important!
+	CA_TRIVIALLY_PACKABLE(Point3D)
+}
+-------------------------------------------------------------------------------
+
+In case, the class is not trivially packable, we have to write 'pack' and
+'unpack' functions. Assume the following type:
+
+[source,cpp]
+-------------------------------------------------------------------------------
+struct Person {
+	std::string name;
+	int age;
+}
+-------------------------------------------------------------------------------
+
+Because of the usage of 'std::string', we cannot simply copy the data. There
+are again 'intrusive' and 'non-intrusive' ways. The first example demonstrates
+the former ('token_name' is now ommited):
+
+[source,cpp]
+-------------------------------------------------------------------------------
+struct Person {
+	std::string name;
+	int age;
+
+	void pack(ca::Packer &packer) const { // 'const' is important!
+		packer << name << age;
+	}
+
+	void unpack(ca::Unacker &unpacker) {
+		packer >> name >> age;
+	}
+}
+-------------------------------------------------------------------------------
+
+and the non-intrusive way with the same effect:
+
+[source,cpp]
+-------------------------------------------------------------------------------
+struct Person {
+	std::string name;
+	int age;
+}
+
+namespace ca { // namespace 'ca' is important
+
+	CA_PACK(Person, packer, person) {
+		packer << person.name << person.age;
+	}
+
+	CA_UNPACK(Person, unpacker, person) {
+		unpacker >> person.name >> person.age;
+	}
+}
+-------------------------------------------------------------------------------
+
 Public C++ API
 --------------
 
