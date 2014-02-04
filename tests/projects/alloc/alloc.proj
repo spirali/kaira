@@ -1,8 +1,8 @@
-<project target_env="C++"><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O3</build-option><head-code>
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><build-option name="LIBS" /><build-option name="CFLAGS">-O3</build-option><head-code>
 class My {
 	public:
 		My() : name("-") {
-			printf("NEW DEFAULT\n", name.c_str());
+			printf("NEW DEFAULT\n");
 		}
 
 		My(std::string name) : name(name) {
@@ -25,28 +25,28 @@ class My {
 		}
 		
 		const std::string &amp; get_name() const { return name; }
+
+		void unpack(ca::Unpacker &amp;p) {
+			p &gt;&gt; name;
+		}
+		
+		void pack(ca::Packer &amp;p) const {
+			p &lt;&lt; name;
+		}		
+
 	protected:
 		std::string name;
 };
 
 namespace ca {
-	std::string token_name(const My &amp;my) {
+	CA_TOKEN_NAME(My, my) {
 		return "My";
-	}
-	
-	void pack(Packer &amp;packer, const My &amp;my) {
-		pack(packer, my.get_name());		
-	}
-	
-	template&lt;&gt; My unpack(Unpacker &amp;unpacker) {
-		std::string name = unpack&lt;std::string&gt;(unpacker);		
-		return My(name);
 	}	
-}</head-code></configuration><net id="101" name="Main" net-type="main"><edge from_item="102" id="105" inscription="x" inscription_x="-95.0" inscription_y="21.0" to_item="103" /><edge from_item="103" id="108" inscription="x" inscription_x="47.0" inscription_y="21.0" to_item="107" /><edge from_item="107" id="110" inscription="x" inscription_x="105.0" inscription_y="64.0" to_item="109" /><edge from_item="103" id="113" inscription="x" inscription_x="-12.0" inscription_y="-9.0" to_item="112" /><edge from_item="103" id="116" inscription="b" inscription_x="-77.0" inscription_y="59.0" to_item="115" /><edge from_item="109" id="118" inscription="x@1" inscription_x="156.0" inscription_y="95.0" to_item="117" /><edge from_item="117" id="122" inscription="x" inscription_x="242.0" inscription_y="99.0" to_item="119" /><edge from_item="119" id="124" inscription="x@1" inscription_x="315.0" inscription_y="133.0" to_item="123" /><edge from_item="123" id="126" inscription="x" inscription_x="319.0" inscription_y="206.0" to_item="125" /><place id="102" init_string="" name="" place_type="My" radius="20" sx="0" sy="0" x="-157" y="32"><code>	place.add(My("a"));
-</code></place><place id="107" init_string="" name="" place_type="My" radius="20" sx="0" sy="0" x="97" y="32" /><place id="112" init_string="" name="" place_type="My" radius="20" sx="0" sy="0" x="-19" y="-48" /><place id="115" init_string="" name="" place_type="My" radius="20" sx="0" sy="0" x="-108" y="112" /><place id="117" init_string="" name="" place_type="My" radius="20" sx="0" sy="0" x="201" y="109" /><place id="123" init_string="" name="" place_type="My" radius="20" sx="0" sy="0" x="300" y="177" /><transition guard="" id="103" name="Fire 1" sx="70" sy="35" x="-18" y="31"><code>	printf("FIRE 1\n");
-</code></transition><transition guard="" id="109" name="Fire 2" sx="70" sy="35" x="98" y="109"><code>	printf("FIRE 2\n");
+}</head-code></configuration><net id="101" name="Main"><place id="102" label-x="-157.0" label-y="32.0" name="" radius="20" sx="0" sy="0" x="-157" y="32"><place-type x="-140.0" y="49.0">My</place-type><init x="-140.0" y="2.0" /><code>	place.add(My("a"));
+</code></place><place id="107" label-x="129.0" label-y="25.0" name="" radius="20" sx="0" sy="0" x="129.0" y="25.0"><place-type x="146.0" y="42.0">My</place-type><init x="146.0" y="-5.0" /></place><place id="112" label-x="-19.0" label-y="-48.0" name="" radius="20" sx="0" sy="0" x="-19" y="-48"><place-type x="-2.0" y="-31.0">My</place-type><init x="-2.0" y="-78.0" /></place><place id="115" label-x="-108.0" label-y="112.0" name="" radius="20" sx="0" sy="0" x="-108" y="112"><place-type x="-91.0" y="129.0">My</place-type><init x="-91.0" y="82.0" /></place><place id="117" label-x="225.0" label-y="117.0" name="" radius="20" sx="0" sy="0" x="225.0" y="117.0"><place-type x="242.0" y="134.0">My</place-type><init x="242.0" y="87.0" /></place><place id="123" label-x="344.0" label-y="191.0" name="" radius="20" sx="0" sy="0" x="344.0" y="191.0"><place-type x="361.0" y="208.0">My</place-type><init x="361.0" y="161.0" /></place><transition clock="False" id="103" label-x="-21.0" label-y="28.0" name="Fire 1" priority="" sx="70" sy="35" x="-56.0" y="10.0"><guard x="-56.0" y="-10.0" /><code>	printf("FIRE 1\n");
+</code></transition><transition clock="False" id="109" label-x="119.0" label-y="111.0" name="Fire 2" priority="" sx="70" sy="35" x="84.0" y="93.0"><guard x="84.0" y="73.0" /><code>	printf("FIRE 2\n");
 	var.x = My("c");
-</code></transition><transition guard="" id="119" name="Fire 3" sx="70" sy="35" x="299" y="109"><code>	printf("FIRE 3\n");
-</code></transition><transition guard="" id="125" name="Fire 4" sx="70" sy="35" x="301" y="235"><code>	printf("FIRE 4\n");		
+</code></transition><transition clock="False" id="119" label-x="344.0" label-y="117.0" name="Fire 3" priority="" sx="70" sy="35" x="309.0" y="99.0"><guard x="309.0" y="79.0" /><code>	printf("FIRE 3\n");
+</code></transition><transition clock="False" id="125" label-x="346.0" label-y="269.0" name="Fire 4" priority="" sx="70" sy="35" x="311.0" y="251.0"><guard x="311.0" y="231.0" /><code>	printf("FIRE 4\n");		
 	ctx.quit();
-</code></transition></net></project>
+</code></transition><edge from_item="102" id="105" to_item="103"><inscription x="-96.5054696657" y="29.8126809816">x</inscription></edge><edge from_item="103" id="108" to_item="107"><inscription x="61.5013885996" y="25.93331019">x</inscription></edge><edge from_item="107" id="110" to_item="109"><inscription x="104.838327871" y="60.9322967064">x</inscription></edge><edge from_item="103" id="113" to_item="112"><inscription x="-5.03814110095" y="-9.00350677256">x</inscription></edge><edge from_item="103" id="116" to_item="115"><inscription x="-66.5383822226" y="71.5327491973">b</inscription></edge><edge from_item="109" id="118" to_item="117"><inscription x="167.289290555" y="92.8559900345">x@1</inscription></edge><edge from_item="117" id="122" to_item="119"><inscription x="276.999911731" y="116.605042388">x</inscription></edge><edge from_item="119" id="124" to_item="123"><inscription x="344.0" y="152.5">x@1</inscription></edge><edge from_item="123" id="126" to_item="125"><inscription x="358.037199406" y="226.996671798">x</inscription></edge></net></project>

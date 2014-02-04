@@ -85,7 +85,11 @@ def write_library_function(builder, net, rpc=False):
 
     for place in net.get_input_places():
         if rpc:
-            builder.line("$n->place_{0.id}.add(ca::unpack<{0.type}>($unpacker));", place)
+            builder.block_begin()
+            builder.line("ca::Token<{0.type} > *$token = new ca::Token<{0.type}>();", place)
+            builder.line("ca::unpack($unpacker, $token->value);")
+            builder.line("$n->place_{0.id}.add_token($token);", place)
+            builder.block_end()
         else:
             builder.line("$n->place_{0.id}.add({0.interface_input});", place)
 

@@ -11,21 +11,11 @@ namespace ca {
 		return "MyClass";
 	}
 
-	inline void pack(Packer &amp;packer, MyClass &amp;m) {
-		pack(packer, m.x);
-		pack(packer, m.y);
-	}
-	
-	template&lt;&gt; inline MyClass unpack(Unpacker &amp;unpacker) {
-		MyClass m;
-		m.x = unpack&lt;int&gt;(unpacker);
-		m.y = unpack&lt;int&gt;(unpacker);
-		return m;
-	}
+	CA_TRIVIALLY_PACKABLE(MyClass);
 }
 
-</head-code></configuration><net id="101" name="fn1"><place id="104" name="" radius="20" sx="0" sy="0" x="118" y="113"><place-type x="135" y="130">int</place-type><init x="135" y="83" /><interface in="x" out="x" x="93" y="108" /></place><place id="112" name="" radius="20" sx="0" sy="0" x="119" y="227"><place-type x="136" y="244">int</place-type><init x="136" y="197" /><interface in="y" x="94" y="222" /></place><transition clock="False" id="103" name="" priority="" sx="70" sy="35" x="226" y="163"><guard x="226" y="143" /><code>	ctx.quit();
-</code></transition><edge from_item="104" id="115" to_item="103"><inscription x="191.0" y="99.0">x</inscription><point x="230" y="115" /></edge><edge from_item="112" id="116" to_item="103"><inscription x="205.0" y="227.0">y</inscription><point x="230" y="220" /></edge><place id="145" name="" radius="20" sx="0" sy="0" x="377.0" y="246.5"><place-type x="394.0" y="263.5">int</place-type><init x="394.0" y="216.5" /><interface out="z" x="352.0" y="241.5" /></place><edge from_item="103" id="146" to_item="145"><inscription x="344.0" y="196.0">y</inscription><point x="377.0" y="189.5" /></edge><edge from_item="103" id="147" to_item="104"><inscription x="135.488049326" y="159.20106821">x * 10</inscription><point x="125.0" y="183.5" /></edge></net><net id="108" name="fn2"><place id="126" name="" radius="20" sx="0" sy="0" x="106" y="104"><place-type x="123" y="121">int</place-type><init x="123" y="74" /><interface in="a" x="81" y="99" /></place><place id="129" name="" radius="20" sx="0" sy="0" x="110" y="205"><place-type x="127" y="222">MyClass</place-type><init x="127" y="175" /><interface in="myClass" out="myClass" x="85" y="200" /></place><place id="138" name="" radius="20" sx="0" sy="0" x="395" y="132"><place-type x="412" y="149">int</place-type><init x="412" y="102" /><interface out="out" x="370" y="127" /></place><transition clock="False" id="136" name="" priority="" sx="70" sy="35" x="210" y="100"><guard x="210" y="80" /><code>	var.obj.x *= var.a;
+</head-code></configuration><net id="101" name="fn1"><place id="104" label-x="118.0" label-y="113.0" name="" radius="20" sx="0" sy="0" x="118" y="113"><place-type x="135" y="130">int</place-type><init x="135" y="83" /><interface in="x" out="x" x="93" y="108" /></place><place id="112" label-x="119.0" label-y="227.0" name="" radius="20" sx="0" sy="0" x="119" y="227"><place-type x="136" y="244">int</place-type><init x="136" y="197" /><interface in="y" x="94" y="222" /></place><place id="145" label-x="377.0" label-y="246.0" name="" radius="20" sx="0" sy="0" x="377" y="246"><place-type x="394" y="263">int</place-type><init x="394" y="216" /><interface out="z" x="352" y="241" /></place><transition clock="False" id="103" label-x="261.0" label-y="181.0" name="" priority="" sx="70" sy="35" x="226" y="163"><guard x="226" y="143" /><code>	ctx.quit();
+</code></transition><edge from_item="104" id="115" to_item="103"><inscription x="191.0" y="99.0">x</inscription><point x="230" y="115" /></edge><edge from_item="112" id="116" to_item="103"><inscription x="205.0" y="227.0">y</inscription><point x="230" y="220" /></edge><edge from_item="103" id="146" to_item="145"><inscription x="344.0" y="196.0">y</inscription><point x="377" y="189" /></edge><edge from_item="103" id="147" to_item="104"><inscription x="135.0" y="159.0">x * 10</inscription><point x="125" y="183" /></edge></net><net id="108" name="fn2"><place id="126" label-x="106.0" label-y="104.0" name="" radius="20" sx="0" sy="0" x="106" y="104"><place-type x="123" y="121">int</place-type><init x="123" y="74" /><interface in="a" x="81" y="99" /></place><place id="129" label-x="110.0" label-y="205.0" name="" radius="20" sx="0" sy="0" x="110" y="205"><place-type x="127" y="222">MyClass</place-type><init x="127" y="175" /><interface in="myClass" out="myClass" x="85" y="200" /></place><place id="138" label-x="395.0" label-y="132.0" name="" radius="20" sx="0" sy="0" x="395" y="132"><place-type x="412" y="149">int</place-type><init x="412" y="102" /><interface out="out" x="370" y="127" /></place><transition clock="False" id="136" label-x="245.0" label-y="118.0" name="" priority="" sx="70" sy="35" x="210" y="100"><guard x="210" y="80" /><code>	var.obj.x *= var.a;
 	var.obj.y *= var.a;
 	var.a += 1;
 	ctx.quit();

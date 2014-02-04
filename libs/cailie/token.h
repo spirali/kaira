@@ -29,7 +29,9 @@ template<typename T> class TokenList {
 
 	public:
 		TokenList() : token(NULL), tokens_count(0) {}
-		~TokenList() { clear(); }
+		~TokenList() {
+			clear();
+		}
 
 		TokenList(TokenList<T> &list) {
 			token = NULL;
@@ -166,11 +168,17 @@ template<typename T> class TokenList {
 			}
 		}
 
-		void pack_tokens(Packer &packer) {
+		void pack(Packer &packer) const {
+			packer << tokens_count;
+			pack_tokens(packer);
+
+		}
+
+		void pack_tokens(Packer &packer) const {
 			if (token) {
 				Token<T> *t = token;
 				do {
-					pack(packer, t->value);
+					packer << t->value;
 					t = t->next;
 				} while (t != token);
 			}
@@ -207,7 +215,10 @@ template<typename T> class TokenList {
 				return NULL;
 			}
 		}
-		T first_value() const { return token->value; }
+
+		T first_value() const {
+			return token->value;
+		}
 
 		TokenList<T> & operator= (TokenList &other)
 		{
@@ -222,11 +233,6 @@ template<typename T> class TokenList {
 		Token<T> *token;
 		int tokens_count;
 };
-
-template<typename T> void pack(ca::Packer &packer, TokenList<T> &list) {
-	pack(packer, list.size());
-	list.pack_tokens(packer);
-}
 
 }
 

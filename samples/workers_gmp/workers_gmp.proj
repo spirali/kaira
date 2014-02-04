@@ -1,24 +1,39 @@
-<project target_env="C++"><configuration><parameter default="120" description="" name="LIMIT" policy="mandatory" type="int" /><parameter default="10" description="" name="SIZE" policy="mandatory" type="int" /><build-option name="CC">g++</build-option><build-option name="LIBS">-lgmp</build-option><build-option name="CFLAGS">-O0 -g</build-option><head-code>
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><parameter default="120" description="" name="LIMIT" policy="mandatory" type="int" /><parameter default="10" description="" name="SIZE" policy="mandatory" type="int" /><build-option name="LIBS">-lgmp</build-option><build-option name="CFLAGS">-O0 -g</build-option><head-code>
 #include &lt;gmpxx.h&gt;
 
 struct Job {
+	Job() {}
 	Job(const mpz_class &amp;start, const mpz_class &amp;end) : start(start), end(end) {}
 	mpz_class start;
 	mpz_class end;
+	
+	void pack(ca::Packer &amp;p) const {
+		p &lt;&lt; start &lt;&lt; end;
+	}
+
+	void unpack(ca::Unpacker &amp;p) {
+		p &gt;&gt; start &gt;&gt; end;
+	}
+	
+	std::string token_name() const {
+		std::stringstream s;
+		s &lt;&lt; "Job [" &lt;&lt; start.get_str(10) &lt;&lt; "," &lt;&lt; start.get_str(10) &lt;&lt; ")";
+		return s.str();
+	}	
 };
 
 namespace ca {
 
-	std::string token_name(const mpz_class &amp;obj) {
-		return obj.get_str(10);
+	CA_TOKEN_NAME(mpz_class, z) {
+		return z.get_str(10);
 	}
 
-	void pack(Packer &amp;packer, const mpz_class &amp;obj) {
-		size_t s = (mpz_sizeinbase (obj.get_mpz_t(), 2) + 7) / 8;
+	CA_PACK(mpz_class, packer, z) {
+		size_t s = (mpz_sizeinbase (z.get_mpz_t(), 2) + 7) / 8;
 		size_t s2;
 		packer.reserve(s + sizeof(s));
 		pack(packer, s);
-		mpz_export(packer.peek(), &amp;s2, 1, 1, 0, 0, obj.get_mpz_t());
+		mpz_export(packer.peek(), &amp;s2, 1, 1, 0, 0, z.get_mpz_t());
 		if (s2 == 0) {
 			/* We have written no data, but mpz_sizeinbase is at least 1,
 			   so we have to get rid of uninitialized data
@@ -28,34 +43,16 @@ namespace ca {
 		packer.move(s);
 	}
 	
-	template&lt;&gt; mpz_class unpack(Unpacker &amp;unpacker)  {
-		size_t s = unpack&lt;size_t&gt;(unpacker);
-		mpz_t z;
-		mpz_init(z);
-		mpz_import(z, s, 1, 1, 0, 0, unpack(unpacker, s));		
-		mpz_class zc = mpz_class(z);
-		mpz_clear(z);
-		return zc;
-	}
-	
-	std::string token_name(const Job &amp;job) {
-		std::stringstream s;
-		s &lt;&lt; "Job start=" &lt;&lt; job.start.get_str(10) &lt;&lt; " end=" &lt;&lt; job.end.get_str(10);
-		return s.str();
-	}
-
-	void pack(Packer &amp;packer, const Job &amp;job) {
-		pack(packer, job.start);
-		pack(packer, job.end);		
-	}
-
-	template&lt;&gt; Job unpack(Unpacker &amp;unpacker) {
-		mpz_class start = unpack&lt;mpz_class&gt;(unpacker);
-		mpz_class end = unpack&lt;mpz_class&gt;(unpacker);		
-		return Job(start, end);
-	}
-
-}</head-code></configuration><net id="0" name="Main" net-type="main"><edge from_item="103" id="110" to_item="107"><inscription x="126.0" y="192.0">start</inscription></edge><edge from_item="107" id="111" to_item="103"><inscription x="42.0" y="90.0">start + param::SIZE()</inscription><point x="42" y="108" /></edge><edge from_item="104" id="112" to_item="107"><inscription x="216.0" y="180.0">worker</inscription></edge><edge from_item="105" id="113" to_item="108"><inscription x="426.0" y="210.0">job</inscription></edge><edge from_item="103" id="114" to_item="109"><inscription x="-6.0" y="306.0">param::LIMIT()</inscription></edge><edge from_item="104" id="115" to_item="109"><inscription x="162.0" y="300.0">[guard(size == ctx.process_count() - 1 ) ]</inscription></edge><edge from_item="106" id="116" to_item="109"><inscription x="186.0" y="336.0">[bulk] results</inscription></edge><edge from_item="108" id="117" to_item="104"><inscription x="258.0" y="258.0">ctx.process_id()@0</inscription></edge><edge from_item="108" id="118" to_item="106"><inscription x="318.0" y="336.0">[bulk] results@0</inscription><point x="414" y="354" /></edge><edge from_item="107" id="119" to_item="105"><inscription x="300.0" y="90.0">Job(start, start + mpz_class(10))@worker</inscription><point x="414" y="108" /></edge><place id="103" name="" radius="20" sx="0" sy="0" x="45" y="254"><place-type x="72" y="264">mpz_class</place-type><init x="54" y="216">[0]</init></place><place id="104" name="" radius="20" sx="0" sy="0" x="186" y="252"><place-type x="203" y="269">int</place-type><init x="203" y="222">ca::range(1, ctx.process_count())</init></place><place id="105" name="" radius="22" sx="0" sy="0" x="415" y="165"><place-type x="432" y="182">Job</place-type><init x="432" y="135" /></place><place id="106" name="" radius="20" sx="0" sy="0" x="282" y="354"><place-type x="299" y="371">mpz_class</place-type><init x="299" y="324" /></place><transition id="107" name="divide" sx="90" sy="35" x="174" y="90"><guard x="174" y="70">start &lt; param::LIMIT()</guard><trace>fire</trace></transition><transition id="108" name="compute" sx="70" sy="35" x="378" y="234"><guard x="378" y="214" /><code>	for (mpz_class t=var.job.start; t &lt; var.job.end; t++) {
+	CA_UNPACK(mpz_class, unpacker, z) {
+		size_t s;
+		unpacker &gt;&gt; s;
+		mpz_t tmp;
+		mpz_init(tmp);
+		mpz_import(tmp, s, 1, 1, 0, 0, unpacker.unpack_data(s));		
+		z = mpz_class(tmp);
+		mpz_clear(tmp);
+	}	
+}</head-code></configuration><net id="0" name="Main"><place id="103" label-x="45.0" label-y="254.0" name="" radius="20" sx="0" sy="0" x="45" y="254"><place-type x="72" y="264">mpz_class</place-type><init x="54" y="216">[0]</init></place><place id="104" label-x="186.0" label-y="252.0" name="" radius="20" sx="0" sy="0" x="186" y="252"><place-type x="203" y="269">int</place-type><init x="203" y="222">ca::range(1, ctx.process_count())</init></place><place id="105" label-x="415.0" label-y="165.0" name="" radius="22" sx="0" sy="0" x="415" y="165"><place-type x="432" y="182">Job</place-type><init x="432" y="135" /></place><place id="106" label-x="282.0" label-y="354.0" name="" radius="20" sx="0" sy="0" x="282" y="354"><place-type x="299" y="371">mpz_class</place-type><init x="299" y="324" /></place><transition clock="False" id="107" label-x="209.0" label-y="108.0" name="divide" priority="" sx="90" sy="35" x="174" y="90"><guard x="174" y="70">start &lt; param::LIMIT()</guard><trace>fire</trace></transition><transition clock="False" id="108" label-x="413.0" label-y="252.0" name="compute" priority="" sx="70" sy="35" x="378" y="234"><guard x="378" y="214" /><code>	for (mpz_class t=var.job.start; t &lt; var.job.end; t++) {
 		if (t &lt; 2) continue;
 		int s;
 		s = 2;
@@ -70,9 +67,9 @@ namespace ca {
 		}
 	}
 
-</code><trace>fire</trace></transition><transition id="109" name="write result" sx="70" sy="35" x="90" y="336"><guard x="90" y="316" /><code>	ca::Token&lt;mpz_class&gt; *t;
+</code><trace>fire</trace></transition><transition clock="False" id="109" label-x="125.0" label-y="354.0" name="write result" priority="" sx="70" sy="35" x="90" y="336"><guard x="90" y="316" /><code>	ca::Token&lt;mpz_class&gt; *t;
 	for (t = var.results.begin(); t != NULL; t = var.results.next(t)) {
 		printf("%s\n", t-&gt;value.get_str(10).c_str());
 	}
 	ctx.quit();
-</code><trace>fire</trace></transition></net></project>
+</code><trace>fire</trace></transition><edge from_item="103" id="110" to_item="107"><inscription x="126.0" y="192.0">start</inscription></edge><edge from_item="107" id="111" to_item="103"><inscription x="42.0" y="90.0">start + param::SIZE()</inscription><point x="42" y="108" /></edge><edge from_item="104" id="112" to_item="107"><inscription x="216.0" y="180.0">worker</inscription></edge><edge from_item="105" id="113" to_item="108"><inscription x="426.0" y="210.0">job</inscription></edge><edge from_item="103" id="114" to_item="109"><inscription x="-6.0" y="306.0">param::LIMIT()</inscription></edge><edge from_item="104" id="115" to_item="109"><inscription x="162.0" y="300.0">[guard(size == ctx.process_count() - 1 ) ]</inscription></edge><edge from_item="106" id="116" to_item="109"><inscription x="186.0" y="336.0">[bulk] results</inscription></edge><edge from_item="108" id="117" to_item="104"><inscription x="258.0" y="258.0">ctx.process_id()@0</inscription></edge><edge from_item="108" id="118" to_item="106"><inscription x="318.0" y="336.0">[bulk] results@0</inscription><point x="414" y="354" /></edge><edge from_item="107" id="119" to_item="105"><inscription x="300.0" y="90.0">Job(start, start + mpz_class(10))@worker</inscription><point x="414" y="108" /></edge></net></project>
