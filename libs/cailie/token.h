@@ -168,13 +168,13 @@ template<typename T> class TokenList {
 			}
 		}
 
-		void pack(Packer &packer) {
+		void pack(Packer &packer) const {
 			packer << tokens_count;
 			pack_tokens(packer);
 
 		}
 
-		void pack_tokens(Packer &packer) {
+		void pack_tokens(Packer &packer) const {
 			if (token) {
 				Token<T> *t = token;
 				do {

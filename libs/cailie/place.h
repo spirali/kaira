@@ -58,7 +58,7 @@ template <typename T> class Place {
 			return token_list.next(t);
 		}
 
-		void pack(Packer &packer) {
+		void pack(Packer &packer) const {
 			packer << this->token_list;
 		}
 
@@ -171,7 +171,7 @@ template <typename T> class PlaceWithSource : public Place<T>
 			return result;
 		}
 
-		void pack(Packer &packer)
+		void pack(Packer &packer) const
 		{
 			packer << this->token_list;
 			ca::pack(packer, this->token_list);
