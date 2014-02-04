@@ -627,12 +627,15 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
 
         prev = [ i for i in prev_inscriptions if i.edge == inscription.edge ]
         if prev and inscription.has_same_pick_rule(prev[-1]):
-            start_from = "$token_{0.uid}->next;".format(prev[-1])
+            start_from = "$n->place_{0.edge.place.id}.next($token_{0.uid})".format(prev[-1])
             while prev and inscription.has_same_pick_rule(prev[-1]):
                 prev.pop()
             builder.line("$token_{0.uid} = {1};", inscription, builder.expand(start_from))
+            builder.if_begin("$token_{0.uid} == NULL", inscription)
+            builder.line(fail_command)
+            builder.block_end()
         else:
-            start_from = "$n->place_{0.id}.begin();".format(inscription.edge.place)
+            start_from = "$n->place_{0.id}.begin()".format(inscription.edge.place)
             builder.line("$token_{0.uid} = {1};", inscription, builder.expand(start_from))
             if inscription.is_conditioned():
                  builder.line("if ($token_{0.uid} == NULL) {1}", inscription, fail_command)
