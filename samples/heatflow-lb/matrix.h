@@ -9,6 +9,13 @@
 class DoubleMatrix
 {
 	public:
+		DoubleMatrix() {
+			this->size_x = 0;
+			this->size_y = 0;
+			array1 = NULL;
+			array2 = NULL;
+		}
+
 		DoubleMatrix(int size_x, int size_y)
 		{
 			this->size_x = size_x;
@@ -35,17 +42,34 @@ class DoubleMatrix
 		{
 			if(this != &c) {
 				if (size_x * size_y != c.size_x * c.size_y) {
-					delete[] array1;
-					delete[] array2;
-					size_x = c.size_x;
-					size_y = c.size_y;
+					if (array1) {
+						delete[] array1;
+						delete[] array2;
+					}
 					array1 = new double[size_y * size_x];
 					array2 = new double[size_y * size_x];
 				}
+				size_x = c.size_x;
+				size_y = c.size_y;
+
 				memcpy(array1, c.array1, get_data_size());
 				memcpy(array2, c.array2, get_data_size());
 			}
 			return *this;
+		}
+
+		void setup(int size_x, int size_y)
+		{
+			if (array1) {
+				delete [] array1;
+				delete [] array2;
+			}
+			this->size_x = size_x;
+			this->size_y = size_y;
+			array1 = new double[size_y * size_x];
+			array2 = new double[size_y * size_x];
+			init(0.0);
+			swap();
 		}
 
 		void init(double value)
@@ -104,8 +128,10 @@ class DoubleMatrix
 
 		~DoubleMatrix()
 		{
-			delete[] array1;
-			delete[] array2;
+			if (array1) {
+				delete[] array1;
+				delete[] array2;
+			}
 		}
 
 		void set_data(double *data)
