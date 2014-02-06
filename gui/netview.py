@@ -226,9 +226,20 @@ class NetView(gtk.HPaned):
         text_buffer = gtk.TextBuffer()
         t = self.get_perspective().get_removed_tokens(place)
         removed_tokens = "\n".join("consumed: " + token for token in map(str, t))
-        tokens_list = [
-            t for visible, t in self.get_perspective().get_tokens(place)]
-        tokens = "\n".join(map(str, tokens_list))
+
+        tokens = self.get_perspective().get_tokens(place)
+        token_counts = [(tokens[0][1], 1)] # append first token
+        for i in range(1, len(tokens)):
+            if tokens[i-1][1] == tokens[i][1]:
+                t, count = token_counts[-1]
+                token_counts[-1] = (t, count + 1)
+            else:
+                token_counts.append((tokens[i][1], 1))
+
+        tokens_list = ["[{0}x] {1}".format(count, token) if count > 1 else token
+                       for token, count in token_counts]
+        tokens = "\n".join(tokens_list)
+
         new_tokens = "\n".join(map(str, self.get_perspective().get_new_tokens(place)))
 
         if removed_tokens != "" and tokens != "":
