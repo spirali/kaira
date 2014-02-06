@@ -23,7 +23,6 @@ import os
 import paths
 import utils
 import events as evt
-import numpy as np
 import matplotlib.cm as cm
 from matplotlib.axes        import Axes as mpl_Axes
 from matplotlib.container   import Container as mpl_Container
@@ -41,7 +40,7 @@ from matplotlib.backends.backend_gtkagg import FigureCanvasGTKAgg \
 
 class LineConfig:
 
-    """ Information abou concrete line in a chart.
+    """ Information about concrete line in a chart.
     Keyword arguments:
     mpl_line1 -- an instance of matplotlib.lines.Line2D, which is used in
                  the original chart.
@@ -546,7 +545,7 @@ class BasicChart(mpl_Axes, evt.EventSource):
 class TimeChart(BasicChart):
 
     '''This chart is connect to replay. It's realize through  the
-    'x or y (time) axis'. It's important so that the axis of time coresponds
+    'x or y (time) axis'. It's important so that the axis of time corresponds
     with the replay slider!'''
 
     name = 'time_chart'
@@ -816,40 +815,15 @@ def histogram(names, values, title="", xlabel="", ylabel=""):
 
     ax = figure.add_subplot(111, projection=BasicChart.name)
 
-    lines_config = []
-    cpalete = cm.get_cmap()
-    vals_size = len(values)
-    for i, vals in enumerate(values):
-
-        times = [time for time, val in vals.items()]
-        times.sort()
-
-        new_x, new_y = [], []
-        values_len = 0
-        for time in times:
-            time_range = time // 5000
-            if time_range < values_len:
-                new_y[time_range] += vals[time]
-            else:
-                new_x.append(time)
-                new_y.append(vals[time])
-                values_len += 1
-
-        if len(new_y) > 0:
-            # TODO: how to add correct version of x-axis values??
-            xvals = range(0, values_len)
-            color = cm.Paired(float(i)/vals_size)
-            line, = ax.plot(xvals, new_y, color=color,
-                    lw=1, label=names[i])
-            lines_config.append(LineConfig(line, xvals, new_y, color))
+    colors = [cm.hsv(float(i)/len(values)) for i in xrange(len(values))]
+    n, bins, patches = ax.hist(
+        values, 10, normed=0, histtype="bar", label=names, color=colors)
 
     for label in ax.xaxis.get_ticklabels():
-        label.set_fontsize(9)
         label.set_rotation(-35)
         label.set_horizontalalignment('left')
 
     ax.plegend = ax.legend(loc="upper right", fancybox=True, shadow=True)
-    _register_histogram_pick_legend(ax, ax.plegend, lines_config)
 
     ax.xaxis.set_major_formatter(mpl_FuncFormatter(
         lambda time, pos: utils.time_to_string(time)[:-7]))
@@ -858,43 +832,14 @@ def histogram(names, values, title="", xlabel="", ylabel=""):
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
 
-    return ChartWidget(figure)
+    return ChartWidget(figure, xlock=True)
 
-def time_sum_chart(names, values, title="", xlabel="", ylabel=""):
-
-    if not names or not values:
-        return _empty_chart(title, xlabel, ylabel)
-
-    figure = mpl_Figure()
-    canvas = mpl_FigureCanvas(figure)
-    figure.set_canvas(canvas)
-
-    ax = figure.add_subplot(111, projection=BasicChart.name)
-
-    size = len(values)
-    x = xrange(size)
-    n, bins, patches = ax.hist(x, size,
-            range=(0, size), weights=values, facecolor='green', alpha=0.75)
-
-    xticks = map(lambda x: x+0.5, x)
-    ax.set_xticks(xticks)
-    ax.set_xticklabels(names)
-
-    for label in ax.xaxis.get_ticklabels():
-        label.set_fontsize(7)
-        label.set_rotation(-45)
-        label.set_horizontalalignment('left')
-
-    ax.yaxis.set_major_formatter(mpl_FuncFormatter(
-        lambda time, pos: utils.time_to_string(time)[:10]))
-    ax.set_title(title)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-
-    return ChartWidget(figure, with_legend=False, xlock=True)
-
-def utilization_chart(names, values, title="", xlabel="", ylabel="",
-        threads_count=1, idles=None):
+def utilization_chart(names,
+                      values,
+                      title="",
+                      xlabel="",
+                      ylabel="",
+                      idles=None):
 
     if not names or not values:
         return _empty_chart(title, xlabel, ylabel)
@@ -909,21 +854,19 @@ def utilization_chart(names, values, title="", xlabel="", ylabel="",
     ywidth = 2
     yticks = []
 
-    alpha_chanel = 1.0/threads_count
-
     if idles is not None:
         for i, lidle in enumerate(idles):
             y = ((i+1) * ywidth) + (i+1)
             ax.broken_barh(
                 lidle, (y, ywidth),
-                edgecolor='face', facecolor='#eaa769', alpha=alpha_chanel)
+                edgecolor='face', facecolor='#EAA769')
 
     for i, ldata in enumerate(values):
-        y = ((i+1) * ywidth) + (i+1)
+        y = (ywidth+1) * (i+ 1)
         yticks.append(y + ywidth/2)
         ax.broken_barh(
             ldata, (y, ywidth),
-            edgecolor='face', facecolor='green', alpha=alpha_chanel)
+            edgecolor='face', facecolor='green')
 
     ax.set_yticks(yticks)
     ax.set_yticklabels(names)
@@ -972,17 +915,11 @@ def place_chart(names, values, title="", xlabel="", ylabel=""):
 
     ax = figure.add_subplot(111, projection=BasicChart.name)
 
-    llines = []
-    for line, name in enumerate(names):
-        xvalues, yvalues = zip(*values[line])
-        llines.append((name, xvalues, yvalues))
-
     # fill data
     lines_config = []
-    for ldata in llines:
-        name, xvalues, yvalues = ldata
+    for i, (xvalues, yvalues) in enumerate(values):
         line, = ax.plot(
-            xvalues, yvalues, 'o-', drawstyle='steps-post', label=name)
+            xvalues, yvalues, 'o-', drawstyle="steps-post", label=names[i])
         lines_config.append(
             LineConfig(line, xvalues, yvalues, line.get_color()))
 
