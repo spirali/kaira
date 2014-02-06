@@ -191,10 +191,10 @@ class Net:
         for i in self.transitions():
             if not "fire" in i.tracing:
                 i.tracing.insert(0, "fire")
-        token_name = tracing.TraceFunction("ca::token_name", "std::string")
+        token_name = tracing.TraceFunction("ca::token_name", "std::string", "O")
         for i in self.places():
             if token_name not in i.tracing:
-                i.tracing.insert(0, tracing.TraceFunction("ca::token_name", "std::string"))
+                i.tracing.insert(0, tracing.TraceFunction("ca::token_name", "std::string", "O"))
         self.changed()
 
 
@@ -594,6 +594,7 @@ class Place(NetElement):
             e = xml.Element("trace")
             e.set("name", trace_function.name)
             e.set("return-type", trace_function.return_type)
+            e.set("type-description", trace_function.type_description)
             element.append(e)
 
     def interface_as_xml(self):
@@ -980,9 +981,11 @@ def load_place_tracing(element):
     for e in element.findall("trace"):
         name = e.get("name", None)
         return_type = e.get("return-type", None)
+        type_desc = e.get("type-description",
+                          tracing.get_type_descrition(return_type))
         if name is None or return_type is None:
             return []
-        functions.append(tracing.TraceFunction(name, return_type))
+        functions.append(tracing.TraceFunction(name, return_type, type_desc))
     return functions
 
 def load_place(element, net, loader):

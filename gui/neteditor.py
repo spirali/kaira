@@ -385,7 +385,7 @@ class NetEditor(gtk.VBox):
                 objlist.refresh(item.tracing)
                 self.canvas.config.configure()
             def add_fn():
-                trace_fn = tracing.TraceFunction("", "int")
+                trace_fn = tracing.TraceFunction("", "int", "<i4")
                 result = tracing.tracefn_dialog(self.app.window, trace_fn)
                 if result:
                     item.tracing.append(trace_fn)
@@ -397,7 +397,8 @@ class NetEditor(gtk.VBox):
                 item.tracing.remove(obj)
                 refresh()
             def add_token_name():
-                trace_fn = tracing.TraceFunction("ca::token_name", "std::string")
+                trace_fn = tracing.TraceFunction(
+                    "ca::token_name", "std::string", "O")
                 item.tracing.append(trace_fn)
                 refresh()
 
