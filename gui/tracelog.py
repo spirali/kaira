@@ -34,14 +34,15 @@ class TraceLog:
 
     def __init__(self, filename):
         self.filename = filename
-
         self._read_header()
 
         self.traces = [None] * (self.process_count * self.threads_count)
-
         for process_id in xrange(self.process_count):
             for thread_id in xrange(self.threads_count):
                 self._read_thread_trace(process_id, thread_id)
+
+        self.first_runinstance = RunInstance(
+            self.project, self.process_count, self.threads_count)
 
         self._preprocess()
 
@@ -49,7 +50,7 @@ class TraceLog:
         name, ext = os.path.splitext(self.filename)
         return name
 
-    def execute_events(self, ri, from_event=0, to_event=None):
+    def execute_visible_events(self, ri, from_event=0, to_event=None):
         if to_event is None:
             to_event = len(self.timeline)
         for i in xrange(from_event, to_event):
@@ -59,8 +60,19 @@ class TraceLog:
             trace.process_event(ri)
         return ri
 
+    def execute_all_events(self, ri,from_event=0, to_event=None):
+        if to_event is None:
+            to_event = len(self.full_timeline)
+        for i in xrange(from_event, to_event):
+            event_pointer = self.full_timeline[i]
+            trace = self.traces[event_pointer.trace_id]
+            trace.pointer = event_pointer.pointer
+            trace.process_event(ri)
+        return ri
+
     def get_event_runinstance(self, index):
-        return self.execute_events(self.first_runinstance.copy(), 0, index)
+        return self.execute_visible_events(
+            self.first_runinstance.copy(), 0, index)
 
     def get_event_thread(self, index):
         if index == 0:
@@ -145,34 +157,34 @@ class TraceLog:
         starttime = min([ trace.get_init_time() for trace in self.traces ])
         for trace in self.traces:
             trace.time_offset = trace.get_init_time() - starttime
-
-        timeline = []
         trace_times = [ trace.get_next_event_time() for trace in self.traces ]
 
         ri = RunInstance(self.project, self.process_count, self.threads_count)
 
-        self.first_runinstance = RunInstance(self.project, self.process_count, self.threads_count)
-        timeline = []
-
+        index = 0
+        timeline, full_timeline = [], []
         while True:
 
             # Searching for trace with minimal event time
             minimal_time_index = utils.index_of_minimal_value(trace_times)
-
             if minimal_time_index is None:
                 break
 
-            minimal_time = trace_times[minimal_time_index]
             trace = self.traces[minimal_time_index]
+
+            full_timeline.append(
+                EventPointer(minimal_time_index, trace.pointer))
 
             # Timeline update
             if trace.is_next_event_visible():
-                timeline.append(EventPointer(minimal_time_index, trace.pointer))
+                timeline.append(full_timeline[index])
 
             trace.process_event(ri)
             trace_times[minimal_time_index] = trace.get_next_event_time()
 
-        self.timeline = timeline
+            index += 1
+
+        self.timeline, self.full_timeline = timeline, full_timeline
 
     def _make_processes_his(self, data):
         names = []
