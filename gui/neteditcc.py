@@ -51,14 +51,22 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
         return items
 
     def add_extra_tracing_items(self, items):
-        for item in self.net.places() + self.net.transitions():
-            if item.tracing:
-                size = item.box.size
-                position = utils.vector_add_t(item.box.get_position(), size, 0.5)
-                i = citems.TraceLabel(
-                    None, "tracebox", citems.RelativePlacement(item.box, position))
-                i.text = item.get_trace_texts()
-                items.append(i)
+
+        def gen_trace_label(item):
+            size = item.box.size
+            position = utils.vector_add_t(item.box.get_position(), size, 0.5)
+            tl = citems.TraceLabel(
+                None, "tracebox", citems.RelativePlacement(item.box, position))
+            tl.text = item.get_trace_texts()
+            return tl
+
+        for t in self.net.transitions():
+            if t.tracing:
+                items.append(gen_trace_label(t))
+
+        for p in self.net.places():
+            if p.trace_tokens:
+                items.append(gen_trace_label(p))
 
     def add_extra_simrun_items(self, items):
         def text_fn(text, item, attr):

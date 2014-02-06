@@ -289,7 +289,7 @@ def write_remove_tokens(builder, net_expr, tr):
     for inscription in tr.get_token_inscriptions_in():
         token_var = builder.expand("$token_{0.uid}", inscription)
         place = inscription.edge.place
-        if place.tracing:
+        if place.trace_tokens:
             builder.if_begin("$tracelog")
             write_trace_token(builder, place, token_var, remove=True)
             builder.block_end()
@@ -326,7 +326,7 @@ def write_fire_body(builder,
         for edge in tr.get_bulk_edges_in():
                 place = edge.place
                 inscription = edge.inscriptions[0]
-                if place.tracing:
+                if place.trace_tokens:
                     builder.if_begin("$tracelog")
                     write_trace_token_list(builder,
                                            place,
@@ -753,7 +753,7 @@ def write_place_add(builder,
     else:
         method = "overtake"
 
-    if trace and place.tracing and bulk:
+    if trace and place.trace_tokens and bulk:
         builder.if_begin("$thread->get_tracelog()")
         builder.line("ca::TraceLog *tracelog = $thread->get_tracelog();")
         write_trace_token_list(builder, place, value_code)
@@ -766,7 +766,7 @@ def write_place_add(builder,
         builder.line("{0}place_{1.id}.{2}({3});",
                      net_code, place, method, value_code)
 
-    if trace and place.tracing and not bulk:
+    if trace and place.trace_tokens and not bulk:
         builder.if_begin("$thread->get_tracelog()")
         builder.line("ca::TraceLog *$tracelog = $thread->get_tracelog();")
         builder.line("ca::Token<{1.type} > *$token = {0}place_{1.id}.last();", net_code, place)
@@ -820,7 +820,7 @@ def write_init_net(builder, net):
             builder.line("$net->place_{0.id}.overtake($list);", place)
             builder.block_end()
 
-        if place.tracing:
+        if place.trace_tokens:
             builder.if_begin("$thread->get_tracelog()")
             builder.line("ca::TraceLog *$tracelog = $thread->get_tracelog();")
             write_trace_token_list(builder,

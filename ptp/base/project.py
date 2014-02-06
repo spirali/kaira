@@ -229,10 +229,18 @@ def load_transition(element, project, net):
     return transition
 
 def load_place_tracing(element):
-    trace = []
-    for e in element.findall("trace"):
-        trace.append((e.get("name"), e.get("return-type")))
-    return trace
+
+    elem_tt = element.find("trace-tokens")
+    trace_tokens = False
+    if elem_tt is not None:
+        trace_tokens = utils.xml_bool(elem_tt, "trace")
+    else:
+        return (trace_tokens, [])
+
+    functions = []
+    for e in elem_tt.findall("function"):
+        functions.append((e.get("name"), e.get("return-type")))
+    return (trace_tokens, functions)
 
 def load_place(element, project, net):
     id = utils.xml_int(element, "id")
@@ -243,7 +251,9 @@ def load_place(element, project, net):
     place = Place(net, id, type_name, init_type, init_value)
     if element.find("code") is not None:
         place.code = element.find("code").text
-    place.tracing = load_place_tracing(element)
+
+    place.trace_tokens, place.tracing = load_place_tracing(element)
+
     if element.find("verif-final-marking") is not None:
         place.final_marking = bool(element.find("verif-final-marking").text)
     place.interface_input = element.get("in")

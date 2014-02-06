@@ -226,7 +226,9 @@ class NetView(gtk.HPaned):
         text_buffer = gtk.TextBuffer()
         t = self.get_perspective().get_removed_tokens(place)
         removed_tokens = "\n".join("consumed: " + token for token in map(str, t))
-        tokens = "\n".join(map(str, self.get_perspective().get_tokens(place)))
+        tokens_list = [
+            t for visible, t in self.get_perspective().get_tokens(place)]
+        tokens = "\n".join(map(str, tokens_list))
         new_tokens = "\n".join(map(str, self.get_perspective().get_new_tokens(place)))
 
         if removed_tokens != "" and tokens != "":

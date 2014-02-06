@@ -183,18 +183,20 @@ class Net:
                  if i.is_edge() and (i.from_item.is_transition() or i.is_bidirectional()) ]
 
     def trace_nothing(self):
-        for i in self.transitions() + self.places():
+        for i in self.transitions():
             i.tracing = []
+
+        for i in self.places():
+            i.trace_tokens = False
         self.changed()
 
     def trace_everything(self):
         for i in self.transitions():
             if not "fire" in i.tracing:
                 i.tracing.insert(0, "fire")
-        token_name = tracing.TraceFunction("ca::token_name", "std::string")
+
         for i in self.places():
-            if token_name not in i.tracing:
-                i.tracing.insert(0, tracing.TraceFunction("ca::token_name", "std::string"))
+            i.trace_tokens = True
         self.changed()
 
 
@@ -542,6 +544,8 @@ class Place(NetElement):
         p = self.box.get_relative_placement((- self.box.radius - 5, -5), absolute=False)
         self.interface = citems.PlaceInterface(self, "interface", p)
 
+        self.trace_tokens = False
+
     def get_canvas_items(self):
         items = [ self.box,
                  self.place_type,
@@ -587,14 +591,20 @@ class Place(NetElement):
         return True
 
     def get_trace_texts(self):
+        if not self.tracing:
+            return ["tokens"]
         return [ trace_function.name for trace_function in self.tracing ]
 
     def tracing_to_xml(self, element):
+        elem_tt = xml.Element("trace-tokens")
+        elem_tt.set("trace", str(self.trace_tokens))
+
         for trace_function in self.tracing:
-            e = xml.Element("trace")
+            e = xml.Element("function")
             e.set("name", trace_function.name)
             e.set("return-type", trace_function.return_type)
-            element.append(e)
+            elem_tt.append(e)
+        element.append(elem_tt)
 
     def interface_as_xml(self):
         element = xml.Element("interface")
@@ -647,7 +657,7 @@ class Place(NetElement):
             if self.has_code():
                 e.append(self.xml_code_element())
 
-        if build_config.tracing and self.tracing:
+        if build_config.tracing and self.trace_tokens:
             self.tracing_to_xml(e)
 
         if build_config.library:
@@ -976,14 +986,23 @@ def load_tracing(element):
     return trace
 
 def load_place_tracing(element):
+
+    elem_tt = element.find("trace-tokens")
+    trace_tokens = False
+    if elem_tt is not None:
+        trace_tokens = utils.xml_bool(elem_tt, "trace")
+    else:
+        return (trace_tokens, [])
+
     functions = []
-    for e in element.findall("trace"):
+    for e in elem_tt.findall("function"):
         name = e.get("name", None)
         return_type = e.get("return-type", None)
         if name is None or return_type is None:
-            return []
+            functions = []
+            break
         functions.append(tracing.TraceFunction(name, return_type))
-    return functions
+    return (trace_tokens, functions)
 
 def load_place(element, net, loader):
     id = loader.get_id(element)
@@ -1002,7 +1021,8 @@ def load_place(element, net, loader):
     else:
         place.init.text = element.get("init_string", "") # Backward compatability
     place.set_code(load_code(element))
-    place.tracing = load_place_tracing(element)
+
+    place.trace_tokens, place.tracing = load_place_tracing(element)
 
     interface = element.find("interface")
     if interface is not None:

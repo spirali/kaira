@@ -242,8 +242,12 @@ class NetInstance:
         if lst is None:
             lst = []
             self.new_tokens[place_id] = lst
-        if len(token_value) == 1:
+
+        if not token_value: # the list of tokens is empty
+            token_value = None
+        elif len(token_value) == 1:
             token_value = token_value[0]
+
         lst.append((token_pointer, token_value, send_time))
 
     def clear_removed_and_new_tokens(self):
@@ -296,6 +300,10 @@ class NetInstance:
 
 class Perspective(utils.EqMixin):
 
+    ARROW_LEFT  = u"\u21a4 "
+    ARROW_RIGHT = u"\u21a6 "
+    BULLET = u"\u2022 "
+
     def __init__(self, name, runinstance, net_instances):
         self.name = name
         self.runinstance = runinstance
@@ -307,7 +315,13 @@ class Perspective(utils.EqMixin):
             t = net_instance.tokens.get(place.id)
             if t is not None:
                 for token_pointer, token_value, token_time in t:
-                    tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
+                    visible = True
+                    if token_value is None:
+                        visible = False
+                        token_value = Perspective.BULLET
+                    tokens.append(
+                        (visible,
+                        "{0}@{1}".format(token_value, net_instance.process_id)))
         return tokens
 
     def get_new_tokens(self, place):
@@ -316,6 +330,9 @@ class Perspective(utils.EqMixin):
             t = net_instance.new_tokens.get(place.id)
             if t is not None:
                 for token_pointer, token_value, token_time in t:
+                    if token_value is None:
+                        token_value = Perspective.ARROW_LEFT
+
                     if token_time:
                         tokens.append("{0}@{1} ({2})".format(
                             token_value,
@@ -337,6 +354,9 @@ class Perspective(utils.EqMixin):
             t = net_instance.removed_tokens.get(place.id)
             if t is not None:
                 for token_pointer, token_value, token_time in t:
+                    if token_value is None:
+                        token_value = Perspective.ARROW_RIGHT
+
                     tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
         return tokens
 

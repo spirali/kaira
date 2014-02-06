@@ -389,6 +389,7 @@ class Place(utils.EqByIdMixin):
         self.init_type = init_type
         self.init_value = init_value
         self.tracing = []
+        self.trace_tokens = False
 
     def get_pos_id(self):
         return self.net.places.index(self)

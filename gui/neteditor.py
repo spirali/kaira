@@ -384,6 +384,9 @@ class NetEditor(gtk.VBox):
             def refresh():
                 objlist.refresh(item.tracing)
                 self.canvas.config.configure()
+            def trace_tokens_fn(w):
+                item.trace_tokens = w.get_active()
+                refresh()
             def add_fn():
                 trace_fn = tracing.TraceFunction("", "int")
                 result = tracing.tracefn_dialog(self.app.window, trace_fn)
@@ -397,7 +400,8 @@ class NetEditor(gtk.VBox):
                 item.tracing.remove(obj)
                 refresh()
             def add_token_name():
-                trace_fn = tracing.TraceFunction("ca::token_name", "std::string")
+                trace_fn = tracing.TraceFunction(
+                    "ca::token_name", "std::string")
                 item.tracing.append(trace_fn)
                 refresh()
 
@@ -405,14 +409,23 @@ class NetEditor(gtk.VBox):
             objlist.set_size_request(0, 150)
             objlist.object_as_row = lambda obj: [ obj, obj.name, obj.return_type ]
             objlist.fill(item.tracing)
-            self._add_attribute_objlist("Trace functions",
-                                        objlist,
-                                        add_fn,
-                                        edit_fn,
-                                        remove_fn)
+
+            button = gtk.CheckButton("Trace tokens")
+            button.set_active(item.trace_tokens)
+            button.connect("toggled", trace_tokens_fn)
+            self.attribute_box.pack_start(button, False, False)
+            self.attribute_box.pack_start(gtk.HSeparator(), False, False, 5)
+
+            widget = self._add_attribute_objlist("Trace functions",
+                                                 objlist,
+                                                 add_fn,
+                                                 edit_fn,
+                                                 remove_fn)
             button = gtk.Button("Trace ca::token_name")
             button.connect("clicked", lambda w: add_token_name())
-            self.attribute_box.pack_start(button, False, False)
+            widget.pack_start(button, False, False)
+            widget.set_sensitive(item.trace_tokens)
+            self.attribute_box.pack_start(widget, False, False)
 
     def _setup_attribute_widges_mode_simrun(self, item):
         if item.is_transition():
@@ -480,10 +493,12 @@ class NetEditor(gtk.VBox):
             obj = objlist.selected_object()
             if (obj):
                 remove_fn(obj)
+        widget = gtk.VBox()
         label = gtk.Label(text)
-        self.attribute_box.pack_start(label, False, False)
+        label.set_alignment(0.05, 0.5)
+        widget.pack_start(label, False, False)
         box = gtk.HBox()
-        self.attribute_box.pack_start(box, False, False)
+        widget.pack_start(box, False, False)
         button = gtk.Button("Add")
         button.connect("clicked", lambda w: add_fn())
         box.pack_start(button)
@@ -494,8 +509,9 @@ class NetEditor(gtk.VBox):
         button.connect("clicked", remove)
         box.pack_start(button)
 
-        self.attribute_box.pack_start(objlist, False, False)
+        widget.pack_start(objlist, False, False)
         self.attribute_widgets.append(objlist)
+        return widget
 
     def _add_attribute_combobox(self,
                                 values,
