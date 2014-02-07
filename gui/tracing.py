@@ -29,6 +29,12 @@ class TraceFunction(utils.EqMixin):
         self.return_type = return_type
 
 def tracefn_dialog(mainwindow, trace_function):
+    if trace_function is None:
+        mainwindow.app.show_message_dialog(
+            "No tracing function selected.",
+            gtk.MESSAGE_WARNING)
+        return False
+
     builder = gtkutils.load_ui("tracefn-dialog")
     dlg = builder.get_object("tracefn-dialog")
 
