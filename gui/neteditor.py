@@ -342,6 +342,9 @@ class NetEditor(gtk.VBox):
             self._add_attribute_labelled_code_editor("Priority",
                                                      item.get_priority,
                                                      item.set_priority)
+            self._add_attribute_checkbox("Collective communication", item.is_collective(), item.set_collective)
+            root_editor = self._add_attribute_labelled_code_editor("Root", item.get_root, item.set_root)
+            root_editor.set_sensitive(item.is_collective())
             self._add_attribute_checkbox("Clock", item.has_clock(), item.set_clock)
         elif item.is_place():
             self._add_attribute_labelled_code_editor("Name", item.get_name, item.set_name)
@@ -534,7 +537,7 @@ class NetEditor(gtk.VBox):
     def _add_attribute_labelled_code_editor(self, name, get_fn, set_fn):
         label = gtk.Label(name)
         self.attribute_box.pack_start(label, False, False)
-        self._add_attribute_code_editor(get_fn, set_fn)
+        return self._add_attribute_code_editor(get_fn, set_fn)
 
     def _add_attribute_checkbox_code_editor(
         self, name, bool_value, set_bool_fn, get_code_fn, set_code_fn):

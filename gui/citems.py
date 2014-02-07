@@ -129,11 +129,13 @@ class CanvasItem:
 
 class ElementBox(CanvasItem):
 
-    doubleborder = False
     text = ""
     action = "move"
     name = ""
     corner_text = ""
+
+    doubleborder = False
+    thicklines = False
 
     def __init__(self, owner, kind, placement, size, radius):
         CanvasItem.__init__(self, owner, kind, placement)
@@ -164,7 +166,11 @@ class ElementBox(CanvasItem):
         cr.set_source_rgb(*color)
         cr.stroke()
 
-        if self.doubleborder:
+        if self.thicklines:
+            cr.rectangle(px, py, 8, sy)
+            cr.rectangle(px + sx - 8, py, 8, sy)
+            cr.fill()
+        elif self.doubleborder:
             if self.radius > 3:
                 drawing.draw_round_rectangle(cr, px, py, sx, sy, self.radius - 3.5)
             else:
@@ -172,10 +178,18 @@ class ElementBox(CanvasItem):
             cr.stroke()
         drawing.draw_centered_text(cr, px + sx / 2, py + sy / 2, self.name)
         if self.corner_text:
-            shift = 6 if self.doubleborder else 3
+            if self.doubleborder:
+                shift_x = 6
+                shift_y = 6
+            elif self.thicklines:
+                shift_x = 10
+                shift_y = 3
+            else:
+                shift_x = 3
+                shift_y = 3
             cr.save()
             cr.set_font_size(8)
-            drawing.draw_text(cr, px + sx - shift, py + shift, self.corner_text, 1, 1)
+            drawing.draw_text(cr, px + sx - shift_x, py + shift_y, self.corner_text, 1, 1)
             cr.restore()
 
     def is_at_position(self, position):
@@ -350,6 +364,7 @@ class Text(CanvasItem):
     align_y = 1
     radius = None
     color = (0.0, 0.0, 0.0)
+    format = None
 
     def __init__(self, owner, kind, placement, text=""):
         CanvasItem.__init__(self, owner, kind, placement)
@@ -376,8 +391,13 @@ class Text(CanvasItem):
             else:
                 background_color = self.background_color
 
+            if self.format:
+                text = self.format.format(self.text)
+            else:
+                text = self.text
+
             self.size = drawing.draw_text(
-                   cr, px, py, self.text, self.align_x, self.align_y,
+                   cr, px, py, text, self.align_x, self.align_y,
                    padding_left=self.padding_left,
                    padding_right=self.padding_right,
                    padding_top=self.padding_top,
