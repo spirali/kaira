@@ -213,6 +213,7 @@ class CanvasConfig:
             self.mass_selection_cursor = None
             self.mass_selection = bool(items)
             self.canvas.redraw()
+            return
         item = self.get_item_at_position(position)
         if item:
             self.on_item_click(item, position)
