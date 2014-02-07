@@ -20,6 +20,7 @@
 
 import settingswindow
 from runinstance import RunInstance
+from table import  Table
 from gtk import RESPONSE_APPLY
 
 class ExportRunInstance(RunInstance):
@@ -34,7 +35,7 @@ class ExportRunInstance(RunInstance):
         self.column_process = "Process" in columns
         self.column_tet = "TET" in columns
         self.column_value = bool(place_functions)
-        self.rows = []
+        self.table = self.create_table()
         self.tet = None
 
     def pre_event(self):
@@ -72,23 +73,34 @@ class ExportRunInstance(RunInstance):
             row.append(self.tet)
         if self.column_value:
             row.append(value)
-        self.rows.append(row)
+        self.table.add_row(row)
 
     def create_table(self):
         header = []
+        types = [];
         if self.column_event:
             header.append("Event")
+            types.append("|S1")          # char
         if self.column_time:
             header.append("Time")
+            types.append("<u8")          # 64 bit unsigned integer
         if self.column_id:
             header.append("ID")
+            types.append("<i4")          # 32 bit integer
         if self.column_process:
             header.append("Process")
+            types.append("<i4")          # 32 bit integer
         if self.column_tet:
             header.append("TET")
+            types.append("<u8")          # 64 bit unsigned integer
         if self.column_value:
             header.append("Value")
-        return (header, self.rows)
+            types.append("object")       # python object reference
+        return Table(zip(header, types), 100)
+
+    def get_table(self):
+        self.table.trim()
+        return self.table
 
 
 def get_full_header():

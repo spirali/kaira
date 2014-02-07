@@ -24,7 +24,9 @@ import gtk
 import gtkutils
 import settingswindow
 import runview
+import numpy as np
 from tracelog import TraceLog
+from table import Table
 
 """Supported types for extensions."""
 
@@ -183,7 +185,13 @@ def show_csv_settings_dialog(parent_window):
     sw.add_radiobuttons("header",
                         "Header",
                         [("With header", True), ("Without header", False)],
-                        default=1,
+                        default=0,
+                        ncols=2)
+
+    sw.add_radiobuttons("types",
+                        "Types",
+                        [("With types", True), ("Without types", False)],
+                        default=0,
                         ncols=2)
 
     dialog = settingswindow.BasicSettingDialog(sw, "Setting", parent_window)
@@ -197,7 +205,8 @@ def show_csv_settings_dialog(parent_window):
         delimiter = dialog.get_setting("delimiter")
         quotechar = dialog.get_setting("quotechar")
         has_header = dialog.get_setting("header")
-        return (delimiter, quotechar, has_header)
+        has_types = dialog.get_setting("types")
+        return (delimiter, quotechar, has_header, has_types)
 
     dialog.destroy()
     return None
@@ -206,64 +215,77 @@ def load_csv(filename, app, settings):
     if settings is None:
         settings = show_csv_settings_dialog(app.window)
     if settings is None:
-        return (None, None)# settings was canceled
+        return (None, None) # settings was canceled
 
-    delimiter, quotechar, has_header = settings
+    delimiter, quotechar, has_header, has_types = settings
     with open(filename, "rb") as csvfile:
         csvreader = csv.reader(
             csvfile, delimiter=delimiter, quotechar=quotechar)
 
-        data = []
         try:
+            types = None
+            if has_types:
+                types = csvreader.next()
+
+            header = None
             if has_header:
                 header = csvreader.next()
-            else:
-                row = csvreader.next()
-                data.append(row)
-                count = len(row)
-                header = ["V{0}".format(i) for i in xrange(count)]
-        except StopIteration:
-            return (["V0"], [])
 
+            row = csvreader.next()  # first row with data
+        except StopIteration:
+            table = Table([("V0", "object")], 0)
+            return (table, None);
+
+        if types is None:
+            types = ["object"] * len(row)
+        if header is None:
+            header = ["V {0}".format(i + 1) for i in range(len(row))]
+        cols_description = zip(header, types)
+
+        table = Table(cols_description, 100)
+        row = [None if value == '' else value for value in row]
+        table.add_row(row) # add the first loaded row with data
         for row in csvreader:
-            data.append(row)
-        return ((header, data), settings)
+            row = [None if value == '' else value for value in row]
+            table.add_row(row);
+        table.trim()
+        return (table, settings)
 
 t_table.register_load_function("csv", load_csv)
 
-def store_csv(data, filename, app, settings):
-    header, rows = data
+def store_csv(table, filename, app, settings):
     if settings is None:
         settings = show_csv_settings_dialog(app.window)
     if settings is None:
         return (False, None)
-    delimiter, quotechar, has_header = settings
+
+    delimiter, quotechar, has_header, has_types = settings
     with open(filename, "w") as csvfile:
         csvwriter = csv.writer(
             csvfile, delimiter=delimiter, quotechar=quotechar)
+        if has_types:
+            csvwriter.writerow(table.types)
         if has_header:
-            csvwriter.writerow(header)
-        for row in rows:
+            csvwriter.writerow(table.header)
+        for row in table:
             csvwriter.writerow(row)
     return (True, settings)
 
 t_table.register_store_function("csv", store_csv)
 
-def csv_view(data, app):
-    header, rows = data
-    colnames = [(title, str) for title in header]
+def csv_view(table, app):
+    colnames = [(title, str) for title in table.header]
 
     view = gtkutils.SimpleList(colnames)
     idx = 1
-    for row in rows:
+    for row in table:
         try:
             view.append(row)
             idx += 1
         except ValueError:
-            required_len = len(header) if header is not None else len(rows[0])
             msg = ("Row sequence has wrong length. It must have {0} items"
                     " instead of {1}.\nThe problem row is index is {2}.".
-                        format(required_len, len(row), idx))
+                        format(len(table.header), len(row), idx))
             app.show_message_dialog(msg, gtk.MESSAGE_WARNING)
     return view
 t_table.get_view = csv_view

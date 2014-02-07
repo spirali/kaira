@@ -39,9 +39,9 @@ class TracelogExport(extensions.Operation):
             return
 
         ri = ExportRunInstance(tracelog, *settings)
-        tracelog.execute_events(ri)
+        tracelog.execute_all_events(ri)
         return extensions.Source("Tracelog Table " + utils.get_timestamp_string(),
                                  datatypes.t_table,
-                                 ri.create_table())
+                                 ri.get_table())
 
 extensions.add_operation(TracelogExport)

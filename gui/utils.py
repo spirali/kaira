@@ -22,6 +22,7 @@ import math
 import os
 import re
 import time
+import numpy as np
 
 id_counter = 1000
 def get_unique_id():
@@ -396,6 +397,8 @@ def trim_filename_suffix(filename):
 def get_timestamp_string():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
 
+def convert_to_type(numpy_type_description, value):
+    return np.dtype(numpy_type_description).type(value)
 
 class EqMixin(object):
 
