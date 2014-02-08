@@ -785,7 +785,10 @@ class DataCollectingRunInstance(RunInstance):
         transition = self.last_event_info.get_transition()
         transition_value = self.last_event_info.get_transition_value()
 
-        val = token_value[0] if token_value is not None else ""
+        if token_value is not None and not isinstance(token_value, list):
+            token_value = [token_value]
+
+        val = token_value[0] if bool(token_value) else ""
         self.add_entry(
             "add_token", previous_action, time, process, thread, process, thread,
             transition, transition_value, send_time, place_id, val)
