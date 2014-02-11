@@ -7,6 +7,8 @@
 #include <ostream>
 #include <vector>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 namespace ca {
 
@@ -117,6 +119,17 @@ class Packer {
 			buffer_pos = buffer;
 		}
 
+		template<typename T> void pack_aligned(const T &value, size_t align) {
+			char *pos = buffer_pos + align;
+			pack(*this, value);
+			if (buffer_pos > pos) {
+				fprintf(stderr, "pack_aligned failed\n");
+				exit(1);
+			} else {
+				buffer_pos = pos;
+			}
+		}
+
 	protected:
 		char *buffer_pos;
 		size_t size;
@@ -159,6 +172,16 @@ template<typename T> void pack(Packer &packer, const std::vector<T> &value) {
 		typename std::vector<T>::const_iterator i;
 		for (i = value.begin(); i != value.end(); i++) {
 			pack(packer, *i);
+		}
+	}
+}
+
+template<typename T> void pack_with_step(Packer &packer, const std::vector<T> &value, size_t size) {
+	if (is_trivially_packable<T>() && size == sizeof(T)) {
+		pack(packer, &value[0], sizeof(T) * value.size());
+	} else {
+		for (int i = 0; i < value.size(); i++) {
+			packer.pack_aligned(value[i], size);
 		}
 	}
 }

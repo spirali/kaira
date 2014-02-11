@@ -212,6 +212,7 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 				fprintf(comm_out, "Invalid transition\n");
 				continue;
 			}
+
 			bool result;
 			if (phases == 1) {
 				result = state->fire_transition_phase1(process_id, transition_def);
@@ -233,8 +234,19 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
-			bool result = state->finish_transition(process_id, thread_id);
-			write_status(comm_out, result);
+
+			std::vector<Activation>::iterator i = state->find_activation(process_id, thread_id);
+			if (i == state->get_activations().end()) {
+				fprintf(comm_out, "Transition is not enabled\n");
+				continue;
+			}
+
+			if (i->transition_def->is_blocked(i->binding)) {
+				fprintf(comm_out, "Transition waits for synchronization of collective transition\n");
+				continue;
+			}
+			state->finish_transition(i);
+			write_status(comm_out, true);
 			continue;
 		}
 

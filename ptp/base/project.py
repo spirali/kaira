@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2011-2013 Stanislav Bohm
+#    Copyright (C) 2011-2014 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -196,6 +196,7 @@ def load_transition(element, project, net):
                                      get_source(element, "guard"),
                                      allow_empty=True)
     transition = Transition(net, id, name, guard)
+    transition.collective = utils.xml_bool(element, "collective", False)
     transition.edges_in = map(lambda e:
         load_edge_in(e, project, net, transition), element.findall("edge-in"))
     transition.edges_out = map(lambda e:
@@ -204,6 +205,11 @@ def load_transition(element, project, net):
         transition.code = element.find("code").text
     transition.tracing = load_tracing(element)
     transition.clock = utils.xml_bool(element, "clock", False)
+
+    if transition.collective:
+        transition.root = project.parse_expression(element.get("root"),
+                                                   get_source(element, "root"),
+                                                   allow_empty=True)
 
     if element.find("time-substitution") is not None:
         transition.time_substitution = element.find("time-substitution").text

@@ -302,6 +302,7 @@ void ca::init(int argc,
 	#endif
 
 	#ifdef CA_SHMEM
+	Process::init_collective_operations(process_count);
 	if (listen_port != -1) {
 		listener = new Listener();
 		listener->init(listen_port);

@@ -11,6 +11,9 @@ namespace ca {
  * parse_size_string("ABC") == 0
  * support suffixes: K, M, G
  */
+
+#define CA_ALLOC_TEST(x) // TODO
+
 size_t parse_size_string(const std::string &str);
 
 }

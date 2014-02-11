@@ -136,9 +136,13 @@ class RunInstance:
         transition = self.net.item_by_id(transition_id)
         self.last_event_activity = \
             TransitionFire(time, process_id, thread_id, transition, values)
-        if transition.has_code():
+        if transition.has_code() or transition.collective:
             index = process_id * self.threads_count + thread_id
             self.activites[index] = self.last_event_activity
+
+    def transition_blocked(self, process_id, thread_id):
+        index = process_id * self.threads_count + thread_id
+        self.activites[index].blocked = True
 
     def transition_finished(self, process_id, thread_id, time):
         self.last_event = "finish"
@@ -209,6 +213,7 @@ class TransitionFire(ThreadActivity):
 
     name = "fire"
     quit = False
+    blocked = False
 
     def __init__(self, time, process_id, thread_id, transition, values):
         ThreadActivity.__init__(self, time, process_id, thread_id)
@@ -387,8 +392,11 @@ class Perspective(utils.EqMixin):
                         activity = runinstance.last_event_activity
 
                 elif isinstance(activity, TransitionFire) and \
-                     activity.transition == transition:
-                    color = (1.0, 1.0, 0, 0.8)
+                        activity.transition == transition:
+                    if activity.blocked:
+                        color = (0.75, 0.75, 0.75, 0.9)
+                    else:
+                        color = (1.0, 1.0, 0.0, 0.8)
                 else:
                     break
                 text = "{0.process_id}/{0.thread_id}".format(activity)

@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012, 2013 Stanislav Bohm
+#    Copyright (C) 2012-2014 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -17,7 +17,6 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import base.utils as utils
 from writer import CppWriter, emit_declarations
 from writer import const_string, const_boolean
 import build
@@ -54,6 +53,13 @@ def write_tokens_struct(builder, tr):
     class_name = "Tokens_{0.id}".format(tr)
     builder.write_class_head(class_name)
 
+    if tr.collective:
+        builder.line("bool blocked;")
+        if tr.root:
+            builder.line("int root;")
+        inscription = tr.get_collective_inscription()
+        builder.line("ca::Token<{0}> *token_collective;", inscription.type)
+
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::Token<{0} > *token_{1};",
             inscription.type, inscription.uid)
@@ -79,12 +85,19 @@ def write_transition_forward(builder, tr):
 
     class_name = "Transition_{0.id}".format(tr)
     builder.write_class_head(class_name, "ca::TransitionDef")
+    if tr.collective:
+        transition_type = "ca::TRANSITION_COLLECTIVE"
+    elif tr.has_code():
+        transition_type = "ca::TRANSITION_NORMAL"
+    else:
+        transition_type = "ca::TRANSITION_IMMEDIATE"
+
     builder.write_constructor(class_name,
                               "",
                               [ "ca::TransitionDef({0}, {1}, {2}, {3})".format(
                                     tr.id,
                                     const_string(tr.name),
-                                    const_boolean(not tr.has_code()),
+                                    transition_type,
                                     tr.priority) ])
     builder.write_method_end()
     builder.line("ca::FireResult full_fire(ca::ThreadBase *thread, ca::NetBase *net);")
@@ -94,6 +107,8 @@ def write_transition_forward(builder, tr):
                  "(ca::ThreadBase *thread, ca::NetBase *net, void *data);")
     builder.line("void cleanup_binding(void *data);")
     builder.line("bool is_enable(ca::ThreadBase *thread, ca::NetBase *net);")
+    if tr.collective:
+        builder.line("bool is_blocked(void *data);")
     if builder.pack_bindings:
         builder.line("void pack_binding(ca::Packer &packer, void *data);")
         builder.line("ca::FireResult full_fire_with_binding(ca::ThreadBase *thread, ca::NetBase *net, ca::Packer &$packer);")
@@ -114,6 +129,8 @@ def write_transition_functions(builder,
     if builder.pack_bindings:
         write_pack_binding(builder, tr)
         write_full_fire_with_binding(builder, tr, locking=locking)
+    if tr.collective:
+        write_is_blocked(builder, tr)
 
 def write_transition_user_function(builder, tr, forward=False):
     args = [ "ca::Context &ctx, Vars_{0.id} &var".format(tr) ]
@@ -209,7 +226,10 @@ def write_send_token(builder,
     if reuse_tokens is None:
         reuse_tokens = {}
 
-    if_condition = inscription.config.get("if")
+    if "root" in inscription.config:
+        if_condition = "$thread->get_process_id() == $root"
+    else:
+        if_condition = inscription.config.get("if")
 
     if if_condition:
         if inscription.uid in reuse_tokens:
@@ -304,12 +324,79 @@ def write_remove_tokens(builder, net_expr, tr):
 
     builder.block_end()
 
+def write_scatter_root(builder, tr, inscription):
+    builder.line("const std::vector<{0.type} > &$value = {1};",
+                 inscription.edge.place,
+                 inscription.expr)
+
+    # Check size of vector
+    builder.if_begin("$value.size() != $thread->get_process_count()")
+    builder.line("fprintf(stderr, \"[scatter] Invalid size of vector (expected=%i, got=%lu)\\n\","
+                    "$thread->get_process_count(), $value.size());")
+    builder.line("exit(1);")
+    builder.block_end()
+
+    builder.line("const size_t $size = sizeof({0.type});", inscription)
+    builder.line("ca::Packer $packer($size);")
+    builder.line("ca::pack_with_step($packer, $value, $size);")
+    builder.line("$thread->collective_scatter_root({0.id}, $packer.get_buffer(), $size);", tr)
+    builder.line("$packer.free();")
+    write_place_add(builder,
+                    inscription.edge.place,
+                    builder.expand("$n->"),
+                    builder.expand("$value[$root]"),
+                    bulk=False,
+                    token=False)
+    write_activation(builder, builder.expand("$n"), inscription.edge.place.get_transitions_out())
+
+def write_scatter_nonroot(builder, tr, inscription):
+    builder.line("const size_t $size = sizeof({0.type});", inscription)
+    builder.line("ca::Token<{0.type} > *$token = new ca::Token<{0.type} >;",
+            inscription.edge.place)
+    builder.line("$thread->collective_scatter_nonroot({0.id}, $root, &$token->value, $size);", tr)
+    write_place_add(builder,
+                    inscription.edge.place,
+                    builder.expand("$n->"),
+                    builder.expand("$token"),
+                    bulk=False,
+                    token=True)
+    write_activation(builder, builder.expand("$n"), inscription.edge.place.get_transitions_out())
+
+def write_scatter_simulation(builder, tr, inscription, readonly):
+    if readonly:
+        write_place_add(builder,
+                        inscription.edge.place,
+                        builder.expand("$n->"),
+                        builder.expand("$tokens->token_collective"),
+                        bulk=False,
+                        token=True)
+    else:
+        write_place_add(builder,
+                        inscription.edge.place,
+                        builder.expand("$n->"),
+                        builder.expand("$tokens->token_collective->value"),
+                        bulk=False,
+                        token=False)
+
+def write_collective_body(builder, tr):
+    inscription = tr.get_collective_inscription()
+    builder.if_begin("$root == $thread->get_process_id()")
+    write_scatter_root(builder, tr, inscription)
+    builder.write_else()
+    write_scatter_nonroot(builder, tr, inscription)
+    builder.block_end()
+
+def write_collective_body_simulation(builder, tr, readonly):
+    inscription = tr.get_collective_inscription()
+    write_scatter_simulation(builder, tr, inscription, readonly)
+
 def write_fire_body(builder,
                     tr,
                     locking=True,
                     remove_tokens=True,
                     readonly_tokens=False,
-                    packed_tokens_from_place=True):
+                    packed_tokens_from_place=True,
+                    simulation=False):
 
     if tr.need_trace():
         builder.line("ca::TraceLog *$tracelog = $thread->get_tracelog();")
@@ -361,15 +448,18 @@ def write_fire_body(builder,
                      t,
                      uid)
 
-
     for name, uid in tr.variable_sources_out.items():
         if uid is not None:
             builder.line("{0} &{1} = $token_{2}->value;", decls[name], name, uid)
         else:
             builder.line("{0} {1}; // Fresh variable", decls[name], name)
 
-
-    if tr.code is not None:
+    if tr.collective:
+        if simulation:
+            write_collective_body_simulation(builder, tr, readonly_tokens)
+        else:
+            write_collective_body(builder, tr)
+    elif tr.code is not None:
         if locking:
             builder.line("$n->unlock();")
         decls = tr.get_decls().get_list()
@@ -408,6 +498,8 @@ def write_fire_body(builder,
         reuse_tokens = tr.reuse_tokens;
 
     for inscription in tr.inscriptions_out:
+        if inscription.is_collective():
+            continue
         write_send_token(builder,
                          inscription,
                          builder.expand("$n"),
@@ -442,8 +534,19 @@ def write_full_fire(builder, tr, locking=True):
     builder.block_begin()
     builder.line("ca::Context ctx($thread, $net);")
 
+    """
+    if tr.collective:
+        builder.line("int $root = {0};", tr.root);
+        builder.if_begin("$root == $thread->get_process_id()")
+        w = build.Builder(builder.project)
+        write_fire_body(w, tr, locking=False, is_root=True)
+        w.line("return ca::TRANSITION_FIRED;")
+        write_enable_pattern_match(builder, tr, w, "return ca::NOT_ENABLED;", is_root=True)
+        builder.write_else()
+    """
+
     w = build.Builder(builder.project)
-    write_fire_body(w, tr, locking=locking)
+    write_fire_body(w, tr, locking=False)
     w.line("return ca::TRANSITION_FIRED;")
 
     write_enable_pattern_match(builder, tr, w, "return ca::NOT_ENABLED;")
@@ -481,6 +584,21 @@ def write_enable_check(builder, tr):
     builder.line("return false;")
     builder.block_end()
 
+def write_phase1_scatter_root(builder, tr):
+    inscription = tr.get_collective_inscription()
+    builder.line("Tokens_{0.id} *$rbinding = static_cast<Tokens_{0.id}*>($bindings[$root]);", tr)
+    write_unpack_binding(builder, tr, builder.expand("$rbinding"))
+    builder.line("const std::vector<{0.type} > &$ccdata = {0.expr};", inscription)
+    builder.if_begin("$ccdata.size() != $thread->get_process_count()")
+    builder.line("fprintf(stderr, \"Invalid number of scattered elements (%lu)\\n\","
+                 "$ccdata.size());")
+    builder.line("exit(1);")
+    builder.block_end()
+
+def write_phase1_scatter_all(builder, tr):
+    inscription = tr.get_collective_inscription()
+    builder.line("$t->token_collective = new ca::Token<{0.type} >($ccdata[$i]);", inscription)
+
 def write_fire_phase1(builder, tr):
     builder.line("void *Transition_{0.id}::fire_phase1"
                      "(ca::ThreadBase *$thread, ca::NetBase *$net)", tr)
@@ -489,6 +607,7 @@ def write_fire_phase1(builder, tr):
 
     # ---- Prepare builder --- #
     w = build.Builder(builder.project)
+
     if tr.need_trace():
         builder.line("ca::TraceLog *$tracelog = $thread->get_tracelog();")
     write_remove_tokens(w, builder.expand("$n"), tr)
@@ -504,6 +623,35 @@ def write_fire_phase1(builder, tr):
         w.line("$tokens->tokens_{0.uid}.overtake($n->place_{1.id});",
                edge, edge.place)
 
+    if tr.collective:
+        w.line("$tokens->blocked = true;")
+        w.line("$tokens->root = $root;")
+        w.line("$tokens->token_collective = NULL;")
+        w.line("std::vector<void*> $bindings;")
+        w.line("int $bcount = $thread->collective_bindings(this, $bindings);")
+
+        # Check roots
+        w.for_begin("int $i = 0; $i < $thread->get_process_count(); $i++")
+        w.line("Tokens_{0.id} *$t = static_cast<Tokens_{0.id}*>($bindings[$i]);", tr)
+        w.if_begin("$t && $t->root != $root")
+        w.line("fprintf(stderr, \"Collective transition started with different roots; "
+               "root=%i at process %i and root=%i at process %i\\n\","
+               "$root, $thread->get_process_id(), $t->root, $i);")
+        w.line("exit(1);")
+        w.block_end()
+        w.block_end()
+
+        # Perform collective operation
+        w.if_begin("$bcount == $thread->get_process_count() - 1")
+        w.line("$bindings[$thread->get_process_id()] = $tokens;")
+        write_phase1_scatter_root(w, tr)
+        w.for_begin("int $i = 0; $i < $thread->get_process_count(); $i++")
+        w.line("Tokens_{0.id} *$t = static_cast<Tokens_{0.id}*>($bindings[$i]);", tr)
+        w.line("$t->blocked = false;")
+        write_phase1_scatter_all(w, tr)
+        w.block_end()
+        w.block_end()
+
     w.line("return $tokens;")
     # --- End of prepare --- #
 
@@ -512,25 +660,13 @@ def write_fire_phase1(builder, tr):
     builder.line("return NULL;")
     builder.block_end()
 
-def write_fire_phase2(builder, tr, readonly_binding=False):
-    if readonly_binding:
-        builder.line("void Transition_{0.id}::fire_phase2_ro_binding"
-                        "(ca::ThreadBase *$thread, ca::NetBase *$net, void *$data)",
-                     tr)
-    else:
-        builder.line("void Transition_{0.id}::fire_phase2"
-                        "(ca::ThreadBase *$thread, ca::NetBase *$net, void *$data)",
-                     tr)
-
-    builder.block_begin()
-
-    builder.line("ca::Context ctx($thread, $net);")
-    builder.line("{0} *$n = ({0}*) $net;", get_net_class_name(tr.net))
-    builder.line("Tokens_{0.id} *$tokens = (Tokens_{0.id}*) $data;", tr)
-
+def write_unpack_binding(builder, tr, binding, readonly_binding=False):
     for inscription in tr.get_token_inscriptions_in():
-        builder.line("ca::Token<{0} > *$token_{1.uid} = $tokens->token_{1.uid};",
-            inscription.type, inscription);
+        builder.line("ca::Token<{0} > *$token_{1.uid} = {2}->token_{1.uid};",
+            inscription.type, inscription, binding);
+
+    if tr.collective:
+        builder.line("int $root = {0}->root;", binding)
 
     decls_dict = tr.get_decls()
 
@@ -550,20 +686,56 @@ def write_fire_phase2(builder, tr, readonly_binding=False):
                          inscription.config.get("svar"),
                          inscription)
 
+
+def write_fire_phase2(builder, tr, readonly_binding=False):
+    if readonly_binding:
+        builder.line("void Transition_{0.id}::fire_phase2_ro_binding"
+                        "(ca::ThreadBase *$thread, ca::NetBase *$net, void *$data)",
+                     tr)
+    else:
+        builder.line("void Transition_{0.id}::fire_phase2"
+                        "(ca::ThreadBase *$thread, ca::NetBase *$net, void *$data)",
+                     tr)
+
+    builder.block_begin()
+
+    builder.line("ca::Context ctx($thread, $net);")
+    builder.line("{0} *$n = ({0}*) $net;", get_net_class_name(tr.net))
+    builder.line("Tokens_{0.id} *$tokens = static_cast<Tokens_{0.id}*>($data);", tr)
+
+    write_unpack_binding(builder, tr, builder.expand("$tokens"),
+                         readonly_binding=readonly_binding)
+
     write_fire_body(builder,
                     tr,
                     locking=False,
                     remove_tokens=False,
                     readonly_tokens=readonly_binding,
-                    packed_tokens_from_place=False)
+                    packed_tokens_from_place=False,
+                    simulation=True)
     if not readonly_binding:
+        # Just delete structure, not tokens inside by "cleanup_binding" because
+        # we have put tokens into net
         builder.line("delete $tokens;");
+    builder.block_end()
+
+def write_is_blocked(builder, tr):
+    builder.line("bool Transition_{0.id}::is_blocked(void *data)", tr)
+    builder.block_begin()
+    builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(data);", tr)
+    builder.line("return tokens->blocked;")
     builder.block_end()
 
 def write_cleanup_binding(builder, tr):
     builder.line("void Transition_{0.id}::cleanup_binding(void *data)", tr)
     builder.block_begin()
-    builder.line("Tokens_{0.id} *tokens = (Tokens_{0.id}*) data;", tr)
+    builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(data);", tr)
+
+    if tr.collective:
+        builder.if_begin("tokens->token_collective")
+        builder.line("delete tokens->token_collective;")
+        builder.block_end()
+
     for inscription in tr.get_token_inscriptions_in():
         builder.line("delete tokens->token_{0.uid};", inscription);
     builder.line("delete tokens;");
@@ -572,7 +744,7 @@ def write_cleanup_binding(builder, tr):
 def write_pack_binding(builder, tr):
     builder.line("void Transition_{0.id}::pack_binding(ca::Packer &packer, void *data)", tr)
     builder.block_begin()
-    builder.line("Tokens_{0.id} *tokens = (Tokens_{0.id}*) data;", tr)
+    builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(data);", tr)
 
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::pack(packer, tokens->token_{0}->value);", inscription.uid);
@@ -606,16 +778,28 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
     prev_inscriptions = []
     sources_uid = [ uid for uid in tr.variable_sources.values() if uid is not None ]
     decls_dict = tr.get_decls()
+    root_written = False
     for inscription in tr.inscriptions_in:
+
+
         if not inscription.is_token():
             continue
         builder.line("// Inscription id={0.id} uid={1.uid} expr={1.expr}",
             edge, inscription)
         builder.line("ca::Token < {0.edge.place.type} > *$token_{0.uid};", inscription)
 
+
+        if tr.collective and "root" in inscription.config:
+            if not root_written:
+                builder.line("int $root = {0};", tr.root)
+                root_written = True
+
         if inscription.is_conditioned():
             builder.line("bool $inscription_if_{0.uid};", inscription)
-            builder.if_begin("!({0})", inscription.config.get("if"))
+            if "root" in inscription.config:
+                builder.if_begin("$root != $thread->get_process_id()")
+            else:
+                builder.if_begin("!({0})", inscription.config.get("if"))
             builder.line("$inscription_if_{0.uid} = false;", inscription)
             builder.line("$token_{0.uid} = new ca::Token<{0.edge.place.type} >;", inscription)
             # Set self references to survive "removing" from place
@@ -705,6 +889,9 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
 
     if tr.guard is not None:
         builder.line("if (!({0})) {1}", tr.guard, fail_command)
+
+    if tr.collective and not root_written:
+        builder.line("int $root = {0};", tr.root)
 
     builder.block_begin()
     builder.add_writer(fire_code)

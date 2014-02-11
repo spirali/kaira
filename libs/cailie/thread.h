@@ -27,11 +27,19 @@ class ThreadBase {
 		virtual void send_multicast(const std::vector<int> &targets, NetBase *net,
 			int edge_id, int tokens_count, const Packer &packer) = 0;
 
+		virtual void collective_scatter_root(int transition_id, void *data, size_t size) = 0;
+		virtual void collective_scatter_nonroot(int transition_id, int root, void *out, size_t size) = 0;
+
+		/* For simulated run */
+
 		/* Methods for simulated run where packet with fake size can be sent */
 		virtual void send(int target, NetBase *net, int edge_id,
 						int tokens_count, const Packer &packer, size_t fake_size) {}
 		virtual void send_multicast(const std::vector<int> &targets, NetBase *net,
 			int edge_id, int tokens_count, const Packer &packer, size_t fake_size) {};
+
+		virtual int collective_bindings(TransitionDef *transition_def, std::vector<void*> &bindings) {}
+		/* End of methods for sumulated run */
 
 		int get_id() {
 				return id;
@@ -77,6 +85,15 @@ class Thread : public ThreadBase {
 			// Thread can be run only over standard nets so we can safely cast
 			process->send_multicast(targets, (Net*) net, edge_id, tokens_count, packer, this);
 		}
+
+		void collective_scatter_root(int transition_id, void *data, size_t size) {
+			process->collective_scatter_root(transition_id, data, size);
+		}
+
+		void collective_scatter_nonroot(int transition_id, int root, void *out, size_t size) {
+			process->collective_scatter_nonroot(transition_id, root, out, size);
+		}
+
 		Process * get_process() const { return process; }
 
 

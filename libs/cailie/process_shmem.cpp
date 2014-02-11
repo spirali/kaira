@@ -7,6 +7,11 @@ namespace ca {
 extern Process **processes;
 }
 
+int ca::Process::collective_transition_id = 0;
+pthread_mutex_t ca::Process::collective_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_barrier_t ca::Process::collective_barrier1;
+pthread_barrier_t ca::Process::collective_barrier2;
+
 void ca::Process::broadcast_packet(int tag, void *data, size_t size, Thread *thread, int exclude)
 {
 	for (int t = 0; t < process_count; t++) {
@@ -100,3 +105,51 @@ int ca::Process::process_packets(Thread *thread)
 	}
 	return 0;
 }
+
+void ca::Process::init_collective_operations(int process_count)
+{
+	collective_transition_id = 0;
+	pthread_barrier_init(&collective_barrier1, NULL, process_count);
+	pthread_barrier_init(&collective_barrier2, NULL, process_count);
+}
+
+
+void ca::Process::setup_collective_operation(int transition_id)
+{
+	pthread_mutex_lock(&collective_mutex);
+	if (collective_transition_id == transition_id) {
+		pthread_mutex_unlock(&collective_mutex);
+		// Someone already setuped collective operation
+		pthread_barrier_wait(&collective_barrier1);
+	} else if (collective_transition_id == 0) {
+		// We are the first
+		collective_transition_id = transition_id;
+		pthread_mutex_unlock(&collective_mutex);
+		pthread_barrier_wait(&collective_barrier1);
+	} else {
+		fprintf(stderr, "Two different collective transition was fired in the same time\n");
+		exit(1);
+	}
+
+	if (process_id == 0) {
+		collective_transition_id = 0;
+	}
+}
+
+void ca::Process::collective_scatter_root(int transition_id, void *data, size_t size) {
+	collective_data = data;
+	setup_collective_operation(transition_id);
+	pthread_barrier_wait(&collective_barrier2);
+}
+
+void ca::Process::collective_scatter_nonroot(int transition_id, int root, void *out, size_t size) {
+	if (root < 0 || root >= get_process_count()) {
+		fprintf(stderr, "Invalid value of root (root=%i)\n", root);
+		exit(1);
+	}
+	setup_collective_operation(transition_id);
+	char *data = &static_cast<char*>(processes[root]->collective_data)[size * process_id];
+	memcpy(out, data, size);
+	pthread_barrier_wait(&collective_barrier2);
+}
+
