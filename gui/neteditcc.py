@@ -403,10 +403,3 @@ def contextmenu_edge(config, item, position):
 
 def contextmenu_delete(config, item, position):
     return [ ("Delete", lambda w: delete_item(config, item.owner)) ]
-
-def set_tracing(config, obj, value, add):
-    if add:
-        obj.tracing.append(value)
-    else:
-        obj.tracing.remove(value)
-    config.configure()

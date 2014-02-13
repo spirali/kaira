@@ -366,23 +366,15 @@ class NetEditor(gtk.VBox):
                                                      item.set_init_expr)
 
     def _setup_attribute_widges_mode_tracing(self, item):
-        def trace_enable(value, insert=False):
-            if insert:
-                item.tracing.insert(0, value)
-            else:
-                item.tracing.append(value)
-            self.canvas.config.configure()
-        def trace_disable(value):
-            item.tracing.remove(value)
-            self.canvas.config.configure()
+        def trace_fire(value):
+            item.trace_fire = value
         if item.is_transition():
             self._add_attribute_checkbox("Trace fire",
-                                         "fire" in item.tracing,
-                                         set_true=lambda: trace_enable("fire"),
-                                         set_false=lambda: trace_disable("fire"))
+                                         item.trace_fire,
+                                         set_fn=trace_fire)
         elif item.is_place():
             def refresh():
-                objlist.refresh(item.tracing)
+                objlist.refresh(item.trace_tokens_functions)
                 self.canvas.config.configure()
             def trace_tokens_fn(w):
                 item.trace_tokens = w.get_active()
@@ -391,24 +383,24 @@ class NetEditor(gtk.VBox):
                 trace_fn = tracing.TraceFunction("", "int")
                 result = tracing.tracefn_dialog(self.app.window, trace_fn)
                 if result:
-                    item.tracing.append(trace_fn)
+                    item.trace_tokens_functions.append(trace_fn)
                     refresh()
             def edit_fn(obj):
                 tracing.tracefn_dialog(self.app.window, obj)
                 refresh()
             def remove_fn(obj):
-                item.tracing.remove(obj)
+                item.trace_tokens_functions.remove(obj)
                 refresh()
             def add_token_name():
                 trace_fn = tracing.TraceFunction(
                     "ca::token_name", "std::string")
-                item.tracing.append(trace_fn)
+                item.trace_tokens_functions.append(trace_fn)
                 refresh()
 
             objlist = objectlist.ObjectList([("_", object), ("Name", str), ("Type", str)])
             objlist.set_size_request(0, 150)
             objlist.object_as_row = lambda obj: [ obj, obj.name, obj.return_type ]
-            objlist.fill(item.tracing)
+            objlist.fill(item.trace_tokens_functions)
 
             button = gtk.CheckButton("Trace tokens")
             button.set_active(item.trace_tokens)

@@ -184,7 +184,7 @@ class Net:
 
     def trace_nothing(self):
         for i in self.transitions():
-            i.tracing = []
+            i.trace_fire = False
 
         for i in self.places():
             i.trace_tokens = False
@@ -192,8 +192,7 @@ class Net:
 
     def trace_everything(self):
         for i in self.transitions():
-            if not "fire" in i.tracing:
-                i.tracing.insert(0, "fire")
+            i.trace_fire = True
 
         for i in self.places():
             i.trace_tokens = True
@@ -281,7 +280,6 @@ class NetElement(NetItem):
             citems.AbsPlacement(position),
             self.default_size,
             self.default_radius)
-        self.tracing = []
 
         self.label_placement = self.box.get_relative_placement(
             utils.vector_add_t(position, self.default_size, 0.5))
@@ -359,6 +357,8 @@ class Transition(NetElement):
 
     default_size = (70, 36)
     default_radius = 0
+
+    trace_fire = False
 
     # Simrun options
     time_substitution = False
@@ -462,11 +462,10 @@ class Transition(NetElement):
         e.append(canvastext_to_xml(self.guard, "guard"))
         if self.has_code():
             e.append(self.xml_code_element())
-        if self.tracing:
-            for t in self.tracing:
-                trace = xml.Element("trace")
-                trace.text = t
-                e.append(trace)
+        if self.trace_fire:
+            element = xml.Element("trace")
+            element.text = "fire"
+            e.append(element)
         if self.time_substitution:
             element = xml.Element("time-substitution")
             element.text = self.time_substitution_code
@@ -490,7 +489,10 @@ class Transition(NetElement):
         return e
 
     def get_trace_label_text(self):
-        return self.tracing
+        if self.trace_fire:
+            return "fire"
+        else:
+            return ""
 
     def get_verif_label_text(self):
         texts = []
@@ -528,11 +530,11 @@ class Transition(NetElement):
         for edge in self.edges_from(postprocess=True):
             e.append(edge.create_xml_export_element("edge-out", build_config))
 
-        if build_config.tracing and self.tracing:
-            for t in self.tracing:
-                trace = xml.Element("trace")
-                trace.text = t
-                e.append(trace)
+        if build_config.tracing:
+            # Because of the bug, always trace fire, even it is disabled and self.trace_fire:
+            element = xml.Element("trace")
+            element.text = "fire"
+            e.append(element)
 
         if build_config.substitutions and self.time_substitution:
             element = xml.Element("time-substitution")
@@ -578,7 +580,7 @@ class Place(NetElement):
         p = self.box.get_relative_placement((- self.box.radius - 5, -5), absolute=False)
         self.interface = citems.PlaceInterface(self, "interface", p)
 
-        self.trace_tokens = False
+        self.trace_tokens_functions = []
 
     def get_canvas_items(self, view_mode):
         items = NetElement.get_canvas_items(self, view_mode)
@@ -627,9 +629,11 @@ class Place(NetElement):
         return True
 
     def get_trace_label_text(self):
-        if self.trace_tokens and not self.tracing:
-            return [ "number of tokens" ]
-        return [ trace_function.name for trace_function in self.tracing ]
+        if self.trace_tokens:
+            if not self.trace_tokens_functions:
+                return [ "number of tokens" ]
+            else:
+                return [ trace_function.name for trace_function in self.trace_tokens_functions ]
 
     def get_verif_label_text(self):
         if self.final_marking:
@@ -638,16 +642,15 @@ class Place(NetElement):
     def get_simrun_label_text(self):
         return ""
 
-    def tracing_to_xml(self, element):
-        elem_tt = xml.Element("trace-tokens")
-        elem_tt.set("trace", str(self.trace_tokens))
-
-        for trace_function in self.tracing:
+    def tracing_to_xml(self):
+        element = xml.Element("trace")
+        element.set("trace-tokens", str(self.trace_tokens))
+        for trace_function in self.trace_tokens_functions:
             e = xml.Element("function")
             e.set("name", trace_function.name)
             e.set("return-type", trace_function.return_type)
-            elem_tt.append(e)
-        element.append(elem_tt)
+            element.append(e)
+        return element
 
     def interface_as_xml(self):
         element = xml.Element("interface")
@@ -683,7 +686,7 @@ class Place(NetElement):
             e.append(self.xml_code_element())
         if self.interface.is_visible():
             e.append(self.interface_as_xml())
-        self.tracing_to_xml(e)
+        e.append(self.tracing_to_xml())
         return e
 
     def export_xml(self, build_config):
@@ -703,7 +706,7 @@ class Place(NetElement):
                 e.append(self.xml_code_element())
 
         if build_config.tracing and self.trace_tokens:
-            self.tracing_to_xml(e)
+            e.append(self.tracing_to_xml())
 
         if build_config.library:
             if self.interface.interface_in is not None:
@@ -1029,30 +1032,14 @@ def load_code(element):
     else:
         return ""
 
-def load_tracing(element):
-    trace = []
-    for t in element.findall("trace"):
-        trace.append(t.text)
-    return trace
-
-def load_place_tracing(element):
-
-    elem_tt = element.find("trace-tokens")
-    trace_tokens = False
-    if elem_tt is not None:
-        trace_tokens = utils.xml_bool(elem_tt, "trace")
-    else:
-        return (trace_tokens, [])
-
-    functions = []
-    for e in elem_tt.findall("function"):
-        name = e.get("name", None)
-        return_type = e.get("return-type", None)
-        if name is None or return_type is None:
-            functions = []
-            break
-        functions.append(tracing.TraceFunction(name, return_type))
-    return (trace_tokens, functions)
+def load_place_tracing(element, place):
+    if element is None:
+        return
+    place.trace_tokens = utils.xml_bool(element, "trace-tokens", False)
+    for e in element.findall("function"):
+        name = e.get("name")
+        return_type = e.get("return-type")
+        place.trace_tokens_functions.append(tracing.TraceFunction(name, return_type))
 
 def load_place(element, net, loader):
     id = loader.get_id(element)
@@ -1078,7 +1065,7 @@ def load_place(element, net, loader):
 
     place.set_code(load_code(element))
 
-    place.trace_tokens, place.tracing = load_place_tracing(element)
+    load_place_tracing(element.find("trace"), place)
 
     interface = element.find("interface")
     if interface is not None:
@@ -1110,7 +1097,7 @@ def load_transition(element, net, loader):
     else:
         transition.guard.text = element.get("guard", "") # Backward compatability
     transition.set_code(load_code(element))
-    transition.tracing = load_tracing(element)
+    transition.trace_fire = element.find("trace") is not None
     transition.clock = utils.xml_bool(element, "clock", False)
 
     if element.find("time-substitution") is not None:

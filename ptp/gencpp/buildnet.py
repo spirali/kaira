@@ -725,7 +725,7 @@ def write_trace_token(builder, place, token_code, remove=False):
         builder.line("$tracelog->trace_token_remove({0.id}, {1});", place, token_code)
     else:
         builder.line("$tracelog->trace_token_add({0.id}, {1});", place, token_code)
-        for name, return_type in place.tracing:
+        for name, return_type in place.trace_tokens_functions:
             builder.line("$tracelog->trace_value({1}({0}->value));", token_code, name)
 
 def write_trace_token_list(builder, place, token_list, remove=False, begin=None):
