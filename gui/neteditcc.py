@@ -37,36 +37,15 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
     def configure(self):
         cconfig.NetCanvasConfig.configure(self)
 
+    def get_view_mode(self):
+        return self.neteditor.mode
+
     def collect_items(self):
         items = cconfig.NetCanvasConfig.collect_items(self)
         if self.net:
             for i in self.net.items:
                 items += i.get_error_items()
-            if self.neteditor.mode == "tracing":
-                self.add_extra_tracing_items(items)
-            if self.neteditor.mode == "simrun":
-                self.add_extra_simrun_items(items)
-            if self.neteditor.mode == "verif":
-                self.add_extra_verif_items(items)
         return items
-
-    def add_extra_tracing_items(self, items):
-
-        def gen_trace_label(item):
-            size = item.box.size
-            position = utils.vector_add_t(item.box.get_position(), size, 0.5)
-            tl = citems.TraceLabel(
-                None, "tracebox", citems.RelativePlacement(item.box, position))
-            tl.text = item.get_trace_texts()
-            return tl
-
-        for t in self.net.transitions():
-            if t.tracing:
-                items.append(gen_trace_label(t))
-
-        for p in self.net.places():
-            if p.trace_tokens:
-                items.append(gen_trace_label(p))
 
     def add_extra_simrun_items(self, items):
         def text_fn(text, item, attr):
@@ -99,18 +78,8 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
                 i.text_fn = text_fn("size", item, "size_substitution_code")
                 items.append(i)
 
-    def add_extra_verif_items(self, items):
-        for item in self.net.places() + self.net.transitions():
-                size = item.box.size
-                position = utils.vector_add_t(item.box.get_position(), size, 0.5)
-                i = citems.VerifLabel(
-                    None, "verifbox", citems.RelativePlacement(item.box, position))
-                i.text = item.get_verif_labels()
-                items.append(i)
-
     def configure_item(self, item):
         item.inactive = False
-
         if item.kind == "box":
             if item.owner.is_place():
                 item.create_context_menu = contextmenu_place

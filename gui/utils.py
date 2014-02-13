@@ -30,7 +30,7 @@ def get_unique_id():
     return id_counter
 
 def empty_fn(*args, **kwords):
-	pass
+    pass
 
 def make_vector(point1, point2):
     return (point2[0] - point1[0], point2[1] - point1[1])
@@ -99,7 +99,13 @@ def position_inside_rect(position, rect_position, size, tolerance=0):
             px < rx + sx + tolerance and
             py < ry + sy + tolerance)
 
-def position_on_rect(position, rect_position, size, tolerance = 0):
+def is_round_rectangle_in_rect(position, size, radius, rect_position, rect_size):
+    #FIXME: Consider radius
+    return (position_inside_rect(position, rect_position, rect_size) and
+            position_inside_rect(vector_add(position, size), rect_position, rect_size))
+
+
+def position_on_rect(position, rect_position, size, tolerance=0):
     if not position_inside_rect(position, rect_position, size, tolerance):
         return False
     px, py = position
@@ -130,8 +136,8 @@ def pairs_generator(lst):
 
 def text_size(cr, text, min_h=0, min_w=0):
     extends = cr.text_extents(text)
-	# extends[1] is negative and it means distance from the top
-	# to the baseline of a text
+    # extends[1] is negative and it means distance from the top
+    # to the baseline of a text
     return max(min_w, extends[2]), max(min_h, -extends[1])
 
 def snap_to_grid(point, grid_size):
@@ -141,8 +147,8 @@ def snap_to_grid(point, grid_size):
     return (int(px / grid_size) * grid_size, int(py / grid_size) * grid_size)
 
 def point_square_distance(point1, point2):
-	dx, dy = make_vector(point1, point2)
-	return dx*dx + dy*dy
+    dx, dy = make_vector(point1, point2)
+    return dx*dx + dy*dy
 
 def point_distance(point1, point2):
     return vector_len(make_vector(point1, point2))
@@ -367,6 +373,13 @@ def is_in_round_rectangle(position, size, r, point, tolerance=5):
                 return False
     else:
         return False
+
+def make_rect(point1, point2):
+    px = min(point1[0], point2[0])
+    py = min(point1[1], point2[1])
+    sx = max(point1[0], point2[0]) - px
+    sy = max(point1[1], point2[1]) - py
+    return (px, py), (sx, sy)
 
 def merge_bounding_boxes(box1, box2):
     if box1 is None:

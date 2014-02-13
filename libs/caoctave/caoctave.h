@@ -63,7 +63,10 @@ namespace caoctave {
 
 namespace ca {
 
-	inline void pack(Packer &packer, Matrix &m) {
+	CA_STREAM_TOKEN_NAME(Matrix)
+	CA_STREAM_TOKEN_NAME(SparseMatrix)
+
+	CA_PACK(Matrix, packer, m) {
 		std::stringstream s;
 		write_header(s, LS_BINARY);
 		bool flag = false;
@@ -71,18 +74,19 @@ namespace ca {
 		pack(packer, s.str());
 	}
 
-	template<> inline Matrix unpack<Matrix>(Unpacker &unpacker) {
-		std::stringstream data(unpack<std::string>(unpacker));
+	CA_UNPACK(Matrix, unpacker, m) {
+		std::string s;
+		unpacker >> s;
+		std::stringstream data(s);
 		bool swap;
 		std::string name, doc;
 		oct_mach_info::float_format flt_fmt;
-		octave_value ovalue = Matrix();
+		octave_value ovalue = m;
 		read_binary_file_header(data, swap, flt_fmt);
 		ovalue.load_binary(data,swap,flt_fmt);
-		return ovalue.matrix_value();
 	}
 
-	inline void pack(Packer &packer, SparseMatrix &m) {
+	CA_PACK(SparseMatrix, packer, m) {
 		std::stringstream s;
 		write_header(s, LS_BINARY);
 		bool flag = false;
@@ -90,15 +94,16 @@ namespace ca {
 		pack(packer, s.str());
 	}
 
-	template<> inline SparseMatrix unpack<SparseMatrix>(Unpacker &unpacker) {
-		std::stringstream data(unpack<std::string>(unpacker));
+	CA_UNPACK(SparseMatrix, unpacker, m) {
+		std::string s;
+		unpacker >> s;
+		std::stringstream data(s);
 		bool swap;
 		std::string name, doc;
 		oct_mach_info::float_format flt_fmt;
-		octave_value ovalue = SparseMatrix();
+		octave_value ovalue = m;
 		read_binary_file_header(data, swap, flt_fmt);
 		ovalue.load_binary(data,swap,flt_fmt);
-		return ovalue.sparse_matrix_value();
 	}
 }
 

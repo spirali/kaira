@@ -34,23 +34,38 @@ class Output {
 		bool open_tag;
 };
 
-template<typename T> std::string to_string(const T &value) {
-	std::stringstream s;
-	s << value;
-	return s.str();
-}
+#define CA_TOKEN_NAME(TYPE, VALUE) \
+	template<> inline std::string token_name<TYPE > (const TYPE &VALUE)
+
+#define CA_STREAM_TOKEN_NAME(TYPE) \
+	CA_TOKEN_NAME(TYPE, value) { \
+		std::stringstream s; \
+		s << value; \
+		return s.str(); \
+	}
 
 template<typename T> std::string token_name(const T &value) {
-	return to_string(value);
+	return value.token_name();
 }
 
-inline std::string token_name(const std::string &value) {
+CA_TOKEN_NAME(std::string, value) {
 	return value;
 }
 
-inline std::string token_name(const bool &value) {
+CA_TOKEN_NAME(bool, value) {
 	return value ? "true" : "false";
 }
+
+CA_STREAM_TOKEN_NAME(char);
+CA_STREAM_TOKEN_NAME(int);
+CA_STREAM_TOKEN_NAME(long);
+CA_STREAM_TOKEN_NAME(long long);
+CA_STREAM_TOKEN_NAME(unsigned char);
+CA_STREAM_TOKEN_NAME(unsigned int);
+CA_STREAM_TOKEN_NAME(unsigned long);
+CA_STREAM_TOKEN_NAME(unsigned long long);
+CA_STREAM_TOKEN_NAME(double);
+CA_STREAM_TOKEN_NAME(float);
 
 template<typename T> std::string token_name(const std::vector<T> &value) {
 	std::stringstream s;
@@ -72,6 +87,12 @@ template<typename T> std::string token_name(const std::vector<T> &value) {
 template<typename T1, typename T2> std::string token_name(const std::pair<T1, T2> &value) {
 	std::stringstream s;
 	s << "<" << token_name(value.first) << "," << token_name(value.second) << ">";
+	return s.str();
+}
+
+template<typename T> std::string token_name(T *value) {
+	std::stringstream s;
+	s << value;
 	return s.str();
 }
 
