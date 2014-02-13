@@ -409,6 +409,30 @@ def trim_filename_suffix(filename):
 def get_timestamp_string():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
 
+def collapse_line_repetitions(items):
+    def add(line, count):
+        if count == 1:
+            result.append(line)
+        else:
+            result.append(format("[{0}x] {1}".format(count, line)))
+
+    result = []
+    if not items:
+        return result
+
+    count = 1
+    i = iter(items)
+    last = i.next()
+
+    for line in i:
+        if line != last:
+            add(last, count)
+            count = 1
+            last = line
+        else:
+            count += 1
+    add(last, count)
+    return result
 
 class EqMixin(object):
 

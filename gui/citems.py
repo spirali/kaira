@@ -449,18 +449,17 @@ class TokenBox(CanvasItem):
 
     def set_tokens(self, tokens, new_tokens, removed_tokens):
         self.tokens_count = len(tokens) + len(new_tokens)
-
-        # filter out tokens tokens without values (tokens occurrences)
-        visible_tokens = [t for visible, t in tokens if visible]
-        if len(visible_tokens) > self.max_shown_tokens:
-            self.tokens = map(shorten_token_name,
-                              visible_tokens[:self.max_shown_tokens])
+        t = utils.collapse_line_repetitions(tokens)
+        if len(t) > self.max_shown_tokens:
+            self.tokens = map(shorten_token_name, t[:self.max_shown_tokens])
             self.tokens.append("...")
         else:
-            self.tokens = map(shorten_token_name, visible_tokens)
+            self.tokens = map(shorten_token_name, t)
 
-        self.new_tokens = map(shorten_token_name, new_tokens)
-        self.removed_tokens = map(shorten_token_name, removed_tokens)
+        self.new_tokens = map(shorten_token_name,
+                              utils.collapse_line_repetitions(new_tokens))
+        self.removed_tokens = map(shorten_token_name,
+                                  utils.collapse_line_repetitions(removed_tokens))
 
     def is_at_position(self, position):
         if self.visual_position:

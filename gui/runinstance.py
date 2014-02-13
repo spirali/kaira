@@ -315,13 +315,9 @@ class Perspective(utils.EqMixin):
             t = net_instance.tokens.get(place.id)
             if t is not None:
                 for token_pointer, token_value, token_time in t:
-                    visible = True
                     if token_value is None:
-                        visible = False
                         token_value = Perspective.BULLET
-                    tokens.append(
-                        (visible,
-                        "{0}@{1}".format(token_value, net_instance.process_id)))
+                    tokens.append("{0}@{1}".format(token_value, net_instance.process_id))
         return tokens
 
     def get_new_tokens(self, place):
