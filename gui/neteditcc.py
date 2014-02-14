@@ -47,37 +47,6 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
                 items += i.get_error_items()
         return items
 
-    def add_extra_simrun_items(self, items):
-        def text_fn(text, item, attr):
-            return lambda: ("{0}: {1}".format(text,
-                                              getattr(item, attr)),)
-        for item in self.net.transitions():
-            box_position = item.box.get_position()
-            if item.get_time_substitution():
-                size = item.box.size
-                position = utils.vector_add_t(box_position, size, 0.5)
-                i = citems.SimRunLabel(
-                    None, "simrunbox", citems.RelativePlacement(item.box, position))
-                i.text_fn = text_fn("time", item, "time_substitution_code")
-                items.append(i)
-                box_position = utils.vector_add(box_position, (0, 20))
-
-            if item.get_clock_substitution():
-                size = item.box.size
-                position = utils.vector_add_t(box_position, size, 0.5)
-                i = citems.SimRunLabel(
-                    None, "simrunbox", citems.RelativePlacement(item.box, position))
-                i.text_fn = text_fn("clock", item, "clock_substitution_code")
-                items.append(i)
-
-        for item in self.net.edges():
-            if item.get_size_substitution():
-                position = utils.vector_add(item.inscription.get_position(), (0, 10))
-                i = citems.SimRunLabel(
-                    None, "simrunbox", citems.RelativePlacement(item.inscription, position))
-                i.text_fn = text_fn("size", item, "size_substitution_code")
-                items.append(i)
-
     def configure_item(self, item):
         item.inactive = False
         if item.kind == "box":
