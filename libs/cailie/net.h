@@ -110,7 +110,7 @@ class Transition {
 class NetDef {
 
 	public:
-		NetDef(int index, int id, SpawnFn *spawn_fn, bool local);
+		NetDef(int index, int id, SpawnFn *spawn_fn);
 		~NetDef();
 
 		NetBase *spawn(ThreadBase *thread);
@@ -126,10 +126,6 @@ class NetDef {
 			return index;
 		}
 
-		bool is_local() const {
-			return local;
-		}
-
 		int get_transitions_count() {
 			return transition_defs.size();
 		}
@@ -143,7 +139,6 @@ class NetDef {
 		int id;
 		std::vector<TransitionDef*> transition_defs;
 		SpawnFn *spawn_fn;
-		bool local;
 };
 
 #define CA_NET_MANUAL_DELETE 1
@@ -179,10 +174,6 @@ class Net : public NetBase {
 
 		NetDef *get_def() const {
 			return def;
-		}
-
-		bool is_local() const {
-			return def->is_local();
 		}
 
 		/* Lock for working with active_units */

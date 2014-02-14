@@ -23,10 +23,9 @@ from writer import const_string, const_boolean
 import build
 
 def write_register_net(builder, net):
-    builder.line("ca::NetDef *def_{0.id} = new ca::NetDef({1}, {0.id}, spawn_{0.id}, {2});",
+    builder.line("ca::NetDef *def_{0.id} = new ca::NetDef({1}, {0.id}, spawn_{0.id});",
                  net,
-                 net.get_index(),
-                 const_boolean(net.is_local()))
+                 net.get_index())
 
     for i, tr in enumerate(net.transitions):
         builder.line("def_{0.id}->register_transition(&transition_{1.id});", net, tr)

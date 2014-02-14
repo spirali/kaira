@@ -5,12 +5,11 @@
 
 using namespace ca;
 
-NetDef::NetDef(int index, int id, SpawnFn *spawn_fn, bool local)
+NetDef::NetDef(int index, int id, SpawnFn *spawn_fn)
 {
 	this->index = index;
 	this->id = id;
 	this->spawn_fn = spawn_fn;
-	this->local = local;
 }
 
 NetDef::~NetDef()

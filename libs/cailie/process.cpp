@@ -128,7 +128,7 @@ Net * Process::spawn_net(Thread *thread, int def_index, bool globally)
 
 	CA_DLOG("Spawning def_id=%i globally=%i\n",
 		 def_index, globally);
-	if (globally && !defs[def_index]->is_local()) {
+	if (globally) {
 		ServiceMessageNetCreate *m =
 			(ServiceMessageNetCreate *) malloc(sizeof(ServiceMessageNetCreate));
 		m->type = CA_SM_NET_CREATE;
