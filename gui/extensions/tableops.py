@@ -31,7 +31,7 @@ class Filter(Operation):
     parameters = [Parameter("Data", t_table)]
 
     def run(self, app, table):
-        assistant = settingswindow.BasicSettingAssistant(2,
+        assistant = settingswindow.BasicSettingAssistant(3,
                                                          "Filter setting",
                                                          app.window)
         assistant.set_size_request(600, 400)
@@ -45,11 +45,19 @@ class Filter(Operation):
             return s_widget
 
         def create_page_2(setting):
-            selected_columns = setting.get_value("selected_cols")
-            selected_columns.sort()
+            items = [(label, idx, False)
+                     for idx, label in enumerate(table.header)]
+            s_widget = settingswindow.SettingWidget()
+            s_widget.add_checkbuttons_list(
+                "filter_by", "Filter by columns", items, ["Column", "Select?"])
+            return s_widget
+
+        def create_page_3(setting):
+            filter_by_columns = setting.get_value("filter_by")
+            filter_by_columns.sort()
             s_widget = settingswindow.SettingWidget()
 
-            for idx, col_idx in enumerate(selected_columns):
+            for idx, col_idx in enumerate(filter_by_columns):
                 if idx > 0:
                     s_widget.add_separator()
                 s_widget.add_entry("filter_value{0}".format(col_idx),
@@ -58,26 +66,30 @@ class Filter(Operation):
                 s_widget.add_radiobuttons("cmp_fn{0}".format(col_idx),
                                           "Compare",
                                           [("Equal", lambda x, y: x == y),
-                                           ("Not equal", lambda x, y: x != y)],
+                                           ("Not equal", lambda x, y: x != y),
+                                           ("Less than", lambda x, y: x < y),
+                                           ("Greater than", lambda x, y: x > y)],
                                           ncols=2)
             return s_widget
 
         assistant.append_setting_widget("Select columns", create_page_1)
-        assistant.append_setting_widget("Set filters", create_page_2)
+        assistant.append_setting_widget("Filter rows", create_page_2)
+        assistant.append_setting_widget("Set filters", create_page_3)
 
         if assistant.run() != RESPONSE_APPLY:
             return
 
         selected_columns = assistant.get_setting("selected_cols")
+        filter_by_columns = assistant.get_setting("filter_by")
 
         filters = []
-        for col_idx in selected_columns:
+        for col_idx in filter_by_columns:
             cmp_function = assistant.get_setting("cmp_fn{0}".format(col_idx))
             value = assistant.get_setting("filter_value{0}".format(col_idx))
             value = utils.convert_to_type(table.types[col_idx], value)
             filters.append((table.header[col_idx], cmp_function, value))
 
-        filtered = table.select(filters=filters)
+        filtered = table.select(selected_columns, filters)
         t = Table.create_from_data(filtered)
         return Source("Filtered table " + utils.get_timestamp_string(),
                       t_table,
