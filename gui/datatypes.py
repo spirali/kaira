@@ -155,7 +155,7 @@ t_tracelog = Type("Kaira tracelog", "Tracelog")
 def load_kth(filename, app, settings=None):
     if filename is None:
         return
-    return (app._catch_io_error(lambda: TraceLog(filename)), settings)
+    return (app._catch_io_error(lambda: TraceLog(filename, True)), settings)
 t_tracelog.register_load_function("kth", load_kth)
 
 def tracelog_view(data, app):

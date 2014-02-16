@@ -26,13 +26,15 @@ import controlseq
 
 from table import Table
 from runinstance import RunInstance
+from exportri import ExportRunInstance, place_counter_name
 
 zero_char = chr(0)
 
 class TraceLog:
 
-    def __init__(self, filename):
+    def __init__(self, filename, export_data=False):
         self.filename = filename
+        self.export_data = export_data
         self._read_header()
 
         self.traces = [None] * (self.process_count * self.threads_count)
@@ -154,7 +156,22 @@ class TraceLog:
             trace.time_offset = trace.get_init_time() - starttime
         trace_times = [ trace.get_next_event_time() for trace in self.traces ]
 
-        ri = RunInstance(self.project, self.process_count, self.threads_count)
+        if self.export_data:
+            place_counters = [place_counter_name(p)
+                              for p in self.project.nets[0].places()
+                              if p.tracing]                                     # TODO: after merge change p.tracing -> p.trace_tokens
+
+            ri = ExportRunInstance(
+                self,
+                [t for t in self.project.nets[0].transitions() if t.tracing],
+                [(p, i)
+                 for p in self.project.nets[0].places()
+                    for i, tracing in enumerate(p.tracing)
+                 if tracing.type_description != 'O'],
+                ExportRunInstance.basic_header + place_counters)
+        else:
+            ri = RunInstance(
+                self.project, self.process_count, self.threads_count)
 
         index = 0
         timeline = Table([("trace-id", "<i4"), ("pointer", "<i4")], 100)
@@ -178,6 +195,10 @@ class TraceLog:
             trace_times[minimal_time_index] = trace.get_next_event_time()
 
             index += 1
+
+        self.data = Table([], 0)
+        if self.export_data:
+            self.data = ri.get_table()
 
         timeline.trim()
         full_timeline.trim()
