@@ -250,9 +250,9 @@ def tet_per_processes_and_transitions_histogram(table, processes, transitions):
                 tets = [0] # data for a histogram chart must not be empty
             values.append(tets)
 
-    return ("TETs per process & transitions",
+    return ("Transition execution times (TETs)",
             charts.histogram(
-                names, values, "Histogram of TETs per processes & transitions",
+                names, values, "Histogram of transition execution times",
                 "Duration [ms]", "Count"))
 
 def tet_per_processes_histogram(table, processes):
@@ -274,9 +274,9 @@ def tet_per_processes_histogram(table, processes):
             tets = [0]
         values.append(tets)
 
-    return ("TETs per processes",
+    return ("TETs (grouped by processes)",
             charts.histogram(
-                names, values, "Histogram of TETs per processes",
+                names, values, "Histogram of transition execution times grouped by processes",
                 "Duration [ms]", "Count"))
 
 def tet_per_transitions_histogram(table, transitions):
@@ -298,9 +298,9 @@ def tet_per_transitions_histogram(table, transitions):
             tets = [0]
         values.append(tets)
 
-    return ("TETs per transitions",
+    return ("TETs (grouped by transitions)",
             charts.histogram(
-                names, values, "Histogram of TETs per transitions",
+                names, values, "Histogram of transition execution times grouped by transitions",
                 "Duration [ms]", "Count"))
 
 def tokens_count(table, processes, places, collapse=True):
