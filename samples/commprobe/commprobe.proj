@@ -1,54 +1,47 @@
-<project target_env="C++"><configuration><parameter default="10" description="" name="START" policy="mandatory" type="int" /><parameter default="100" description="" name="STOP" policy="mandatory" type="int" /><parameter default="10" description="" name="STEP" policy="mandatory" type="int" /><parameter default="10" description="Number of repetitions" name="R" policy="optional" type="int" /><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option><head-code>
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><parameter default="10" description="" name="START" policy="mandatory" type="int" /><parameter default="100" description="" name="STOP" policy="mandatory" type="int" /><parameter default="10" description="" name="STEP" policy="mandatory" type="int" /><parameter default="10" description="Number of repetitions" name="R" policy="optional" type="int" /><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option><head-code>
 #include &lt;iostream&gt;
 
 class Data {
 	public:
+		Data() : size(0) {}
 		Data(size_t size) : size(size) {}
 		
-		size_t get_size() { 
+		size_t get_size() const { 
 			return size;
 		}
 		
 		void set_size(size_t value) {
 			size = value;
 		}
+		
+		std::string token_name() const {
+			std::stringstream s;
+			s &lt;&lt; "Data " &lt;&lt; get_size();
+			return s.str();
+		}
+		
+		void pack(ca::Packer &amp;packer) const {
+			packer &lt;&lt; get_size();
+			packer.move(get_size());
+		}
+	
+		void unpack(ca::Unpacker &amp;unpacker) {
+			unpacker &gt;&gt; size;
+			unpacker.move(size);
+		}		
+
 	protected:
 		size_t size;
 };
 
 namespace ca {
 
-	std::string token_name(Data &amp;data) {
-		std::stringstream s;
-		s &lt;&lt; "Data " &lt;&lt; data.get_size();
-		return s.str();
-	}
-	
-	void pack(ca::Packer &amp;packer, Data&amp; data) {
-		pack(packer, data.get_size());
-/*		char *c = (char*) malloc(1024 * 1024);
-		size_t s = data.get_size();
-		while (s &gt; 1024 * 1024) {
-			pack(packer, c, 1024 * 1024);
-			s -= 1024 * 1024;
-		}
-		pack(packer, c, s);
-		free(c);*/
-		packer.move(data.get_size());
-	}
-	
-	template&lt;&gt; Data unpack(ca::Unpacker &amp;unpacker) {
-		size_t s = unpack&lt;size_t&gt;(unpacker);
-		unpacker.move(s);
-		return Data(s);
-	}
-	
-	std::string token_name(struct timespec &amp;t) {
+	CA_TOKEN_NAME(struct timespec, t) {
 		return "timespec";
 	}
 
-}</head-code></configuration><net id="101" name="Main" net-type="main"><edge from_item="102" id="105" to_item="103"><inscription x="-102.0" y="-96.0">data@1</inscription></edge><edge from_item="103" id="106" to_item="104"><inscription x="113.970578654" y="-5.28411487355">data</inscription><point x="102" y="-78" /></edge><edge from_item="107" id="109" to_item="102"><inscription x="-203.216316826" y="-33.7067122427">data</inscription></edge><edge from_item="102" id="111" to_item="110"><inscription x="-198.0" y="-138.0">c+1</inscription></edge><edge from_item="110" id="112" to_item="102"><inscription x="-170.0" y="-190.0">c</inscription><point x="-162" y="-174" /></edge><edge from_item="104" id="115" to_item="114"><inscription x="-6.0" y="78.0">data@0</inscription></edge><edge from_item="114" id="117" to_item="116"><inscription x="-134.630420681" y="105.147269631">data</inscription></edge><edge from_item="116" id="118" to_item="107"><inscription x="-269.769420251" y="59.4940552983">data</inscription></edge><edge from_item="102" id="121" to_item="119"><inscription x="-159.563379212" y="-25.2504646003">time</inscription></edge><edge from_item="119" id="122" to_item="116"><inscription x="-186.0" y="54.0">time</inscription></edge><place id="103" name="" radius="20" sx="0" sy="0" x="-7" y="-78"><place-type x="10" y="-61">Data</place-type><init x="10" y="-108" /></place><place id="107" name="" radius="20" sx="0" sy="0" x="-258" y="12"><place-type x="-228" y="24">Data</place-type><init x="-241" y="-18" /><code>	place.add(Data(param::START()));
-</code></place><place id="110" name="" radius="20" sx="0" sy="0" x="-246" y="-174"><place-type x="-216" y="-156">int</place-type><init x="-229" y="-204">[0]</init></place><place id="114" name="" radius="20" sx="0" sy="0" x="-60" y="96"><place-type x="-43" y="113">Data</place-type><init x="-43" y="66" /></place><place id="119" name="start&#10;time" radius="20" sx="0" sy="0" x="-168" y="12"><place-type x="-151" y="29">struct timespec</place-type><init x="-151" y="-17" /></place><transition id="102" name="send" priority="" sx="70" sy="36" x="-201" y="-92"><guard x="-201" y="-112" /><code>	if (var.c == param::R() - 1) {
+}</head-code></configuration><net id="101" name="Main"><place id="103" label-x="-7.0" label-y="-78.0" name="" radius="20" sx="0" sy="0" x="-7" y="-78"><place-type x="10" y="-61">Data</place-type><init x="10" y="-108" /></place><place id="107" label-x="-258.0" label-y="12.0" name="" radius="20" sx="0" sy="0" x="-258" y="12"><place-type x="-228" y="24">Data</place-type><init x="-241" y="-18" /><code>	place.add(Data(param::START()));
+</code></place><place id="110" label-x="-246.0" label-y="-174.0" name="" radius="20" sx="0" sy="0" x="-246" y="-174"><place-type x="-216" y="-156">int</place-type><init x="-229" y="-204">[0]</init></place><place id="114" label-x="-60.0" label-y="96.0" name="" radius="20" sx="0" sy="0" x="-60" y="96"><place-type x="-43" y="113">Data</place-type><init x="-43" y="66" /></place><place id="119" label-x="-168.0" label-y="12.0" name="start&#10;time" radius="20" sx="0" sy="0" x="-168" y="12"><place-type x="-151" y="29">struct timespec</place-type><init x="-151" y="-17" /></place><transition clock="False" id="102" label-x="-166.0" label-y="-74.0" name="send" priority="" sx="70" sy="36" x="-201" y="-92"><guard x="-201" y="-112" /><code>	if (var.c == param::R() - 1) {
 		var.c = -1;
 		size_t s = var.data.get_size();
 		s += param::STEP();
@@ -63,7 +56,7 @@ namespace ca {
 		perror("TraceLog::get_current_time");
 		exit(-1);
 	}	
-</code></transition><transition id="104" name="resend" priority="" sx="70" sy="36" x="66" y="78"><guard x="66" y="58" /></transition><transition id="116" name="receive" priority="" sx="70" sy="36" x="-258" y="78"><guard x="-258" y="58" /><code>	struct timespec time;
+</code></transition><transition clock="False" id="104" label-x="101.0" label-y="96.0" name="resend" priority="" sx="70" sy="36" x="66" y="78"><guard x="66" y="58" /></transition><transition clock="False" id="116" label-x="-223.0" label-y="96.0" name="receive" priority="" sx="70" sy="36" x="-258" y="78"><guard x="-258" y="58" /><code>	struct timespec time;
 	if (clock_gettime(CLOCK_MONOTONIC, &amp;time)) {
 		perror("TraceLog::get_current_time");
 		exit(-1);
@@ -73,4 +66,4 @@ namespace ca {
 	t += time.tv_nsec - var.time.tv_nsec;
 	
 	std::cout &lt;&lt; var.data.get_size() &lt;&lt; " " &lt;&lt; t / 2 &lt;&lt; std::endl;
-</code></transition></net></project>
+</code></transition><edge from_item="102" id="105" to_item="103"><inscription x="-102.0" y="-96.0">data@1</inscription></edge><edge from_item="103" id="106" to_item="104"><inscription x="113.0" y="-5.0">data</inscription><point x="102" y="-78" /></edge><edge from_item="107" id="109" to_item="102"><inscription x="-203.0" y="-33.0">data</inscription></edge><edge from_item="102" id="111" to_item="110"><inscription x="-198.0" y="-138.0">c+1</inscription></edge><edge from_item="110" id="112" to_item="102"><inscription x="-170.0" y="-190.0">c</inscription><point x="-162" y="-174" /></edge><edge from_item="104" id="115" to_item="114"><inscription x="-6.0" y="78.0">data@0</inscription></edge><edge from_item="114" id="117" to_item="116"><inscription x="-134.0" y="105.0">data</inscription></edge><edge from_item="116" id="118" to_item="107"><inscription x="-269.0" y="59.0">data</inscription></edge><edge from_item="102" id="121" to_item="119"><inscription x="-159.0" y="-25.0">time</inscription></edge><edge from_item="119" id="122" to_item="116"><inscription x="-186.0" y="54.0">time</inscription></edge></net></project>

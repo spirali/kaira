@@ -91,13 +91,12 @@ class TypeChecker:
             check.own_message = message.format("ca::pack", self.name)
             tester.add(check)
 
-        if "pack" in self.functions:
+        if "unpack" in self.functions:
             decls = Declarations()
             decls.set(var, self.name + "&")
             decls.set("unpacker", "ca::Unpacker &")
-            check = CheckStatement("return ca::unpack<{0} >(unpacker);".format(self.name),
+            check = CheckStatement("ca::unpack(unpacker, {0});".format(var),
                                    decls,
-                                   self.name,
                                    source=source)
             check.own_message = message.format("ca::unpack", self.name)
             tester.add(check)

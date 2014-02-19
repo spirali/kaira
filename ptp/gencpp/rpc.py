@@ -61,7 +61,7 @@ def write_client_library_function(builder, net):
     builder.line("ca::Unpacker $unpacker = client.call(${0}_id, $packer);", net.name)
 
     for place in net.get_output_places():
-        builder.line("{0.interface_output} = ca::unpack<{0.type}>($unpacker);", place)
+        builder.line("ca::unpack($unpacker, {0.interface_output});", place)
 
     builder.block_end()
 

@@ -255,7 +255,7 @@ def write_send_token(builder,
 
         if inscription.is_token(): # Pack token edge
             builder.line("ca::Packer $packer(ca::PACKER_DEFAULT_SIZE, ca::RESERVED_PREFIX);")
-            builder.line("ca::pack($packer, {0});", inscription.expr)
+            builder.line("ca::pack($packer, ({0}));", inscription.expr)
             send_packer(inscription, sendtype, 1, target)
 
         elif inscription.is_bulk(): # Bulk edge
@@ -289,7 +289,7 @@ def write_remove_tokens(builder, net_expr, tr):
     for inscription in tr.get_token_inscriptions_in():
         token_var = builder.expand("$token_{0.uid}", inscription)
         place = inscription.edge.place
-        if place.tracing:
+        if place.trace_tokens:
             builder.if_begin("$tracelog")
             write_trace_token(builder, place, token_var, remove=True)
             builder.block_end()
@@ -326,7 +326,7 @@ def write_fire_body(builder,
         for edge in tr.get_bulk_edges_in():
                 place = edge.place
                 inscription = edge.inscriptions[0]
-                if place.tracing:
+                if place.trace_tokens:
                     builder.if_begin("$tracelog")
                     write_trace_token_list(builder,
                                            place,
@@ -627,12 +627,15 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
 
         prev = [ i for i in prev_inscriptions if i.edge == inscription.edge ]
         if prev and inscription.has_same_pick_rule(prev[-1]):
-            start_from = "$token_{0.uid}->next;".format(prev[-1])
+            start_from = "$n->place_{0.edge.place.id}.next($token_{0.uid})".format(prev[-1])
             while prev and inscription.has_same_pick_rule(prev[-1]):
                 prev.pop()
             builder.line("$token_{0.uid} = {1};", inscription, builder.expand(start_from))
+            builder.if_begin("$token_{0.uid} == NULL", inscription)
+            builder.line(fail_command)
+            builder.block_end()
         else:
-            start_from = "$n->place_{0.id}.begin();".format(inscription.edge.place)
+            start_from = "$n->place_{0.id}.begin()".format(inscription.edge.place)
             builder.line("$token_{0.uid} = {1};", inscription, builder.expand(start_from))
             if inscription.is_conditioned():
                  builder.line("if ($token_{0.uid} == NULL) {1}", inscription, fail_command)
@@ -722,7 +725,7 @@ def write_trace_token(builder, place, token_code, remove=False):
         builder.line("$tracelog->trace_token_remove({0.id}, {1});", place, token_code)
     else:
         builder.line("$tracelog->trace_token_add({0.id}, {1});", place, token_code)
-        for name, return_type in place.tracing:
+        for name, return_type in place.trace_tokens_functions:
             builder.line("$tracelog->trace_value({1}({0}->value));", token_code, name)
 
 def write_trace_token_list(builder, place, token_list, remove=False, begin=None):
@@ -753,7 +756,7 @@ def write_place_add(builder,
     else:
         method = "overtake"
 
-    if trace and place.tracing and bulk:
+    if trace and place.trace_tokens and bulk:
         builder.if_begin("$thread->get_tracelog()")
         builder.line("ca::TraceLog *tracelog = $thread->get_tracelog();")
         write_trace_token_list(builder, place, value_code)
@@ -766,7 +769,7 @@ def write_place_add(builder,
         builder.line("{0}place_{1.id}.{2}({3});",
                      net_code, place, method, value_code)
 
-    if trace and place.tracing and not bulk:
+    if trace and place.trace_tokens and not bulk:
         builder.if_begin("$thread->get_tracelog()")
         builder.line("ca::TraceLog *$tracelog = $thread->get_tracelog();")
         builder.line("ca::Token<{1.type} > *$token = {0}place_{1.id}.last();", net_code, place)
@@ -820,7 +823,7 @@ def write_init_net(builder, net):
             builder.line("$net->place_{0.id}.overtake($list);", place)
             builder.block_end()
 
-        if place.tracing:
+        if place.trace_tokens:
             builder.if_begin("$thread->get_tracelog()")
             builder.line("ca::TraceLog *$tracelog = $thread->get_tracelog();")
             write_trace_token_list(builder,
@@ -871,15 +874,18 @@ def write_receive_method(builder, net):
     for edge in net.get_edges_out():
         if not edge.is_local():
             builder.line("case {0}:", edge.id)
-            builder.indent_push()
+            builder.block_begin()
+            builder.line("ca::Token<{0} > *token = new ca::Token<{0} >();", edge.place.type)
+            builder.line("ca::unpack(unpacker, token->value);")
             write_place_add(builder,
                             edge.place,
                             "this->",
-                            "ca::unpack<{0} >(unpacker)".format(edge.place.type, "unpacker"),
+                            "token",
+                            token=True,
                             token_source="from_process")
             write_activation(builder, "this", edge.place.get_transitions_out())
+            builder.block_end()
             builder.line("break;")
-            builder.indent_pop()
     builder.line("}}")
     builder.write_method_end()
 

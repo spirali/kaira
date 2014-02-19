@@ -37,28 +37,15 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
     def configure(self):
         cconfig.NetCanvasConfig.configure(self)
 
+    def get_view_mode(self):
+        return self.neteditor.mode
+
     def collect_items(self):
         items = cconfig.NetCanvasConfig.collect_items(self)
         if self.net:
             for i in self.net.items:
                 items += i.get_error_items()
-            if self.neteditor.mode == "tracing":
-                self.add_extra_tracing_items(items)
-            if self.neteditor.mode == "simrun":
-                self.add_extra_simrun_items(items)
-            if self.neteditor.mode == "verif":
-                self.add_extra_verif_items(items)
         return items
-
-    def add_extra_tracing_items(self, items):
-        for item in self.net.places() + self.net.transitions():
-            if item.tracing:
-                size = item.box.size
-                position = utils.vector_add_t(item.box.get_position(), size, 0.5)
-                i = citems.TraceLabel(
-                    None, "tracebox", citems.RelativePlacement(item.box, position))
-                i.text = item.get_trace_texts()
-                items.append(i)
 
     def add_extra_simrun_items(self, items):
         def text_fn(text, item, attr):
@@ -91,18 +78,8 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
                 i.text_fn = text_fn("size", item, "size_substitution_code")
                 items.append(i)
 
-    def add_extra_verif_items(self, items):
-        for item in self.net.places() + self.net.transitions():
-                size = item.box.size
-                position = utils.vector_add_t(item.box.get_position(), size, 0.5)
-                i = citems.VerifLabel(
-                    None, "verifbox", citems.RelativePlacement(item.box, position))
-                i.text = item.get_verif_labels()
-                items.append(i)
-
     def configure_item(self, item):
         item.inactive = False
-
         if item.kind == "box":
             if item.owner.is_place():
                 item.create_context_menu = contextmenu_place
@@ -426,10 +403,3 @@ def contextmenu_edge(config, item, position):
 
 def contextmenu_delete(config, item, position):
     return [ ("Delete", lambda w: delete_item(config, item.owner)) ]
-
-def set_tracing(config, obj, value, add):
-    if add:
-        obj.tracing.append(value)
-    else:
-        obj.tracing.remove(value)
-    config.configure()
