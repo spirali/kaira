@@ -22,6 +22,7 @@ import math
 import os
 import re
 import time
+import numpy as np
 
 id_counter = 1000
 def get_unique_id():
@@ -408,6 +409,41 @@ def trim_filename_suffix(filename):
 
 def get_timestamp_string():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
+
+def convert_to_type(numpy_type_description, value):
+    return np.dtype(numpy_type_description).type(value)
+
+ctypes_to_numpy_types_dict = { 'int': '<i4',
+                               'double': '<f8',
+                               'std::string': 'O' }
+
+def ctype_to_numpy_type(ctype):
+    return ctypes_to_numpy_types_dict[ctype]
+
+def collapse_line_repetitions(items):
+    def add(line, count):
+        if count == 1:
+            result.append(line)
+        else:
+            result.append(format("[{0}x] {1}".format(count, line)))
+
+    result = []
+    if not items:
+        return result
+
+    count = 1
+    i = iter(items)
+    last = i.next()
+
+    for line in i:
+        if line != last:
+            add(last, count)
+            count = 1
+            last = line
+        else:
+            count += 1
+    add(last, count)
+    return result
 
 
 class EqMixin(object):

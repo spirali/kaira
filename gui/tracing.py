@@ -28,6 +28,11 @@ class TraceFunction(utils.EqMixin):
         self.name = name
         self.return_type = return_type
 
+    @property
+    def return_numpy_type(self):
+        return utils.ctype_to_numpy_type(self.return_type)
+
+
 def tracefn_dialog(mainwindow, trace_function):
     if trace_function is None:
         mainwindow.app.show_message_dialog(
@@ -53,6 +58,8 @@ def tracefn_dialog(mainwindow, trace_function):
             return_double.set_active(True)
         else:
             return_string.set_active(True)
+
+        dlg.vbox.show_all()
 
         dlg.set_title("Trace function")
         dlg.set_transient_for(mainwindow)

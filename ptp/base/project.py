@@ -182,12 +182,6 @@ def load_edge_out(element, project, net, transition):
     # Loading edge-in and edge-out are now same
     return load_edge_in(element, project, net, transition)
 
-def load_tracing(element):
-    trace = []
-    for t in element.findall("trace"):
-        trace.append(t.text)
-    return trace
-
 def load_transition(element, project, net):
     id = utils.xml_int(element, "id")
 
@@ -202,7 +196,7 @@ def load_transition(element, project, net):
         load_edge_out(e, project, net, transition), element.findall("edge-out"))
     if element.find("code") is not None:
         transition.code = element.find("code").text
-    transition.tracing = load_tracing(element)
+    transition.trace_fire = element.find("trace") is not None
     transition.clock = utils.xml_bool(element, "clock", False)
 
     if element.find("time-substitution") is not None:
@@ -228,11 +222,12 @@ def load_transition(element, project, net):
                                  get_source(element, "priority"))
     return transition
 
-def load_place_tracing(element):
-    trace = []
-    for e in element.findall("trace"):
-        trace.append((e.get("name"), e.get("return-type")))
-    return trace
+def load_place_tracing(element, place):
+    if element is None:
+        return
+    place.trace_tokens = utils.xml_bool(element, "trace-tokens", False)
+    for e in element.findall("function"):
+        place.trace_tokens_functions.append((e.get("name"), e.get("return-type")))
 
 def load_place(element, project, net):
     id = utils.xml_int(element, "id")
@@ -243,7 +238,9 @@ def load_place(element, project, net):
     place = Place(net, id, type_name, init_type, init_value)
     if element.find("code") is not None:
         place.code = element.find("code").text
-    place.tracing = load_place_tracing(element)
+
+    load_place_tracing(element.find("trace"), place)
+
     if element.find("verif-final-marking") is not None:
         place.final_marking = bool(element.find("verif-final-marking").text)
     place.interface_input = element.get("in")

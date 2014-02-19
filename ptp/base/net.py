@@ -388,7 +388,8 @@ class Place(utils.EqByIdMixin):
         self.type = type
         self.init_type = init_type
         self.init_value = init_value
-        self.tracing = []
+        self.trace_tokens = False
+        self.trace_tokens_functions = []
 
     def get_pos_id(self):
         return self.net.places.index(self)
@@ -444,16 +445,15 @@ class Place(utils.EqByIdMixin):
                                      get_container_type(self.type),
                                      source)
 
-        for name, return_type in self.tracing:
-            decls = Declarations(source)
-            decls.set("a", self.type)
-            checker.check_expression("{0}(a)".format(name),
-                                     decls,
-                                     return_type,
-                                     self.get_source("type"),
-                                     "Invalid trace function '{0}'".format(name))
-
-
+        if self.trace_tokens:
+            for name, return_type in self.trace_tokens_functions:
+                decls = Declarations(source)
+                decls.set("a", self.type)
+                checker.check_expression("{0}(a)".format(name),
+                                         decls,
+                                         return_type,
+                                         self.get_source("type"),
+                                         "Invalid trace function '{0}'".format(name))
 
     def get_source(self, location):
         return "*{0}/{1}".format(self.id, location)
@@ -487,7 +487,7 @@ class Transition(utils.EqByIdMixin):
         self.guard = guard
         self.edges_in = []
         self.edges_out = []
-        self.tracing = []
+        self.trace_fire = False
         self.var_exprs = None
         self.match_exprs = None
         self.clock = False
@@ -520,9 +520,7 @@ class Transition(utils.EqByIdMixin):
     def need_trace(self):
         if self.is_any_place_traced():
             return True
-        if self.code and self.code.find("ctx.trace_") != -1:
-            return True
-        return len(self.tracing) > 0
+        return self.trace_fire
 
     def get_all_edges(self):
         return self.edges_in + self.edges_out
@@ -537,7 +535,7 @@ class Transition(utils.EqByIdMixin):
         return self.get_input_places() | self.get_output_places()
 
     def is_any_place_traced(self):
-        return any(place.tracing for place in self.get_places())
+        return any(place.trace_tokens for place in self.get_places())
 
     def get_pos_id(self):
         return self.net.transitions.index(self)

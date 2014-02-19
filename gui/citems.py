@@ -443,20 +443,23 @@ class TokenBox(CanvasItem):
         self.tokens = []
         self.new_tokens = []
         self.removed_tokens = []
-        self.tokens_count = ""
+        self.tokens_count = 0
         self.size = None
         self.visual_position = None
 
     def set_tokens(self, tokens, new_tokens, removed_tokens):
-        self.tokens_count = str(len(tokens) + len(new_tokens))
-        if len(tokens) > self.max_shown_tokens:
-            self.tokens = map(shorten_token_name, tokens[:self.max_shown_tokens])
+        self.tokens_count = len(tokens) + len(new_tokens)
+        t = utils.collapse_line_repetitions(tokens)
+        if len(t) > self.max_shown_tokens:
+            self.tokens = map(shorten_token_name, t[:self.max_shown_tokens])
             self.tokens.append("...")
         else:
-            self.tokens = map(shorten_token_name, tokens)
+            self.tokens = map(shorten_token_name, t)
 
-        self.new_tokens = map(shorten_token_name, new_tokens)
-        self.removed_tokens = map(shorten_token_name, removed_tokens)
+        self.new_tokens = map(shorten_token_name,
+                              utils.collapse_line_repetitions(new_tokens))
+        self.removed_tokens = map(shorten_token_name,
+                                  utils.collapse_line_repetitions(removed_tokens))
 
     def is_at_position(self, position):
         if self.visual_position:
@@ -467,12 +470,15 @@ class TokenBox(CanvasItem):
     def draw(self, cr):
         w_size = utils.text_size(cr, "W")[1] + 6
 
-        all =  self.removed_tokens + self.tokens + self.new_tokens
-        if not all:
+        if self.tokens_count == 0:
             return
 
         px, py = self.get_position()
-        text_width = max(utils.text_size(cr, t)[0] for t in all) + 5
+
+        text_width = 0
+        all =  self.removed_tokens + self.tokens + self.new_tokens
+        if all:
+            text_width = max(utils.text_size(cr, t)[0] for t in all) + 5
 
         size_y = len(all) * w_size
         self.size = (text_width, size_y)
@@ -520,7 +526,7 @@ class TokenBox(CanvasItem):
         cr.set_source_rgb(0,0,0)
         cr.stroke()
 
-        drawing.draw_centered_text(cr, px, py, self.tokens_count)
+        drawing.draw_centered_text(cr, px, py, str(self.tokens_count))
 
 
 class TransitionActivation(CanvasItem):
