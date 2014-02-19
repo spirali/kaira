@@ -41,7 +41,7 @@ class ExportRunInstance(RunInstance):
 
         self.traced_places = dict((p.id, p)
                                   for p in tracelog.project.nets[0].places()
-                                  if p.tracing and
+                                  if p.trace_tokens and
                                      place_counter_name(p) in columns)
 
         self.column_event = "Event" in columns
@@ -84,7 +84,7 @@ class ExportRunInstance(RunInstance):
                 self.values_indexes[col_name] = index
 
                 header.append(col_name)
-                types.append(place.tracing[f_index].type_description)
+                types.append(place.trace_tokens_functions[f_index].return_numpy_type)
         if self.column_tokens:
             self.tokens_indexes = {}
             for index, (id, place) in enumerate(self.traced_places.items()):
@@ -187,7 +187,7 @@ class ExportRunInstance(RunInstance):
 
 def place_value_name(place, f_index):
     return "V: ({0}/{1})".format(place.get_name_or_id(),
-                                 place.tracing[f_index].name)
+                                 place.trace_tokens_functions[f_index].name)
 
 def place_counter_name(place):
     return "C: {0}".format(place.get_name_or_id())
@@ -206,13 +206,11 @@ def run_assistant(app, tracelog):
                                 data,
                                 [ "Transition", "Export fire?" ])
 
-        data = [ ("{0}/{1}".format(p.get_name_or_id(), tracing.name),
-                  (p, i),
-                  False)
-                 for p in tracelog.project.nets[0].places()
-                    for i, tracing in enumerate(p.tracing)
-                 # only function that does not return PyObject values
-                 if tracing.type_description != 'O']
+        data = [ ("{0}/{1}".format(p.get_name_or_id(), f.name), (p, i), False)
+                     for p in tracelog.project.nets[0].places()
+                     for i, f in enumerate(p.trace_tokens_functions)
+                     # only function that does not return PyObject values
+                     if p.trace_tokens and f.return_numpy_type != 'O']
 
         w.add_checkbuttons_list("place_functions",
                                 "Place\nFunctions",
@@ -228,7 +226,7 @@ def run_assistant(app, tracelog):
                  ("ID", "ID", True) ]
 
         counters = [(place_counter_name(p), place_counter_name(p), False)
-                    for p in tracelog.project.nets[0].places() if p.tracing]    # TODO: after merge fix p.tracing -> p.trace_tokens
+                    for p in tracelog.project.nets[0].places() if p.trace_tokens]
 
         data += counters
         w.add_checkbuttons("columns", "Columns", data)

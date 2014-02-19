@@ -380,7 +380,7 @@ class NetEditor(gtk.VBox):
                 item.trace_tokens = w.get_active()
                 refresh()
             def add_fn():
-                trace_fn = tracing.TraceFunction("", "int", "<i4")
+                trace_fn = tracing.TraceFunction("", "int")
                 result = tracing.tracefn_dialog(self.app.window, trace_fn)
                 if result:
                     item.trace_tokens_functions.append(trace_fn)
@@ -392,8 +392,7 @@ class NetEditor(gtk.VBox):
                 item.trace_tokens_functions.remove(obj)
                 refresh()
             def add_token_name():
-                trace_fn = tracing.TraceFunction(
-                    "ca::token_name", "std::string", "O")
+                trace_fn = tracing.TraceFunction("ca::token_name", "std::string")
                 item.trace_tokens_functions.append(trace_fn)
                 refresh()
 

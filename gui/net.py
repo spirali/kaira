@@ -580,6 +580,7 @@ class Place(NetElement):
         p = self.box.get_relative_placement((- self.box.radius - 5, -5), absolute=False)
         self.interface = citems.PlaceInterface(self, "interface", p)
 
+        self.trace_tokens = False
         self.trace_tokens_functions = []
 
     def get_canvas_items(self, view_mode):
@@ -649,7 +650,6 @@ class Place(NetElement):
             e = xml.Element("function")
             e.set("name", trace_function.name)
             e.set("return-type", trace_function.return_type)
-            e.set("type-description", trace_function.type_description)
             element.append(e)
         return element
 

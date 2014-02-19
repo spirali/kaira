@@ -413,6 +413,13 @@ def get_timestamp_string():
 def convert_to_type(numpy_type_description, value):
     return np.dtype(numpy_type_description).type(value)
 
+ctypes_to_numpy_types_dict = { 'int': '<i4',
+                               'double': '<f8',
+                               'std::string': 'O' }
+
+def ctype_to_numpy_type(ctype):
+    return ctypes_to_numpy_types_dict[ctype]
+
 def collapse_line_repetitions(items):
     def add(line, count):
         if count == 1:

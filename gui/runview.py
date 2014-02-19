@@ -42,31 +42,19 @@ class RunView(gtk.VBox):
 
         table = tracelog.data
 
-        def processes():
-            return xrange(tracelog.process_count)
+        net = tracelog.project.nets[0]
+        processes = range(tracelog.process_count)
+        transitions = [ t for t in net.transitions() if t.trace_fire ]
+        places = [ p for p in net.places() if p.trace_tokens ]
 
-        def transitions():
-            for t in tracelog.project.nets[0].transitions():
-                if t.tracing:
-                    yield t
-
-        def places():
-            for p in tracelog.project.nets[0].places():
-                if p.tracing:
-                    yield p
-
-        args = [
-            ( processes, ),             # processes utilizations
-            ( processes, transitions ), # transitions utilization
-            ( processes, transitions ), # histogram of TETs procs. & trans.
-            ( processes, ),             # histogram of TETs processes
-            ( transitions, ),           # histogram of TETs transtions
-            ( processes, places )       # number of tokens in places
-        ]
-        generated_charts = filter(lambda x: x is not None,
-            (chart_generator(table, *args[i])
-             for i, chart_generator in enumerate(charts_generators)))
-        self.views = [ ("Replay", self.netinstance_view) ] + generated_charts
+        self.views = [ ("Replay", self.netinstance_view) ]
+        self.views.append(process_utilization(table, processes))
+        self.views.append(transition_utilization(table, processes, transitions))
+        self.views.append(tet_per_processes_and_transitions_histogram(
+            table, processes, transitions))
+        self.views.append(tet_per_processes_histogram(table, processes))
+        self.views.append(tet_per_transitions_histogram(table, transitions))
+        self.views.append(tokens_count(table, processes, places))
 
         self.pack_start(self._controlls(), False, False)
         for name, item in self.views:
@@ -169,13 +157,13 @@ def process_utilization(table, processes):
     # collect idles
     filters = [("Event", f_eq, 'I')]
     idles = []
-    for p in processes():
+    for p in processes:
         idles.append(table.select(columns, filters + [("Process", f_eq, p)]))
 
     # collect TETs
     filters = [("Event", f_eq, 'T')]
     names, values = [], []
-    for p in processes():
+    for p in processes:
         names.append(str(p))
         values.append(table.select(columns, filters + [("Process", f_eq, p)]))
 
@@ -200,9 +188,9 @@ def transition_utilization(table, processes, transitions):
     filters = [("Event", f_eq, 'T')]
     if "Process" in header:
         names, values = [], []
-        for p in processes():
+        for p in processes:
             pnames, pvalues = [], []
-            for t in transitions():
+            for t in transitions:
                 pnames.append("{0} {1}".format(t.get_name_or_id(), p))
                 pvalues.append(table.select(
                     columns,
@@ -219,7 +207,7 @@ def transition_utilization(table, processes, transitions):
         names = reduce(f_concate, names, [])
     else:
         names, values = [], []
-        for t in transitions():
+        for t in transitions:
             names.append(t.get_name_or_id())
             values.append(table.select(
                 columns, filters + [("ID", f_eq, t.id)]))
@@ -240,9 +228,9 @@ def tet_per_processes_and_transitions_histogram(table, processes, transitions):
     columns = ["Duration"]
     filters = [("Event", f_eq, 'T')]
     names, values = [], []
-    for tran in transitions():
+    for tran in transitions:
         f = filters + [("ID", f_eq, tran.id)]
-        for p in processes():
+        for p in processes:
             names.append("{0}`{1}".format(tran.get_name_or_id(), p))
             tets = table.select(columns, f + [("Process", f_eq, p)])
 
@@ -266,7 +254,7 @@ def tet_per_processes_histogram(table, processes):
     columns = ["Duration"]
     filters = [("Event", f_eq, 'T')]
     names, values = [], []
-    for p in processes():
+    for p in processes:
         names.append("Process {0}".format(p))
         tets = table.select(columns, filters + [("Process", f_eq, p)])
 
@@ -290,7 +278,7 @@ def tet_per_transitions_histogram(table, transitions):
     columns = ["Duration"]
     filters = [("Event", f_eq, 'T')]
     names, values = [], []
-    for t in transitions():
+    for t in transitions:
         names.append(t.get_name_or_id())
         tets = table.select(columns, filters + [("ID", f_eq, t.id)])
 
@@ -305,7 +293,7 @@ def tet_per_transitions_histogram(table, transitions):
 
 def tokens_count(table, processes, places, collapse=True):
     required = ["Event", "Process", "Time"] + \
-               [place_counter_name(place) for place in places()]
+               [place_counter_name(place) for place in places]
     header = table.header
 
     if not all(item in header for item in required):
@@ -314,9 +302,9 @@ def tokens_count(table, processes, places, collapse=True):
     f_eq = lambda x, y: x == y
     filters = [("Event", f_eq, 'C')]
     names, values = [], []
-    for place in places():
+    for place in places:
         columns = ["Time", place_counter_name(place)]
-        for p in processes():
+        for p in processes:
             names.append("{0}@{1}".format(place.get_name_or_id(), p))
             counts = table.select(columns, filters + [("Process", f_eq, p)])
             values.append((counts[columns[0]], counts[columns[1]]))
@@ -326,11 +314,4 @@ def tokens_count(table, processes, places, collapse=True):
                 names, values, "Number of tokens in places", "Time", "Count"))
 
 
-charts_generators = [
-    process_utilization,
-    transition_utilization,
-    tet_per_processes_and_transitions_histogram,
-    tet_per_processes_histogram,
-    tet_per_transitions_histogram,
-    tokens_count
-]
+

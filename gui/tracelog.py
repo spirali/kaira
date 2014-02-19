@@ -159,15 +159,14 @@ class TraceLog:
         if self.export_data:
             place_counters = [place_counter_name(p)
                               for p in self.project.nets[0].places()
-                              if p.tracing]                                     # TODO: after merge change p.tracing -> p.trace_tokens
+                              if p.trace_tokens]
 
             ri = ExportRunInstance(
                 self,
-                [t for t in self.project.nets[0].transitions() if t.tracing],
-                [(p, i)
-                 for p in self.project.nets[0].places()
-                    for i, tracing in enumerate(p.tracing)
-                 if tracing.type_description != 'O'],
+                [ t for t in self.project.nets[0].transitions() if t.trace_fire ],
+                [ (p, i) for p in self.project.nets[0].places()
+                         for i, tracing in enumerate(p.trace_tokens_functions)
+                         if tracing.return_numpy_type != 'O' ],
                 ExportRunInstance.basic_header + place_counters)
         else:
             ri = RunInstance(
