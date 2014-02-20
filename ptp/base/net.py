@@ -229,12 +229,21 @@ class EdgeInscription(utils.EqMixin):
 
     def check(self, checker):
         if self.has_expr():
-            if self.is_collective():
+            op = self.get_collective_operation()
+            if op == "scatter":
                 checker.check_expression(self.expr,
                                          self.edge.transition.get_decls(),
                                          get_container_type(self.type),
                                          self.source)
-
+            elif op == "gather":
+                t = self.edge.transition.net.project.parse_typename(self.type, self.source)
+                if len(t) < 2 or len(t[1]) < 0 or t[0] != "std::vector":
+                    raise utils.PtpException("Invalid type of expression", self.source)
+                typename = t[1][0]
+                checker.check_expression(self.expr,
+                                         self.edge.transition.get_decls(),
+                                         typename,
+                                         self.source)
             else:
                 checker.check_expression(self.expr,
                                          self.edge.transition.get_decls(),
@@ -323,12 +332,17 @@ class EdgeInscription(utils.EqMixin):
         if not self.expr:
             raise utils.PtpException("Main expression of output inscription is empty",
                                      self.source)
+
+        if self.edge.transition.collective and self.target is not None:
+            raise utils.PtpException("Output edges of collective transitions cannot contain '@'",
+                self.source)
+
         allowed = [ "bulk", "multicast", "if", "seq" ]
 
         if self.edge.transition.collective:
             if self.edge.transition.root:
                 allowed.append("root")
-            allowed += [ "scatter" ]
+            allowed += [ "scatter", "gather" ]
         self.check_config(allowed)
 
         if self.check_config_with_expression("if"):
@@ -391,8 +405,15 @@ class EdgeInscription(utils.EqMixin):
         return (inscription.config.get("filter") == self.config.get("filter") and
                 inscription.config.get("from") == self.config.get("from"))
 
+    def get_collective_operation(self):
+        if "scatter" in self.config:
+            return "scatter"
+        if "gather" in self.config:
+            return "gather"
+        return None
+
     def is_collective(self):
-        return "scatter" in self.config
+        return self.get_collective_operation() is not None
 
     def is_root_only(self):
         return "root" in self.config

@@ -144,15 +144,6 @@ namespace ca {
 						return count;
 					}
 
-					void collective_scatter_root(int transition_id, void *data, size_t size) {
-						// TODO
-					}
-
-					void collective_scatter_nonroot(int transition_id, int root, void *out, size_t size) {
-						// TODO
-					}
-
-
 				protected:
 					StateBase<NetT, ActivationT, PacketT> *state;
 					int process_id;

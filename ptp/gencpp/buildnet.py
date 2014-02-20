@@ -20,6 +20,7 @@
 from writer import CppWriter, emit_declarations
 from writer import const_string, const_boolean
 import build
+import collectives
 
 def write_register_net(builder, net):
     builder.line("ca::NetDef *def_{0.id} = new ca::NetDef({1}, {0.id}, spawn_{0.id});",
@@ -58,7 +59,7 @@ def write_tokens_struct(builder, tr):
         if tr.root:
             builder.line("int root;")
         inscription = tr.get_collective_inscription()
-        builder.line("ca::Token<{0}> *token_collective;", inscription.type)
+        builder.line("ca::Token<{0} > *token_collective;", inscription.type)
 
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::Token<{0} > *token_{1};",
@@ -324,72 +325,6 @@ def write_remove_tokens(builder, net_expr, tr):
 
     builder.block_end()
 
-def write_scatter_root(builder, tr, inscription):
-    builder.line("const std::vector<{0.type} > &$value = {1};",
-                 inscription.edge.place,
-                 inscription.expr)
-
-    # Check size of vector
-    builder.if_begin("$value.size() != $thread->get_process_count()")
-    builder.line("fprintf(stderr, \"[scatter] Invalid size of vector (expected=%i, got=%lu)\\n\","
-                    "$thread->get_process_count(), $value.size());")
-    builder.line("exit(1);")
-    builder.block_end()
-
-    builder.line("const size_t $size = sizeof({0.type});", inscription)
-    builder.line("ca::Packer $packer($size);")
-    builder.line("ca::pack_with_step($packer, $value, $size);")
-    builder.line("$thread->collective_scatter_root({0.id}, $packer.get_buffer(), $size);", tr)
-    builder.line("$packer.free();")
-    write_place_add(builder,
-                    inscription.edge.place,
-                    builder.expand("$n->"),
-                    builder.expand("$value[$root]"),
-                    bulk=False,
-                    token=False)
-    write_activation(builder, builder.expand("$n"), inscription.edge.place.get_transitions_out())
-
-def write_scatter_nonroot(builder, tr, inscription):
-    builder.line("const size_t $size = sizeof({0.type});", inscription)
-    builder.line("ca::Token<{0.type} > *$token = new ca::Token<{0.type} >;",
-            inscription.edge.place)
-    builder.line("$thread->collective_scatter_nonroot({0.id}, $root, &$token->value, $size);", tr)
-    write_place_add(builder,
-                    inscription.edge.place,
-                    builder.expand("$n->"),
-                    builder.expand("$token"),
-                    bulk=False,
-                    token=True)
-    write_activation(builder, builder.expand("$n"), inscription.edge.place.get_transitions_out())
-
-def write_scatter_simulation(builder, tr, inscription, readonly):
-    if readonly:
-        write_place_add(builder,
-                        inscription.edge.place,
-                        builder.expand("$n->"),
-                        builder.expand("$tokens->token_collective"),
-                        bulk=False,
-                        token=True)
-    else:
-        write_place_add(builder,
-                        inscription.edge.place,
-                        builder.expand("$n->"),
-                        builder.expand("$tokens->token_collective->value"),
-                        bulk=False,
-                        token=False)
-
-def write_collective_body(builder, tr):
-    inscription = tr.get_collective_inscription()
-    builder.if_begin("$root == $thread->get_process_id()")
-    write_scatter_root(builder, tr, inscription)
-    builder.write_else()
-    write_scatter_nonroot(builder, tr, inscription)
-    builder.block_end()
-
-def write_collective_body_simulation(builder, tr, readonly):
-    inscription = tr.get_collective_inscription()
-    write_scatter_simulation(builder, tr, inscription, readonly)
-
 def write_fire_body(builder,
                     tr,
                     locking=True,
@@ -456,9 +391,9 @@ def write_fire_body(builder,
 
     if tr.collective:
         if simulation:
-            write_collective_body_simulation(builder, tr, readonly_tokens)
+            collectives.write_collective_body_simulation(builder, tr, readonly_tokens)
         else:
-            write_collective_body(builder, tr)
+            collectives.write_collective_body(builder, tr)
     elif tr.code is not None:
         if locking:
             builder.line("$n->unlock();")
@@ -534,17 +469,6 @@ def write_full_fire(builder, tr, locking=True):
     builder.block_begin()
     builder.line("ca::Context ctx($thread, $net);")
 
-    """
-    if tr.collective:
-        builder.line("int $root = {0};", tr.root);
-        builder.if_begin("$root == $thread->get_process_id()")
-        w = build.Builder(builder.project)
-        write_fire_body(w, tr, locking=False, is_root=True)
-        w.line("return ca::TRANSITION_FIRED;")
-        write_enable_pattern_match(builder, tr, w, "return ca::NOT_ENABLED;", is_root=True)
-        builder.write_else()
-    """
-
     w = build.Builder(builder.project)
     write_fire_body(w, tr, locking=False)
     w.line("return ca::TRANSITION_FIRED;")
@@ -584,20 +508,6 @@ def write_enable_check(builder, tr):
     builder.line("return false;")
     builder.block_end()
 
-def write_phase1_scatter_root(builder, tr):
-    inscription = tr.get_collective_inscription()
-    builder.line("Tokens_{0.id} *$rbinding = static_cast<Tokens_{0.id}*>($bindings[$root]);", tr)
-    write_unpack_binding(builder, tr, builder.expand("$rbinding"))
-    builder.line("const std::vector<{0.type} > &$ccdata = {0.expr};", inscription)
-    builder.if_begin("$ccdata.size() != $thread->get_process_count()")
-    builder.line("fprintf(stderr, \"Invalid number of scattered elements (%lu)\\n\","
-                 "$ccdata.size());")
-    builder.line("exit(1);")
-    builder.block_end()
-
-def write_phase1_scatter_all(builder, tr):
-    inscription = tr.get_collective_inscription()
-    builder.line("$t->token_collective = new ca::Token<{0.type} >($ccdata[$i]);", inscription)
 
 def write_fire_phase1(builder, tr):
     builder.line("void *Transition_{0.id}::fire_phase1"
@@ -624,34 +534,7 @@ def write_fire_phase1(builder, tr):
                edge, edge.place)
 
     if tr.collective:
-        w.line("$tokens->blocked = true;")
-        w.line("$tokens->root = $root;")
-        w.line("$tokens->token_collective = NULL;")
-        w.line("std::vector<void*> $bindings;")
-        w.line("int $bcount = $thread->collective_bindings(this, $bindings);")
-
-        # Check roots
-        w.for_begin("int $i = 0; $i < $thread->get_process_count(); $i++")
-        w.line("Tokens_{0.id} *$t = static_cast<Tokens_{0.id}*>($bindings[$i]);", tr)
-        w.if_begin("$t && $t->root != $root")
-        w.line("fprintf(stderr, \"Collective transition started with different roots; "
-               "root=%i at process %i and root=%i at process %i\\n\","
-               "$root, $thread->get_process_id(), $t->root, $i);")
-        w.line("exit(1);")
-        w.block_end()
-        w.block_end()
-
-        # Perform collective operation
-        w.if_begin("$bcount == $thread->get_process_count() - 1")
-        w.line("$bindings[$thread->get_process_id()] = $tokens;")
-        write_phase1_scatter_root(w, tr)
-        w.for_begin("int $i = 0; $i < $thread->get_process_count(); $i++")
-        w.line("Tokens_{0.id} *$t = static_cast<Tokens_{0.id}*>($bindings[$i]);", tr)
-        w.line("$t->blocked = false;")
-        write_phase1_scatter_all(w, tr)
-        w.block_end()
-        w.block_end()
-
+        collectives.write_collective_phase1(w, tr)
     w.line("return $tokens;")
     # --- End of prepare --- #
 

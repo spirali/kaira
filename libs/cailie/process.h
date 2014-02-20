@@ -67,9 +67,12 @@ class Process {
 			const Packer &packer, Thread *thread);
 		void send_multicast(const std::vector<int> &targets, Net *net, int edge_id,
 			int tokens_count, const Packer &packer, Thread *thread);
-		void collective_scatter_root(int transition_id, void *data, size_t size);
+
+		void collective_scatter_root(int transition_id, const void *data, size_t size);
 		void collective_scatter_nonroot(int transition_id, int root, void *out, size_t size);
 
+		void collective_gather_root(int transition_id, const void *data, size_t size, void *out);
+		void collective_gather_nonroot(int transition_id, int root, const void *data, size_t size);
 
 		void process_service_message(Thread *thread, ServiceMessage *smsg);
 		bool process_packet(Thread *thread, int from_process, int tag, void *data);
@@ -128,13 +131,14 @@ class Process {
 		ShmemPacket *packets;
 
 		/* Collective communication */
-		void *collective_data;
+		const void *collective_data;
 		static pthread_mutex_t collective_mutex;
+		static int collective_root;
 		static int collective_transition_id;
 		static pthread_barrier_t collective_barrier1;
 		static pthread_barrier_t collective_barrier2;
 
-		void setup_collective_operation(int transition_id);
+		void setup_collective_operation(int transition_id, bool use_root, int root);
 		#endif
 };
 

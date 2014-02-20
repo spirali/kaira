@@ -27,8 +27,12 @@ class ThreadBase {
 		virtual void send_multicast(const std::vector<int> &targets, NetBase *net,
 			int edge_id, int tokens_count, const Packer &packer) = 0;
 
-		virtual void collective_scatter_root(int transition_id, void *data, size_t size) = 0;
-		virtual void collective_scatter_nonroot(int transition_id, int root, void *out, size_t size) = 0;
+		virtual void collective_scatter_root(int transition_id, const void *data, size_t size) {}
+		virtual void collective_scatter_nonroot(int transition_id, int root, void *out, size_t size) {}
+
+		virtual void collective_gather_root(int transition_id, const void *data, size_t size, void *out) {}
+		virtual void collective_gather_nonroot(int transition_id, int root, const void *data, size_t size) {}
+
 
 		/* For simulated run */
 
@@ -86,12 +90,20 @@ class Thread : public ThreadBase {
 			process->send_multicast(targets, (Net*) net, edge_id, tokens_count, packer, this);
 		}
 
-		void collective_scatter_root(int transition_id, void *data, size_t size) {
+		void collective_scatter_root(int transition_id, const void *data, size_t size) {
 			process->collective_scatter_root(transition_id, data, size);
 		}
 
 		void collective_scatter_nonroot(int transition_id, int root, void *out, size_t size) {
 			process->collective_scatter_nonroot(transition_id, root, out, size);
+		}
+
+		void collective_gather_root(int transition_id, const void *data, size_t size, void *out) {
+			process->collective_gather_root(transition_id, data, size, out);
+		}
+
+		virtual void collective_gather_nonroot(int transition_id, int root, const void *data, size_t size) {
+			process->collective_gather_nonroot(transition_id, root, data, size);
 		}
 
 		Process * get_process() const { return process; }

@@ -95,7 +95,7 @@ void Process::wait()
 	process_packet(this->get_thread(0), status.MPI_SOURCE, status.MPI_TAG, buffer);
 }
 
-void ca::Process::collective_scatter_root(int transition_id, void *data, size_t size) {
+void ca::Process::collective_scatter_root(int transition_id, const void *data, size_t size) {
 	/**
 	 * Root already knows scattered data, but MPI_Scatter want a pointer to memory, so we
 	 * temporarily alloc some memory to satisfy the call
@@ -107,7 +107,8 @@ void ca::Process::collective_scatter_root(int transition_id, void *data, size_t 
 	} else {
 		out = alloca(size);
 	}
-	MPI_Scatter(data, size, MPI_BYTE, out, size, MPI_BYTE, process_id, MPI_COMM_WORLD);
+	// MPI_Scatter should take const void * as first argument, but it takes just void * so we have to cast
+	MPI_Scatter(const_cast<void*>(data), size, MPI_BYTE, out, size, MPI_BYTE, process_id, MPI_COMM_WORLD);
 	if (size > 1024) {
 		free(out);
 	}
@@ -117,3 +118,11 @@ void ca::Process::collective_scatter_nonroot(int transition_id, int root, void *
 	MPI_Scatter(NULL, size, MPI_BYTE, out, size, MPI_BYTE, root, MPI_COMM_WORLD);
 }
 
+void ca::Process::collective_gather_root(int transition_id, const void *data, size_t size, void *out) {
+	MPI_Gather(const_cast<void*>(data), size, MPI_BYTE, out, size, MPI_BYTE, process_id, MPI_COMM_WORLD);
+}
+
+void ca::Process::collective_gather_nonroot(int transition_id, int root, const void *data, size_t size) {
+	// MPI_Gather should take const void * as first argument, but it takes just void * so we have to cast
+	MPI_Gather(const_cast<void*>(data), size, MPI_BYTE, NULL, size, MPI_BYTE, root, MPI_COMM_WORLD);
+}

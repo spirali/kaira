@@ -8,6 +8,8 @@ extern Process **processes;
 }
 
 int ca::Process::collective_transition_id = 0;
+int ca::Process::collective_root = -1;
+
 pthread_mutex_t ca::Process::collective_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_barrier_t ca::Process::collective_barrier1;
 pthread_barrier_t ca::Process::collective_barrier2;
@@ -114,42 +116,66 @@ void ca::Process::init_collective_operations(int process_count)
 }
 
 
-void ca::Process::setup_collective_operation(int transition_id)
+void ca::Process::setup_collective_operation(int transition_id, bool use_root, int root)
 {
+	if (use_root && root < 0 || root >= get_process_count()) {
+		fprintf(stderr, "Invalid value of root (root=%i)\n", root);
+		exit(1);
+	}
+
 	pthread_mutex_lock(&collective_mutex);
 	if (collective_transition_id == transition_id) {
-		pthread_mutex_unlock(&collective_mutex);
 		// Someone already setuped collective operation
-		pthread_barrier_wait(&collective_barrier1);
+		collective_root = root;
 	} else if (collective_transition_id == 0) {
 		// We are the first
 		collective_transition_id = transition_id;
-		pthread_mutex_unlock(&collective_mutex);
-		pthread_barrier_wait(&collective_barrier1);
+		if (use_root && collective_root == root) {
+			fprintf(stderr, "Two collective transition was fired with different roots\n");
+			exit(1);
+		}
 	} else {
 		fprintf(stderr, "Two different collective transition was fired in the same time\n");
 		exit(1);
 	}
 
+
+	pthread_mutex_unlock(&collective_mutex);
+	pthread_barrier_wait(&collective_barrier1);
+
 	if (process_id == 0) {
 		collective_transition_id = 0;
+		root = -1;
 	}
 }
 
-void ca::Process::collective_scatter_root(int transition_id, void *data, size_t size) {
+void ca::Process::collective_scatter_root(int transition_id, const void *data, size_t size) {
 	collective_data = data;
-	setup_collective_operation(transition_id);
+	setup_collective_operation(transition_id, true, get_process_id());
 	pthread_barrier_wait(&collective_barrier2);
 }
 
 void ca::Process::collective_scatter_nonroot(int transition_id, int root, void *out, size_t size) {
-	if (root < 0 || root >= get_process_count()) {
-		fprintf(stderr, "Invalid value of root (root=%i)\n", root);
-		exit(1);
-	}
-	setup_collective_operation(transition_id);
-	char *data = &static_cast<char*>(processes[root]->collective_data)[size * process_id];
+
+	setup_collective_operation(transition_id, true, root);
+	const char *data = &static_cast<const char*>(processes[root]->collective_data)[size * process_id];
 	memcpy(out, data, size);
+	pthread_barrier_wait(&collective_barrier2);
+}
+
+void ca::Process::collective_gather_root(int transition_id, const void *data, size_t size, void *out) {
+	collective_data = data;
+	setup_collective_operation(transition_id, true, get_process_id());
+	char *dest = static_cast<char*>(out);
+	for (int i = 0; i < process_count; i++) {
+		memcpy(&dest[i * size], processes[i]->collective_data, size);
+	}
+	pthread_barrier_wait(&collective_barrier2);
+}
+
+void ca::Process::collective_gather_nonroot(int transition_id, int root, const void *data, size_t size) {
+	collective_data = data;
+	setup_collective_operation(transition_id, true, root);
 	pthread_barrier_wait(&collective_barrier2);
 }
 
