@@ -24,6 +24,7 @@ import base.paths as paths
 from base.net import Declarations
 import os.path
 import build
+from copy import copy
 
 class CheckStatement(base.tester.Check):
 
@@ -37,7 +38,8 @@ class CheckStatement(base.tester.Check):
         if self.decls is not None:
             decls = self.decls.get_list()
         else:
-            decls = ()
+            decls = []
+
         writer.line("{0} {1} ({2}) {{",
                     self.return_type,
                     self.new_id(),
@@ -65,10 +67,10 @@ class TypeChecker:
         self.functions.update(type_checker.functions)
 
     def add_checks(self, tester):
-        var = tester.new_id()
+        var = base.tester.new_id()
 
         source = min(self.sources)
-        check = CheckStatement("{0} *{1};".format(self.name, tester.new_id()), source=source)
+        check = CheckStatement("{0} *{1};".format(self.name, base.tester.new_id()), source=source)
         check.own_message = "Invalid type '{0}'".format(self.name)
         tester.add(check)
 
@@ -104,7 +106,7 @@ class TypeChecker:
         if "from_octave_value" in self.functions:
             decls = Declarations()
             decls.set(var, self.name + "&")
-            ovalue = tester.new_id()
+            ovalue = base.tester.new_id()
             decls.set(ovalue, "octave_value&")
             check = CheckStatement("caoctave::from_octave_value({0},{1});".format(var, ovalue),
                                    decls,
@@ -128,7 +130,7 @@ class Checker:
     def __init__(self, project):
         self.project = project
         self.types = {}
-        self.expressions = []
+        self.checks = []
 
     def check_type(self, typename, source, functions=()):
         t = self.types.get(typename)
@@ -138,7 +140,34 @@ class Checker:
             self.types[typename].update(TypeChecker(typename, source, functions))
 
     def check_expression(self, expr, decls, return_type, source, message=None):
-        self.expressions.append((expr, decls, return_type, source, message))
+        self._check_expression(expr, decls, source, message)
+
+        check = CheckStatement("return ({0});".format(expr), decls, return_type, source=source)
+        if message:
+            check.own_message = message
+        else:
+            check.own_message = "Invalid type of expression"
+        self.checks.append(check)
+
+    def check_may_form_vector(self, expr, decls, return_type, source, message=None):
+        self._check_expression(expr, decls, source, message)
+
+        decls = copy(decls)
+        v = base.tester.new_id()
+        decls.set(v, return_type)
+
+        check = CheckStatement("{0}.push_back({1});".format(v, expr), decls, source=source)
+        if message:
+            check.own_message = message
+        else:
+            check.own_message = "Invalid type of expression"
+        self.checks.append(check)
+
+    def _check_expression(self, expr, decls, source, message):
+        check = CheckStatement(expr + ";", decls, source=source)
+        if message:
+            check.own_message = message
+        self.checks.append(check)
 
     def prepare_writer(self, filename):
         builder = build.Builder(self.project, filename)
@@ -178,16 +207,7 @@ class Checker:
         for t in self.types.values():
             t.add_checks(tester)
 
-        for expr, decls, return_type, source, message in self.expressions:
-            check = CheckStatement(expr + ";", decls, source=source)
-            if message:
-                check.own_message = message
-            tester.add(check)
-            check = CheckStatement("return (" + expr + ");", decls, return_type, source)
-            if message:
-                check.own_message = message
-            else:
-                check.own_message = "Invalid type of expression"
+        for check in self.checks:
             tester.add(check)
 
         check = tester.run()
