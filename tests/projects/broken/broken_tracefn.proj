@@ -1,6 +1,6 @@
-<project target_env="C++"><configuration><build-option name="CC">g++</build-option><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option><head-code>
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option><head-code>
 int int_as_string(int i)
 {
 	return 0;
-}</head-code></configuration><net id="101" name="Main" net-type="main"><place id="102" init_string="" name="" place_type="int" radius="20" sx="0" sy="0" x="-143.0" y="-94.0"><code>	place.add(10);
-</code><trace name="int_as_string" return-type="std::string" /></place></net></project>
+}</head-code></configuration><net id="101" name="Main"><place id="102" label-x="-143.0" label-y="-94.0" name="" radius="20" sx="0" sy="0" x="-143" y="-94"><place-type x="-126.0" y="-77.0">int</place-type><init x="-126.0" y="-124.0" /><code>	place.add(10);
+</code><trace trace-tokens="True"><function name="int_as_string" return-type="std::string" /></trace></place></net></project>
