@@ -126,14 +126,17 @@ void ca::Process::setup_collective_operation(int transition_id, bool use_root, i
 	pthread_mutex_lock(&collective_mutex);
 	if (collective_transition_id == transition_id) {
 		// Someone already setuped collective operation
-		collective_root = root;
+		if (use_root && collective_root != root) {
+			fprintf(stderr, "Two collective transition was fired with different roots\n");
+			fprintf(stderr, "Process %i sets root %i, but collective communication"
+					" was already executed with root %i\n",
+					process_id, root, collective_root);
+			exit(1);
+		}
 	} else if (collective_transition_id == 0) {
 		// We are the first
 		collective_transition_id = transition_id;
-		if (use_root && collective_root == root) {
-			fprintf(stderr, "Two collective transition was fired with different roots\n");
-			exit(1);
-		}
+		collective_root = root;
 	} else {
 		fprintf(stderr, "Two different collective transition was fired in the same time\n");
 		exit(1);
@@ -149,19 +152,37 @@ void ca::Process::setup_collective_operation(int transition_id, bool use_root, i
 	}
 }
 
+// Scatter -------------------------------------------------------
+
 void ca::Process::collective_scatter_root(int transition_id, const void *data, size_t size) {
 	collective_data = data;
-	setup_collective_operation(transition_id, true, get_process_id());
+	setup_collective_operation(transition_id, true, process_id);
 	pthread_barrier_wait(&collective_barrier2);
 }
 
 void ca::Process::collective_scatter_nonroot(int transition_id, int root, void *out, size_t size) {
-
 	setup_collective_operation(transition_id, true, root);
 	const char *data = &static_cast<const char*>(processes[root]->collective_data)[size * process_id];
 	memcpy(out, data, size);
 	pthread_barrier_wait(&collective_barrier2);
 }
+
+void ca::Process::collective_scatterv_root(int transition_id, const void *data, int *sizes, int *displs) {
+	collective_data = data;
+	collective_displs = displs;
+	setup_collective_operation(transition_id, true, process_id);
+	pthread_barrier_wait(&collective_barrier2);
+}
+
+void ca::Process::collective_scatterv_nonroot(int transition_id, int root, void *out, size_t size) {
+	setup_collective_operation(transition_id, true, root);
+	int displ = processes[root]->collective_displs[process_id];
+	const char *data = &static_cast<const char*>(processes[root]->collective_data)[displ];
+	memcpy(out, data, size);
+	pthread_barrier_wait(&collective_barrier2);
+}
+
+// Gather -------------------------------------------------------
 
 void ca::Process::collective_gather_root(int transition_id, const void *data, size_t size, void *out) {
 	collective_data = data;
@@ -179,3 +200,18 @@ void ca::Process::collective_gather_nonroot(int transition_id, int root, const v
 	pthread_barrier_wait(&collective_barrier2);
 }
 
+void ca::Process::collective_gatherv_root(
+		int transition_id, const void *data, int size, void *out, int *sizes, int *displs) {
+	collective_data = data;
+	setup_collective_operation(transition_id, true, get_process_id());
+	char *dest = static_cast<char*>(out);
+	for (int i = 0; i < process_count; i++) {
+		memcpy(&dest[displs[i]], processes[i]->collective_data, sizes[i]);
+	}
+	pthread_barrier_wait(&collective_barrier2);
+}
+
+void ca::Process::collective_gatherv_nonroot(
+		int transition_id, int root, const void *data, int size) {
+	collective_gather_nonroot(transition_id, root, data, size);
+}

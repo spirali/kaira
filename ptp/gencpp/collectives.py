@@ -20,23 +20,66 @@
 import buildnet
 import parser
 
+def write_pack_fixed_size(builder, typename, expr):
+    builder.line("const size_t $size = ca::fixed_size<{0} >();", typename)
+    builder.line("ca::Packer $packer($size);")
+    builder.line("$packer << {0};", expr)
+    builder.if_begin("$packer.get_size() > $size")
+    builder.line("fprintf(stderr, \"Type '{0}' has fixed size %lu,"
+                 "but %lu bytes was packed.\\n\", $size, $packer.get_size());", typename)
+    builder.line("exit(1);")
+    builder.block_end()
+
 def write_scatter_root(builder, tr, inscription):
     builder.line("const std::vector<{0.type} > &$value = {1};",
                  inscription.edge.place,
                  inscription.expr)
 
     # Check size of vector
-    builder.if_begin("$value.size() != $thread->get_process_count()")
+    builder.line("int $process_count = $thread->get_process_count();")
+    builder.if_begin("$value.size() != $process_count")
     builder.line("fprintf(stderr, \"[scatter] Invalid size of vector (expected=%i, got=%lu)\\n\","
-                    "$thread->get_process_count(), $value.size());")
+                    "$process_count, $value.size());")
     builder.line("exit(1);")
     builder.block_end()
 
-    builder.line("const size_t $size = sizeof({0.type});", inscription)
-    # builder.line("ca::Packer $packer($size);")
-    # builder.line("ca::pack_with_step($packer, $value, $size);")
-    builder.line("$thread->collective_scatter_root({0.id}, &$value[0], $size);", tr)
-    # builder.line("$packer.free();")
+    builder.if_begin("ca::is_trivially_packable<{0}>()", inscription.type)
+    # Trivially packable
+    builder.line("$thread->collective_scatter_root({0.id}, &$value[0], sizeof({1.type}));",
+        tr, inscription)
+    builder.else_if("ca::fixed_size<{0} >() != 0", inscription.type)
+    # Fixed size
+    builder.line("size_t $size = ca::fixed_size<{0} >();", inscription.type)
+    builder.line("ca::Packer $packer($size * $process_count);")
+    builder.line("ca::pack_with_step($packer, $value, $size);")
+    builder.line("$thread->collective_scatter_root({0.id}, $packer.get_buffer(), $size);",
+        tr, inscription)
+    builder.line("$packer.free();")
+    builder.write_else()
+    # Generic case
+    builder.line("int $process_id = $thread->get_process_id();")
+    builder.line("ca::Packer $packer;")
+    builder.line("int *$sizes = static_cast<int*>(alloca(sizeof(int) * $process_count));")
+    builder.line("int *$displs = static_cast<int*>(alloca(sizeof(int) * (1 + $process_count)));")
+    builder.line("$displs[0] = 0;")
+    builder.for_begin("int $i = 0; $i < $process_id; $i++")
+    builder.line("$packer << $value[$i];")
+    builder.line("$displs[$i + 1] = $packer.get_size();")
+    builder.line("$sizes[$i] = $displs[$i + 1] - $displs[$i];")
+    builder.block_end()
+    builder.line("$displs[$process_id + 1] = $displs[$process_id];")
+    builder.line("$sizes[$process_id] = 0;")
+    builder.for_begin("int $i = $process_id; $i < $process_count; $i++")
+    builder.line("$packer << $value[$i];")
+    builder.line("$displs[$i + 1] = $packer.get_size();")
+    builder.line("$sizes[$i] = $displs[$i + 1] - $displs[$i];")
+    builder.block_end()
+    builder.line("$thread->collective_scatter_root({0.id}, $sizes, sizeof(int));", tr)
+    builder.line("$thread->collective_scatterv_root("
+                 "{0.id}, $packer.get_buffer(), $sizes, $displs);", tr)
+    builder.line("$packer.free();")
+    builder.block_end()
+
     buildnet.write_place_add(builder,
                     inscription.edge.place,
                     builder.expand("$n->"),
@@ -49,7 +92,29 @@ def write_scatter_nonroot(builder, tr, inscription):
     builder.line("const size_t $size = sizeof({0.type});", inscription)
     builder.line("ca::Token<{0.type} > *$token = new ca::Token<{0.type} >;",
             inscription.edge.place)
+
+    builder.if_begin("ca::is_trivially_packable<{0}>()", inscription.type)
+    # Trivially packable
     builder.line("$thread->collective_scatter_nonroot({0.id}, $root, &$token->value, $size);", tr)
+    builder.else_if("ca::fixed_size<{0} >() != 0", inscription.type)
+    # Fixed size
+    builder.line("size_t $size = ca::fixed_size<{0} >();", inscription.type)
+    builder.line("void *$mem = malloc($size * $thread->get_process_count());")
+    builder.line("$thread->collective_scatter_nonroot({0.id}, $root, $mem, $size);", tr)
+    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("$unpacker >> $token->value;")
+    builder.line("free($mem);")
+    builder.write_else()
+    # Generic case
+    builder.line("int $size;")
+    builder.line("$thread->collective_scatter_nonroot({0.id}, $root, &$size, sizeof(int));", tr)
+    builder.line("void *$mem = malloc($size);")
+    builder.line("$thread->collective_scatterv_nonroot({0.id}, $root, $mem, $size);", tr)
+    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("$unpacker >> $token->value;")
+    builder.line("free($mem);")
+    builder.block_end()
+
     buildnet.write_place_add(builder,
                     inscription.edge.place,
                     builder.expand("$n->"),
@@ -90,11 +155,47 @@ def write_phase1_scatter_forall(builder, tr, inscription):
 def write_gather_root(builder, tr, inscription):
     t = parser.parse_typename(inscription.type, inscription.source)
     typename = t[1][0] # This should not failed, because check already verify this
-    builder.line("const size_t $size = sizeof({0});", typename)
     builder.line("ca::Token<std::vector<{0} > > *$token = new ca::Token<std::vector<{0} > >;", typename)
+
+    builder.if_begin("ca::is_trivially_packable<{0} >()", typename)
+    # Trivially packable
+    builder.line("const size_t $size = sizeof({0});", typename)
     builder.line("$token->value.resize($thread->get_process_count());")
     builder.line("$thread->collective_gather_root({0.id}, &{1.expr}, $size, &$token->value[0]);",
                  tr, inscription)
+    builder.else_if("ca::fixed_size<{0} >() != 0", typename)
+    # Fixed size
+    write_pack_fixed_size(builder, typename, inscription.expr)
+    builder.line("void *$mem = malloc($size * $thread->get_process_count());")
+    builder.line("$thread->collective_gather_root({0.id}, $packer.get_buffer(), $size, $mem);",
+                 tr, inscription)
+    builder.line("$packer.free();")
+    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("ca::unpack_with_step($unpacker, $token->value, $size, $thread->get_process_count());")
+
+    builder.line("free($mem);")
+    builder.write_else()
+    # Generic case
+    builder.line("int $process_count = $thread->get_process_count();")
+    builder.line("int *$sizes = static_cast<int*>(alloca(sizeof(int) * $process_count));")
+    builder.line("int *$displs = static_cast<int*>(alloca(sizeof(int) * (1 + $process_count)));")
+    builder.line("int $size = 0;")
+    builder.line("$thread->collective_gather_root({0.id}, &$size, sizeof(int), $sizes);", tr)
+    builder.line("$displs[0] = 0;")
+    # Last displs[process_count] == sum of all sizes
+    builder.for_begin("int $i = 0; $i < ca::process_count; $i++")
+    builder.line("$displs[$i + 1] = $displs[$i] + $sizes[$i];")
+    builder.block_end()
+    builder.line("void *$mem = malloc($displs[$process_count]);")
+    builder.line("$thread->collective_gatherv_root({0.id}, &$size, 0, $mem, $sizes, $displs);", tr)
+    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("int $process_id = $thread->get_process_id();")
+    builder.line("ca::unpack_with_displs($unpacker, $token->value, $process_id, $displs);")
+    builder.line("$token->value.push_back({0});", inscription.expr);
+    builder.line("ca::unpack_with_displs($unpacker, $token->value, $process_count - $process_id - 1,"
+                    "$displs + $process_id + 1);")
+    builder.line("free($mem);")
+    builder.block_end()
 
     buildnet.write_place_add(builder,
                     inscription.edge.place,
@@ -102,13 +203,34 @@ def write_gather_root(builder, tr, inscription):
                     builder.expand("$token"),
                     bulk=False,
                     token=True)
+    buildnet.write_activation(builder, builder.expand("$n"), inscription.edge.place.get_transitions_out())
 
 def write_gather_nonroot(builder, tr, inscription):
     t = parser.parse_typename(inscription.type, inscription.source)
     typename = t[1][0] # This should not failed, because check already verify this
-    builder.line("const size_t $size = sizeof({0});", typename)
-    builder.line("$thread->collective_gather_nonroot({0.id}, $root, &{1.expr}, $size);",
-                 tr, inscription)
+    builder.if_begin("ca::is_trivially_packable<{0} >()", typename)
+    # Trivially packable
+    builder.line("$thread->collective_gather_nonroot({0.id}, $root, &{1.expr}, sizeof({2}));",
+                 tr, inscription, typename)
+    builder.else_if("ca::fixed_size<{0} >() != 0", typename)
+    # Fixed size
+    write_pack_fixed_size(builder, typename, inscription.expr)
+    builder.line("$thread->collective_gather_nonroot({0.id}, $root, $packer.get_buffer(), $size);",
+                 tr, inscription, typename)
+    builder.line("$packer.free();")
+    builder.write_else()
+    # Generic case
+    builder.line("ca::Packer $packer;")
+    builder.line("$packer << {0};", inscription.expr)
+    builder.line("int $size = $packer.get_size();")
+    builder.line("$thread->collective_gather_nonroot"
+                 "({0.id}, $root, &$size, sizeof(int));", tr)
+    #builder.line("fprintf(stderr, \"%i %i\\n\", $thread->get_process_id(), size)");
+    builder.line("$thread->collective_gatherv_nonroot"
+                 "({0.id}, $root, $packer.get_buffer(), $packer.get_size());",
+                 tr, inscription, typename)
+    builder.line("$packer.free();")
+    builder.block_end()
 
 def write_gather_body_simulation(builder, tr, inscription, readonly):
     builder.if_begin("$root == $thread->get_process_id()")

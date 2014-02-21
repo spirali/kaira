@@ -29,9 +29,15 @@ class ThreadBase {
 
 		virtual void collective_scatter_root(int transition_id, const void *data, size_t size) {}
 		virtual void collective_scatter_nonroot(int transition_id, int root, void *out, size_t size) {}
+		virtual void collective_scatterv_root(int transition_id, const void *data, int *sizes, int *displs) {}
+		virtual void collective_scatterv_nonroot(int transition_id, int root, void *out, size_t size) {}
+
 
 		virtual void collective_gather_root(int transition_id, const void *data, size_t size, void *out) {}
 		virtual void collective_gather_nonroot(int transition_id, int root, const void *data, size_t size) {}
+		virtual void collective_gatherv_root(int transition_id, const void *data, int size,
+				void *out, int *sizes, int *displs) {}
+		virtual void collective_gatherv_nonroot(int transition_id, int root, const void *data, int size) {}
 
 
 		/* For simulated run */
@@ -76,18 +82,22 @@ class Thread : public ThreadBase {
 		void quit_all();
 
 		#ifdef CA_MPI
-		MpiRequests * get_requests() { return &requests; }
+		MpiRequests * get_requests() {
+			return &requests;
+		}
 		#endif
 
 		void send(int target, NetBase *net, int edge_id, int tokens_count, const Packer &packer) {
 			// Thread can be run only over standard nets so we can safely cast
-			process->send(target, (Net*) net, edge_id, tokens_count, packer, this);
+			process->send(target, static_cast<Net*>(net),
+					edge_id, tokens_count, packer, this);
 		}
 		void send_multicast(const std::vector<int> &targets, NetBase *net,
 			int edge_id, int tokens_count, const Packer &packer)
 		{
 			// Thread can be run only over standard nets so we can safely cast
-			process->send_multicast(targets, (Net*) net, edge_id, tokens_count, packer, this);
+			process->send_multicast(targets, static_cast<Net*>(net),
+					edge_id, tokens_count, packer, this);
 		}
 
 		void collective_scatter_root(int transition_id, const void *data, size_t size) {
@@ -98,16 +108,33 @@ class Thread : public ThreadBase {
 			process->collective_scatter_nonroot(transition_id, root, out, size);
 		}
 
+		void collective_scatterv_root(int transition_id, const void *data, int *sizes, int *displs) {
+			process->collective_scatterv_root(transition_id, data, sizes, displs);
+		}
+
+		void collective_scatterv_nonroot(int transition_id, int root, void *out, size_t size) {
+			process->collective_scatterv_nonroot(transition_id, root, out, size);
+		}
+
 		void collective_gather_root(int transition_id, const void *data, size_t size, void *out) {
 			process->collective_gather_root(transition_id, data, size, out);
 		}
 
-		virtual void collective_gather_nonroot(int transition_id, int root, const void *data, size_t size) {
+		void collective_gather_nonroot(int transition_id, int root, const void *data, size_t size) {
 			process->collective_gather_nonroot(transition_id, root, data, size);
 		}
 
-		Process * get_process() const { return process; }
+		void collective_gatherv_root(int transition_id, const void *data, int size, void *out, int *sizes, int *displs) {
+			process->collective_gatherv_root(transition_id, data, size, out, sizes, displs);
+		}
 
+		void collective_gatherv_nonroot(int transition_id, int root, const void *data, int size) {
+			process->collective_gatherv_nonroot(transition_id, root, data, size);
+		}
+
+		Process * get_process() const {
+			return process;
+		}
 
 		int get_process_id() const {
 				return process->get_process_id();

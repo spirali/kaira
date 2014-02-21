@@ -23,8 +23,18 @@ class Unpacker;
 	CA_PACK(TYPE, p, value) { p.direct_pack(value); } \
 	CA_UNPACK(TYPE, p, value) { p.direct_unpack(value); }
 
+#define CA_FIXED_SIZE(TYPE) template<> inline size_t fixed_size<TYPE >()
+
 template<typename T> bool is_trivially_packable() {
 	return false;
+}
+
+template<typename T> size_t fixed_size() {
+	if (is_trivially_packable<T>()) {
+		return sizeof(T);
+	} else {
+		return 0; // 0 = is not type with fixed size
+	}
 }
 
 template<typename T> void pack(Packer &packer, const T &value) {
@@ -35,13 +45,15 @@ template<typename T> void unpack(Unpacker &unpacker, T &value) {
 	value.unpack(unpacker);
 }
 
+
 class Unpacker {
 
 	public:
-		Unpacker(): buffer_pos(NULL) {}
+		Unpacker(): buffer_pos(NULL), buffer(NULL) {}
 
 		Unpacker(void *mem) {
 			buffer_pos = static_cast<char*>(mem);
+			buffer = static_cast<char*>(mem);
 		}
 
 		template<typename T> void direct_unpack(T &value) {
@@ -54,10 +66,15 @@ class Unpacker {
 			return *this;
 		}
 
-		void * unpack_data(size_t size) {
+		void *unpack_data(size_t size) {
 			void *p = buffer_pos;
 			buffer_pos += size;
 			return p;
+		}
+
+		void unpack_data(void *data, size_t size) {
+			memcpy(data, buffer_pos, size);
+			buffer_pos += size;
 		}
 
 		void * peek() {
@@ -68,8 +85,25 @@ class Unpacker {
 			buffer_pos += size;
 		}
 
+		template<typename T> void unpack_aligned(T &value, size_t align) {
+			char *pos = buffer_pos + align;
+			unpack(*this, value);
+			if (buffer_pos > pos) {
+				fprintf(stderr, "unpack_aligned failed\n");
+				exit(1);
+			} else {
+				buffer_pos = pos;
+			}
+		}
+
+		template<typename T> void unpack_at(T &value, int position) {
+			buffer_pos = buffer + position;
+			unpack(*this, value);
+		}
+
 	protected:
 		char *buffer_pos;
+		char *buffer;
 };
 
 const size_t PACKER_DEFAULT_SIZE = 4000;
@@ -180,9 +214,29 @@ template<typename T> void pack_with_step(Packer &packer, const std::vector<T> &v
 	if (is_trivially_packable<T>() && size == sizeof(T)) {
 		pack(packer, &value[0], sizeof(T) * value.size());
 	} else {
-		for (int i = 0; i < value.size(); i++) {
+		for (size_t i = 0; i < value.size(); i++) {
 			packer.pack_aligned(value[i], size);
 		}
+	}
+}
+
+template<typename T> void unpack_with_step(Unpacker &unpacker, std::vector<T> &value, size_t size, int count) {
+	if (is_trivially_packable<T>() && size == sizeof(T)) {
+		unpacker.unpack_data(&value[0], sizeof(T) * count);
+	} else {
+		for (size_t i = 0; i < count; i++) {
+			T v;
+			unpacker.unpack_aligned(v, size);
+			value.push_back(v);
+		}
+	}
+}
+
+template<typename T> void unpack_with_displs(Unpacker &unpacker, std::vector<T> &value, int count, int *displs) {
+	for (size_t i = 0; i < count; i++) {
+			T v;
+			unpacker.unpack_at(v, displs[i]);
+			value.push_back(v);
 	}
 }
 

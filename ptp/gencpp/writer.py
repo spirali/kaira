@@ -94,6 +94,11 @@ class CppWriter(Writer):
         self.line("if (!({0})) {{", self.expand(expr, *args, **kw))
         self.indent_push()
 
+    def else_if(self, expr, *args, **kw):
+        self.indent_pop()
+        self.line("}} else if ({0}) {{", self.expand(expr, *args, **kw))
+        self.indent_push()
+
     def write_else(self):
         self.indent_pop()
         self.line("}} else {{")

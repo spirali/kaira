@@ -455,6 +455,9 @@ class Place(utils.EqByIdMixin):
                     result.append(edge)
         return result
 
+    def get_inscriptions_in(self):
+        return sum((edge.inscriptions for edge in self.get_edges_in()), [])
+
     def get_transitions_out(self):
         return list(set([ edge.transition for edge in self.get_edges_out() ]))
 
@@ -469,7 +472,8 @@ class Place(utils.EqByIdMixin):
 
     def check(self, checker):
         functions = [ "token_name" ]
-        if self.is_receiver() or (self.net.project.library_rpc and self.is_io_place()):
+        if self.is_receiver() or self.is_collective_receiver() or \
+                (self.net.project.library_rpc and self.is_io_place()):
             functions.append("pack")
             functions.append("unpack")
         if self.net.project.library_octave:
@@ -506,6 +510,9 @@ class Place(utils.EqByIdMixin):
 
     def is_receiver(self):
         return any(not edge.is_local() for edge in self.get_edges_in())
+
+    def is_collective_receiver(self):
+        return any(i.is_collective() for i in self.get_inscriptions_in())
 
     def need_remember_source(self):
         return any(edge.is_source_reader()

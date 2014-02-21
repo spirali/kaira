@@ -70,9 +70,15 @@ class Process {
 
 		void collective_scatter_root(int transition_id, const void *data, size_t size);
 		void collective_scatter_nonroot(int transition_id, int root, void *out, size_t size);
+		void collective_scatterv_root(int transition_id, const void *data, int *sizes, int *displs);
+		void collective_scatterv_nonroot(int transition_id, int root, void *out, size_t size);
+
 
 		void collective_gather_root(int transition_id, const void *data, size_t size, void *out);
 		void collective_gather_nonroot(int transition_id, int root, const void *data, size_t size);
+		void collective_gatherv_root(int transition_id, const void *data, int size, void *out, int *sizes, int *displs);
+		void collective_gatherv_nonroot(int transition_id, int root, const void *data, int size);
+
 
 		void process_service_message(Thread *thread, ServiceMessage *smsg);
 		bool process_packet(Thread *thread, int from_process, int tag, void *data);
@@ -132,6 +138,7 @@ class Process {
 
 		/* Collective communication */
 		const void *collective_data;
+		const int *collective_displs;
 		static pthread_mutex_t collective_mutex;
 		static int collective_root;
 		static int collective_transition_id;
