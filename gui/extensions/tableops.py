@@ -19,6 +19,7 @@
 
 import settingswindow
 import utils
+from functools import partial
 from extensions import Parameter, Source, Operation, add_operation
 from datatypes import t_table
 from table import Table
@@ -57,12 +58,21 @@ class Filter(Operation):
             filter_by_columns.sort()
             s_widget = settingswindow.SettingWidget()
 
+            def f_validate(numpy_type, value):
+                try:
+                    utils.convert_to_type(numpy_type, value)
+                except ValueError:
+                    return "'{0}' is not convertible to '{1}' type.".format(
+                        value, utils.numpy_type_to_string(numpy_type))
+
             for idx, col_idx in enumerate(filter_by_columns):
                 if idx > 0:
                     s_widget.add_separator()
                 s_widget.add_entry("filter_value{0}".format(col_idx),
                                    table.header[col_idx],
-                                   "")
+                                   "",
+                                   validator=partial(f_validate,
+                                                     table.types[col_idx]))
                 s_widget.add_radiobuttons("cmp_fn{0}".format(col_idx),
                                           "Compare",
                                           [("Equal", lambda x, y: x == y),

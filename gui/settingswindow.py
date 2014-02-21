@@ -443,17 +443,21 @@ class SettingPage(gtk.VBox):
         for key in self.setting_widget.keys:
             msg = self.setting_widget.validate_value(key)
             if msg is not None:
-                self.set_wrong_message(key, msg)
-                return
+                self.wrong_keys.append(key)
+
+        if self.wrong_keys:
+            key = self.wrong_keys[0]
+            msg = self.setting_widget.validate_value(key)
+            self.set_wrong_message(key, msg)
 
     def set_wrong_message(self, key=None, message=None):
         if message is None:
             if key in self.wrong_keys:
                 self.wrong_keys.remove(key)
             if self.wrong_keys: # check if is it there other unsolved key
-                old_key = self.wrong_keys[-1]
+                old_key = self.wrong_keys[0]
                 self.set_wrong_message(
-                    old_key, self.setting_widet.validate_value(key))
+                    old_key, self.setting_widget.validate_value(old_key))
                 return
             self.label_msg.set_text("")
             self.infobar.hide_all()

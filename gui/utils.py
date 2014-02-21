@@ -413,6 +413,9 @@ def get_timestamp_string():
 def convert_to_type(numpy_type_description, value):
     return np.dtype(numpy_type_description).type(value)
 
+def numpy_type_to_string(numpy_type_description):
+    return np.dtype(numpy_type_description).name
+
 ctypes_to_numpy_types_dict = { 'int': '<i4',
                                'double': '<f8',
                                'std::string': 'O' }
