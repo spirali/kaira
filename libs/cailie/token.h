@@ -208,7 +208,7 @@ template<typename T> class TokenList {
 			return token == NULL;
 		}
 
-		Token<T> * next(Token<T> *token) {
+		Token<T> * next(Token<T> *token) const {
 			if (token != last()) {
 				return token->next;
 			} else {

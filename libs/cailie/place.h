@@ -178,7 +178,7 @@ template <typename T> class PlaceWithSource : public Place<T>
 			for (Token<T> *t = this->token_list.begin();
 				t != NULL;
 				t = this->token_list.next(t)) {
-				packer << sources[t];
+				packer << sources.find(t)->second;
 			}
 		}
 
