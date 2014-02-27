@@ -235,6 +235,8 @@ ActionSet Node::compute_enable_set(Core *core)
 				action.data.fire.transition_def = transitions[i];
 				action.process = p;
 				enable.insert(action);
+				// all other transitions have lower priority
+				break;
 			}
 		}
 	}
@@ -388,13 +390,35 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 	// This assume that there is no optimization for number of tokens in places
 	ActionSet processed = ample;
 	std::vector<bool> receive_blocked(ca::process_count * ca::process_count, false);
+	std::vector<bool> fire_blocked(ca::process_count, false);
 
 	for (ActionSet::iterator i = enabled.begin(); i != enabled.end(); i++) {
 		if (ample.find(*i) != ample.end()) {
 			if (i->type == ActionReceive) {
 				receive_blocked[i->process * ca::process_count + i->data.receive.source] = true;
 			}
+			if (i->type == ActionFire) {
+				fire_blocked[i->process] = true;
+			}
 		} else {
+			if (i->type == ActionFire) {
+				processed.insert(*i);
+				queue.push_back(*i);
+				const std::vector<ca::TransitionDef*> &transitions = net_def->get_transition_defs();
+				int t = 0;
+				while (transitions[t++] != i->data.fire.transition_def);
+				for (; t < net_def->get_transitions_count(); t++) {
+					if (s->is_transition_enabled(i->process, transitions[t])) {
+						Action a;
+						a.type = ActionFire;
+						a.data.fire.transition_def = transitions[t];
+						a.process = i->process;
+						processed.insert(a);
+						queue.push_back(a);
+					}
+				}
+				continue;
+			}
 			if (i->type == ActionReceive) {
 				const State::PacketQueue& pq = s->get_packets(i->process, i->data.receive.source);
 				for (size_t p = 0; p < pq.size(); p++) {
@@ -409,10 +433,10 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 						queue.push_back(a);
 					}
 				}
-			} else {
-				processed.insert(*i);
-				queue.push_back(*i);
+				continue;
 			}
+			processed.insert(*i);
+			queue.push_back(*i);
 		}
 	}
 

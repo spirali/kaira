@@ -107,7 +107,7 @@ def write_dependent(builder):
         builder.line("return false;")
 
     def write_fire_receive(fire, receive):
-        def callback(builder, transition):
+        def fire_callback(builder, transition):
             for t_edge in transition.edges_out:
                 for r_edge in t_edge.place.get_edges_in():
                     builder.line("// t {0.transition.id} --> p {0.place.id}", r_edge)
@@ -129,10 +129,19 @@ def write_dependent(builder):
                                  r_edge, receive)
             builder.line("return false;")
 
+        def receive_callback(builder, edge):
+            if len(edge.place.get_edges_out()) > 0:
+                builder.line("return true;")
+
+
+        switch_by_id(builder,
+                     "a{0}.data.receive.edge_id".format(receive),
+                     net.get_edges_out(),
+                     receive_callback)
         switch_by_id(builder,
                      "a{0}.data.fire.transition_def->get_id()".format(fire),
                      net.transitions,
-                     callback)
+                     fire_callback)
 
     def write_receive_receive():
         edges = [ edge for edge in net.get_edges_out() if not edge.is_local() ]
@@ -164,15 +173,8 @@ def write_dependent(builder):
     builder.line("abort();")
     builder.block_end()
 
-    switch_by_id(builder,
-                 "a1.data.fire.transition_def->get_id()",
-                 net.transitions,
-                 lambda builder, t1:
-                     switch_by_id(builder,
-                         "a2.data.fire.transition_def->get_id()",
-                         net.transitions,
-                         lambda builder, t2: write_fire_fire(t1, t2),
-                         exclude=t1))
+    #all transition are dependent because of priorities
+    builder.line("return true;")
     builder.block_end()
 
     builder.if_begin("a1.type == cass::ActionFire && a2.type == cass::ActionReceive")
