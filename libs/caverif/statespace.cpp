@@ -363,19 +363,31 @@ ActionSet Core::compute_ample_set(State *s, const ActionSet &enable)
 		// print state name
 		char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
 		hashdigest_to_string(MHASH_MD5, s->compute_hash(MHASH_MD5) , hashstr);
-		hashstr[5] = 0;
-		printf(">>>>> %s <<<<<\n", hashstr);
+		printf(">> state: %s: \nenable: { ", hashstr);
 		for (it = enable.begin(); it != enable.end(); it++) {
-			it->print("", " | ");
+			printf("%s ", it->to_string().c_str());
 		}
-		printf("\n");
+		printf("}\n");
 	}
 
 	for (it = enable.begin(); it != enable.end(); it++) {
 		ActionSet ample;
 		ample.insert(*it);
+		if (cfg_debug) {
+			printf("  > ample: { ");
+			for (ActionSet::iterator i = ample.begin(); i != ample.end(); i++) {
+				printf("%s ", i->to_string().c_str());
+			}
+			printf("}\n");
+		}
 		if (check_C1(enable, ample, s) && check_C2(ample) && check_C3(s)) {
+			if (cfg_debug) {
+				printf("  This ample set is independent.\n");
+			}
 			return ample;
+		}
+		if (cfg_debug) {
+			getchar();
 		}
 	}
 	return enable;
@@ -392,6 +404,9 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 	std::vector<bool> receive_blocked(ca::process_count * ca::process_count, false);
 	std::vector<bool> fire_blocked(ca::process_count, false);
 
+	if (cfg_debug) {
+		printf("    C1: starting configuration {");
+	}
 	for (ActionSet::iterator i = enabled.begin(); i != enabled.end(); i++) {
 		if (ample.find(*i) != ample.end()) {
 			if (i->type == ActionReceive) {
@@ -404,6 +419,9 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 			if (i->type == ActionFire) {
 				processed.insert(*i);
 				queue.push_back(*i);
+				if (cfg_debug) {
+					printf(" %s", i->to_string().c_str());
+				}
 				const std::vector<ca::TransitionDef*> &transitions = net_def->get_transition_defs();
 				int t = 0;
 				while (transitions[t++] != i->data.fire.transition_def);
@@ -415,6 +433,9 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 						a.process = i->process;
 						processed.insert(a);
 						queue.push_back(a);
+						if (cfg_debug) {
+							printf(" %s", a.to_string().c_str());
+						}
 					}
 				}
 				continue;
@@ -431,22 +452,45 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 					if (processed.find(a) == processed.end()) {
 						processed.insert(a);
 						queue.push_back(a);
+						if (cfg_debug) {
+							printf(" %s", a.to_string().c_str());
+						}
 					}
 				}
 				continue;
 			}
 			processed.insert(*i);
 			queue.push_back(*i);
+			if (cfg_debug) {
+				printf(" %s", i->to_string().c_str());
+			}
 		}
+	}
+
+	if (cfg_debug) {
+		printf(" }\n");
 	}
 
 	while(queue.size() > 0) {
 		for (ActionSet::iterator a = ample.begin(); a != ample.end(); a++) {
 			if (verif_configuration.is_dependent(*a, queue.front(), s)) {
+				if (cfg_debug) {
+					printf("    C1: %s and %s are dependent.\n", a->to_string().c_str(), queue.front().to_string().c_str());
+				}
 				return false;
 			}
 		}
-		verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, s);
+		if (cfg_debug) {
+			size_t i = queue.size();
+			verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, s);
+			printf("    C1: successors of %s: {", queue.front().to_string().c_str());
+			for (; i < queue.size(); i++) {
+				printf(" %s", queue[i].to_string().c_str());
+			}
+			printf(" }\n");
+		} else {
+			verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, s);
+		}
 		queue.pop_front();
 	}
 	return true;
@@ -457,6 +501,9 @@ bool Core::check_C2(const ActionSet &ample)
 	for (ActionSet::iterator it = ample.begin(); it != ample.end(); it++) {
 		if (it->type == ActionFire) {
 			if (verif_configuration.is_visible(*it)) {
+				if (cfg_debug) {
+					printf("    C2: %s is visible transition.\n", it->to_string().c_str());
+				}
 				return false;
 			}
 		}

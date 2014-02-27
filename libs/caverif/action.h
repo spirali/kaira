@@ -23,15 +23,17 @@ struct Action
 		} receive;
 	} data;
 
-	void print(const std::string &start, const std::string &end) const {
+	std::string to_string() const {
+		std::ostringstream ss;
 		switch (type) {
 			case ActionFire: {
-				printf("%s(fire %d %d)%s", start.c_str(), process, data.fire.transition_def->get_id(), end.c_str());
+				ss << "<F " << process << " " << data.fire.transition_def->get_id() << ">";
 			} break;
 			case ActionReceive: {
-				printf("%s(receive %d %d %d)%s", start.c_str(), process, data.receive.source, data.receive.edge_id, end.c_str());
+				ss << "<R " << process << " " << data.receive.source << " " << data.receive.edge_id << ">";
 			} break;
 		}
+		return ss.str();
 	}
 };
 
