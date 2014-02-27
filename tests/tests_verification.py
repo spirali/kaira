@@ -48,6 +48,10 @@ class StateSpaceTest(unittest.TestCase):
     def test_heatflow(self):
         Project("heatflow").check_por(processes=3)
 
+    def test_workers(self):
+        params = { "LIMIT" : "20", "SIZE" : "5" }
+        Project("workers").check_por(processes=3, params=params)
+
     def test_por_bulk(self):
         Project("por_bulk").check_por(processes=3)
 
