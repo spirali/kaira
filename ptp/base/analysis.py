@@ -52,6 +52,8 @@ def analyze_transition(tr):
     fresh_tokens = [] # (uid, type) - what tokens has to be created for output
     used_tokens = []  # [uid] - Tokens from input inscriptions that are reused on output
     variable_sources_out = {} # string -> uid or None
+    bulk_overtake = [] # [uid]
+    overtaken_variables = set()
 
     def inscription_out_weight(inscription):
         # Reorder edges, bulk edges first because we want them send first
@@ -125,6 +127,15 @@ def analyze_transition(tr):
             # Just create variable
             variable_sources_out[variable] = None
 
+    for inscription in reversed(inscriptions_out):
+        # Now we are checking overtake. It has to be in reversed order
+        # becacase overtake has to be the last operation on variable
+        if not inscription.is_bulk() or not inscription.is_expr_variable():
+            continue # We are interested only in variables and bulk inscriptions
+        if inscription.expr not in overtaken_variables:
+            overtaken_variables.add(inscription.expr)
+            bulk_overtake.append(inscription.uid)
+
     for inscription in inscriptions_out:
         for variable in inscription.get_other_variables():
             if variable not in variable_sources and \
@@ -137,3 +148,4 @@ def analyze_transition(tr):
     tr.reuse_tokens = reuse_tokens
     tr.variable_sources_out = variable_sources_out
     tr.fresh_tokens = fresh_tokens
+    tr.bulk_overtake = bulk_overtake

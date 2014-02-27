@@ -179,12 +179,13 @@ def write_send_token(builder,
         builder.line("$lock = false;")
         builder.block_end()
 
-    def write_add(expr, bulk=False, token=False):
+    def write_add(expr, bulk=False, token=False, overtake=True):
         write_place_add(builder,
                         inscription.edge.place,
                         "{0}->".format(net_expr),
                         expr,
                         bulk=bulk,
+                        overtake=overtake,
                         token=token)
         if not interface_edge:
             write_activation(builder,
@@ -219,7 +220,9 @@ def write_send_token(builder,
     if inscription.is_local():
         write_lock()
         if inscription.is_bulk():
-            write_add(inscription.expr, True)
+            overtake = inscription.uid in inscription.edge.transition.bulk_overtake and \
+                       not readonly_tokens
+            write_add(inscription.expr, bulk=True, overtake=overtake)
         else:
             if inscription.uid in reuse_tokens:
                 write_add(builder.expand("$token_{0}",
@@ -234,7 +237,9 @@ def write_send_token(builder,
                                             inscription.target))
             write_lock()
             if inscription.is_bulk():
-                write_add(inscription.expr, bulk=True)
+                overtake = inscription.uid in inscription.edge.transition.bulk_overtake and \
+                           not readonly_tokens
+                write_add(inscription.expr, bulk=True, overtake=overtake)
             else:
                 write_add(inscription.expr)
             builder.indent_pop()
@@ -744,6 +749,7 @@ def write_place_add(builder,
                     net_code,
                     value_code,
                     bulk=False,
+                    overtake=True,
                     token=False,
                     trace=True,
                     token_source=None):
@@ -753,7 +759,10 @@ def write_place_add(builder,
         else:
             method = "add"
     else:
-        method = "overtake"
+        if overtake:
+            method = "overtake"
+        else:
+            method = "copy_tokens"
 
     if trace and place.trace_tokens and bulk:
         builder.if_begin("$thread->get_tracelog()")

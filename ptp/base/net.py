@@ -499,6 +499,7 @@ class Transition(utils.EqByIdMixin):
         self.reuse_tokens = None
         self.variable_sources_out = None
         self.fresh_tokens = None
+        self.bulk_overtake = None
 
     def has_code(self):
         return self.code is not None

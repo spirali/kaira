@@ -24,6 +24,9 @@ class BuildTest(unittest.TestCase):
         output = "1\n2\n3\n4\na\nb\nc\n"
         Project("bulk").quick_test(output, processes=3)
 
+    def test_bulk2(self):
+        Project("bulk2").quick_test("3 3\n")
+
     def test_broken1(self):
         Project("broken1", "broken").fail_ptp("*104/inscription: Missing expression\n")
 
