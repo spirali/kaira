@@ -56,8 +56,7 @@ class BuildTest(unittest.TestCase):
         p = Project("workers")
         p.build()
         p.run(result_fn=check_output, processes=2, params=params)
-        p.run(result_fn=check_output, processes=6, threads=3, params=params, repeat=30)
-        p.run(result_fn=check_output, processes=6, threads=1, params=params, repeat=70)
+        p.run(result_fn=check_output, processes=6, params=params, repeat=70)
 
     def test_origin(self):
         Project("origin").quick_test("Ok\n", processes=3)
@@ -81,7 +80,7 @@ class BuildTest(unittest.TestCase):
         Project("multicast").quick_test("1800\n", processes=6)
 
     def test_bigtoken(self):
-        Project("bigtoken").quick_test("18000000\n", processes=5, threads=5)
+        Project("bigtoken").quick_test("18000000\n", processes=5)
 
     def test_sendvar(self):
         Project("sendvar").quick_test(processes=2)
@@ -136,11 +135,27 @@ class BuildTest(unittest.TestCase):
         p.quick_test(processes=2, extra_args=["-T100K"])
         p.check_tracelog("14\n")
 
+    def test_scatter1(self):
+        Project("scatter1").quick_test("1941\n", processes=5)
+
+    def test_scattergather(self):
+        result = "0: 110.3 220.3 330.3 340.3 350.3\n" \
+                 "1: MyC: { 1 1 1 1 1 } MyC: { 2 2 2 2 2 } MyC: { 3 3 3 3 3 } MyC: { 4 4 4 4 4 } MyC: { 5 5 5 5 5 }\n" \
+                 "2: aaaaaaaaaaaaaaaaaaaaaaaa bb ccccccccccccccccccc  mmmmmmmmm\n"
+        Project("scattergather").quick_test(result, processes=5, params={"SIZE": 5})
+
+    def test_bcastgather(self):
+        result = "0: 110.3 110.3 110.3 110.3\n" \
+                 "1: MyC: { 3 3 3 3 3 3 3 } MyC: { 3 3 3 3 3 3 3 } MyC: { 3 3 3 3 3 3 3 } MyC: { 3 3 3 3 3 3 3 }\n" \
+                 "2: abcdefg abcdefg abcdefg abcdefg\n"
+        Project("bcastgather").quick_test(result, processes=4, params={"SIZE": 7})
+
+
 class LibTest(unittest.TestCase):
     def test_lib_parameters(self):
         result = "1 1 1 1 \n2 1 1 1 \n4 4 1 1 \n8 8 8 1 \n16 16 16 16 \n"
         Project("parameters", "lib_parameters", lib=True).quick_test_main(
-                result, processes=5, threads=5, params={"Size" : 4, "EXP" : 4})
+                result, processes=5, params={"Size" : 4, "EXP" : 4})
 
     def test_libhelloworld(self):
         result = "40 10 Hello world\n80 10 Hello world\n"\

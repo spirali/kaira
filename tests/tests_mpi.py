@@ -19,5 +19,15 @@ class MpiBuildTest(unittest.TestCase):
         finally:
             p.stop_server()
 
+    def test_scatter1(self):
+        Project("scatter1", mpi=True).quick_test("1941\n", processes=5)
+
+    def test_scattergather(self):
+        result = "0: 110.3 220.3 330.3 340.3 350.3\n" \
+                 "1: MyC: { 1 1 1 1 1 } MyC: { 2 2 2 2 2 } MyC: { 3 3 3 3 3 } MyC: { 4 4 4 4 4 } MyC: { 5 5 5 5 5 }\n" \
+                 "2: aaaaaaaaaaaaaaaaaaaaaaaa bb ccccccccccccccccccc  mmmmmmmmm\n"
+        Project("scattergather", mpi=True).quick_test(result, processes=5, params={"SIZE": 5})
+
+
 if __name__ == '__main__':
     unittest.main()
