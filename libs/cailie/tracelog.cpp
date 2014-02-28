@@ -23,7 +23,7 @@ TraceLog::TraceLog(int process_id, int thread_id, size_t size)
 			perror("trace.kth");
 			exit(-1);
 		}
-		ca::write_header(f, process_count, threads_count);
+		ca::write_header(f, process_count);
 		fclose(f);
 	}
 

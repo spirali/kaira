@@ -86,7 +86,6 @@ class Simulation(EventSource):
     def read_header(self, stream):
         header = xml.fromstring(stream.readline())
         self.process_count = utils.xml_int(header, "process-count")
-        self.threads_count = utils.xml_int(header, "threads-count")
         lines_count = utils.xml_int(header, "description-lines")
         project_string = "\n".join((stream.readline() for i in xrange(lines_count)))
         self.project = load_project_from_xml(xml.fromstring(project_string), "")
@@ -98,9 +97,9 @@ class Simulation(EventSource):
         def reports_callback(line):
             root = xml.fromstring(line)
             net_id = utils.xml_int(root, "net-id")
-            runinstance = RunInstance(self.project, self.process_count, self.threads_count)
+            runinstance = RunInstance(self.project, self.process_count)
             for process_id, e in enumerate(root.findall("process")):
-                runinstance.event_spawn(process_id, None, 0, net_id)
+                runinstance.event_spawn(process_id, 0, net_id)
                 for pe in e.findall("place"):
                     place_id = utils.xml_int(pe, "id")
                     for te in pe.findall("token"):
@@ -116,21 +115,19 @@ class Simulation(EventSource):
 
             for e in root.findall("activation"):
                 process_id = utils.xml_int(e, "process-id")
-                thread_id = utils.xml_int(e, "thread-id")
                 transition_id = utils.xml_int(e, "transition-id")
                 runinstance.transition_fired(process_id,
-                                             thread_id,
                                              0,
                                              transition_id, [])
                 if utils.xml_bool(e, "blocked", False):
-                    runinstance.transition_blocked(process_id, thread_id)
+                    runinstance.transition_blocked(process_id)
 
             for e in root.findall("packet"):
                 origin_id = utils.xml_int(e, "origin-id")
                 target_id = utils.xml_int(e, "target-id")
                 size = utils.xml_int(e, "size")
                 edge_id = utils.xml_int(e, "edge-id")
-                runinstance.event_send(origin_id, 0, 0, target_id, size, edge_id)
+                runinstance.event_send(origin_id, 0, target_id, size, edge_id)
 
             runinstance.reset_last_event_info()
 
@@ -171,7 +168,7 @@ class Simulation(EventSource):
         def fail_callback():
             self.emit_event("command-failed", sequence, command[0] - 1)
 
-        def fire(process_id, thread_id, transition):
+        def fire(process_id, transition):
             t = transitions.get(transition)
             if t is None:
                  raise SimulationException("Transition '{0}' not found".format(transition))
@@ -180,7 +177,7 @@ class Simulation(EventSource):
                                  2,
                                  ok_callback=next_command)
 
-        def start(process_id, thread_id, transition):
+        def start(process_id, transition):
             t = transitions.get(transition)
             if t is None:
                  raise SimulationException("Transition '{0}' not found".format(transition))
@@ -189,13 +186,12 @@ class Simulation(EventSource):
                                  1,
                                  ok_callback=next_command)
 
-        def finish(process_id, thread_id):
+        def finish(process_id):
             self.finish_transition(process_id,
-                                   thread_id,
                                    ok_callback=next_command,
                                    fail_callback=fail_callback)
 
-        def receive(process_id, thread_id, from_process):
+        def receive(process_id, from_process):
             self.receive(process_id,
                          from_process,
                          ok_callback=next_command,
@@ -211,7 +207,7 @@ class Simulation(EventSource):
                 query_reports=True):
 
         def callback():
-            self.sequence.add_receive(process_id, 0, origin_id)
+            self.sequence.add_receive(process_id, origin_id)
             if query_reports:
                self.query_reports(ok_callback)
             elif ok_callback:
@@ -252,11 +248,11 @@ class Simulation(EventSource):
         def callback():
             name = utils.sanitize_name(transition.get_name_or_id())
             if phases == 2:
-                self.sequence.add_fire(process_id, 0, name)
+                self.sequence.add_fire(process_id, name)
             else:
-                self.sequence.add_transition_start(process_id, 0, name)
+                self.sequence.add_transition_start(process_id, name)
                 if not transition.has_code():
-                    self.sequence.add_transition_finish(process_id, 0)
+                    self.sequence.add_transition_finish(process_id)
             if query_reports:
                 self.query_reports(ok_callback)
             elif ok_callback:
@@ -272,18 +268,17 @@ class Simulation(EventSource):
 
     def finish_transition(self,
                           process_id,
-                          thread_id,
                           ok_callback=None,
                           fail_callback=None,
                           query_reports=True):
         def callback():
-            self.sequence.add_transition_finish(process_id, thread_id)
+            self.sequence.add_transition_finish(process_id)
             if query_reports:
                 self.query_reports(ok_callback)
             elif ok_callback:
                 ok_callback()
         if self.controller and self.check_ready():
-            command = "FINISH {0} {1}".format(process_id, thread_id)
+            command = "FINISH {0}".format(process_id)
             self.state = "running"
             self.controller.run_command_expect_ok(
                 command,

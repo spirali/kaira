@@ -189,19 +189,6 @@ class Net : public NetBase {
 			return def;
 		}
 
-		/* Lock for working with active_units */
-		void lock() {
-			if (mutex) pthread_mutex_lock(mutex);
-		}
-
-		bool try_lock() {
-			return mutex?pthread_mutex_trylock(mutex) == 0:true;
-		}
-
-		void unlock() {
-			if (mutex) pthread_mutex_unlock(mutex);
-		}
-
 		virtual NetDef *get_def() {
 			return def;
 		}
@@ -224,7 +211,6 @@ class Net : public NetBase {
 	protected:
 		NetDef *def;
 		int running_transitions;
-		pthread_mutex_t *mutex;
 		Transition *transitions;
 
 		void *data;

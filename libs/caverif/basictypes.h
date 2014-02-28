@@ -37,7 +37,7 @@ namespace cass {
 
 	class VerifThread : public ca::ThreadBase {
 		public:
-			VerifThread(int process_id, int thread_id): process_id(process_id), thread_id(thread_id) {}
+			VerifThread(int process_id): process_id(process_id) {}
 			int get_process_id() const {
 				return process_id;
 			}
@@ -53,7 +53,6 @@ namespace cass {
 					int edge_id, int tokens_count, const ca::Packer &packer) { return; }
 		protected:
 			int process_id;
-			int thread_id;
 	};
 }
 

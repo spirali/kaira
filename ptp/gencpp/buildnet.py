@@ -119,9 +119,8 @@ def write_transition_forward(builder, tr):
     builder.emptyline();
 
 def write_transition_functions(builder,
-                               tr,
-                               locking=True):
-    write_full_fire(builder, tr, locking=locking)
+                               tr):
+    write_full_fire(builder, tr)
     write_fire_phase1(builder, tr)
     write_fire_phase2(builder, tr)
     write_fire_phase2(builder, tr, readonly_binding=True)
@@ -129,7 +128,7 @@ def write_transition_functions(builder,
     write_enable_check(builder, tr)
     if builder.pack_bindings:
         write_pack_binding(builder, tr)
-        write_full_fire_with_binding(builder, tr, locking=locking)
+        write_full_fire_with_binding(builder, tr)
     if tr.collective:
         write_is_blocked(builder, tr)
 
@@ -176,26 +175,9 @@ def write_send_token(builder,
                      inscription,
                      net_expr,
                      trace_send=False,
-                     locking=True,
                      interface_edge=False,
                      readonly_tokens=False,
                      reuse_tokens=None):
-
-    def write_lock():
-        if not locking:
-            return
-        builder.if_begin("!$lock")
-        builder.line("{0}->lock();", net_expr)
-        builder.line("$lock = true;")
-        builder.block_end()
-
-    def write_unlock():
-        if not locking:
-            return
-        builder.if_begin("$lock")
-        builder.line("{0}->unlock();", net_expr)
-        builder.line("$lock = false;")
-        builder.block_end()
 
     def write_add(expr, bulk=False, token=False, overtake=True):
         write_place_add(builder,
@@ -239,7 +221,6 @@ def write_send_token(builder,
         builder.if_begin(if_condition)
 
     if inscription.is_local():
-        write_lock()
         if inscription.is_bulk():
             overtake = inscription.uid in inscription.edge.transition.bulk_overtake and \
                        not readonly_tokens
@@ -256,7 +237,6 @@ def write_send_token(builder,
             sendtype = ""
             builder.if_begin(builder.expand("{0} == $thread->get_process_id()",
                                             inscription.target))
-            write_lock()
             if inscription.is_bulk():
                 overtake = inscription.uid in inscription.edge.transition.bulk_overtake and \
                            not readonly_tokens
@@ -332,7 +312,6 @@ def write_remove_tokens(builder, net_expr, tr):
 
 def write_fire_body(builder,
                     tr,
-                    locking=True,
                     remove_tokens=True,
                     readonly_tokens=False,
                     packed_tokens_from_place=True,
@@ -400,8 +379,6 @@ def write_fire_body(builder,
         else:
             collectives.write_collective_body(builder, tr)
     elif tr.code is not None:
-        if locking:
-            builder.line("$n->unlock();")
         decls = tr.get_decls().get_list()
         if len(decls) == 0:
             builder.line("Vars_{0.id} $vars;", tr)
@@ -418,11 +395,6 @@ def write_fire_body(builder,
             args.append("$clock")
 
         builder.line("transition_user_fn_{0.id}({1});", tr, builder.expand((", ".join(args))))
-
-        if locking:
-            builder.line("bool $lock = false;")
-    elif locking:
-        builder.line("bool $lock = true;")
 
     if tr.collective or tr.code:
         if tr.need_trace():
@@ -446,11 +418,8 @@ def write_fire_body(builder,
                          inscription,
                          builder.expand("$n"),
                          trace_send=tr.need_trace(),
-                         locking=locking,
                          readonly_tokens=readonly_tokens,
                          reuse_tokens=reuse_tokens)
-    if locking:
-        builder.line("if ($lock) $n->unlock();")
 
     if not readonly_tokens:
         for inscription in tr.get_token_inscriptions_in():
@@ -469,7 +438,7 @@ def write_fire_body(builder,
         builder.line("$tracelog->event_end();")
         builder.block_end()
 
-def write_full_fire(builder, tr, locking=True):
+def write_full_fire(builder, tr):
     builder.line("ca::FireResult Transition_{0.id}::full_fire"
                      "(ca::ThreadBase *$thread, ca::NetBase *$net)",
                  tr)
@@ -477,14 +446,14 @@ def write_full_fire(builder, tr, locking=True):
     builder.line("ca::Context ctx($thread, $net);")
 
     w = build.Builder(builder.project)
-    write_fire_body(w, tr, locking=False)
+    write_fire_body(w, tr)
     w.line("return ca::TRANSITION_FIRED;")
 
     write_enable_pattern_match(builder, tr, w, "return ca::NOT_ENABLED;")
     builder.line("return ca::NOT_ENABLED;")
     builder.block_end()
 
-def write_full_fire_with_binding(builder, tr, locking=True):
+def write_full_fire_with_binding(builder, tr):
     builder.line("ca::FireResult Transition_{0.id}::full_fire_with_binding(ca::ThreadBase *$thread, ca::NetBase *$net, ca::Packer &$packer)",
                  tr)
     builder.block_begin()
@@ -497,7 +466,7 @@ def write_full_fire_with_binding(builder, tr, locking=True):
     for edge in tr.get_bulk_edges_in():
         w.line("ca::pack($packer, $n->place_{0.id});", edge.place);
 
-    write_fire_body(w, tr, locking=locking)
+    write_fire_body(w, tr)
     w.line("return ca::TRANSITION_FIRED;")
 
     write_enable_pattern_match(builder, tr, w, "return ca::NOT_ENABLED;")
@@ -598,7 +567,6 @@ def write_fire_phase2(builder, tr, readonly_binding=False):
 
     write_fire_body(builder,
                     tr,
-                    locking=False,
                     remove_tokens=False,
                     readonly_tokens=readonly_binding,
                     packed_tokens_from_place=False,

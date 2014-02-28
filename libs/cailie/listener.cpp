@@ -117,9 +117,8 @@ void Listener::main()
 		pthread_barrier_t barrier1;
 		pthread_barrier_t barrier2;
 
-		int threads_count = processes[0]->get_threads_count() * process_count;
-		pthread_barrier_init(&barrier1, NULL, threads_count + 1);
-		pthread_barrier_init(&barrier2, NULL, threads_count + 1);
+		pthread_barrier_init(&barrier1, NULL, process_count + 1);
+		pthread_barrier_init(&barrier2, NULL, process_count + 1);
 
 		for (int t = 0; t < process_count; t++) {
 			processes[t]->send_barriers(&barrier1, &barrier2);
@@ -132,8 +131,7 @@ void Listener::main()
 
 		/* Wait for all process */
 		pthread_barrier_wait(&barrier1);
-		/* Because there is always at least one thread we can use thread 0 as source of list of networks */
-		write_header(comm_out, process_count, threads_count);
+		write_header(comm_out, process_count);
 
 		prepare_state();
 		process_commands(comm_in, comm_out);
@@ -229,13 +227,12 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 				continue;
 			}
 			int process_id;
-			int thread_id;
-			if (2 != sscanf(line, "FINISH %i %i", &process_id, &thread_id)) {
+			if (1 != sscanf(line, "FINISH %i", &process_id)) {
 				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
 
-			std::vector<Activation>::iterator i = state->find_activation(process_id, thread_id);
+			std::vector<Activation>::iterator i = state->find_activation(process_id);
 			if (i == state->get_activations().end()) {
 				fprintf(comm_out, "Transition is not enabled\n");
 				continue;
@@ -273,9 +270,7 @@ void Listener::prepare_state()
 	do {
 		again = false;
 		for (int s = 0; s < process_count; s++) {
-			for (int t = 0; t < processes[s]->get_threads_count(); t++) {
-				again = again | processes[s]->get_thread(t)->process_messages();
-			}
+			again = again | processes[s]->get_thread()->process_messages();
 		}
 	} while (again);
 

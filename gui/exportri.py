@@ -30,8 +30,7 @@ class ExportRunInstance(RunInstance):
     def __init__(self, tracelog, transitions, place_functions, columns):
         RunInstance.__init__(self,
                              tracelog.project,
-                             tracelog.process_count,
-                             tracelog.threads_count)
+                             tracelog.process_count)
 
         self.transitions = dict((transition.id, transition)
                                 for transition in transitions)
@@ -54,7 +53,7 @@ class ExportRunInstance(RunInstance):
 
         self.table = self._create_table()
 
-        self.idles = [None] * self.process_count * self.threads_count
+        self.idles = [None] * self.process_count
         self.tokens_counters = [[0] * len(self.traced_places)
                                 for p in range(tracelog.process_count)]
 
@@ -126,8 +125,8 @@ class ExportRunInstance(RunInstance):
         return self.table
 
     # Collected events
-    def transition_finished(self, process_id, thread_id, time):
-        activity = self.activites[process_id * self.threads_count + thread_id]
+    def transition_finished(self, process_id, time):
+        activity = self.activites[process_id]
         if activity.transition.id in self.transitions:
             start_time = activity.time
             self.add_row('T',
@@ -136,11 +135,10 @@ class ExportRunInstance(RunInstance):
                          process_id,
                          activity.transition.id,
                          (None, None))
-        RunInstance.transition_finished(self, process_id, thread_id, time)
+        RunInstance.transition_finished(self, process_id, time)
 
-    def event_receive(self, process_id, thread_id, time, origin_id):
-        index = process_id * self.threads_count + thread_id
-        start_time = self.idles[index]
+    def event_receive(self, process_id, time, origin_id):
+        start_time = self.idles[process_id]
         if start_time is not None:
             self.add_row('I',
                          start_time,
@@ -148,12 +146,12 @@ class ExportRunInstance(RunInstance):
                          process_id,
                          None,
                          (None, None))
-            self.idles[index] = None
-        RunInstance.event_receive(self, process_id, thread_id, time, origin_id)
+            self.idles[process_id] = None
+        RunInstance.event_receive(self, process_id, time, origin_id)
 
-    def event_idle(self, process_id, thread_id, time):
-        self.idles[process_id * self.threads_count + thread_id] = time
-        RunInstance.event_idle(self, process_id, thread_id, time)
+    def event_idle(self, process_id, time):
+        self.idles[process_id] = time
+        RunInstance.event_idle(self, process_id, time)
 
     def add_token(self, place_id, token_pointer, token_value, send_time):
         self._change_place_counter(place_id, +1)

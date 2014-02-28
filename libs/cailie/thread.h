@@ -11,16 +11,14 @@ namespace ca {
 
 class ThreadBase {
 	public:
-		ThreadBase(int id = -1, TraceLog *tracelog = NULL)
-			: id(id), tracelog(tracelog) {}
+		ThreadBase(TraceLog *tracelog = NULL)
+			: tracelog(tracelog) {}
 
 		virtual ~ThreadBase() {}
 
 		virtual void quit_all() = 0;
 		virtual int get_process_count() const = 0;
-		virtual int get_threads_count() const = 0;
 		virtual int get_process_id() const = 0;
-
 
 		virtual void send(int target, NetBase *net, int edge_id,
 						int tokens_count, const Packer &packer) = 0;
@@ -56,22 +54,17 @@ class ThreadBase {
 		virtual int collective_bindings(TransitionDef *transition_def, std::vector<void*> &bindings) {}
 		/* End of methods for sumulated run */
 
-		int get_id() {
-				return id;
-		}
-
 		TraceLog* get_tracelog() {
 				return tracelog;
 		}
 
 	protected:
-		int id;
 		TraceLog *tracelog;
 };
 
 class Thread : public ThreadBase {
 	public:
-		Thread();
+		Thread(Process *process);
 		~Thread();
 		void start();
 		void join();
@@ -159,15 +152,6 @@ class Thread : public ThreadBase {
 
 		int get_process_count() const {
 				return process->get_process_count();
-		}
-
-		int get_threads_count() const {
-				return process->get_threads_count();
-		}
-
-		void set_process(Process *process, int id) {
-			this->process = process;
-			this->id = id;
 		}
 
 		void set_tracelog(TraceLog *tracelog) {

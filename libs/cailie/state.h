@@ -21,16 +21,13 @@ namespace ca {
 		Activation(
 			TransitionDef *transition_def,
 			int process_id,
-			int thread_id,
 			void *binding)
 			: transition_def(transition_def),
 			  process_id(process_id),
-			  thread_id(thread_id),
 			  binding(binding) {}
 
 		TransitionDef *transition_def;
 		int process_id;
-		int thread_id;
 		void *binding;
 	};
 
@@ -40,13 +37,10 @@ namespace ca {
 			class StateThread : public ThreadBase {
 				public:
 					StateThread(StateBase *state,
-								int process_id,
-								int thread_id)
-						: ThreadBase(thread_id,
-									 state->get_tracelog(process_id, thread_id)),
+								int process_id)
+						: ThreadBase(state->get_tracelog(process_id)),
 						  state(state),
-						  process_id(process_id),
-						  thread_id(0) {}
+						  process_id(process_id) {}
 
 					void quit_all() {
 							state->set_quit_flag();
@@ -64,9 +58,8 @@ namespace ca {
 							return process_id;
 					}
 
-					void set(int process_id, int thread_id) {
+					void set_process(int process_id) {
 						this->process_id = process_id;
-						this->thread_id = thread_id;
 					}
 
 					void send(int target,
@@ -147,7 +140,6 @@ namespace ca {
 				protected:
 					StateBase<NetT, ActivationT, PacketT> *state;
 					int process_id;
-					int thread_id;
 			};
 
 			typedef std::deque<PacketT> PacketQueue;
@@ -162,7 +154,7 @@ namespace ca {
 			void spawn(NetDef *net_def) {
 				this->net_def = net_def;
 				for (int i = 0; i < ca::process_count; i++) {
-					StateThread thread(this, i, 0);
+					StateThread thread(this, i);
 					if (thread.get_tracelog()) {
 						thread.get_tracelog()->event_net_spawn(net_def->get_id());
 					}
@@ -213,10 +205,10 @@ namespace ca {
 
 				for (int i = 0; i < process_count; i++) {
 					output.child("process");
-					StateThread thread(this, i, 0);
+					StateThread thread(this, i);
 					nets[i]->write_reports(&thread, output);
 
-					if (get_idle_thread(i) != -1) {
+					if (!is_process_busy(i)) {
 						const std::vector<TransitionDef*>& transitions = \
 							net_def->get_transition_defs();
 						bool enabled = false;
@@ -239,7 +231,6 @@ namespace ca {
 				for (int i = 0; i < activations.size(); i++) {
 					output.child("activation");
 					output.set("process-id", activations[i].process_id);
-					output.set("thread-id", activations[i].thread_id);
 					output.set("binding", activations[i].binding);
 					output.set("transition-id", activations[i].transition_def->get_id());
 					void *binding = activations[i].binding;
@@ -269,25 +260,23 @@ namespace ca {
 			bool fire_transition_phase1(int process_id, TransitionDef *transition_def)
 			{
 				if (transition_def->is_immediate()) {
-					StateThread thread(this, process_id, 0);
+					StateThread thread(this, process_id);
 					return transition_def->full_fire(&thread, nets[process_id]);
 				}
-				int thread_id = 0;
-				StateThread thread(this, process_id, thread_id);
+				StateThread thread(this, process_id);
 				void *binding = transition_def->fire_phase1(&thread, nets[process_id]);
 				if (binding == NULL) {
 					return false;
 				}
-				ActivationT ta(transition_def, process_id, thread_id, binding);
+				ActivationT ta(transition_def, process_id, binding);
 				activations.push_back(ta);
 				return true;
 			}
 
 			bool fire_transition_full(int process_id, TransitionDef *transition_def, bool ro_finish=false)
 			{
-				int thread_id = 0;
 				if (!transition_def->is_collective()) {
-					StateThread thread(this, process_id, thread_id);
+					StateThread thread(this, process_id);
 					return transition_def->full_fire(&thread, nets[process_id]);
 				} else {
 					if (fire_transition_phase1(process_id, transition_def)) {
@@ -296,9 +285,9 @@ namespace ca {
 							if (a.transition_def == transition_def &&
 								!a.transition_def->is_blocked(a.binding)) {
 								if (ro_finish) {
-									finish_transition_ro_binding(i);
+									finish_transition_ro_binding(activations.begin() + i);
 								} else {
-									finish_transition(i);
+									finish_transition(activations.begin() + i);
 								}
 							}
 
@@ -313,21 +302,19 @@ namespace ca {
 			bool fire_transition_full_with_binding(int process_id, TransitionDef *transition_def,
 					ca::Packer &packer)
 			{
-				int thread_id = 0;
-				StateThread thread(this, process_id, thread_id);
+				StateThread thread(this, process_id);
 				return transition_def->full_fire_with_binding(&thread, nets[process_id], packer);
 			}
 
 			bool is_transition_enabled(int process_id, TransitionDef *transition_def)
 			{
-				int thread_id = 0;
-				StateThread thread(this, process_id, thread_id);
+				StateThread thread(this, process_id);
 				return transition_def->is_enable(&thread, nets[process_id]);
 			}
 
 			void finish_transition(typename std::vector<ActivationT>::iterator i)
 			{
-				StateThread thread(this, i->process_id, i->thread_id);
+				StateThread thread(this, i->process_id);
 				i->transition_def->fire_phase2(
 					&thread, nets[i->process_id], i->binding);
 				activations.erase(i);
@@ -335,29 +322,28 @@ namespace ca {
 
 			void finish_transition_ro_binding(typename std::vector<ActivationT>::iterator i)
 			{
-				StateThread thread(this, i->process_id, i->thread_id);
+				StateThread thread(this, i->process_id);
 				i->transition_def->fire_phase2_ro_binding(
 					&thread, nets[i->process_id], i->binding);
 				activations.erase(i);
 			}
 
-			void finish_transition(int i)
+			/*void finish_transition(int i)
 			{
 				finish_transition(activations.begin() + i);
-			}
+			}*/
 
 			void finish_transition_ro_binding(int i)
 			{
 				finish_transition_ro_binding(activations.begin() + i);
 			}
 
-			typename std::vector<ActivationT>::iterator find_activation(int process_id, int thread_id) {
+			typename std::vector<ActivationT>::iterator find_activation(int process_id) {
 				typename Activations::iterator i;
 				for (i = activations.begin(); i != activations.end(); i++) {
-					if (i->process_id == process_id &&
-						i->thread_id == i->thread_id) {
-							return i;
-						}
+					if (i->process_id == process_id) {
+						return i;
+					}
 				}
 				return activations.end();
 
@@ -373,34 +359,18 @@ namespace ca {
 				return false;
 			}
 
-			bool finish_transition(int process_id, int thread_id)
+			/*bool finish_transition(int process_id)
 			{
-				typename Activations::iterator i = find_activation(process_id, thread_id);
+				typename Activations::iterator i = find_activation(process_id);
 				if (i != activations.end()) {
 					finish_transition(i);
 					return true;
 				}
 				return false;
-			}
+			}*/
 
 			NetDef* get_net_def() { return net_def; }
 			NetT* get_net(int id) { return nets[id]; }
-
-			int get_idle_thread(int process_id) {
-				for (int i = 0; i < threads_count; i++) {
-					int j;
-					for (j = 0; j < activations.size(); j++) {
-						if (activations[j].process_id == process_id &&
-							activations[j].thread_id == i) {
-							break;
-						}
-					}
-					if (j == activations.size()) {
-						return i;
-					}
-				}
-				return -1;
-			}
 
 			void add_packet(int origin_id, int target_id, const PacketT &packet) {
 				packets[target_id * ca::process_count + origin_id].push_back(packet);
@@ -422,7 +392,7 @@ namespace ca {
 				NetBase *net = nets[process_id];
 				int edge_id = tokens->edge_id;
 				int tokens_count = tokens->tokens_count;
-				StateThread thread(this, process_id, 0);
+				StateThread thread(this, process_id);
 				TraceLog *tracelog = thread.get_tracelog();
 				if (tracelog) {
 					tracelog->event_receive(origin_id);
@@ -472,7 +442,7 @@ namespace ca {
 			}
 
 		protected:
-			virtual TraceLog* get_tracelog(int process_id, int thread_id) {
+			virtual TraceLog* get_tracelog(int process_id) {
 				return NULL;
 			}
 			std::vector<NetT*> nets;

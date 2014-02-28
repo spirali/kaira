@@ -38,7 +38,7 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 	}
 
 	bool is_process_free(int process_id) {
-		return get_thread_info(process_id, 0).release_time <= global_time;
+		return thread_info[process_id].release_time <= global_time;
 	}
 
 	PacketQueue get_current_packets(int process_id1, int process_id2);
@@ -46,17 +46,12 @@ class State : public ca::StateBase<ca::Net, ca::Activation, Packet>
 	size_t get_data_size(int process_id1, int process_id2);
 
 	protected:
-	ca::TraceLog* get_tracelog(int process_id, int thread_id) {
-		return get_thread_info(process_id, thread_id).tracelog;
-	}
-
-	ThreadInfo& get_thread_info(int process_id, int thread_id) {
-			return thread_info[process_id * ca::threads_count + thread_id];
+	ca::TraceLog* get_tracelog(int process_id) {
+		return thread_info[process_id].tracelog;
 	}
 
 	ca::IntTime global_time;
 	ca::IntTime quit_time;
-	std::vector<int> free_threads;
 	std::vector<ThreadInfo> thread_info;
 	RunConfiguration& run_configuration;
 };

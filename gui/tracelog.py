@@ -37,13 +37,11 @@ class TraceLog:
         self.export_data = export_data
         self._read_header()
 
-        self.traces = [None] * (self.process_count * self.threads_count)
+        self.traces = [None] * self.process_count
         for process_id in xrange(self.process_count):
-            for thread_id in xrange(self.threads_count):
-                self._read_thread_trace(process_id, thread_id)
+            self._read_trace(process_id)
 
-        self.first_runinstance = RunInstance(
-            self.project, self.process_count, self.threads_count)
+        self.first_runinstance = RunInstance(self.project, self.process_count)
 
         self._preprocess()
 
@@ -52,7 +50,7 @@ class TraceLog:
             to_event = len(self.timeline)
         for i in xrange(from_event, to_event):
             event_pointer = self.timeline[i]
-            trace = self.traces[event_pointer["trace-id"]]
+            trace = self.traces[event_pointer["process"]]
             trace.pointer = event_pointer["pointer"]
             trace.process_event(ri)
         return ri
@@ -62,7 +60,7 @@ class TraceLog:
             to_event = len(self.full_timeline)
         for i in xrange(from_event, to_event):
             event_pointer = self.full_timeline[i]
-            trace = self.traces[event_pointer["trace-id"]]
+            trace = self.traces[event_pointer["process"]]
             trace.pointer = event_pointer["pointer"]
             trace.process_event(ri)
         return ri
@@ -71,26 +69,19 @@ class TraceLog:
         return self.execute_visible_events(
             self.first_runinstance.copy(), 0, index)
 
-    def get_event_thread(self, index):
-        if index == 0:
-            return "X"
-        index -= 1
-        event_pointer = self.timeline[index]
-        return event_pointer["trace-id"] % self.threads_count
-
     def get_event_process(self, index):
         if index == 0:
             return "X"
         index -= 1
         event_pointer = self.timeline[index]
-        return event_pointer["trace-id"] / self.threads_count
+        return event_pointer["process"]
 
     def get_event_time(self, index):
         if index == 0:
             return 0
         index -= 1
         event_pointer = self.timeline[index]
-        trace = self.traces[event_pointer["trace-id"]]
+        trace = self.traces[event_pointer["process"]]
         trace.pointer = event_pointer["pointer"]
         return trace.get_next_event_time()
 
@@ -99,7 +90,7 @@ class TraceLog:
             return "Init "
         index -= 1
         event_pointer = self.timeline[index]
-        trace = self.traces[event_pointer["trace-id"]]
+        trace = self.traces[event_pointer["process"]]
         trace.pointer = event_pointer["pointer"]
         return trace.get_next_event_name()
 
@@ -116,18 +107,16 @@ class TraceLog:
         ri = self.first_runinstance.copy()
         for i in xrange(index):
             event_pointer = self.timeline[i]
-            trace = self.traces[event_pointer["trace-id"]]
+            trace = self.traces[event_pointer["process"]]
             trace.pointer = event_pointer["pointer"]
             trace.process_event(ri)
             if ri.last_event == "fire":
                 sequence.add_transition_start(ri.last_event_process,
-                                  ri.last_event_thread,
-                                  ri.last_event_activity.transition.get_name())
+                                              ri.last_event_activity.transition.get_name())
             elif ri.last_event == "finish":
-                sequence.add_transition_finish(ri.last_event_process, ri.last_event_thread)
+                sequence.add_transition_finish(ri.last_event_process)
             elif ri.last_event == "receive":
                 sequence.add_receive(ri.last_event_process,
-                                     ri.last_event_thread,
                                      ri.last_event_activity.origin_id)
         return sequence
 
@@ -136,18 +125,16 @@ class TraceLog:
             header = xml.fromstring(f.readline())
             self.pointer_size = utils.xml_int(header, "pointer-size")
             self.process_count = utils.xml_int(header, "process-count")
-            self.threads_count = utils.xml_int(header, "threads-count")
             x = xml.fromstring(f.read())
             self.project = loader.load_project_from_xml(x, "")
 
-    def _read_thread_trace(self, process_id, thread_id):
-        filename = "{0}-{1}-{2}.ktt".format(
+    def _read_trace(self, process_id):
+        filename = "{0}-{1}-0.ktt".format(
             utils.trim_filename_suffix(self.filename),
-            process_id,
-            thread_id)
+            process_id)
         with open(filename, "rb") as f:
-            trace = Trace(f.read(), process_id, thread_id, self.pointer_size)
-            self.traces[process_id * self.threads_count + thread_id] = trace
+            trace = Trace(f.read(), process_id, self.pointer_size)
+            self.traces[process_id] = trace
 
     def _preprocess(self):
         # Set time offsets
@@ -170,11 +157,11 @@ class TraceLog:
                 ExportRunInstance.basic_header + place_counters)
         else:
             ri = RunInstance(
-                self.project, self.process_count, self.threads_count)
+                self.project, self.process_count)
 
         index = 0
-        timeline = Table([("trace-id", "<i4"), ("pointer", "<i4")], 100)
-        full_timeline = Table([("trace-id", "<i4"), ("pointer", "<i4")], 100)
+        timeline = Table([("process", "<i4"), ("pointer", "<i4")], 100)
+        full_timeline = Table([("process", "<i4"), ("pointer", "<i4")], 100)
         while True:
 
             # Searching for trace with minimal event time
@@ -218,11 +205,10 @@ class Trace:
     struct_int = struct.Struct("<i")
     struct_double = struct.Struct("<d")
 
-    def __init__(self, data, process_id, thread_id, pointer_size):
+    def __init__(self, data, process_id, pointer_size):
         self.data = data
         self.pointer = 0
         self.process_id = process_id
-        self.thread_id = thread_id
         self.time_offset = 0
         if pointer_size == 4:
             self.struct_token = self.struct_token_4
@@ -394,7 +380,7 @@ class Trace:
         self.pointer += 1
         values = self.struct_basic.unpack_from(self.data, self.pointer)
         self.pointer += self.struct_basic.size
-        runinstance.event_end(self.process_id, self.thread_id, values[0] + self.time_offset)
+        runinstance.event_end(self.process_id, values[0] + self.time_offset)
 
     def _process_event_transition_fired(self, runinstance):
         time, transition_id = self._read_struct_transition_fired()
@@ -403,7 +389,6 @@ class Trace:
         pointer2 = self.pointer
         self.pointer = pointer1
         runinstance.transition_fired(self.process_id,
-                                     self.thread_id,
                                      time + self.time_offset,
                                      transition_id,
                                      values)
@@ -416,7 +401,6 @@ class Trace:
     def _process_event_transition_finished(self, runinstance):
         time = self._read_struct_transition_finished()[0]
         runinstance.transition_finished(self.process_id,
-                                        self.thread_id,
                                         time + self.time_offset)
         self._process_event_quit(runinstance)
         self.process_tokens_add(runinstance)
@@ -426,7 +410,6 @@ class Trace:
         time, size, edge_id, target_ids = self._read_struct_send()
         for target_id in target_ids:
             runinstance.event_send(self.process_id,
-                                   self.thread_id,
                                    time + self.time_offset,
                                    target_id,
                                    size,
@@ -435,7 +418,6 @@ class Trace:
     def _process_event_spawn(self, runinstance):
         time, net_id = self._read_struct_spawn()
         runinstance.event_spawn(self.process_id,
-                                self.thread_id,
                                 time + self.time_offset,
                                 net_id)
         self.process_tokens_add(runinstance)
@@ -447,13 +429,11 @@ class Trace:
         self.pointer += 1
         time = self._read_struct_quit()[0]
         runinstance.event_quit(self.process_id,
-                               self.thread_id,
                                time + self.time_offset)
 
     def _process_event_receive(self, runinstance):
         time, origin_id = self._read_struct_receive()
         send_time = runinstance.event_receive(self.process_id,
-                                              self.thread_id,
                                               time + self.time_offset,
                                               origin_id)
         self.process_tokens_add(runinstance, send_time)
@@ -462,7 +442,6 @@ class Trace:
     def _process_event_idle(self, runinstance):
         time = self._read_struct_quit()[0]
         runinstance.event_idle(self.process_id,
-                               self.thread_id,
                                time + self.time_offset)
 
     def _read_struct_token(self):

@@ -155,7 +155,6 @@ class Project:
             result=None,
             executable=None,
             processes=1,
-            threads=1,
             params={},
             extra_args=None,
             **kw):
@@ -165,10 +164,9 @@ class Project:
 
         if self.mpi and not self.rpc:
             run_args = [ "-np", str(processes),
-                         executable,
-                         "--threads={0}".format(threads) ]
+                         executable ]
         else:
-            run_args = [ "-r{0}".format(processes), "--threads={0}".format(threads) ]
+            run_args = [ "-r{0}".format(processes) ]
 
         for name in params:
             run_args.append("-p{0}={1}".format(name, params[name]))
@@ -224,7 +222,7 @@ class Project:
             filename += "_mpi"
         return filename
 
-    def start_server(self, processes=1, threads=1, params=None):
+    def start_server(self, processes=1, params=None):
         if params is None:
             params = {}
 
@@ -232,9 +230,9 @@ class Project:
         executable = self.get_server_executable()
 
         if self.mpi:
-            run_args = [ "-np", str(processes), executable, "--threads={0}".format(threads) ]
+            run_args = [ "-np", str(processes), executable ]
         else:
-            run_args = [ "-r{0}".format(processes), "--threads={0}".format(threads) ]
+            run_args = [ "-r{0}".format(processes) ]
 
         for name in params:
             run_args.append("-p{0}={1}".format(name, params[name]))

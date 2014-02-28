@@ -48,7 +48,6 @@ bool Process::process_packet(Thread *thread, int from_process, int tag, void *da
 		// Net is already stopped therefore we can throw tokens away
 		return false;
 	}
-	n->lock();
 	int edge_id = tokens->edge_id;
 	int tokens_count = tokens->tokens_count;
 	CA_DLOG("RECV net=%i index=%i process=%i thread=%i\n",
@@ -57,7 +56,6 @@ bool Process::process_packet(Thread *thread, int from_process, int tag, void *da
 		n->receive(thread, from_process, edge_id, unpacker);
 	}
 	CA_DLOG("EOR index=%i process=%i thread=%i\n", edge_id, get_process_id(), thread->get_id());
-	n->unlock();
 	free(data);
 	return true;
 }
@@ -84,8 +82,7 @@ void Process::process_service_message(Thread *thread, ServiceMessage *smsg)
 				net_is_quit = false;
 				break;
 			}
-			Net *net = (Net *) spawn_net(thread, m->def_index, false);
-			net->unlock();
+			Net *net = (Net *) spawn_net(m->def_index, false);
 			if(too_early_message.size() > 0) {
 				std::vector<EarlyMessage>::const_iterator i;
 				for (i = too_early_message.begin(); i != too_early_message.end(); i++) {
@@ -104,7 +101,7 @@ void Process::process_service_message(Thread *thread, ServiceMessage *smsg)
 		case CA_SM_WAKE:
 		{
 			CA_DLOG("SERVICE CA_SM_WAKE on process=%i thread=%i\n", get_process_id(), thread->get_id());
-			start_and_join();
+			start(false);
 			clear();
 			#ifdef CA_MPI
 			MPI_Barrier(MPI_COMM_WORLD);
@@ -119,7 +116,7 @@ void Process::process_service_message(Thread *thread, ServiceMessage *smsg)
 	}
 }
 
-Net * Process::spawn_net(Thread *thread, int def_index, bool globally)
+Net * Process::spawn_net(int def_index, bool globally)
 {
 	TraceLog *tracelog = thread->get_tracelog();
 	if (tracelog) {
@@ -133,11 +130,10 @@ Net * Process::spawn_net(Thread *thread, int def_index, bool globally)
 			(ServiceMessageNetCreate *) malloc(sizeof(ServiceMessageNetCreate));
 		m->type = CA_SM_NET_CREATE;
 		m->def_index = def_index;
-		broadcast_packet(CA_TAG_SERVICE, m, sizeof(ServiceMessageNetCreate), thread, process_id);
+		broadcast_packet(CA_TAG_SERVICE, m, sizeof(ServiceMessageNetCreate), process_id);
 	}
 
 	net = (Net *) defs[def_index]->spawn(thread);
-	net->lock();
 	return net;
 }
 
@@ -145,28 +141,19 @@ Net * Process::spawn_net(Thread *thread, int def_index, bool globally)
 Process::Process(
 	int process_id,
 	int process_count,
-	int threads_count,
 	int defs_count,
-	NetDef **defs)
+	NetDef **defs) : thread(new Thread(this))
 {
 	this->process_id = process_id;
 	this->process_count = process_count;
 	this->defs_count = defs_count;
 	this->defs = defs;
-	this->threads_count = threads_count;
 	this->net_is_quit = false;
 	this->quit_flag = false;
 	this->net = NULL;
-	threads = new Thread[threads_count];
-	// TODO: ALLOCTEST
-	for (int t = 0; t < threads_count; t++) {
-		threads[t].set_process(this, t);
-	}
 
 	if (tracelog_size > 0) {
-		for (int t = 0; t < threads_count; t++) {
-			threads[t].set_tracelog(new RealTimeTraceLog(process_id, t, tracelog_size));
-		}
+		thread->set_tracelog(new RealTimeTraceLog(process_id, 0, tracelog_size));
 	}
 
 	#ifdef CA_SHMEM
@@ -177,42 +164,23 @@ Process::Process(
 
 Process::~Process()
 {
-	delete [] threads;
-
+	delete thread;
 	#ifdef CA_SHMEM
 	pthread_mutex_destroy(&packet_mutex);
 	#endif
 }
 
-void Process::start()
-{
+void Process::start(bool own_thread) {
 	quit_flag = false;
-
-	int t;
-	for (t = 0; t < threads_count; t++) {
-		threads[t].start();
-	}
-}
-
-void Process::join()
-{
-	int t;
-	for (t = 0; t < threads_count; t++) {
-		threads[t].join();
-	}
-}
-
-void Process::start_and_join()
-{
-	if (threads_count == 1) {
-		// If there is only one process them process thread runs scheduler,
-		// it is important because if threads_count == 1 we run MPI in MPI_THREAD_FUNELLED mode
-		quit_flag = false;
-		threads[0].run_scheduler();
+	if (!own_thread) {
+		thread->run_scheduler();
 	} else {
-		start();
-		join();
+		thread->start();
 	}
+}
+
+void Process::join() {
+	thread->join();
 }
 
 void Process::clear()
@@ -223,23 +191,17 @@ void Process::clear()
 	net = NULL;
 }
 
-Thread * Process::get_thread(int id)
-{
-	return &threads[id];
-}
-
+// NOTE: Relic of old thread system
 void Process::send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2)
 {
-	for (int t = 0; t < threads_count; t++) {
-		threads[t].add_message(new ThreadMessageBarriers(barrier1, barrier2));
-	}
+	thread->add_message(new ThreadMessageBarriers(barrier1, barrier2));
 }
 
-void Process::quit_all(Thread *thread)
+void Process::quit_all()
 {
 	ServiceMessage *m = (ServiceMessage*) malloc(sizeof(ServiceMessage));
 	m->type = CA_SM_QUIT;
-	broadcast_packet(CA_TAG_SERVICE, m, sizeof(ServiceMessage), thread, process_id);
+	broadcast_packet(CA_TAG_SERVICE, m, sizeof(ServiceMessage), process_id);
 	quit();
 }
 

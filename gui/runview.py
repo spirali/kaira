@@ -137,9 +137,8 @@ class RunView(gtk.VBox):
         self.counter_label.set_text("{0:0>{2}}/{1}".format(index, m, len(m)))
         time = "{0:0>{1}}".format(utils.time_to_string(self.tracelog.get_event_time(index)),
                                   len(maxtime))
-        text = "<span font_family='monospace'>{0}/{1} {3} {2}</span>".format(
+        text = "<span font_family='monospace'>{0} {2} {1}</span>".format(
             self.tracelog.get_event_process(index),
-            self.tracelog.get_event_thread(index),
             self.tracelog.get_event_name(index),
             time)
         self.info_label.set_markup(text)

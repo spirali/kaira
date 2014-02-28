@@ -162,7 +162,7 @@ def write_dependent(builder):
     builder.if_begin("a1.process != a2.process")
     builder.line("return false;")
     builder.block_end()
-    builder.line("cass::VerifThread thread(a1.process, 0);")
+    builder.line("cass::VerifThread thread(a1.process);")
     builder.line("ca::Context ctx(&thread, NULL);");
 
     builder.if_begin("a1.type == cass::ActionFire && a2.type == cass::ActionFire")
@@ -324,7 +324,7 @@ def write_compute_successors(builder):
 
     builder.block_begin()
     builder.line("cass::Action action;")
-    builder.line("cass::VerifThread thread(a.process, 0);")
+    builder.line("cass::VerifThread thread(a.process);")
     builder.line("ca::Context ctx(&thread, NULL);");
     builder.line("int receiving, place_tokens;")
     builder.switch_begin("a.type")
@@ -442,6 +442,4 @@ def write_net_functions(builder, net):
     write_spawn(builder, net)
 
     for tr in net.transitions:
-        buildnet.write_transition_functions(builder,
-                                            tr,
-                                            locking=False)
+        buildnet.write_transition_functions(builder, tr)

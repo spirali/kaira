@@ -32,10 +32,17 @@ class Context {
 	public:
 		Context(ThreadBase *thread, NetBase *net) : thread(thread), net(net) {}
 
-		void quit() { thread->quit_all(); }
-		int process_id() const { return thread->get_process_id(); }
-		int process_count() const { return thread->get_process_count(); }
-		int threads_count() const { return thread->get_threads_count(); }
+		void quit() {
+			thread->quit_all();
+		}
+
+		int process_id() const {
+			return thread->get_process_id();
+		}
+
+		int process_count() const {
+			return thread->get_process_count();
+		}
 
 		void trace_value(const std::string &str) {
 			TraceLog *tracelog = thread->get_tracelog();
@@ -81,7 +88,7 @@ Net *get_main_net();
 /* This method is used by module to send tokens to another process. n be called after spawn_toplevel_net*/
 Process * get_first_process();
 
-void write_header(FILE *out, int process_count, int threads_count);
+void write_header(FILE *out, int process_count);
 
 extern int process_count;
 extern int threads_count;

@@ -486,7 +486,6 @@ Release mode
 ~~~~~~~~~~~~
 
 -p *NAME=VALUE* :: Set the project parameter *NAME*
--t *N* --threads=*N* :: Set the number of threads per each process
 -r *N* :: Set the number of processes
     (only in threads version;
      in MPI version is done through the parameter of 'mpirun')

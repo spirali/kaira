@@ -56,12 +56,6 @@ Net::Net(NetDef *def, Thread *thread) :
 	data(NULL),
 	flags(0)
 {
-	if (thread->get_threads_count() > 1) {
-		mutex = new pthread_mutex_t;
-		pthread_mutex_init(mutex, NULL);
-	} else {
-		mutex = NULL;
-	}
 	transitions = def->make_transitions();
 	activate_all_transitions();
 }
@@ -69,10 +63,6 @@ Net::Net(NetDef *def, Thread *thread) :
 Net::~Net()
 {
 	delete [] transitions;
-	if (mutex) {
-		pthread_mutex_destroy(mutex);
-		delete mutex;
-	}
 }
 
 void Net::activate_all_transitions()
@@ -96,11 +86,7 @@ int Net::fire_transition(Thread *thread, int transition_id)
 {
 	TransitionDef *tr = def->get_transition_def(transition_id);
 	if (tr) {
-		lock();
 		int r = tr->full_fire(thread, this);
-		if (r == NOT_ENABLED) {
-			unlock();
-		}
 		return r;
 	}
 	return -1;

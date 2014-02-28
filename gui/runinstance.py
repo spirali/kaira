@@ -31,13 +31,12 @@ class Packet:
 
 class RunInstance:
 
-    def __init__(self, project, process_count, threads_count):
+    def __init__(self, project, process_count):
         self.project = project
         self.process_count = process_count
-        self.threads_count = threads_count
         self.net = None
         self.net_instances = {}
-        self.activites = [None] * (self.process_count * self.threads_count)
+        self.activites = [None] * self.process_count
         self.last_event = None # "fire" / "finished" / "receive" / None
         self.last_event_activity = None
         self.last_event_instance = None
@@ -57,9 +56,8 @@ class RunInstance:
     def add_enabled_transition(self, transition_id):
         self.last_event_instance.add_enabled_transition(transition_id)
 
-    def set_activity(self, process_id, thread_id, activity):
-        index = process_id * self.threads_count + thread_id
-        self.activites[index] = activity
+    def set_activity(self, process_id, activity):
+        self.activites[process_id] = activity
         self.last_event_activity = activity
 
     def pre_event(self):
@@ -72,92 +70,79 @@ class RunInstance:
         self.last_event_instance = None
         self.last_event_time = None
 
-    def event_spawn(self, process_id, thread_id, time, net_id):
+    def event_spawn(self, process_id, time, net_id):
         self.net = self.project.find_net(net_id)
         assert self.net.id == net_id
         self.last_event = "spawn"
-        if thread_id is not None:
-            self.set_activity(process_id, thread_id, None)
-
+        self.set_activity(process_id, None)
         instance = NetInstance(process_id)
         self.net_instances[process_id] = instance
         self.last_event_instance = instance
         self.last_event_process = process_id
         self.last_event_time = time
 
-    def event_quit(self, process_id, thread_id, time):
+    def event_quit(self, process_id, time):
         self.last_event = "quit"
         self.last_event_process = process_id
-        self.last_event_thread = thread_id
         self.last_event_time = time
-        index = process_id * self.threads_count + thread_id
-        self.last_event_activity = self.activites[index]
+        self.last_event_activity = self.activites[process_id]
         if self.last_event_activity is not None:
             # None can occur when we are logging
             # "quit" but not transition fire
             self.last_event_activity.quit = True
         self.last_event_instance = self.net_instances[process_id]
 
-    def event_idle(self, process_id, thread_id, time):
+    def event_idle(self, process_id, time):
         self.last_event = "idle"
         self.last_event_process = process_id
-        self.last_event_thread = thread_id
         self.last_event_time = time
         self.last_event_activity = None
         self.last_event_instance = self.net_instances[process_id]
 
-    def event_send(self, process_id, thread_id, time, target_id, size, edge_id):
+    def event_send(self, process_id, time, target_id, size, edge_id):
         packet = Packet(time, size, edge_id)
         self.packets[target_id * self.process_count + process_id].append(packet)
 
-    def event_end(self, process_id, thread_id, time):
+    def event_end(self, process_id, time):
         pass
 
-    def event_receive(self, process_id, thread_id, time, origin_id):
+    def event_receive(self, process_id, time, origin_id):
         self.last_event = "receive"
         self.last_event_process = process_id
-        self.last_event_thread = thread_id
         self.last_event_time = time
         packets = self.packets[process_id * self.process_count + origin_id]
         packet = packets[0]
         del packets[0]
         self.last_event_instance = self.net_instances[process_id]
         self.set_activity(process_id,
-                          thread_id,
-                          Receive(time, process_id, thread_id, origin_id))
+                          Receive(time, process_id, origin_id))
         return time - packet.time
 
-    def transition_fired(self, process_id, thread_id, time, transition_id, values):
+    def transition_fired(self, process_id, time, transition_id, values):
         self.last_event = "fire"
         self.last_event_instance = self.net_instances[process_id]
         self.last_event_process = process_id
-        self.last_event_thread = thread_id
         self.last_event_time = time
         transition = self.net.item_by_id(transition_id)
         self.last_event_activity = \
-            TransitionFire(time, process_id, thread_id, transition, values)
+            TransitionFire(time, process_id, transition, values)
         if transition.has_code() or transition.collective:
-            index = process_id * self.threads_count + thread_id
-            self.activites[index] = self.last_event_activity
+            self.activites[process_id] = self.last_event_activity
 
-    def transition_blocked(self, process_id, thread_id):
-        index = process_id * self.threads_count + thread_id
-        self.activites[index].blocked = True
+    def transition_blocked(self, process_id):
+        self.activites[process_id].blocked = True
 
-    def transition_finished(self, process_id, thread_id, time):
+    def transition_finished(self, process_id, time):
         self.last_event = "finish"
         self.last_event_process = process_id
-        self.last_event_thread = thread_id
         self.last_event_time = time
-        index = process_id * self.threads_count + thread_id
-        self.last_event_activity = self.activites[index]
+        self.last_event_activity = self.activites[process_id]
         self.last_event_instance = self.net_instances[process_id]
-        self.activites[index] = None
+        self.activites[process_id] = None
 
     def copy(self):
         runinstance = RunInstance(self.project,
-                                  self.process_count,
-                                  self.threads_count)
+                                  self.process_count)
         for i in self.net_instances:
             n = self.net_instances[i].copy()
             runinstance.net_instances[i] = n
@@ -201,32 +186,30 @@ class RunInstance:
         return len(self.packets[target_id * self.process_count + origin_id])
 
 
-class ThreadActivity:
+class ProcessActivity:
 
-    def __init__(self, time, process_id, thread_id):
+    def __init__(self, time, process_id):
         self.time = time
         self.process_id = process_id
-        self.thread_id = thread_id
 
-
-class TransitionFire(ThreadActivity):
+class TransitionFire(ProcessActivity):
 
     name = "fire"
     quit = False
     blocked = False
 
-    def __init__(self, time, process_id, thread_id, transition, values):
-        ThreadActivity.__init__(self, time, process_id, thread_id)
+    def __init__(self, time, process_id, transition, values):
+        ProcessActivity.__init__(self, time, process_id)
         self.transition = transition
         self.values = values
 
 
-class Receive(ThreadActivity):
+class Receive(ProcessActivity):
 
     name = "receive"
 
-    def __init__(self, time, process_id, thread_id, origin_id):
-        ThreadActivity.__init__(self, time, process_id, thread_id)
+    def __init__(self, time, process_id, origin_id):
+        ProcessActivity.__init__(self, time, process_id)
         self.origin_id = origin_id
 
 
@@ -367,14 +350,12 @@ class Perspective(utils.EqMixin):
 
         values = []
         runinstance = self.runinstance
-        for i in range(runinstance.threads_count * runinstance.process_count):
+        for i in range(runinstance.process_count):
             activity = runinstance.activites[i]
             if isinstance(activity, TransitionFire) \
                 and activity.transition.id == transition.id:
-                    run_on = "{0}/{1} -> ".format(i // runinstance.threads_count,
-                                                   i % runinstance.threads_count)
-                    values.append(run_on + "; ".join(map(str, activity.values)) + ";")
-
+                    s = "{0} -> ".format(i)
+                    values.append(s + "; ".join(map(str, activity.values)) + ";")
         return values
 
     def get_enabled_transitions(self):
@@ -391,32 +372,28 @@ class Perspective(utils.EqMixin):
     def get_activations_values(self, transition):
         runinstance = self.runinstance
         result = []
-        for p in range(runinstance.process_count):
-            for t in range(runinstance.threads_count):
-                activity = runinstance.activites[ p * runinstance.threads_count + t ]
-                if (runinstance.last_event_activity and
-                    runinstance.last_event_activity.name == "fire" and
-                    runinstance.last_event_activity.transition == transition and
-                    runinstance.last_event_activity.process_id == p and
-                    runinstance.last_event_activity.thread_id == t):
-                        if runinstance.last_event == "fire":
-                            color = (0, 1, 0, 0.8)
-                        elif runinstance.last_event_activity.quit:
-                            color = (0.45, 0.45, 0.45, 0.8)
-                        else:
-                            color = (1, 0, 0, 0.8)
-                        activity = runinstance.last_event_activity
-
-                elif isinstance(activity, TransitionFire) and \
-                        activity.transition == transition:
-                    if activity.blocked:
-                        color = (0.75, 0.75, 0.75, 0.9)
+        for p in xrange(runinstance.process_count):
+            activity = runinstance.activites[p]
+            if (runinstance.last_event_activity and
+                runinstance.last_event_activity.name == "fire" and
+                runinstance.last_event_activity.transition == transition and
+                runinstance.last_event_activity.process_id == p):
+                    if runinstance.last_event == "fire":
+                        color = (0, 1, 0, 0.8)
+                    elif runinstance.last_event_activity.quit:
+                        color = (0.45, 0.45, 0.45, 0.8)
                     else:
-                        color = (1.0, 1.0, 0.0, 0.8)
+                        color = (1, 0, 0, 0.8)
+                    activity = runinstance.last_event_activity
+            elif isinstance(activity, TransitionFire) and \
+                    activity.transition == transition:
+                if activity.blocked:
+                    color = (0.75, 0.75, 0.75, 0.9)
                 else:
-                    break
-                text = "{0.process_id}/{0.thread_id}".format(activity)
-                result.append((text, color, (p, t, transition)))
+                    color = (1.0, 1.0, 0.0, 0.8)
+            else:
+                continue
+            result.append((str(activity.process_id), color, (p, transition)))
         return result
 
     def get_process_ids(self):

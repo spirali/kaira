@@ -8,20 +8,17 @@ namespace ca {
 }
 
 casr::State::State(RunConfiguration &run_configuration, ca::NetDef *net_def)
-	: thread_info(ca::process_count * ca::threads_count),
+	: thread_info(ca::process_count),
   run_configuration(run_configuration) {
 	global_time = 0;
 	for (int p = 0; p < ca::process_count; p++) {
-		free_threads.push_back(ca::threads_count);
-		for (int t = 0; t < ca::threads_count; t++) {
-			ThreadInfo &ti = get_thread_info(p, t);
-			ti.release_time = 0;
-			ti.idle = false;
-			if (ca::tracelog_size > 0) {
-				ti.tracelog = new ControlledTimeTraceLog(p, t, ca::tracelog_size);
-			} else {
-				ti.tracelog = NULL;
-			}
+		ThreadInfo &ti = thread_info[p];
+		ti.release_time = 0;
+		ti.idle = false;
+		if (ca::tracelog_size > 0) {
+			ti.tracelog = new ControlledTimeTraceLog(p, 0, ca::tracelog_size);
+		} else {
+			ti.tracelog = NULL;
 		}
 	}
 	spawn(net_def);
@@ -30,12 +27,9 @@ casr::State::State(RunConfiguration &run_configuration, ca::NetDef *net_def)
 casr::State::~State()
 {
 	for (int p = 0; p < ca::process_count; p++) {
-		free_threads.push_back(ca::threads_count);
-		for (int t = 0; t < ca::threads_count; t++) {
-			ThreadInfo &ti = get_thread_info(p, t);
-			if (ti.tracelog) {
-				delete ti.tracelog;
-			}
+		ThreadInfo &ti = thread_info[p];
+		if (ti.tracelog) {
+			delete ti.tracelog;
 		}
 	}
 }
@@ -64,7 +58,7 @@ void casr::State::run() {
 }
 
 ca::IntTime casr::State::run_process(int process_id) {
-	ThreadInfo &ti = get_thread_info(process_id, 0);
+	ThreadInfo &ti = thread_info[process_id];
 
 	if (ti.release_time > global_time) {
 		// This process is still working
@@ -72,7 +66,7 @@ ca::IntTime casr::State::run_process(int process_id) {
 	}
 
 	ControlledTimeTraceLog *tracelog =
-		(ControlledTimeTraceLog*) get_tracelog(process_id, 0);
+		(ControlledTimeTraceLog*) get_tracelog(process_id);
 
 	if (tracelog) {
 		tracelog->set_basetime(global_time);
@@ -130,8 +124,8 @@ ca::IntTime casr::State::run_process(int process_id) {
 void casr::State::packet_preprocess(
 		int origin_id, int target_id, Packet &packet, size_t fake_size) {
 	ControlledTimeTraceLog *tracelog =
-		(ControlledTimeTraceLog*) get_tracelog(origin_id, 0);
-	StateThread thread(this, target_id, 0);
+		(ControlledTimeTraceLog*) get_tracelog(origin_id);
+	StateThread thread(this, target_id);
 	Context ctx(&thread);
 	packet.start_time = tracelog->get_time();
 	packet.release_time = packet.start_time +

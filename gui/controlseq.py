@@ -24,7 +24,7 @@ import objectlist
 import xml.etree.ElementTree as xml
 
 command_parser = re.compile(
-   "(?P<process>\d+) (?P<thread>\d+) (?P<action>[SFTR])( ((?P<arg_int>\d+)|(?P<arg_str>.*)))?"
+   "(?P<process>\d+) (?P<action>[SFTR])( ((?P<arg_int>\d+)|(?P<arg_str>.*)))?"
 )
 
 def sequence_dialog(sequence, mainwindow):
@@ -86,7 +86,6 @@ class ControlSequence:
             raise ControlSequenceException("Invalid format: ", line)
 
         process = int(match.group("process"))
-        thread = int(match.group("thread"))
         action = match.group("action")
 
         if action == "T":
@@ -94,50 +93,50 @@ class ControlSequence:
                 arg = match.group("arg_int")
             else:
                 arg = match.group("arg_str")
-            return on_fire(process, thread, arg)
+            return on_fire(process, arg)
         elif action == "R":
             arg_int = match.group("arg_int")
             if arg_int is None:
                 raise ControlSequenceException("Invalid format of receive")
-            return on_receive(process, thread, int(arg_int))
+            return on_receive(process, int(arg_int))
         elif action == "S":
             if match.group("arg_int"):
                 arg = match.group("arg_int")
             else:
                 arg = match.group("arg_str")
-            return on_transition_start(process, thread, arg)
+            return on_transition_start(process, arg)
         else: # action == "F":
-            return on_transition_finish(process, thread)
+            return on_transition_finish(process)
 
     def get_commands_size(self):
         return len(self.commands)
 
-    def add_fire(self, process, thread, transition):
-        self.commands.append("{0} {1} T {2}".format(process, thread, transition))
+    def add_fire(self, process, transition):
+        self.commands.append("{0} T {1}".format(process, transition))
         if self.view:
-            self.view.add_fire(process, thread, transition)
+            self.view.add_fire(process, transition)
 
-    def add_transition_start(self, process, thread, transition):
-        self.commands.append("{0} {1} S {2}".format(process, thread, transition))
+    def add_transition_start(self, process, transition):
+        self.commands.append("{0} S {1}".format(process, transition))
         if self.view:
-            self.view.add_transition_start(process, thread, transition)
+            self.view.add_transition_start(process, transition)
 
-    def add_transition_finish(self, process, thread):
-        self.commands.append("{0} {1} F".format(process, thread))
+    def add_transition_finish(self, process):
+        self.commands.append("{0} F".format(process))
         if self.view:
-            self.view.add_transition_finish(process, thread)
+            self.view.add_transition_finish(process)
 
-    def add_receive(self, process, thread, from_process):
-        self.commands.append("{0} {1} R {2}".format(process, thread, from_process))
+    def add_receive(self, process, from_process):
+        self.commands.append("{0} R {1}".format(process, from_process))
         if self.view:
-            self.view.add_receive(process, thread, from_process)
+            self.view.add_receive(process, from_process)
 
 
 class SequenceView(gtkutils.SimpleList):
 
     def __init__(self, sequence=None):
         gtkutils.SimpleList.__init__(
-            self, (("P/T", str), ("Action|markup", str), ("Arg", str)))
+            self, (("P", str), ("Action|markup", str), ("Arg", str)))
         if sequence:
             self.load_sequence(sequence)
 
@@ -148,23 +147,23 @@ class SequenceView(gtkutils.SimpleList):
                          self.add_transition_finish,
                          self.add_receive)
 
-    def add_fire(self, process_id, thread_id, transition):
-        self.append(("{0}/{1}".format(process_id, thread_id),
+    def add_fire(self, process_id, transition):
+        self.append((str(process_id),
                      "<span background='green'>Fire</span>",
                      transition))
 
-    def add_transition_start(self, process_id, thread_id, transition):
-        self.append(("{0}/{1}".format(process_id, thread_id),
+    def add_transition_start(self, process_id, transition):
+        self.append((str(process_id),
                      "<span background='lightgreen'>StartT</span>",
                      transition))
 
-    def add_transition_finish(self, process_id, thread_id):
-        self.append(("{0}/{1}".format(process_id, thread_id),
+    def add_transition_finish(self, process_id):
+        self.append((str(process_id),
                      "<span background='#FF7070'>FinishT</span>",
                      ""))
 
-    def add_receive(self, process_id, thread_id, from_process):
-        self.append(("{0}/{1}".format(process_id, thread_id),
+    def add_receive(self, process_id, from_process):
+        self.append((str(process_id),
                      "<span background='lightblue'>Receive</span>",
                      str(from_process)))
 

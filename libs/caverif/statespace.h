@@ -29,9 +29,8 @@ namespace cass {
 		Activation(
 			ca::TransitionDef *transition_def,
 			int process_id,
-			int thread_id,
 			void *binding)
-			: ca::Activation(transition_def, process_id, thread_id, binding) {
+			: ca::Activation(transition_def, process_id, binding) {
 				ca::Packer packer;
 				transition_def->pack_binding(packer, binding);
 				packed_binding = packer.get_buffer();
@@ -56,11 +55,7 @@ namespace cass {
 	  bool operator() (const Activation &t1, const Activation &t2) {
 			if (t1.transition_def->get_id() == t2.transition_def->get_id()) {
 				if (t1.process_id == t2.process_id) {
-					if (t1.thread_id == t2.thread_id) {
-						return binding_compare(t1, t2);
-					} else {
-						return t1.thread_id < t2.thread_id;
-					}
+					return binding_compare(t1, t2);
 				} else {
 					return t1.process_id < t2.process_id;
 				}
@@ -89,13 +84,11 @@ namespace cass {
 		union {
 				struct {
 					int process_id;
-					int thread_id;
 					int transition_id;
 					HashDigest binding;
 				} fire; // ActionFire
 				struct {
 					int process_id;
-					int thread_id;
 				} finish; // ActionFinish
 				struct {
 					int process_id;

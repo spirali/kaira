@@ -7,7 +7,7 @@ using namespace ca;
 
 /* This code is just proof of concept and it really needs some tweaks */
 
-void Process::broadcast_packet(int tag, void *data, size_t size, Thread *thread, int exclude)
+void Process::broadcast_packet(int tag, void *data, size_t size, int exclude)
 {
 	thread->get_requests()->check();
 	char *d = (char*) data;
@@ -91,8 +91,8 @@ void Process::wait()
 	MPI_Get_count(&status, MPI_BYTE, &msg_size);
 	char *buffer = (char*) malloc(msg_size); // FIXME: alloca for small packets
 	MPI_Recv(buffer, msg_size, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-	this->get_thread(0)->process_thread_messages();
-	process_packet(this->get_thread(0), status.MPI_SOURCE, status.MPI_TAG, buffer);
+	this->get_thread()->process_thread_messages();
+	process_packet(this->get_thread(), status.MPI_SOURCE, status.MPI_TAG, buffer);
 }
 
 // Scatter ------------------------------------------------------

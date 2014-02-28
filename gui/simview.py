@@ -47,12 +47,12 @@ class SimCanvasConfig(NetViewCanvasConfig):
         elif item.kind == "activation":
             if not self.check_last_active():
                 return
-            process_id, thread_id, transition = item.owner
+            process_id, transition = item.owner
             if self.simview.button_auto_receive.get_active():
                 callback = lambda: self.simulation.receive_all()
             else:
                 callback = None
-            self.simulation.finish_transition(process_id, thread_id, callback)
+            self.simulation.finish_transition(process_id, callback)
         elif item.kind == "packet" and item.packet_data is not None:
             if not self.check_last_active():
                 return

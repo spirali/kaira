@@ -132,7 +132,6 @@ void State::hash_activations(MHASH hash_thread)
 		int id = i->transition_def->get_id();
 		mhash(hash_thread, &id, sizeof(int));
 		mhash(hash_thread, &i->process_id, sizeof(i->process_id));
-		mhash(hash_thread, &i->thread_id, sizeof(i->thread_id));
 		mhash(hash_thread, i->packed_binding, i->packed_binding_size);
 	}
 }
@@ -173,7 +172,6 @@ void State::pack_activations(ca::Packer &packer)
 		int id = i->transition_def->get_id();
 		pack(packer, id);
 		pack(packer, i->process_id);
-		pack(packer, i->thread_id);
 		pack(packer, i->packed_binding, i->packed_binding_size);
 	}
 }
@@ -297,7 +295,6 @@ void Node::generate(Core *core)
 				nninfo.node = n;
 				nninfo.action = ActionFire;
 				nninfo.data.fire.process_id = it->process;
-				nninfo.data.fire.thread_id = 0;
 				nninfo.data.fire.transition_id = it->data.fire.transition_def->get_id();
 				if (core->generate_binding_in_nni(it->data.fire.transition_def->get_id())) {
 					nninfo.data.fire.binding = core->hash_packer(packer);
@@ -683,7 +680,6 @@ static void write_control_line(ca::NetDef *def, std::stringstream &s, const Next
 	switch (nninfo.action) {
 		case ActionFire: {
 			s << nninfo.data.fire.process_id;
-			s << " " << nninfo.data.fire.thread_id;
 			s << " T ";
 			ca::TransitionDef *t = def->get_transition_def(nninfo.data.fire.transition_id);
 			if (t->get_name().size() > 0) {
@@ -695,7 +691,7 @@ static void write_control_line(ca::NetDef *def, std::stringstream &s, const Next
 		}
 		case ActionReceive:
 			s << nninfo.data.receive.process_id;
-			s << " 0 R " << nninfo.data.receive.source_id;
+			s << " R " << nninfo.data.receive.source_id;
 			break;
 	}
 	s << std::endl;

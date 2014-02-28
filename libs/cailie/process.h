@@ -50,18 +50,21 @@ struct ShmemPacket : public Packet {
 
 class Process {
 	public:
-		Process(int process_id, int process_count, int threads_count, int defs_count, NetDef **defs);
+		Process(int process_id, int process_count, int defs_count, NetDef **defs);
 		virtual ~Process();
-		void start();
+		void start(bool own_thread);
 		void join();
-		void start_and_join();
 		void clear();
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
-		void quit_all(Thread *thread);
+		void quit_all();
 		void quit();
 
-		Net * spawn_net(Thread *thread, int def_index, bool globally);
-		Thread *get_thread(int id);
+		Net *spawn_net(int def_index, bool globally);
+
+
+		Thread *get_thread() {
+			return thread;
+		}
 
 		void send(int target, Net * net, int edge_id, int tokens_count,
 			const Packer &packer, Thread *thread);
@@ -97,13 +100,8 @@ class Process {
 		void wait();
 		#endif
 
-		void broadcast_packet(int tag, void *data, size_t size, Thread *thread, int exclude = -1);
+		void broadcast_packet(int tag, void *data, size_t size, int exclude = -1);
 		void write_header(FILE *file);
-
-
-		int get_threads_count() const {
-			return threads_count;
-		}
 
 		int get_process_count() const {
 			return process_count;
@@ -128,10 +126,9 @@ class Process {
 		Net *net;
 		int process_id;
 		int process_count;
-		int threads_count;
 		int defs_count;
 		NetDef **defs;
-		Thread *threads;
+		Thread *thread;
 		std::vector<EarlyMessage> too_early_message;
 		/*memory of net's id which wasn't created, but was quit*/
 		bool net_is_quit;

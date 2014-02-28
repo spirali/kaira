@@ -14,7 +14,6 @@
 
 namespace ca {
 
-int threads_count = 1;
 int process_count = 1;
 const char *project_description_string = NULL;
 int listen_port = -1;
@@ -67,9 +66,8 @@ int ca::main()
 		CA_TAG_SERVICE,
 		m,
 		sizeof(ServiceMessage),
-		process->get_thread(0),
 		0);
-	process->start_and_join();
+	process->start(false);
 	process->clear();
 	MPI_Barrier(MPI_COMM_WORLD);
 	#endif
@@ -97,7 +95,7 @@ int ca::main()
 		bool quit = false;
 		while(!quit) {
 			for (int t = 0; t < process_count; t++) {
-				Thread *thread = processes[t]->get_thread(0);
+				Thread *thread = processes[t]->get_thread();
 				thread->run_one_step();
 				if (processes[t]->quit_flag) {
 					quit = true;
@@ -107,7 +105,7 @@ int ca::main()
 		}
 	} else { // Normal run
 		for (int t = 0; t < process_count; t++) {
-			processes[t]->start();
+			processes[t]->start(true);
 		}
 
 		for (int t = 0; t < process_count; t++) {
@@ -150,7 +148,6 @@ static void finalize()
 			CA_TAG_SERVICE,
 			m,
 			sizeof(ServiceMessage),
-			process->get_thread(0),
 			0);
 	}
 	MPI_Finalize();
@@ -177,7 +174,6 @@ void ca::init(int argc,
 	int c;
 	struct option longopts[] = {
 		{ "help",	0,	NULL, 'h' },
-		{ "threads",	1,	NULL, 't' },
 		{ NULL,		0,	NULL,  0}
 	};
 
@@ -201,14 +197,6 @@ void ca::init(int argc,
 					printf(" - %s\n", parameters[t]->get_description().c_str());
 				}
 				exit(0);
-			}
-			case 't': {
-			      threads_count = atoi(optarg);
-				  if (threads_count < 1) {
-						fprintf(stderr, "Invalid number of threads\n");
-						exit(-1);
-				  }
-			      break;
 			}
 			case 'r': {
 					#ifdef CA_MPI
@@ -283,21 +271,7 @@ void ca::init(int argc,
 			}
 
 	#ifdef CA_MPI
-	int provided;
-	int target;
-	if (threads_count == 1) {
-		target = MPI_THREAD_SINGLE;
-	} else {
-		target = MPI_THREAD_MULTIPLE;
-	}
-
-	MPI_Init_thread(&argc, &argv, target, &provided);
-	if (target > provided) {
-		fprintf(stderr, "MPI_Init_thread: Insufficient support of threads in MPI implementaion.\n"
-			"This program can be run with one thread per MPI process or\n"
-			"MPI implementation has to support MPI_THREAD_MULTIPLE.\n");
-		exit(1);
-	}
+	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &process_count);
 	#endif
 
@@ -327,7 +301,7 @@ void ca::setup(int _defs_count, NetDef **_defs, bool start_process)
 		#ifdef CA_MPI
 			int process_id;
 			MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
-			process = new Process(process_id, process_count, threads_count, defs_count, defs);
+			process = new Process(process_id, process_count, defs_count, defs);
 			if(process_id > 0){
 				while(true){
 					process->wait();
@@ -338,7 +312,7 @@ void ca::setup(int _defs_count, NetDef **_defs, bool start_process)
 		#ifdef CA_SHMEM
 		processes = (Process**) malloc(sizeof(Process*) * process_count);
 		for (int t = 0; t < process_count; t++) {
-			processes[t] = new Process(t, process_count, threads_count, defs_count, defs);
+			processes[t] = new Process(t, process_count, defs_count, defs);
 		}
 		#endif
 	}
@@ -351,8 +325,7 @@ void ca::spawn_net(int def_id)
 
 	#ifdef CA_SHMEM
 	for (int t = 0; t < process_count; t++) {
-		Net *net = processes[t]->spawn_net(processes[t]->get_thread(0), def_id, false);
-		net->unlock();
+		Net *net = processes[t]->spawn_net(def_id, false);
 		if (t == 0) {
 			master_net = net;
 		}
@@ -360,10 +333,7 @@ void ca::spawn_net(int def_id)
 	#endif
 
 	#ifdef CA_MPI
-	Thread *thread = process->get_thread(0);
-	Net *net = process->spawn_net(thread, def_id, true);
-	net->unlock();
-	master_net = net;
+	master_net = process->spawn_net(def_id, true);
 	#endif
 }
 
@@ -383,7 +353,7 @@ Process * ca::get_first_process()
 	#endif
 }
 
-void ca::write_header(FILE *out, int process_count, int threads_count)
+void ca::write_header(FILE *out, int process_count)
 {
 	int lines = 1;
 	for (const char *c = project_description_string; (*c) != 0; c++) {
@@ -396,7 +366,6 @@ void ca::write_header(FILE *out, int process_count, int threads_count)
 	output.child("header");
 	output.set("pointer-size", (int) sizeof(void*));
 	output.set("process-count", process_count);
-	output.set("threads-count", threads_count);
 	output.set("description-lines", lines);
 	output.back();
 	fputs("\n", out);

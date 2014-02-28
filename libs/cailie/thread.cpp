@@ -8,7 +8,7 @@
 
 using namespace ca;
 
-Thread::Thread() : messages(NULL), process(), thread(0)
+Thread::Thread(Process *process) : messages(NULL), process(process)
 {
 	pthread_mutex_init(&messages_mutex, NULL);
 }
@@ -66,12 +66,7 @@ void Thread::clean_thread_messages()
 int Thread::process_messages()
 {
 	int result = process_thread_messages();
-
-	if (id == 0) {
-		return process->process_packets(this) || result;
-	} else {
-		return result;
-	}
+	return process->process_packets(this) || result;
 }
 
 static void * thread_run(void *data)
@@ -79,12 +74,6 @@ static void * thread_run(void *data)
 	Thread *thread = (Thread*) data;
 	thread->run_scheduler();
 	return NULL;
-}
-
-void Thread::start()
-{
-	CA_DLOG("Starting thread process=%i thread=%i\n", get_process_id(), id);
-	pthread_create(&thread, NULL, thread_run, this);
 }
 
 void Thread::join()
@@ -95,12 +84,18 @@ void Thread::join()
 	#endif
 }
 
+void Thread::start()
+{
+       CA_DLOG("Starting thread process=%i\n", get_process_id());
+       pthread_create(&thread, NULL, thread_run, this);
+}
+
 void Thread::quit_all()
 {
 	if (get_tracelog()) {
 		get_tracelog()->event_net_quit();
 	}
-	process->quit_all(this);
+	process->quit_all();
 }
 
 void Thread::run_scheduler()
@@ -114,20 +109,15 @@ void Thread::run_scheduler()
 			continue;
 		}
 
-		if (!n->try_lock()) {
-			sched_yield();
-			continue;
-		}
 		Transition *tr = n->pick_active_transition();
 		if (tr == NULL) {
-			n->unlock();
 			if (!in_idle && tracelog) {
 				tracelog->event_idle();
 			}
 			in_idle = true;
 			continue;
 		}
-	    in_idle = false;
+		in_idle = false;
 		CA_DLOG("Transition tried id=%i process=%i thread=%i\n",
 				 tr->id, get_process_id(), id);
 		int res = tr->full_fire(this, n);
@@ -135,7 +125,6 @@ void Thread::run_scheduler()
 			CA_DLOG("Transition is not enabled id=%i process=%i thread=%i\n",
 					 tr->id, get_process_id(), id);
 			tr->set_active(false);
-			n->unlock();
 		}
 	}
 }
@@ -157,21 +146,5 @@ void Thread::run_one_step()
 
 Net * Thread::spawn_net(int def_index)
 {
-	return process->spawn_net(this, def_index, true);
+	return process->spawn_net(def_index, true);
 }
-
-/*
-int Thread::get_new_msg_id()
-{
-	if (tracelog) {
-		if (msg_id >= INT_MAX - process->get_process_count() * process->get_threads_count()) {
-			msg_id = msg_id % (process->get_process_count() * process->get_threads_count());
-		}
-		msg_id += process->get_process_count() * process->get_threads_count();
-		return msg_id;
-	} else {
-		return 0;
-	}
-}
-*/
-

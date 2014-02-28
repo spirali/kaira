@@ -14,7 +14,7 @@ pthread_mutex_t ca::Process::collective_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_barrier_t ca::Process::collective_barrier1;
 pthread_barrier_t ca::Process::collective_barrier2;
 
-void ca::Process::broadcast_packet(int tag, void *data, size_t size, Thread *thread, int exclude)
+void ca::Process::broadcast_packet(int tag, void *data, size_t size, int exclude)
 {
 	for (int t = 0; t < process_count; t++) {
 		if (t == exclude)
