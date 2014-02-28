@@ -275,6 +275,13 @@ namespace ca {
 				return transition_def->full_fire_with_binding(&thread, nets[process_id], packer);
 			}
 
+			bool is_transition_enabled(int process_id, TransitionDef *transition_def)
+			{
+				int thread_id = 0;
+				StateThread thread(this, process_id, thread_id);
+				return transition_def->is_enable(&thread, nets[process_id]);
+			}
+
 			void finish_transition(typename std::vector<ActivationT>::iterator i)
 			{
 				StateThread thread(this, i->process_id, i->thread_id);
@@ -316,7 +323,7 @@ namespace ca {
 			}
 
 			NetDef* get_net_def() { return net_def; }
-			NetBase* get_net(int id) { return nets[id]; }
+			NetT* get_net(int id) { return nets[id]; }
 
 			int get_idle_thread(int process_id) {
 				for (int i = 0; i < threads_count; i++) {
@@ -366,6 +373,29 @@ namespace ca {
 					free(packet.data);
 				}
 				return true;
+			}
+
+			int get_receiving_edge(int process_id, int origin_id, int position) {
+				PacketQueue &pq = packets[process_id * ca::process_count + origin_id];
+				if (pq.empty() || position >= pq.size()) {
+					return -1;
+				} else {
+					Packet packet = pq[position];
+					ca::Tokens *tokens = (ca::Tokens *) packet.data;
+					return tokens->edge_id;
+				}
+			}
+
+			int get_token_count_in_edge(int process_id, int origin_id, int edge_id) {
+				PacketQueue &pq = packets[process_id * ca::process_count + origin_id];
+				int count = 0;
+				for (int i = 0; i < pq.size(); i++) {
+					ca::Tokens *tokens = (ca::Tokens *) pq[i].data;
+					if (tokens->edge_id == edge_id) {
+						count++;
+					}
+				}
+				return count;
 			}
 
 			PacketQueue & get_packets(int process_id, int origin_id) {

@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2012-2013 Stanislav Bohm
+#    Copyright (C) 2012-2014 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -51,10 +51,17 @@ class StatespaceConfig(gtk.VBox):
         self.analyze_transition_occurrence.set_active(True)
 
         frame = gtk.Frame("Other options")
-        self.pack_start(frame, False, False, 5)
         frame.set_border_width(5)
+        vbox = gtk.VBox()
+        frame.add(vbox)
+
+        self.por = gtk.CheckButton("Enable Partial Order Reduction")
+        vbox.pack_start(self.por, False, False)
+        self.por.set_active(True)
+
+        self.pack_start(frame, False, False, 5)
         self.create_dot = gtk.CheckButton("Create 'statespace.dot'")
-        frame.add(self.create_dot)
+        vbox.pack_start(self.create_dot, False, False)
 
         vbox = gtk.HBox(homogeneous=True)
         self.pack_start(vbox, False, False)
@@ -75,9 +82,10 @@ class StatespaceConfig(gtk.VBox):
     def start(self):
         def build_ok():
             self.info_label.set_text("Running computation ...")
-
+            prefix = "==KAIRA=="
             def on_line(line, stream):
-                self.info_label.set_text("Running computation ... " + line)
+                if line.startswith(prefix):
+                    self.info_label.set_text("Running computation ... " + line[len(prefix):])
                 return True
 
             def on_exit(code):
@@ -122,6 +130,8 @@ class StatespaceConfig(gtk.VBox):
             if self.analyze_cycles.get_active():
                 parameters.append("-Vcycle")
 
+            if not self.por.get_active():
+                parameters.append("-Vdisable-por")
 
             p.start(parameters)
             self.process = p

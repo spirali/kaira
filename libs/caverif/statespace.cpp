@@ -17,43 +17,64 @@ static int const MAX_STATES_IN_REPORT = 5;
 
 using namespace cass;
 
-static bool write_dot = false;
-static bool analyse_deadlock = false;
-static bool analyse_transition_occurrence = false;
-static bool analyse_final_marking = false;
-static bool analyse_cycle = false;
+static bool cfg_write_dot = false;
+static bool cfg_write_statespace = false;
+static bool cfg_analyse_deadlock = false;
+static bool cfg_analyse_transition_occurence = false;
+static bool cfg_analyse_final_marking = false;
+static bool cfg_analyse_cycle = false;
+static bool cfg_partial_order_reduction = true;
+static bool cfg_silent = false;
+static bool cfg_debug = false;
 static std::string project_name;
 
 
 struct CmpByDistance
 {
-    bool operator()(Node *a, Node *b) const
-    {
-        return a->get_distance() < b->get_distance();
-    }
+	bool operator()(Node *a, Node *b) const
+	{
+		return a->get_distance() < b->get_distance();
+	}
 };
 
 static void args_callback(char c, char *optarg, void *data)
 {
 	if (c == 'V') {
 		if (!strcmp(optarg, "dot")) {
-			write_dot = true;
+			cfg_write_dot = true;
+			return;
+		}
+
+		if (!strcmp(optarg, "debug")) {
+			cfg_debug = true;
 			return;
 		}
 		if (!strcmp(optarg, "deadlock")) {
-			analyse_deadlock = true;
+			cfg_analyse_deadlock = true;
 			return;
 		}
 		if (!strcmp(optarg, "tchv")) {
-			analyse_transition_occurrence = true;
+			cfg_analyse_transition_occurence = true;
 			return;
 		}
 		if (!strcmp(optarg, "fmarking")) {
-			analyse_final_marking = true;
+			cfg_analyse_final_marking = true;
 			return;
 		}
 		if (!strcmp(optarg, "cycle")) {
-			analyse_cycle = true;
+			cfg_analyse_cycle = true;
+			return;
+		}
+		if (!strcmp(optarg, "disable-por")) {
+			cfg_partial_order_reduction = false;
+			return;
+		}
+		if (!strcmp(optarg, "silent")) {
+			cfg_silent = true;
+			return;
+		}
+		if (!strcmp(optarg, "write-statespace")) {
+			cfg_write_statespace = true;
 			return;
 		}
 
@@ -179,11 +200,11 @@ HashDigest State::compute_hash(hashid hash_id)
 Node::Node(HashDigest hash, State *state, Node *prev)
 	: hash(hash), state(state), prev(prev), data(NULL), tag(0)
 {
-    if (prev != NULL) {
-        distance = prev->get_distance() + 1;
-    } else {
-        distance = 0;
-    }
+	if (prev != NULL) {
+		distance = prev->get_distance() + 1;
+	} else {
+		distance = 0;
+	}
 }
 
 Node::~Node()
@@ -199,6 +220,45 @@ void Node::set_prev(Node *node)
 	}
 }
 
+ActionSet Node::compute_enable_set(Core *core)
+{
+	ActionSet enable;
+
+	ca::NetDef *def = core->get_net_def();
+	const std::vector<ca::TransitionDef*> &transitions = def->get_transition_defs();
+
+	for (int p = 0; p < ca::process_count; p++) {
+		for (int i = 0; i < def->get_transitions_count(); i++) {
+			if (state->is_transition_enabled(p, transitions[i])) {
+				Action action;
+				action.type = ActionFire;
+				action.data.fire.transition_def = transitions[i];
+				action.process = p;
+				enable.insert(action);
+				// all other transitions have lower priority
+				break;
+			}
+		}
+	}
+
+	for (int pq = 0; pq < ca::process_count * ca::process_count; pq++) {
+		int target = pq / ca::process_count;
+		int source = pq % ca::process_count;
+		int edge_id = state->get_receiving_edge(target, source, 0);
+
+		if (edge_id != -1) {
+			Action action;
+			action.type = ActionReceive;
+			action.data.receive.source = source;
+			action.data.receive.edge_id = edge_id;
+			action.process = target;
+			enable.insert(action);
+		}
+	}
+
+	return enable;
+}
+
 void Node::generate(Core *core)
 {
 	if (state->get_quit_flag()) {
@@ -206,113 +266,63 @@ void Node::generate(Core *core)
 	}
 
 	ca::NetDef *def = core->get_net_def();
-	const std::vector<ca::TransitionDef*> &transitions =
-		def->get_transition_defs();
-	int transitions_count = def->get_transitions_count();
+	const std::vector<ca::TransitionDef*> &transitions = def->get_transition_defs();
+	ActionSet enabled = compute_enable_set(core);
+	ActionSet ws;
+	if (cfg_partial_order_reduction) {
+		ws = core->compute_ample_set(state, enabled);
+	} else {
+		ws = enabled;
+	}
 
-	State *s = NULL;
+	State *s;
 
-	/* Full fire transition */
-	for (int p = 0; p < ca::process_count; p++) {
-			for (int i = 0; i < transitions_count; i++) {
-				if (s == NULL) {
-					s = new State(*state);
-				}
+	ActionSet::iterator it;
+	for (it = ws.begin(); it != ws.end(); it++) {
+		s = new State(*state);
+		switch (it->type) {
+			case ActionFire:
+			{
 				ca::Packer packer;
-				bool fired;
-				if (core->generate_binding_in_nni(transitions[i]->get_id())) {
-					fired = s->fire_transition_full_with_binding(p, transitions[i], packer);
+				if (core->generate_binding_in_nni(it->data.fire.transition_def->get_id())) {
+					s->fire_transition_full_with_binding(it->process, it->data.fire.transition_def, packer);
 				} else {
-					fired = s->fire_transition_full(p, transitions[i]);
+					s->fire_transition_full(it->process, it->data.fire.transition_def);
 				}
-				if (fired) {
-					Node *n = core->add_state(s, this);
-					NextNodeInfo nninfo;
-					nninfo.node = n;
-					nninfo.action = ActionFire;
-					nninfo.data.fire.process_id = p;
-					nninfo.data.fire.thread_id = 0;
-					nninfo.data.fire.transition_id = transitions[i]->get_id();
-					if (core->generate_binding_in_nni(transitions[i]->get_id())) {
-						nninfo.data.fire.binding = core->hash_packer(packer);
-					}
-					nexts.push_back(nninfo);
-					s = NULL;
-				}
-			}
-		}
-
-	/* we do not support threads
-	// Fire transitions
-	for (int p = 0; p < ca::process_count; p++) {
-		for (int i = 0; i < transitions_count; i++) {
-			if (s == NULL) {
-				s = new State(*state);
-			}
-			bool fired = s->fire_transition_phase1(p, transitions[i]);
-			if (fired) {
-				Node *n = core->add_state(s);
-				n->set_prev(this);
+				Node *n = core->add_state(s, this);
 				NextNodeInfo nninfo;
 				nninfo.node = n;
 				nninfo.action = ActionFire;
-				nninfo.data.fire.process_id = p;
+				nninfo.data.fire.process_id = it->process;
 				nninfo.data.fire.thread_id = 0;
-				nninfo.data.fire.transition_id = transitions[i]->get_id();
+				nninfo.data.fire.transition_id = it->data.fire.transition_def->get_id();
+				if (core->generate_binding_in_nni(it->data.fire.transition_def->get_id())) {
+					nninfo.data.fire.binding = core->hash_packer(packer);
+				}
 				nexts.push_back(nninfo);
-				s = NULL;
+				break;
+			}
+
+			case ActionReceive:
+			{
+				s->receive(it->process, it->data.receive.source, false);
+				Node *n = core->add_state(s, this);
+				NextNodeInfo nninfo;
+				nninfo.node = n;
+				nninfo.action = ActionReceive;
+				nninfo.data.receive.process_id = it->process;
+				nninfo.data.receive.source_id = it->data.receive.source;
+				nexts.push_back(nninfo);
+				break;
 			}
 		}
-	}
-
-	// Finish transitions
-	std::vector<Activation> &activations = state->get_activations();
-	for (int i = 0; i < activations.size(); i++)
-	{
-		if (s == NULL) {
-			s = new State(*state);
-		}
-		s->finish_transition_ro_binding(i);
-		Node *n = core->add_state(s);
-		n->set_prev(this);
-		NextNodeInfo nninfo;
-		nninfo.node = n;
-		nninfo.action = ActionFinish;
-		nninfo.data.finish.process_id = activations[i].process_id;
-		nninfo.data.finish.thread_id = activations[i].thread_id;
-		nexts.push_back(nninfo);
-		s = NULL;
-	}
-	*/
-
-	/* Receive packets */
-	for (int pq = 0; pq < ca::process_count * ca::process_count; pq++) {
-		int target = pq / ca::process_count;
-		int source = pq % ca::process_count;
-		if (s == NULL) {
-			s = new State(*state);
-		}
-		if (!s->receive(target, source, false)) {
-			continue;
-		}
-		Node *n = core->add_state(s, this);
-		NextNodeInfo nninfo;
-		nninfo.node = n;
-		nninfo.action = ActionReceive;
-		nninfo.data.receive.process_id = target;
-		nninfo.data.receive.source_id = source;
-		nexts.push_back(nninfo);
-		s = NULL;
-	}
-	if (s != NULL) {
-		delete s;
 	}
 }
 
 Core::Core(VerifConfiguration &verif_configuration) : initial_node(NULL), nodes(10000, HashDigestHash(MHASH_MD5),
 		HashDigestEq(MHASH_MD5)), net_def(NULL), verif_configuration(verif_configuration)
 {
-	if (analyse_transition_occurrence) {
+	if (cfg_analyse_transition_occurence) {
 		generate_binging_in_nni = true;
 	} else {
 		generate_binging_in_nni = false;
@@ -333,13 +343,178 @@ void Core::generate()
 	int count = 0;
 	do {
 		count++;
-		if (count % 1000 == 0) {
-			fprintf(stderr, "Nodes %i\n", count);
+		if (count % 1000 == 0 && !cfg_silent) {
+			fprintf(stderr, "==KAIRA== Nodes %i\n", count);
 		}
 		Node *node = not_processed.top();
 		not_processed.pop();
 		node->generate(this);
+		if (cfg_debug) {
+			getchar();
+		}
 	} while (!not_processed.empty());
+}
+
+ActionSet Core::compute_ample_set(State *s, const ActionSet &enable)
+{
+	ActionSet::iterator it;
+
+	if (cfg_debug) {
+		// print state name
+		char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
+		hashdigest_to_string(MHASH_MD5, s->compute_hash(MHASH_MD5) , hashstr);
+		printf(">> state: %s: \nenable: { ", hashstr);
+		for (it = enable.begin(); it != enable.end(); it++) {
+			printf("%s ", it->to_string().c_str());
+		}
+		printf("}\n");
+	}
+
+	for (it = enable.begin(); it != enable.end(); it++) {
+		ActionSet ample;
+		ample.insert(*it);
+		if (cfg_debug) {
+			printf("  > ample: { ");
+			for (ActionSet::iterator i = ample.begin(); i != ample.end(); i++) {
+				printf("%s ", i->to_string().c_str());
+			}
+			printf("}\n");
+		}
+		if (check_C1(enable, ample, s) && check_C2(ample) && check_C3(s)) {
+			if (cfg_debug) {
+				printf("  This ample set is independent.\n");
+			}
+			return ample;
+		}
+		if (cfg_debug) {
+			getchar();
+		}
+	}
+	return enable;
+}
+
+bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
+{
+	ActionSet::iterator it1;
+	ActionSet::iterator it2;
+
+	std::deque<Action> queue;
+	// This assume that there is no optimization for number of tokens in places
+	ActionSet processed = ample;
+	std::vector<bool> receive_blocked(ca::process_count * ca::process_count, false);
+	std::vector<bool> fire_blocked(ca::process_count, false);
+
+	if (cfg_debug) {
+		printf("    C1: starting configuration {");
+	}
+	for (ActionSet::iterator i = enabled.begin(); i != enabled.end(); i++) {
+		if (ample.find(*i) != ample.end()) {
+			if (i->type == ActionReceive) {
+				receive_blocked[i->process * ca::process_count + i->data.receive.source] = true;
+			}
+			if (i->type == ActionFire) {
+				fire_blocked[i->process] = true;
+			}
+		} else {
+			if (i->type == ActionFire) {
+				processed.insert(*i);
+				queue.push_back(*i);
+				if (cfg_debug) {
+					printf(" %s", i->to_string().c_str());
+				}
+				const std::vector<ca::TransitionDef*> &transitions = net_def->get_transition_defs();
+				int t = 0;
+				while (transitions[t++] != i->data.fire.transition_def);
+				for (; t < net_def->get_transitions_count(); t++) {
+					if (s->is_transition_enabled(i->process, transitions[t])) {
+						Action a;
+						a.type = ActionFire;
+						a.data.fire.transition_def = transitions[t];
+						a.process = i->process;
+						processed.insert(a);
+						queue.push_back(a);
+						if (cfg_debug) {
+							printf(" %s", a.to_string().c_str());
+						}
+					}
+				}
+				continue;
+			}
+			if (i->type == ActionReceive) {
+				const State::PacketQueue& pq = s->get_packets(i->process, i->data.receive.source);
+				for (size_t p = 0; p < pq.size(); p++) {
+					Action a;
+					a.type = ActionReceive;
+					a.process = i->process;
+					a.data.receive.source = i->data.receive.source;
+					ca::Tokens *tokens = (ca::Tokens *) pq[p].data;
+					a.data.receive.edge_id = tokens->edge_id;
+					if (processed.find(a) == processed.end()) {
+						processed.insert(a);
+						queue.push_back(a);
+						if (cfg_debug) {
+							printf(" %s", a.to_string().c_str());
+						}
+					}
+				}
+				continue;
+			}
+			processed.insert(*i);
+			queue.push_back(*i);
+			if (cfg_debug) {
+				printf(" %s", i->to_string().c_str());
+			}
+		}
+	}
+
+	if (cfg_debug) {
+		printf(" }\n");
+	}
+
+	while(queue.size() > 0) {
+		for (ActionSet::iterator a = ample.begin(); a != ample.end(); a++) {
+			if (verif_configuration.is_dependent(*a, queue.front(), s)) {
+				if (cfg_debug) {
+					printf("    C1: %s and %s are dependent.\n", a->to_string().c_str(), queue.front().to_string().c_str());
+				}
+				return false;
+			}
+		}
+		if (cfg_debug) {
+			size_t i = queue.size();
+			verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, s);
+			printf("    C1: successors of %s: {", queue.front().to_string().c_str());
+			for (; i < queue.size(); i++) {
+				printf(" %s", queue[i].to_string().c_str());
+			}
+			printf(" }\n");
+		} else {
+			verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, s);
+		}
+		queue.pop_front();
+	}
+	return true;
+}
+
+bool Core::check_C2(const ActionSet &ample)
+{
+	for (ActionSet::iterator it = ample.begin(); it != ample.end(); it++) {
+		if (it->type == ActionFire) {
+			if (verif_configuration.is_visible(*it)) {
+				if (cfg_debug) {
+					printf("    C2: %s is visible transition.\n", it->to_string().c_str());
+				}
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+bool Core::check_C3(State *s)
+{
+	// TODO: Checking for cycles
+	return true;
 }
 
 void Core::write_dot_file(const std::string &filename)
@@ -352,24 +527,26 @@ void Core::write_dot_file(const std::string &filename)
 	{
 		Node *node = it->second;
 		const std::vector<NextNodeInfo> &nexts = node->get_nexts();
-		if (node == initial_node) {
-			fprintf(f, "S%p [style=filled, label=init]\n",
-				node);
-		} else {
-			hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
-			hashstr[5] = 0;
-			int packets_count = 0;
-			for (int i = 0; i < ca::process_count * ca::process_count; i++) {
-				packets_count += node->get_state()->get_packets(
-					i / ca::process_count, i % ca::process_count).size();
-			}
-			fprintf(f, "S%p [label=\"%s|%i|%i|%i\"]\n",
-				node,
-				hashstr,
-				(int) node->get_state()->get_activations().size(),
-				packets_count,
-				node->get_distance());
+		hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
+		hashstr[5] = 0; // Take just prefix
+		int packets_count = 0;
+		for (int i = 0; i < ca::process_count * ca::process_count; i++) {
+			packets_count += node->get_state()->get_packets(
+				i / ca::process_count, i % ca::process_count).size();
 		}
+		const char *quit_flag;
+		if (node->get_state()->get_quit_flag()) {
+			quit_flag = "!";
+		} else {
+			quit_flag = "";
+		}
+		fprintf(f, "S%p [label=\"%s%s|%i|%i|%i\"]\n",
+			node,
+			quit_flag,
+			hashstr,
+			(int) node->get_state()->get_activations().size(),
+			packets_count,
+			node->get_distance());
 		for (size_t i = 0; i < nexts.size(); i++) {
 			fprintf(f, "S%p -> S%p [label=\"", node, nexts[i].node);
 			char c;
@@ -398,10 +575,15 @@ void Core::write_dot_file(const std::string &filename)
 
 void Core::postprocess()
 {
-	if (write_dot) {
+	if (cfg_write_dot) {
 		write_dot_file("statespace.dot");
 	}
 
+	write_report();
+}
+
+void Core::write_report()
+{
 	FILE *f = fopen((project_name + ".kreport").c_str(), "w");
 	ca::Output report(f);
 	report.child("report");
@@ -415,13 +597,13 @@ void Core::postprocess()
 	report.back();
 	report.back();
 
-	if (analyse_deadlock || analyse_final_marking) {
+	if (cfg_analyse_deadlock || cfg_analyse_final_marking) {
 		run_analysis_final_nodes(report);
 	}
-	if (analyse_transition_occurrence) {
+	if (cfg_analyse_transition_occurence) {
 		run_analysis_transition_occurrence(report);
 	}
-	if (analyse_cycle) {
+	if (cfg_analyse_cycle) {
 		run_analysis_cycle(report);
 	}
 
@@ -429,8 +611,58 @@ void Core::postprocess()
 	report.text(ca::project_description_string);
 	report.back();
 
+	if (cfg_write_statespace) {
+		write_xml_statespace(report);
+	}
+
 	report.back();
 	fclose(f);
+}
+
+void Core::write_xml_statespace(ca::Output &report)
+{
+	char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
+	report.child("statespace");
+	NodeMap::const_iterator it;
+	for (it = nodes.begin(); it != nodes.end(); it++)
+	{
+		report.child("state");
+		Node *node = it->second;
+		hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
+		report.set("hash", hashstr);
+		if (initial_node == node) {
+			report.set("initial", true);
+		}
+		if (node->get_state()->get_quit_flag()) {
+			report.set("quit", true);
+		}
+
+		const std::vector<NextNodeInfo> &nexts = node->get_nexts();
+		for (size_t i = 0; i < nexts.size(); i++) {
+			report.child("child");
+			hashdigest_to_string(MHASH_MD5, nexts[i].node->get_hash(), hashstr);
+			report.set("hash", hashstr);
+			switch(nexts[i].action) {
+				case ActionFire:
+					report.set("action", "fire");
+					report.set("process", nexts[i].data.fire.process_id);
+					report.set("transition", nexts[i].data.fire.transition_id);
+					break;
+				case ActionFinish:
+					report.set("action", "finish");
+					report.set("process", nexts[i].data.finish.process_id);
+					break;
+				case ActionReceive:
+					report.set("action", "receive");
+					report.set("process", nexts[i].data.receive.process_id);
+					report.set("source", nexts[i].data.receive.source_id);
+					break;
+			}
+			report.back();
+		}
+		report.back();
+	}
+	report.back();
 }
 
 bool Core::generate_binding_in_nni(int transition_id)
@@ -533,7 +765,7 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 	{
 		Node *node = it->second;
 		if (node->get_nexts().size() == 0) {
-			if (analyse_final_marking) {
+			if (cfg_analyse_final_marking) {
 				ca::Packer packer;
 				for (int t = 0; t < ca::process_count; t++) {
 					verif_configuration.pack_final_marking(
@@ -552,7 +784,7 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 				}
 				packer.free();
 			}
-			if (analyse_deadlock) {
+			if (cfg_analyse_deadlock) {
 				if (!node->get_state()->get_quit_flag()) {
 					deadlocks++;
 					if (deadlock_node == NULL ||
@@ -564,7 +796,7 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 		}
 	}
 
-	if (analyse_deadlock) {
+	if (cfg_analyse_deadlock) {
 		report.child("analysis");
 		report.set("name", "Quit analysis");
 
@@ -584,7 +816,7 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 		report.back();
 	}
 
-	if (analyse_final_marking) {
+	if (cfg_analyse_final_marking) {
 		report.child("analysis");
 		report.set("name", "Final marking");
 		report.child("result");

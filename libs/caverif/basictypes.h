@@ -34,6 +34,27 @@ namespace cass {
 
 			}
 	};
+
+	class VerifThread : public ca::ThreadBase {
+		public:
+			VerifThread(int process_id, int thread_id): process_id(process_id), thread_id(thread_id) {}
+			int get_process_id() const {
+				return process_id;
+			}
+			int get_process_count() const {
+				return ca::process_count;
+			}
+			int get_threads_count() const {
+				return 1;
+			}
+			void quit_all() { return; }
+			void send(int target, ca::NetBase* net, int edge_id, int token_count, const ca::Packer &packer) { return; }
+			void send_multicast(const std::vector<int> &targets, ca::NetBase *net,
+					int edge_id, int tokens_count, const ca::Packer &packer) { return; }
+		protected:
+			int process_id;
+			int thread_id;
+	};
 }
 
 

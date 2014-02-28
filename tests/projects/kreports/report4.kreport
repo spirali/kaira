@@ -1,0 +1,18 @@
+<!--
+        A
+         \ 101   102
+          C~~~~~~~~~~~~\
+         / 100         E
+        D
+-->
+<report version='1'>
+<statespace>
+<state hash='A' initial='true'>
+    <child hash='C' action='fire' process='0' transition='101' />
+</state>
+<state hash='C'>
+    <child hash='D' action='fire' process='0' transition='100' />
+    <child hash='E' action='fire' process='0' transition='102' />
+</state>
+</statespace>
+</report>

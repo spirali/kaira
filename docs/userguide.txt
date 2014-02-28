@@ -462,7 +462,10 @@ Statespace mode
 Arguments '-p', '-h', '-r' from 'release mode' are supported.
 
 -Vdeadlock :: Deadlock detection is performed
+-Vdisable-por :: Disable Partial-Order-Reduction method
+-Vdot :: The graph of the statespace is saved as 'statespace.dot'
 -Vcycle :: Detection of a cyclic computation is performed
 -Vfmarking :: Uniqueness of final markings
+-Vsilent :: Program will not write information messages about progress of the statespace analysis
 -Vtchv :: Uniqueness of characteristic transition vectors
--Vdot :: The graph of the statespace is saved as 'statespace.dot'
+-Vwrite-statespace :: The graph of the statespace is saved into the resulting kreport

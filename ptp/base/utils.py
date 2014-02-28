@@ -201,3 +201,11 @@ def check_uniquness(items, key_fn):
 integer_parser = re.compile("[-+]?\d+")
 def is_integer(value):
     return bool(integer_parser.match(value))
+
+
+def objects_with_same_attribute(list1, list2, key_fn):
+    for a in list1:
+        key = key_fn(a)
+        for b in list2:
+            if key_fn(b) == key:
+                yield (a, b)

@@ -159,36 +159,5 @@ class LibTest(unittest.TestCase):
         finally:
             p.stop_server()
 
-
-class StateSpaceTest(unittest.TestCase):
-
-    def get_analysis(self, report, analysis):
-        for e in report.findall("analysis"):
-            if e.get("name") == analysis:
-                return e
-        raise Exception("Analysis '{0}' not found".format(analysis))
-
-    def get_result(self, report, analysis, result):
-        for e in self.get_analysis(report, analysis).findall("result"):
-            if e.get("name") == result:
-                return e
-        raise Exception("Result '{0}' not found".format(result))
-
-    def test_statespace1(self):
-        report = Project("statespace1").statespace(["deadlock"])
-        result = self.get_result(report, "Overall statistics", "Number of states")
-        self.assertEquals(result.get("value"), "4")
-        result = self.get_result(report, "Quit analysis", "Number of deadlock states")
-        self.assertEquals(result.get("value"), "0")
-        self.assertEquals(result.get("status"), "ok")
-
-    def test_statespace2(self):
-        report = Project("statespace2").statespace(["deadlock"], processes=4)
-        result = self.get_result(report, "Overall statistics", "Number of states")
-        self.assertEquals(result.get("value"), "50")
-        result = self.get_result(report, "Quit analysis", "Number of deadlock states")
-        self.assertEquals(result.get("value"), "1")
-        self.assertEquals(result.get("status"), "fail")
-
 if __name__ == '__main__':
     unittest.main()

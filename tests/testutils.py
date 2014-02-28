@@ -2,7 +2,6 @@
 import subprocess
 import os
 import time
-import xml.etree.ElementTree as xml
 
 KAIRA_TESTS = os.path.dirname(os.path.abspath(__file__))
 KAIRA_ROOT = os.path.dirname(KAIRA_TESTS)
@@ -200,16 +199,6 @@ class Project:
         filename = os.path.join(self.get_directory(), "trace.kth")
         args = [ CMDUTILS, "--tracelog", filename ]
         RunProgram("python", args).run(output)
-
-    def statespace(self, analyses=None, **kw):
-        self.build("statespace")
-        if analyses:
-            extra_args = [ "-V" + a for a in analyses ]
-        else:
-            extra_args = None
-        self.run(None, extra_args=extra_args, **kw)
-        kreport = os.path.join(self.get_directory(), self.name + ".kreport")
-        return xml.parse(kreport).getroot()
 
     def build_main(self):
         self.build("lib")
