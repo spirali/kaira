@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010-2013 Stanislav Bohm
+#    Copyright (C) 2010-2014 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -44,7 +44,7 @@ class Simulation(EventSource):
     def __init__(self):
         EventSource.__init__(self)
         self.random = random.Random()
-        self.running = True
+        self.state = "ready" # states: ready / running / finished / error
         self.runinstance = None
         self.sequence = controlseq.ControlSequence()
         self.history_instances = []
@@ -135,8 +135,8 @@ class Simulation(EventSource):
             self.runinstance = runinstance
             self.history_instances.append(runinstance)
 
-            if self.running and utils.xml_bool(root, "quit"):
-                self.running = False
+            if self.state != "finished" and utils.xml_bool(root, "quit"):
+                self.state = "finished"
                 self.emit_event("error", "Program finished\n")
             if callback:
                 callback()
@@ -144,12 +144,12 @@ class Simulation(EventSource):
 
         self.controller.run_command("REPORTS", reports_callback)
 
-    def check_running(self):
-        if not self.running:
+    def check_ready(self):
+        if self.state == "finished":
             self.emit_event("error", "Program finished\n")
-            return False
-        else:
-            return True
+        elif self.state == "error":
+            self.emit_event("error", "Program is terminated\n")
+        return self.state == "ready"
 
     def run_sequence(self, sequence):
         transitions = {}
@@ -215,9 +215,13 @@ class Simulation(EventSource):
             elif ok_callback:
                ok_callback()
 
-        if self.controller:
+        if self.controller and self.check_ready():
             command = "RECEIVE {0} {1}".format(process_id, origin_id)
-            self.controller.run_command_expect_ok(command, callback, fail_callback)
+            self.state = "running"
+            self.controller.run_command_expect_ok(command,
+                                                  callback,
+                                                  fail_callback,
+                                                  self.set_state_ready)
 
     def receive_all(self, process_ids=None):
         if process_ids is None:
@@ -229,6 +233,9 @@ class Simulation(EventSource):
                 for p in xrange(self.runinstance.get_packets_count(j, i)):
                     self.receive(i, j, query_reports=False)
         self.query_reports()
+
+    def set_state_ready(self):
+        self.state = "ready"
 
     def fire_transition(self,
                         transition_id,
@@ -252,9 +259,13 @@ class Simulation(EventSource):
             elif ok_callback:
                 ok_callback()
 
-        if self.controller and self.check_running():
+        if self.controller and self.check_ready():
             command = "FIRE {0} {1} {2}".format(transition_id, process_id, phases)
-            self.controller.run_command_expect_ok(command, callback, fail_callback)
+            self.state = "runnning"
+            self.controller.run_command_expect_ok(command,
+                                                  callback,
+                                                  fail_callback,
+                                                  self.set_state_ready)
 
     def finish_transition(self,
                           process_id,
@@ -268,12 +279,14 @@ class Simulation(EventSource):
                 self.query_reports(ok_callback)
             elif ok_callback:
                 ok_callback()
-        if self.controller and self.check_running():
+        if self.controller and self.check_ready():
             command = "FINISH {0} {1}".format(process_id, thread_id)
+            self.state = "running"
             self.controller.run_command_expect_ok(
                 command,
                 callback,
-                fail_callback)
+                fail_callback,
+                self.set_state_ready)
 
     def set_runinstance_from_history(self, index):
         self.runinstance = self.history_instances[index]

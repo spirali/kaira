@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010, 2011 Stanislav Bohm
+#    Copyright (C) 2010, 2011, 2014 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -184,8 +184,14 @@ class CommandWrapper:
         if command is not None:
             self.backend.write(command + "\n")
 
-    def run_command_expect_ok(self, command, ok_callback=None, fail_callback=None):
+    def run_command_expect_ok(self,
+                              command,
+                              ok_callback=None,
+                              fail_callback=None,
+                              finalize_callback=None):
         def callback(line):
+            if finalize_callback:
+                finalize_callback()
             if line != "Ok\n":
                 if fail_callback:
                     fail_callback()
