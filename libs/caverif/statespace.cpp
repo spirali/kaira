@@ -228,6 +228,9 @@ ActionSet Node::compute_enable_set(Core *core)
 	const std::vector<ca::TransitionDef*> &transitions = def->get_transition_defs();
 
 	for (int p = 0; p < ca::process_count; p++) {
+		if (state->is_process_busy(p)) {
+			continue;
+		}
 		for (int i = 0; i < def->get_transitions_count(); i++) {
 			if (state->is_transition_enabled(p, transitions[i])) {
 				Action action;
@@ -287,7 +290,7 @@ void Node::generate(Core *core)
 				if (core->generate_binding_in_nni(it->data.fire.transition_def->get_id())) {
 					s->fire_transition_full_with_binding(it->process, it->data.fire.transition_def, packer);
 				} else {
-					s->fire_transition_full(it->process, it->data.fire.transition_def);
+					s->fire_transition_full(it->process, it->data.fire.transition_def, true);
 				}
 				Node *n = core->add_state(s, this);
 				NextNodeInfo nninfo;

@@ -283,7 +283,7 @@ namespace ca {
 				return true;
 			}
 
-			bool fire_transition_full(int process_id, TransitionDef *transition_def)
+			bool fire_transition_full(int process_id, TransitionDef *transition_def, bool ro_finish=false)
 			{
 				int thread_id = 0;
 				if (!transition_def->is_collective()) {
@@ -295,7 +295,11 @@ namespace ca {
 							ActivationT &a = activations[i];
 							if (a.transition_def == transition_def &&
 								!a.transition_def->is_blocked(a.binding)) {
-								finish_transition(i);
+								if (ro_finish) {
+									finish_transition_ro_binding(i);
+								} else {
+									finish_transition(i);
+								}
 							}
 
 						}
@@ -357,6 +361,16 @@ namespace ca {
 				}
 				return activations.end();
 
+			}
+
+			bool is_process_busy(int process_id) {
+				typename Activations::iterator i;
+				for (i = activations.begin(); i != activations.end(); i++) {
+					if (i->process_id == process_id) {
+						return true;
+					}
+				}
+				return false;
 			}
 
 			bool finish_transition(int process_id, int thread_id)

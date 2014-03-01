@@ -421,6 +421,10 @@ def write_fire_body(builder,
 
         if locking:
             builder.line("bool $lock = false;")
+    elif locking:
+        builder.line("bool $lock = true;")
+
+    if tr.collective or tr.code:
         if tr.need_trace():
             builder.if_begin("$tracelog")
             if tr.time_substitution:
@@ -429,8 +433,6 @@ def write_fire_body(builder,
                 builder.line("$tracelog->set_time({0});", tr.time_substitution)
             builder.line("$tracelog->event_transition_finished_begin();")
             builder.block_end()
-    elif locking:
-        builder.line("bool $lock = true;")
 
     if readonly_tokens:
         reuse_tokens = None
@@ -633,6 +635,15 @@ def write_pack_binding(builder, tr):
     builder.line("void Transition_{0.id}::pack_binding(ca::Packer &packer, void *data)", tr)
     builder.block_begin()
     builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(data);", tr)
+
+    if tr.collective:
+        builder.line("ca::pack(packer, tokens->blocked);");
+        if tr.root:
+            builder.line("ca::pack(packer, tokens->root);");
+            builder.line("ca::pack(packer, tokens->token_collective != NULL);");
+            builder.if_begin("tokens->token_collective")
+            builder.line("ca::pack(packer, tokens->token_collective->value);");
+            builder.block_end()
 
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::pack(packer, tokens->token_{0}->value);", inscription.uid);
