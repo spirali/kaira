@@ -56,10 +56,10 @@ def write_tokens_struct(builder, tr):
 
     if tr.collective:
         builder.line("bool blocked;")
-        if tr.root:
+        if tr.root: # Barrier does not need token_collective and root
             builder.line("int root;")
-        inscription = tr.get_collective_inscription()
-        builder.line("ca::Token<{0} > *token_collective;", inscription.type)
+            inscription = tr.get_collective_inscription()
+            builder.line("ca::Token<{0} > *token_collective;", inscription.type)
 
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::Token<{0} > *token_{1};",
@@ -548,7 +548,7 @@ def write_unpack_binding(builder, tr, binding, readonly_binding=False):
         builder.line("ca::Token<{0} > *$token_{1.uid} = {2}->token_{1.uid};",
             inscription.type, inscription, binding);
 
-    if tr.collective:
+    if tr.root:
         builder.line("int $root = {0}->root;", binding)
 
     decls_dict = tr.get_decls()
@@ -614,7 +614,7 @@ def write_cleanup_binding(builder, tr):
     builder.block_begin()
     builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(data);", tr)
 
-    if tr.collective:
+    if tr.collective and tr.root:
         builder.if_begin("tokens->token_collective")
         builder.line("delete tokens->token_collective;")
         builder.block_end()
@@ -773,7 +773,7 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
     if tr.guard is not None:
         builder.line("if (!({0})) {1}", tr.guard, fail_command)
 
-    if tr.collective and not root_written:
+    if tr.root and not root_written:
         builder.line("int $root = {0};", tr.root)
 
     builder.block_begin()

@@ -150,3 +150,9 @@ void ca::Process::collective_bcast_root(int transition_id, const void *data, siz
 void ca::Process::collective_bcast_nonroot(int transition_id, int root, void *out, size_t size) {
 	MPI_Bcast(out, size, MPI_BYTE, root, MPI_COMM_WORLD);
 }
+
+// Barrier --------------------------------------------------------
+
+void ca::Process::collective_barrier(int transition_id) {
+	MPI_Barrier(MPI_COMM_WORLD);
+}

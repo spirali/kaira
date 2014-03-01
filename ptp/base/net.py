@@ -639,9 +639,9 @@ class Transition(utils.EqByIdMixin):
             if len(inscriptions) > 1:
                 raise utils.PtpException("At most one collective inscription may be defined",
                                          inscriptions[-1].source)
-            if not self.root:
-                raise utils.PtpException("Root not defined", self.get_source())
 
+            if not self.root and len(inscriptions) == 1:
+                raise utils.PtpException("Root not defined", self.get_source())
 
         for edge in self.edges_in:
             edge.check_edge_in(checker)
@@ -677,6 +677,14 @@ class Transition(utils.EqByIdMixin):
                 return inscription
         return None
 
+    def get_collective_operation(self):
+        if not self.collective:
+            return None
+        inscription = self.get_collective_inscription()
+        if inscription is None:
+            return "barrier"
+        else:
+            return inscription.get_collective_operation()
 
 class Area(object):
 

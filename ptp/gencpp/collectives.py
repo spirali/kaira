@@ -329,9 +329,14 @@ def write_phase1_bcast_forall(builder, tr, inscription):
     builder.line("$t->token_collective = new ca::Token<{0.type} >($ccdata);", inscription)
 
 def write_collective_body(builder, tr):
-    inscription = tr.get_collective_inscription()
-    op = inscription.get_collective_operation()
+    op = tr.get_collective_operation()
+
+    if op == "barrier":
+        builder.line("$thread->collective_barrier({0.id});", tr)
+        return
+
     builder.if_begin("$root == $thread->get_process_id()")
+    inscription = tr.get_collective_inscription()
 
     if op == "scatter":
         write_scatter_root(builder, tr, inscription)
@@ -353,7 +358,9 @@ def write_collective_body(builder, tr):
 
 def write_collective_body_simulation(builder, tr, readonly):
     inscription = tr.get_collective_inscription()
-    op = inscription.get_collective_operation()
+    op = tr.get_collective_operation()
+    if op == "barrier":
+        return
     if op == "gather":
         builder.if_begin("$root == $thread->get_process_id()")
     if readonly:
@@ -375,27 +382,38 @@ def write_collective_body_simulation(builder, tr, readonly):
 
 def write_collective_phase1(builder, tr):
     builder.line("$tokens->blocked = true;")
-    builder.line("$tokens->root = $root;")
-    builder.line("$tokens->token_collective = NULL;")
+    if tr.root:
+        builder.line("$tokens->root = $root;")
+        builder.line("$tokens->token_collective = NULL;")
+
     builder.line("std::vector<void*> $bindings;")
     builder.line("int $bcount = $thread->collective_bindings(this, $bindings);")
+    builder.line("int $process_count = $thread->get_process_count();")
 
-    # Check roots
-    builder.for_begin("int $i = 0; $i < $thread->get_process_count(); $i++")
-    builder.line("Tokens_{0.id} *$t = static_cast<Tokens_{0.id}*>($bindings[$i]);", tr)
-    builder.if_begin("$t && $t->root != $root")
-    builder.line("fprintf(stderr, \"Collective transition started with different roots; "
-           "root=%i at process %i and root=%i at process %i\\n\","
-           "$root, $thread->get_process_id(), $t->root, $i);")
-    builder.line("exit(1);")
-    builder.block_end()
-    builder.block_end()
+    if tr.root:
+        # Check roots
+        builder.if_begin("$root < 0 || $root >= $process_count")
+        builder.line("fprintf(stderr, \"Collective transition started with invalid root; "
+                     "root=%i at process %i \\n\","
+                     "$root, $thread->get_process_id());")
+        builder.line("exit(1);")
+        builder.block_end()
+
+        builder.for_begin("int $i = 0; $i < $thread->get_process_count(); $i++")
+        builder.line("Tokens_{0.id} *$t = static_cast<Tokens_{0.id}*>($bindings[$i]);", tr)
+        builder.if_begin("$t && $t->root != $root")
+        builder.line("fprintf(stderr, \"Collective transition started with different roots; "
+               "root=%i at process %i and root=%i at process %i\\n\","
+               "$root, $thread->get_process_id(), $t->root, $i);")
+        builder.line("exit(1);")
+        builder.block_end()
+        builder.block_end()
 
     # Perform collective operation
     builder.if_begin("$bcount == $thread->get_process_count() - 1")
     builder.line("$bindings[$thread->get_process_id()] = $tokens;")
     inscription = tr.get_collective_inscription()
-    op = inscription.get_collective_operation()
+    op = tr.get_collective_operation()
     if op == "scatter":
         write_phase1_scatter_preinit(builder, tr, inscription)
     elif op == "gather":

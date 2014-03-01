@@ -82,6 +82,8 @@ class Process {
 		void collective_bcast_root(int transition_id, const void *data, size_t size);
 		void collective_bcast_nonroot(int transition_id, int root, void *out, size_t size);
 
+		void collective_barrier(int transition_id);
+
 		void process_service_message(Thread *thread, ServiceMessage *smsg);
 		bool process_packet(Thread *thread, int from_process, int tag, void *data);
 		int process_packets(Thread *thread);

@@ -229,3 +229,10 @@ void ca::Process::collective_bcast_nonroot(int transition_id, int root, void *ou
 	memcpy(out, processes[root]->collective_data, size);
 	pthread_barrier_wait(&collective_barrier2);
 }
+
+// Barrier --------------------------------------------------------
+
+void ca::Process::collective_barrier(int transition_id) {
+	setup_collective_operation(transition_id, false, 0);
+	pthread_barrier_wait(&collective_barrier2);
+}
