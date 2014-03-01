@@ -140,3 +140,13 @@ void ca::Process::collective_gatherv_nonroot(
 	MPI_Gatherv(const_cast<void*>(data), size, MPI_BYTE,
 		NULL, NULL, NULL, MPI_BYTE, root, MPI_COMM_WORLD);
 }
+
+// Bcast ----------------------------------------------------------
+
+void ca::Process::collective_bcast_root(int transition_id, const void *data, size_t size) {
+	MPI_Bcast(const_cast<void*>(data), size, MPI_BYTE, process_id, MPI_COMM_WORLD);
+}
+
+void ca::Process::collective_bcast_nonroot(int transition_id, int root, void *out, size_t size) {
+	MPI_Bcast(out, size, MPI_BYTE, root, MPI_COMM_WORLD);
+}

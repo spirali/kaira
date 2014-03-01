@@ -215,3 +215,17 @@ void ca::Process::collective_gatherv_nonroot(
 		int transition_id, int root, const void *data, int size) {
 	collective_gather_nonroot(transition_id, root, data, size);
 }
+
+// Bcast ----------------------------------------------------------
+
+void ca::Process::collective_bcast_root(int transition_id, const void *data, size_t size) {
+	collective_data = data;
+	setup_collective_operation(transition_id, true, process_id);
+	pthread_barrier_wait(&collective_barrier2);
+}
+
+void ca::Process::collective_bcast_nonroot(int transition_id, int root, void *out, size_t size) {
+	setup_collective_operation(transition_id, true, root);
+	memcpy(out, processes[root]->collective_data, size);
+	pthread_barrier_wait(&collective_barrier2);
+}

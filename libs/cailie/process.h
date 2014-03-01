@@ -79,6 +79,8 @@ class Process {
 		void collective_gatherv_root(int transition_id, const void *data, int size, void *out, int *sizes, int *displs);
 		void collective_gatherv_nonroot(int transition_id, int root, const void *data, int size);
 
+		void collective_bcast_root(int transition_id, const void *data, size_t size);
+		void collective_bcast_nonroot(int transition_id, int root, void *out, size_t size);
 
 		void process_service_message(Thread *thread, ServiceMessage *smsg);
 		bool process_packet(Thread *thread, int from_process, int tag, void *data);

@@ -342,7 +342,7 @@ class EdgeInscription(utils.EqMixin):
         if self.edge.transition.collective:
             if self.edge.transition.root:
                 allowed.append("root")
-            allowed += [ "scatter", "gather" ]
+            allowed += [ "scatter", "gather", "bcast" ]
         self.check_config(allowed)
 
         if self.check_config_with_expression("if"):
@@ -410,6 +410,8 @@ class EdgeInscription(utils.EqMixin):
             return "scatter"
         if "gather" in self.config:
             return "gather"
+        if "bcast" in self.config:
+            return "bcast"
         return None
 
     def is_collective(self):

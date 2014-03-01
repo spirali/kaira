@@ -39,6 +39,8 @@ class ThreadBase {
 				void *out, int *sizes, int *displs) {}
 		virtual void collective_gatherv_nonroot(int transition_id, int root, const void *data, int size) {}
 
+		virtual void collective_bcast_root(int transition_id, const void *data, size_t size) {}
+		virtual void collective_bcast_nonroot(int transition_id, int root, void *out, size_t size) {}
 
 		/* For simulated run */
 
@@ -130,6 +132,14 @@ class Thread : public ThreadBase {
 
 		void collective_gatherv_nonroot(int transition_id, int root, const void *data, int size) {
 			process->collective_gatherv_nonroot(transition_id, root, data, size);
+		}
+
+		void collective_bcast_root(int transition_id, const void *data, size_t size) {
+			process->collective_bcast_root(transition_id, data, size);
+		}
+
+		void collective_bcast_nonroot(int transition_id, int root, void *out, size_t size) {
+			process->collective_bcast_nonroot(transition_id, root, out, size);
 		}
 
 		Process * get_process() const {
