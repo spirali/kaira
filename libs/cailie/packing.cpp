@@ -1,5 +1,6 @@
 
 #include "packing.h"
+#include "utils.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -7,11 +8,13 @@ using namespace ca;
 
 ca::Packer::Packer(size_t size) : size(size) {
 	buffer = (char*) malloc (size);
+	CA_ALLOC_TEST(buffer);
 	buffer_pos = buffer;
 }
 
 ca::Packer::Packer(size_t size, size_t reserved) : size(size + reserved) {
 	buffer = (char*) malloc (size + reserved);
+	CA_ALLOC_TEST(buffer);
 	buffer_pos = buffer + reserved;
 }
 

@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2011-2013 Stanislav Bohm
+#    Copyright (C) 2011-2014 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -190,6 +190,7 @@ def load_transition(element, project, net):
                                      get_source(element, "guard"),
                                      allow_empty=True)
     transition = Transition(net, id, name, guard)
+    transition.collective = utils.xml_bool(element, "collective", False)
     transition.edges_in = map(lambda e:
         load_edge_in(e, project, net, transition), element.findall("edge-in"))
     transition.edges_out = map(lambda e:
@@ -198,6 +199,11 @@ def load_transition(element, project, net):
         transition.code = element.find("code").text
     transition.trace_fire = element.find("trace") is not None
     transition.clock = utils.xml_bool(element, "clock", False)
+
+    if transition.collective:
+        transition.root = project.parse_expression(element.get("root"),
+                                                   get_source(element, "root"),
+                                                   allow_empty=True)
 
     if element.find("time-substitution") is not None:
         transition.time_substitution = element.find("time-substitution").text
@@ -231,11 +237,12 @@ def load_place_tracing(element, place):
 
 def load_place(element, project, net):
     id = utils.xml_int(element, "id")
-    type_name = project.parse_typename(element.get("type"),
-                                       get_source(element, "type"))
+    typename = element.get("type")
+    project.parse_typename(typename,
+                           get_source(element, "type")) # Throws exception if incorrect type
     init_type, init_value = project.parse_init_expression(element.get("init-expr", ""),
                                                       get_source(element, "init"))
-    place = Place(net, id, type_name, init_type, init_value)
+    place = Place(net, id, typename, init_type, init_value)
     if element.find("code") is not None:
         place.code = element.find("code").text
 
@@ -273,9 +280,10 @@ def load_parameter(element, project):
     name = utils.xml_str(element, "name")
     default = utils.xml_str(element, "default")
     description = utils.xml_str(element, "description")
-    type = project.parse_typename(utils.xml_str(element, "type"), None)
+    typename = element.get("type")
+    project.parse_typename(typename, None)
     policy = utils.xml_str(element, "policy")
-    return Parameter(name, type, default, description, policy)
+    return Parameter(name, typename, default, description, policy)
 
 def load_build_option(element, project):
     name = utils.xml_str(element, "name")

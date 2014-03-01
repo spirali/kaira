@@ -20,11 +20,19 @@
 import subprocess
 import re
 
+
+check_id_counter = 30000
+
+def new_id():
+    global check_id_counter
+    check_id_counter += 1
+    return "____cpptest____{0}".format(check_id_counter)
+
+
 class Check:
 
     content = ""
     own_message = None
-    validator = None
     key = None
     message = None
 
@@ -54,13 +62,12 @@ class Check:
         return False
 
     def new_id(self):
-        return self.validator.new_id()
+        return new_id()
 
 
 class Tester:
 
     def __init__(self):
-        self.id_counter = 30000
         self.compiler = "gcc"
         self.filename = "/tmp/kaira.cpp"
         self.args = ()
@@ -71,12 +78,7 @@ class Tester:
         self.stdout = None
         self.stderr = None
 
-    def new_id(self):
-        self.id_counter += 1
-        return "____cpptest____{0}".format(self.id_counter)
-
     def add(self, check):
-        check.validator = self
         self.checks.append(check)
 
     def process_message(self, line):

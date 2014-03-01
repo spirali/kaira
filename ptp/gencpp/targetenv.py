@@ -24,8 +24,7 @@ import checker
 class CppTargetEnv:
 
     def parse_typename(self, string, source):
-        parser.check_typename(string, source)
-        return string
+        return parser.parse_typename(string, source)
 
     def parse_expressions(self, string, source):
         return parser.split_expressions(string, source)

@@ -98,6 +98,11 @@ class CppWriter(Writer):
         self.line("if (!({0})) {{", self.expand(expr, *args, **kw))
         self.indent_push()
 
+    def else_if(self, expr, *args, **kw):
+        self.indent_pop()
+        self.line("}} else if ({0}) {{", self.expand(expr, *args, **kw))
+        self.indent_push()
+
     def write_else(self):
         self.indent_pop()
         self.line("}} else {{")
@@ -115,9 +120,8 @@ class CppWriter(Writer):
         self.indent_pop()
         self.line("}} while ({0});", expr)
 
-    def for_begin(self, start, condition, it):
-        self.line("for ({0}; {1}; {2})", start, condition, it)
-        self.line("{{")
+    def for_begin(self, expr, *args, **kw):
+        self.line("for ({0}) {{", self.expand(expr, *args, **kw))
         self.indent_push()
 
     def write_class_head(self, name, parent = None):

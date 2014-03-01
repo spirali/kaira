@@ -1,0 +1,131 @@
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><parameter default="5" description="" name="SIZE" policy="mandatory" type="int" /><build-option name="LIBS" /><build-option name="CFLAGS">-O0 -g</build-option><head-code>
+
+class MyC {
+
+	public:
+	
+	MyC() {
+		data = new char[param::SIZE()];
+	}
+	
+	MyC(const MyC &amp;other) {
+		data = new char[param::SIZE()];
+		for (int j = 0; j &lt; param::SIZE(); j++) {
+			data[j] = other.data[j];
+		}		
+	}	
+	
+	MyC(int i) {
+		data = new char[param::SIZE()];
+		for (int j = 0; j &lt; param::SIZE(); j++) {
+			data[j] = i;
+		}
+	}
+	
+	~MyC() {
+		delete [] data;
+	}
+	
+	MyC &amp; operator= (const MyC &amp; other)
+        {
+	        if (this != &amp;other) // protect against invalid self-assignment
+	        {
+			for (int j = 0; j &lt; param::SIZE(); j++) {
+				data[j] = other.data[j];
+			}
+	        }
+	        return *this;
+	}
+
+	std::string token_name() const {
+		std::stringstream s;
+		s &lt;&lt; "MyC: {";
+		for (int j = 0; j &lt; param::SIZE(); j++) {
+			s &lt;&lt; " " &lt;&lt; static_cast&lt;int&gt;(data[j]);
+		}
+		s &lt;&lt; " }";
+		return s.str();
+	}
+	
+	void pack(ca::Packer &amp;packer) const {
+		for (int j = 0; j &lt; param::SIZE(); j++) {
+			packer &lt;&lt; data[j];
+		}		
+	}
+	
+	void unpack(ca::Unpacker &amp;unpacker) {
+		if (data == NULL) {
+			data = new char[param::SIZE()];		
+		}
+		for (int j = 0; j &lt; param::SIZE(); j++) {
+			unpacker &gt;&gt; data[j];
+		}			
+	}
+	
+	private:
+	char *data;				
+	
+};
+
+namespace ca {
+	CA_FIXED_SIZE(MyC) {
+		return param::SIZE();
+	}
+}</head-code></configuration><net id="101" name="scattergather"><area id="104" sx="126" sy="84" x="-318" y="-346"><init x="-318" y="-361">ca::range(0, ctx.process_count())</init></area><area id="108" sx="141" sy="93" x="-483" y="-236"><init x="-483" y="-251">[3]</init></area><area id="121" sx="130" sy="100" x="-476" y="-8"><init x="-476" y="-23">[4]</init></area><area id="138" sx="123" sy="96" x="-475" y="152"><init x="-475" y="137">[2]</init></area><place id="102" label-x="-412" label-y="-193" name="" radius="20" sx="0" sy="0" x="-412" y="-193"><place-type x="-456" y="-163">std::vector&lt;double&gt;</place-type><init x="-395" y="-223" /><code>	std::vector&lt;double&gt; v;
+	v.push_back(110.3);	
+	v.push_back(220.3);	
+	v.push_back(330.3);	
+	v.push_back(340.3);		
+	v.push_back(350.3);			
+	place.add(v);
+</code><trace name="ca::token_name" return-type="std::string" /></place><place id="103" label-x="-254.0" label-y="-302.0" name="" radius="20" sx="0" sy="0" x="-254.0" y="-302.0"><place-type x="-237.0" y="-285.0">int</place-type><init x="-237.0" y="-332.0">[0]</init><trace name="ca::token_name" return-type="std::string" /></place><place id="109" label-x="-84" label-y="-194" name="" radius="20" sx="0" sy="0" x="-84" y="-194"><place-type x="-67" y="-177">double</place-type><init x="-67" y="-224" /><trace name="ca::token_name" return-type="std::string" /></place><place id="113" label-x="267" label-y="-194" name="" radius="20" sx="0" sy="0" x="267" y="-194"><place-type x="284" y="-177">std::vector&lt;double&gt;</place-type><init x="284" y="-224" /><trace name="ca::token_name" return-type="std::string" /></place><place id="117" label-x="-253" label-y="-68" name="" radius="20" sx="0" sy="0" x="-253" y="-68"><place-type x="-236" y="-51">int</place-type><init x="-236" y="-98" /><trace name="ca::token_name" return-type="std::string" /></place><place id="119" label-x="-407" label-y="41" name="" radius="20" sx="0" sy="0" x="-407" y="41"><place-type x="-390" y="58">std::vector&lt;MyC&gt;</place-type><init x="-390" y="11" /><code>	std::vector&lt;MyC&gt; v;
+	v.push_back(1);	
+	v.push_back(2);	
+	v.push_back(3);	
+	v.push_back(4);		
+	v.push_back(5);			
+	place.add(v);	
+</code><trace name="ca::token_name" return-type="std::string" /></place><place id="125" label-x="-75" label-y="37" name="" radius="20" sx="0" sy="0" x="-75" y="37"><place-type x="-58" y="54">MyC</place-type><init x="-58" y="7" /><trace name="ca::token_name" return-type="std::string" /></place><place id="129" label-x="272" label-y="36" name="" radius="20" sx="0" sy="0" x="272" y="36"><place-type x="289" y="53">std::vector&lt;MyC&gt;</place-type><init x="289" y="6" /><trace name="ca::token_name" return-type="std::string" /></place><place id="133" label-x="-436" label-y="204" name="" radius="20" sx="0" sy="0" x="-436" y="204"><place-type x="-419" y="221">std::vector&lt;std::string&gt;</place-type><init x="-419" y="174" /><code>	std::vector&lt;std::string&gt; v;
+	v.push_back("aaaaaaaaaaaaaaaaaaaaaaaa");	
+	v.push_back("bb");	
+	v.push_back("ccccccccccccccccccc");	
+	v.push_back("");		
+	v.push_back("mmmmmmmmm");			
+	place.add(v);		
+</code><trace name="ca::token_name" return-type="std::string" /></place><place id="135" label-x="-248" label-y="124" name="" radius="20" sx="0" sy="0" x="-248" y="124"><place-type x="-231" y="141">int</place-type><init x="-231" y="94" /><trace name="ca::token_name" return-type="std::string" /></place><place id="139" label-x="-70" label-y="207" name="" radius="20" sx="0" sy="0" x="-70" y="207"><place-type x="-53" y="224">std::string</place-type><init x="-53" y="177" /><trace name="ca::token_name" return-type="std::string" /></place><place id="144" label-x="281" label-y="207" name="" radius="20" sx="0" sy="0" x="281" y="207"><place-type x="298" y="224">std::vector&lt;std::string&gt;</place-type><init x="298" y="177" /><trace name="ca::token_name" return-type="std::string" /></place><transition clock="False" collective="True" id="105" label-x="-252" label-y="-193" name="trivially&#10;copyable" priority="" sx="70" sy="36" x="-287" y="-211"><guard x="-287" y="-231" /><trace>fire</trace><root x="-247" y="-171">3</root></transition><transition clock="False" collective="True" id="111" label-x="99" label-y="-194" name="" priority="10" sx="70" sy="36" x="64" y="-212"><guard x="64" y="-232" /><trace>fire</trace><root x="104" y="-172">0</root></transition><transition clock="False" collective="False" id="115" label-x="266" label-y="-281" name="" priority="11" sx="70" sy="36" x="231" y="-299"><guard x="231" y="-319" /><code>	printf("%i:", ctx.process_id());
+	for (int i = 0; i &lt; var.x.size(); i++) {
+		printf(" %g", var.x[i]);
+	}
+	printf("\n");
+</code><trace>fire</trace></transition><transition clock="False" collective="True" id="122" label-x="-245" label-y="40" name="fixed size" priority="" sx="70" sy="36" x="-280" y="22"><guard x="-280" y="2" /><trace>fire</trace><root x="-240" y="62">4</root></transition><transition clock="False" collective="True" id="126" label-x="93" label-y="37" name="" priority="10" sx="70" sy="36" x="58" y="19"><guard x="58" y="-1" /><trace>fire</trace><root x="98" y="59">1</root></transition><transition clock="False" collective="False" id="131" label-x="271" label-y="-58" name="" priority="11" sx="70" sy="36" x="236" y="-76"><guard x="236" y="-96" /><code>	printf("%i:", ctx.process_id());
+	for (int i = 0; i &lt; var.x.size(); i++) {
+		printf(" %s", ca::token_name(var.x[i]).c_str());
+	}
+	printf("\n");
+</code><trace>fire</trace></transition><transition clock="False" collective="True" id="134" label-x="-247" label-y="209" name="generic&#10;case" priority="" sx="70" sy="36" x="-282" y="191"><guard x="-282" y="171" /><trace>fire</trace><root x="-242" y="231">2</root></transition><transition clock="False" collective="True" id="142" label-x="96" label-y="205" name="" priority="" sx="70" sy="36" x="61" y="187"><guard x="61" y="167" /><trace>fire</trace><root x="101" y="227">2</root></transition><transition clock="False" collective="False" id="146" label-x="284" label-y="130" name="" priority="" sx="70" sy="36" x="249" y="112"><guard x="249" y="92" /><code>	printf("%i:", ctx.process_id());
+	for (int i = 0; i &lt; var.x.size(); i++) {
+		printf(" %s", var.x[i].c_str());
+	}
+	printf("\n");	
+	ctx.quit();
+</code><trace>fire</trace></transition><edge from_item="103" id="106" to_item="105"><inscription x="-241.000148421" y="-246.496775948">c</inscription></edge><edge from_item="102" id="107" to_item="105"><inscription x="-373.0" y="-211.0">[root] data</inscription></edge><edge from_item="105" id="110" to_item="109"><inscription x="-191.0" y="-210.0">[scatter] data</inscription></edge><edge from_item="109" id="112" to_item="111"><inscription x="-9.0" y="-210.0">data</inscription></edge><edge from_item="111" id="114" to_item="113"><inscription x="155.0" y="-213.0">[gather] data</inscription></edge><edge from_item="113" id="116" to_item="115"><inscription x="275.0" y="-239.0">x</inscription></edge><edge from_item="105" id="118" to_item="117"><inscription x="-243.0" y="-137.0">c</inscription></edge><edge from_item="119" id="123" to_item="122"><inscription x="-374.0" y="19.0">[root] data</inscription></edge><edge from_item="117" id="124" to_item="122"><inscription x="-241.0" y="-14.0">c</inscription></edge><edge from_item="122" id="127" to_item="125"><inscription x="-190.0" y="19.0">[scatter] data</inscription></edge><edge from_item="125" id="128" to_item="126"><inscription x="0.0" y="20.0">data</inscription></edge><edge from_item="126" id="130" to_item="129"><inscription x="152.0" y="14.0">[gather] data</inscription></edge><edge from_item="129" id="132" to_item="131"><inscription x="285.0" y="-13.0">x</inscription></edge><edge from_item="122" id="136" to_item="135"><inscription x="-239.0" y="83.0">c</inscription></edge><edge from_item="135" id="137" to_item="134"><inscription x="-235.0" y="160.0">c</inscription></edge><edge from_item="133" id="140" to_item="134"><inscription x="-366.0" y="182.0">[root] data</inscription></edge><edge from_item="134" id="141" to_item="139"><inscription x="-174.0" y="186.0">[scatter] data</inscription></edge><edge from_item="139" id="143" to_item="142"><inscription x="-3.0" y="186.0">data</inscription></edge><edge from_item="142" id="145" to_item="144"><inscription x="160.0" y="181.0">[gather] data</inscription></edge><edge from_item="144" id="147" to_item="146"><inscription x="301.0" y="163.0">x</inscription></edge></net><sequence name="Sequence">2 0 T #105
+3 0 T #105
+4 0 T #105
+0 0 T #105
+1 0 T #105
+4 0 T #111
+2 0 T #111
+1 0 T #111
+0 0 T #111
+3 0 T #111
+0 0 T #115
+1 0 T #122
+2 0 T #122
+4 0 T #122
+0 0 T #122
+3 0 T #122
+0 0 T #126
+3 0 T #126
+4 0 T #126
+2 0 T #126
+1 0 T #126</sequence></project>

@@ -24,26 +24,36 @@ class Unpacker;
 
 typedef NetBase * (SpawnFn)(ThreadBase *, NetDef *);
 
+enum TransitionType {
+	TRANSITION_NORMAL,
+	TRANSITION_IMMEDIATE,
+	TRANSITION_COLLECTIVE
+};
+
 class TransitionDef {
 	public:
-		TransitionDef(int id, const std::string &name, bool immediate, int priority)
-			 : id(id), immediate(immediate), priority(priority), name(name) {}
+		TransitionDef(int id, const std::string &name, TransitionType type, int priority)
+			 : id(id), type(type), priority(priority), name(name) {}
 		virtual ~TransitionDef() {}
 
 		int get_id() {
-				return id;
+			return id;
 		}
 
-		int is_immediate() {
-				return immediate;
+		bool is_immediate() {
+			return type == TRANSITION_IMMEDIATE;
+		}
+
+		bool is_collective() {
+			return type == TRANSITION_COLLECTIVE;
 		}
 
 		int get_priority() {
-				return priority;
+			return priority;
 		}
 
 		const std::string& get_name() {
-				return name;
+			return name;
 		}
 
 		virtual FireResult full_fire(ThreadBase *thread, NetBase *net) = 0;
@@ -58,10 +68,13 @@ class TransitionDef {
 		virtual void cleanup_binding(void *data) = 0;
 		virtual bool is_enable(ThreadBase *thread, NetBase *net) = 0;
 		virtual void pack_binding(Packer &pack, void *data) {}
+		virtual bool is_blocked(void *data) {
+			return false;
+		}
 
 	protected:
 		int id;
-		bool immediate;
+		TransitionType type;
 		int priority;
 		std::string name;
 };

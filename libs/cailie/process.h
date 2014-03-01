@@ -68,12 +68,29 @@ class Process {
 		void send_multicast(const std::vector<int> &targets, Net *net, int edge_id,
 			int tokens_count, const Packer &packer, Thread *thread);
 
+		void collective_scatter_root(int transition_id, const void *data, size_t size);
+		void collective_scatter_nonroot(int transition_id, int root, void *out, size_t size);
+		void collective_scatterv_root(int transition_id, const void *data, int *sizes, int *displs);
+		void collective_scatterv_nonroot(int transition_id, int root, void *out, size_t size);
+
+
+		void collective_gather_root(int transition_id, const void *data, size_t size, void *out);
+		void collective_gather_nonroot(int transition_id, int root, const void *data, size_t size);
+		void collective_gatherv_root(int transition_id, const void *data, int size, void *out, int *sizes, int *displs);
+		void collective_gatherv_nonroot(int transition_id, int root, const void *data, int size);
+
+		void collective_bcast_root(int transition_id, const void *data, size_t size);
+		void collective_bcast_nonroot(int transition_id, int root, void *out, size_t size);
+
+		void collective_barrier(int transition_id);
+
 		void process_service_message(Thread *thread, ServiceMessage *smsg);
 		bool process_packet(Thread *thread, int from_process, int tag, void *data);
 		int process_packets(Thread *thread);
 
 		#ifdef CA_SHMEM
 		void add_packet(int from_process, int tag, void *data, size_t size);
+		static void init_collective_operations(int process_count);
 		#endif
 
 		#ifdef CA_MPI
@@ -122,6 +139,17 @@ class Process {
 		#ifdef CA_SHMEM
 		pthread_mutex_t packet_mutex;
 		ShmemPacket *packets;
+
+		/* Collective communication */
+		const void *collective_data;
+		const int *collective_displs;
+		static pthread_mutex_t collective_mutex;
+		static int collective_root;
+		static int collective_transition_id;
+		static pthread_barrier_t collective_barrier1;
+		static pthread_barrier_t collective_barrier2;
+
+		void setup_collective_operation(int transition_id, bool use_root, int root);
 		#endif
 };
 

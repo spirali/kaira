@@ -1,5 +1,6 @@
 
 #include "cailie.h"
+#include "utils.h"
 #include <mpi.h>
 
 using namespace ca;
@@ -15,7 +16,7 @@ void Process::broadcast_packet(int tag, void *data, size_t size, Thread *thread,
 			continue;
 		MPI_Request *request = thread->get_requests()->new_request(d);
 		d = NULL;
-		MPI_Isend(data, size, MPI_CHAR, t, tag, MPI_COMM_WORLD, request);
+		MPI_Isend(data, size, MPI_BYTE, t, tag, MPI_COMM_WORLD, request);
 	}
 }
 
@@ -46,7 +47,7 @@ void Process::send_multicast(
 
 		MPI_Request *request = thread->get_requests()->new_request(d);
 		d = NULL;
-		MPI_Isend(buffer, size, MPI_CHAR, target, CA_TAG_TOKENS, MPI_COMM_WORLD, request);
+		MPI_Isend(buffer, size, MPI_BYTE, target, CA_TAG_TOKENS, MPI_COMM_WORLD, request);
 	}
 }
 
@@ -60,9 +61,9 @@ int Process::process_packets(Thread *thread)
 		bool net_changed = false;
 		for(;;) {
 			int msg_size;
-			MPI_Get_count(&status, MPI_CHAR, &msg_size);
+			MPI_Get_count(&status, MPI_BYTE, &msg_size);
 			char *buffer = (char*) malloc(msg_size); // FIXME: alloca for small packets
-			MPI_Recv(buffer, msg_size, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			MPI_Recv(buffer, msg_size, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 			/* Now we have to be sure that all thread messages
 			   are processed and we know about all nets */
 			thread->process_thread_messages();
@@ -87,9 +88,71 @@ void Process::wait()
 	MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
 	int msg_size;
-	MPI_Get_count(&status, MPI_CHAR, &msg_size);
+	MPI_Get_count(&status, MPI_BYTE, &msg_size);
 	char *buffer = (char*) malloc(msg_size); // FIXME: alloca for small packets
-	MPI_Recv(buffer, msg_size, MPI_CHAR, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	MPI_Recv(buffer, msg_size, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 	this->get_thread(0)->process_thread_messages();
 	process_packet(this->get_thread(0), status.MPI_SOURCE, status.MPI_TAG, buffer);
+}
+
+// Scatter ------------------------------------------------------
+
+void ca::Process::collective_scatter_root(int transition_id, const void *data, size_t size) {
+	// MPI_Scatter should take const void * as first argument, but it takes just void * so we have to cast
+	MPI_Scatter(const_cast<void*>(data), size, MPI_BYTE, MPI_IN_PLACE, size, MPI_BYTE, process_id, MPI_COMM_WORLD);
+}
+
+void ca::Process::collective_scatter_nonroot(int transition_id, int root, void *out, size_t size) {
+	MPI_Scatter(NULL, size, MPI_BYTE, out, size, MPI_BYTE, root, MPI_COMM_WORLD);
+}
+
+void ca::Process::collective_scatterv_root(int transition_id, const void *data, int *sizes, int *displs) {
+	// MPI_Scatter should take const void * as first argument, but it takes just void * so we have to cast
+	MPI_Scatterv(const_cast<void*>(data), sizes, displs, MPI_BYTE,
+			MPI_IN_PLACE, 0, MPI_BYTE, process_id, MPI_COMM_WORLD);
+}
+
+void ca::Process::collective_scatterv_nonroot(int transition_id, int root, void *out, size_t size) {
+	MPI_Scatterv(NULL, NULL, NULL, MPI_BYTE, out, size, MPI_BYTE, root, MPI_COMM_WORLD);
+}
+
+
+// Gather -------------------------------------------------------
+// TODO: Implement MPI_IN_PLACE for gather operations
+
+void ca::Process::collective_gather_root(int transition_id, const void *data, size_t size, void *out) {
+	MPI_Gather(const_cast<void*>(data), size, MPI_BYTE, out, size, MPI_BYTE, process_id, MPI_COMM_WORLD);
+}
+
+void ca::Process::collective_gather_nonroot(int transition_id, int root, const void *data, size_t size) {
+	// MPI_Gather should take const void * as first argument, but it takes just void * so we have to cast
+	MPI_Gather(const_cast<void*>(data), size, MPI_BYTE, NULL, size, MPI_BYTE, root, MPI_COMM_WORLD);
+}
+
+void ca::Process::collective_gatherv_root(
+		int transition_id, const void *data, int size, void *out, int *sizes, int *displs) {
+	MPI_Gatherv(const_cast<void*>(data), size, MPI_BYTE,
+		out, sizes, displs, MPI_BYTE, process_id, MPI_COMM_WORLD);
+}
+
+void ca::Process::collective_gatherv_nonroot(
+		int transition_id, int root, const void *data, int size) {
+	MPI_Gatherv(const_cast<void*>(data), size, MPI_BYTE,
+		NULL, NULL, NULL, MPI_BYTE, root, MPI_COMM_WORLD);
+}
+
+// Bcast ----------------------------------------------------------
+
+void ca::Process::collective_bcast_root(int transition_id, const void *data, size_t size) {
+	MPI_Bcast(const_cast<void*>(data), size, MPI_BYTE, process_id, MPI_COMM_WORLD);
+}
+
+void ca::Process::collective_bcast_nonroot(int transition_id, int root, void *out, size_t size) {
+	MPI_Bcast(out, size, MPI_BYTE, root, MPI_COMM_WORLD);
+}
+
+// Barrier --------------------------------------------------------
+
+void ca::Process::collective_barrier(int transition_id) {
+	MPI_Barrier(MPI_COMM_WORLD);
 }

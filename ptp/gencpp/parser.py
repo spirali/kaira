@@ -94,11 +94,11 @@ def get_expr_variables(expr):
         return set()
     return set(expression.parseString(expr, parseAll=True))
 
-def check_typename(tname, source):
+def parse_typename(tname, source):
     if len(tname) == 0:
         raise utils.PtpException("Missing type", source)
     try:
-        typename.parseString(tname, parseAll=True)
+        return typename.parseString(tname, parseAll=True)
     except pp.ParseException, e:
         raise utils.PtpException(e.msg, source)
 

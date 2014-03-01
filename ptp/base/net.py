@@ -217,7 +217,7 @@ class EdgeInscription(utils.EqMixin):
         return self.expr is not None
 
     def is_conditioned(self):
-        return "if" in self.config
+        return "if" in self.config or "root" in self.config
 
     def is_expr_variable(self):
         return self.edge.transition.net.project.is_expr_variable(self.expr)
@@ -234,6 +234,9 @@ class EdgeInscription(utils.EqMixin):
         variables = self.get_variables()
         if self.is_expr_variable():
             variables.remove(self.expr)
+        if self.edge.transition.root:
+            variables.update(
+                self.edge.transition.net.project.get_expr_variables(self.edge.transition.root))
         return variables
 
     def is_target_variable(self):
@@ -243,10 +246,26 @@ class EdgeInscription(utils.EqMixin):
 
     def check(self, checker):
         if self.has_expr():
-            checker.check_expression(self.expr,
-                                     self.edge.transition.get_decls(),
-                                     self.type,
-                                     self.source)
+            op = self.get_collective_operation()
+            if op == "scatter":
+                checker.check_expression(self.expr,
+                                         self.edge.transition.get_decls(),
+                                         get_container_type(self.type),
+                                         self.source)
+            elif op == "gather":
+                t = self.edge.transition.net.project.parse_typename(self.type, self.source)
+                if len(t) < 2 or len(t[1]) < 0 or t[0] != "std::vector":
+                    raise utils.PtpException("Invalid type of expression", self.source)
+                typename = t[1][0]
+                checker.check_expression(self.expr,
+                                         self.edge.transition.get_decls(),
+                                         typename,
+                                         self.source)
+            else:
+                checker.check_expression(self.expr,
+                                         self.edge.transition.get_decls(),
+                                         self.type,
+                                         self.source)
 
     def check_config(self, valid_keys):
         invalid_key = utils.key_not_in_list(self.config, valid_keys)
@@ -280,7 +299,11 @@ class EdgeInscription(utils.EqMixin):
             raise utils.PtpException("Input edges cannot contain '@'",
                 self.source)
 
-        self.check_config(("bulk", "guard", "svar", "filter", "from", "if", "sort_by_source"))
+        allowed = ["bulk", "guard", "svar", "filter", "from", "if", "sort_by_source"]
+        if self.edge.transition.collective and self.edge.transition.root:
+            allowed.append("root")
+
+        self.check_config(allowed)
 
         if self.check_config_with_expression("svar", variable=True):
             decls = self.edge.transition.get_input_decls()
@@ -327,7 +350,17 @@ class EdgeInscription(utils.EqMixin):
             raise utils.PtpException("Main expression of output inscription is empty",
                                      self.source)
 
-        self.check_config(("bulk", "multicast", "if", "seq"))
+        if self.edge.transition.collective and self.target is not None:
+            raise utils.PtpException("Output edges of collective transitions cannot contain '@'",
+                self.source)
+
+        allowed = [ "bulk", "multicast", "if", "seq" ]
+
+        if self.edge.transition.collective:
+            if self.edge.transition.root:
+                allowed.append("root")
+            allowed += [ "scatter", "gather", "bcast" ]
+        self.check_config(allowed)
 
         if self.check_config_with_expression("if"):
             decls = self.edge.transition.get_input_decls_with_size(self.source)
@@ -357,7 +390,7 @@ class EdgeInscription(utils.EqMixin):
 
     def get_decls(self):
         decls = Declarations(self.source)
-        if self.is_expr_variable():
+        if self.is_expr_variable() and not self.is_collective():
             decls.set(self.expr, self.type)
         if self.config.get("svar"):
             decls.set(self.config["svar"], self.get_svar_type())
@@ -394,6 +427,21 @@ class EdgeInscription(utils.EqMixin):
     def has_same_pick_rule(self, inscription):
         return (inscription.config.get("filter") == self.config.get("filter") and
                 inscription.config.get("from") == self.config.get("from"))
+
+    def get_collective_operation(self):
+        if "scatter" in self.config:
+            return "scatter"
+        if "gather" in self.config:
+            return "gather"
+        if "bcast" in self.config:
+            return "bcast"
+        return None
+
+    def is_collective(self):
+        return self.get_collective_operation() is not None
+
+    def is_root_only(self):
+        return "root" in self.config
 
 
 class Place(utils.EqByIdMixin):
@@ -433,6 +481,9 @@ class Place(utils.EqByIdMixin):
                     result.append(edge)
         return result
 
+    def get_inscriptions_in(self):
+        return sum((edge.inscriptions for edge in self.get_edges_in()), [])
+
     def get_transitions_out(self):
         return list(set([ edge.transition for edge in self.get_edges_out() ]))
 
@@ -455,7 +506,8 @@ class Place(utils.EqByIdMixin):
 
     def check(self, checker):
         functions = [ "token_name" ]
-        if self.is_receiver() or (self.net.project.library_rpc and self.is_io_place()):
+        if self.is_receiver() or self.is_collective_receiver() or \
+                (self.net.project.library_rpc and self.is_io_place()):
             functions.append("pack")
             functions.append("unpack")
         if self.net.project.library_octave:
@@ -492,6 +544,9 @@ class Place(utils.EqByIdMixin):
     def is_receiver(self):
         return any(not edge.is_local() for edge in self.get_edges_in())
 
+    def is_collective_receiver(self):
+        return any(i.is_collective() for i in self.get_inscriptions_in())
+
     def need_remember_source(self):
         return any(edge.is_source_reader()
                    for edge in self.get_edges_out())
@@ -500,6 +555,8 @@ class Place(utils.EqByIdMixin):
 class Transition(utils.EqByIdMixin):
 
     code = None
+    collective = False
+    root = ""
 
     # Time substitution
     time_substitution = None
@@ -609,6 +666,16 @@ class Transition(utils.EqByIdMixin):
                                          "between place and transition",
                                          self.get_source())
 
+        if self.collective:
+            inscriptions = [ inscription for edge in self.edges_out for inscription in edge.inscriptions
+                                         if inscription.is_collective() ]
+            if len(inscriptions) > 1:
+                raise utils.PtpException("At most one collective inscription may be defined",
+                                         inscriptions[-1].source)
+
+            if not self.root and len(inscriptions) == 1:
+                raise utils.PtpException("Root not defined", self.get_source())
+
         for edge in self.edges_in:
             edge.check_edge_in(checker)
 
@@ -637,6 +704,20 @@ class Transition(utils.EqByIdMixin):
                                      "ca::IntTime",
                                      self.get_source())
 
+    def get_collective_inscription(self):
+        for inscription in self.inscriptions_out:
+            if inscription.is_collective():
+                return inscription
+        return None
+
+    def get_collective_operation(self):
+        if not self.collective:
+            return None
+        inscription = self.get_collective_inscription()
+        if inscription is None:
+            return "barrier"
+        else:
+            return inscription.get_collective_operation()
 
 class Area(object):
 

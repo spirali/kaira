@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010-2013 Stanislav Bohm
+#    Copyright (C) 2010-2014 Stanislav Bohm
 #                  2011       Ondrej Garncarz
 #                  2012       Martin Surkovsky
 #
@@ -360,6 +360,9 @@ class Transition(NetElement):
 
     trace_fire = False
 
+    # Collective communication
+    collective = False
+
     # Simrun options
     time_substitution = False
     time_substitution_code = ""
@@ -378,16 +381,36 @@ class Transition(NetElement):
         NetElement.__init__(self, net, id, position)
         p = (position[0], position[1] - 20)
         self.guard = citems.Text(self, "guard", self.box.get_relative_placement(p))
+        p = (position[0] + self.default_size[0] / 2 + 5, position[1] + 40)
+        self.root = citems.Text(self, "root", self.box.get_relative_placement(p))
+        self.root.format = "root({0})"
 
     def get_canvas_items(self, view_mode):
         items = NetElement.get_canvas_items(self, view_mode)
         items.append(self.guard)
+        if self.collective:
+            items.append(self.root)
 
         if self.clock:
             p = utils.vector_add(self.box.get_position(), (-9, 7))
             items.append(citems.ClockIcon(
                 self, "clock", self.box.get_relative_placement(p)))
         return items
+
+    def set_collective(self, value):
+        self.collective = value
+        self.box.thicklines = value
+        self.changed()
+
+    def is_collective(self):
+        return self.collective
+
+    def set_root(self, value):
+        self.root.text = value
+        self.changed()
+
+    def get_root(self):
+        return self.root.text
 
     def get_time_substitution(self):
         return self.time_substitution
@@ -458,6 +481,7 @@ class Transition(NetElement):
         e.set("clock", str(self.has_clock()))
         e.set("label-x", str(self.label_placement.get_position()[0]))
         e.set("label-y", str(self.label_placement.get_position()[1]))
+        e.set("collective", str(self.collective))
 
         e.append(canvastext_to_xml(self.guard, "guard"))
         if self.has_code():
@@ -486,6 +510,8 @@ class Transition(NetElement):
                 element.set("process", str(self.occurrence_analysis_compare_process))
                 element.set("binding", str(self.occurrence_analysis_compare_binding))
             e.append(element)
+        if self.collective:
+            e.append(canvastext_to_xml(self.root, "root"))
         return e
 
     def get_trace_label_text(self):
@@ -520,9 +546,13 @@ class Transition(NetElement):
         e.set("guard", self.guard.text)
         e.set("priority", self.get_priority())
         e.set("clock", str(self.has_clock()))
+        e.set("collective", str(self.is_collective()))
 
         if self.has_code():
             e.append(self.xml_code_element())
+
+        if self.is_collective():
+            e.set("root", self.get_root())
 
         for edge in self.edges_to(postprocess=True):
             e.append(edge.create_xml_export_element("edge-in", build_config))
@@ -1097,9 +1127,14 @@ def load_transition(element, net, loader):
         canvastext_from_xml(element.find("guard"), transition.guard)
     else:
         transition.guard.text = element.get("guard", "") # Backward compatability
+
+    if element.find("root") is not None:
+        canvastext_from_xml(element.find("root"), transition.root)
+
     transition.set_code(load_code(element))
     transition.trace_fire = element.find("trace") is not None
     transition.clock = utils.xml_bool(element, "clock", False)
+    transition.set_collective(utils.xml_bool(element, "collective", False))
 
     if element.find("time-substitution") is not None:
         transition.time_substitution = True

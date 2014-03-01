@@ -122,6 +122,8 @@ class Simulation(EventSource):
                                              thread_id,
                                              0,
                                              transition_id, [])
+                if utils.xml_bool(e, "blocked", False):
+                    runinstance.transition_blocked(process_id, thread_id)
 
             for e in root.findall("packet"):
                 origin_id = utils.xml_int(e, "origin-id")

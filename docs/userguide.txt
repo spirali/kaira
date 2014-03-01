@@ -310,6 +310,64 @@ namespace ca { // namespace 'ca' is important
 }
 -------------------------------------------------------------------------------
 
+Fixed size
+^^^^^^^^^^
+
+In some cases, we can have a C++ type that is not trivially copyable but it is
+always packed with the same size. Assume the following example:
+
+[source,cpp]
+-------------------------------------------------------------------------------
+class Row {
+
+	public:
+		Row() {
+			data = new double[param::SIZE()];
+		}
+
+		~Row() {
+			delete [] data;
+		}
+
+		// ... skipped some other methods ...
+		// ... at least copy constructor & assign operator
+
+		void pack(ca::Packer &packer) const {
+			for (int i = 0; i < param::SIZE(); i++) {
+				packer << data[i];
+			}
+		}
+
+		void unpack(ca::Unacker &unpacker) {
+			for (int i = 0; i < param::SIZE(); i++) {
+				unpacker >> data[i];
+			}
+		}
+
+	private:
+		double *data;
+
+}
+-------------------------------------------------------------------------------
+
+The size of packed data of this class is not constant, but for each run it is
+a fixed number because it depends only on parameter ''SIZE''. We can tell Kaira
+this fact by following code.
+
+[source,cpp]
+-------------------------------------------------------------------------------
+namespace ca { // namespace 'ca' is important
+	CA_FIXED_SIZE(Row) {
+		// How much memory it needs to pack Row
+		return sizeof(double) * param::SIZE();
+	}
+}
+-------------------------------------------------------------------------------
+
+Create such code is not mandatory, but it allows Kaira to generate more
+efficient code, especially in case of collective communication.
+
+
 Public C++ API
 --------------
 
@@ -325,7 +383,7 @@ void quit() :: terminates the program (or the function call when the project
                is built as a library)
 
 Class ca::TokenList<T>
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 This class represents a list of tokens.
 
