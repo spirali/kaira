@@ -448,6 +448,11 @@ def collapse_line_repetitions(items):
     add(last, count)
     return result
 
+def sanitize_name(name):
+    if "\n" not in name:
+        return name
+    return name.replace("\n", "_")
+
 
 class EqMixin(object):
 

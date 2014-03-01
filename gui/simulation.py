@@ -159,7 +159,7 @@ class Simulation(EventSource):
         for t in self.runinstance.net.transitions():
             transitions["#{0}".format(t.id)] = t
         for t in self.runinstance.net.transitions():
-            transitions[t.get_name()] = t
+            transitions[utils.sanitize_name(t.get_name())] = t
 
         def next_command():
             if command[0] >= sequence.get_commands_size():
@@ -174,7 +174,7 @@ class Simulation(EventSource):
         def fire(process_id, thread_id, transition):
             t = transitions.get(transition)
             if t is None:
-                 raise SimulationException("Transition not found")
+                 raise SimulationException("Transition '{0}' not found".format(transition))
             self.fire_transition(t.id,
                                  process_id,
                                  2,
@@ -183,7 +183,7 @@ class Simulation(EventSource):
         def start(process_id, thread_id, transition):
             t = transitions.get(transition)
             if t is None:
-                 raise SimulationException("Transition not found")
+                 raise SimulationException("Transition '{0}' not found".format(transition))
             self.fire_transition(t.id,
                                  process_id,
                                  1,
@@ -250,7 +250,7 @@ class Simulation(EventSource):
 
         transition = self.project.get_item(transition_id)
         def callback():
-            name = transition.get_name_or_id()
+            name = utils.sanitize_name(transition.get_name_or_id())
             if phases == 2:
                 self.sequence.add_fire(process_id, 0, name)
             else:
