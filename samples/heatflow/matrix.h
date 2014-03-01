@@ -46,12 +46,11 @@ class DoubleMatrix
 						delete[] array1;
 						delete[] array2;
 					}
-					array1 = new double[size_y * size_x];
-					array2 = new double[size_y * size_x];
+					array1 = new double[c.size_y * c.size_x];
+					array2 = new double[c.size_y * c.size_x];
 				}
 				size_x = c.size_x;
 				size_y = c.size_y;
-
 				memcpy(array1, c.array1, get_data_size());
 				memcpy(array2, c.array2, get_data_size());
 			}
