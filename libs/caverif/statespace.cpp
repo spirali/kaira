@@ -142,7 +142,7 @@ void State::hash_packets(MHASH hash_thread)
 	{
 		size_t size = packets[pq].size();
 		mhash(hash_thread, &size, sizeof(size_t));
-		for (int p = 0; p < packets[pq].size(); p++) {
+		for (size_t p = 0; p < packets[pq].size(); p++) {
 			mhash(hash_thread, &packets[pq][p].size, sizeof(packets[pq][p].size));
 			mhash(hash_thread, packets[pq][p].data, packets[pq][p].size);
 		}
@@ -155,7 +155,7 @@ void State::pack_packets(ca::Packer &packer)
 	{
 		size_t size = packets[pq].size();
 		pack(packer, size);
-		for (int p = 0; p < packets[pq].size(); p++) {
+		for (size_t p = 0; p < packets[pq].size(); p++) {
 			pack(packer, packets[pq][p].size);
 			pack(packer, packets[pq][p].data, packets[pq][p].size);
 		}
@@ -196,7 +196,7 @@ HashDigest State::compute_hash(hashid hash_id)
 }
 
 Node::Node(HashDigest hash, State *state, Node *prev)
-	: hash(hash), state(state), prev(prev), data(NULL), tag(0)
+	: hash(hash), state(state), prev(prev), tag(0), data(NULL)
 {
 	if (prev != NULL) {
 		distance = prev->get_distance() + 1;
@@ -266,8 +266,6 @@ void Node::generate(Core *core)
 		return;
 	}
 
-	ca::NetDef *def = core->get_net_def();
-	const std::vector<ca::TransitionDef*> &transitions = def->get_transition_defs();
 	ActionSet enabled = compute_enable_set(core);
 	ActionSet ws;
 	if (cfg_partial_order_reduction) {
@@ -319,8 +317,11 @@ void Node::generate(Core *core)
 	}
 }
 
-Core::Core(VerifConfiguration &verif_configuration) : initial_node(NULL), nodes(10000, HashDigestHash(MHASH_MD5),
-		HashDigestEq(MHASH_MD5)), net_def(NULL), verif_configuration(verif_configuration)
+Core::Core(VerifConfiguration &verif_configuration) :
+	nodes(10000, HashDigestHash(MHASH_MD5), HashDigestEq(MHASH_MD5)),
+	initial_node(NULL),
+	net_def(NULL),
+	verif_configuration(verif_configuration)
 {
 	if (cfg_analyse_transition_occurence) {
 		generate_binging_in_nni = true;
@@ -549,16 +550,11 @@ void Core::write_dot_file(const std::string &filename)
 			node->get_distance());
 		for (size_t i = 0; i < nexts.size(); i++) {
 			fprintf(f, "S%p -> S%p [label=\"", node, nexts[i].node);
-			char c;
 			switch(nexts[i].action) {
 				case ActionFire:
 					fprintf(f, "s %i %i\"]\n",
 						nexts[i].data.fire.process_id,
 						nexts[i].data.fire.transition_id);
-					break;
-				case ActionFinish:
-					fprintf(f, "f %i\"]\n",
-						nexts[i].data.finish.process_id);
 					break;
 				case ActionReceive:
 					fprintf(f, "r %i %i\"]\n",
@@ -647,10 +643,6 @@ void Core::write_xml_statespace(ca::Output &report)
 					report.set("action", "fire");
 					report.set("process", nexts[i].data.fire.process_id);
 					report.set("transition", nexts[i].data.fire.transition_id);
-					break;
-				case ActionFinish:
-					report.set("action", "finish");
-					report.set("process", nexts[i].data.finish.process_id);
 					break;
 				case ActionReceive:
 					report.set("action", "receive");
@@ -837,7 +829,7 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 			std::sort(ns.begin(), ns.end(), CmpByDistance());
 
 			report.child("states");
-			for (int i = 0; i < ns.size() && i < MAX_STATES_IN_REPORT; i++) {
+			for (size_t i = 0; i < ns.size() && i < MAX_STATES_IN_REPORT; i++) {
 				std::stringstream sstr;
 				sstr << i + 1 << ". final state";
 				write_state(sstr.str(), ns[i], report);
@@ -886,7 +878,7 @@ void Core::run_analysis_transition_occurrence(ca::Output &report)
 		node_queue.pop();
 		current = (ParikhVector*)(node->get_data());
 		const std::vector<NextNodeInfo> &nexts_nodes = node->get_nexts();
-		for (int i = 0; i < nexts_nodes.size(); i++) {
+		for (size_t i = 0; i < nexts_nodes.size(); i++) {
 			next = new ParikhVector(*current);
 			if (nexts_nodes[i].action == ActionFire) {
 				Arc arc(node, &nexts_nodes[i]);
@@ -989,7 +981,7 @@ void Core::run_analysis_cycle(ca::Output &report)
 		Node *n = stack.top();
 		int tag = n->get_tag();
 		const std::vector<NextNodeInfo> &nexts = n->get_nexts();
-		if (tag == nexts.size()) {
+		if (tag == static_cast<int>(nexts.size())) {
 			n->set_tag(-2);
 			stack.pop();
 			continue;

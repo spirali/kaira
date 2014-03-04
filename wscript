@@ -52,6 +52,8 @@ def configure(ctx):
         ctx.env.append_value("CXXFLAGS", "-g")
         ctx.env.append_value("CXXFLAGS", "-fPIC")
 
+    ctx.env.append_value("CXXFLAGS", "-Wall")
+
     if not ctx.options.disable_verif:
         verif =  ctx.check_cxx(header_name="google/sparse_hash_map",
                                mandatory=False)

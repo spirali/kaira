@@ -118,7 +118,7 @@ void ca::Process::init_collective_operations(int process_count)
 
 void ca::Process::setup_collective_operation(int transition_id, bool use_root, int root)
 {
-	if (use_root && root < 0 || root >= get_process_count()) {
+	if (use_root && (root < 0 || root >= get_process_count())) {
 		fprintf(stderr, "Invalid value of root (root=%i)\n", root);
 		exit(1);
 	}

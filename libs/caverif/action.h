@@ -5,7 +5,6 @@ namespace cass {
 
 enum ActionType {
 	ActionFire,
-	ActionFinish,
 	ActionReceive
 };
 
@@ -52,6 +51,8 @@ struct ActionCompare
 						} else {
 							return a1.data.receive.source < a2.data.receive.source;
 						}
+					default:
+						return false;
 				}
 			} else {
 				return a1.type < a2.type;

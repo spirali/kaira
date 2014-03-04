@@ -10,7 +10,7 @@ void ControlledTimeTraceLog::init()
 }
 
 ControlledTimeTraceLog::ControlledTimeTraceLog(int process_id, int thread_id, size_t size)
-	: TraceLog(process_id, thread_id, size), starttime(0), basetime(0)
+	: TraceLog(process_id, thread_id, size), basetime(0), starttime(0)
 {
 	settedtime = 0;
 }

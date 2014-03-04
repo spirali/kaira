@@ -37,9 +37,9 @@ class Listener {
 		void prepare_state();
 		void cleanup_state();
 
-		int listen_socket;
 		int process_count;
 		Process **processes;
+		int listen_socket;
 		pthread_t thread;
 		pthread_barrier_t *start_barrier;
 		State *state;

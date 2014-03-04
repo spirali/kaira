@@ -131,7 +131,7 @@ void TraceLog::event_send_part2(const std::vector<int> &targets, size_t size, in
 	write_uint64(size);
 	write_int32(edge_id);
 	write_int32(targets.size());
-	for (int i = 0; i < targets.size(); i++) {
+	for (size_t i = 0; i < targets.size(); i++) {
 		write_int32(targets[i]);
 	}
 }

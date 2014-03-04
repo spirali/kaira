@@ -136,8 +136,7 @@ casr::State::PacketQueue casr::State::get_current_packets(int process_id1, int p
 {
 	PacketQueue &pq = get_packets(process_id1, process_id2);
 	PacketQueue result;
-	int t;
-	for (t = 0; t < pq.size(); t++) {
+	for (size_t t = 0; t < pq.size(); t++) {
 		if (global_time >= pq[t].start_time) {
 			result.push_back(pq[t]);
 		}
@@ -155,7 +154,7 @@ size_t casr::State::get_data_size(int process_id1, int process_id2)
 {
 	PacketQueue &pq = get_packets(process_id1, process_id2);
 	size_t size = 0;
-	for (int t = 0; t < pq.size(); t++) {
+	for (size_t t = 0; t < pq.size(); t++) {
 		size += pq[t].size;
 	}
 	return size;

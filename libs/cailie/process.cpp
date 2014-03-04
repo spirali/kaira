@@ -82,7 +82,7 @@ void Process::process_service_message(Thread *thread, ServiceMessage *smsg)
 				net_is_quit = false;
 				break;
 			}
-			Net *net = (Net *) spawn_net(m->def_index, false);
+			spawn_net(m->def_index, false);
 			if(too_early_message.size() > 0) {
 				std::vector<EarlyMessage>::const_iterator i;
 				for (i = too_early_message.begin(); i != too_early_message.end(); i++) {
