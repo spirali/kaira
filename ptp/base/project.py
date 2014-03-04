@@ -59,6 +59,7 @@ class Project(object):
         self.communication_model_code = ""
         self.library_rpc = False
         self.library_octave = False
+        self.tracing = False
         self.build_target = None
 
     def get_root_directory(self):
@@ -322,6 +323,7 @@ def load_project(element, target_envs, build_target="build"):
 
     p.library_rpc = utils.xml_bool(element, "library-rpc", False)
     p.library_octave = utils.xml_bool(element, "library-octave", False)
+    p.tracing = utils.xml_bool(element, "tracing", False)
 
     load_configuration(element.find("configuration"), p)
 

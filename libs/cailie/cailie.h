@@ -73,6 +73,7 @@ void init(
 	int argc,
 	char **argv,
 	std::vector<Parameter*> &parameters,
+	bool tracing,
 	const std::string& extra_args = "",
 	void extra_args_callback(char, char*, void*) = NULL,
 	void *extra_args_data = NULL);

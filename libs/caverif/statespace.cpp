@@ -110,7 +110,7 @@ void cass::init(int argc, char **argv, std::vector<ca::Parameter*> &parameters)
 	char s[1024];
 	strncpy(s, argv[0], 1024);
 	project_name = basename(s); // basename can modify its argument
-	init(argc, argv, parameters, "V:", args_callback);
+	init(argc, argv, parameters, false, "V:", args_callback);
 }
 
 void State::pack_state(ca::Packer &packer)

@@ -240,6 +240,10 @@ class Project(EventSource):
         if build_config.library:
             root.set("library-rpc", str(self.library_rpc))
             root.set("library-octave", str(self.library_octave))
+
+        if build_config.tracing:
+            root.set("tracing", "True")
+
         root.append(self._configuration_element(build_config))
 
         description = xml.Element("description")

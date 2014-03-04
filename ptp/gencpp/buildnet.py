@@ -19,6 +19,7 @@
 
 from writer import CppWriter, emit_declarations
 from writer import const_string, const_boolean
+import writer
 import build
 import collectives
 
@@ -1011,7 +1012,8 @@ def write_main_setup(builder, init_function="ca::init", start_process=True):
         builder.line("parameters.push_back(&param::{0});", p.get_name())
 
     builder.emptyline()
-    builder.line("{0}(argc, argv, parameters);", init_function)
+    builder.line("{0}(argc, argv, parameters, {1});",
+                 init_function, writer.const_boolean(builder.project.tracing))
     builder.emptyline()
 
     for net in builder.project.nets:

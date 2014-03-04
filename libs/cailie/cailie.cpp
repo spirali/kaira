@@ -165,6 +165,7 @@ static void finalize()
 void ca::init(int argc,
 			 char **argv,
 			 std::vector<Parameter*> &parameters,
+			 bool tracing,
 			 const std::string &extra_args,
 			 void (extra_args_callback)(char, char*, void*),
 			 void *extra_args_data)
@@ -269,6 +270,12 @@ void ca::init(int argc,
 					exit(1);
 				} break;
 			}
+
+	if (tracing && tracelog_size == 0) {
+		fprintf(stderr, "Size of tracelog buffer was not specified.\n"
+				"Use parameter -T; e.g. -T2M for 2MB tracelog buffer.\n");
+		exit(1);
+	}
 
 	#ifdef CA_MPI
 	MPI_Init(&argc, &argv);
