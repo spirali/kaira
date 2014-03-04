@@ -6,6 +6,8 @@
 #include <cailie.h>
 #include <octave/oct.h>
 #include <octave/load-save.h>
+#include <octave/ov-re-mat.h>
+#include <ov-re-sparse.h>
 #include <ls-oct-binary.h>
 
 namespace caoctave {
@@ -81,9 +83,10 @@ namespace ca {
 		bool swap;
 		std::string name, doc;
 		oct_mach_info::float_format flt_fmt;
-		octave_value ovalue = m;
 		read_binary_file_header(data, swap, flt_fmt);
-		ovalue.load_binary(data,swap,flt_fmt);
+		octave_matrix mv;
+		mv.load_binary(data,swap,flt_fmt);
+		m = mv.matrix_value();
 	}
 
 	CA_PACK(SparseMatrix, packer, m) {
@@ -101,9 +104,10 @@ namespace ca {
 		bool swap;
 		std::string name, doc;
 		oct_mach_info::float_format flt_fmt;
-		octave_value ovalue = m;
+		octave_sparse_matrix mv;
 		read_binary_file_header(data, swap, flt_fmt);
-		ovalue.load_binary(data,swap,flt_fmt);
+		mv.load_binary(data,swap,flt_fmt);
+		m = mv.sparse_matrix_value();
 	}
 }
 
