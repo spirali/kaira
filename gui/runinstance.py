@@ -231,11 +231,11 @@ class NetInstance:
             lst = []
             self.new_tokens[place_id] = lst
 
-        if not token_value: # the list of tokens is empty
-            token_value = None
-        elif len(token_value) == 1:
-            token_value = token_value[0]
-
+        if isinstance(token_value, list):
+            if not token_value: # the list of tokens is empty
+                token_value = None
+            elif len(token_value) == 1:
+                token_value = token_value[0]
         lst.append((token_pointer, token_value, send_time))
 
     def clear_removed_and_new_tokens(self):
