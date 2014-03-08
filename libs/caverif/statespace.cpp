@@ -26,6 +26,8 @@ static bool cfg_analyse_cycle = false;
 static bool cfg_partial_order_reduction = true;
 static bool cfg_silent = false;
 static bool cfg_debug = false;
+static bool cfg_wait_for_key = false;
+static std::string cfg_interesting_state_prefix;
 static std::string project_name;
 
 
@@ -45,9 +47,18 @@ static void args_callback(char c, char *optarg, void *data)
 			return;
 		}
 
-		if (!strcmp(optarg, "debug")) {
+		if (!strncmp(optarg, "debug", 5)) {
 			cfg_debug = true;
-			return;
+			std::string str(optarg);
+			if (str.length() == 5) {
+				cfg_wait_for_key = true;
+				return;
+			}
+			if (str.length() > 6 && str[5] == '=') {
+				cfg_interesting_state_prefix = str.substr(6);
+				cfg_wait_for_key = false;
+				return;
+			}
 		}
 		if (!strcmp(optarg, "deadlock")) {
 			cfg_analyse_deadlock = true;
@@ -349,8 +360,15 @@ void Core::generate()
 		}
 		Node *node = not_processed.top();
 		not_processed.pop();
+		if (cfg_debug && cfg_wait_for_key == false) {
+			char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
+			hashdigest_to_string(MHASH_MD5, node->get_state()->compute_hash(MHASH_MD5) , hashstr);
+			if (!strncmp(hashstr, cfg_interesting_state_prefix.c_str(), cfg_interesting_state_prefix.size())) {
+				cfg_wait_for_key = true;
+			}
+		}
 		node->generate(this);
-		if (cfg_debug) {
+		if (cfg_wait_for_key) {
 			getchar();
 		}
 	} while (!not_processed.empty());
@@ -387,7 +405,7 @@ ActionSet Core::compute_ample_set(State *s, const ActionSet &enable)
 			}
 			return ample;
 		}
-		if (cfg_debug) {
+		if (cfg_wait_for_key) {
 			getchar();
 		}
 	}
@@ -406,6 +424,15 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 	std::vector<bool> fire_blocked(ca::process_count, false);
 
 	if (cfg_debug) {
+		printf("    C1: Marking: {");
+		int place_count = marking.size() / ca::process_count;
+		for (size_t i = 0; i < marking.size(); i++) {
+			printf(" %d", marking[i]);
+			if ((i + 1) % place_count == 0 && i + 1 != marking.size()) {
+				printf(" |");
+			}
+		}
+		printf(" }\n");
 		printf("    C1: starting configuration {");
 	}
 	for (ActionSet::iterator i = enabled.begin(); i != enabled.end(); i++) {
