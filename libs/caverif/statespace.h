@@ -214,6 +214,6 @@ namespace cass {
 
 	};
 
-	void init(int argc, char **argv, std::vector<ca::Parameter*> &parameters);
+	void init(int argc, char **argv, std::vector<ca::Parameter*> &parameters, bool tracing);
 }
 #endif // CAVERIF_STATESPACE_H

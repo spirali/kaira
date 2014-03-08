@@ -105,12 +105,12 @@ static std::string hashdigest_to_string(hashid hash_id, HashDigest hash)
 	return hashstr;
 }
 
-void cass::init(int argc, char **argv, std::vector<ca::Parameter*> &parameters)
+void cass::init(int argc, char **argv, std::vector<ca::Parameter*> &parameters, bool tracing)
 {
 	char s[1024];
 	strncpy(s, argv[0], 1024);
 	project_name = basename(s); // basename can modify its argument
-	init(argc, argv, parameters, false, "V:", args_callback);
+	init(argc, argv, parameters, tracing, "V:", args_callback);
 }
 
 void State::pack_state(ca::Packer &packer)
