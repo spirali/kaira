@@ -236,19 +236,25 @@ ActionSet Node::compute_enable_set(Core *core)
 	ca::NetDef *def = core->get_net_def();
 	const std::vector<ca::TransitionDef*> &transitions = def->get_transition_defs();
 
+	int enabled_priorities = 0;
+	bool added;
 	for (int p = 0; p < ca::process_count; p++) {
 		if (state->is_process_busy(p)) {
 			continue;
 		}
+		added = false;
 		for (int i = 0; i < def->get_transitions_count(); i++) {
+			if (added && transitions[i]->get_priority() < enabled_priorities) {
+				break;
+			}
 			if (state->is_transition_enabled(p, transitions[i])) {
+				added = true;
+				enabled_priorities = transitions[i]->get_priority();
 				Action action;
 				action.type = ActionFire;
 				action.data.fire.transition_def = transitions[i];
 				action.process = p;
 				enable.insert(action);
-				// all other transitions have lower priority
-				break;
 			}
 		}
 	}
@@ -421,7 +427,8 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 	// This assume that there is no optimization for number of tokens in places
 	ActionSet processed = ample;
 	std::vector<bool> receive_blocked(ca::process_count * ca::process_count, false);
-	std::vector<bool> fire_blocked(ca::process_count, false);
+	std::vector<int> enabled_priorities(ca::process_count, 0);
+	std::vector<int> marking = verif_configuration.get_marking(s);
 
 	if (cfg_debug) {
 		printf("    C1: Marking: {");
@@ -441,7 +448,7 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 				receive_blocked[i->process * ca::process_count + i->data.receive.source] = true;
 			}
 			if (i->type == ActionFire) {
-				fire_blocked[i->process] = true;
+				enabled_priorities[i->process] = i->data.fire.transition_def->get_priority();
 			}
 		} else {
 			if (i->type == ActionFire) {
@@ -451,9 +458,8 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 					printf(" %s", i->to_string().c_str());
 				}
 				const std::vector<ca::TransitionDef*> &transitions = net_def->get_transition_defs();
-				int t = 0;
-				while (transitions[t++] != i->data.fire.transition_def);
-				for (; t < net_def->get_transitions_count(); t++) {
+				for (int t = 0; t < net_def->get_transitions_count(); t++) {
+					if (transitions[t]->get_priority() >= enabled_priorities[i->process]) continue;
 					if (s->is_transition_enabled(i->process, transitions[t])) {
 						Action a;
 						a.type = ActionFire;
@@ -501,7 +507,7 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 
 	while(queue.size() > 0) {
 		for (ActionSet::iterator a = ample.begin(); a != ample.end(); a++) {
-			if (verif_configuration.is_dependent(*a, queue.front(), s)) {
+			if (verif_configuration.is_dependent(*a, queue.front(), marking)) {
 				if (cfg_debug) {
 					printf("    C1: %s and %s are dependent.\n", a->to_string().c_str(), queue.front().to_string().c_str());
 				}
@@ -510,14 +516,14 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 		}
 		if (cfg_debug) {
 			size_t i = queue.size();
-			verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, s);
+			verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, enabled_priorities, marking);
 			printf("    C1: successors of %s: {", queue.front().to_string().c_str());
 			for (; i < queue.size(); i++) {
 				printf(" %s", queue[i].to_string().c_str());
 			}
 			printf(" }\n");
 		} else {
-			verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, s);
+			verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, enabled_priorities, marking);
 		}
 		queue.pop_front();
 	}

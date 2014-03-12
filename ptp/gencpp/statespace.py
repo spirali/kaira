@@ -45,6 +45,11 @@ def write_dependent(builder):
         def get_place(edge):
             return edge.place
 
+        # Transitions have different priority -> they can disable each other
+        if t1.priority != t2.priority:
+            builder.line("return true; // Transitions have different priority")
+            return
+
         # Both transitions send tokens but we don't know exactly where
         if not t1.is_local() and not t2.is_local() and \
                 not (t1.has_fixed_target() and t2.has_fixed_target()):
@@ -108,6 +113,7 @@ def write_dependent(builder):
 
     def write_fire_receive(fire, receive):
         def fire_callback(builder, transition):
+            # Receive token to the transition output place
             for t_edge in transition.edges_out:
                 for r_edge in t_edge.place.get_edges_in():
                     builder.line("// t {0.transition.id} --> p {0.place.id}", r_edge)
@@ -130,9 +136,18 @@ def write_dependent(builder):
             builder.line("return false;")
 
         def receive_callback(builder, edge):
-            if len(edge.place.get_edges_out()) > 0:
+            builder.line("// t {0.transition.id} --> p {0.place.id}", edge)
+            # Receive a token disable active transition
+            #FIX ME: It not works for ample sets with more than one action
+            builder.line("int edge_priority = 0;")
+            for t in sorted(edge.place.get_transitions_out(), key = lambda t: t.priority):
+                builder.line("if (is_enabled({0.id}, a1.process, marking, {2.id})) edge_priority = {1};",
+                             t, t.priority, edge.place)
+            for t in net.transitions:
+                builder.if_begin("edge_priority > {2} && {0.id} == a{1}.data.fire.transition_def->get_id()",
+                                 t, fire, t.priority)
                 builder.line("return true;")
-
+                builder.block_end()
 
         switch_by_id(builder,
                      "a{0}.data.receive.edge_id".format(receive),
@@ -157,7 +172,7 @@ def write_dependent(builder):
         builder.block_end()
 
     builder.line("bool is_dependent("
-                 "const cass::Action &a1, const cass::Action &a2, cass::State *s)")
+                 "const cass::Action &a1, const cass::Action &a2, const std::vector<int> &marking)")
     builder.block_begin()
     builder.if_begin("a1.process != a2.process")
     builder.line("return false;")
@@ -173,8 +188,15 @@ def write_dependent(builder):
     builder.line("abort();")
     builder.block_end()
 
-    #all transition are dependent because of priorities
-    builder.line("return true;")
+    switch_by_id(builder,
+                 "a1.data.fire.transition_def->get_id()",
+                 net.transitions,
+                 lambda builder, t1:
+                     switch_by_id(builder,
+                         "a2.data.fire.transition_def->get_id()",
+                         net.transitions,
+                         lambda builder, t2: write_fire_fire(t1, t2),
+                         exclude=t1))
     builder.block_end()
 
     builder.if_begin("a1.type == cass::ActionFire && a2.type == cass::ActionReceive")
@@ -259,12 +281,15 @@ def write_constructor(builder, ignored):
 def write_compute_successors(builder):
 
     def push_fire(transition):
+        builder.if_begin("is_enabled({0.id}, a.process, marking, -1)", transition)
         builder.line("action.type = cass::ActionFire;")
         builder.line("action.process = a.process;")
         builder.line("action.data.fire.transition_def = &transition_{0.id};", transition)
-        builder.if_begin("processed.find(action) == processed.end()")
+        builder.if_begin("enabled_priorities[action.process] <= transition_{0.id}.get_priority() && "
+                         "processed.find(action) == processed.end()", transition)
         builder.line("queue.push_back(action);")
         builder.line("processed.insert(action);")
+        builder.block_end()
         builder.block_end()
 
     def push_receive(edge, process):
@@ -278,6 +303,11 @@ def write_compute_successors(builder):
         builder.line("processed.insert(action);")
         builder.block_end()
 
+    def push_tokens(net, place):
+        builder.line("// there is {0} places, place {1.id} is on position {2}.",
+                     len(net.places), place, place.get_pos_id())
+        builder.line("marking[{0} * a.process + {1}]++;", len(net.places), place.get_pos_id())
+
     def push_transitions_of_place(place, ignore_transition=None):
         for edge in place.get_edges_out():
             if edge.transition != ignore_transition:
@@ -287,15 +317,18 @@ def write_compute_successors(builder):
         for edge in transition.edges_out:
             builder.line("// place {0.place.id}", edge)
             if edge.is_local():
+                push_tokens(net, edge.place)
                 push_transitions_of_place(edge.place, transition)
             elif edge.has_fixed_target():
                 for i in edge.inscriptions:
                     if i.is_local():
+                        push_tokens(net, edge.place)
                         push_transitions_of_place(edge.place, transition)
                     else:
                         builder.block_begin()
                         builder.line("int $target = {0.target};", i)
                         builder.if_begin("a.process == $target")
+                        push_tokens(net, edge.place)
                         push_transitions_of_place(edge.place, transition)
                         builder.write_else()
                         push_receive(edge, builder.expand("$target"))
@@ -303,6 +336,7 @@ def write_compute_successors(builder):
                         builder.block_end()
             else:
                 multicast = any(i.is_multicast() for i in edge.inscriptions)
+                push_tokens(net, edge.place)
                 push_transitions_of_place(edge.place, transition)
                 builder.line("for (int $p = 0; $p < ca::process_count; $p++)")
                 builder.block_begin()
@@ -320,13 +354,14 @@ def write_compute_successors(builder):
                     "std::deque<cass::Action> &queue,"
                     "cass::ActionSet &processed,"
                     "const std::vector<bool> &receive_blocked,"
-                    "cass::State *s)")
+                    "const std::vector<int> &enabled_priorities,"
+                    "std::vector<int> &marking)")
 
     builder.block_begin()
     builder.line("cass::Action action;")
     builder.line("cass::VerifThread thread(a.process);")
     builder.line("ca::Context ctx(&thread, NULL);");
-    builder.line("int receiving, place_tokens;")
+
     builder.switch_begin("a.type")
     builder.line("case cass::ActionFire:")
     switch_by_id(builder,
@@ -343,6 +378,7 @@ def write_compute_successors(builder):
                 continue
             builder.line("case {0.id}: // t {0.transition.id} --> p {0.place.id}", edge)
             builder.block_begin()
+            push_tokens(net, edge.place)
             push_transitions_of_place(edge.place)
             builder.line("return;")
             builder.block_end()
@@ -350,6 +386,37 @@ def write_compute_successors(builder):
     builder.line("return;")
     builder.block_end()
     builder.block_end()
+    builder.block_end()
+
+def write_get_marking(builder):
+    net = builder.project.nets[0]
+    builder.write_method_start("std::vector<int> get_marking(cass::State *s)")
+    builder.line("std::vector<int> marking;")
+    builder.line("marking.resize({0} * ca::process_count);", len(net.places))
+    builder.for_begin("int p = 0; p < ca::process_count; p++")
+    builder.line("Net_{0} *n = (Net_{0} *) s->get_net(p);", net.id)
+    for i, p in enumerate(net.places):
+        builder.line("marking[p * {0} + {2}] = n->get_token_count_in_place({1.id});",
+                     len(net.places), p, i)
+    builder.block_end()
+    builder.line("return marking;")
+    builder.block_end()
+
+def write_is_enabled(builder):
+    net = builder.project.nets[0]
+
+    def callback(builder, transition):
+        for p in transition.get_input_places():
+            builder.line("if (marking[{0} * process_id + {2}] == 0 && {1.id} != ignored_place) return false;",
+                         len(net.places), p, p.get_pos_id())
+
+    builder.write_method_start("bool is_enabled("
+                               "int transition_id, int process_id, const std::vector<int> &marking, int ignored_place)")
+    switch_by_id(builder,
+                 "transition_id",
+                 net.transitions,
+                 callback)
+    builder.line("return true;")
     builder.block_end()
 
 def write_verif_configuration(builder):
@@ -366,8 +433,9 @@ def write_verif_configuration(builder):
     write_dependent(builder)
     write_is_visible(builder)
     write_compare_function(builder, compared)
-    builder.line("private:")
     write_compute_successors(builder)
+    write_get_marking(builder)
+    write_is_enabled(builder)
 
     # Final Marking
     net = builder.project.nets[0]
@@ -405,8 +473,16 @@ def write_pack_method(builder, net):
          builder.line("ca::pack(packer, place_{0.id});", place)
     builder.write_method_end()
 
+def write_state_analyzes_method(builder, net):
+    builder.write_method_start("size_t get_token_count_in_place(int place_id)")
+    for p in net.places:
+        builder.line("if (place_id == {0.id}) return this->place_{0.id}.size();", p)
+    builder.line("return 0;")
+    builder.write_method_end()
+
 def write_net_class_extension(builder, net):
     write_pack_method(builder, net)
+    write_state_analyzes_method(builder, net)
 
 def write_main(builder):
     builder.line("int main(int argc, char **argv)")
