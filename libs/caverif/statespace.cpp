@@ -13,7 +13,7 @@ namespace ca {
 	extern char *project_description_string;
 }
 
-static int const MAX_STATES_IN_REPORT = 5;
+static size_t const MAX_STATES_IN_REPORT = 5;
 
 using namespace cass;
 

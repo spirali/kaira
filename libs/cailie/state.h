@@ -120,7 +120,7 @@ namespace ca {
 					int collective_bindings(TransitionDef *transition_def, std::vector<void*> &bindings) {
 						bindings.resize(ca::process_count, NULL);
 						int count = 0;
-						for (int i = 0; i < state->activations.size(); i++) {
+						for (size_t i = 0; i < state->activations.size(); i++) {
 							ActivationT &activation = state->activations[i];
 							TransitionDef *td = activation.transition_def;
 							if (td->is_blocked(activation.binding)) {
@@ -212,7 +212,7 @@ namespace ca {
 						const std::vector<TransitionDef*>& transitions = \
 							net_def->get_transition_defs();
 						bool enabled = false;
-						for (int t = 0; t < transitions.size(); t++) {
+						for (size_t t = 0; t < transitions.size(); t++) {
 							if (enabled && transitions[t - 1]->get_priority() !=
 									transitions[t]->get_priority()) {
 								break;
@@ -228,7 +228,7 @@ namespace ca {
 					output.back();
 				}
 
-				for (int i = 0; i < activations.size(); i++) {
+				for (size_t i = 0; i < activations.size(); i++) {
 					output.child("activation");
 					output.set("process-id", activations[i].process_id);
 					output.set("binding", activations[i].binding);
@@ -408,7 +408,7 @@ namespace ca {
 
 			int get_receiving_edge(int process_id, int origin_id, int position) {
 				PacketQueue &pq = packets[process_id * ca::process_count + origin_id];
-				if (pq.empty() || position >= pq.size()) {
+				if (pq.empty() || position >= static_cast<int>(pq.size())) {
 					return -1;
 				} else {
 					Packet packet = pq[position];
