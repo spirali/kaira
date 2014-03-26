@@ -111,7 +111,11 @@ class NetEditor(gtk.VBox):
             self.undo_manager = None
             return
 
-        net.change_item_callback = lambda n, i: self.redraw()
+        def changed(net, item):
+            net.project.generator = None
+            self.redraw()
+
+        net.change_item_callback = changed
         if select_in_netlist:
             self.netlist.select_object(net)
         self.undo_manager = net.undo_manager

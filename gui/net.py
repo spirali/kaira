@@ -37,7 +37,7 @@ class Net:
         self.name = name
         self.items = []
         self.change_callback = lambda n: None
-        self.change_item_callback = lambda n, i: None
+        self.change_item_callback = None
         self.undo_manager = undo.UndoManager()
 
     def get_name(self):
@@ -69,7 +69,8 @@ class Net:
         self.change_callback(self)
 
     def changed_item(self, item):
-        self.change_item_callback(self, item)
+        if self.change_item_callback:
+            self.change_item_callback(self, item)
 
     def add_place(self, position, id = None):
         place = Place(self, id, position)
@@ -304,7 +305,7 @@ class NetElement(NetItem):
         return items
 
     def has_code(self):
-        return self.code != ""
+        return self.code.strip() != ""
 
     def get_code(self):
         return self.code
