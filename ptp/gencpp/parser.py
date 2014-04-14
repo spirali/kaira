@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2013 Stanislav Bohm
+#    Copyright (C) 2013-2014 Stanislav Bohm
 #
 #    This file is part of Kaira.
 #
@@ -19,6 +19,24 @@
 
 import pyparsing as pp
 import base.utils as utils
+
+# Reserved words of C++ (including C++11)
+reserved_words = set([
+    "alignas", "alignof", "and", "and_eq", "asm", "auto",
+    "bitand", "bitor", "bool", "break", "case", "catch",
+    "char", "char16_t", "char32_t", "class", "compl", "const",
+    "constexpr", "const_cast", "continue", "decltype", "default", "delete",
+    "do", "double", "dynamic_cast", "else", "enum", "explicit",
+    "export", "extern", "false", "float", "for", "friend",
+    "goto", "if", "inline", "int", "long", "mutable",
+    "namespace", "new", "noexcept", "not", "not_eq", "nullptr",
+    "operator", "or", "or_eq", "private", "protected", "public",
+    "register", "reinterpret_cast", "return", "short", "signed", "sizeof",
+    "static", "static_assert", "static_cast", "struct", "switch", "template",
+    "this", "thread_local", "throw", "true", "try", "typedef",
+    "typeid", "typename", "union", "unsigned", "using", "virtual",
+    "void", "volatile", "wchar_t", "while", "xor", "xor_eq",
+])
 
 digits = "0123456789"
 operator_chars = "+-*/%=!<>&|~"
@@ -92,7 +110,9 @@ def parse_expression(expr, source, allow_empty):
 def get_expr_variables(expr):
     if not expr:
         return set()
-    return set(expression.parseString(expr, parseAll=True))
+    s = set(expression.parseString(expr, parseAll=True))
+    s.difference_update(reserved_words)
+    return s
 
 def parse_typename(tname, source):
     if len(tname) == 0:
@@ -103,7 +123,7 @@ def parse_typename(tname, source):
         raise utils.PtpException(e.msg, source)
 
 def is_variable(expr):
-    if expr is None:
+    if expr is None or expr.strip() in reserved_words:
         return False
     try:
         ident.parseString(expr, parseAll=True)
