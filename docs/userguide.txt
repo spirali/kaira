@@ -87,6 +87,54 @@ where some features are disabled.
 
 ************
 
+.Full instalation - Instructions for Arch based distributions
+************
+
+These steps describe how to install the *full* version of Kaira.
+
+  - Installation of necessary packages
+
+  $ pacman -S gcc python2 python2-virtualenv pygtk pygtksourceview2 python2-pyparsing python2-matplotlib waf
+
+  - Libraries for verification subsystem
+
+  $ pacman -S sparsehash mhash
+
+  - Octave
+
+  $ pacman -S octave
+
+  - Documentation
+
+  $ pacman -S asciidoc source-highlight
+
+  - Installation of MPI implementation (available from AUR)
+
+  $ bash <(curl aur.sh) -si sowing mpich
+
+  - Set up Python 2 environment
+
+  $ virtualenv2 --system-site-packages venv
+  $ source venv/bin/activate
+
+  - Configure Kaira
+
+  $ ./waf configure
+
+  - Build Kaira
+
+  $ ./waf
+
+  - Start Kaira
+
+  $ ./start.sh
+
+  - To start Kaira next time in a clean shell session, you need to enter Python 2 environment first
+
+  $ source venv/bin/activate
+  $ ./start.sh
+
+************
 
 The following text covers the installation process in more detail.
 
