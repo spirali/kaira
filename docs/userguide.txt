@@ -23,8 +23,11 @@ of Linux.
 Installation
 ------------
 
-.Full instalation - Instructions for Debian based distributions
-************
+Instructions for Debian based distributions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.Full installation - Instructions for Debian based distributions
+***************************************************************
 
 These steps describe how to install the *full* version of Kaira.
 How to disable some of subsystems is described below.
@@ -63,8 +66,8 @@ How to disable some of subsystems is described below.
 
 ************
 
-.Minimal instalation - Instructions for Debian based distributions
-************
+.Minimal installation - Instructions for Debian based distributions
+******************************************************************
 
 These steps describe how to install the a *minimal* version of Kaira,
 where some features are disabled.
@@ -87,14 +90,18 @@ where some features are disabled.
 
 ************
 
-.Full instalation - Instructions for Arch based distributions
-************
+Instruction for Arch
+~~~~~~~~~~~~~~~~~~~~
+
+.Full installation - Instructions for Arch based distributions
+**************************************************************
 
 These steps describe how to install the *full* version of Kaira.
 
   - Installation of necessary packages
 
-  $ pacman -S gcc python2 python2-virtualenv pygtk pygtksourceview2 python2-pyparsing python2-matplotlib waf
+  $ pacman -S gcc python2 python2-virtualenv pygtk pygtksourceview2 \
+    python2-pyparsing python2-matplotlib
 
   - Libraries for verification subsystem
 
@@ -156,7 +163,7 @@ To run Kaira, you need the following software.
 
 Optional dependencies:
 
-  - MPI implementation (tested with: MPICH2, OpenMP, LAM)
+  - MPI implementation (tested with: MPICH2, OpenMPI, LAM)
   - Octave
   - sparsehash
   - mhash
