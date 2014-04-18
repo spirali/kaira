@@ -563,23 +563,16 @@ void Core::write_dot_file(const std::string &filename)
 		const std::vector<NextNodeInfo> &nexts = node->get_nexts();
 		hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
 		hashstr[5] = 0; // Take just prefix
-		int packets_count = 0;
-		for (int i = 0; i < ca::process_count * ca::process_count; i++) {
-			packets_count += node->get_state()->get_packets(
-				i / ca::process_count, i % ca::process_count).size();
-		}
 		const char *quit_flag;
 		if (node->get_state()->get_quit_flag()) {
 			quit_flag = "!";
 		} else {
 			quit_flag = "";
 		}
-		fprintf(f, "S%p [label=\"%s%s|%i|%i|%i\"]\n",
+		fprintf(f, "S%p [label=\"%s%s|%i\"]\n",
 			node,
 			quit_flag,
 			hashstr,
-			(int) node->get_state()->get_activations().size(),
-			packets_count,
 			node->get_distance());
 		for (size_t i = 0; i < nexts.size(); i++) {
 			fprintf(f, "S%p -> S%p [label=\"", node, nexts[i].node);
