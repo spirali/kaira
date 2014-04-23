@@ -55,7 +55,7 @@ def main():
     parser.add_argument("--lib", action='store_true')
     args = parser.parse_args()
     if args.export:
-        export(args.export, args.output, args.trace, args.lib)
+        export(os.path.abspath(args.export), args.output, args.trace, args.lib)
         return
     if args.tracelog:
         check_tracelog(args.tracelog)
