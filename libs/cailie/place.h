@@ -77,12 +77,24 @@ template <typename T> class PlaceWithSource : public Place<T>
 
 		PlaceWithSource() {}
 
-		PlaceWithSource(PlaceWithSource &place) : Place<T>(place), default_source(place.default_source) {
+		PlaceWithSource(const PlaceWithSource &place) : Place<T>(place), default_source(place.default_source) {
 			Token<T> *s = this->token_list.begin();
 			for (Token<T> *t = place.token_list.begin(); t != NULL; t = place.token_list.next(t)) {
-				this->sources[s] = place.sources[t];
+				this->sources[s] = place.sources.find(t)->second;
 				s = this->token_list.next(s);
 			}
+		}
+
+		PlaceWithSource& operator=(const PlaceWithSource &place) {
+			Place<T>::operator=(place);
+			this->default_source = place.default_source;
+			this->sources.clear();
+			Token<T> *s = this->token_list.begin();
+			for (Token<T> *t = place.token_list.begin(); t != NULL; t = place.token_list.next(t)) {
+				this->sources[s] = place.sources.find(t)->second;
+				s = this->token_list.next(s);
+			}
+			return *this;
 		}
 
 		void set_default_source(int source) {

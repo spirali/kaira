@@ -33,7 +33,7 @@ template<typename T> class TokenList {
 			clear();
 		}
 
-		TokenList(TokenList<T> &list) {
+		TokenList(const TokenList<T> &list) {
 			token = NULL;
 			tokens_count = 0;
 			copy_tokens(list);
@@ -81,7 +81,7 @@ template<typename T> class TokenList {
 			list.tokens_count = 0;
 		}
 
-		void copy_tokens(TokenList<T> &list) {
+		void copy_tokens(const TokenList<T> &list) {
 			Token<T> *t;
 			for (t = list.begin(); t != NULL; t = list.next(t)) {
 				add(t->value);
@@ -220,18 +220,19 @@ template<typename T> class TokenList {
 			return token->value;
 		}
 
-		TokenList<T> & operator= (TokenList &other)
+		TokenList<T> & operator= (const TokenList &other)
 		{
 			if (this != &other)
 			{
-				overtake(other);
+				clear();
+				copy_tokens(other);
 			}
 			return *this;
 		}
 
 	protected:
 		Token<T> *token;
-		int tokens_count;
+		size_t tokens_count;
 };
 
 }
