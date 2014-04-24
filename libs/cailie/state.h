@@ -328,11 +328,6 @@ namespace ca {
 				activations.erase(i);
 			}
 
-			/*void finish_transition(int i)
-			{
-				finish_transition(activations.begin() + i);
-			}*/
-
 			void finish_transition_ro_binding(int i)
 			{
 				finish_transition_ro_binding(activations.begin() + i);
@@ -358,16 +353,6 @@ namespace ca {
 				}
 				return false;
 			}
-
-			/*bool finish_transition(int process_id)
-			{
-				typename Activations::iterator i = find_activation(process_id);
-				if (i != activations.end()) {
-					finish_transition(i);
-					return true;
-				}
-				return false;
-			}*/
 
 			NetDef* get_net_def() { return net_def; }
 			NetT* get_net(int id) { return nets[id]; }
