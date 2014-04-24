@@ -386,7 +386,7 @@ def write_collective_phase1(builder, tr):
         builder.line("$tokens->root = $root;")
         builder.line("$tokens->token_collective = NULL;")
 
-    builder.line("std::vector<void*> $bindings;")
+    builder.line("std::vector<ca::Binding*> $bindings;")
     builder.line("int $bcount = $thread->collective_bindings(this, $bindings);")
     builder.line("int $process_count = $thread->get_process_count();")
 

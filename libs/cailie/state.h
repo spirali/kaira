@@ -18,17 +18,31 @@ namespace ca {
 	extern int threads_count;
 
 	struct Activation {
-		Activation(
-			TransitionDef *transition_def,
-			int process_id,
-			void *binding)
-			: transition_def(transition_def),
-			  process_id(process_id),
-			  binding(binding) {}
+		Activation(TransitionDef *transition_def, int process_id, Binding *binding)
+			: transition_def(transition_def), process_id(process_id), binding(binding) {}
+
+		Activation(const Activation &a) {
+			transition_def = a.transition_def;
+			process_id = a.process_id;
+			binding = a.binding->copy();
+		}
+
+		Activation& operator=(const Activation &a) {
+			delete binding;
+
+			transition_def = a.transition_def;
+			process_id = a.process_id;
+			binding = a.binding->copy();
+			return *this;
+		}
+
+		virtual ~Activation() {
+			delete binding;
+		}
 
 		TransitionDef *transition_def;
 		int process_id;
-		void *binding;
+		ca::Binding *binding;
 	};
 
 	template<typename NetT, typename ActivationT, typename PacketT>
@@ -117,7 +131,7 @@ namespace ca {
 							}
 					}
 
-					int collective_bindings(TransitionDef *transition_def, std::vector<void*> &bindings) {
+					int collective_bindings(TransitionDef *transition_def, std::vector<Binding*> &bindings) {
 						bindings.resize(ca::process_count, NULL);
 						int count = 0;
 						for (size_t i = 0; i < state->activations.size(); i++) {
@@ -233,7 +247,7 @@ namespace ca {
 					output.set("process-id", activations[i].process_id);
 					output.set("binding", activations[i].binding);
 					output.set("transition-id", activations[i].transition_def->get_id());
-					void *binding = activations[i].binding;
+					Binding *binding = activations[i].binding;
 					output.set("blocked", activations[i].transition_def->is_blocked(binding));
 					output.back();
 				}
@@ -264,7 +278,7 @@ namespace ca {
 					return transition_def->full_fire(&thread, nets[process_id]);
 				}
 				StateThread thread(this, process_id);
-				void *binding = transition_def->fire_phase1(&thread, nets[process_id]);
+				Binding *binding = transition_def->fire_phase1(&thread, nets[process_id]);
 				if (binding == NULL) {
 					return false;
 				}

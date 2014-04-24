@@ -51,7 +51,7 @@ class ThreadBase {
 		virtual void send_multicast(const std::vector<int> &targets, NetBase *net,
 			int edge_id, int tokens_count, const Packer &packer, size_t fake_size) {};
 
-		virtual int collective_bindings(TransitionDef *transition_def, std::vector<void*> &bindings) {
+		virtual int collective_bindings(TransitionDef *transition_def, std::vector<Binding*> &bindings) {
 			return 0;
 		}
 		/* End of methods for sumulated run */

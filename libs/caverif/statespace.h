@@ -26,18 +26,39 @@ namespace cass {
 
 	struct Activation : public ca::Activation
 	{
-		Activation(
-			ca::TransitionDef *transition_def,
-			int process_id,
-			void *binding)
+		Activation(ca::TransitionDef *transition_def, int process_id, ca::Binding *binding)
 			: ca::Activation(transition_def, process_id, binding) {
-				ca::Packer packer;
-				transition_def->pack_binding(packer, binding);
-				packed_binding = packer.get_buffer();
-				packed_binding_size = packer.get_size();
+
+			ca::Packer packer;
+			transition_def->pack_binding(packer, binding);
+			packed_binding = packer.get_buffer();
+			packed_binding_size = packer.get_size();
+		}
+
+		Activation(const Activation &a) : ca::Activation(a) {
+			packed_binding_size = a.packed_binding_size;
+			packed_binding = malloc(packed_binding_size);
+			memcpy(packed_binding, a.packed_binding, packed_binding_size);
+		}
+
+		Activation& operator=(const Activation &a) {
+			if (this != &a) {
+				free(packed_binding);
+
+				ca::Activation::operator=(a);
+				packed_binding_size = a.packed_binding_size;
+				packed_binding = malloc(a.packed_binding_size);
+				memcpy(packed_binding, a.packed_binding, a.packed_binding_size);
 			}
-			size_t packed_binding_size;
-			void *packed_binding;
+			return *this;
+		}
+
+		~Activation() {
+			free(packed_binding);
+		}
+
+		size_t packed_binding_size;
+		void *packed_binding;
 	};
 
 	inline bool binding_compare(const Activation &t1, const Activation &t2) {

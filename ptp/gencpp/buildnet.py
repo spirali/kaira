@@ -48,12 +48,74 @@ def write_vars_struct(builder, tr):
         builder.write_var_decl(name, t, True)
     builder.write_class_end()
 
+def write_tokens_copying(builder, tr):
+    def copy_tokens(remove=False):
+        if tr.collective:
+            builder.line("blocked = t.blocked;")
+            if tr.root:
+                builder.line("root = t.root;")
+                inscription = tr.get_collective_inscription()
+                builder.if_begin("t.token_collective != NULL")
+                if remove:
+                    builder.line("delete token_collective;")
+                builder.line("token_collective = new ca::Token<{0} >(t.token_collective->value);",
+                             inscription.type)
+                builder.write_else()
+                builder.line("token_collective = NULL;")
+                builder.block_end()
+
+        for inscription in tr.get_token_inscriptions_in():
+            if remove:
+                    builder.line("delete token_{0};", inscription.uid)
+            builder.line("token_{1} = new ca::Token<{0} >(t.token_{1}->value);",
+                         inscription.type, inscription.uid)
+            if inscription.is_source_reader():
+                builder.line("source_{0} = t.source_{0};", inscription.uid)
+
+        for edge in tr.get_bulk_edges_in():
+            builder.line("tokens_{0.uid} = t.tokens_{0.uid};", edge)
+
+    builder.write_method_start("Tokens_{0.id}(const Tokens_{0.id} &t)".format(tr))
+    copy_tokens()
+    builder.write_method_end()
+
+    builder.write_method_start("Tokens_{0.id}& operator=(const Tokens_{0.id} &t)".format(tr))
+    builder.if_begin("this != &t")
+    copy_tokens(True)
+    builder.block_end()
+    builder.line("return *this;")
+    builder.write_method_end()
+
+def write_tokens_descructor(builder, tr):
+    builder.write_method_start("~Tokens_{0.id}()".format(tr))
+    if tr.collective and tr.root:
+        inscription = tr.get_collective_inscription()
+        builder.if_begin("token_collective != NULL")
+        builder.line("delete token_collective;")
+        builder.block_end()
+
+    for inscription in tr.get_token_inscriptions_in():
+        builder.line("delete token_{0};", inscription.uid)
+
+    builder.write_method_end()
+
 def write_tokens_struct(builder, tr):
     """
         Writes struct that serves as storage for tokens between "find_binding" and "fire"
     """
     class_name = "Tokens_{0.id}".format(tr)
-    builder.write_class_head(class_name)
+    builder.write_class_head(class_name, "ca::Binding")
+
+    builder.line("Tokens_{0.id}() {{}};", tr)
+
+    write_tokens_copying(builder, tr)
+
+    write_tokens_descructor(builder, tr)
+
+    builder.write_method_start("ca::Binding* copy()")
+    builder.line("Tokens_{0.id} *t = new Tokens_{0.id}(*this);", tr)
+    builder.line("return t;")
+    builder.write_method_end()
 
     if tr.collective:
         builder.line("bool blocked;")
@@ -103,16 +165,16 @@ def write_transition_forward(builder, tr):
                                     tr.priority) ])
     builder.write_method_end()
     builder.line("ca::FireResult full_fire(ca::ThreadBase *thread, ca::NetBase *net);")
-    builder.line("void* fire_phase1(ca::ThreadBase *thread, ca::NetBase *net);")
-    builder.line("void fire_phase2(ca::ThreadBase *thread, ca::NetBase *net, void *data);")
+    builder.line("ca::Binding* fire_phase1(ca::ThreadBase *thread, ca::NetBase *net);")
+    builder.line("void fire_phase2(ca::ThreadBase *thread, ca::NetBase *net, ca::Binding *data);")
     builder.line("void fire_phase2_ro_binding"
-                 "(ca::ThreadBase *thread, ca::NetBase *net, void *data);")
-    builder.line("void cleanup_binding(void *data);")
+                 "(ca::ThreadBase *thread, ca::NetBase *net, ca::Binding *data);")
+    builder.line("void cleanup_binding(ca::Binding *data);")
     builder.line("bool is_enable(ca::ThreadBase *thread, ca::NetBase *net);")
     if tr.collective:
-        builder.line("bool is_blocked(void *data);")
+        builder.line("bool is_blocked(ca::Binding *data);")
     if builder.pack_bindings:
-        builder.line("void pack_binding(ca::Packer &packer, void *data);")
+        builder.line("void pack_binding(ca::Packer &packer, ca::Binding *data);")
         builder.line("ca::FireResult full_fire_with_binding(ca::ThreadBase *thread, ca::NetBase *net, ca::Packer &$packer);")
     builder.write_class_end()
     builder.line("static Transition_{0.id} transition_{0.id};",
@@ -432,6 +494,8 @@ def write_fire_body(builder,
                 builder.if_begin("!$token_{0.uid}_used", inscription)
                 builder.line("delete $token_{0.uid};", inscription)
                 builder.block_end()
+    elif tr.collective:
+        builder.line("$tokens->token_collective = NULL;")
 
 
     if tr.need_trace():
@@ -487,7 +551,7 @@ def write_enable_check(builder, tr):
 
 
 def write_fire_phase1(builder, tr):
-    builder.line("void *Transition_{0.id}::fire_phase1"
+    builder.line("ca::Binding* Transition_{0.id}::fire_phase1"
                      "(ca::ThreadBase *$thread, ca::NetBase *$net)", tr)
     builder.block_begin()
     builder.line("ca::Context ctx($thread, $net);")
@@ -550,18 +614,18 @@ def write_unpack_binding(builder, tr, binding, readonly_binding=False):
 def write_fire_phase2(builder, tr, readonly_binding=False):
     if readonly_binding:
         builder.line("void Transition_{0.id}::fire_phase2_ro_binding"
-                        "(ca::ThreadBase *$thread, ca::NetBase *$net, void *$data)",
+                        "(ca::ThreadBase *$thread, ca::NetBase *$net, ca::Binding *$binding)",
                      tr)
     else:
         builder.line("void Transition_{0.id}::fire_phase2"
-                        "(ca::ThreadBase *$thread, ca::NetBase *$net, void *$data)",
+                        "(ca::ThreadBase *$thread, ca::NetBase *$net, ca::Binding *$binding)",
                      tr)
 
     builder.block_begin()
 
     builder.line("ca::Context ctx($thread, $net);")
     builder.line("{0} *$n = ({0}*) $net;", get_net_class_name(tr.net))
-    builder.line("Tokens_{0.id} *$tokens = static_cast<Tokens_{0.id}*>($data);", tr)
+    builder.line("Tokens_{0.id} *$tokens = static_cast<Tokens_{0.id}*>($binding);", tr)
 
     write_unpack_binding(builder, tr, builder.expand("$tokens"),
                          readonly_binding=readonly_binding)
@@ -579,16 +643,16 @@ def write_fire_phase2(builder, tr, readonly_binding=False):
     builder.block_end()
 
 def write_is_blocked(builder, tr):
-    builder.line("bool Transition_{0.id}::is_blocked(void *data)", tr)
+    builder.line("bool Transition_{0.id}::is_blocked(ca::Binding *binding)", tr)
     builder.block_begin()
-    builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(data);", tr)
+    builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(binding);", tr)
     builder.line("return tokens->blocked;")
     builder.block_end()
 
 def write_cleanup_binding(builder, tr):
-    builder.line("void Transition_{0.id}::cleanup_binding(void *data)", tr)
+    builder.line("void Transition_{0.id}::cleanup_binding(ca::Binding *binding)", tr)
     builder.block_begin()
-    builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(data);", tr)
+    builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(binding);", tr)
 
     if tr.collective and tr.root:
         builder.if_begin("tokens->token_collective")
@@ -601,9 +665,9 @@ def write_cleanup_binding(builder, tr):
     builder.block_end()
 
 def write_pack_binding(builder, tr):
-    builder.line("void Transition_{0.id}::pack_binding(ca::Packer &packer, void *data)", tr)
+    builder.line("void Transition_{0.id}::pack_binding(ca::Packer &packer, ca::Binding *binding)", tr)
     builder.block_begin()
-    builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(data);", tr)
+    builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(binding);", tr)
 
     if tr.collective:
         builder.line("ca::pack(packer, tokens->blocked);");
