@@ -160,6 +160,17 @@ void State::hash_packets(MHASH hash_thread)
 	}
 }
 
+HashDigest Core::pack_marking(Node *node) {
+	ca::Packer packer;
+	for (int t = 0; t < ca::process_count; t++) {
+		verif_configuration.pack_final_marking(
+				node->get_state()->get_net(t), packer);
+	}
+	HashDigest hash = hash_packer(packer);
+	packer.free();
+	return hash;
+}
+
 void State::pack_packets(ca::Packer &packer)
 {
 	for (int pq = 0; pq < ca::process_count * ca::process_count; pq++)
@@ -207,7 +218,7 @@ HashDigest State::compute_hash(hashid hash_id)
 }
 
 Node::Node(HashDigest hash, State *state, Node *prev)
-	: hash(hash), state(state), prev(prev), tag(0), data(NULL)
+	: hash(hash), state(state), prev(prev), quit(false), final_marking(NULL), tag(0), data(NULL)
 {
 	if (prev != NULL) {
 		distance = prev->get_distance() + 1;
@@ -219,6 +230,14 @@ Node::Node(HashDigest hash, State *state, Node *prev)
 Node::~Node()
 {
 	free(hash);
+	if (final_marking != NULL) {
+		free(final_marking);
+	}
+	for(size_t i = 0; i < nexts.size(); i++) {
+		if (nexts[i].action == ActionFire && nexts[i].data.fire.binding != NULL) {
+			free(nexts[i].data.fire.binding);
+		}
+	}
 }
 
 void Node::set_prev(Node *node)
@@ -313,6 +332,8 @@ void Node::generate(Core *core)
 				nninfo.data.fire.transition_id = it->data.fire.transition_def->get_id();
 				if (core->generate_binding_in_nni(it->data.fire.transition_def->get_id())) {
 					nninfo.data.fire.binding = core->hash_packer(packer);
+				} else {
+					nninfo.data.fire.binding = NULL;
 				}
 				nexts.push_back(nninfo);
 				break;
@@ -377,6 +398,10 @@ void Core::generate()
 		if (cfg_wait_for_key) {
 			getchar();
 		}
+		if (node->get_nexts().size() == 0 && cfg_analyse_final_marking) {
+			node->set_final_marking(pack_marking(node));
+		}
+		delete node->get_state();
 	} while (!not_processed.empty());
 }
 
@@ -564,7 +589,7 @@ void Core::write_dot_file(const std::string &filename)
 		hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
 		hashstr[5] = 0; // Take just prefix
 		const char *quit_flag;
-		if (node->get_state()->get_quit_flag()) {
+		if (node->get_quit_flag()) {
 			quit_flag = "!";
 		} else {
 			quit_flag = "";
@@ -655,7 +680,7 @@ void Core::write_xml_statespace(ca::Output &report)
 		if (initial_node == node) {
 			report.set("initial", true);
 		}
-		if (node->get_state()->get_quit_flag()) {
+		if (node->get_quit_flag()) {
 			report.set("quit", true);
 		}
 
@@ -783,26 +808,17 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 		Node *node = it->second;
 		if (node->get_nexts().size() == 0) {
 			if (cfg_analyse_final_marking) {
-				ca::Packer packer;
-				for (int t = 0; t < ca::process_count; t++) {
-					verif_configuration.pack_final_marking(
-							node->get_state()->get_net(t), packer);
-				}
-				HashDigest hash = hash_packer(packer);
-				NodeMap::const_iterator n = final_markings.find(hash);
+				NodeMap::const_iterator n = final_markings.find(node->get_final_marking());
 				if (n != final_markings.end()) {
-					Node *node2 = n->second;
-					if (node2->get_distance() > node->get_distance()) {
-						final_markings[hash] = node;
+					if (n->second->get_distance() > node->get_distance()) {
+						final_markings[node->get_final_marking()] = node;
 					}
-					free(hash);
 				} else {
-					final_markings[hash] = node;
+					final_markings[node->get_final_marking()] = node;
 				}
-				packer.free();
 			}
 			if (cfg_analyse_deadlock) {
-				if (!node->get_state()->get_quit_flag()) {
+				if (!node->get_quit_flag()) {
 					deadlocks++;
 					if (deadlock_node == NULL ||
 						deadlock_node->get_distance() > node->get_distance()) {
@@ -945,7 +961,7 @@ void Core::run_analysis_transition_occurrence(ca::Output &report)
 		Node *node = it->second;
 		ParikhVector *v = (ParikhVector*) node->get_data();
 		if (v != NULL) {
-			if (node->get_state()->get_quit_flag() && error_node == NULL) {
+			if (node->get_quit_flag() && error_node == NULL) {
 				if (current == NULL) {
 					current_node = node;
 					current = v;
@@ -1054,6 +1070,7 @@ Node * Core::add_state(State *state, Node *prev)
 	Node *node = get_node(hash);
 	if (node == NULL) {
 		node = new Node(hash, state, prev);
+		node->set_quit_flag(state->get_quit_flag());
 		nodes[hash] = node;
 		not_processed.push(node);
 		return node;

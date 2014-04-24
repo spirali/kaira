@@ -134,6 +134,10 @@ namespace cass {
 			void set_prev(Node *prev);
 			const NextNodeInfo& get_next_node_info(Node *node) const;
 
+			bool get_quit_flag() { return quit; }
+			void set_quit_flag(bool quit) { this->quit = quit; }
+			HashDigest get_final_marking() { return final_marking; }
+			void set_final_marking(HashDigest hash) { final_marking = hash; }
 			int get_tag() const { return tag; }
 			void set_tag(int tag) { this->tag = tag; }
 		protected:
@@ -143,6 +147,8 @@ namespace cass {
 			std::vector<NextNodeInfo> nexts;
 			Node* prev;
 			int distance;
+			bool quit;
+			HashDigest final_marking;
 
 			// Generic data used during analysis
 			int tag;
@@ -183,6 +189,7 @@ namespace cass {
 			void write_dot_file(const std::string &filename);
 			Node * add_state(State *state, Node *prev);
 			HashDigest hash_packer(ca::Packer &packer);
+			HashDigest pack_marking(Node *node);
 			ca::NetDef * get_net_def() { return net_def; }
 			bool generate_binding_in_nni(int transition_id);
 
