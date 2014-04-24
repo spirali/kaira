@@ -214,6 +214,7 @@ HashDigest State::compute_hash(hashid hash_id)
 		nets[t]->pack(packer);
 		mhash(hash_thread, packer.get_buffer(), packer.get_size());
 	}
+	packer.free();
 	return mhash_end(hash_thread);
 }
 
@@ -336,12 +337,13 @@ void Node::generate(Core *core)
 					nninfo.data.fire.binding = NULL;
 				}
 				nexts.push_back(nninfo);
+				packer.free();
 				break;
 			}
 
 			case ActionReceive:
 			{
-				s->receive(it->process, it->data.receive.source, false);
+				s->receive(it->process, it->data.receive.source, true);
 				Node *n = core->add_state(s, this);
 				NextNodeInfo nninfo;
 				nninfo.node = n;
@@ -370,6 +372,10 @@ Core::Core(VerifConfiguration &verif_configuration) :
 
 Core::~Core()
 {
+	NodeMap::iterator it;
+	for (it = nodes.begin(); it != nodes.end(); it++) {
+		delete it->second;
+	}
 }
 
 void Core::generate()

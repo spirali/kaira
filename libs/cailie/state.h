@@ -194,12 +194,25 @@ namespace ca {
 				packets = new std::deque<PacketT>[ca::process_count * ca::process_count];
 				for (int i = 0; i < ca::process_count * ca::process_count; i++) {
 					packets[i] = state.packets[i];
+					for (size_t t = 0; t < packets[i].size(); t++) {
+						packets[i][t].data = malloc(packets[i][t].size);
+						memcpy(packets[i][t].data, state.packets[i][t].data, packets[i][t].size);
+					}
 				}
 			}
 
 			virtual ~StateBase()
 			{
+				for (int i = 0; i < ca::process_count * ca::process_count; i++) {
+					for (size_t t = 0; t < packets[i].size(); t++) {
+						free(packets[i][t].data);
+					}
+				}
 				delete [] packets;
+				for (size_t i = 0; i < nets.size(); i++) {
+					delete nets[i];
+				}
+
 			}
 
 			Activations& get_activations() {
