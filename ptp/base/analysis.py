@@ -94,6 +94,8 @@ def analyze_transition(tr):
             continue # Bulk and nonlocal edge cannot use token reusage
         if not inscription.is_expr_variable():
             continue # Current implementation reuses tokens only for variable expression
+        if inscription.is_collective():
+            continue # Collective operations cannot use token reusage
         token_uid = variable_sources.get(inscription.expr)
         if token_uid is None or token_uid in used_tokens:
             # Variable is not taken from input as token
