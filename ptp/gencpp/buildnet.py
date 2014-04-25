@@ -636,10 +636,6 @@ def write_fire_phase2(builder, tr, readonly_binding=False):
                     readonly_tokens=readonly_binding,
                     packed_tokens_from_place=False,
                     simulation=True)
-    if not readonly_binding:
-        # Just delete structure, not tokens inside by "cleanup_binding" because
-        # we have put tokens into net
-        builder.line("delete $tokens;");
     builder.block_end()
 
 def write_is_blocked(builder, tr):

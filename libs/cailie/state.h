@@ -24,20 +24,34 @@ namespace ca {
 		Activation(const Activation &a) {
 			transition_def = a.transition_def;
 			process_id = a.process_id;
-			binding = a.binding->copy();
+			if (a.binding != NULL) {
+				binding = a.binding->copy();
+			} else {
+				binding = NULL;
+			}
 		}
 
 		Activation& operator=(const Activation &a) {
-			delete binding;
+			if (this != &a) {
+				if (binding != NULL) {
+					delete binding;
+				}
 
-			transition_def = a.transition_def;
-			process_id = a.process_id;
-			binding = a.binding->copy();
+				transition_def = a.transition_def;
+				process_id = a.process_id;
+				if (a.binding != NULL) {
+					binding = a.binding->copy();
+				} else {
+					binding = NULL;
+				}
+			}
 			return *this;
 		}
 
 		virtual ~Activation() {
-			delete binding;
+			if (binding != NULL) {
+				delete binding;
+			}
 		}
 
 		TransitionDef *transition_def;
@@ -295,6 +309,7 @@ namespace ca {
 				if (binding == NULL) {
 					return false;
 				}
+
 				ActivationT ta(transition_def, process_id, binding);
 				activations.push_back(ta);
 				return true;
@@ -344,6 +359,7 @@ namespace ca {
 				StateThread thread(this, i->process_id);
 				i->transition_def->fire_phase2(
 					&thread, nets[i->process_id], i->binding);
+				i->binding = NULL;
 				activations.erase(i);
 			}
 
