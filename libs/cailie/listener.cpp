@@ -289,7 +289,6 @@ void Listener::prepare_state()
 
 void Listener::cleanup_state()
 {
-	// TODO: Process all pending activations and packets
 	delete state;
 }
 
