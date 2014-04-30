@@ -167,8 +167,6 @@ def write_transition_forward(builder, tr):
     builder.line("ca::FireResult full_fire(ca::ThreadBase *thread, ca::NetBase *net);")
     builder.line("ca::Binding* fire_phase1(ca::ThreadBase *thread, ca::NetBase *net);")
     builder.line("void fire_phase2(ca::ThreadBase *thread, ca::NetBase *net, ca::Binding *data);")
-    builder.line("void fire_phase2_ro_binding"
-                 "(ca::ThreadBase *thread, ca::NetBase *net, ca::Binding *data);")
     builder.line("void cleanup_binding(ca::Binding *data);")
     builder.line("bool is_enable(ca::ThreadBase *thread, ca::NetBase *net);")
     if tr.collective:
@@ -186,7 +184,6 @@ def write_transition_functions(builder,
     write_full_fire(builder, tr)
     write_fire_phase1(builder, tr)
     write_fire_phase2(builder, tr)
-    write_fire_phase2(builder, tr, readonly_binding=True)
     write_cleanup_binding(builder, tr)
     write_enable_check(builder, tr)
     if builder.pack_bindings:
@@ -239,7 +236,6 @@ def write_send_token(builder,
                      net_expr,
                      trace_send=False,
                      interface_edge=False,
-                     readonly_tokens=False,
                      reuse_tokens=None):
 
     def write_add(expr, bulk=False, token=False, overtake=True):
@@ -285,8 +281,7 @@ def write_send_token(builder,
 
     if inscription.is_local():
         if inscription.is_bulk():
-            overtake = inscription.uid in inscription.edge.transition.bulk_overtake and \
-                       not readonly_tokens
+            overtake = inscription.uid in inscription.edge.transition.bulk_overtake
             write_add(inscription.expr, bulk=True, overtake=overtake)
         else:
             if inscription.uid in reuse_tokens:
@@ -301,8 +296,7 @@ def write_send_token(builder,
             builder.if_begin(builder.expand("{0} == $thread->get_process_id()",
                                             inscription.target))
             if inscription.is_bulk():
-                overtake = inscription.uid in inscription.edge.transition.bulk_overtake and \
-                           not readonly_tokens
+                overtake = inscription.uid in inscription.edge.transition.bulk_overtake
                 write_add(inscription.expr, bulk=True, overtake=overtake)
             else:
                 write_add(inscription.expr)
@@ -376,7 +370,6 @@ def write_remove_tokens(builder, net_expr, tr):
 def write_fire_body(builder,
                     tr,
                     remove_tokens=True,
-                    readonly_tokens=False,
                     packed_tokens_from_place=True,
                     simulation=False):
 
@@ -438,7 +431,7 @@ def write_fire_body(builder,
 
     if tr.collective:
         if simulation:
-            collectives.write_collective_body_simulation(builder, tr, readonly_tokens)
+            collectives.write_collective_body_simulation(builder, tr)
         else:
             collectives.write_collective_body(builder, tr)
     elif tr.code is not None:
@@ -469,11 +462,6 @@ def write_fire_body(builder,
             builder.line("$tracelog->event_transition_finished_begin();")
             builder.block_end()
 
-    if readonly_tokens:
-        reuse_tokens = None
-    else:
-        reuse_tokens = tr.reuse_tokens;
-
     for inscription in tr.inscriptions_out:
         if inscription.is_collective():
             continue
@@ -481,22 +469,17 @@ def write_fire_body(builder,
                          inscription,
                          builder.expand("$n"),
                          trace_send=tr.need_trace(),
-                         readonly_tokens=readonly_tokens,
-                         reuse_tokens=reuse_tokens)
+                         reuse_tokens=tr.reuse_tokens)
 
-    if not readonly_tokens:
-        for inscription in tr.get_token_inscriptions_in():
-            if inscription.uid not in tr.reuse_tokens.values():
-                builder.line("delete $token_{0.uid};", inscription)
-        for inscription in tr.get_token_inscriptions_out():
-            if (inscription.config.get("if") and
-                inscription.uid in tr.reuse_tokens):
-                builder.if_begin("!$token_{0.uid}_used", inscription)
-                builder.line("delete $token_{0.uid};", inscription)
-                builder.block_end()
-    elif tr.collective:
-        builder.line("$tokens->token_collective = NULL;")
-
+    for inscription in tr.get_token_inscriptions_in():
+        if inscription.uid not in tr.reuse_tokens.values():
+            builder.line("delete $token_{0.uid};", inscription)
+    for inscription in tr.get_token_inscriptions_out():
+        if (inscription.config.get("if") and
+            inscription.uid in tr.reuse_tokens):
+            builder.if_begin("!$token_{0.uid}_used", inscription)
+            builder.line("delete $token_{0.uid};", inscription)
+            builder.block_end()
 
     if tr.need_trace():
         builder.if_begin("$tracelog")
@@ -584,7 +567,7 @@ def write_fire_phase1(builder, tr):
     builder.line("return NULL;")
     builder.block_end()
 
-def write_unpack_binding(builder, tr, binding, readonly_binding=False):
+def write_unpack_binding(builder, tr, binding):
     for inscription in tr.get_token_inscriptions_in():
         builder.line("ca::Token<{0} > *$token_{1.uid} = {2}->token_{1.uid};",
             inscription.type, inscription, binding);
@@ -594,14 +577,9 @@ def write_unpack_binding(builder, tr, binding, readonly_binding=False):
 
     decls_dict = tr.get_decls()
 
-    if readonly_binding:
-        declare = "{0} {1} = $token_{2}->value;"
-    else:
-        declare = "{0} &{1} = $token_{2}->value;"
-
     for name, uid in tr.variable_sources.items():
         if uid is not None:
-            builder.line(declare, decls_dict[name], name, uid)
+            builder.line("{0} &{1} = $token_{2}->value;", decls_dict[name], name, uid)
 
     for inscription in tr.get_token_inscriptions_in():
         if inscription.config.get("svar"):
@@ -611,15 +589,10 @@ def write_unpack_binding(builder, tr, binding, readonly_binding=False):
                          inscription)
 
 
-def write_fire_phase2(builder, tr, readonly_binding=False):
-    if readonly_binding:
-        builder.line("void Transition_{0.id}::fire_phase2_ro_binding"
-                        "(ca::ThreadBase *$thread, ca::NetBase *$net, ca::Binding *$binding)",
-                     tr)
-    else:
-        builder.line("void Transition_{0.id}::fire_phase2"
-                        "(ca::ThreadBase *$thread, ca::NetBase *$net, ca::Binding *$binding)",
-                     tr)
+def write_fire_phase2(builder, tr):
+    builder.line("void Transition_{0.id}::fire_phase2"
+                    "(ca::ThreadBase *$thread, ca::NetBase *$net, ca::Binding *$binding)",
+                 tr)
 
     builder.block_begin()
 
@@ -627,13 +600,11 @@ def write_fire_phase2(builder, tr, readonly_binding=False):
     builder.line("{0} *$n = ({0}*) $net;", get_net_class_name(tr.net))
     builder.line("Tokens_{0.id} *$tokens = static_cast<Tokens_{0.id}*>($binding);", tr)
 
-    write_unpack_binding(builder, tr, builder.expand("$tokens"),
-                         readonly_binding=readonly_binding)
+    write_unpack_binding(builder, tr, builder.expand("$tokens"))
 
     write_fire_body(builder,
                     tr,
                     remove_tokens=False,
-                    readonly_tokens=readonly_binding,
                     packed_tokens_from_place=False,
                     simulation=True)
     builder.block_end()

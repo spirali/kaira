@@ -330,7 +330,7 @@ namespace ca {
 				return true;
 			}
 
-			bool fire_transition_full(int process_id, TransitionDef *transition_def, bool ro_finish=false)
+			bool fire_transition_full(int process_id, TransitionDef *transition_def)
 			{
 				if (!transition_def->is_collective()) {
 					StateThread thread(this, process_id);
@@ -344,11 +344,8 @@ namespace ca {
 							ActivationT *a = activations[i];
 							if (a->transition_def == transition_def &&
 								!a->transition_def->is_blocked(a->binding)) {
-								if (ro_finish) {
-									finish_transition_ro_binding(i);
-								} else {
+
 									finish_transition(i);
-								}
 							}
 
 						}
@@ -378,16 +375,6 @@ namespace ca {
 				StateThread thread(this, process_id);
 				a->transition_def->fire_phase2(&thread, nets[process_id], a->binding);
 				a->binding = NULL;
-				delete activations[process_id];
-				activations[process_id] = NULL;
-			}
-
-			void finish_transition_ro_binding(int process_id)
-			{
-				ActivationT *a = activations[process_id];
-				StateThread thread(this, process_id);
-				a->transition_def->fire_phase2_ro_binding(
-					&thread, nets[process_id], a->binding);
 				delete activations[process_id];
 				activations[process_id] = NULL;
 			}

@@ -328,7 +328,7 @@ void Node::generate(Core *core)
 				if (core->generate_binding_in_nni(it->data.fire.transition_def->get_id())) {
 					s->fire_transition_full_with_binding(it->process, it->data.fire.transition_def, packer);
 				} else {
-					s->fire_transition_full(it->process, it->data.fire.transition_def, true);
+					s->fire_transition_full(it->process, it->data.fire.transition_def);
 				}
 				Node *n = core->add_state(s, this);
 				NextNodeInfo nninfo;
