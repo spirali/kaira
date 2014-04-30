@@ -77,7 +77,7 @@ def prepare_makefile(project, config, directory):
 
     makefile.set("MPILIBS",
                  project.get_build_option("LIBS") + " "
-                 + " ".join("-l" + s for s in config["libs"])
+                 + " ".join(add_prefix("-l", s) for s in config["libs"])
                  + " -lcailiempi -lpthread -lrt ")
 
     makefile.rule(".cpp.o", [], "$(CXX) $(CFLAGS) $(INCLUDE) -c $< -o $@")
