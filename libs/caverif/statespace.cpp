@@ -135,15 +135,18 @@ void State::pack_state(ca::Packer &packer)
 
 void State::hash_activations(MHASH hash_thread)
 {
-	size_t size = activations.size();
+	size_t size = get_activate_process_count();
 	mhash(hash_thread, &size, sizeof(size_t));
-	std::sort(activations.begin(), activations.end(), ActivationCompare());
-	std::vector<Activation>::iterator i;
-	for (i = activations.begin(); i != activations.end(); i++) {
-		int id = i->transition_def->get_id();
+	Activation *a;
+	for (int i = 0; i < ca::process_count; i++) {
+		if (activations[i] == NULL) {
+			continue;
+		}
+		a = activations[i];
+		int id = a->transition_def->get_id();
 		mhash(hash_thread, &id, sizeof(int));
-		mhash(hash_thread, &i->process_id, sizeof(i->process_id));
-		mhash(hash_thread, i->packed_binding, i->packed_binding_size);
+		mhash(hash_thread, &i, sizeof(int));
+		mhash(hash_thread, a->packed_binding, a->packed_binding_size);
 	}
 }
 
@@ -186,15 +189,17 @@ void State::pack_packets(ca::Packer &packer)
 
 void State::pack_activations(ca::Packer &packer)
 {
-	size_t size = activations.size();
-	pack(packer, size);
-	std::sort(activations.begin(), activations.end(), ActivationCompare());
-	std::vector<Activation>::iterator i;
-	for (i = activations.begin(); i != activations.end(); i++) {
-		int id = i->transition_def->get_id();
+	pack(packer, get_activate_process_count());
+	Activation *a;
+	for (int i = 0; i < ca::process_count; i++) {
+		if (activations[i] == NULL) {
+			continue;
+		}
+		a = activations[i];
+		int id = a->transition_def->get_id();
 		pack(packer, id);
-		pack(packer, i->process_id);
-		pack(packer, i->packed_binding, i->packed_binding_size);
+		pack(packer, i);
+		pack(packer, a->packed_binding, a->packed_binding_size);
 	}
 }
 

@@ -26,8 +26,8 @@ namespace cass {
 
 	struct Activation : public ca::Activation
 	{
-		Activation(ca::TransitionDef *transition_def, int process_id, ca::Binding *binding)
-			: ca::Activation(transition_def, process_id, binding) {
+		Activation(ca::TransitionDef *transition_def, ca::Binding *binding)
+			: ca::Activation(transition_def, binding) {
 
 			ca::Packer packer;
 			transition_def->pack_binding(packer, binding);
@@ -59,31 +59,6 @@ namespace cass {
 
 		size_t packed_binding_size;
 		void *packed_binding;
-	};
-
-	inline bool binding_compare(const Activation &t1, const Activation &t2) {
-		if (t1.packed_binding_size == t2.packed_binding_size) {
-			return memcmp(t1.packed_binding,
-						  t2.packed_binding,
-						  t1.packed_binding_size) < 0;
-		} else {
-			return t1.packed_binding_size < t2.packed_binding_size;
-		}
-	}
-
-	struct ActivationCompare
-	{
-	  bool operator() (const Activation &t1, const Activation &t2) {
-			if (t1.transition_def->get_id() == t2.transition_def->get_id()) {
-				if (t1.process_id == t2.process_id) {
-					return binding_compare(t1, t2);
-				} else {
-					return t1.process_id < t2.process_id;
-				}
-			} else {
-				return t1.transition_def < t2.transition_def;
-			}
-	  }
 	};
 
 	class State  : public ca::StateBase<Net, Activation, ca::Packet>

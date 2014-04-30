@@ -236,17 +236,17 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 				continue;
 			}
 
-			std::vector<Activation>::iterator i = state->find_activation(process_id);
-			if (i == state->get_activations().end()) {
-				fprintf(comm_out, "Transition is not enabled\n");
+			if (!state->is_process_busy(process_id)) {
+				fprintf(comm_out, "There is no running transition on the given process\n");
 				continue;
 			}
 
-			if (i->transition_def->is_blocked(i->binding)) {
+			Activation *a = state->get_activations()[process_id];
+			if (a->transition_def->is_blocked(a->binding)) {
 				fprintf(comm_out, "Transition waits for synchronization of collective transition\n");
 				continue;
 			}
-			state->finish_transition(i);
+			state->finish_transition(process_id);
 			write_status(comm_out, true);
 			continue;
 		}
