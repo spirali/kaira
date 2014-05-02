@@ -231,6 +231,10 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
+			if (process_id < 0 || process_id >= process_count) {
+				fprintf(comm_out, "There is no such process\n");
+				continue;
+			}
 
 			std::vector<Activation>::iterator i = state->find_activation(process_id);
 			if (i == state->get_activations().end()) {
