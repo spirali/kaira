@@ -472,8 +472,12 @@ def write_fire_body(builder,
                          reuse_tokens=tr.reuse_tokens)
 
     for inscription in tr.get_token_inscriptions_in():
-        if inscription.uid not in tr.reuse_tokens.values():
-            builder.line("delete $token_{0.uid};", inscription)
+        if simulation:
+            if inscription.uid in tr.reuse_tokens.values():
+                builder.line("$token_{0.uid} = NULL;", inscription)
+        else:
+            if inscription.uid not in tr.reuse_tokens.values():
+                builder.line("delete $token_{0.uid};", inscription)
     for inscription in tr.get_token_inscriptions_out():
         if (inscription.config.get("if") and
             inscription.uid in tr.reuse_tokens):
@@ -607,6 +611,10 @@ def write_fire_phase2(builder, tr):
                     remove_tokens=False,
                     packed_tokens_from_place=False,
                     simulation=True)
+
+    if tr.collective:
+        builder.line("$tokens->token_collective = NULL;")
+    builder.line("delete $binding;")
     builder.block_end()
 
 def write_is_blocked(builder, tr):

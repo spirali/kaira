@@ -367,9 +367,9 @@ def write_collective_body_simulation(builder, tr):
     buildnet.write_place_add(builder,
                     inscription.edge.place,
                     builder.expand("$n->"),
-                    builder.expand("$tokens->token_collective->value"),
+                    builder.expand("$tokens->token_collective"),
                     bulk=False,
-                    token=False)
+                    token=True)
     if op == "gather":
         builder.block_end()
 
