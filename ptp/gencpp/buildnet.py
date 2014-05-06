@@ -167,7 +167,6 @@ def write_transition_forward(builder, tr):
     builder.line("ca::FireResult full_fire(ca::ThreadBase *thread, ca::NetBase *net);")
     builder.line("ca::Binding* fire_phase1(ca::ThreadBase *thread, ca::NetBase *net);")
     builder.line("void fire_phase2(ca::ThreadBase *thread, ca::NetBase *net, ca::Binding *data);")
-    builder.line("void cleanup_binding(ca::Binding *data);")
     builder.line("bool is_enable(ca::ThreadBase *thread, ca::NetBase *net);")
     if tr.collective:
         builder.line("bool is_blocked(ca::Binding *data);")
@@ -184,7 +183,6 @@ def write_transition_functions(builder,
     write_full_fire(builder, tr)
     write_fire_phase1(builder, tr)
     write_fire_phase2(builder, tr)
-    write_cleanup_binding(builder, tr)
     write_enable_check(builder, tr)
     if builder.pack_bindings:
         write_pack_binding(builder, tr)
@@ -622,21 +620,6 @@ def write_is_blocked(builder, tr):
     builder.block_begin()
     builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(binding);", tr)
     builder.line("return tokens->blocked;")
-    builder.block_end()
-
-def write_cleanup_binding(builder, tr):
-    builder.line("void Transition_{0.id}::cleanup_binding(ca::Binding *binding)", tr)
-    builder.block_begin()
-    builder.line("Tokens_{0.id} *tokens = static_cast<Tokens_{0.id}*>(binding);", tr)
-
-    if tr.collective and tr.root:
-        builder.if_begin("tokens->token_collective")
-        builder.line("delete tokens->token_collective;")
-        builder.block_end()
-
-    for inscription in tr.get_token_inscriptions_in():
-        builder.line("delete tokens->token_{0.uid};", inscription);
-    builder.line("delete tokens;");
     builder.block_end()
 
 def write_pack_binding(builder, tr):
