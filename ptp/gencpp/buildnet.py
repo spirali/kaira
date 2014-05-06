@@ -49,26 +49,24 @@ def write_vars_struct(builder, tr):
     builder.write_class_end()
 
 def write_tokens_copying(builder, tr):
+    def copy_if(token, type, remove):
+        builder.if_begin("t.{0} != NULL", token)
+        if remove:
+            builder.line("delete {0};", token)
+        builder.line("{0} = new ca::Token<{1} >(t.{0}->value);", token, type)
+        builder.write_else()
+        builder.line("{0} = NULL;", token)
+        builder.block_end()
+
     def copy_tokens(remove=False):
         if tr.collective:
             builder.line("blocked = t.blocked;")
             if tr.root:
                 builder.line("root = t.root;")
-                inscription = tr.get_collective_inscription()
-                builder.if_begin("t.token_collective != NULL")
-                if remove:
-                    builder.line("delete token_collective;")
-                builder.line("token_collective = new ca::Token<{0} >(t.token_collective->value);",
-                             inscription.type)
-                builder.write_else()
-                builder.line("token_collective = NULL;")
-                builder.block_end()
+                copy_if("token_collective", tr.get_collective_inscription().type, remove)
 
         for inscription in tr.get_token_inscriptions_in():
-            if remove:
-                    builder.line("delete token_{0};", inscription.uid)
-            builder.line("token_{1} = new ca::Token<{0} >(t.token_{1}->value);",
-                         inscription.type, inscription.uid)
+            copy_if("token_{0}".format(inscription.uid), inscription.type, remove)
             if inscription.is_source_reader():
                 builder.line("source_{0} = t.source_{0};", inscription.uid)
 
@@ -95,7 +93,9 @@ def write_tokens_descructor(builder, tr):
         builder.block_end()
 
     for inscription in tr.get_token_inscriptions_in():
+        builder.if_begin("token_{0} != NULL", inscription.uid)
         builder.line("delete token_{0};", inscription.uid)
+        builder.block_end()
 
     builder.write_method_end()
 
@@ -472,7 +472,7 @@ def write_fire_body(builder,
     for inscription in tr.get_token_inscriptions_in():
         if simulation:
             if inscription.uid in tr.reuse_tokens.values():
-                builder.line("$token_{0.uid} = NULL;", inscription)
+                builder.line("$tokens->token_{0.uid} = NULL;", inscription)
         else:
             if inscription.uid not in tr.reuse_tokens.values():
                 builder.line("delete $token_{0.uid};", inscription)
@@ -609,7 +609,7 @@ def write_fire_phase2(builder, tr):
                     remove_tokens=False,
                     packed_tokens_from_place=False,
                     simulation=True)
-
+    
     if tr.collective:
         builder.line("$tokens->token_collective = NULL;")
     builder.line("delete $binding;")
