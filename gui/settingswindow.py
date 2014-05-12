@@ -429,6 +429,7 @@ class SettingPage(gtk.VBox):
         if self.setting_widget is not None:
             self.sw_vbox.remove(self.setting_widget)
             self.setting_widget = None
+            self.wrong_keys = []
 
     def are_values_correct(self):
         if self.setting_widget is None:
