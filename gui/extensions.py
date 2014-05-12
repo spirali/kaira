@@ -266,34 +266,49 @@ class SourcesRepository(object, EventSource):
 
     def __init__(self):
         EventSource.__init__(self)
-
-        self._repo = {} # (name: source)
+        self._sources = []
 
     def __len__(self):
-        return len(self._repo)
+        return len(self._sources)
+
+    def __iter__(self):
+        self._index = 0;
+        return self
+
+    def next(self):
+        if self._index >= len(self._sources):
+            raise StopIteration
+
+        source = self._sources[self._index]
+        self._index += 1
+
+        return source
 
     def add(self, source):
-        source.set_callback("source-name-changed",
-                             self._cb_source_name_changed)
-        if source.name not in self._repo:
-            self._repo[source.name] = source
-            self.emit_event("source-added", source)
-        else:
-            self._repo[source.name] = source
+        if source.stored:
+            for s in self._sources:
+                if s.stored and s.name == source.name:
+                    print "Source {0} already exists.".format(source.name)
+                    break
+                    # throw an exception
 
-    def remove(self, source):
-        if source.name in self._repo:
-            del self._repo[source.name]
-            source.data = None # free data
+        self._sources.append(source)
+        self.emit_event("source-added", source)
+
+    def remove(self, source): # index
+        if  source in self._sources:
+            self._sources.remove(source)
             self.emit_event("source-removed", source)
             return True
         return False
 
     def load_source(self, filename, app, settings=None):
+        # calls the module's method (load_source)
         source = load_source(filename, app, settings)
         if source is not None:
             self.add(source)
             return source
+        return None
 
     def get_sources(self, filter=None):
         """Return a list of loaded sources. If the filter is not empty,
@@ -304,13 +319,8 @@ class SourcesRepository(object, EventSource):
                   if the filter is None than are include all of sources
 
         """
-        return [source for name, source in self._repo.items()
+        return [source for source in self._sources
                 if filter is None or source.type in filter]
-
-    def _cb_source_name_changed(self, old_name, new_name):
-        source = self._repo[old_name]
-        del self._repo[old_name]
-        self._repo[new_name] = source
 
 
 class SourcesRepositoryView(gtk.VBox, EventSource):
@@ -1087,6 +1097,7 @@ def load_source(filename, app, settings=None):
     information
 
     """
+
     # TODO: Catch IOError
     suffix = utils.get_filename_suffix(filename)
     loader = datatypes.get_loader_by_suffix(suffix)

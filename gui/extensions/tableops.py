@@ -101,8 +101,6 @@ class Filter(Operation):
 
         filtered = table.select(selected_columns, filters)
         t = Table.create_from_data(filtered)
-        return Source("Filtered table " + utils.get_timestamp_string(),
-                      t_table,
-                      t)
+        return Source("Filtered table", t_table, t)
 
 add_operation(Filter)

@@ -40,7 +40,7 @@ class TracelogExport(extensions.Operation):
 
         ri = ExportRunInstance(tracelog, *settings)
         tracelog.execute_all_events(ri)
-        return extensions.Source("Tracelog Table " + utils.get_timestamp_string(),
+        return extensions.Source("Tracelog Table",
                                  datatypes.t_table,
                                  ri.get_table())
 
