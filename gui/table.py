@@ -74,9 +74,16 @@ class Table(object):
             raise StopIteration
 
         # returns modified data; masked values are replaced by None
-        row = [None if masked else item
-               for item, masked in zip(self.data.data[self._index],
-                                       self.data.mask[self._index])]
+        data, mask = self.data.data[self._index], self.data.mask[self._index]
+        try:
+            ndata, nmask = iter(data), iter(mask)
+            raw_data = zip(data, mask)
+        except TypeError:
+            # data and mask are both one element
+            raw_data = [(data, mask)]
+
+        row = [None if masked else item for item, masked in raw_data]
+
         self._index += 1
         return row
 
