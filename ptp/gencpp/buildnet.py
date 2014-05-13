@@ -691,7 +691,7 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
             else:
                 builder.if_begin("!({0})", inscription.config.get("if"))
             builder.line("$inscription_if_{0.uid} = false;", inscription)
-            builder.line("$token_{0.uid} = new ca::Token<{0.edge.place.type} >;", inscription)
+            builder.line("$token_{0.uid} = new ca::Token<{0.edge.place.type} >({0.edge.place.type}());", inscription)
             # Set self references to survive "removing" from place
             builder.line("$token_{0.uid}->next = $token_{0.uid};", inscription)
             builder.line("$token_{0.uid}->prev = $token_{0.uid};", inscription)
