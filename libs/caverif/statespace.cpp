@@ -320,7 +320,12 @@ void Node::generate(Core *core)
 
 	ActionSet::iterator it;
 	for (it = ws.begin(); it != ws.end(); it++) {
-		s = new State(*state);
+		if (++it != ws.end()) {
+			s = new State(*state);
+		} else {
+			s = state;
+		}
+		it--;
 		switch (it->type) {
 			case ActionFire:
 			{
@@ -412,7 +417,9 @@ void Core::generate()
 		if (node->get_nexts().size() == 0 && cfg_analyse_final_marking) {
 			node->set_final_marking(pack_marking(node));
 		}
-		delete node->get_state();
+		if (node->get_quit_flag()) {
+			delete node->get_state();
+		}
 	} while (!not_processed.empty());
 }
 
