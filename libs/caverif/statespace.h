@@ -26,43 +26,39 @@ namespace cass {
 
 	struct Activation : public ca::Activation
 	{
-		Activation(
-			ca::TransitionDef *transition_def,
-			int process_id,
-			void *binding)
-			: ca::Activation(transition_def, process_id, binding) {
-				ca::Packer packer;
-				transition_def->pack_binding(packer, binding);
-				packed_binding = packer.get_buffer();
-				packed_binding_size = packer.get_size();
-			}
-			size_t packed_binding_size;
-			void *packed_binding;
-	};
+		Activation(ca::TransitionDef *transition_def, ca::Binding *binding)
+			: ca::Activation(transition_def, binding) {
 
-	inline bool binding_compare(const Activation &t1, const Activation &t2) {
-		if (t1.packed_binding_size == t2.packed_binding_size) {
-			return memcmp(t1.packed_binding,
-						  t2.packed_binding,
-						  t1.packed_binding_size) < 0;
-		} else {
-			return t1.packed_binding_size < t2.packed_binding_size;
+			ca::Packer packer;
+			transition_def->pack_binding(packer, binding);
+			packed_binding = packer.get_buffer();
+			packed_binding_size = packer.get_size();
 		}
-	}
 
-	struct ActivationCompare
-	{
-	  bool operator() (const Activation &t1, const Activation &t2) {
-			if (t1.transition_def->get_id() == t2.transition_def->get_id()) {
-				if (t1.process_id == t2.process_id) {
-					return binding_compare(t1, t2);
-				} else {
-					return t1.process_id < t2.process_id;
-				}
-			} else {
-				return t1.transition_def < t2.transition_def;
+		Activation(const Activation &a) : ca::Activation(a) {
+			packed_binding_size = a.packed_binding_size;
+			packed_binding = malloc(packed_binding_size);
+			memcpy(packed_binding, a.packed_binding, packed_binding_size);
+		}
+
+		Activation& operator=(const Activation &a) {
+			if (this != &a) {
+				free(packed_binding);
+
+				ca::Activation::operator=(a);
+				packed_binding_size = a.packed_binding_size;
+				packed_binding = malloc(a.packed_binding_size);
+				memcpy(packed_binding, a.packed_binding, a.packed_binding_size);
 			}
-	  }
+			return *this;
+		}
+
+		~Activation() {
+			free(packed_binding);
+		}
+
+		size_t packed_binding_size;
+		void *packed_binding;
 	};
 
 	class State  : public ca::StateBase<Net, Activation, ca::Packet>
@@ -134,6 +130,10 @@ namespace cass {
 			void set_prev(Node *prev);
 			const NextNodeInfo& get_next_node_info(Node *node) const;
 
+			bool get_quit_flag() { return quit; }
+			void set_quit_flag(bool quit) { this->quit = quit; }
+			HashDigest get_final_marking() { return final_marking; }
+			void set_final_marking(HashDigest hash) { final_marking = hash; }
 			int get_tag() const { return tag; }
 			void set_tag(int tag) { this->tag = tag; }
 		protected:
@@ -143,6 +143,8 @@ namespace cass {
 			std::vector<NextNodeInfo> nexts;
 			Node* prev;
 			int distance;
+			bool quit;
+			HashDigest final_marking;
 
 			// Generic data used during analysis
 			int tag;
@@ -183,6 +185,7 @@ namespace cass {
 			void write_dot_file(const std::string &filename);
 			Node * add_state(State *state, Node *prev);
 			HashDigest hash_packer(ca::Packer &packer);
+			HashDigest pack_marking(Node *node);
 			ca::NetDef * get_net_def() { return net_def; }
 			bool generate_binding_in_nni(int transition_id);
 

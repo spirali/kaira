@@ -231,18 +231,22 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 				fprintf(comm_out, "Invalid parameters\n");
 				continue;
 			}
-
-			std::vector<Activation>::iterator i = state->find_activation(process_id);
-			if (i == state->get_activations().end()) {
-				fprintf(comm_out, "Transition is not enabled\n");
+			if (process_id < 0 || process_id >= process_count) {
+				fprintf(comm_out, "There is no such process\n");
 				continue;
 			}
 
-			if (i->transition_def->is_blocked(i->binding)) {
+			if (!state->is_process_busy(process_id)) {
+				fprintf(comm_out, "There is no running transition on the given process\n");
+				continue;
+			}
+
+			Activation *a = state->get_activations()[process_id];
+			if (a->transition_def->is_blocked(a->binding)) {
 				fprintf(comm_out, "Transition waits for synchronization of collective transition\n");
 				continue;
 			}
-			state->finish_transition(i);
+			state->finish_transition(process_id);
 			write_status(comm_out, true);
 			continue;
 		}
@@ -285,7 +289,6 @@ void Listener::prepare_state()
 
 void Listener::cleanup_state()
 {
-	// TODO: Process all pending activations and packets
 	delete state;
 }
 

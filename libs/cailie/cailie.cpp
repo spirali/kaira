@@ -160,6 +160,9 @@ static void finalize()
 		}
 		free(defs);
 	}
+	if (listener != NULL) {
+		delete listener;
+	}
 }
 
 void ca::init(int argc,

@@ -135,15 +135,18 @@ void State::pack_state(ca::Packer &packer)
 
 void State::hash_activations(MHASH hash_thread)
 {
-	size_t size = activations.size();
+	size_t size = get_activate_process_count();
 	mhash(hash_thread, &size, sizeof(size_t));
-	std::sort(activations.begin(), activations.end(), ActivationCompare());
-	std::vector<Activation>::iterator i;
-	for (i = activations.begin(); i != activations.end(); i++) {
-		int id = i->transition_def->get_id();
+	Activation *a;
+	for (int i = 0; i < ca::process_count; i++) {
+		if (activations[i] == NULL) {
+			continue;
+		}
+		a = activations[i];
+		int id = a->transition_def->get_id();
 		mhash(hash_thread, &id, sizeof(int));
-		mhash(hash_thread, &i->process_id, sizeof(i->process_id));
-		mhash(hash_thread, i->packed_binding, i->packed_binding_size);
+		mhash(hash_thread, &i, sizeof(int));
+		mhash(hash_thread, a->packed_binding, a->packed_binding_size);
 	}
 }
 
@@ -158,6 +161,17 @@ void State::hash_packets(MHASH hash_thread)
 			mhash(hash_thread, packets[pq][p].data, packets[pq][p].size);
 		}
 	}
+}
+
+HashDigest Core::pack_marking(Node *node) {
+	ca::Packer packer;
+	for (int t = 0; t < ca::process_count; t++) {
+		verif_configuration.pack_final_marking(
+				node->get_state()->get_net(t), packer);
+	}
+	HashDigest hash = hash_packer(packer);
+	packer.free();
+	return hash;
 }
 
 void State::pack_packets(ca::Packer &packer)
@@ -175,15 +189,17 @@ void State::pack_packets(ca::Packer &packer)
 
 void State::pack_activations(ca::Packer &packer)
 {
-	size_t size = activations.size();
-	pack(packer, size);
-	std::sort(activations.begin(), activations.end(), ActivationCompare());
-	std::vector<Activation>::iterator i;
-	for (i = activations.begin(); i != activations.end(); i++) {
-		int id = i->transition_def->get_id();
+	pack(packer, get_activate_process_count());
+	Activation *a;
+	for (int i = 0; i < ca::process_count; i++) {
+		if (activations[i] == NULL) {
+			continue;
+		}
+		a = activations[i];
+		int id = a->transition_def->get_id();
 		pack(packer, id);
-		pack(packer, i->process_id);
-		pack(packer, i->packed_binding, i->packed_binding_size);
+		pack(packer, i);
+		pack(packer, a->packed_binding, a->packed_binding_size);
 	}
 }
 
@@ -203,11 +219,12 @@ HashDigest State::compute_hash(hashid hash_id)
 		nets[t]->pack(packer);
 		mhash(hash_thread, packer.get_buffer(), packer.get_size());
 	}
+	packer.free();
 	return mhash_end(hash_thread);
 }
 
 Node::Node(HashDigest hash, State *state, Node *prev)
-	: hash(hash), state(state), prev(prev), tag(0), data(NULL)
+	: hash(hash), state(state), prev(prev), quit(false), final_marking(NULL), tag(0), data(NULL)
 {
 	if (prev != NULL) {
 		distance = prev->get_distance() + 1;
@@ -219,6 +236,14 @@ Node::Node(HashDigest hash, State *state, Node *prev)
 Node::~Node()
 {
 	free(hash);
+	if (final_marking != NULL) {
+		free(final_marking);
+	}
+	for(size_t i = 0; i < nexts.size(); i++) {
+		if (nexts[i].action == ActionFire && nexts[i].data.fire.binding != NULL) {
+			free(nexts[i].data.fire.binding);
+		}
+	}
 }
 
 void Node::set_prev(Node *node)
@@ -303,7 +328,7 @@ void Node::generate(Core *core)
 				if (core->generate_binding_in_nni(it->data.fire.transition_def->get_id())) {
 					s->fire_transition_full_with_binding(it->process, it->data.fire.transition_def, packer);
 				} else {
-					s->fire_transition_full(it->process, it->data.fire.transition_def, true);
+					s->fire_transition_full(it->process, it->data.fire.transition_def);
 				}
 				Node *n = core->add_state(s, this);
 				NextNodeInfo nninfo;
@@ -313,14 +338,17 @@ void Node::generate(Core *core)
 				nninfo.data.fire.transition_id = it->data.fire.transition_def->get_id();
 				if (core->generate_binding_in_nni(it->data.fire.transition_def->get_id())) {
 					nninfo.data.fire.binding = core->hash_packer(packer);
+				} else {
+					nninfo.data.fire.binding = NULL;
 				}
 				nexts.push_back(nninfo);
+				packer.free();
 				break;
 			}
 
 			case ActionReceive:
 			{
-				s->receive(it->process, it->data.receive.source, false);
+				s->receive(it->process, it->data.receive.source, true);
 				Node *n = core->add_state(s, this);
 				NextNodeInfo nninfo;
 				nninfo.node = n;
@@ -349,6 +377,10 @@ Core::Core(VerifConfiguration &verif_configuration) :
 
 Core::~Core()
 {
+	NodeMap::iterator it;
+	for (it = nodes.begin(); it != nodes.end(); it++) {
+		delete it->second;
+	}
 }
 
 void Core::generate()
@@ -377,6 +409,10 @@ void Core::generate()
 		if (cfg_wait_for_key) {
 			getchar();
 		}
+		if (node->get_nexts().size() == 0 && cfg_analyse_final_marking) {
+			node->set_final_marking(pack_marking(node));
+		}
+		delete node->get_state();
 	} while (!not_processed.empty());
 }
 
@@ -563,23 +599,16 @@ void Core::write_dot_file(const std::string &filename)
 		const std::vector<NextNodeInfo> &nexts = node->get_nexts();
 		hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
 		hashstr[5] = 0; // Take just prefix
-		int packets_count = 0;
-		for (int i = 0; i < ca::process_count * ca::process_count; i++) {
-			packets_count += node->get_state()->get_packets(
-				i / ca::process_count, i % ca::process_count).size();
-		}
 		const char *quit_flag;
-		if (node->get_state()->get_quit_flag()) {
+		if (node->get_quit_flag()) {
 			quit_flag = "!";
 		} else {
 			quit_flag = "";
 		}
-		fprintf(f, "S%p [label=\"%s%s|%i|%i|%i\"]\n",
+		fprintf(f, "S%p [label=\"%s%s|%i\"]\n",
 			node,
 			quit_flag,
 			hashstr,
-			(int) node->get_state()->get_activations().size(),
-			packets_count,
 			node->get_distance());
 		for (size_t i = 0; i < nexts.size(); i++) {
 			fprintf(f, "S%p -> S%p [label=\"", node, nexts[i].node);
@@ -662,7 +691,7 @@ void Core::write_xml_statespace(ca::Output &report)
 		if (initial_node == node) {
 			report.set("initial", true);
 		}
-		if (node->get_state()->get_quit_flag()) {
+		if (node->get_quit_flag()) {
 			report.set("quit", true);
 		}
 
@@ -790,26 +819,17 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 		Node *node = it->second;
 		if (node->get_nexts().size() == 0) {
 			if (cfg_analyse_final_marking) {
-				ca::Packer packer;
-				for (int t = 0; t < ca::process_count; t++) {
-					verif_configuration.pack_final_marking(
-							node->get_state()->get_net(t), packer);
-				}
-				HashDigest hash = hash_packer(packer);
-				NodeMap::const_iterator n = final_markings.find(hash);
+				NodeMap::const_iterator n = final_markings.find(node->get_final_marking());
 				if (n != final_markings.end()) {
-					Node *node2 = n->second;
-					if (node2->get_distance() > node->get_distance()) {
-						final_markings[hash] = node;
+					if (n->second->get_distance() > node->get_distance()) {
+						final_markings[node->get_final_marking()] = node;
 					}
-					free(hash);
 				} else {
-					final_markings[hash] = node;
+					final_markings[node->get_final_marking()] = node;
 				}
-				packer.free();
 			}
 			if (cfg_analyse_deadlock) {
-				if (!node->get_state()->get_quit_flag()) {
+				if (!node->get_quit_flag()) {
 					deadlocks++;
 					if (deadlock_node == NULL ||
 						deadlock_node->get_distance() > node->get_distance()) {
@@ -952,7 +972,7 @@ void Core::run_analysis_transition_occurrence(ca::Output &report)
 		Node *node = it->second;
 		ParikhVector *v = (ParikhVector*) node->get_data();
 		if (v != NULL) {
-			if (node->get_state()->get_quit_flag() && error_node == NULL) {
+			if (node->get_quit_flag() && error_node == NULL) {
 				if (current == NULL) {
 					current_node = node;
 					current = v;
@@ -1061,6 +1081,7 @@ Node * Core::add_state(State *state, Node *prev)
 	Node *node = get_node(hash);
 	if (node == NULL) {
 		node = new Node(hash, state, prev);
+		node->set_quit_flag(state->get_quit_flag());
 		nodes[hash] = node;
 		not_processed.push(node);
 		return node;

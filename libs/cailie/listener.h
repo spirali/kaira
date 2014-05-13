@@ -15,6 +15,9 @@ class Listener {
 	public:
 		Listener() : process_count(0), processes(NULL), listen_socket(0),
 			thread(0), start_barrier(NULL), state(NULL){}
+		~Listener() {
+			cleanup_state();
+		}
 		void init(int port);
 		void wait_for_connection();
 		int get_port();

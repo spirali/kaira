@@ -356,27 +356,20 @@ def write_collective_body(builder, tr):
 
     builder.block_end()
 
-def write_collective_body_simulation(builder, tr, readonly):
+def write_collective_body_simulation(builder, tr):
     inscription = tr.get_collective_inscription()
     op = tr.get_collective_operation()
     if op == "barrier":
         return
     if op == "gather":
         builder.if_begin("$root == $thread->get_process_id()")
-    if readonly:
-        buildnet.write_place_add(builder,
-                        inscription.edge.place,
-                        builder.expand("$n->"),
-                        builder.expand("$tokens->token_collective"),
-                        bulk=False,
-                        token=True)
-    else:
-        buildnet.write_place_add(builder,
-                        inscription.edge.place,
-                        builder.expand("$n->"),
-                        builder.expand("$tokens->token_collective->value"),
-                        bulk=False,
-                        token=False)
+
+    buildnet.write_place_add(builder,
+                    inscription.edge.place,
+                    builder.expand("$n->"),
+                    builder.expand("$tokens->token_collective"),
+                    bulk=False,
+                    token=True)
     if op == "gather":
         builder.block_end()
 
@@ -386,7 +379,7 @@ def write_collective_phase1(builder, tr):
         builder.line("$tokens->root = $root;")
         builder.line("$tokens->token_collective = NULL;")
 
-    builder.line("std::vector<void*> $bindings;")
+    builder.line("std::vector<ca::Binding*> $bindings;")
     builder.line("int $bcount = $thread->collective_bindings(this, $bindings);")
     builder.line("int $process_count = $thread->get_process_count();")
 

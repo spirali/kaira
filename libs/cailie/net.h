@@ -30,6 +30,13 @@ enum TransitionType {
 	TRANSITION_COLLECTIVE
 };
 
+class Binding {
+	public:
+		virtual ~Binding() {};
+
+		virtual Binding* copy() =0;
+};
+
 class TransitionDef {
 	public:
 		TransitionDef(int id, const std::string &name, TransitionType type, int priority)
@@ -61,14 +68,11 @@ class TransitionDef {
 			fprintf(stderr, "Internal error: full_fire_with_binding\n");
 			abort();
 		};
-		virtual void* fire_phase1(ThreadBase *thread, NetBase *net) = 0;
-		virtual void fire_phase2(ThreadBase *thread, NetBase *net, void *data) = 0;
-		virtual void fire_phase2_ro_binding
-			(ThreadBase *thread, NetBase *net, void *data) = 0;
-		virtual void cleanup_binding(void *data) = 0;
+		virtual Binding* fire_phase1(ThreadBase *thread, NetBase *net) = 0;
+		virtual void fire_phase2(ThreadBase *thread, NetBase *net, Binding *binding) = 0;
 		virtual bool is_enable(ThreadBase *thread, NetBase *net) = 0;
-		virtual void pack_binding(Packer &pack, void *data) {}
-		virtual bool is_blocked(void *data) {
+		virtual void pack_binding(Packer &pack, Binding *binding) {}
+		virtual bool is_blocked(Binding *binding) {
 			return false;
 		}
 
