@@ -341,13 +341,24 @@ class NetEditor(gtk.VBox):
 
     def _setup_attribute_widges_mode_edit(self, item):
         if item.is_transition():
+            def set_collective(value):
+                if value and item.has_code():
+                    self.app.console_write("This transition contains inner code.\n"
+                                           "A code in a transition is ignored "
+                                           "when the transition is collective.\n", "warn")
+                item.set_collective(value)
+
             self._add_attribute_labelled_code_editor("Name", item.get_name, item.set_name)
             self._add_attribute_labelled_code_editor("Guard", item.get_guard, item.set_guard)
             self._add_attribute_labelled_code_editor("Priority",
                                                      item.get_priority,
                                                      item.set_priority)
-            self._add_attribute_checkbox("Collective communication", item.is_collective(), item.set_collective)
-            root_editor = self._add_attribute_labelled_code_editor("Root", item.get_root, item.set_root)
+            self._add_attribute_checkbox("Collective communication",
+                                         item.is_collective(),
+                                         set_collective)
+            root_editor = self._add_attribute_labelled_code_editor("Root",
+                                                                   item.get_root,
+                                                                   item.set_root)
             root_editor.set_sensitive(item.is_collective())
             self._add_attribute_checkbox("Clock", item.has_clock(), item.set_clock)
         elif item.is_place():

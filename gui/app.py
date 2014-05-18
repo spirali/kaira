@@ -376,6 +376,9 @@ class App:
         widget.editor.jump_to_position(position)
 
     def transition_edit(self, transition, lineno=None):
+        if transition.collective:
+            self.console_write("A collective transition cannot contain an inner code.\n", "warn")
+            return
         position = ("", lineno) if lineno is not None else None
 
         if self.window.switch_to_tab_by_key(
