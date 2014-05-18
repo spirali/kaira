@@ -178,12 +178,12 @@ class ElementBox(CanvasItem):
             cr.stroke()
         drawing.draw_centered_text(cr, px + sx / 2, py + sy / 2, self.name)
         if self.corner_text:
-            if self.doubleborder:
-                shift_x = 6
-                shift_y = 6
-            elif self.thicklines:
+            if self.thicklines:
                 shift_x = 10
                 shift_y = 3
+            elif self.doubleborder:
+                shift_x = 6
+                shift_y = 6
             else:
                 shift_x = 3
                 shift_y = 3
