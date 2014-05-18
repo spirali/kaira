@@ -245,7 +245,7 @@ class Project:
         self.server = subprocess.Popen([real_program] + run_args,
                                        cwd=self.get_server_directory(),
                                        env=env)
-        time.sleep(0.2) # Let's give some time to server to open socket
+        time.sleep(1.0) # Let's give some time to server to open socket
 
     def stop_server(self):
         self.server.kill()
