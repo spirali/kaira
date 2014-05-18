@@ -145,7 +145,7 @@ namespace ca {
 					int collective_bindings(TransitionDef *transition_def, std::vector<Binding*> &bindings) {
 						bindings.resize(ca::process_count, NULL);
 						int count = 0;
-						for (size_t i = 0; i < process_count; i++) {
+						for (int i = 0; i < process_count; i++) {
 							ActivationT *a = state->activations[i];
 							if (a == NULL) {
 								continue;
@@ -174,7 +174,11 @@ namespace ca {
 			typedef std::vector<ActivationT*> Activations;
 
 			StateBase() :
-				nets(process_count), net_def(NULL), activations(process_count, NULL), quit(false)
+				nets(process_count),
+				net_def(NULL),
+				activations(process_count,
+				(ActivationT*) NULL),
+				quit(false)
 			{
 				packets = new std::deque<PacketT>[ca::process_count * ca::process_count];
 			}
@@ -190,8 +194,11 @@ namespace ca {
 				}
 			}
 
-			StateBase(NetDef *net_def, const std::vector<NetT*> &nets)
-				: nets(nets), net_def(net_def), activations(process_count, NULL), quit(false)
+			StateBase(NetDef *net_def, const std::vector<NetT*> &nets) :
+				nets(nets),
+				net_def(net_def),
+				activations(process_count, (ActivationT*) NULL),
+				quit(false)
 			{
 				packets = new std::deque<PacketT>[process_count * process_count];
 			}
@@ -199,7 +206,7 @@ namespace ca {
 			StateBase(const StateBase<NetT, ActivationT, PacketT> &state)
 				: nets(process_count),
 				  net_def(state.net_def),
-				  activations(process_count, NULL),
+				  activations(process_count, (ActivationT*) NULL),
 				  quit(state.quit)
 			{
 				for (int i = 0; i < ca::process_count; i++) {
@@ -282,7 +289,7 @@ namespace ca {
 					output.back();
 				}
 
-				for (size_t i = 0; i < process_count; i++) {
+				for (int i = 0; i < process_count; i++) {
 					if (activations[i] == NULL) {
 						continue;
 					}
