@@ -609,7 +609,7 @@ def write_fire_phase2(builder, tr):
                     remove_tokens=False,
                     packed_tokens_from_place=False,
                     simulation=True)
-    
+
     if tr.collective:
         builder.line("$tokens->token_collective = NULL;")
     builder.line("delete $binding;")
@@ -645,6 +645,15 @@ def write_pack_binding(builder, tr):
     builder.block_end()
 
 def write_enable_pattern_match(builder, tr, fire_code, fail_command):
+    def call_fail():
+        # Cleanup already allocated conditioned tokens
+        for i in prev_inscriptions:
+            if i.is_conditioned():
+                builder.if_begin("!$inscription_if_{0.uid}", i)
+                builder.line("delete $token_{0.uid};", i)
+                builder.block_end()
+        builder.line(fail_command)
+
     def setup_variables(inscription):
         if inscription.config.get("svar"):
             builder.line("{0} {1} = $n->place_{2.edge.place.id}.get_source($token_{2.uid});",
@@ -670,8 +679,6 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
     decls_dict = tr.get_decls()
     root_written = False
     for inscription in tr.inscriptions_in:
-
-
         if not inscription.is_token():
             continue
         builder.line("// Inscription id={0.id} uid={1.uid} expr={1.expr}",
@@ -705,13 +712,15 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
                 prev.pop()
             builder.line("$token_{0.uid} = {1};", inscription, builder.expand(start_from))
             builder.if_begin("$token_{0.uid} == NULL", inscription)
-            builder.line(fail_command)
+            call_fail()
             builder.block_end()
         else:
             start_from = "$n->place_{0.id}.begin()".format(inscription.edge.place)
             builder.line("$token_{0.uid} = {1};", inscription, builder.expand(start_from))
             if inscription.is_conditioned():
-                 builder.line("if ($token_{0.uid} == NULL) {1}", inscription, fail_command)
+                builder.if_begin("$token_{0.uid} == NULL", inscription)
+                call_fail()
+                builder.block_end()
 
         filter_expr = inscription.config.get("filter")
         from_expr = inscription.config.get("from")
@@ -748,7 +757,7 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
                          inscription)
 
             builder.if_begin("$token_{0.uid} == NULL", inscription)
-            builder.line(fail_command)
+            call_fail()
             builder.block_end()
             builder.block_end()
 
@@ -770,15 +779,21 @@ def write_enable_pattern_match(builder, tr, fire_code, fail_command):
             if "guard" in inscription.config:
                 builder.block_begin()
                 builder.line("size_t size = $n->place_{0.id}.size();", edge.place)
-                builder.line("if (!({0})) {1}", inscription.config["guard"], fail_command)
+                builder.if_begin("!({0})", inscription.config["guard"])
+                call_fail()
+                builder.block_end()
                 builder.block_end()
 
             if inscription.is_token() and inscription.uid not in sources_uid:
-                builder.line("if ($token_{2.uid}->value != ({0})) {1}",
-                    inscription.expr, fail_command, inscription)
+                builder.if_begin("$token_{1.uid}->value != ({0})",
+                    inscription.expr, inscription)
+                call_fail()
+                builder.block_end()
 
     if tr.guard is not None:
-        builder.line("if (!({0})) {1}", tr.guard, fail_command)
+        builder.if_begin("!({0})", tr.guard)
+        call_fail()
+        builder.block_end()
 
     if tr.root and not root_written:
         builder.line("int $root = {0};", tr.root)
