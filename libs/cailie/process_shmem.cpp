@@ -52,9 +52,13 @@ void ca::Process::send_multicast(
 	Net *net,
 	int edge_id,
 	int tokens_count,
-	const Packer &packer,
+	Packer &packer,
 	Thread *thread)
 {
+	if (targets.size() == 0) {
+		packer.free();
+		return;
+	}
 	std::vector<int>::const_iterator i;
 	Tokens *data = (Tokens*) packer.get_buffer();
 	data->edge_id = edge_id;

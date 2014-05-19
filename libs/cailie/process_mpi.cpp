@@ -25,9 +25,14 @@ void Process::send_multicast(
 	Net *net,
 	int edge_id,
 	int tokens_count,
-	const Packer &packer,
+	Packer &packer,
 	Thread *thread)
 {
+	if (targets.size() == 0) {
+		packer.free();
+		return;
+	}
+
 	thread->get_requests()->check();
 	char *buffer = packer.get_buffer();
 	size_t size = packer.get_size();

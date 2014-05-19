@@ -91,7 +91,7 @@ namespace ca {
 								   ca::NetBase *net,
 								   int edge_id,
 								   int tokens_count,
-								   const ca::Packer &packer) {
+								   ca::Packer &packer) {
 						send(target, net, edge_id, tokens_count, packer, packer.get_size());
 					}
 
@@ -99,7 +99,7 @@ namespace ca {
 								   ca::NetBase *net,
 								   int edge_id,
 								   int tokens_count,
-								   const ca::Packer &packer,
+								   ca::Packer &packer,
 								   size_t fake_size) {
 						std::vector<int> a(1);
 						a[0] = target;
@@ -107,7 +107,7 @@ namespace ca {
 					}
 
 					void send_multicast(const std::vector<int> &targets, ca::NetBase *net,
-						int edge_id, int tokens_count, const ca::Packer &packer) {
+						int edge_id, int tokens_count, ca::Packer &packer) {
 							send_multicast(
 								targets, net, edge_id, tokens_count, packer, packer.get_size());
 					}

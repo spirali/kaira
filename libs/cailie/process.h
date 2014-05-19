@@ -67,9 +67,9 @@ class Process {
 		}
 
 		void send(int target, Net * net, int edge_id, int tokens_count,
-			const Packer &packer, Thread *thread);
+			  Packer &packer, Thread *thread);
 		void send_multicast(const std::vector<int> &targets, Net *net, int edge_id,
-			int tokens_count, const Packer &packer, Thread *thread);
+			int tokens_count, Packer &packer, Thread *thread);
 
 		void collective_scatter_root(int transition_id, const void *data, size_t size);
 		void collective_scatter_nonroot(int transition_id, int root, void *out, size_t size);

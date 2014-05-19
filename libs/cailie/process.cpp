@@ -13,7 +13,7 @@ extern size_t tracelog_size;
 
 using namespace ca;
 
-void Process::send(int target, Net *net, int edge_id, int tokens_count, const Packer &packer, Thread *thread)
+void Process::send(int target, Net *net, int edge_id, int tokens_count, Packer &packer, Thread *thread)
 {
 	std::vector<int> a(1);
 	a[0] = target;
