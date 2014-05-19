@@ -13,13 +13,6 @@ extern size_t tracelog_size;
 
 using namespace ca;
 
-void Process::send(int target, Net *net, int edge_id, int tokens_count, Packer &packer, Thread *thread)
-{
-	std::vector<int> a(1);
-	a[0] = target;
-	send_multicast(a, net, edge_id, tokens_count, packer, thread);
-}
-
 bool Process::process_packet(Thread *thread, int from_process, int tag, void *data)
 {
 	if (tag == CA_TAG_SERVICE) {

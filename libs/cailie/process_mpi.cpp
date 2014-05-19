@@ -20,6 +20,25 @@ void Process::broadcast_packet(int tag, void *data, size_t size, int exclude)
 	}
 }
 
+void Process::send(int target, Net *net, int edge_id, int tokens_count, Packer &packer, Thread *thread)
+{
+	thread->get_requests()->check();
+	char *buffer = packer.get_buffer();
+	size_t size = packer.get_size();
+	Tokens *data = (Tokens*) packer.get_buffer();
+	data->edge_id = edge_id;
+	data->tokens_count = tokens_count;
+	if(target < 0 || target >= process_count) {
+		fprintf(stderr, "Net sends %i token(s) to invalid process id %i (valid ids: [0 .. %i])\n",
+			tokens_count, target, process_count - 1);
+		exit(1);
+	}
+	CA_DLOG("SEND index=%i target=%i process=%i\n", place_index, target, get_process_id());
+
+	MPI_Request *request = thread->get_requests()->new_request(buffer);
+	MPI_Isend(buffer, size, MPI_BYTE, target, CA_TAG_TOKENS, MPI_COMM_WORLD, request);
+}
+
 void Process::send_multicast(
 	const std::vector<int> &targets,
 	Net *net,

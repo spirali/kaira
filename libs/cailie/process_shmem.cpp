@@ -47,6 +47,13 @@ void ca::Process::add_packet(int from_process, int tag, void *data, size_t size)
 	pthread_mutex_unlock(&packet_mutex);
 }
 
+void Process::send(int target, Net *net, int edge_id, int tokens_count, Packer &packer, Thread *thread)
+{
+	std::vector<int> a(1);
+	a[0] = target;
+	send_multicast(a, net, edge_id, tokens_count, packer, thread);
+}
+
 void ca::Process::send_multicast(
 	const std::vector<int> &targets,
 	Net *net,
