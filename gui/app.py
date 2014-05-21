@@ -158,9 +158,10 @@ class App:
 
     def new_project(self):
         def project_name_changed(w = None):
-            name = builder.get_object("newproject-name").get_text().strip()
+            name = builder.get_object("newproject-name").get_text()
+            ok = all(c.isalnum() or c == "-" or c == "_" for c in name) and name != ""
             builder.get_object("newproject-dir").set_text(os.path.join(directory[0], name))
-            builder.get_object("newproject-ok").set_sensitive(name != "")
+            builder.get_object("newproject-ok").set_sensitive(ok)
         def change_directory(w):
             d = self.run_file_dialog("Project directory", "open-directory")
             if d is not None:
