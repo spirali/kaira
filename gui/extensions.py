@@ -175,14 +175,11 @@ class SourceView(gtk.Alignment, EventSource):
         item = gtk.MenuItem("Delete")
         item.connect("activate", lambda w: self._cb_delete())
         menu.append(item)
+        menu.show_all()
 
-        source_menu = gtk.MenuItem(">")
-        source_menu.set_submenu(menu)
-
-        menu_bar = gtk.MenuBar()
-        menu_bar.set_child_pack_direction(gtk.PACK_DIRECTION_TTB)
-        menu_bar.append(source_menu)
-        table.attach(menu_bar, 3, 4, 0, 2, xoptions=0)
+        menu_btn = gtk.Button(">");
+        menu_btn.connect_object("event-after", self._menu_handler, menu)
+        table.attach(menu_btn, 3, 4, 0, 2, xoptions=0)
 
         # source component
         frame = gtk.Frame()
@@ -190,6 +187,12 @@ class SourceView(gtk.Alignment, EventSource):
         frame.add(table)
 
         self.add(frame)
+
+    def _menu_handler(self, widget, event):
+        if event.type == gtk.gdk.BUTTON_PRESS:
+            widget.popup(None, None, None, event.button, event.time)
+            return True
+        return False
 
     def _cb_show(self):
         if self.tabview is None:
