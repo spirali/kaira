@@ -1,6 +1,6 @@
 
-#ifndef CAILIE_H
-#define CAILIE_H
+#ifndef CAILIE_CABUF_H
+#define CAILIE_CABUF_H
 
 #include <ios>
 
@@ -10,8 +10,6 @@ namespace ca {
 
 class Caobuf : public std::streambuf {
 	private:
-		const size_t fixed_allocation = 100;
-
 		Packer * packer;
 
 		Caobuf(Caobuf &caobuf);
@@ -20,8 +18,8 @@ class Caobuf : public std::streambuf {
 		void set_buffer();
 		void reserve();
 
-		virtual int_type overflow(int input);
-		virtual int sync();
+		int_type overflow(int input);
+		int sync();
 
 	public:
 		Caobuf(Packer * packer);
@@ -33,12 +31,11 @@ class Caobuf : public std::streambuf {
 class Caibuf : public std::streambuf {
 	private:
 		Packer * packer;
-		std::size_t packer_size;
 
 		Caibuf(Caibuf &caibuf);
 		Caibuf& operator=(Caibuf &caibuf);
 
-		virtual int underflow();
+		int underflow();
 
 	public:
 		Caibuf(Packer * packer);

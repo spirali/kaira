@@ -22,18 +22,6 @@ void Caobuf::set_buffer()
 	setp(buffer_beg, buffer_end - 1);
 }
 
-void Caobuf::reserve()
-{
-	if (this->pptr() != NULL)
-	{
-		this->sync();
-	}
-
-	this->packer->reserve(this->fixed_allocation);
-
-	this->set_buffer();
-}
-
 Caobuf::int_type Caobuf::overflow(int input)
 {
 	if (input != traits_type::eof())
@@ -41,14 +29,14 @@ Caobuf::int_type Caobuf::overflow(int input)
 		*this->pptr() = input;
 		this->pbump(1);
 
-		this->reserve();
+		this->sync();
 
 		return input;
 	}
 	else return traits_type::eof();
 }
 
-int Caobuf::sync()
+int Caobuf::sync()	// synchronizes the buffer position in Packer, which also reserves some size
 {
 	if (this->pptr() == NULL)
 	{
@@ -62,6 +50,7 @@ int Caobuf::sync()
 		if (buffer_put > buffer_pos)
 		{
 			packer->move(buffer_put - buffer_pos);
+			this->set_buffer();
 		}
 
 		return 0;
@@ -76,11 +65,11 @@ Packer * Caobuf::get_packer()
 Caibuf::Caibuf(Packer * packer)
 {
 	this->packer = packer;
-	this->packer_size = packer->get_size();
 
 	char * buffer_beg = packer->get_buffer();
+	char * buffer_end = buffer_beg + packer->get_size();
 
-	this->setg(buffer_beg, buffer_beg, buffer_beg + this->packer_size);
+	setg(buffer_beg, buffer_beg, buffer_end);
 }
 
 int Caibuf::underflow()
