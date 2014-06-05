@@ -2,44 +2,36 @@
 
 using namespace ca;
 
-Caobuf::Caobuf(std::size_t buffer_size)
+Caobuf::Caobuf(Packer * packer)
 {
-	this->packer = new Packer(buffer_size);
-	this->buffer_size = buffer_size;
+	this->packer = packer;
 
 	this->set_buffer();
 }
 
 Caobuf::~Caobuf()
 {
-	delete this->packer;
+	this->sync();
 }
 
 void Caobuf::set_buffer()
+{
+	char * buffer_beg = static_cast<char *>(packer->peek());
+	char * buffer_end = buffer_beg + (packer->get_reserved_size() - packer->get_size());
+
+	setp(buffer_beg, buffer_end - 1);
+}
+
+void Caobuf::reserve()
 {
 	if (this->pptr() != NULL)
 	{
 		this->sync();
 	}
 
-	char * buffer_pos = static_cast<char *>(packer->peek());
-	char * buffer_beg = packer->get_buffer();
-	char * buffer_end = buffer_beg + this->buffer_size;
+	this->packer->reserve(this->fixed_allocation);
 
-	std::size_t new_size = this->buffer_size;
-
-	if (buffer_pos >= buffer_end)
-	{
-		this->packer->reserve(this->buffer_size / 2);
-
-		new_size = (this->buffer_size * 3) - this->buffer_size;
-		this->buffer_size *= 3;	// the size is added and then multiplied by two
-
-		buffer_pos = static_cast<char *>(packer->peek());
-		buffer_beg = packer->get_buffer();
-	}
-
-	setp(buffer_pos, buffer_pos + new_size - 1);
+	this->set_buffer();
 }
 
 Caobuf::int_type Caobuf::overflow(int input)
@@ -49,28 +41,12 @@ Caobuf::int_type Caobuf::overflow(int input)
 		*this->pptr() = input;
 		this->pbump(1);
 
-		this->set_buffer();
+		this->reserve();
 
 		return input;
 	}
 	else return traits_type::eof();
 }
-
-/*std::streamsize Caobuf::xsputn(const char * s, std::streamsize n)
-{
-	int put_result = 0;
-	std::streamsize total_characters = n;
-
-	while (put_result != EOF && n != 0)
-	{
-		put_result = this->sputc(*s);
-		s++, n--;
-	}
-
-	this->sputc('\n');
-
-	return total_characters - n;
-}*/
 
 int Caobuf::sync()
 {
@@ -92,7 +68,7 @@ int Caobuf::sync()
 	}
 }
 
-Packer * Caobuf::get_packer() const
+Packer * Caobuf::get_packer()
 {
 	return this->packer;
 }
