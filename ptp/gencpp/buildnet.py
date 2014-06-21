@@ -119,8 +119,10 @@ def write_tokens_struct(builder, tr):
 
     if tr.collective:
         builder.line("bool blocked;")
-        if tr.root: # Barrier does not need token_collective and root
-            builder.line("int root;")
+        if tr.get_collective_operation != "barrier":
+            # Barrier does not need token_collective and root
+            if tr.root:
+                builder.line("int root;")
             inscription = tr.get_collective_inscription()
             builder.line("ca::Token<{0} > *token_collective;", inscription.type)
 

@@ -252,7 +252,7 @@ class EdgeInscription(utils.EqMixin):
                                          self.edge.transition.get_decls(),
                                          get_container_type(self.type),
                                          self.source)
-            elif op == "gather":
+            elif op == "gather" or op == "allgather":
                 t = self.edge.transition.net.project.parse_typename(self.type, self.source)
                 if len(t) < 2 or len(t[1]) < 0 or t[0] != "std::vector":
                     raise utils.PtpException("Invalid type of expression", self.source)
@@ -359,7 +359,7 @@ class EdgeInscription(utils.EqMixin):
         if self.edge.transition.collective:
             if self.edge.transition.root:
                 allowed.append("root")
-            allowed += [ "scatter", "gather", "bcast" ]
+            allowed += [ "scatter", "gather", "allgather", "bcast" ]
         self.check_config(allowed)
 
         if self.check_config_with_expression("if"):
@@ -433,6 +433,8 @@ class EdgeInscription(utils.EqMixin):
             return "scatter"
         if "gather" in self.config:
             return "gather"
+        if "allgather" in self.config:
+            return "allgather"
         if "bcast" in self.config:
             return "bcast"
         return None
@@ -672,9 +674,17 @@ class Transition(utils.EqByIdMixin):
             if len(inscriptions) > 1:
                 raise utils.PtpException("At most one collective inscription may be defined",
                                          inscriptions[-1].source)
+            if inscriptions:
+                op = inscriptions[0].get_collective_operation()
+                need_root = op == "scatter" or op == "gather" or op == "bcast"
+                if not self.root and need_root:
+                    raise utils.PtpException("Root not defined", self.get_source())
+            else:
+                need_root = False
 
-            if not self.root and len(inscriptions) == 1:
-                raise utils.PtpException("Root not defined", self.get_source())
+            if not need_root and self.root:
+                raise utils.PtpException("Root cannot be defined for this operation",
+                                         self.get_source())
 
         for edge in self.edges_in:
             edge.check_edge_in(checker)

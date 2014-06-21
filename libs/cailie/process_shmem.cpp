@@ -247,3 +247,26 @@ void ca::Process::collective_barrier(int transition_id) {
 	setup_collective_operation(transition_id, false, 0);
 	pthread_barrier_wait(&collective_barrier2);
 }
+
+// Allgather -------------------------------------------------------
+
+void ca::Process::collective_allgather(int transition_id, const void *data, size_t size, void *out) {
+	collective_data = data;
+	setup_collective_operation(transition_id, false, -1);
+	char *dest = static_cast<char*>(out);
+	for (int i = 0; i < process_count; i++) {
+		memcpy(&dest[i * size], processes[i]->collective_data, size);
+	}
+	pthread_barrier_wait(&collective_barrier2);
+}
+
+void ca::Process::collective_allgatherv(
+		int transition_id, const void *data, int size, void *out, int *sizes, int *displs) {
+	collective_data = data;
+	setup_collective_operation(transition_id, false, -1);
+	char *dest = static_cast<char*>(out);
+	for (int i = 0; i < process_count; i++) {
+		memcpy(&dest[displs[i]], processes[i]->collective_data, sizes[i]);
+	}
+	pthread_barrier_wait(&collective_barrier2);
+}

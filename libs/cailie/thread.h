@@ -40,6 +40,11 @@ class ThreadBase {
 		virtual void collective_bcast_root(int transition_id, const void *data, size_t size) {}
 		virtual void collective_bcast_nonroot(int transition_id, int root, void *out, size_t size) {}
 
+		virtual void collective_allgather(int transition_id, const void *data, size_t size, void *out) {}
+		virtual void collective_allgatherv(int transition_id, const void *data, int size,
+				void *out, int *sizes, int *displs) {}
+
+
 		virtual void collective_barrier(int transition_id) {}
 
 
@@ -138,6 +143,14 @@ class Thread : public ThreadBase {
 
 		void collective_bcast_nonroot(int transition_id, int root, void *out, size_t size) {
 			process->collective_bcast_nonroot(transition_id, root, out, size);
+		}
+
+		void collective_allgather(int transition_id, const void *data, size_t size, void *out) {
+			process->collective_allgather(transition_id, data, size, out);
+		}
+
+		void collective_allgatherv(int transition_id, const void *data, int size, void *out, int *sizes, int *displs) {
+			process->collective_allgatherv(transition_id, data, size, out, sizes, displs);
 		}
 
 		void collective_barrier(int transition_id) {

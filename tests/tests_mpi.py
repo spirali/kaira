@@ -28,6 +28,8 @@ class MpiBuildTest(unittest.TestCase):
                  "2: aaaaaaaaaaaaaaaaaaaaaaaa bb ccccccccccccccccccc  mmmmmmmmm\n"
         Project("scattergather", mpi=True).quick_test(result, processes=5, params={"SIZE": 5})
 
+    def test_allgather(self):
+        Project("allgather").quick_test("Ok\n", processes=5)
 
 if __name__ == '__main__':
     unittest.main()

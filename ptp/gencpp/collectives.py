@@ -328,33 +328,116 @@ def write_phase1_bcast_preinit(builder, tr, inscription):
 def write_phase1_bcast_forall(builder, tr, inscription):
     builder.line("$t->token_collective = new ca::Token<{0.type} >($ccdata);", inscription)
 
+# Allgather ------------------------------------------------------------------
+
+def write_allgather(builder, tr, inscription):
+    t = parser.parse_typename(inscription.type, inscription.source)
+    typename = t[1][0] # This should not failed, because check already verify this
+    builder.line("ca::Token<std::vector<{0} > > *$token = new ca::Token<std::vector<{0} > >;",
+                 typename)
+
+    builder.if_begin("ca::is_trivially_packable<{0} >()", typename)
+    # Trivially packable
+    builder.line("const size_t $size = sizeof({0});", typename)
+    builder.line("$token->value.resize($thread->get_process_count());")
+    builder.line("$thread->collective_allgather({0.id}, &{1.expr}, $size, &$token->value[0]);",
+                 tr, inscription)
+    builder.else_if("ca::fixed_size<{0} >() != 0", typename)
+    # Fixed size
+    write_pack_fixed_size(builder, typename, inscription.expr)
+    builder.line("void *$mem = malloc($size * $thread->get_process_count());")
+    builder.line("$thread->collective_allgather({0.id}, $packer.get_buffer(), $size, $mem);",
+                 tr, inscription)
+    builder.line("$packer.free();")
+    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("ca::unpack_with_step($unpacker,"
+                 "$token->value, $size, $thread->get_process_count());")
+
+    builder.line("free($mem);")
+    builder.write_else()
+    # Generic case
+    builder.line("int $process_count = $thread->get_process_count();")
+    builder.line("int *$sizes = static_cast<int*>(alloca(sizeof(int) * $process_count));")
+    builder.line("int *$displs = static_cast<int*>(alloca(sizeof(int) * (1 + $process_count)));")
+    builder.line("int $size = 0;")
+    builder.line("$thread->collective_allgather({0.id}, &$size, sizeof(int), $sizes);", tr)
+    builder.line("$displs[0] = 0;")
+    # Last displs[process_count] == sum of all sizes
+    builder.for_begin("int $i = 0; $i < ca::process_count; $i++")
+    builder.line("$displs[$i + 1] = $displs[$i] + $sizes[$i];")
+    builder.block_end()
+    builder.line("void *$mem = malloc($displs[$process_count]);")
+    builder.line("$thread->collective_allgatherv({0.id}, &$size, 0, $mem, $sizes, $displs);", tr)
+    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("int $process_id = $thread->get_process_id();")
+    builder.line("ca::unpack_with_displs($unpacker, $token->value, $process_id, $displs);")
+    builder.line("$token->value.push_back({0});", inscription.expr);
+    builder.line("ca::unpack_with_displs"
+                 "($unpacker, $token->value, $process_count - $process_id - 1,"
+                             "$displs + $process_id + 1);")
+    builder.line("free($mem);")
+    builder.block_end()
+
+    buildnet.write_place_add(builder,
+                    inscription.edge.place,
+                    builder.expand("$n->"),
+                    builder.expand("$token"),
+                    bulk=False,
+                    token=True)
+    buildnet.write_activation(builder,
+                              builder.expand("$n"),
+                              inscription.edge.place.get_transitions_out())
+
+def write_phase1_allgather_preinit(builder, tr, inscription):
+    t = parser.parse_typename(inscription.type, inscription.source)
+    typename = t[1][0] # This should not failed, because check already verify this
+    builder.line("const size_t $size = sizeof({0});", typename)
+
+    builder.for_begin("int $i = 0; $i < $thread->get_process_count(); $i++")
+    builder.line("Tokens_{0.id} *$t = static_cast<Tokens_{0.id}*>($bindings[$i]);", tr)
+    builder.line("$t->token_collective = new ca::Token<{0.type} >;", inscription)
+    builder.line("$t->token_collective->value.resize($thread->get_process_count());")
+    builder.block_end()
+
+def write_phase1_allgather_forall(builder, tr, inscription):
+    buildnet.write_unpack_binding(builder,
+                                  tr,
+                                  builder.expand("static_cast<Tokens_{0.id}*>($bindings[$i])", tr))
+    builder.for_begin("int $j = 0; $j < $thread->get_process_count(); $j++")
+    builder.line("Tokens_{0.id} *$t = static_cast<Tokens_{0.id}*>($bindings[$j]);", tr)
+    builder.line("$t->token_collective->value[$i] = {0.expr};", inscription)
+    builder.block_end()
+
 def write_collective_body(builder, tr):
     op = tr.get_collective_operation()
-
-    if op == "barrier":
-        builder.line("$thread->collective_barrier({0.id});", tr)
-        return
-
-    builder.if_begin("$root == $thread->get_process_id()")
     inscription = tr.get_collective_inscription()
 
-    if op == "scatter":
-        write_scatter_root(builder, tr, inscription)
-    elif op == "gather":
-        write_gather_root(builder, tr, inscription)
-    elif op == "bcast":
-        write_bcast_root(builder, tr, inscription)
+    if not tr.root:
+        if op == "barrier":
+            builder.line("$thread->collective_barrier({0.id});", tr)
+            return
+        if op == "allgather":
+            write_allgather(builder, tr, inscription)
+    else:
+        builder.if_begin("$root == $thread->get_process_id()")
 
-    builder.write_else()
+        if op == "scatter":
+            write_scatter_root(builder, tr, inscription)
+        elif op == "gather":
+            write_gather_root(builder, tr, inscription)
+        elif op == "bcast":
+            write_bcast_root(builder, tr, inscription)
 
-    if op == "scatter":
-        write_scatter_nonroot(builder, tr, inscription)
-    elif op == "gather":
-        write_gather_nonroot(builder, tr, inscription)
-    elif op == "bcast":
-        write_bcast_nonroot(builder, tr, inscription)
+        builder.write_else()
 
-    builder.block_end()
+        if op == "scatter":
+            write_scatter_nonroot(builder, tr, inscription)
+        elif op == "gather":
+            write_gather_nonroot(builder, tr, inscription)
+        elif op == "bcast":
+            write_bcast_nonroot(builder, tr, inscription)
+
+        builder.block_end()
 
 def write_collective_body_simulation(builder, tr):
     inscription = tr.get_collective_inscription()
@@ -413,6 +496,8 @@ def write_collective_phase1(builder, tr):
         write_phase1_gather_preinit(builder, tr, inscription)
     elif op == "bcast":
         write_phase1_bcast_preinit(builder, tr, inscription)
+    elif op == "allgather":
+        write_phase1_allgather_preinit(builder, tr, inscription)
 
     builder.for_begin("int $i = 0; $i < $thread->get_process_count(); $i++")
     builder.line("Tokens_{0.id} *$t = static_cast<Tokens_{0.id}*>($bindings[$i]);", tr)
@@ -423,5 +508,8 @@ def write_collective_phase1(builder, tr):
         write_phase1_gather_forall(builder, tr, inscription)
     elif op == "bcast":
         write_phase1_bcast_forall(builder, tr, inscription)
+    elif op == "allgather":
+        write_phase1_allgather_forall(builder, tr, inscription)
+
     builder.block_end()
     builder.block_end()

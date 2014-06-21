@@ -147,6 +147,9 @@ class BuildTest(unittest.TestCase):
                  "2: aaaaaaaaaaaaaaaaaaaaaaaa bb ccccccccccccccccccc  mmmmmmmmm\n"
         Project("scattergather").quick_test(result, processes=5, params={"SIZE": 5})
 
+    def test_allgather(self):
+        Project("allgather").quick_test("Ok\n", processes=5)
+
     def test_bcastgather(self):
         result = "0: 110.3 110.3 110.3 110.3\n" \
                  "1: MyC: { 3 3 3 3 3 3 3 } MyC: { 3 3 3 3 3 3 3 } MyC: { 3 3 3 3 3 3 3 } MyC: { 3 3 3 3 3 3 3 }\n" \

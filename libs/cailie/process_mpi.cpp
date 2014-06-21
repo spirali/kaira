@@ -180,3 +180,15 @@ void ca::Process::collective_bcast_nonroot(int transition_id, int root, void *ou
 void ca::Process::collective_barrier(int transition_id) {
 	MPI_Barrier(MPI_COMM_WORLD);
 }
+
+// Allgather ------------------------------------------------------
+
+void ca::Process::collective_allgather(int transition_id, const void *data, size_t size, void *out) {
+	MPI_Allgather(const_cast<void*>(data), size, MPI_BYTE, out, size, MPI_BYTE, MPI_COMM_WORLD);
+}
+
+void ca::Process::collective_allgatherv(
+		int transition_id, const void *data, int size, void *out, int *sizes, int *displs) {
+	MPI_Allgatherv(const_cast<void*>(data), size, MPI_BYTE,
+		out, sizes, displs, MPI_BYTE, MPI_COMM_WORLD);
+}

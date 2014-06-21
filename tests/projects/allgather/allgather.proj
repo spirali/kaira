@@ -1,0 +1,13 @@
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option></configuration><net id="101" name="testag"><area id="110" sx="134" sy="100" x="-270" y="-82"><init x="-270" y="-97">ca::range(0, ctx.process_count())</init></area><place id="102" label-x="-203" label-y="-32" name="" radius="20" sx="0" sy="0" x="-203" y="-32"><place-type x="-186" y="-15">int</place-type><init x="-186" y="-62">[ctx.process_id() * 101]</init><trace trace-tokens="False" /></place><place id="104" label-x="70" label-y="-25" name="" radius="20" sx="0" sy="0" x="70" y="-25"><place-type x="87" y="-8">std::vector&lt;int&gt;</place-type><init x="87" y="-55" /><trace trace-tokens="False" /></place><place id="111" label-x="214" label-y="56" name="" radius="20" sx="0" sy="0" x="214" y="56"><place-type x="231" y="73">std::vector&lt;int&gt;</place-type><init x="231" y="26" /><trace trace-tokens="False" /></place><transition clock="False" collective="True" id="103" label-x="-68" label-y="-23" name="" priority="" sx="70" sy="36" x="-103" y="-41"><guard x="-103" y="-61" /><root x="-63" y="-1" /></transition><transition clock="False" collective="False" id="108" label-x="212" label-y="-41" name="" priority="" sx="70" sy="36" x="177" y="-59"><guard x="177" y="-79" /></transition><transition clock="False" collective="False" id="113" label-x="-7" label-y="82" name="" priority="" sx="70" sy="36" x="-42" y="64"><guard x="-42" y="44" /><code>	ctx.quit();
+	std::vector&lt;int&gt; r;
+	for (int i = 0; i &lt; ctx.process_count(); i++) {
+		r.push_back(i * 101);
+	}
+	for (ca::Token&lt;std::vector&lt;int&gt; &gt; *t = var.x.begin(); t != NULL; t = var.x.next(t)) {
+		if (t-&gt;value != r) {
+			printf("Error\n");
+			return;
+		}
+	}
+	printf("Ok\n");
+</code></transition><edge from_item="102" id="105" to_item="103"><inscription x="-144.0" y="-45.0">x</inscription></edge><edge from_item="103" id="106" to_item="104"><inscription x="-17.0" y="-52.0">[allgather] x</inscription></edge><edge from_item="104" id="109" to_item="108"><inscription x="126.0" y="-51.0">x</inscription></edge><edge from_item="108" id="112" to_item="111"><inscription x="242.0" y="2.0">x@0</inscription></edge><edge from_item="111" id="114" to_item="113"><inscription x="42.0" y="112.0">[bulk, guard(size == ctx.process_count())] x</inscription></edge></net></project>
