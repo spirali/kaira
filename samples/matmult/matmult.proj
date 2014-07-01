@@ -23,7 +23,7 @@ inline int next2(ca::Context &amp;ctx) {
 
 
 
-</head-code></configuration><net id="101" name="matmult"><area id="121" sx="90" sy="96" x="402" y="204"><init x="258" y="186">ca::range(0, ctx.process_count())</init></area><place id="103" name="input" radius="20" sx="0" sy="0" x="-384" y="-30"><place-type x="-367" y="-13">Matrix</place-type><init x="-367" y="-60" /><code>	Matrix m(4, 4);
+</head-code></configuration><net id="101" name="matmult"><area id="121" sx="90" sy="96" x="402" y="204"><init x="323.0" y="186.0">ca::all_processes(ctx)</init></area><place id="103" label-x="-384.0" label-y="-30.0" name="input" radius="20" sx="0" sy="0" x="-384" y="-30"><place-type x="-367" y="-13">Matrix</place-type><init x="-367" y="-60" /><code>	Matrix m(4, 4);
 	m(0,0) = 100;
 	m(0,1) = 1;	
 	m(1,0) = 120;		
@@ -47,7 +47,7 @@ inline int next2(ca::Context &amp;ctx) {
 
 
 	place.add(m);
-</code><interface in="m1" x="-409" y="-35" /></place><place id="104" name="m2" radius="20" sx="0" sy="0" x="150" y="84"><place-type x="167" y="101">Matrix</place-type><init x="167" y="54" /></place><place id="108" name="" radius="20" sx="0" sy="0" x="-300" y="54"><place-type x="-283" y="71">int</place-type><init x="-283" y="24">[0]</init></place><place id="118" name="iter" radius="20" sx="0" sy="0" x="444" y="252"><place-type x="461" y="269">int</place-type><init x="450" y="210">[steps(ctx.process_count())]</init></place><place id="125" name="input" radius="20" sx="0" sy="0" x="-384" y="-84"><place-type x="-367" y="-67">Matrix</place-type><init x="-367" y="-114" /><code>	Matrix m(4, 4);
+</code><interface in="m1" x="-409" y="-35" /><trace trace-tokens="False" /></place><place id="104" label-x="150.0" label-y="84.0" name="m2" radius="20" sx="0" sy="0" x="150" y="84"><place-type x="167" y="101">Matrix</place-type><init x="167" y="54" /><trace trace-tokens="False" /></place><place id="108" label-x="-300.0" label-y="54.0" name="" radius="20" sx="0" sy="0" x="-300" y="54"><place-type x="-283" y="71">int</place-type><init x="-283" y="24">[0]</init><trace trace-tokens="False" /></place><place id="118" label-x="444.0" label-y="252.0" name="iter" radius="20" sx="0" sy="0" x="444" y="252"><place-type x="461" y="269">int</place-type><init x="450" y="210">[steps(ctx.process_count())]</init><trace trace-tokens="False" /></place><place id="125" label-x="-384.0" label-y="-84.0" name="input" radius="20" sx="0" sy="0" x="-384" y="-84"><place-type x="-367" y="-67">Matrix</place-type><init x="-367" y="-114" /><code>	Matrix m(4, 4);
 	m(0,0) = 10;
 	m(0,1) = 11;	
 	m(1,0) = 12;		
@@ -71,7 +71,7 @@ inline int next2(ca::Context &amp;ctx) {
 
 
 	place.add(m);
-</code><interface in="m2" x="-409" y="-89" /></place><place id="128" name="m1" radius="20" sx="0" sy="0" x="144" y="-60"><place-type x="161" y="-43">Matrix</place-type><init x="161" y="-90" /></place><place id="133" name="result" radius="20" sx="0" sy="0" x="48" y="174"><place-type x="65" y="191">Matrix</place-type><init x="65" y="144" /></place><place id="136" name="" radius="20" sx="0" sy="0" x="-66" y="-66"><place-type x="-49" y="-49">Matrix</place-type><init x="-49" y="-96" /></place><place id="137" name="" radius="20" sx="0" sy="0" x="-66" y="72"><place-type x="-49" y="89">Matrix</place-type><init x="-49" y="42" /></place><place id="149" name="" radius="20" sx="0" sy="0" x="-108" y="252"><place-type x="-91" y="269">Matrix</place-type><init x="-91" y="222" /></place><place id="155" name="output" radius="20" sx="0" sy="0" x="-378" y="252"><place-type x="-361" y="269">Matrix</place-type><init x="-361" y="222" /><interface out="output" x="-403" y="247" /></place><transition clock="False" id="105" name="distribute" priority="" sx="70" sy="36" x="-240" y="-12"><guard x="-192" y="-31">step &lt; ctx.process_count()</guard><code>	int t;
+</code><interface in="m2" x="-409" y="-89" /><trace trace-tokens="False" /></place><place id="128" label-x="144.0" label-y="-60.0" name="m1" radius="20" sx="0" sy="0" x="144" y="-60"><place-type x="161" y="-43">Matrix</place-type><init x="161" y="-90" /><trace trace-tokens="False" /></place><place id="133" label-x="48.0" label-y="174.0" name="result" radius="20" sx="0" sy="0" x="48" y="174"><place-type x="65" y="191">Matrix</place-type><init x="65" y="144" /><trace trace-tokens="False" /></place><place id="136" label-x="-66.0" label-y="-66.0" name="" radius="20" sx="0" sy="0" x="-66" y="-66"><place-type x="-49" y="-49">Matrix</place-type><init x="-49" y="-96" /><trace trace-tokens="False" /></place><place id="137" label-x="-66.0" label-y="72.0" name="" radius="20" sx="0" sy="0" x="-66" y="72"><place-type x="-49" y="89">Matrix</place-type><init x="-49" y="42" /><trace trace-tokens="False" /></place><place id="149" label-x="-108.0" label-y="252.0" name="" radius="20" sx="0" sy="0" x="-108" y="252"><place-type x="-91" y="269">Matrix</place-type><init x="-91" y="222" /><trace trace-tokens="False" /></place><place id="155" label-x="-378.0" label-y="252.0" name="output" radius="20" sx="0" sy="0" x="-378" y="252"><place-type x="-361" y="269">Matrix</place-type><init x="-361" y="222" /><interface out="output" x="-403" y="247" /><trace trace-tokens="False" /></place><transition clock="False" collective="False" id="105" label-x="-205.0" label-y="6.0" name="distribute" priority="" sx="70" sy="36" x="-240" y="-12"><guard x="-192" y="-31">step &lt; ctx.process_count()</guard><code>	int t;
 		
 	int n = sqrt(ctx.process_count());	
 	int rs = var.m1.rows() / n;
@@ -81,8 +81,8 @@ inline int next2(ca::Context &amp;ctx) {
 //	printf("%i : %i %i\n", var.step, r, c);
 	var.out1 = var.m1.extract_n(r, c, rs, cs);
 	var.out2 = var.m2.extract_n(r, c, rs, cs);	
-</code></transition><transition clock="False" id="117" name="compute" priority="" sx="70" sy="36" x="360" y="0"><guard x="414" y="-24">step &gt; 0</guard><code>	var.result += var.m1 * var.m2;
-</code></transition><transition clock="False" id="138" name="prepare" priority="" sx="70" sy="36" x="12" y="-6"><guard x="12" y="-26" /></transition><transition clock="False" id="146" name="gather" priority="" sx="70" sy="36" x="12" y="234"><guard x="12" y="214" /></transition><transition clock="False" id="151" name="compose&#10;output" priority="" sx="70" sy="36" x="-300" y="234"><guard x="-300" y="214" /><code>	int n = sqrt(ctx.process_count());	
+</code></transition><transition clock="False" collective="False" id="117" label-x="395.0" label-y="18.0" name="compute" priority="" sx="70" sy="36" x="360" y="0"><guard x="414" y="-24">step &gt; 0</guard><code>	var.result += var.m1 * var.m2;
+</code></transition><transition clock="False" collective="False" id="138" label-x="47.0" label-y="12.0" name="prepare" priority="" sx="70" sy="36" x="12" y="-6"><guard x="12" y="-26" /></transition><transition clock="False" collective="False" id="146" label-x="47.0" label-y="252.0" name="gather" priority="" sx="70" sy="36" x="12" y="234"><guard x="12" y="214" /></transition><transition clock="False" collective="False" id="151" label-x="-265.0" label-y="252.0" name="compose&#10;output" priority="" sx="70" sy="36" x="-300" y="234"><guard x="-300" y="214" /><code>	int n = sqrt(ctx.process_count());	
 	int rs = var.matrix.rows() / n;
 	int cs = var.matrix.cols() / n;	
 	int i = 0;
