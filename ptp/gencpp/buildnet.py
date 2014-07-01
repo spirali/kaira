@@ -119,7 +119,7 @@ def write_tokens_struct(builder, tr):
 
     if tr.collective:
         builder.line("bool blocked;")
-        if tr.get_collective_operation != "barrier":
+        if tr.get_collective_operation() != "barrier":
             # Barrier does not need token_collective and root
             if tr.root:
                 builder.line("int root;")
@@ -612,7 +612,7 @@ def write_fire_phase2(builder, tr):
                     packed_tokens_from_place=False,
                     simulation=True)
 
-    if tr.collective:
+    if tr.collective and tr.get_collective_operation() != "barrier":
         builder.line("$tokens->token_collective = NULL;")
     builder.line("delete $binding;")
     builder.block_end()
