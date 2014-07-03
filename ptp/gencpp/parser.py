@@ -71,7 +71,7 @@ expression << pp.Optional(operator) + basic_expression
 
 mark = pp.Empty().setParseAction(lambda loc, t: loc)
 full_expression = (mark + expression.suppress() + mark) \
-    .setParseAction(lambda s, loc, t: s[t[0]:t[1]])
+    .setParseAction(lambda s, loc, t: s[t[0]:t[1]].strip())
 
 expressions = pp.delimitedList(full_expression, ";")
 
@@ -169,5 +169,4 @@ def parse_edge_expression(string, source):
             else:
                 config[name] = param
         results.append((config, expr, target))
-
     return results
