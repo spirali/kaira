@@ -54,6 +54,43 @@ namespace cass {
 		protected:
 			int process_id;
 	};
+
+	struct Activation : public ca::Activation
+		{
+			Activation(ca::TransitionDef *transition_def, ca::Binding *binding)
+				: ca::Activation(transition_def, binding) {
+
+				ca::Packer packer;
+				transition_def->pack_binding(packer, binding);
+				packed_binding = packer.get_buffer();
+				packed_binding_size = packer.get_size();
+			}
+
+			Activation(const Activation &a) : ca::Activation(a) {
+				packed_binding_size = a.packed_binding_size;
+				packed_binding = malloc(packed_binding_size);
+				memcpy(packed_binding, a.packed_binding, packed_binding_size);
+			}
+
+			Activation& operator=(const Activation &a) {
+				if (this != &a) {
+					free(packed_binding);
+
+					ca::Activation::operator=(a);
+					packed_binding_size = a.packed_binding_size;
+					packed_binding = malloc(a.packed_binding_size);
+					memcpy(packed_binding, a.packed_binding, a.packed_binding_size);
+				}
+				return *this;
+			}
+
+			~Activation() {
+				free(packed_binding);
+			}
+
+			size_t packed_binding_size;
+			void *packed_binding;
+		};
 }
 
 

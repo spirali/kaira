@@ -1,4 +1,5 @@
 source_files = (
+    "analyses.cpp",
     "statespace.cpp"
 )
 
