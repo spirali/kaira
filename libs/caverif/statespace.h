@@ -13,6 +13,8 @@
 #include <set>
 #include <list>
 #include <vector>
+#include <iostream>
+#include <fstream>
 
 namespace cass {
 
@@ -26,8 +28,6 @@ namespace cass {
 		extern bool partial_order_reduction;
 		extern bool silent;
 		extern bool debug;
-		extern bool wait_for_key;
-		extern std::string interesting_state_prefix;
 		extern std::string project_name;
 	};
 
@@ -156,7 +156,7 @@ namespace cass {
 	class Core
 	{
 		public:
-			Core(VerifConfiguration &verif_configuration);
+			Core(VerifConfiguration &verif_configuration, std::vector<ca::Parameter*> &parameters);
 			~Core();
 			void generate();
 			void postprocess();
@@ -168,6 +168,9 @@ namespace cass {
 			bool generate_binding_in_nni(int transition_id);
 
 			ActionSet compute_ample_set(State *s, const ActionSet &enable);
+
+			static void hashdigest_to_string(hashid hash_id, HashDigest hash, char *out);
+			static std::string hashdigest_to_string(hashid hash_id, HashDigest hash);
 		protected:
 			void write_report();
 			void write_control_sequence(std::vector<Node*> &nodes, ca::Output &report);
@@ -192,6 +195,7 @@ namespace cass {
 			ca::NetDef *net_def;
 			VerifConfiguration &verif_configuration;
 			bool generate_binging_in_nni;
+			std::ofstream debug_output;
 
 	};
 

@@ -21,20 +21,19 @@ struct Action
 			int edge_id;
 		} receive;
 	} data;
-
-	std::string to_string() const {
-		std::ostringstream ss;
-		switch (type) {
-			case ActionFire: {
-				ss << "<F " << process << " " << data.fire.transition_def->get_id() << ">";
-			} break;
-			case ActionReceive: {
-				ss << "<R " << process << " " << data.receive.source << " " << data.receive.edge_id << ">";
-			} break;
-		}
-		return ss.str();
-	}
 };
+
+inline std::ostream& operator<<(std::ostream &os, const Action &a){
+	switch (a.type) {
+		case ActionFire: {
+			os << "<F " << a.process << " " << a.data.fire.transition_def->get_id() << ">";
+		} break;
+		case ActionReceive: {
+			os << "<R " << a.process << " " << a.data.receive.source << " " << a.data.receive.edge_id << ">";
+		} break;
+	}
+	return os;
+}
 
 struct ActionCompare
 {
@@ -65,6 +64,20 @@ struct ActionCompare
 
 
 typedef std::set<Action, ActionCompare> ActionSet;
+
+inline std::ostream& operator<<(std::ostream& os, const std::set<Action, ActionCompare> &actions)
+{
+	os << "{";
+	for (ActionSet::const_iterator i = actions.begin(); i != actions.end(); i++) {
+		os << *i;
+		if (++i != actions.end()) {
+			os << ", ";
+		}
+		i--;
+	}
+	os << "}";
+	return os;
+}
 
 }
 

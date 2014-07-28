@@ -36,6 +36,13 @@ bool ca::ParameterInt::parse_value(const std::string &str)
 	return true;
 }
 
+std::string ca::ParameterInt::to_string() const
+{
+	std::ostringstream s;
+	s << value;
+	return s.str();
+}
+
 bool ca::ParameterDouble::parse_value(const std::string &str)
 {
 	char *err = NULL;
@@ -46,6 +53,13 @@ bool ca::ParameterDouble::parse_value(const std::string &str)
 	}
 	mode = PARAMETER_SETTED;
 	return true;
+}
+
+std::string ca::ParameterDouble::to_string() const
+{
+	std::ostringstream s;
+	s << value;
+	return s.str();
 }
 
 bool ca::ParameterString::parse_value(const std::string &str)

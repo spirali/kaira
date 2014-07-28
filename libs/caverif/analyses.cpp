@@ -17,8 +17,6 @@ bool cfg::analyse_cycle = false;
 bool cfg::partial_order_reduction = true;
 bool cfg::silent = false;
 bool cfg::debug = false;
-bool cfg::wait_for_key = false;
-std::string cfg::interesting_state_prefix;
 std::string cfg::project_name;
 
 struct CmpByDistance
@@ -39,16 +37,7 @@ static void args_callback(char c, char *optarg, void *data)
 
 		if (!strncmp(optarg, "debug", 5)) {
 			cfg::debug = true;
-			std::string str(optarg);
-			if (str.length() == 5) {
-				cfg::wait_for_key = true;
-				return;
-			}
-			if (str.length() > 6 && str[5] == '=') {
-				cfg::interesting_state_prefix = str.substr(6);
-				cfg::wait_for_key = false;
-				return;
-			}
+			return;
 		}
 		if (!strcmp(optarg, "deadlock")) {
 			cfg::analyse_deadlock = true;

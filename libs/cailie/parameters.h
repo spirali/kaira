@@ -4,6 +4,7 @@
 
 #include <string>
 #include <vector>
+#include <sstream>
 
 namespace ca {
 
@@ -24,6 +25,7 @@ class Parameter{
 						{}
 		virtual ~Parameter() {};
 		virtual bool parse_value(const std::string &str) = 0;
+		virtual std::string to_string() const =0;
 		bool check_mode_before_set();
 		bool check_mode_before_run();
 
@@ -45,6 +47,7 @@ class ParameterInt : public Parameter{
 				Parameter(name, description, mode), value(default_value)
 			{}
 		bool parse_value(const std::string &str);
+		std::string to_string() const;
 		int operator()() const { return value; }
 		void __set_value(int v) { value = v; }
 	protected:
@@ -61,6 +64,7 @@ class ParameterDouble : public Parameter{
 				Parameter(name, description, mode), value(default_value)
 			{}
 		bool parse_value(const std::string &str);
+		std::string to_string() const;
 		double operator()() const { return value; }
 		void __set_value(double v) { value = v; }
 	protected:
@@ -77,6 +81,7 @@ class ParameterString : public Parameter{
 				Parameter(name, description, mode), value(default_value)
 			{}
 		bool parse_value(const std::string &str);
+		std::string to_string() const { return value; }
         std::string operator()() const { return value; }
 		void __set_value(std::string v) { value = v; }
 	protected:

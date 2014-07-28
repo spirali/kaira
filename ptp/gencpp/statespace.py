@@ -527,7 +527,7 @@ def write_main(builder):
     builder.block_begin()
     buildnet.write_main_setup(builder, "cass::init", start_process=False)
     builder.line("VerifConfiguration verif_configuration;")
-    builder.line("cass::Core core(verif_configuration);")
+    builder.line("cass::Core core(verif_configuration, parameters);")
     builder.line("core.generate();")
     builder.line("core.postprocess();")
     builder.line("return 0;")

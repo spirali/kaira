@@ -124,6 +124,28 @@ HashDigest Core::hash_packer(ca::Packer &packer)
 	return mhash_end(hash_thread);
 }
 
+const char hex_chars[16] = {
+	'0', '1', '2', '3', '4', '5', '6', '7',
+	'8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+
+void Core::hashdigest_to_string(hashid hash_id, HashDigest hash, char *out)
+{
+	int size = mhash_get_block_size(hash_id);
+	for (int i = 0; i < size; i++) {
+		char byte = ((char*) hash)[i];
+		out[i*2] = hex_chars[(byte & 0xF0) >> 4];
+		out[i*2+1] = hex_chars[byte & 0x0F];
+	}
+	out[size*2] = 0;
+}
+
+std::string Core::hashdigest_to_string(hashid hash_id, HashDigest hash)
+{
+	char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
+	hashdigest_to_string(hash_id, hash, hashstr);
+	return hashstr;
+}
+
 Node::Node(HashDigest hash, State *state, Node *prev)
 	: hash(hash), state(state), prev(prev), quit(false), final_marking(NULL), tag(0), data(NULL)
 {
@@ -268,7 +290,7 @@ void Node::generate(Core *core)
 	}
 }
 
-Core::Core(VerifConfiguration &verif_configuration) :
+Core::Core(VerifConfiguration &verif_configuration, std::vector<ca::Parameter*> &parameters):
 	nodes(10000, HashDigestHash(MHASH_MD5), HashDigestEq(MHASH_MD5)),
 	initial_node(NULL),
 	net_def(NULL),
@@ -279,6 +301,19 @@ Core::Core(VerifConfiguration &verif_configuration) :
 	} else {
 		generate_binging_in_nni = false;
 	}
+	if (cfg::debug) {
+		debug_output.open((cfg::project_name + "_debug_out.txt").c_str(), std::ios::out | std::ios::trunc);
+		debug_output << "Project: " << cfg::project_name << "\n";
+		debug_output << "processes: " << ca::process_count << "\n";
+		debug_output << "Parameters: ";
+		for (size_t i = 0; i < parameters.size(); i++) {
+			debug_output << parameters[i]->get_name() << ": " << parameters[i]->to_string();
+			if (i != parameters.size() - 1) {
+				debug_output << ", ";
+			}
+		}
+		debug_output << "\n";
+	}
 }
 
 Core::~Core()
@@ -286,6 +321,9 @@ Core::~Core()
 	NodeMap::iterator it;
 	for (it = nodes.begin(); it != nodes.end(); it++) {
 		delete it->second;
+	}
+	if (cfg::debug) {
+		debug_output.close();
 	}
 }
 
@@ -325,17 +363,7 @@ void Core::generate()
 		}
 		Node *node = not_processed.top();
 		not_processed.pop();
-		if (cfg::debug && cfg::wait_for_key == false) {
-			char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
-			hashdigest_to_string(MHASH_MD5, node->get_state()->compute_hash(MHASH_MD5) , hashstr);
-			if (!strncmp(hashstr, cfg::interesting_state_prefix.c_str(), cfg::interesting_state_prefix.size())) {
-				cfg::wait_for_key = true;
-			}
-		}
 		node->generate(this);
-		if (cfg::wait_for_key) {
-			getchar();
-		}
 		if (node->get_nexts().size() == 0 && cfg::analyse_final_marking) {
 			node->set_final_marking(pack_marking(node));
 		}
@@ -350,34 +378,22 @@ ActionSet Core::compute_ample_set(State *s, const ActionSet &enable)
 	ActionSet::iterator it;
 
 	if (cfg::debug) {
-		// print state name
-		char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
-		hashdigest_to_string(MHASH_MD5, s->compute_hash(MHASH_MD5) , hashstr);
-		printf(">> state: %s: \nenable: { ", hashstr);
-		for (it = enable.begin(); it != enable.end(); it++) {
-			printf("%s ", it->to_string().c_str());
-		}
-		printf("}\n");
+		debug_output << "\n" << Core::hashdigest_to_string(MHASH_MD5, s->compute_hash(MHASH_MD5));
+		debug_output << " states: " << nodes.size() << ", on stact: " << not_processed.size();
+		debug_output.setf(std::ios::fixed, std::ios::floatfield);
+		debug_output.precision(2);
+		debug_output << " " << not_processed.size() / (double)nodes.size() << "%\n";
+		debug_output << "Enabled: " << enable << "\n";
 	}
 
 	for (it = enable.begin(); it != enable.end(); it++) {
 		ActionSet ample;
 		ample.insert(*it);
 		if (cfg::debug) {
-			printf("  > ample: { ");
-			for (ActionSet::iterator i = ample.begin(); i != ample.end(); i++) {
-				printf("%s ", i->to_string().c_str());
-			}
-			printf("}\n");
+			debug_output << "Ample: " << ample << "\n";
 		}
 		if (check_C1(enable, ample, s) && check_C2(ample) && check_C3(s)) {
-			if (cfg::debug) {
-				printf("  This ample set is independent.\n");
-			}
 			return ample;
-		}
-		if (cfg::wait_for_key) {
-			getchar();
 		}
 	}
 	return enable;
@@ -395,18 +411,6 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 	std::vector<int> enabled_priorities(ca::process_count, 0);
 	std::vector<int> marking = verif_configuration.get_marking(s);
 
-	if (cfg::debug) {
-		printf("    C1: Marking: {");
-		int place_count = marking.size() / ca::process_count;
-		for (size_t i = 0; i < marking.size(); i++) {
-			printf(" %d", marking[i]);
-			if ((i + 1) % place_count == 0 && i + 1 != marking.size()) {
-				printf(" |");
-			}
-		}
-		printf(" }\n");
-		printf("    C1: starting configuration {");
-	}
 	for (ActionSet::iterator i = enabled.begin(); i != enabled.end(); i++) {
 		if (ample.find(*i) != ample.end()) {
 			if (i->type == ActionReceive) {
@@ -419,9 +423,6 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 			if (i->type == ActionFire) {
 				processed.insert(*i);
 				queue.push_back(*i);
-				if (cfg::debug) {
-					printf(" %s", i->to_string().c_str());
-				}
 				const std::vector<ca::TransitionDef*> &transitions = net_def->get_transition_defs();
 				for (int t = 0; t < net_def->get_transitions_count(); t++) {
 					if (transitions[t]->get_priority() >= enabled_priorities[i->process]) continue;
@@ -432,9 +433,6 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 						a.process = i->process;
 						processed.insert(a);
 						queue.push_back(a);
-						if (cfg::debug) {
-							printf(" %s", a.to_string().c_str());
-						}
 					}
 				}
 				continue;
@@ -451,45 +449,25 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 					if (processed.find(a) == processed.end()) {
 						processed.insert(a);
 						queue.push_back(a);
-						if (cfg::debug) {
-							printf(" %s", a.to_string().c_str());
-						}
 					}
 				}
 				continue;
 			}
 			processed.insert(*i);
 			queue.push_back(*i);
-			if (cfg::debug) {
-				printf(" %s", i->to_string().c_str());
-			}
 		}
-	}
-
-	if (cfg::debug) {
-		printf(" }\n");
 	}
 
 	while(queue.size() > 0) {
 		for (ActionSet::iterator a = ample.begin(); a != ample.end(); a++) {
 			if (verif_configuration.is_dependent(*a, queue.front(), marking)) {
 				if (cfg::debug) {
-					printf("    C1: %s and %s are dependent.\n", a->to_string().c_str(), queue.front().to_string().c_str());
+					debug_output << "C1 is violated: " << queue.front() << " is dependent successor\n";
 				}
 				return false;
 			}
 		}
-		if (cfg::debug) {
-			size_t i = queue.size();
-			verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, enabled_priorities, marking);
-			printf("    C1: successors of %s: {", queue.front().to_string().c_str());
-			for (; i < queue.size(); i++) {
-				printf(" %s", queue[i].to_string().c_str());
-			}
-			printf(" }\n");
-		} else {
-			verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, enabled_priorities, marking, ample);
-		}
+		verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, enabled_priorities, marking, ample);
 		queue.pop_front();
 	}
 	return true;
@@ -501,7 +479,7 @@ bool Core::check_C2(const ActionSet &ample)
 		if (it->type == ActionFire) {
 			if (verif_configuration.is_visible(*it)) {
 				if (cfg::debug) {
-					printf("    C2: %s is visible transition.\n", it->to_string().c_str());
+					debug_output << "C2 is violated: " << *it << " is visible transition\n";
 				}
 				return false;
 			}
