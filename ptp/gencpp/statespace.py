@@ -174,11 +174,29 @@ def write_dependent(builder):
     builder.line("bool is_dependent("
                  "const cass::Action &a1, const cass::Action &a2, const std::vector<int> &marking)")
     builder.block_begin()
+
+    builder.line("cass::VerifThread thread(a1.process);")
+    builder.line("ca::Context ctx(&thread, NULL);");
+
+    # transitions calling 'guit' are always dependent (violate commutativity)
+    builder.if_begin("a1.type == cass::ActionFire")
+    for tr in builder.project.nets[0].transitions:
+        if tr.calls_quit:
+            builder.if_begin("a1.data.fire.transition_def == &transition_{0.id}", tr)
+            builder.line("return true;")
+            builder.block_end()
+    builder.block_end()
+    builder.if_begin("a2.type == cass::ActionFire")
+    for tr in builder.project.nets[0].transitions:
+        if tr.calls_quit:
+            builder.if_begin("a2.data.fire.transition_def == &transition_{0.id}", tr)
+            builder.line("return true;")
+            builder.block_end()
+    builder.block_end()
+
     builder.if_begin("a1.process != a2.process")
     builder.line("return false;")
     builder.block_end()
-    builder.line("cass::VerifThread thread(a1.process);")
-    builder.line("ca::Context ctx(&thread, NULL);");
 
     builder.if_begin("a1.type == cass::ActionFire && a2.type == cass::ActionFire")
 
