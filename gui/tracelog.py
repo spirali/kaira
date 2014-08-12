@@ -190,10 +190,7 @@ class TraceLog:
         full_timeline.trim()
         self.timeline, self.full_timeline = timeline, full_timeline
 
-        if ri.missed_receives > 0:
-            print "Wrong tracelogs," + \
-                  " there is {0} not matched send-receive events.".format(
-                      ri.missed_receives)
+        self.missed_receives = ri.missed_receives
 
 
 class Trace:

@@ -153,9 +153,15 @@ def get_save_file_filter(type):
 # Tracelog type
 t_tracelog = Type("Kaira tracelog", "Tracelog")
 def load_kth(filename, app, settings=None):
-    if filename is None:
-        return
-    return (app._catch_io_error(lambda: TraceLog(filename, True)), settings)
+    def load_tracelog():
+        tracelog = TraceLog(filename, True)
+        if tracelog.missed_receives > 0:
+            app.console_write(
+                "{1} mismatched receives were found in tracelog {0}.\n" \
+                        .format(filename, tracelog.missed_receives),
+                "warn")
+        return tracelog
+    return (app._catch_io_error(load_tracelog), settings)
 t_tracelog.register_load_function("kth", load_kth)
 
 def tracelog_view(data, app):
