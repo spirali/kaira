@@ -42,6 +42,8 @@ class RunInstance:
         self.last_event_instance = None
         self.last_event_time = None
         self.packets = [ [] for i in xrange(self.process_count * self.process_count)]
+        self.debt_receives = [[] for i in xrange(self.process_count * self.process_count)]
+        self.missed_receives = 0
 
     def add_token(self, place_id, token_pointer, token_value, send_time=None):
         self.last_event_instance.add_token(place_id, token_pointer, token_value, send_time)
@@ -100,8 +102,13 @@ class RunInstance:
         self.last_event_instance = self.net_instances[process_id]
 
     def event_send(self, process_id, time, target_id, size, edge_id):
-        packet = Packet(time, size, edge_id)
-        self.packets[target_id * self.process_count + process_id].append(packet)
+        debts = self.debt_receives[target_id * self.process_count + process_id]
+        if debts:
+            del debts[0]
+            self.missed_receives += 1
+        else:
+            packet = Packet(time, size, edge_id)
+            self.packets[target_id * self.process_count + process_id].append(packet)
 
     def event_end(self, process_id, time):
         pass
@@ -111,12 +118,17 @@ class RunInstance:
         self.last_event_process = process_id
         self.last_event_time = time
         packets = self.packets[process_id * self.process_count + origin_id]
-        packet = packets[0]
-        del packets[0]
-        self.last_event_instance = self.net_instances[process_id]
-        self.set_activity(process_id,
-                          Receive(time, process_id, origin_id))
-        return time - packet.time
+        if packets:
+            packet = packets[0]
+            del packets[0]
+            self.last_event_instance = self.net_instances[process_id]
+            self.set_activity(process_id,
+                              Receive(time, process_id, origin_id))
+            return time - packet.time
+        else:
+            # receive on debt
+            idx = process_id * self.process_count + origin_id
+            self.debt_receives[idx].append(Receive(time, process_id, origin_id))
 
     def transition_fired(self, process_id, time, transition_id, values):
         self.last_event = "fire"

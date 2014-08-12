@@ -190,6 +190,11 @@ class TraceLog:
         full_timeline.trim()
         self.timeline, self.full_timeline = timeline, full_timeline
 
+        if ri.missed_receives > 0:
+            print "Wrong tracelogs," + \
+                  " there is {0} not matched send-receive events.".format(
+                      ri.missed_receives)
+
 
 class Trace:
 
@@ -433,9 +438,12 @@ class Trace:
 
     def _process_event_receive(self, runinstance):
         time, origin_id = self._read_struct_receive()
-        send_time = runinstance.event_receive(self.process_id,
-                                              time + self.time_offset,
-                                              origin_id)
+        send_time = runinstance.event_receive(
+            self.process_id,
+            time + self.time_offset,
+            origin_id
+        ) or 1
+
         self.process_tokens_add(runinstance, send_time)
         self._process_end(runinstance)
 
