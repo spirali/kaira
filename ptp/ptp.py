@@ -64,6 +64,8 @@ def main():
         output_directory = args.output
 
     p = project.load_project_from_file(args.project, target_envs, args.operation)
+    p.check()
+    p.analyze()
     generator = p.get_generator()
 
     if args.operation == "build":

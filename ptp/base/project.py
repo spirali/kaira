@@ -331,9 +331,6 @@ def load_project(element, target_envs, build_target="build"):
     p.nets = [ net for e, net in nets ]
     for e, net in nets:
         load_net_content(e, p, net)
-
-    p.check()
-    p.analyze()
     return p
 
 def load_project_from_file(filename, target_envs, build_target="build"):
