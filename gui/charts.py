@@ -648,7 +648,7 @@ class ChartWidget(gtk.VBox):
             os.path.join(paths.ICONS_DIR, "xlock.svg"))
         btn_xlock = gtk.ToggleToolButton()
         btn_xlock.set_icon_widget(icon_xlock)
-        btn_xlock.set_tooltip_text("Lock X-axis (keep CTRL)")
+        btn_xlock.set_tooltip_text("Lock X-axis (hold CTRL)")
         btn_xlock.connect("toggled", self._btn_xlock_action)
         ax.set_callback(
             "xlock_changed", lambda xlock: btn_xlock.set_active(xlock))
@@ -658,7 +658,7 @@ class ChartWidget(gtk.VBox):
             os.path.join(paths.ICONS_DIR, "ylock.svg"))
         btn_ylock = gtk.ToggleToolButton()
         btn_ylock.set_icon_widget(icon_ylock)
-        btn_ylock.set_tooltip_text("Lock Y-axis (keep CTRL)")
+        btn_ylock.set_tooltip_text("Lock Y-axis (hold CTRL)")
         btn_ylock.connect("toggled", self._btn_ylock_action)
         ax.set_callback(
             "ylock_changed", lambda ylock: btn_ylock.set_active(ylock))
