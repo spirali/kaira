@@ -559,7 +559,15 @@ class NetEditor(gtk.VBox):
     def _add_attribute_labelled_code_editor(self, name, get_fn, set_fn):
         label = gtk.Label(name)
         self.attribute_box.pack_start(label, False, False)
-        return self._add_attribute_code_editor(get_fn, set_fn)
+        editor = self._add_attribute_code_editor(get_fn, set_fn)
+        if label.get_text() == "Type":
+            import Completion
+            editor.view.codeComplete = Completion.Completion(editor, self.project)
+            editor.view.codeComplete.clang.setType("")
+            editor.view.codeComplete.setFilterMask(["class","namespace"])
+        else:
+            return editor
+        #return self._add_attribute_code_editor(get_fn, set_fn)
 
     def _add_attribute_checkbox_code_editor(
         self, name, bool_value, set_bool_fn, get_code_fn, set_code_fn):
@@ -668,8 +676,8 @@ class NetList(ObjectTree):
             self.neteditor.switch_to_net(net)
 
     def _set_build_net(self, w):
-         obj = self.selected_object()
-         self.project.set_build_net(obj)
+        obj = self.selected_object()
+        self.project.set_build_net(obj)
 
     def _remove(self, w):
         obj = self.selected_object()

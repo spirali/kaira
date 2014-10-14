@@ -24,7 +24,9 @@ import gtk
 import pango
 import os
 import mainwindow
-
+import View
+import Buffer
+import Completion
 
 class CodeEditor(gtk.ScrolledWindow):
 
@@ -44,6 +46,7 @@ class CodeEditor(gtk.ScrolledWindow):
 
         buffer = self._create_buffer(language, sections, head_paragraph)
         self.view = self._create_view(buffer)
+
         self.add(self.view)
 
         self.show_all()
@@ -52,9 +55,7 @@ class CodeEditor(gtk.ScrolledWindow):
     def _create_buffer(self, key, sections, head_paragraph):
         manager = gtksourceview.LanguageManager()
         lan = manager.get_language(key)
-
-        buffer = gtksourceview.Buffer()
-
+        buffer = Buffer.Buffer()
         buffer.create_tag("fixed", editable=False, background="lightgray")
         buffer.create_tag("normal")
 
@@ -91,7 +92,7 @@ class CodeEditor(gtk.ScrolledWindow):
         buffer.delete_mark(mark)
 
     def _create_view(self, buffer):
-        view = gtksourceview.View(buffer)
+        view = View.View(buffer)
         view.set_auto_indent(True)
         font_desc = pango.FontDescription("monospace 10")
         if font_desc:
@@ -183,6 +184,12 @@ class TransitionCodeEditor(CodeEditor):
                             [ section ],
                             ("", 1, 1),
                             header)
+        self.view.set_show_line_numbers(True)
+        self.view.codeComplete = Completion.Completion(self,project)
+        self.view.codeComplete.clang.setType(header,transition)
+        self.view.codeComplete.setRefactoring(True)
+        self.view.codeComplete.setInfoBox(True)
+        self.view.codeComplete.parseSourceCode()
 
     def buffer_changed(self):
         self.transition.set_code(self.get_text())
@@ -203,7 +210,12 @@ class PlaceCodeEditor(CodeEditor):
                             [ section ],
                             ("", 1, 1),
                             header)
-
+        self.view.set_show_line_numbers(True)
+        self.view.codeComplete = Completion.Completion(self,project)
+        self.view.codeComplete.clang.setType(header,place)
+        self.view.codeComplete.setRefactoring(True)
+        self.view.codeComplete.setInfoBox(True)
+        self.view.codeComplete.parseSourceCode()
     def buffer_changed(self):
         self.place.set_code(self.get_text())
 
@@ -220,7 +232,11 @@ class HeadCodeEditor(CodeEditor):
                             ("", 1, 0),
                             header)
         self.view.set_show_line_numbers(True)
-
+        self.view.codeComplete = Completion.Completion(self,project)
+        self.view.codeComplete.clang.setType(header)
+        self.view.codeComplete.setInfoBox(True)
+        self.view.codeComplete.setRefactoring(True)
+        self.view.codeComplete.parseSourceCode()
     def save(self):
         self.project.set_head_code(self.get_text())
 
