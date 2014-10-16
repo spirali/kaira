@@ -49,11 +49,12 @@ template<typename T> void unpack(Unpacker &unpacker, T &value) {
 class Unpacker {
 
 	public:
-		Unpacker(): buffer_pos(NULL), buffer(NULL) {}
+		Unpacker(): buffer_pos(NULL), buffer(NULL), size(0) {}
 
-		Unpacker(void *mem) {
+		Unpacker(void *mem, size_t size) {
 			buffer_pos = static_cast<char*>(mem);
 			buffer = static_cast<char*>(mem);
+			this->size = size;
 		}
 
 		template<typename T> void direct_unpack(T &value) {
@@ -104,6 +105,7 @@ class Unpacker {
 	protected:
 		char *buffer_pos;
 		char *buffer;
+		size_t size;
 };
 
 const size_t PACKER_DEFAULT_SIZE = 4000;

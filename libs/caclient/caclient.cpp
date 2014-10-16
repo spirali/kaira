@@ -108,7 +108,7 @@ void CaClient::read_data(void *buffer, size_t size)
 void CaClient::process_inital_data(void *buffer, size_t size)
 {
 	std::vector<bool> checked(functions.size(), false);
-	ca::Unpacker unpacker(buffer);
+	ca::Unpacker unpacker(buffer, size);
 	int count;
 	ca::unpack(unpacker, count);
 	for (int t = 0; t < count; t++) {

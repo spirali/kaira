@@ -419,7 +419,7 @@ namespace ca {
 				Packet packet = pq.front();
 				pq.pop_front();
 				ca::Tokens *tokens = (ca::Tokens *) packet.data;
-				ca::Unpacker unpacker(tokens + 1);
+				ca::Unpacker unpacker(tokens + 1, packet.size); // packet.size + 1?
 				NetBase *net = nets[process_id];
 				int edge_id = tokens->edge_id;
 				int tokens_count = tokens->tokens_count;
