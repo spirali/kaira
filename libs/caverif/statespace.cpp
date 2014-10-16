@@ -566,7 +566,7 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 			}
 			printf(" }\n");
 		} else {
-			verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, enabled_priorities, marking);
+			verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, enabled_priorities, marking, ample);
 		}
 		queue.pop_front();
 	}

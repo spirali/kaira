@@ -299,9 +299,9 @@ def write_constructor(builder, ignored):
 def write_compute_successors(builder):
 
     def push_fire(transition):
-        builder.if_begin("is_enabled({0.id}, a.process, marking, -1)", transition)
+        builder.if_begin("is_enabled({0.id}, $a.process, marking, -1)", transition)
         builder.line("action.type = cass::ActionFire;")
-        builder.line("action.process = a.process;")
+        builder.line("action.process = $a.process;")
         builder.line("action.data.fire.transition_def = &transition_{0.id};", transition)
         builder.if_begin("enabled_priorities[action.process] <= transition_{0.id}.get_priority() && "
                          "processed.find(action) == processed.end()", transition)
@@ -315,7 +315,7 @@ def write_compute_successors(builder):
         builder.line("action.process = {0};", process)
         builder.line("action.data.receive.source = a.process;")
         builder.line("action.data.receive.edge_id = {0.id};", edge)
-        builder.if_begin("!receive_blocked[action.process * ca::process_count + a.process] && "
+        builder.if_begin("!receive_blocked[action.process * ca::process_count + $a.process] && "
                          "processed.find(action) == processed.end()")
         builder.line("queue.push_back(action);")
         builder.line("processed.insert(action);")
@@ -324,7 +324,7 @@ def write_compute_successors(builder):
     def push_tokens(net, place):
         builder.line("// there is {0} places, place {1.id} is on position {2}.",
                      len(net.places), place, place.get_pos_id())
-        builder.line("marking[{0} * a.process + {1}]++;", len(net.places), place.get_pos_id())
+        builder.line("marking[{0} * $a.process + {1}]++;", len(net.places), place.get_pos_id())
 
     def push_transitions_of_place(place, ignore_transition=None):
         for edge in place.get_edges_out():
@@ -332,6 +332,23 @@ def write_compute_successors(builder):
                 push_fire(edge.transition)
 
     def sucessors_of_transition(transition):
+        if transition.collective:
+            builder.line("// a collective transition synchronizes all process")
+            builder.for_begin("int $i = 0; $i < ca::process_count; $i++")
+            builder.line("if ($i == a.process) continue;")
+            builder.line("cass::Action $tmp = a;")
+            builder.line("$tmp.process = $i;")
+            builder.if_begin("processed.find($tmp) == processed.end() || ample.find($tmp) != ample.end()")
+            builder.line("return;")
+            builder.block_end()
+            builder.block_end()
+
+            builder.line("// if all transitions were fired we have to add successors for all process ")
+            builder.for_begin("int $cp = 0; $cp < ca::process_count; $cp++")
+            builder.line("cass::Action $a = a;")
+            builder.line("$a.process = $cp;")
+        else:
+            builder.line("const cass::Action &$a = a;")
         for edge in transition.edges_out:
             builder.line("// place {0.place.id}", edge)
             if edge.is_local():
@@ -345,7 +362,7 @@ def write_compute_successors(builder):
                     else:
                         builder.block_begin()
                         builder.line("int $target = {0.target};", i)
-                        builder.if_begin("a.process == $target")
+                        builder.if_begin("$a.process == $target")
                         push_tokens(net, edge.place)
                         push_transitions_of_place(edge.place, transition)
                         builder.write_else()
@@ -359,11 +376,13 @@ def write_compute_successors(builder):
                 builder.line("for (int $p = 0; $p < ca::process_count; $p++)")
                 builder.block_begin()
                 if not multicast:
-                    builder.if_begin("$p != a.process")
+                    builder.if_begin("$p != $a.process")
                 push_receive(edge, builder.expand("$p"))
                 if not multicast:
                     builder.block_end()
                 builder.block_end()
+        if transition.collective:
+            builder.block_end()
         builder.line("return;")
 
     net = builder.project.nets[0]
@@ -373,7 +392,8 @@ def write_compute_successors(builder):
                     "cass::ActionSet &processed,"
                     "const std::vector<bool> &receive_blocked,"
                     "const std::vector<int> &enabled_priorities,"
-                    "std::vector<int> &marking)")
+                    "std::vector<int> &marking,"
+                    "const cass::ActionSet &ample)")
 
     builder.block_begin()
     builder.line("cass::Action action;")
@@ -390,16 +410,16 @@ def write_compute_successors(builder):
     builder.line("case cass::ActionReceive:")
     builder.block_begin()
     builder.switch_begin("a.data.receive.edge_id")
-    for net in builder.project.nets:
-        for edge in net.get_edges_out():
-            if edge.is_local():
-                continue
-            builder.line("case {0.id}: // t {0.transition.id} --> p {0.place.id}", edge)
-            builder.block_begin()
-            push_tokens(net, edge.place)
-            push_transitions_of_place(edge.place)
-            builder.line("return;")
-            builder.block_end()
+    for edge in net.get_edges_out():
+        if edge.is_local():
+            continue
+        builder.line("case {0.id}: // t {0.transition.id} --> p {0.place.id}", edge)
+        builder.block_begin()
+        builder.line("const cass::Action &$a = a;")
+        push_tokens(net, edge.place)
+        push_transitions_of_place(edge.place)
+        builder.line("return;")
+        builder.block_end()
     builder.block_end()
     builder.line("return;")
     builder.block_end()

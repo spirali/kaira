@@ -18,7 +18,8 @@ class VerifConfiguration {
 						ActionSet &processed,
 						const std::vector<bool> &receive_blocked,
 						const std::vector<int> &enabled_priorities,
-						std::vector<int> &marking) = 0;
+						std::vector<int> &marking,
+						const ActionSet &ample) = 0;
 		virtual bool is_dependent(const Action &a1, const Action &a2, const std::vector<int> &marking) = 0;
 		virtual std::vector<int> get_marking(State *s) = 0;
 		virtual bool is_enabled(int transition_id, int process_id, const std::vector<int> &marking, int ignored_place) = 0;
