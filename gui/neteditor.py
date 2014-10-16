@@ -2,6 +2,7 @@
 #    Copyright (C) 2010-2013 Stanislav Bohm
 #                  2012 Martin Kozubek
 #                  2012 Lukas Tomaszek
+#                  2014 Jan Homola
 #
 #    This file is part of Kaira.
 #
