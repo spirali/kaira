@@ -561,10 +561,10 @@ class NetEditor(gtk.VBox):
         self.attribute_box.pack_start(label, False, False)
         editor = self._add_attribute_code_editor(get_fn, set_fn)
         if label.get_text() == "Type":
-            import Completion
-            editor.view.codeComplete = Completion.Completion(editor, self.project)
-            editor.view.codeComplete.clang.setType("")
-            editor.view.codeComplete.setFilterMask(["class","namespace"])
+            import completion
+            editor.view.codeComplete = completion.Completion(editor, self.project)
+            editor.view.codeComplete.clang.set_type("")
+            editor.view.codeComplete.set_filter_mask(["class","namespace"])
         else:
             return editor
         #return self._add_attribute_code_editor(get_fn, set_fn)
