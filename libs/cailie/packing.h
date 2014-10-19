@@ -144,6 +144,10 @@ class Packer {
 			return buffer_pos - buffer;
 		}
 
+		size_t get_reserved_size() const {
+			return size;
+		}
+
 		char * get_buffer() const {
 			return buffer;
 		}
