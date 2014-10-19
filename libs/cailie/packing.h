@@ -86,6 +86,10 @@ class Unpacker {
 			buffer_pos += size;
 		}
 
+		size_t get_size() const {
+			return size;
+		}
+
 		template<typename T> void unpack_aligned(T &value, size_t align) {
 			char *pos = buffer_pos + align;
 			unpack(*this, value);
