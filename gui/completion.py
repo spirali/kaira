@@ -211,7 +211,7 @@ class InfoBox(gtk.EventBox):
         iter = self.completion.view.get_iter_at_location(int(x),int(y))
         line = iter.get_line()+1
         col = iter.get_line_offset()
-        cursor = self.completion.cursor_under_mouse(line,col)
+        cursor = self.completion.get_cursor(line,col)
 
         if self.completion.clang.type == "head":
             line-= self.completion.clang.lineoffset
@@ -293,6 +293,7 @@ class Completion(gobject.GObject):
         self.completion.connect("hide",self.window_hidden)
         self.view.buffer.connect("changed",self.text_changed)
         self.view.buffer.connect_after("insert-text",self.text_inserted)
+        self.view.connect("populate-popup",self.populate_context_menu)
         self.kindmap = self.resultKindFilter.get_map()
         self.tu = None
         self.prefix = ""
@@ -324,9 +325,21 @@ class Completion(gobject.GObject):
                 renameMenu.connect("activate",self.refactor_code)
                 menu.append(item)
                 menu.show_all()
-            self.view.connect("populate-popup",populate_popup)
+            #self.view.connect("populate-popup",populate_popup)
         #TODO: if set_refactoring is enabled then cant be disabled because signal is not disconnected
-
+    def populate_context_menu(self, view, menu):
+        item = gtk.MenuItem("Refactoring")
+        goto_declaration = gtk.MenuItem("Go to declaration under cursor")
+        refactoringMenu = gtk.Menu()
+        renameMenu = gtk.MenuItem("Rename under cursor")
+        refactoringMenu.add(renameMenu)
+        item.set_submenu(refactoringMenu)
+        renameMenu.connect("activate",self.refactor_code)
+        goto_declaration.connect("activate",self.goto_declaration)
+        menu.append(goto_declaration)
+        menu.append(item)
+        menu.show_all()
+    
     def window_hidden(self, w):
         if self.window_showed:
             self.window_showed = False
@@ -335,18 +348,11 @@ class Completion(gobject.GObject):
         self.window_showed = True
 
     def refactor_code(self, widget):
-        buffer = self.view.buffer
-        position = buffer.get_property("cursor-position")
-        s = buffer.get_iter_at_offset(position)
-        line = s.get_line() + 1
-        col = s.get_line_offset()
-        cursor = self.cursor_under_mouse(line, col)
-        cursor2 = self.cursor_under_mouse(line, col+1)       
-        referenced = cursor.referenced
+        cursor = self.get_cursor_under_mouse()
+        referenced = None
         
-        if not referenced:
-            referenced = cursor2.referenced
-            cursor = cursor2
+        if cursor:
+            referenced = cursor.referenced
         if not referenced or not(cursor.kind.is_expression() or cursor.kind.is_declaration()):
             return
 
@@ -558,7 +564,7 @@ class Completion(gobject.GObject):
         x,y = self.view.window_to_buffer_coords(gtk.TEXT_WINDOW_TEXT,int(e.x),int(e.y))
         if gtk.keysyms.Control_L in self.keymap.keys and e.button == 1:
             iter = self.view.get_iter_at_location(int(x),int(y))
-            cursor = self.cursor_under_mouse(iter.get_line()+1, iter.get_line_offset())
+            cursor = self.get_cursor(iter.get_line()+1, iter.get_line_offset())
 
             if cursor:
                 referenced = cursor.referenced
@@ -581,7 +587,38 @@ class Completion(gobject.GObject):
                     tab = Tab(tabname, codeedit)
                     window.add_tab(tab,True)
                     return True
+        
+    def goto_declaration(self, w):
+            cursor = self.get_cursor_under_mouse()
+            
+            if cursor:
+                referenced = cursor.referenced
+        
+                if referenced:
+                    location = referenced.location
+                    file = os.path.normpath(location.file.name)
+                    
+                    if file == self.clang.file:
+                        line = location.line - self.clang.lineoffset
+                        column = location.column + 1
+                        
+                        if line > 0:                        
+                            iter = self.codeeditor.buffer.get_iter_at_line(line - 1)
+                            iter.set_line_offset(column - 2)
+                            self.codeeditor.buffer.place_cursor(iter)
+                            self.codeeditor.view.scroll_to_iter(iter, 0.1)
+                        return
 
+                    from mainwindow import Tab
+                    from codeedit import CodeFileEditor
+
+                    codeedit = CodeFileEditor(self.project.get_syntax_highlight_key(),file)
+                    codeedit.jump_to_position(("",location.line,0))
+                    window = self.view.parent.parent.parent.parent.parent
+                    tabname = os.path.basename(file)
+                    tab = Tab(tabname, codeedit)
+                    window.add_tab(tab,True)
+    
     def _key_released(self, w, key):
         self.keymap.key_released(key)
 
@@ -634,12 +671,26 @@ class Completion(gobject.GObject):
         self.lastSelectedItem = proposal
         self.insertedItem = True
 
-    def cursor_under_mouse(self, line, col):
+    def get_cursor(self, line, col):
         if self.tu:
             file = clanglib.File.from_name(self.tu,self.clang.file)
             location =  clanglib.SourceLocation.from_position(self.tu, file, line + self.clang.lineoffset, col)
             cursor = clanglib.Cursor.from_location(self.tu, location)
             return cursor
+        else:
+            return None
+    def get_cursor_under_mouse(self):
+        position = self.view.buffer.get_property("cursor-position")
+        iter = self.view.buffer.get_iter_at_offset(position)
+        line = iter.get_line() + 1
+        col = iter.get_line_offset()
+        cursor_left = self.get_cursor(line, col)
+        cursor_right = self.get_cursor(line, col + 1)
+        
+        if not (cursor_left.kind.is_invalid() or cursor_left.kind.is_unexposed()):
+            return cursor_left
+        elif not (cursor_right.kind.is_invalid() or cursor_right.kind.is_unexposed()):
+            return cursor_right
         else:
             return None
 
