@@ -318,7 +318,7 @@ class Completion(gobject.GObject):
             def populate_popup(view, menu):
                 item = gtk.MenuItem("Refactoring")
                 refactoringMenu = gtk.Menu()
-                renameMenu = gtk.MenuItem("Rename")
+                renameMenu = gtk.MenuItem("Rename under cursor")
                 refactoringMenu.add(renameMenu)
                 item.set_submenu(refactoringMenu)
                 renameMenu.connect("activate",self.refactor_code)
@@ -714,7 +714,7 @@ class Completion(gobject.GObject):
                                 info += "\nFix hit: \" " + fixhit + " \""
 
                             startiter = self.view.buffer.get_iter_at_line(line)
-                            if starthighlightcol <= startiter.get_chars_in_line():
+                            if starthighlightcol >= 0 and starthighlightcol <= startiter.get_chars_in_line():
                                 startiter.set_line_offset(starthighlightcol)
 
                             enditer = startiter.copy()
