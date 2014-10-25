@@ -336,52 +336,53 @@ class Completion(gobject.GObject):
 
     def refactor_code(self, widget):
         buffer = self.view.buffer
-        if buffer.get_has_selection():
-            s= buffer.get_selection_bounds()[0]
-            line = s.get_line() + 1
-            col = s.get_line_offset() + 1
-            cursor = self.cursor_under_mouse(line, col)
-            referenced = None
+        position = buffer.get_property("cursor-position")
+        s = buffer.get_iter_at_offset(position)
+        line = s.get_line() + 1
+        col = s.get_line_offset()
+        cursor = self.cursor_under_mouse(line, col)
+        cursor2 = self.cursor_under_mouse(line, col+1)       
+        referenced = cursor.referenced
+        
+        if not referenced:
+            referenced = cursor2.referenced
+            cursor = cursor2
+        if not referenced or not(cursor.kind.is_expression() or cursor.kind.is_declaration()):
+            return
 
-            if cursor:
-                referenced = cursor.referenced
+        oldtext = cursor.spelling
+        if not oldtext:
+            oldtext = cursor.displayname
 
-            if not referenced or not(cursor.kind.is_expression() or cursor.kind.is_declaration()):
-                return
+        dialog = gtk.Dialog("Insert new name",None,gtk.DIALOG_MODAL,
+                            (gtk.STOCK_OK, gtk.RESPONSE_ACCEPT, gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL))
+        dialog.set_position(gtk.WIN_POS_CENTER_ON_PARENT)
+        dialog.set_size_request(300,100)
+        dialog.set_default_response(gtk.RESPONSE_ACCEPT)
+        entry = gtk.Entry()
+        entry.set_property("activates-default",True)
+        entry.set_text(oldtext)
+        dialog.vbox.pack_start(entry)
+        entry.show()
+        response = dialog.run()
+        newtext = ""
 
-            oldtext = cursor.spelling
-            if not oldtext:
-                oldtext = cursor.displayname
+        if response == gtk.RESPONSE_ACCEPT:
+            newtext = entry.get_text()
+            dialog.destroy()
+        else:
+            dialog.destroy()
+            return
+ 
+        if not newtext:
+            return
 
-            dialog = gtk.Dialog("Insert new name",None,gtk.DIALOG_MODAL,(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                    gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
-            dialog.set_position(gtk.WIN_POS_CENTER_ON_PARENT)
-            dialog.set_size_request(300,100)
-
-            entry = gtk.Entry()
-            entry.set_text(oldtext)
-
-            dialog.vbox.pack_start(entry)
-            entry.show()
-            response = dialog.run()
-
-            newtext = ""
-            if response == gtk.RESPONSE_ACCEPT:
-                newtext = entry.get_text()
-                dialog.destroy()
-            else:
-                dialog.destroy()
-                return
-
-            if not newtext:
-                return
-
-            loc = referenced.location
-            if self.clang.type == "header" or (loc.line < self.clang.lineoffset and (self.clang.type == "node")):
-                #Parse all project
-                self.rename_code_in_nodes(referenced,oldtext,newtext)
-            else:
-                self.rename_code_in_node(self.codeeditor,referenced,oldtext, newtext)
+        loc = referenced.location
+        if self.clang.type == "header" or (loc.line < self.clang.lineoffset and (self.clang.type == "node")):
+            #Parse all project
+            self.rename_code_in_nodes(referenced,oldtext,newtext)
+        else:
+            self.rename_code_in_node(self.codeeditor,referenced,oldtext, newtext)
 
     def rename_code_in_node(self, node, referencedCursor, oldname, newname):
         places = []
