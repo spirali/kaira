@@ -34,14 +34,14 @@ class CodeEditor(gtk.ScrolledWindow):
     """
         sections: list of (name, start_string, middle_string, end_string)
     """
-    def __init__(self, language, sections=None, start_pos=None, head_paragraph=None):
+    def __init__(self, app, language, sections=None, start_pos=None, head_paragraph=None):
         gtk.ScrolledWindow.__init__(self)
         if sections is None:
             sections = [ ("", "", "", "") ]
         if start_pos is None:
             start_pos = (sections[0][0], 1, 1)
         self.sections = sections
-
+        self.app = app
         self.set_shadow_type(gtk.SHADOW_IN)
         self.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 
@@ -153,8 +153,8 @@ class CodeEditor(gtk.ScrolledWindow):
 
 class CodeFileEditor(CodeEditor):
 
-    def __init__(self, language, filename=None):
-        CodeEditor.__init__(self, language)
+    def __init__(self, app, language, filename=None):
+        CodeEditor.__init__(self, app, language)
         self.view.set_show_line_numbers(True)
         self.load(filename)
 
@@ -174,7 +174,7 @@ class CodeFileEditor(CodeEditor):
 
 class TransitionCodeEditor(CodeEditor):
 
-    def __init__(self, project, transition, header):
+    def __init__(self, app, project, transition, header):
         self.transition = transition
         if transition.get_code() == "":
             code = "\t\n"
@@ -182,15 +182,16 @@ class TransitionCodeEditor(CodeEditor):
             code = transition.get_code()
         section = [ "", "{\n", code, "}\n" ]
         CodeEditor.__init__(self,
+                            app,
                             project.get_syntax_highlight_key(),
                             [ section ],
                             ("", 1, 1),
                             header)
-        self.view.set_show_line_numbers(True)
+
         self.view.codeComplete = completion.Completion(self,project)
         self.view.codeComplete.clang.set_type(header,transition)
+        self.view.codeComplete.set_info_box(app.settings.getboolean("code_completion","enable_info_box"))
         self.view.codeComplete.set_refactoring(True)
-        self.view.codeComplete.set_info_box(True)
         self.view.codeComplete.parse_source_code()
 
     def buffer_changed(self):
@@ -199,7 +200,7 @@ class TransitionCodeEditor(CodeEditor):
 
 class PlaceCodeEditor(CodeEditor):
 
-    def __init__(self, project, place, header):
+    def __init__(self, app, project, place, header):
         self.place = place
         if place.get_code() == "":
             code = "\t\n"
@@ -208,15 +209,16 @@ class PlaceCodeEditor(CodeEditor):
 
         section = [ "", "{\n", code, "}\n" ]
         CodeEditor.__init__(self,
+                            app,
                             project.get_syntax_highlight_key(),
                             [ section ],
                             ("", 1, 1),
                             header)
-        self.view.set_show_line_numbers(True)
+
         self.view.codeComplete = completion.Completion(self,project)
         self.view.codeComplete.clang.set_type(header,place)
+        self.view.codeComplete.set_info_box(app.settings.getboolean("code_completion","enable_info_box"))
         self.view.codeComplete.set_refactoring(True)
-        self.view.codeComplete.set_info_box(True)
         self.view.codeComplete.parse_source_code()
 
     def buffer_changed(self):
@@ -225,21 +227,23 @@ class PlaceCodeEditor(CodeEditor):
 
 class HeadCodeEditor(CodeEditor):
 
-    def __init__(self, project):
+    def __init__(self, app, project):
         self.project = project
         header = project.get_head_comment()
         section = [ "", "", project.get_head_code(), "" ]
         CodeEditor.__init__(self,
+                            app,
                             project.get_syntax_highlight_key(),
                             [ section ],
                             ("", 1, 0),
                             header)
-        self.view.set_show_line_numbers(True)
+
         self.view.codeComplete = completion.Completion(self,project)
         self.view.codeComplete.clang.set_type(header)
-        self.view.codeComplete.set_info_box(True)
+        self.view.codeComplete.set_info_box(app.settings.getboolean("code_completion","enable_info_box"))
         self.view.codeComplete.set_refactoring(True)
         self.view.codeComplete.parse_source_code()
+
     def save(self):
         self.project.set_head_code(self.get_text())
 

@@ -18,11 +18,9 @@
 #
 
 
-import gtksourceview2 as gtksource
 import gtk
 import paths
 import os
-import time
 import cProfile
 import gobject
 import clang.cindex as clanglib
@@ -201,42 +199,86 @@ class InfoBox(gtk.EventBox):
         self.add(self.label)
         self.completion.view.add_child_in_window(self,gtk.TEXT_WINDOW_TEXT,0,0)
         self.completion.view.connect("motion_notify_event",self.mouse_move)
+        self.delay = 0
+        self.offsetx = -40
+        self.offsety = 20
+        self.last_cursor = None
+        self.timer_id = []
 
     def change_text(self, text):
         self.label.set_text(text)
-
+        
+    def set_show_delay(self, delay):
+        self.delay = int(delay)
+    def _set_window_pos(self, x, y):
+        window_x = int(x) + self.offsetx
+        window_y = int(y) + self.offsety
+        
+        if window_x  < 0:
+            window_x = 0
+        if window_y < 0:
+            window_y = 0
+            
+        box_w, box_h = self.size_request()             
+        visible_rect = self.completion.codeeditor.view.get_visible_rect()
+        
+        if window_x + box_w > visible_rect.width:
+            window_x = window_x - box_w - self.offsetx * 2
+        
+        if window_y + box_h > visible_rect.height:
+            window_y = window_y - box_h - self.offsety * 2
+        
+        self.completion.view.move_child(self, window_x, window_y)
+        
     def mouse_move(self, view, e):
-        x,y = self.completion.view.window_to_buffer_coords(gtk.TEXT_WINDOW_TEXT,int(e.x),int(e.y))
-        self.completion.view.move_child(self,int(e.x+50),int(e.y))
-        iter = self.completion.view.get_iter_at_location(int(x),int(y))
-        line = iter.get_line()+1
+        bx, by = self.completion.view.window_to_buffer_coords(gtk.TEXT_WINDOW_TEXT, int(e.x), int(e.y))
+        
+        iter = self.completion.view.get_iter_at_location(int(bx), int(by))
+        line = iter.get_line() + 1
         col = iter.get_line_offset()
         cursor = self.completion.get_cursor(line,col)
-
+        
+        if not self.last_cursor:
+            self.last_cursor = cursor
+        
+        def is_new_cursor():
+            if self.last_cursor != cursor:
+                self.last_cursor = cursor
+                for id in self.timer_id:
+                    gobject.source_remove(id)
+                del self.timer_id[:]
+                return True
+            else:
+                return False
+        
+        def show_box():
+            info = self._info_from_cursor(self.last_cursor)
+            self.change_text(info)
+            self.show_all()
+            
+        if is_new_cursor():
+            if cursor.kind.is_invalid() or cursor.kind.is_unexposed() or cursor.kind.is_statement():
+                self.hide_all()
+            else:
+                self.hide_all()
+                self._set_window_pos(e.x, e.y)
+                self.timer_id.append(gobject.timeout_add(self.delay,show_box))
+        
         if self.completion.clang.type == "head":
             line-= self.completion.clang.lineoffset
-
-        if self.completion.codeErrorList.has_key(line-1):
+ 
+        if self.completion.codeErrorList.has_key(line - 1):
                 errorcodeinfo = self.completion.codeErrorList[line-1]
                 if col >= errorcodeinfo[0] and col <= errorcodeinfo[1]:
                     self.change_text("Error: " + errorcodeinfo[2])
-                    self.show_all()
-                    return
-        if cursor:
-            info = self._info_from_cursor(cursor)
-            self.change_text(info)
+                    self._set_window_pos(e.x, e.y)
+                    self.timer_id.append(gobject.timeout_add(self.delay, self.show_all))
 
     def _info_from_cursor(self, cursor):
         type = cursor.type.kind.spelling
         resulttype = cursor.result_type.kind.spelling
         name = cursor.displayname
         definition = cursor.kind.name
-
-        if cursor.type.kind.name == "INVALID":
-            self.hide_all()
-        else:
-            self.show_all()
-
         infotext = ""
 
         if name:
@@ -249,7 +291,7 @@ class InfoBox(gtk.EventBox):
             infotext += "Definition: " + definition
 
         return infotext
-
+    
 def load_proposals_icons():
     theme = gtk.IconTheme()
     path = os.path.join(paths.ICONS_DIR, "ProposalsIcons")
@@ -270,6 +312,7 @@ class Completion(gobject.GObject):
     def __init__(self, codeeditor, project):
         gobject.GObject.__init__(self)
         self.codeeditor = codeeditor
+        self.app = codeeditor.app
         self.view = codeeditor.view
         self.resultKindFilter = ResultKindFilter(resultKindMap)
         self.completion = self.view.get_completion()
@@ -280,11 +323,15 @@ class Completion(gobject.GObject):
         self.completion.set_property("select-on-show",True)
 
         self.project = project
+        self.keymap = KeyPressedMap()
         self.clang = ClangParser(self)
         self.provider = CompletionProvider(self)
         self.completion.add_provider(self.provider)
+        self.kindmap = self.resultKindFilter.get_map()
         self.icons = icons
         self.infoBox = None
+        self.placeHolderObject = None
+        self._load_settings()
 
         self.view.connect("key_press_event",self._key_pressed)
         self.view.connect("key_release_event",self._key_released)
@@ -294,50 +341,48 @@ class Completion(gobject.GObject):
         self.view.buffer.connect("changed",self.text_changed)
         self.view.buffer.connect_after("insert-text",self.text_inserted)
         self.view.connect("populate-popup",self.populate_context_menu)
-        self.kindmap = self.resultKindFilter.get_map()
+        
         self.tu = None
         self.prefix = ""
-        self.keymap = KeyPressedMap()
         self.window_showed = False
         self.results = []
         self.lastCC = (1,1)
         self.codeChanged = True
         self.insertedItem = False
         self.lastSelectedItem = None
-        self.placeHolderObject = None
         self.view.show_all()
         self.codeErrorList = {}
+        self.enabled_refactoring = False
+
+    def _load_settings(self):
+        self.view.set_highlight_current_line (self.app.settings.getboolean("code_completion","enable_highlight_current_line"))
+        self.view.set_show_line_numbers (self.app.settings.getboolean("code_completion","enable_show_line_numbers"))
+        self.view.set_tab_width(int(self.app.settings.getfloat("code_completion","tab_width")))
 
     def set_info_box(self, enable):
         if enable is True:
             self.infoBox = InfoBox(self)
+            self.infoBox.set_show_delay(self.app.settings.getfloat("code_completion","delay_info_box"))
         else:
             self.infoBox = None
 
-    def set_refactoring(self, enable):
-        if enable is True:
-            def populate_popup(view, menu):
-                item = gtk.MenuItem("Refactoring")
-                refactoringMenu = gtk.Menu()
-                renameMenu = gtk.MenuItem("Rename under cursor")
-                refactoringMenu.add(renameMenu)
-                item.set_submenu(refactoringMenu)
-                renameMenu.connect("activate",self.refactor_code)
-                menu.append(item)
-                menu.show_all()
-            #self.view.connect("populate-popup",populate_popup)
-        #TODO: if set_refactoring is enabled then cant be disabled because signal is not disconnected
+    def set_refactoring(self, val):
+        self.enabled_refactoring = val
+
     def populate_context_menu(self, view, menu):
-        item = gtk.MenuItem("Refactoring")
         goto_declaration = gtk.MenuItem("Go to declaration under cursor")
-        refactoringMenu = gtk.Menu()
-        renameMenu = gtk.MenuItem("Rename under cursor")
-        refactoringMenu.add(renameMenu)
-        item.set_submenu(refactoringMenu)
-        renameMenu.connect("activate",self.refactor_code)
         goto_declaration.connect("activate",self.goto_declaration)
         menu.append(goto_declaration)
-        menu.append(item)
+        
+        if self.enabled_refactoring:
+            item = gtk.MenuItem("Refactoring")
+            refactoringMenu = gtk.Menu()
+            renameMenu = gtk.MenuItem("Rename under cursor")
+            refactoringMenu.add(renameMenu)
+            item.set_submenu(refactoringMenu)
+            renameMenu.connect("activate",self.refactor_code)
+            menu.append(item)
+
         menu.show_all()
     
     def window_hidden(self, w):
@@ -607,14 +652,17 @@ class Completion(gobject.GObject):
                             iter.set_line_offset(column - 2)
                             self.codeeditor.buffer.place_cursor(iter)
                             self.codeeditor.view.scroll_to_iter(iter, 0.1)
+                        else:
+                            line_in_head = self.clang.lineoffset + line - self.clang.libCount - 5
+                            self.app.edit_head(lineno = line_in_head)
                         return
 
                     from mainwindow import Tab
                     from codeedit import CodeFileEditor
 
-                    codeedit = CodeFileEditor(self.project.get_syntax_highlight_key(),file)
-                    codeedit.jump_to_position(("",location.line,0))
-                    window = self.view.parent.parent.parent.parent.parent
+                    codeedit = CodeFileEditor(self.app, self.project.get_syntax_highlight_key(), file)
+                    codeedit.jump_to_position(("", location.line, 0))
+                    window = self.app.window
                     tabname = os.path.basename(file)
                     tab = Tab(tabname, codeedit)
                     window.add_tab(tab,True)
@@ -687,6 +735,9 @@ class Completion(gobject.GObject):
         cursor_left = self.get_cursor(line, col)
         cursor_right = self.get_cursor(line, col + 1)
         
+        if not cursor_left and not cursor_right:
+            return None
+        
         if not (cursor_left.kind.is_invalid() or cursor_left.kind.is_unexposed()):
             return cursor_left
         elif not (cursor_right.kind.is_invalid() or cursor_right.kind.is_unexposed()):
@@ -729,10 +780,7 @@ class Completion(gobject.GObject):
                     self.tu = self.clang.parse()
                     self.clang.reparse()
                 else:
-                    t1 = time.time()
                     self.clang.reparse()
-                    t2 = time.time()
-
                     self.view.buffer.remove_tag_by_name("error",self.view.buffer.get_start_iter(),self.view.buffer.get_end_iter())
                     self.codeErrorList.clear()
 
@@ -785,7 +833,7 @@ class Completion(gobject.GObject):
                             pass
 
             except Exception,e:
-                print e
+                self.app.window.console.write(e,"error")
 
     def get_proposals(self, context):
         iter = context.get_iter()
@@ -795,20 +843,15 @@ class Completion(gobject.GObject):
         resultsToShow = None
 
         if not self.window_showed and (self.codeChanged or ((self.lastCC[0] != iter.get_line() or self.lastCC[1] != iter.get_line_offset() - len(self.prefix)))):
-            fi = time.time()
             results = self.clang.code_complete(line,col)
-            fs = time.time()
 
             if results and len(results.results) > 0:
-                print "Clang new results len: " + str(len(results.results)),"Time of clang completion: " + str(fs-fi)
                 #cProfile.runctx("self.format_results(results)", globals(), locals(),sort = 1)
                 for i in range(len(results.diagnostics)):
                     diag = results.diagnostics[i]
                     if diag.severity > 2:
-                        print "Completion error:",diag
                         loc = diag.location
                         if loc.line - self.clang.lineoffset == line:
-                            print "No need to show proposals"
                             context.add_proposals(self.provider,[],True)
                             return
                 self.results = self.format_results(results)

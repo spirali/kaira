@@ -109,8 +109,14 @@ class App:
 
         # Fill defaults
         settings.add_section("main")
+        settings.add_section("code_completion")
         settings.set("main", "save-before-build", "True")
         settings.set("main", "ptp-debug", "False")
+        settings.set("code_completion","enable_highlight_current_line","True")
+        settings.set("code_completion", "enable_show_line_numbers", "True")
+        settings.set("code_completion", "tab_width", "4")
+        settings.set("code_completion","enable_info_box","True")
+        settings.set("code_completion", "delay_info_box", "250.0")
 
         filename = self.get_settings_filename()
         if os.path.isfile(filename):
@@ -392,7 +398,7 @@ class App:
         if generator is None:
             return
         header = generator.get_transition_user_fn_header(transition.id)
-        editor = codeedit.TransitionCodeEditor(self.project, transition, header)
+        editor = codeedit.TransitionCodeEditor(self, self.project, transition, header)
         self.window.add_tab(Tab(name,
                                 editor,
                                 transition,
@@ -413,7 +419,7 @@ class App:
         header = generator.get_place_user_fn_header(place.id)
 
         name = "P: {0}".format(place.get_name_or_id())
-        editor = codeedit.PlaceCodeEditor(self.project, place, header)
+        editor = codeedit.PlaceCodeEditor(self, self.project, place, header)
         self.window.add_tab(Tab(name, editor, place, mainmenu_groups=("project",)))
         editor.jump_to_position(position)
 
@@ -441,6 +447,7 @@ class App:
             return
         widget = settings.SettingsWidget(self)
         self.window.add_tab(Tab("Settings", widget, "settings"))
+       
 
     def edit_head(self, lineno=None):
         position = ("", lineno) if lineno is not None else None
@@ -450,7 +457,7 @@ class App:
                 lambda tab: tab.widget.jump_to_position(position)):
             return
 
-        editor = codeedit.HeadCodeEditor(self.project)
+        editor = codeedit.HeadCodeEditor(self, self.project)
         tab = codeedit.TabCodeEditor("Head", editor, "Head")
         tab.mainmenu_groups = ("project",)
         self.window.add_tab(tab)

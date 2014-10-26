@@ -189,7 +189,7 @@ class CodeTestList(gtk.VBox):
         self.objlist.object_as_row = lambda obj: [ obj, obj.name ]
         self.objlist.cursor_changed = self.cursor_changed
         hbox.pack_start(self.objlist, False, False)
-        self.editor = CodeFileEditor(self.app.project.get_syntax_highlight_key())
+        self.editor = CodeFileEditor(app, self.app.project.get_syntax_highlight_key())
         hbox.pack_start(self.editor)
 
         self.pack_start(hbox)

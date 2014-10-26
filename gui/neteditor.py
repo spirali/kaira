@@ -331,7 +331,7 @@ class NetEditor(gtk.VBox):
         self.attribute_box.show_all()
 
     def _setup_no_attribute(self, text):
-        editor = codeedit.CodeEditor(self.project.get_syntax_highlight_key())
+        editor = codeedit.CodeEditor(self.app, self.project.get_syntax_highlight_key())
         editor.set_size_request(0, 60)
         editor.set_sensitive(False)
         label = gtk.Label(text)
@@ -564,6 +564,7 @@ class NetEditor(gtk.VBox):
         if label.get_text() == "Type":
             import completion
             editor.view.codeComplete = completion.Completion(editor, self.project)
+            editor.view.set_show_line_numbers(False)
             editor.view.codeComplete.clang.set_type("")
             editor.view.codeComplete.set_filter_mask(["class","namespace"])
         else:
@@ -614,7 +615,7 @@ class NetEditor(gtk.VBox):
                                                 set_fn,
                                                 original,
                                                 suppress_similar=True))
-        editor = codeedit.CodeEditor(self.project.get_syntax_highlight_key())
+        editor = codeedit.CodeEditor(self.app, self.project.get_syntax_highlight_key())
 
         # Brackets are highlighted even when textview has no focus, it is quite disturbing
         # So we turn this feature off
