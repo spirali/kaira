@@ -58,8 +58,8 @@ class SettingsWidget(gtk.Notebook):
         add_check_button("code_completion", "enable_show_line_numbers", "Show line numbers")
         add_spin_box("code_completion", "tab_width", "Tab size", numeric = True)
         add_check_button("code_completion","enable_info_box","Show info box")
-        add_spin_box("code_completion", "delay_info_box", "Delay for info box",
+        add_spin_box("code_completion", "delay_info_box", "Delay for info box in ms",
                      numeric = True,
-                     digits = 4,
+                     digits = 0,
                      range = (0, 3000))
         return vbox

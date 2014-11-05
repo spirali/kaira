@@ -199,29 +199,34 @@ class InfoBox(gtk.EventBox):
         self.add(self.label)
         self.completion.view.add_child_in_window(self,gtk.TEXT_WINDOW_TEXT,0,0)
         self.completion.view.connect("motion_notify_event",self.mouse_move)
+        self.completion.app.window.connect("leave_notify_event", self.hide)
         self.delay = 0
         self.offsetx = -40
         self.offsety = 20
         self.last_cursor = None
         self.timer_id = []
 
+    def hide(self, widget, e):
+        self.hide_all()
+
     def change_text(self, text):
         self.label.set_text(text)
         
     def set_show_delay(self, delay):
         self.delay = int(delay)
+
     def _set_window_pos(self, x, y):
         window_x = int(x) + self.offsetx
         window_y = int(y) + self.offsety
-        
+
         if window_x  < 0:
             window_x = 0
         if window_y < 0:
             window_y = 0
-            
+
         box_w, box_h = self.size_request()             
         visible_rect = self.completion.codeeditor.view.get_visible_rect()
-        
+
         if window_x + box_w > visible_rect.width:
             window_x = window_x - box_w - self.offsetx * 2
         
@@ -229,10 +234,9 @@ class InfoBox(gtk.EventBox):
             window_y = window_y - box_h - self.offsety * 2
         
         self.completion.view.move_child(self, window_x, window_y)
-        
+
     def mouse_move(self, view, e):
         bx, by = self.completion.view.window_to_buffer_coords(gtk.TEXT_WINDOW_TEXT, int(e.x), int(e.y))
-        
         iter = self.completion.view.get_iter_at_location(int(bx), int(by))
         line = iter.get_line() + 1
         col = iter.get_line_offset()
@@ -250,7 +254,7 @@ class InfoBox(gtk.EventBox):
                 return True
             else:
                 return False
-        
+
         def show_box():
             info = self._info_from_cursor(self.last_cursor)
             self.change_text(info)
@@ -291,7 +295,7 @@ class InfoBox(gtk.EventBox):
             infotext += "Definition: " + definition
 
         return infotext
-    
+
 def load_proposals_icons():
     theme = gtk.IconTheme()
     path = os.path.join(paths.ICONS_DIR, "ProposalsIcons")
@@ -661,6 +665,7 @@ class Completion(gobject.GObject):
                     from codeedit import CodeFileEditor
 
                     codeedit = CodeFileEditor(self.app, self.project.get_syntax_highlight_key(), file)
+                    codeedit.view.set_highlight_current_line(True)
                     codeedit.jump_to_position(("", location.line, 0))
                     window = self.app.window
                     tabname = os.path.basename(file)
@@ -727,6 +732,7 @@ class Completion(gobject.GObject):
             return cursor
         else:
             return None
+
     def get_cursor_under_mouse(self):
         position = self.view.buffer.get_property("cursor-position")
         iter = self.view.buffer.get_iter_at_offset(position)
@@ -779,61 +785,65 @@ class Completion(gobject.GObject):
                 if self.tu is None:
                     self.tu = self.clang.parse()
                     self.clang.reparse()
+                    self._show_code_errors()
                 else:
                     self.clang.reparse()
-                    self.view.buffer.remove_tag_by_name("error",self.view.buffer.get_start_iter(),self.view.buffer.get_end_iter())
-                    self.codeErrorList.clear()
-
-                    for d in self.tu.diagnostics:
-                        if d.severity == 3:
-                            location = d.location
-
-                            info = d.spelling
-                            line = location.line-1 - self.clang.lineoffset
-                            iter = self.view.buffer.get_iter_at_line(line)
-                            if iter.get_chars_in_line() < location.column:
-                                continue
-                            starthighlightcol = location.column-1
-                            endhighlightcol = None
-                            fixhit = ""
-
-                            for range in d.ranges:
-                                s = range.start.column
-                                e = range.end.column
-                                starthighlightcol = s-1
-                                endhighlightcol = e
-                            for fix in d.fixits:
-                                s = fix.range.start.column
-                                e = fix.range.end.column
-                                val = fix.value
-                                fixhit = val
-                                starthighlightcol = s-2
-                                endhighlightcol = e-1
-
-                            if fixhit:
-                                info += "\nFix hit: \" " + fixhit + " \""
-
-                            startiter = self.view.buffer.get_iter_at_line(line)
-                            if starthighlightcol >= 0 and starthighlightcol <= startiter.get_chars_in_line():
-                                startiter.set_line_offset(starthighlightcol)
-
-                            enditer = startiter.copy()
-
-                            if not endhighlightcol:
-                                enditer.forward_visible_word_ends(1)
-                            else:
-                                if endhighlightcol >= starthighlightcol and endhighlightcol <= enditer.get_chars_in_line():
-                                    enditer.set_line_offset(endhighlightcol)
-
-                            endhighlightcol = enditer.get_line_offset()
-                            self.view.buffer.apply_tag_by_name("error",startiter,enditer)
-                            self.codeErrorList[line] = (starthighlightcol,endhighlightcol,info)
-
-                        if d.severity > 2 and d.location.file == self.tu.spelling:
-                            pass
+                    
 
             except Exception,e:
                 self.app.window.console.write(e,"error")
+
+    def _show_code_errors(self):
+        self.view.buffer.remove_tag_by_name("error",self.view.buffer.get_start_iter(),self.view.buffer.get_end_iter())
+        self.codeErrorList.clear()
+
+        for d in self.tu.diagnostics:
+            print d
+            if d.severity == 3:
+                location = d.location
+                info = d.spelling
+                line = location.line-1 - self.clang.lineoffset
+                iter = self.view.buffer.get_iter_at_line(line)
+                if iter.get_chars_in_line() < location.column:
+                    continue
+                starthighlightcol = location.column-1
+                endhighlightcol = None
+                fixhit = ""
+
+                for range in d.ranges:
+                    s = range.start.column
+                    e = range.end.column
+                    starthighlightcol = s-1
+                    endhighlightcol = e
+                for fix in d.fixits:
+                    s = fix.range.start.column
+                    e = fix.range.end.column
+                    val = fix.value
+                    fixhit = val
+                    starthighlightcol = s-2
+                    endhighlightcol = e-1
+
+                if fixhit:
+                    info += "\nFix hit: \" " + fixhit + " \""
+
+                startiter = self.view.buffer.get_iter_at_line(line)
+                if starthighlightcol >= 0 and starthighlightcol <= startiter.get_chars_in_line():
+                    startiter.set_line_offset(starthighlightcol)
+
+                enditer = startiter.copy()
+
+                if not endhighlightcol:
+                    enditer.forward_visible_word_ends(1)
+                else:
+                    if endhighlightcol >= starthighlightcol and endhighlightcol <= enditer.get_chars_in_line():
+                        enditer.set_line_offset(endhighlightcol)
+
+                endhighlightcol = enditer.get_line_offset()
+                self.view.buffer.apply_tag_by_name("error",startiter,enditer)
+                self.codeErrorList[line] = (starthighlightcol,endhighlightcol,info)
+
+            if d.severity > 2 and d.location.file == self.tu.spelling:
+                pass
 
     def get_proposals(self, context):
         iter = context.get_iter()

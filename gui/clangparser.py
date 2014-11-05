@@ -39,7 +39,7 @@ class ClangParser():
         self.view = completion.view
         self.completion = completion
         self.index = clang.Index.create()
-        self.args = ["-I" + libraryPath + "/clang/3.4/include/"]
+        self.args = ["-I" + self.completion.project.get_directory()]
         self.tu = None
         self.options = (clang.TranslationUnit.PARSE_PRECOMPILED_PREAMBLE |
 		       clang.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD |
