@@ -199,19 +199,21 @@ class InfoBox(gtk.EventBox):
         self.add(self.label)
         self.completion.view.add_child_in_window(self,gtk.TEXT_WINDOW_TEXT,0,0)
         self.completion.view.connect("motion_notify_event",self.mouse_move)
-        self.completion.app.window.connect("leave_notify_event", self.hide)
+        self.completion.app.window.connect("leave_notify_event", self.hide_box)
         self.delay = 0
         self.offsetx = -40
         self.offsety = 20
         self.last_cursor = None
-        self.timer_id = []
+        self.show_box = True
+        self.show_request = False
 
-    def hide(self, widget, e):
+    def hide_box(self, w, e):
+        self.show_box = False
         self.hide_all()
 
     def change_text(self, text):
         self.label.set_text(text)
-        
+
     def set_show_delay(self, delay):
         self.delay = int(delay)
 
@@ -229,10 +231,10 @@ class InfoBox(gtk.EventBox):
 
         if window_x + box_w > visible_rect.width:
             window_x = window_x - box_w - self.offsetx * 2
-        
+
         if window_y + box_h > visible_rect.height:
             window_y = window_y - box_h - self.offsety * 2
-        
+
         self.completion.view.move_child(self, window_x, window_y)
 
     def mouse_move(self, view, e):
@@ -241,42 +243,54 @@ class InfoBox(gtk.EventBox):
         line = iter.get_line() + 1
         col = iter.get_line_offset()
         cursor = self.completion.get_cursor(line,col)
-        
-        if not self.last_cursor:
-            self.last_cursor = cursor
-        
-        def is_new_cursor():
-            if self.last_cursor != cursor:
-                self.last_cursor = cursor
-                for id in self.timer_id:
-                    gobject.source_remove(id)
-                del self.timer_id[:]
+
+        def is_valid_cursor():
+            if not (cursor.kind.is_invalid() or cursor.kind.is_unexposed() or cursor.kind.is_statement()):
                 return True
             else:
                 return False
 
-        def show_box():
-            info = self._info_from_cursor(self.last_cursor)
-            self.change_text(info)
+        def _fill_box(cursor, message = None):
+            if not message:
+                message = self._info_from_cursor(cursor)
+            self.change_text(message)
             self.show_all()
-            
-        if is_new_cursor():
-            if cursor.kind.is_invalid() or cursor.kind.is_unexposed() or cursor.kind.is_statement():
-                self.hide_all()
+ 
+        def _prepare_box(message = None):
+            if self.show_box:
+                _fill_box(self.last_cursor, message)
             else:
                 self.hide_all()
-                self._set_window_pos(e.x, e.y)
-                self.timer_id.append(gobject.timeout_add(self.delay,show_box))
-        
+            self.show_request = False
+            return False
+
+        def request_show_box(message = None):
+            self.show_box = True
+            self._set_window_pos(e.x, e.y)
+            self.hide_all()
+            if self.show_request is False:
+                    self.show_request = True
+                    gobject.timeout_add(self.delay,_prepare_box, message)
+
+        if not self.last_cursor or self.last_cursor != cursor:
+            self.last_cursor = cursor
+            if iter.get_chars_in_line() - 1 > col and is_valid_cursor():
+                request_show_box()
+            else:
+                self.show_box = False
+                self.hide_all()
+        elif not is_valid_cursor():
+                self.show_box = False
+                self.hide_all()
+
         if self.completion.clang.type == "head":
             line-= self.completion.clang.lineoffset
  
         if self.completion.codeErrorList.has_key(line - 1):
                 errorcodeinfo = self.completion.codeErrorList[line-1]
                 if col >= errorcodeinfo[0] and col <= errorcodeinfo[1]:
-                    self.change_text("Error: " + errorcodeinfo[2])
-                    self._set_window_pos(e.x, e.y)
-                    self.timer_id.append(gobject.timeout_add(self.delay, self.show_all))
+                    message = "Error: " + errorcodeinfo[2]
+                    request_show_box(message)
 
     def _info_from_cursor(self, cursor):
         type = cursor.type.kind.spelling
@@ -287,13 +301,12 @@ class InfoBox(gtk.EventBox):
 
         if name:
             infotext += "Name: " + name + "\n"
-        if type and type != "Unexposed":
+        if type and type != "Unexposed" and type != "Invalid":
             infotext += "Type: " + type + "\n"
         if resulttype and resulttype != "Invalid" and resulttype != "Unexposed":
             infotext += "Result Type: " + resulttype + "\n"
         if definition:
             infotext += "Definition: " + definition
-
         return infotext
 
 def load_proposals_icons():
@@ -788,8 +801,7 @@ class Completion(gobject.GObject):
                     self._show_code_errors()
                 else:
                     self.clang.reparse()
-                    
-
+                    self._show_code_errors()
             except Exception,e:
                 self.app.window.console.write(e,"error")
 
@@ -798,7 +810,6 @@ class Completion(gobject.GObject):
         self.codeErrorList.clear()
 
         for d in self.tu.diagnostics:
-            print d
             if d.severity == 3:
                 location = d.location
                 info = d.spelling
