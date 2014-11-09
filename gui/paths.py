@@ -23,6 +23,7 @@ KAIRA_GUI = os.path.dirname(os.path.abspath(__file__))
 KAIRA_ROOT = os.path.dirname(KAIRA_GUI)
 
 ICONS_DIR = os.path.join(KAIRA_GUI, "icons")
+ICONS_COMPLETION_DIR = os.path.join(ICONS_DIR, "completion")
 UI_DIR = os.path.join(KAIRA_GUI, "ui")
 
 PTP_DIR = os.path.join(KAIRA_ROOT, "ptp")

@@ -226,7 +226,7 @@ class InfoBox(gtk.EventBox):
         if window_y < 0:
             window_y = 0
 
-        box_w, box_h = self.size_request()             
+        box_w, box_h = self.size_request()
         visible_rect = self.completion.codeeditor.view.get_visible_rect()
 
         if window_x + box_w > visible_rect.width:
@@ -255,7 +255,7 @@ class InfoBox(gtk.EventBox):
                 message = self._info_from_cursor(cursor)
             self.change_text(message)
             self.show_all()
- 
+
         def _prepare_box(message = None):
             if self.show_box:
                 _fill_box(self.last_cursor, message)
@@ -285,7 +285,7 @@ class InfoBox(gtk.EventBox):
 
         if self.completion.clang.type == "head":
             line-= self.completion.clang.lineoffset
- 
+
         if self.completion.codeErrorList.has_key(line - 1):
                 errorcodeinfo = self.completion.codeErrorList[line-1]
                 if col >= errorcodeinfo[0] and col <= errorcodeinfo[1]:
@@ -311,8 +311,7 @@ class InfoBox(gtk.EventBox):
 
 def load_proposals_icons():
     theme = gtk.IconTheme()
-    path = os.path.join(paths.ICONS_DIR, "ProposalsIcons")
-    theme.set_search_path([path])
+    theme.set_search_path([paths.ICONS_COMPLETION_DIR])
     data = theme.list_icons()
     icons = {}
 
@@ -358,7 +357,7 @@ class Completion(gobject.GObject):
         self.view.buffer.connect("changed",self.text_changed)
         self.view.buffer.connect_after("insert-text",self.text_inserted)
         self.view.connect("populate-popup",self.populate_context_menu)
-        
+
         self.tu = None
         self.prefix = ""
         self.window_showed = False
@@ -390,7 +389,7 @@ class Completion(gobject.GObject):
         goto_declaration = gtk.MenuItem("Go to declaration under cursor")
         goto_declaration.connect("activate",self.goto_declaration)
         menu.append(goto_declaration)
-        
+
         if self.enabled_refactoring:
             item = gtk.MenuItem("Refactoring")
             refactoringMenu = gtk.Menu()
@@ -401,7 +400,7 @@ class Completion(gobject.GObject):
             menu.append(item)
 
         menu.show_all()
-    
+
     def window_hidden(self, w):
         if self.window_showed:
             self.window_showed = False
@@ -412,7 +411,7 @@ class Completion(gobject.GObject):
     def refactor_code(self, widget):
         cursor = self.get_cursor_under_mouse()
         referenced = None
-        
+
         if cursor:
             referenced = cursor.referenced
         if not referenced or not(cursor.kind.is_expression() or cursor.kind.is_declaration()):
@@ -441,7 +440,7 @@ class Completion(gobject.GObject):
         else:
             dialog.destroy()
             return
- 
+
         if not newtext:
             return
 
@@ -649,22 +648,22 @@ class Completion(gobject.GObject):
                     tab = Tab(tabname, codeedit)
                     window.add_tab(tab,True)
                     return True
-        
+
     def goto_declaration(self, w):
             cursor = self.get_cursor_under_mouse()
-            
+
             if cursor:
                 referenced = cursor.referenced
-        
+
                 if referenced:
                     location = referenced.location
                     file = os.path.normpath(location.file.name)
-                    
+
                     if file == self.clang.file:
                         line = location.line - self.clang.lineoffset
                         column = location.column + 1
-                        
-                        if line > 0:                        
+
+                        if line > 0:
                             iter = self.codeeditor.buffer.get_iter_at_line(line - 1)
                             iter.set_line_offset(column - 2)
                             self.codeeditor.buffer.place_cursor(iter)
@@ -684,7 +683,7 @@ class Completion(gobject.GObject):
                     tabname = os.path.basename(file)
                     tab = Tab(tabname, codeedit)
                     window.add_tab(tab,True)
-    
+
     def _key_released(self, w, key):
         self.keymap.key_released(key)
 
@@ -753,10 +752,10 @@ class Completion(gobject.GObject):
         col = iter.get_line_offset()
         cursor_left = self.get_cursor(line, col)
         cursor_right = self.get_cursor(line, col + 1)
-        
+
         if not cursor_left and not cursor_right:
             return None
-        
+
         if not (cursor_left.kind.is_invalid() or cursor_left.kind.is_unexposed()):
             return cursor_left
         elif not (cursor_right.kind.is_invalid() or cursor_right.kind.is_unexposed()):
