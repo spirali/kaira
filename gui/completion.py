@@ -226,7 +226,7 @@ class InfoBox(gtk.EventBox):
         if window_y < 0:
             window_y = 0
 
-        box_w, box_h = self.size_request()             
+        box_w, box_h = self.size_request()
         visible_rect = self.completion.codeeditor.view.get_visible_rect()
 
         if window_x + box_w > visible_rect.width:
@@ -255,7 +255,7 @@ class InfoBox(gtk.EventBox):
                 message = self._info_from_cursor(cursor)
             self.change_text(message)
             self.show_all()
- 
+
         def _prepare_box(message = None):
             if self.show_box:
                 _fill_box(self.last_cursor, message)
@@ -284,8 +284,8 @@ class InfoBox(gtk.EventBox):
                 self.hide_all()
 
         if self.completion.clang.type == "head":
-            line-= self.completion.clang.lineoffset
- 
+            line-= self.completion.clang.get_header_line_offset()
+
         if self.completion.codeErrorList.has_key(line - 1):
                 errorcodeinfo = self.completion.codeErrorList[line-1]
                 if col >= errorcodeinfo[0] and col <= errorcodeinfo[1]:
@@ -311,8 +311,7 @@ class InfoBox(gtk.EventBox):
 
 def load_proposals_icons():
     theme = gtk.IconTheme()
-    path = os.path.join(paths.ICONS_DIR, "ProposalsIcons")
-    theme.set_search_path([path])
+    theme.set_search_path([paths.ICONS_COMPLETION_DIR])
     data = theme.list_icons()
     icons = {}
 
@@ -358,7 +357,7 @@ class Completion(gobject.GObject):
         self.view.buffer.connect("changed",self.text_changed)
         self.view.buffer.connect_after("insert-text",self.text_inserted)
         self.view.connect("populate-popup",self.populate_context_menu)
-        
+
         self.tu = None
         self.prefix = ""
         self.window_showed = False
@@ -390,7 +389,7 @@ class Completion(gobject.GObject):
         goto_declaration = gtk.MenuItem("Go to declaration under cursor")
         goto_declaration.connect("activate",self.goto_declaration)
         menu.append(goto_declaration)
-        
+
         if self.enabled_refactoring:
             item = gtk.MenuItem("Refactoring")
             refactoringMenu = gtk.Menu()
@@ -401,7 +400,7 @@ class Completion(gobject.GObject):
             menu.append(item)
 
         menu.show_all()
-    
+
     def window_hidden(self, w):
         if self.window_showed:
             self.window_showed = False
@@ -412,7 +411,7 @@ class Completion(gobject.GObject):
     def refactor_code(self, widget):
         cursor = self.get_cursor_under_mouse()
         referenced = None
-        
+
         if cursor:
             referenced = cursor.referenced
         if not referenced or not(cursor.kind.is_expression() or cursor.kind.is_declaration()):
@@ -441,12 +440,12 @@ class Completion(gobject.GObject):
         else:
             dialog.destroy()
             return
- 
+
         if not newtext:
             return
 
         loc = referenced.location
-        if self.clang.type == "header" or (loc.line < self.clang.lineoffset and (self.clang.type == "node")):
+        if self.clang.type == "header" or (loc.line < self.clang.get_header_line_offset() and (self.clang.type == "node")):
             #Parse all project
             self.rename_code_in_nodes(referenced,oldtext,newtext)
         else:
@@ -468,7 +467,7 @@ class Completion(gobject.GObject):
         marks = []
 
         for location in places:
-            line = location.line - 1 - self.clang.lineoffset
+            line = location.line - 1 - self.clang.get_header_line_offset()
             col = location.column - 1
             iter = tempbuffer.get_iter_at_line(line)
             iter.set_line_offset(col)
@@ -485,8 +484,12 @@ class Completion(gobject.GObject):
         self.codeeditor.set_text(newcode)
 
     def rename_code_in_nodes(self, referencedCursor, oldname, newname):
-        headcode = self.project.get_head_comment() + self.clang.cailielib + self.project.get_head_code()
-        lineoffset = headcode.count("\n")
+        headcode = self.project.get_head_comment() + self.clang.get_invisible_string()
+        if self.clang.type == "header":
+            headcode += self.codeeditor.get_text("")
+        else:
+            headcode += self.project.get_head_code()
+        line_offset = headcode.count("\n")
         net = self.project.nets[0]
         gen = self.project.get_generator()
         temptu = clanglib.TranslationUnit.from_source("c.cpp", None, [("c.cpp",headcode)])
@@ -499,7 +502,7 @@ class Completion(gobject.GObject):
         items = []
         items.append(headcode)
         nodeinfo = []
-        indexline = lineoffset
+        indexline = line_offset
 
         for place in places:
             placecode = "".join(["\n",gen.get_place_user_fn_header(place.get_id(),True),"{\n",place.code,"}\n"])
@@ -507,7 +510,7 @@ class Completion(gobject.GObject):
             items.append(placecode)
             nodeinfo.append((indexline+3,indexline+endlines-1,place))
             indexline+=endlines
-
+ 
         for transition in transitions:
             headcode = gen.get_transition_user_fn_header(transition.get_id(),True)
             transitioncode = "".join([headcode,"{\n",transition.code,"}\n"])
@@ -518,16 +521,15 @@ class Completion(gobject.GObject):
 
         allcode = "".join(items)
         tempbuffer.set_text(allcode)
-
         temptu.reparse([("c.cpp",allcode)])
         ref = clanglib.Cursor.from_location(temptu, location)
         where = []
         self.find_cursor_uses(temptu, temptu.cursor, ref, where)
 
         for loc in where:
-            line = loc.line - self.clang.libCount
+            line = loc.line
+            line -= 1
             col = loc.column - 1
-
             iter = tempbuffer.get_iter_at_line(line)
             iter.set_line_offset(col)
             mark = tempbuffer.create_mark(None,iter)
@@ -546,10 +548,11 @@ class Completion(gobject.GObject):
             enditerline = tempbuffer.get_iter_at_line(endline)
             place.set_code(tempbuffer.get_text(startiterline,enditerline))
 
-        startiterhead = tempbuffer.get_iter_at_line(5 + self.clang.libCount)
-        enditerhead = tempbuffer.get_iter_at_line(lineoffset+1)
+        startiterhead = tempbuffer.get_iter_at_line(self.clang.get_invisible_code_line_count() + 5)
+        enditerhead = tempbuffer.get_iter_at_line(line_offset)
+        enditerhead.forward_to_line_end()
         self.project.set_head_code(tempbuffer.get_text(startiterhead,enditerhead))
-        window = self.view.parent.parent.parent.parent.parent
+        window = self.app.window
 
         def reload_tab(tab):
             from codeedit import CodeEditor
@@ -625,53 +628,36 @@ class Completion(gobject.GObject):
     def mouse_click(self, w, e):
         x,y = self.view.window_to_buffer_coords(gtk.TEXT_WINDOW_TEXT,int(e.x),int(e.y))
         if gtk.keysyms.Control_L in self.keymap.keys and e.button == 1:
-            iter = self.view.get_iter_at_location(int(x),int(y))
-            cursor = self.get_cursor(iter.get_line()+1, iter.get_line_offset())
+            self.goto_declaration(None)
+            self.keymap.remove_all()
+            return True
 
-            if cursor:
-                referenced = cursor.referenced
-
-                if referenced:
-                    location = referenced.location
-
-                    file = os.path.normpath(location.file.name)
-                    if file == self.clang.file:
-                        self.codeeditor.jump_to_position(("",location.line,0))
-                        return
-
-                    from mainwindow import Tab
-                    from codeedit import CodeFileEditor
-
-                    codeedit = CodeFileEditor(self.project.get_syntax_highlight_key(),file)
-                    codeedit.jump_to_position(("",referenced.location.line,0))
-                    window = self.view.parent.parent.parent.parent.parent
-                    tabname = os.path.basename(file)
-                    tab = Tab(tabname, codeedit)
-                    window.add_tab(tab,True)
-                    return True
-        
     def goto_declaration(self, w):
             cursor = self.get_cursor_under_mouse()
-            
+
             if cursor:
                 referenced = cursor.referenced
-        
+
                 if referenced:
                     location = referenced.location
                     file = os.path.normpath(location.file.name)
-                    
+
                     if file == self.clang.file:
-                        line = location.line - self.clang.lineoffset
-                        column = location.column + 1
-                        
-                        if line > 0:                        
+                        line = location.line - self.clang.get_header_line_offset()
+                        column = location.column - 1
+
+                        if line > 0 and self.clang.type == "header":
+                            self.codeeditor.jump_to_position(("", line - 5, column))
+                        elif line > 0:
                             iter = self.codeeditor.buffer.get_iter_at_line(line - 1)
-                            iter.set_line_offset(column - 2)
+                            iter.set_line_offset(column)
                             self.codeeditor.buffer.place_cursor(iter)
                             self.codeeditor.view.scroll_to_iter(iter, 0.1)
                         else:
-                            line_in_head = self.clang.lineoffset + line - self.clang.libCount - 5
-                            self.app.edit_head(lineno = line_in_head)
+                            offsets = self.clang.get_header_line_offset() - self.clang.get_invisible_code_line_count()
+                            line_in_head = offsets + line - 5
+                            if line_in_head >= 0:
+                                self.app.edit_head(lineno = line_in_head)
                         return
 
                     from mainwindow import Tab
@@ -684,7 +670,7 @@ class Completion(gobject.GObject):
                     tabname = os.path.basename(file)
                     tab = Tab(tabname, codeedit)
                     window.add_tab(tab,True)
-    
+
     def _key_released(self, w, key):
         self.keymap.key_released(key)
 
@@ -753,10 +739,10 @@ class Completion(gobject.GObject):
         col = iter.get_line_offset()
         cursor_left = self.get_cursor(line, col)
         cursor_right = self.get_cursor(line, col + 1)
-        
+
         if not cursor_left and not cursor_right:
             return None
-        
+
         if not (cursor_left.kind.is_invalid() or cursor_left.kind.is_unexposed()):
             return cursor_left
         elif not (cursor_right.kind.is_invalid() or cursor_right.kind.is_unexposed()):
@@ -800,16 +786,20 @@ class Completion(gobject.GObject):
                     self.clang.reparse()
                     self._show_code_errors()
                 else:
+                    import time
+                    t1 = time.time()
                     self.clang.reparse()
+                    print "time:",(time.time() - t1)
                     self._show_code_errors()
             except Exception,e:
-                self.app.window.console.write(e,"error")
+                self.app.window.console.write(e,"normal")
 
     def _show_code_errors(self):
         self.view.buffer.remove_tag_by_name("error",self.view.buffer.get_start_iter(),self.view.buffer.get_end_iter())
         self.codeErrorList.clear()
 
         for d in self.tu.diagnostics:
+            print d
             if d.severity == 3:
                 location = d.location
                 info = d.spelling
@@ -876,6 +866,7 @@ class Completion(gobject.GObject):
                             context.add_proposals(self.provider,[],True)
                             return
                 self.results = self.format_results(results)
+                print "proposals: ",len(self.results)
             else:
                 self.results = []
 

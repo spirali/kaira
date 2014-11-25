@@ -48,27 +48,59 @@ class ClangParser():
         self.parseFunction = None
         self.element = None
         self.elementheader = None
-        self.cailielib = "#include \""+os.path.join(base.paths.KAIRA_ROOT,base.paths.CAILIE_INCLUDE_DIR,"cailie.h") + "\"\n"
+        self.invisible_code = ["#include \""+os.path.join(base.paths.KAIRA_ROOT,base.paths.CAILIE_INCLUDE_DIR,"cailie.h") + "\"\n"]
         self.lineoffset = 1
         self.data = None
         self.file = None
         self.type = None
-        self.libCount = 1
+        self.invisible_code_line_count = 1
+        self._load_header()
+
+    def get_invisible_string(self):
+        return ''.join(self.invisible_code)
+
+    def get_header_line_offset(self):
+        return self.lineoffset
+
+    def get_invisible_code_line_count(self):
+        lines = ''.join(self.invisible_code)
+        return lines.count("\n")
+
+    def _load_header(self):
+        header = self.completion.project.get_generator().get_header()
+        lines = header.split("\n")
+        head = ""
+        con = None
+        for l in lines:
+            if l.startswith("#line 1 \"*head\""):
+                break
+            elif l.startswith("struct"):
+                head += l + "\n"
+                con = True
+            else:
+                if con:
+                    head += l + "\n"
+
+        self.invisible_code.append(head + "\n")
+        self.lineoffset += head.count("\n") + 1
 
     def _data_from_buffer(self):
-        return ''.join([self.cailielib,self.elementheader,self.completion.codeeditor.get_text("")])
+        invisible_code = ''.join(self.invisible_code)
+        return ''.join([self.elementheader, invisible_code, self.completion.codeeditor.get_text("")])
 
     def _data_from_node(self):
         headheader = self.completion.project.get_head_comment()
         headcode = self.completion.project.get_head_code()
         code = self.completion.codeeditor.get_text("")
-        return ''.join([headheader,self.cailielib,headcode,self.elementheader,"{\n",code,"}\n"])
+        invisible_code = ''.join(self.invisible_code)
+        return ''.join([headheader, invisible_code, headcode, "\n", self.elementheader, "{\n", code, "}\n"])
 
     def _data_from_label(self):
         headheader = self.completion.project.get_head_comment()
         headcode = self.completion.project.get_head_code()
         code = self.completion.codeeditor.get_text("")
-        return ''.join([headheader,self.cailielib,headcode,"\n",code,"\n"])
+        invisible_code = ''.join(self.invisible_code)
+        return ''.join([headheader, invisible_code, headcode, "\n", code, "\n"])
 
     def get_line_offset(self):
         headheader = self.completion.project.get_head_comment()
@@ -78,7 +110,6 @@ class ClangParser():
         return lineoffset
 
     def set_line_offset(self, offset):
-        self.lineoffset = 1
         self.lineoffset += offset
 
     def set_type(self, header, element = None):
@@ -90,11 +121,11 @@ class ClangParser():
             self.element = element
             self.elementheader = header
             self.parseFunction = self._data_from_node
-            self.set_line_offset(self.get_line_offset())
+            self.set_line_offset(self.get_line_offset() + 1)
             self.type = "node"
         elif not header and not element:
             self.parseFunction = self._data_from_label
-            self.set_line_offset(self.get_line_offset()+1)
+            self.set_line_offset(self.get_line_offset() + 1)
             self.type = "type"
 
     def get_file_and_data(self):
