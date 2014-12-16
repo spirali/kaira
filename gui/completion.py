@@ -644,8 +644,7 @@ class Completion(gobject.GObject):
 
                     if file == self.clang.file:
                         line = location.line - self.clang.get_header_line_offset()
-                        column = location.column - 1
-
+                        column = location.column - 1 # TODO: changed from +1 to -1??  
                         if line > 0 and self.clang.type == "header":
                             self.codeeditor.jump_to_position(("", line - 5, column))
                         elif line > 0:

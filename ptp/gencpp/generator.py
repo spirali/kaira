@@ -80,6 +80,11 @@ class CppGenerator:
             w.line("void transition_fn({0})".format(", ".join(args)))
             return w.get_string()
 
+    def get_header(self):
+        builder = build.Builder(self.project)
+        build.write_header_file(builder)
+        return builder.get_string()
+
     def write_header_file(self, directory):
         builder = build.Builder(self.project, self.get_filename(directory, ".h"))
         build.write_header_file(builder)
