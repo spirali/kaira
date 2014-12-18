@@ -230,8 +230,7 @@ class Simulation(EventSource):
         for i in ids:
             for j in xrange(self.process_count):
                 for p in xrange(self.runinstance.get_packets_count(j, i)):
-                    self.receive(i, j, query_reports=False)
-        self.query_reports()
+                    self.receive(i, j)
 
     def set_state_ready(self):
         self.state = "ready"
@@ -247,15 +246,19 @@ class Simulation(EventSource):
         transition = self.project.get_item(transition_id)
         def callback():
             name = utils.sanitize_name(transition.get_name_or_id())
-            if phases == 2:
+            if phases == 2 or not transition.has_code():
                 self.sequence.add_fire(process_id, name)
+                if query_reports:
+                    self.query_reports(ok_callback)
             else:
                 self.sequence.add_transition_start(process_id, name)
+                if query_reports:
+                    self.query_reports(ok_callback)
                 if not transition.has_code():
                     self.sequence.add_transition_finish(process_id)
-            if query_reports:
-                self.query_reports(ok_callback)
-            elif ok_callback:
+                    if query_reports:
+                        self.query_reports(ok_callback)
+            if ok_callback:
                 ok_callback()
 
         if self.controller and self.check_ready():

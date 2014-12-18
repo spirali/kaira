@@ -134,7 +134,7 @@ class SimView(gtk.VBox):
     def _history(self):
         box = gtk.VBox()
 
-        self.sequence_view = controlseq.SequenceView()
+        self.sequence_view = controlseq.SequenceView(show_init_state=True)
         self.sequence_view.set_size_request(130, 100)
         self.simulation.sequence.view = self.sequence_view
         self.sequence_view.connect_view("cursor-changed",

@@ -134,9 +134,11 @@ class ControlSequence:
 
 class SequenceView(gtkutils.SimpleList):
 
-    def __init__(self, sequence=None):
+    def __init__(self, sequence=None, show_init_state=None):
         gtkutils.SimpleList.__init__(
             self, (("P", str), ("Action|markup", str), ("Arg", str)))
+        if show_init_state:
+            self.append(("", "<span background='grey'>Init</span>", ""))
         if sequence:
             self.load_sequence(sequence)
 
