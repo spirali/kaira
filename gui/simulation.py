@@ -258,9 +258,8 @@ class Simulation(EventSource):
                     self.sequence.add_transition_finish(process_id)
                     if query_reports:
                         self.query_reports(ok_callback)
-            if ok_callback:
+            if ok_callback and not query_reports:
                 ok_callback()
-
         if self.controller and self.check_ready():
             command = "FIRE {0} {1} {2}".format(transition_id, process_id, phases)
             self.state = "runnning"
