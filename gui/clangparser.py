@@ -86,21 +86,21 @@ class ClangParser():
 
     def _data_from_buffer(self):
         invisible_code = ''.join(self.invisible_code)
-        return ''.join([self.elementheader, invisible_code, self.completion.codeeditor.get_text("")])
+        return ''.join([invisible_code, self.elementheader, self.completion.codeeditor.get_text("")])
 
     def _data_from_node(self):
         headheader = self.completion.project.get_head_comment()
         headcode = self.completion.project.get_head_code()
         code = self.completion.codeeditor.get_text("")
         invisible_code = ''.join(self.invisible_code)
-        return ''.join([headheader, invisible_code, headcode, "\n", self.elementheader, "{\n", code, "}\n"])
+        return ''.join([invisible_code, headheader, headcode, "\n", self.elementheader, "{\n", code, "}\n"])
 
     def _data_from_label(self):
         headheader = self.completion.project.get_head_comment()
         headcode = self.completion.project.get_head_code()
         code = self.completion.codeeditor.get_text("")
         invisible_code = ''.join(self.invisible_code)
-        return ''.join([headheader, invisible_code, headcode, "\n", code, "\n"])
+        return ''.join([invisible_code, headheader, headcode, "\n", code, "\n"])
 
     def get_line_offset(self):
         headheader = self.completion.project.get_head_comment()
