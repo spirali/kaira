@@ -206,6 +206,10 @@ class InfoBox(gtk.EventBox):
         self.last_cursor = None
         self.show_box = True
         self.show_request = False
+        self.mouse_x = 0
+        self.mouse_y = 0
+        self.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse("black"))
+        self.label.modify_fg(gtk.STATE_NORMAL, gtk.gdk.color_parse("white"))
 
     def hide_box(self, w, e):
         self.show_box = False
@@ -218,23 +222,16 @@ class InfoBox(gtk.EventBox):
         self.delay = int(delay)
 
     def _set_window_pos(self, x, y):
-        window_x = int(x) + self.offsetx
-        window_y = int(y) + self.offsety
+        window_x = int(x)
+        window_y = int(y)
+        box_w, box_h = self.label.size_request()
+        window_x -= box_w / 2
+        window_y -= box_h + 15
 
         if window_x  < 0:
             window_x = 0
         if window_y < 0:
-            window_y = 0
-
-        box_w, box_h = self.size_request()
-        visible_rect = self.completion.codeeditor.view.get_visible_rect()
-
-        if window_x + box_w > visible_rect.width:
-            window_x = window_x - box_w - self.offsetx * 2
-
-        if window_y + box_h > visible_rect.height:
-            window_y = window_y - box_h - self.offsety * 2
-
+            window_y += box_h + 25
         self.completion.view.move_child(self, window_x, window_y)
 
     def mouse_move(self, view, e):
@@ -243,6 +240,8 @@ class InfoBox(gtk.EventBox):
         line = iter.get_line() + 1
         col = iter.get_line_offset()
         cursor = self.completion.get_cursor(line,col)
+        self.mouse_x = e.x
+        self.mouse_y = e.y
 
         def is_valid_cursor():
             if not (cursor.kind.is_invalid() or cursor.kind.is_unexposed() or cursor.kind.is_statement()):
@@ -254,11 +253,12 @@ class InfoBox(gtk.EventBox):
             if not message:
                 message = self._info_from_cursor(cursor)
             self.change_text(message)
-            self.show_all()
 
         def _prepare_box(message = None):
             if self.show_box:
                 _fill_box(self.last_cursor, message)
+                self._set_window_pos(self.mouse_x, self.mouse_y)
+                self.show_all()
             else:
                 self.hide_all()
             self.show_request = False
@@ -266,7 +266,6 @@ class InfoBox(gtk.EventBox):
 
         def request_show_box(message = None):
             self.show_box = True
-            self._set_window_pos(e.x, e.y)
             self.hide_all()
             if self.show_request is False:
                     self.show_request = True
@@ -626,7 +625,6 @@ class Completion(gobject.GObject):
             self.parse_source_code()
 
     def mouse_click(self, w, e):
-        x,y = self.view.window_to_buffer_coords(gtk.TEXT_WINDOW_TEXT,int(e.x),int(e.y))
         if gtk.keysyms.Control_L in self.keymap.keys and e.button == 1:
             self.goto_declaration(None)
             self.keymap.remove_all()
@@ -644,7 +642,7 @@ class Completion(gobject.GObject):
 
                     if file == self.clang.file:
                         line = location.line - self.clang.get_header_line_offset()
-                        column = location.column - 1 # TODO: changed from +1 to -1??  
+                        column = location.column - 1 # TODO: changed from +1 to -1?? clang cisluje od 1 
                         if line > 0 and self.clang.type == "header":
                             self.codeeditor.jump_to_position(("", line - 5, column))
                         elif line > 0:
@@ -785,10 +783,7 @@ class Completion(gobject.GObject):
                     self.clang.reparse()
                     self._show_code_errors()
                 else:
-                    import time
-                    t1 = time.time()
                     self.clang.reparse()
-                    print "time:",(time.time() - t1)
                     self._show_code_errors()
             except Exception,e:
                 self.app.window.console.write(e,"normal")
@@ -798,7 +793,6 @@ class Completion(gobject.GObject):
         self.codeErrorList.clear()
 
         for d in self.tu.diagnostics:
-            print d
             if d.severity == 3:
                 location = d.location
                 info = d.spelling
@@ -865,7 +859,6 @@ class Completion(gobject.GObject):
                             context.add_proposals(self.provider,[],True)
                             return
                 self.results = self.format_results(results)
-                print "proposals: ",len(self.results)
             else:
                 self.results = []
 
