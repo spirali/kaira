@@ -10,36 +10,27 @@
 
 namespace ca {
 
-class PackerStream : public std::stringstream {
-
-	public:
-
-	template <typename T>
-	std::stringstream & operator<<(const T &a)
-	{
-		std::cout << "ahoj" << std::endl;
-		return *this;
-	}
-};
-
 class Caobuf : public std::streambuf {
 	private:
 		Packer * packer;
+		size_t offset_beg;
 
 		Caobuf(Caobuf &caobuf);
 		Caobuf& operator=(Caobuf &caobuf);
 
 		void set_buffer();
-		void reserve();
+
+		void update_size();
+		size_t count_buffer_size();
 
 		int_type overflow(int input);
-		int sync();
 
 	public:
 		Caobuf(Packer * packer);
 		~Caobuf();
 
 		Packer * get_packer();
+		int sync();
 };
 
 class Caibuf : public std::streambuf {
@@ -50,8 +41,6 @@ class Caibuf : public std::streambuf {
 		Caibuf& operator=(Caibuf &caibuf);
 
 		std::streambuf::int_type underflow();
-		std::streamsize xsgetn(char* s, std::streamsize n);
-		int sync();
 
 	public:
 		Caibuf(Unpacker * unpacker);
