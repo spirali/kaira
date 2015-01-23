@@ -21,6 +21,7 @@
 import clang.cindex as clang
 from ptp import base
 import os
+from warnings import catch_warnings
 
 libraryPath = "/usr/lib/x86_64-linux-gnu"
 tempfilepath = "/tmp/"
@@ -67,7 +68,17 @@ class ClangParser():
         return lines.count("\n")
 
     def _load_header(self):
-        header = self.completion.project.get_generator().get_header()
+        generator = None
+        #TODO:specific exception PtpException
+        try:
+            generator = self.completion.project.get_generator()
+        except Exception, e:
+            print e
+        
+        header = ""
+        if generator:
+            header = generator.get_header()
+
         lines = header.split("\n")
         head = ""
         con = None
