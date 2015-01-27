@@ -104,6 +104,10 @@ Caostream::~Caostream()
 {
 	delete this->caobuf;	// synchronizes the buffer
 }
+void Caostream::sync()
+{
+	this->caobuf->sync();	// synchronizes the buffer
+}
 
 Caistream::Caistream(Unpacker* unpacker)
 {

@@ -4,7 +4,6 @@
 
 #include <ios>
 #include <sstream>
-#include <iostream>
 
 #include "packing.h"
 
@@ -55,6 +54,8 @@ class Caostream : public std::ostream {
 	public:
 		Caostream(Packer* packer);
 		~Caostream();
+
+		void sync();
 };
 
 class Caistream : public std::istream {
