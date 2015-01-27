@@ -2,7 +2,7 @@
 
 using namespace ca;
 
-Caobuf::Caobuf(Packer * packer) : packer(packer)
+Caobuf::Caobuf(Packer* packer) : packer(packer)
 {
 	this->offset_beg = packer->get_size();	// get offset from the buffer beginning
 	packer->move(sizeof(size_t));			// reserve space for stream buffer length
@@ -73,17 +73,17 @@ int Caobuf::sync()	// synchronizes the buffer position in Packer, which also res
 	}
 }
 
-Packer * Caobuf::get_packer()
+Packer* Caobuf::get_packer()
 {
 	return this->packer;
 }
 
-Caibuf::Caibuf(Unpacker * unpacker) : unpacker(unpacker)
+Caibuf::Caibuf(Unpacker* unpacker) : unpacker(unpacker)
 {
 	size_t buffer_size;
 	unpacker->direct_unpack(buffer_size);
 
-	char * buffer_beg = static_cast<char*>(unpacker->peek());
+	char* buffer_beg = static_cast<char*>(unpacker->peek());
 
 	setg(buffer_beg, buffer_beg, buffer_beg + buffer_size);
 
@@ -93,4 +93,24 @@ Caibuf::Caibuf(Unpacker * unpacker) : unpacker(unpacker)
 std::streambuf::int_type Caibuf::underflow()
 {
 	return EOF;
+}
+
+Caostream::Caostream(Packer* packer)
+{
+	this->caobuf = new Caobuf(packer);
+	this->rdbuf(this->caobuf);
+}
+Caostream::~Caostream()
+{
+	delete this->caobuf;	// synchronizes the buffer
+}
+
+Caistream::Caistream(Unpacker* unpacker)
+{
+	this->caibuf = new Caibuf(unpacker);
+	this->rdbuf(this->caibuf);
+}
+Caistream::~Caistream()
+{
+	delete this->caibuf;
 }
