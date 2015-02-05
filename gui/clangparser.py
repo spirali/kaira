@@ -21,18 +21,17 @@
 import clang.cindex as clang
 from ptp import base
 import os
-from warnings import catch_warnings
 
-libraryPath = "/usr/lib/x86_64-linux-gnu"
-tempfilepath = "/tmp/"
-tempfilename = "kairaclangtemp.cpp"
+library_path = "/usr/lib/x86_64-linux-gnu"
+temp_file_path = "/tmp/"
+temp_file_name = "kairaclangtemp.cpp"
 
-if os.path.exists(tempfilepath):
-    if not os.path.isfile(tempfilepath + tempfilename):
-        file(tempfilepath+tempfilename,"w+",1)
+if os.path.exists(temp_file_path):
+    if not os.path.isfile(temp_file_path + temp_file_name):
+        file(temp_file_path + temp_file_name, "w+", 1)
 
 if not clang.Config.loaded:
-    clang.Config.set_library_file(libraryPath + "/libclang.so.1")
+    clang.Config.set_library_file(library_path + "/libclang.so.1")
 
 class ClangParser():
 
@@ -43,14 +42,19 @@ class ClangParser():
         self.args = ["-I" + self.completion.project.get_directory()]
         self.tu = None
         self.options = (clang.TranslationUnit.PARSE_PRECOMPILED_PREAMBLE |
-		       clang.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD |
                        clang.TranslationUnit.PARSE_INCLUDE_BRIEF_COMMENTS_IN_CODE_COMPLETION |
                        clang.TranslationUnit.PARSE_CACHE_COMPLETION_RESULTS)
-        self.parseFunction = None
+
+        def default_parsing_func():
+            raise Exception("No parsing function found")
+
+        self.parse_function = default_parsing_func
         self.element = None
-        self.elementheader = None
-        self.invisible_code = ["#include \""+os.path.join(base.paths.KAIRA_ROOT,base.paths.CAILIE_INCLUDE_DIR,"cailie.h") + "\"\n"]
-        self.lineoffset = 1
+        self.element_header = None
+        self.invisible_code = ["#include \"" +
+                               os.path.join(base.paths.KAIRA_ROOT,base.paths.CAILIE_INCLUDE_DIR, "cailie.h")
+                               + "\"\n"]
+        self.line_offset = 1
         self.data = None
         self.file = None
         self.type = None
@@ -61,120 +65,119 @@ class ClangParser():
         return ''.join(self.invisible_code)
 
     def get_header_line_offset(self):
-        return self.lineoffset
+        return self.line_offset
 
     def get_invisible_code_line_count(self):
         lines = ''.join(self.invisible_code)
         return lines.count("\n")
 
     def _load_header(self):
-        generator = None
         #TODO:specific exception PtpException
+        header = None
         try:
             generator = self.completion.project.get_generator()
+            header = generator.get_param_struct()
         except Exception, e:
-            print e
-        
-        header = ""
-        if generator:
-            header = generator.get_header()
+            self.completion.app.window.console.write(e.message, "error")
 
-        lines = header.split("\n")
-        head = ""
-        con = None
-        for l in lines:
-            if l.startswith("#line 1 \"*head\""):
-                break
-            elif l.startswith("struct"):
-                head += l + "\n"
-                con = True
-            else:
-                if con:
-                    head += l + "\n"
-
-        self.invisible_code.append(head + "\n")
-        self.lineoffset += head.count("\n") + 1
+        if header:
+            self.invisible_code.append(header + "\n")
+            self.line_offset += header.count("\n") + 1
 
     def _data_from_buffer(self):
+        #code for head
         invisible_code = ''.join(self.invisible_code)
-        return ''.join([invisible_code, self.elementheader, self.completion.codeeditor.get_text("")])
+        return ''.join([invisible_code, self.element_header, self.completion.code_editor.get_text("")])
 
     def _data_from_node(self):
-        headheader = self.completion.project.get_head_comment()
-        headcode = self.completion.project.get_head_code()
-        code = self.completion.codeeditor.get_text("")
+        #code for place or transition
+        header_comment = self.completion.project.get_head_comment()
+        head_code = self.completion.project.get_head_code()
+        code = self.completion.code_editor.get_text("")
         invisible_code = ''.join(self.invisible_code)
-        return ''.join([invisible_code, headheader, headcode, "\n", self.elementheader, "{\n", code, "}\n"])
+        return ''.join([invisible_code, header_comment, head_code,
+                        "\n", self.element_header, "{\n", code, "}\n"])
 
     def _data_from_label(self):
-        headheader = self.completion.project.get_head_comment()
-        headcode = self.completion.project.get_head_code()
-        code = self.completion.codeeditor.get_text("")
+        #code for Type attribute in place node
+        header_comment = self.completion.project.get_head_comment()
+        head_code = self.completion.project.get_head_code()
+        code = self.completion.code_editor.get_text("")
         invisible_code = ''.join(self.invisible_code)
-        return ''.join([invisible_code, headheader, headcode, "\n", code, "\n"])
+        return ''.join([invisible_code, header_comment, head_code, "\n", code, "\n"])
 
     def get_line_offset(self):
-        headheader = self.completion.project.get_head_comment()
-        headcode = self.completion.project.get_head_code()
-        allhead = headheader + headcode
-        lineoffset = allhead.count("\n")
-        return lineoffset
+        head_comment = self.completion.project.get_head_comment()
+        head_code = self.completion.project.get_head_code()
+        all_head = head_comment + head_code
+        line_offset = all_head.count("\n")
+        return line_offset
 
     def set_line_offset(self, offset):
-        self.lineoffset += offset
+        self.line_offset += offset
 
     def set_type(self, header, element = None):
         if header and not element:
-            self.elementheader = header
-            self.parseFunction = self._data_from_buffer
+            self.element_header = header
+            self.parse_function = self._data_from_buffer
             self.type = "header"
         elif header and element:
             self.element = element
-            self.elementheader = header
-            self.parseFunction = self._data_from_node
+            self.element_header = header
+            self.parse_function = self._data_from_node
             self.set_line_offset(self.get_line_offset() + 1)
             self.type = "node"
         elif not header and not element:
-            self.parseFunction = self._data_from_label
+            self.parse_function = self._data_from_label
             self.set_line_offset(self.get_line_offset() + 1)
             self.type = "type"
 
     def get_file_and_data(self):
-        file = tempfilepath+tempfilename
-        data = self.parseFunction()
+        file = ""
+        data = ""
+
+        try:
+            file = temp_file_path + temp_file_name
+            data = self.parse_function()
+        except Exception, e:
+            data = ""
+            self.completion.app.window.console.write(e.message + "\n", "error")
         return file, data
 
     def parse(self):
         self.file,self.data = self.get_file_and_data()
-        unsavedFiles = [(self.file,self.data)]
-        self.tu = self.index.parse(self.file,self.args,unsavedFiles,self.options)
+        unsaved_files = [(self.file, self.data)]
+        self.tu = self.index.parse(self.file, self.args, unsaved_files, self.options)
         return self.tu
 
     def reparse(self):
         if self.tu:
-            self.file,self.data = self.get_file_and_data()
-            unsavedFiles = [(self.file,self.data)]
-            self.tu.reparse(unsavedFiles,options = self.options)
+            self.file, self.data = self.get_file_and_data()
+            unsavedFiles = [(self.file, self.data)]
+            self.tu.reparse(unsavedFiles, options = self.options)
 
     def reparse_tu(self, data):
         if self.tu:
-            unsavedFiles = [(self.file,data)]
-            self.tu.reparse(unsavedFiles,self.options)
+            unsavedFiles = [(self.file, data)]
+            self.tu.reparse(unsavedFiles, self.options)
 
     def get_translation_unit(self):
         return self.tu
 
     def code_complete(self, line, col):
         if self.tu and self.data and self.file:
-            unsavedFiles = [(self.file,self.data)]
+            unsaved_files = [(self.file, self.data)]
 
             if line > 0 and col > 0:
-                return self.tu.codeComplete(self.file,line + self.lineoffset,col,unsavedFiles,False,True,False) #macros,snippets,brief comments
+                #macros,snippets,brief comments
+                return self.tu.codeComplete(self.file, line + self.line_offset,
+                                             col, unsaved_files, False, True, True)
             else:
                 return None
         else:
             self.completion.parse_source_code()
-            unsavedFiles = [(self.file,self.data)]
+            unsaved_files = [(self.file, self.data)]
 
             if line > 0 and col > 0:
-                return self.tu.codeComplete(self.file,line + self.lineoffset,col,unsavedFiles,False,True,False)
+                return self.tu.codeComplete(self.file, line + self.line_offset,
+                                             col, unsaved_files, False, True, True)
