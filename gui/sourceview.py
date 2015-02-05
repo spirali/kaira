@@ -24,7 +24,7 @@ import gtk
 class View(gtksource.View):
 
     def __init__(self, buffer = None):
-        gtksource.View.__init__(self,buffer)
+        gtksource.View.__init__(self, buffer)
         self.buffer = buffer
-        self.codeCompletion = None
+        self.code_completion = None
         self.set_wrap_mode(gtk.WRAP_CHAR)
