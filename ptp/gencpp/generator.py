@@ -85,6 +85,11 @@ class CppGenerator:
         build.write_header_file(builder)
         return builder.get_string()
 
+    def get_param_struct(self):
+        builder = build.Builder(self.project)
+        build.write_parameters_forward(builder)
+        return builder.get_string() 
+
     def write_header_file(self, directory):
         builder = build.Builder(self.project, self.get_filename(directory, ".h"))
         build.write_header_file(builder)
