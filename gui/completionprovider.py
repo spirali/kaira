@@ -26,32 +26,48 @@ import gtksourceview2 as gtksource
 import time
 import cProfile
 
-class CompletionProvider(gobject.GObject,gtksource.CompletionProvider):
+class CompletionProvider(gobject.GObject, gtksource.CompletionProvider):
 
     def __init__(self, completion):
         gobject.GObject.__init__(self)
         self.completion = completion
+        self.proposals_count = 0
 
     def do_match(self, context):
         return True
 
-    def do_get_info_widget(self, w):
-        win = self.completion.completion.get_info_window()
-        wid = win.get_widget()
-        wid.set_text(w.get_property("info"))
-        return wid
+    def set_proposals_count(self, value):
+        self.proposals_count = value 
+
+    def do_get_info_widget(self, proposal):
+        window = self.completion.completion.get_info_window()
+        window.props.default_width = 100
+        window.props.shrink_width = False
+        window.props.default_height = 60
+        window.props.shrink_height = False
+
+        label = window.get_widget()
+        info_text = proposal.get_text()
+
+#         place_holders = proposal.get_placeholders()
+#         if place_holders:
+#             info_text += "\nPlaceholders: "
+#             for i in range(1, len(place_holders) - 1):
+#                 ph = place_holders[i]
+#                 info_text += ph
+
+        label.set_text(info_text)
+        return label
 
     def do_activate_proposal(self, proposals, iter):
-        self.completion.item_selected(iter,proposals)
+        self.completion.item_selected(iter, proposals)
 
     def do_get_name(self):
-        return "All Proposals"
+        return "All Proposals - count " + str(self.proposals_count)
 
     def do_populate(self, context):
         if context.get_activation() == gtksource.COMPLETION_ACTIVATION_USER_REQUESTED:
-            firsttime = time.time()
-            #cProfile.runctx("self.completion.getProposals(context)", globals(), locals(),sort = 1)
+            #cProfile.runctx("self.completion.get_proposals(context)", globals(), locals(),sort = 1)
             self.completion.get_proposals(context)
-            secondtime = time.time()
 
 gobject.type_register(CompletionProvider)
