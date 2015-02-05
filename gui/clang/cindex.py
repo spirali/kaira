@@ -1963,6 +1963,9 @@ class CodeCompletionResults(ClangObject):
     def results(self):
         return self.ptr.contents
 
+    def context(self):
+        return conf.lib.clang_codeCompleteGetContexts(self)
+
     @property
     def diagnostics(self):
         class DiagnosticsItr:
