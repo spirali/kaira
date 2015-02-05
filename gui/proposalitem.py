@@ -19,22 +19,37 @@
 
 
 import gtksourceview2 as gtksource
+import gobject
 
-class ProposalItem(gtksource.CompletionItem):
+class ProposalItem(gobject.GObject, gtksource.CompletionProposal):
 
-    def __init__(self, label, typedtext, icon):
-        gtksource.CompletionItem.__init__(self, label, typedtext, icon)
+    def __init__(self, label, text, info, icon):
+        gobject.GObject.__init__(self)
         self.placeholders = None
-        self.infotext = ""
+        self.label = label
+        self.text = text
+        self.info = info
+        self.icon = icon
 
-    def set_placeholders(self, list):
-        self.placeholders = list
+    def do_get_info(self):
+        return self.info
+
+    def do_get_label(self):
+        return self.label
+
+    def do_get_icon(self):
+        return self.icon
+
+    def do_get_text(self):
+        return self.text
 
     def get_placeholders(self):
         return self.placeholders
 
-    def set_info_text(self, text):
-        self.infotext = text
+    def set_placeholders(self, list):
+        self.placeholders = list
 
-    def get_info_text(self):
-        return self.infotext
+    def set_info(self, info):
+        self.info = info
+
+gobject.type_register(ProposalItem)
