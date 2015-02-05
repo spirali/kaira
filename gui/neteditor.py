@@ -287,6 +287,9 @@ class NetEditor(gtk.VBox):
 
     def _key_press(self, w, event):
         if gtk.gdk.keyval_name(event.keyval) == "Tab":
+            if hasattr(w, "code_complete"):
+                if w.code_complete.active_place_holder:
+                    return False
             self.focus_next_attribute()
             return True
 
@@ -563,10 +566,9 @@ class NetEditor(gtk.VBox):
         editor = self._add_attribute_code_editor(get_fn, set_fn)
         if label.get_text() == "Type":
             import completion
-            editor.view.codeComplete = completion.Completion(editor, self.project)
+            editor.view.code_complete = completion.Completion(editor)
             editor.view.set_show_line_numbers(False)
-            editor.view.codeComplete.clang.set_type("")
-            editor.view.codeComplete.set_filter_mask(["class","namespace"])
+            editor.view.code_complete.clang.set_type("")
         else:
             return editor
         #return self._add_attribute_code_editor(get_fn, set_fn)
