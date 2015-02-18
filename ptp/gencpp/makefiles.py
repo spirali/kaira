@@ -125,7 +125,29 @@ def write_statespace_makefile(project, directory):
     config["libdir"].append(kaira_path(paths.CAVERIF_LIB_DIR))
     config["libs"].append("caverif")
     config["libs"].append("mhash")
-    makefile = prepare_program_makefile(project, config, directory)
+
+    name = project.get_name()
+    name_cpp = name + ".cpp"
+    name_mpi = name + "_mpi"
+    name_mpi_o = name + "_mpi.o"
+    other_files = [ name_mpi, name_mpi_o ]
+    makefile = prepare_program_makefile(project, config, directory, other_files)
+
+    #TODO: better solution
+    makefile.set("MPIVERIFLIBS",
+                 " ".join(s for s in [ "-lcaverifmpi -lmhash" ])
+                 + " -lcailie -lpthread -lrt ")
+
+    makefile.rule("mpi", [ name_mpi ], phony=True)
+
+    other_deps = get_other_dependancies(project, directory)
+    deps_mpi = [ name_mpi_o ] + other_deps
+
+    makefile.rule(name_mpi, deps_mpi, "$(MPICXX) -DCA_MPI " + " ".join(deps_mpi)
+        + " -o $@ $(CFLAGS) $(INCLUDE) $(LIBDIR) $(MPIVERIFLIBS)")
+    makefile.rule(name_mpi_o, [ name_cpp ],
+        "$(MPICXX) -DCA_MPI $(CFLAGS) $(INCLUDE) -c {0} -o {1}".format(name_cpp, name_mpi_o))
+
     makefile.write_to_file(os.path.join(directory, "makefile"))
 
 def write_simrun_makefile(project, directory):

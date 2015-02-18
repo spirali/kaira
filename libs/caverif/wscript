@@ -10,3 +10,11 @@ def build(ctx):
               target="caverif",
               includes="../cailie",
               name="caverif")
+    if ctx.env.HAVE_MPI:
+        env = ctx.all_envs["mpi"]
+        ctx.stlib(source=source_files,
+                  target="caverifmpi",
+                  includes="../cailie",
+                  cxxflags="-DCA_MPI",
+                  name="caverifmpi",
+                  env=env)
