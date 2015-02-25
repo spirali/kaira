@@ -25,8 +25,8 @@ def write_pack_fixed_size(builder, typename, expr):
     builder.line("ca::Packer $packer($size);")
     builder.line("$packer << {0};", expr)
     builder.if_begin("$packer.get_size() > $size")
-    builder.line("fprintf(stderr, \"Type '{0}' has fixed size %lu,"
-                 "but %lu bytes was packed.\\n\", $size, $packer.get_size());", typename)
+    builder.line("fprintf(stderr, \"Type '{0}' has fixed size %u,"
+                 "but %u bytes was packed.\\n\", $size, $packer.get_size());", typename)
     builder.line("exit(1);")
     builder.block_end()
 
@@ -40,7 +40,7 @@ def write_scatter_root(builder, tr, inscription):
     # Check size of vector
     builder.line("int $process_count = $thread->get_process_count();")
     builder.if_begin("$value.size() != $process_count")
-    builder.line("fprintf(stderr, \"[scatter] Invalid size of vector (expected=%i, got=%lu)\\n\","
+    builder.line("fprintf(stderr, \"[scatter] Invalid size of vector (expected=%i, got=%u)\\n\","
                     "$process_count, $value.size());")
     builder.line("exit(1);")
     builder.block_end()
@@ -105,7 +105,7 @@ def write_scatter_nonroot(builder, tr, inscription):
     builder.line("size_t $size = ca::fixed_size<{0} >();", inscription.type)
     builder.line("void *$mem = malloc($size * $thread->get_process_count());")
     builder.line("$thread->collective_scatter_nonroot({0.id}, $root, $mem, $size);", tr)
-    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("ca::Unpacker $unpacker($mem, $size * $thread->get_process_count());")
     builder.line("$unpacker >> $token->value;")
     builder.line("free($mem);")
     builder.write_else()
@@ -114,7 +114,7 @@ def write_scatter_nonroot(builder, tr, inscription):
     builder.line("$thread->collective_scatter_nonroot({0.id}, $root, &$size, sizeof(int));", tr)
     builder.line("void *$mem = malloc($size);")
     builder.line("$thread->collective_scatterv_nonroot({0.id}, $root, $mem, $size);", tr)
-    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("ca::Unpacker $unpacker($mem, $size);")
     builder.line("$unpacker >> $token->value;")
     builder.line("free($mem);")
     builder.block_end()
@@ -134,7 +134,7 @@ def write_phase1_scatter_preinit(builder, tr, inscription):
     buildnet.write_unpack_binding(builder, tr, builder.expand("$rbinding"))
     builder.line("const std::vector<{0.type} > &$ccdata = {0.expr};", inscription)
     builder.if_begin("$ccdata.size() != $thread->get_process_count()")
-    builder.line("fprintf(stderr, \"Invalid number of scattered elements (%lu)\\n\","
+    builder.line("fprintf(stderr, \"Invalid number of scattered elements (%u)\\n\","
                  "$ccdata.size());")
     builder.line("exit(1);")
     builder.block_end()
@@ -163,7 +163,7 @@ def write_gather_root(builder, tr, inscription):
     builder.line("$thread->collective_gather_root({0.id}, $packer.get_buffer(), $size, $mem);",
                  tr, inscription)
     builder.line("$packer.free();")
-    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("ca::Unpacker $unpacker($mem, $size * $thread->get_process_count());")
     builder.line("ca::unpack_with_step($unpacker,"
                  "$token->value, $size, $thread->get_process_count());")
 
@@ -182,7 +182,7 @@ def write_gather_root(builder, tr, inscription):
     builder.block_end()
     builder.line("void *$mem = malloc($displs[$process_count]);")
     builder.line("$thread->collective_gatherv_root({0.id}, &$size, 0, $mem, $sizes, $displs);", tr)
-    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("ca::Unpacker $unpacker($mem, $displs[$process_count]);")
     builder.line("int $process_id = $thread->get_process_id();")
     builder.line("ca::unpack_with_displs($unpacker, $token->value, $process_id, $displs);")
     builder.line("$token->value.push_back({0});", inscription.expr);
@@ -296,7 +296,7 @@ def write_bcast_nonroot(builder, tr, inscription):
     builder.line("size_t $size = ca::fixed_size<{0} >();", inscription.type)
     builder.line("void *$mem = malloc($size * $thread->get_process_count());")
     builder.line("$thread->collective_bcast_nonroot({0.id}, $root, $mem, $size);", tr)
-    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("ca::Unpacker $unpacker($mem, $size * $thread->get_process_count());")
     builder.line("$unpacker >> $token->value;")
     builder.line("free($mem);")
     builder.write_else()
@@ -305,7 +305,7 @@ def write_bcast_nonroot(builder, tr, inscription):
     builder.line("$thread->collective_bcast_nonroot({0.id}, $root, &$size, sizeof(int));", tr)
     builder.line("void *$mem = malloc($size);")
     builder.line("$thread->collective_bcast_nonroot({0.id}, $root, $mem, $size);", tr)
-    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("ca::Unpacker $unpacker($mem, $size);")
     builder.line("$unpacker >> $token->value;")
     builder.line("free($mem);")
     builder.block_end()
@@ -349,7 +349,7 @@ def write_allgather(builder, tr, inscription):
     builder.line("$thread->collective_allgather({0.id}, $packer.get_buffer(), $size, $mem);",
                  tr, inscription)
     builder.line("$packer.free();")
-    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("ca::Unpacker $unpacker($mem, $size * $thread->get_process_count());")
     builder.line("ca::unpack_with_step($unpacker,"
                  "$token->value, $size, $thread->get_process_count());")
 
@@ -368,7 +368,7 @@ def write_allgather(builder, tr, inscription):
     builder.block_end()
     builder.line("void *$mem = malloc($displs[$process_count]);")
     builder.line("$thread->collective_allgatherv({0.id}, &$size, 0, $mem, $sizes, $displs);", tr)
-    builder.line("ca::Unpacker $unpacker($mem);")
+    builder.line("ca::Unpacker $unpacker($mem, $displs[$process_count]);")
     builder.line("int $process_id = $thread->get_process_id();")
     builder.line("ca::unpack_with_displs($unpacker, $token->value, $process_id, $displs);")
     builder.line("$token->value.push_back({0});", inscription.expr);
