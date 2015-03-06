@@ -25,8 +25,8 @@ def write_pack_fixed_size(builder, typename, expr):
     builder.line("ca::Packer $packer($size);")
     builder.line("$packer << {0};", expr)
     builder.if_begin("$packer.get_size() > $size")
-    builder.line("fprintf(stderr, \"Type '{0}' has fixed size %u,"
-                 "but %u bytes was packed.\\n\", $size, $packer.get_size());", typename)
+    builder.line("fprintf(stderr, \"Type '{0}' has fixed size %zu,"
+                 "but %zu bytes was packed.\\n\", $size, $packer.get_size());", typename)
     builder.line("exit(1);")
     builder.block_end()
 
@@ -40,7 +40,7 @@ def write_scatter_root(builder, tr, inscription):
     # Check size of vector
     builder.line("int $process_count = $thread->get_process_count();")
     builder.if_begin("$value.size() != $process_count")
-    builder.line("fprintf(stderr, \"[scatter] Invalid size of vector (expected=%i, got=%u)\\n\","
+    builder.line("fprintf(stderr, \"[scatter] Invalid size of vector (expected=%i, got=%zu)\\n\","
                     "$process_count, $value.size());")
     builder.line("exit(1);")
     builder.block_end()
@@ -134,7 +134,7 @@ def write_phase1_scatter_preinit(builder, tr, inscription):
     buildnet.write_unpack_binding(builder, tr, builder.expand("$rbinding"))
     builder.line("const std::vector<{0.type} > &$ccdata = {0.expr};", inscription)
     builder.if_begin("$ccdata.size() != $thread->get_process_count()")
-    builder.line("fprintf(stderr, \"Invalid number of scattered elements (%u)\\n\","
+    builder.line("fprintf(stderr, \"Invalid number of scattered elements (%zu)\\n\","
                  "$ccdata.size());")
     builder.line("exit(1);")
     builder.block_end()
