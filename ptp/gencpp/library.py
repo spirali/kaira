@@ -19,7 +19,6 @@
 
 import build
 import buildnet
-import writer
 
 def write_library_functions(builder):
     for net in builder.project.nets:
@@ -70,7 +69,7 @@ def write_library_init_function(builder):
 
 def write_library_function(builder, net, rpc=False):
     if rpc:
-        args = builder.expand("void *$data, ca::Packer &$packer")
+        args = builder.expand("void *$data, size_t $size, ca::Packer &$packer")
     else:
         args = get_library_function_declaration(net)
 
@@ -78,7 +77,7 @@ def write_library_function(builder, net, rpc=False):
     builder.block_begin()
 
     if rpc:
-        builder.line("ca::Unpacker $unpacker($data);")
+        builder.line("ca::Unpacker $unpacker($data, $size);")
 
     builder.line("ca::spawn_net({0});", net.get_index())
     builder.line("Net_{0} *$n = (Net_{0}*)ca::get_main_net();", net.id)

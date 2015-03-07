@@ -52,7 +52,7 @@ void CaClient::run()
 		}
 
 		ca::Packer packer(ca::PACKER_DEFAULT_SIZE, sizeof(size_t));
-	        functions[header.fn].call(buffer, packer);
+		functions[header.fn].call(buffer, header.size, packer);
 		delete [] buffer;
 
 		size_t *h = (size_t*) packer.get_buffer();

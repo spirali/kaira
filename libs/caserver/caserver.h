@@ -8,7 +8,7 @@
 
 namespace caserver {
 
-	typedef void (CaPublicFn)(void *, ca::Packer&);
+	typedef void (CaPublicFn)(void *, size_t, ca::Packer&);
 
 	class CaPublicFunction {
 		public:
@@ -24,8 +24,8 @@ namespace caserver {
 				return definition;
 			}
 
-			void call(void *buffer, ca::Packer &packer) const {
-				fn(buffer, packer);
+			void call(void *buffer, size_t size, ca::Packer &packer) const {
+				fn(buffer, size, packer);
 			}
 
 		private:
