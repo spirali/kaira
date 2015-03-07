@@ -29,7 +29,7 @@ bool Process::process_packet(Thread *thread, int from_process, int tag, void *da
 		too_early_message.push_back(msg);
 		return false;
 	}
-	Unpacker unpacker(tokens + 1);
+	Unpacker unpacker(tokens + 1, 0); // ?
 	Net *n = net;
 	TraceLog *tracelog = thread->get_tracelog();
 	if (tracelog) {

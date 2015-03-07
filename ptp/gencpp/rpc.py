@@ -58,8 +58,10 @@ def write_client_library_function(builder, net):
     for place in net.get_input_places():
         builder.line("ca::pack($packer, {0.interface_input});", place)
 
-    builder.line("ca::Unpacker $unpacker = client.call(${0}_id, $packer);", net.name)
-
+    builder.line("void *$data;")
+    builder.line("size_t $size;")
+    builder.line("client.call(${0}_id, $packer, &$data, &$size);", net.name)
+    builder.line("ca::Unpacker $unpacker($data, $size);")
     for place in net.get_output_places():
         builder.line("ca::unpack($unpacker, {0.interface_output});", place)
 

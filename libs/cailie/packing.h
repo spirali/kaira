@@ -49,11 +49,12 @@ template<typename T> void unpack(Unpacker &unpacker, T &value) {
 class Unpacker {
 
 	public:
-		Unpacker(): buffer_pos(NULL), buffer(NULL) {}
+		Unpacker(): buffer_pos(NULL), buffer(NULL), size(0) {}
 
-		Unpacker(void *mem) {
+		Unpacker(void *mem, size_t size) {
 			buffer_pos = static_cast<char*>(mem);
 			buffer = static_cast<char*>(mem);
+			this->size = size;
 		}
 
 		template<typename T> void direct_unpack(T &value) {
@@ -85,6 +86,10 @@ class Unpacker {
 			buffer_pos += size;
 		}
 
+		size_t get_size() const {
+			return size;
+		}
+
 		template<typename T> void unpack_aligned(T &value, size_t align) {
 			char *pos = buffer_pos + align;
 			unpack(*this, value);
@@ -104,6 +109,7 @@ class Unpacker {
 	protected:
 		char *buffer_pos;
 		char *buffer;
+		size_t size;
 };
 
 const size_t PACKER_DEFAULT_SIZE = 4000;
@@ -140,6 +146,10 @@ class Packer {
 
 		size_t get_size() const {
 			return buffer_pos - buffer;
+		}
+
+		size_t get_reserved_size() const {
+			return size;
 		}
 
 		char * get_buffer() const {

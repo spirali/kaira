@@ -1,5 +1,6 @@
 
 source_files =  (
+    "cabuf.cpp",
     "cailie.cpp",
     "process.cpp",
     "thread.cpp",
