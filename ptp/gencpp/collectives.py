@@ -45,7 +45,7 @@ def write_scatter_root(builder, tr, inscription):
     builder.line("exit(1);")
     builder.block_end()
 
-    builder.if_begin("ca::is_trivially_packable<{0}>()", inscription.type)
+    builder.if_begin("ca::is_trivially_packable<{0} >()", inscription.type)
     # Trivially packable
     builder.line("$thread->collective_scatter_root({0.id}, &$value[0], sizeof({1.type}));",
         tr, inscription)
@@ -97,7 +97,7 @@ def write_scatter_nonroot(builder, tr, inscription):
     builder.line("ca::Token<{0.type} > *$token = new ca::Token<{0.type} >;",
             inscription.edge.place)
 
-    builder.if_begin("ca::is_trivially_packable<{0}>()", inscription.type)
+    builder.if_begin("ca::is_trivially_packable<{0} >()", inscription.type)
     # Trivially packable
     builder.line("$thread->collective_scatter_nonroot({0.id}, $root, &$token->value, $size);", tr)
     builder.else_if("ca::fixed_size<{0} >() != 0", inscription.type)
@@ -251,7 +251,7 @@ def write_bcast_root(builder, tr, inscription):
                  inscription.edge.place,
                  inscription.expr)
 
-    builder.if_begin("ca::is_trivially_packable<{0}>()", inscription.type)
+    builder.if_begin("ca::is_trivially_packable<{0} >()", inscription.type)
     # Trivially packable
     builder.line("$thread->collective_bcast_root({0.id}, &$value, sizeof({1.type}));",
         tr, inscription)
@@ -288,7 +288,7 @@ def write_bcast_nonroot(builder, tr, inscription):
     builder.line("ca::Token<{0.type} > *$token = new ca::Token<{0.type} >;",
             inscription.edge.place)
 
-    builder.if_begin("ca::is_trivially_packable<{0}>()", inscription.type)
+    builder.if_begin("ca::is_trivially_packable<{0} >()", inscription.type)
     # Trivially packable
     builder.line("$thread->collective_bcast_nonroot({0.id}, $root, &$token->value, $size);", tr)
     builder.else_if("ca::fixed_size<{0} >() != 0", inscription.type)
