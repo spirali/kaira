@@ -105,7 +105,8 @@ int ca::Process::process_packets(Thread *thread)
 		thread->process_thread_messages();
 		bool net_changed = false;
 		while (p) {
-			net_changed |= process_packet(thread, p->from_process, p->tag, p->data);
+			net_changed |= process_packet(
+					thread, p->from_process, p->tag, p->data, p->size);
 			ShmemPacket *next = p->next;
 			delete p;
 			p = next;

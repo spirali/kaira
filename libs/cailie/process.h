@@ -92,7 +92,7 @@ class Process {
 		void collective_barrier(int transition_id);
 
 		void process_service_message(Thread *thread, ServiceMessage *smsg);
-		bool process_packet(Thread *thread, int from_process, int tag, void *data);
+		bool process_packet(Thread *thread, int from_process, int tag, void *data, size_t size);
 		int process_packets(Thread *thread);
 
 		#ifdef CA_SHMEM
@@ -125,6 +125,7 @@ class Process {
 		struct EarlyMessage {
 			int from_process;
 			void *data;
+			size_t size;
 		};
 
 		Net *net;
