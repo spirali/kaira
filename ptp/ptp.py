@@ -23,13 +23,14 @@ target_envs = {
     "C++" : gencpp.targetenv.CppTargetEnv(),
 }
 
-def get_config(section, name):
+def get_config(section, name, raise_error=True):
     try:
         return config.get(section, name)
-    except ConfigParser.NoOptionError:
-        raise PtpException("{0}/{1} not found in config.ini\n"
-                           "It means that Kaira is not properly configured\n"
-                           "Run './waf configure' in Kaira top directory".format(section, name))
+    except ConfigParser.Error:
+        if raise_error:
+            raise PtpException("{0}/{1} not found in config.ini\n"
+                               "It means that Kaira is not properly configured\n"
+                               "Run './waf configure' in Kaira top directory".format(section, name))
 
 def get_generator_from_xml(element):
     return project.load_project(element, target_envs).get_generator()

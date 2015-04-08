@@ -25,6 +25,11 @@ def options(ctx):
                    default=False,
                    help="do not build verification subsystem")
 
+    ctx.add_option("--disable-clang",
+                   action="store_true",
+                   default=False,
+                   help="do not build clang support")
+
     ctx.add_option("--disable-doc",
                    action="store_true",
                    default=False,
@@ -33,6 +38,10 @@ def options(ctx):
     ctx.add_option("--compiler-prefix",
                     action="store",
                     default="")
+
+    ctx.add_option("--clang-path",
+                    action="store",
+                    default=None)
 
     ctx.load("compiler_cxx")
 
@@ -106,6 +115,22 @@ def configure(ctx):
                     "MPI support is disabled, because "
                     "no MPI implementation was found.")
 
+    if not ctx.options.disable_clang:
+        if ctx.options.clang_path:
+            libclang = ctx.root.find_node(ctx.options.clang_path)
+            if libclang is None:
+                 ctx.fatal("%s not found" % ctx.options.clang_path)
+        else:
+            tmp = ctx.root.ant_glob("usr/lib/**/libclang.so*", dir=True, maxdepth=3)
+            if not tmp:
+                    ctx.fatal("libclang.so not found.\n"
+                              "Use --disable-clang to disable code complete functions, or "
+                              "--clang-path=PATH to specify the path.")
+            libclang = tmp[0]
+        ctx.msg("libclang", libclang.abspath())
+    else:
+        libclang = None
+
     conffile = ctx.bldnode.make_node("config.ini")
     conffile.parent.mkdir()
     myconf = []
@@ -113,6 +138,7 @@ def configure(ctx):
     myconf.append("VERSION: " + VERSION)
     myconf.append("CXX: " + " ".join(ctx.env.CXX))
     myconf.append("OCTAVE: " + str(bool(ctx.env.MKOCTFILE)))
+    myconf.append("LIBCLANG: " + str(bool(libclang)))
     if mpi:
         myconf.append("MPICXX: " + " ".join(ctx.all_envs["mpi"].CXX))
     if ctx.env.MKOCTFILE:
@@ -126,6 +152,9 @@ def configure(ctx):
         myconf.append("INCFLAGS: " + incflags)
         myconf.append("LFLAGS: " + lflags)
         myconf.append("LIBS: " + libs)
+    if libclang:
+        myconf.append("[libclang]")
+        myconf.append("PATH: " + libclang.abspath())
     conffile.write("\n".join(myconf))
     ctx.env.append_value('cfg_files', conffile.abspath())
 

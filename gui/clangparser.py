@@ -21,6 +21,7 @@
 import clang.cindex as clang
 from ptp import base
 import os
+import ptp
 
 library_path = "/usr/lib/x86_64-linux-gnu"
 temp_file_path = "/tmp/"
@@ -30,8 +31,13 @@ if os.path.exists(temp_file_path):
     if not os.path.isfile(temp_file_path + temp_file_name):
         file(temp_file_path + temp_file_name, "w+", 1)
 
+loaded = False
 if not clang.Config.loaded:
-    clang.Config.set_library_file(library_path + "/libclang.so.1")
+    has_clang = ptp.get_config("Main", "LIBCLANG")
+    if has_clang == "True":
+        path = ptp.get_config("libclang", "path")
+        clang.Config.set_library_file(path)
+        loaded = True
 
 class ClangParser():
 
