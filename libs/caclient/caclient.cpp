@@ -108,7 +108,7 @@ void CaClient::read_data(void *buffer, size_t size)
 void CaClient::process_inital_data(void *buffer, size_t size)
 {
 	std::vector<bool> checked(functions.size(), false);
-	ca::Unpacker unpacker(buffer);
+	ca::Unpacker unpacker(buffer, size);
 	int count;
 	ca::unpack(unpacker, count);
 	for (int t = 0; t < count; t++) {
@@ -121,16 +121,17 @@ void CaClient::process_inital_data(void *buffer, size_t size)
 	}
 }
 
-void * CaClient::call(int function_id, ca::Packer arguments)
+void CaClient::call(int function_id, ca::Packer arguments, void **data, size_t *size)
 {
 	CaCallHeader *header = (CaCallHeader*) arguments.get_buffer();
 	header->fn = function_id;
 	header->size = arguments.get_size() - sizeof(CaCallHeader);
 	::send(connection_socket, header, arguments.get_size(), 0);
 	free(header);
-	size_t size;
-	read_data(&size, sizeof(size_t));
-	char *buffer = new char[size];
-	read_data(buffer, size);
-	return buffer;
+	size_t sz;
+	read_data(&sz, sizeof(size_t));
+	char *buffer = new char[sz];
+	read_data(buffer, sz);
+	*data = buffer;
+	*size = sz;
 }

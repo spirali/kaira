@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 namespace ca {
 
@@ -49,11 +50,12 @@ template<typename T> void unpack(Unpacker &unpacker, T &value) {
 class Unpacker {
 
 	public:
-		Unpacker(): buffer_pos(NULL), buffer(NULL) {}
+		Unpacker(): buffer_pos(NULL), buffer(NULL), buffer_end(NULL) {}
 
-		Unpacker(void *mem) {
+		Unpacker(void *mem, size_t size) {
 			buffer_pos = static_cast<char*>(mem);
 			buffer = static_cast<char*>(mem);
+			buffer_end = buffer_pos + size;
 		}
 
 		template<typename T> void direct_unpack(T &value) {
@@ -67,12 +69,14 @@ class Unpacker {
 		}
 
 		void *unpack_data(size_t size) {
+			assert(buffer_pos + size <= buffer_end);
 			void *p = buffer_pos;
 			buffer_pos += size;
 			return p;
 		}
 
 		void unpack_data(void *data, size_t size) {
+			assert(buffer_pos + size <= buffer_end);
 			memcpy(data, buffer_pos, size);
 			buffer_pos += size;
 		}
@@ -83,6 +87,10 @@ class Unpacker {
 
 		void move(size_t size) {
 			buffer_pos += size;
+		}
+
+		size_t get_size() const {
+			return buffer_end - buffer;
 		}
 
 		template<typename T> void unpack_aligned(T &value, size_t align) {
@@ -104,6 +112,7 @@ class Unpacker {
 	protected:
 		char *buffer_pos;
 		char *buffer;
+		char *buffer_end;
 };
 
 const size_t PACKER_DEFAULT_SIZE = 4000;
@@ -140,6 +149,10 @@ class Packer {
 
 		size_t get_size() const {
 			return buffer_pos - buffer;
+		}
+
+		size_t get_reserved_size() const {
+			return size;
 		}
 
 		char * get_buffer() const {

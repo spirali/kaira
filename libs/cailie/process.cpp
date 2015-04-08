@@ -13,7 +13,7 @@ extern size_t tracelog_size;
 
 using namespace ca;
 
-bool Process::process_packet(Thread *thread, int from_process, int tag, void *data)
+bool Process::process_packet(Thread *thread, int from_process, int tag, void *data, size_t size)
 {
 	if (tag == CA_TAG_SERVICE) {
 		process_service_message(thread, (ServiceMessage*) data);
@@ -26,10 +26,11 @@ bool Process::process_packet(Thread *thread, int from_process, int tag, void *da
 		EarlyMessage msg;
 		msg.from_process = from_process;
 		msg.data = data;
+		msg.size = size;
 		too_early_message.push_back(msg);
 		return false;
 	}
-	Unpacker unpacker(tokens + 1);
+	Unpacker unpacker(tokens + 1, size);
 	Net *n = net;
 	TraceLog *tracelog = thread->get_tracelog();
 	if (tracelog) {
@@ -79,7 +80,7 @@ void Process::process_service_message(Thread *thread, ServiceMessage *smsg)
 			if(too_early_message.size() > 0) {
 				std::vector<EarlyMessage>::const_iterator i;
 				for (i = too_early_message.begin(); i != too_early_message.end(); i++) {
-					process_packet(thread, i->from_process, CA_TAG_TOKENS, i->data);
+					process_packet(thread, i->from_process, CA_TAG_TOKENS, i->data, i->size);
 				}
 				if (too_early_message.size() > 0) {
 					TraceLog *tracelog = thread->get_tracelog();

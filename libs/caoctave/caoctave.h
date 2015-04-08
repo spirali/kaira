@@ -4,6 +4,7 @@
 #define CAOCTAVE 1
 
 #include <cailie.h>
+#include <cabuf.h>
 #include <octave/oct.h>
 #include <octave/load-save.h>
 #include <octave/ov-re-mat.h>
@@ -69,44 +70,42 @@ namespace ca {
 	CA_STREAM_TOKEN_NAME(SparseMatrix)
 
 	CA_PACK(Matrix, packer, m) {
-		std::stringstream s;
-		write_header(s, LS_BINARY);
+		Caostream os(&packer);
+		write_header(os, LS_BINARY);
 		bool flag = false;
-		octave_value(m).save_binary(s, flag);
-		pack(packer, s.str());
+		octave_value(m).save_binary(os, flag);
+
+		os.sync();
 	}
 
 	CA_UNPACK(Matrix, unpacker, m) {
-		std::string s;
-		unpacker >> s;
-		std::stringstream data(s);
+		Caistream is(&unpacker);
+
 		bool swap;
 		std::string name, doc;
 		oct_mach_info::float_format flt_fmt;
-		read_binary_file_header(data, swap, flt_fmt);
+		read_binary_file_header(is, swap, flt_fmt);
 		octave_matrix mv;
-		mv.load_binary(data,swap,flt_fmt);
+		mv.load_binary(is, swap, flt_fmt);
 		m = mv.matrix_value();
 	}
 
 	CA_PACK(SparseMatrix, packer, m) {
-		std::stringstream s;
-		write_header(s, LS_BINARY);
+		Caostream os(&packer);
+		write_header(os, LS_BINARY);
 		bool flag = false;
-		octave_value(m).save_binary(s, flag);
-		pack(packer, s.str());
+		octave_value(m).save_binary(os, flag);
+		os.sync();
 	}
 
 	CA_UNPACK(SparseMatrix, unpacker, m) {
-		std::string s;
-		unpacker >> s;
-		std::stringstream data(s);
+		Caistream is(&unpacker);
 		bool swap;
 		std::string name, doc;
 		oct_mach_info::float_format flt_fmt;
 		octave_sparse_matrix mv;
-		read_binary_file_header(data, swap, flt_fmt);
-		mv.load_binary(data,swap,flt_fmt);
+		read_binary_file_header(is, swap, flt_fmt);
+		mv.load_binary(is, swap, flt_fmt);
 		m = mv.sparse_matrix_value();
 	}
 }
