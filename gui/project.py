@@ -73,11 +73,19 @@ class Project(EventSource):
         return self.generator
 
     def get_build_config(self, name):
+        if name == "release/mpi":
+            name = "release"
+            mpi = True
+        else:
+            mpi = False
         build_config = BuildConfig()
         build_config.directory = os.path.join(self.get_directory(), name)
         build_config.project_name = self.get_name()
 
         use_build_net = True
+
+        if mpi:
+            build_config.make_args = ("mpi",)
 
         if name == "statespace":
             build_config.operation = "statespace"
@@ -323,6 +331,7 @@ class BuildConfig:
     target_env = None
     operation = None
     library = False
+    make_args = ()
 
     def get_filename(self, filename):
         return os.path.join(self.directory, filename)

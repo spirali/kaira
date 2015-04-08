@@ -129,7 +129,12 @@ class Process:
         return line
 
     def _start_process(self, params):
-        self.process = Popen([ self.filename ] + params, bufsize = 0, stdin = PIPE, stdout = PIPE, stderr = STDOUT, cwd = self.cwd)
+        self.process = Popen((self.filename,) + tuple(params),
+                             bufsize=0,
+                             stdin=PIPE,
+                             stdout=PIPE,
+                             stderr=STDOUT,
+                             cwd=self.cwd)
 
     def _start_thread(self):
         self.thread = ProcessThread(self.process, self.line_callback, self.exit_callback)

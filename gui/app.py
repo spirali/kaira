@@ -630,10 +630,7 @@ class App:
                       build_directory,
                       ok_callback=None,
                       fail_callback=None,
-                      target=None):
-        args = []
-        if target is not None:
-            args.append(target)
+                      args=()):
         self._run_build_program("make",
                                 args,
                                 build_directory,
@@ -646,10 +643,12 @@ class App:
 
         self._start_ptp(proj,
                         build_config,
-                        lambda lines: self._run_makefile(proj,
-                                                         build_config.directory,
-                                                         ok_callback,
-                                                         fail_callback),
+                        lambda lines: self._run_makefile(
+                            proj,
+                            build_config.directory,
+                            ok_callback,
+                            fail_callback,
+                            args=build_config.make_args),
                         fail_callback)
 
     def _start_ptp(self, proj, build_config, ok_callback=None, fail_callback=None):
