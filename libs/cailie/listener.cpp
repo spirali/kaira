@@ -167,12 +167,19 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 		fflush(comm_out);
 		char *s = fgets(line, LINE_LENGTH_LIMIT, comm_in);
 		if (s == NULL) {
-			return;
+			exit(0);
+		}
+		size_t t = strlen(s);
+		if (t == 0) {
+			exit(0);
+		}
+		// remove \r and \n from the end
+		t--;
+		while(t > 0 && (s[t] == '\n' || s[t] == '\r')) {
+			s[t] = 0;
+			t--;
 		}
 
-		// remove \r and \n from the end
-		size_t t = strlen(s) - 1;
-		while(t > 0 && (s[t] == '\n' || s[t] == '\r')) { s[t] = 0; t--; }
 		if (!strcmp(line, "QUIT")) {
 			exit(0);
 			return;
