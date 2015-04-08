@@ -85,10 +85,10 @@ def configure(ctx):
         # -------------- MPI ENV ----------------
         ctx.setenv("mpi", ctx.env.derive())
         if ctx.env.MPICXX:
-            ctx.env.CXX = [ ctx.env.MPICXX ]
+            ctx.env.CXX = list(ctx.env.MPICXX)
             mpi=True
         elif ctx.env.MPICC:
-            ctx.env.CXX = [ ctx.env.MPICC ]
+            ctx.env.CXX = list(ctx.env.MPICC)
             ctx.env.append_value("STLIB", "-lstdc++")
             mpi=True
         else:
@@ -117,11 +117,11 @@ def configure(ctx):
         myconf.append("MPICXX: " + " ".join(ctx.all_envs["mpi"].CXX))
     if ctx.env.MKOCTFILE:
         myconf.append("[Octave]")
-        incflags = ctx.cmd_and_log([ctx.env.MKOCTFILE, "--print", "INCFLAGS" ],
+        incflags = ctx.cmd_and_log([ctx.env.MKOCTFILE[0], "--print", "INCFLAGS" ],
                                    output=Context.STDOUT)
-        lflags = ctx.cmd_and_log([ctx.env.MKOCTFILE, "--print", "LFLAGS" ],
+        lflags = ctx.cmd_and_log([ctx.env.MKOCTFILE[0], "--print", "LFLAGS" ],
                                    output=Context.STDOUT)
-        libs = ctx.cmd_and_log([ctx.env.MKOCTFILE, "--print", "OCTAVE_LIBS" ],
+        libs = ctx.cmd_and_log([ctx.env.MKOCTFILE[0], "--print", "OCTAVE_LIBS" ],
                                    output=Context.STDOUT)
         myconf.append("INCFLAGS: " + incflags)
         myconf.append("LFLAGS: " + lflags)
