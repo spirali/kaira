@@ -213,7 +213,7 @@ class Simulation(EventSource):
             elif ok_callback:
                ok_callback()
 
-        if self.controller and self.check_ready():
+        if self.controller:
             command = "RECEIVE {0} {1}".format(process_id, origin_id)
             if query_reports:
                 self.state = "running"
