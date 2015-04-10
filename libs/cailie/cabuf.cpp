@@ -2,7 +2,7 @@
 
 using namespace ca;
 
-Caobuf::Caobuf(Packer* packer) : packer(packer)
+obuf::obuf(Packer* packer) : packer(packer)
 {
 	this->offset_beg = packer->get_size();	// get offset from the buffer beginning
 	packer->move(sizeof(size_t));			// reserve space for stream buffer length
@@ -10,12 +10,12 @@ Caobuf::Caobuf(Packer* packer) : packer(packer)
 	this->set_buffer();
 }
 
-Caobuf::~Caobuf()
+obuf::~obuf()
 {
 	this->sync();	// synchronizes and flushes the buffer
 }
 
-void Caobuf::set_buffer()
+void obuf::set_buffer()
 {
 	char * buffer = static_cast<char *>(packer->peek());
 	char * buffer_end = buffer + (packer->get_reserved_size() - packer->get_size());
@@ -31,11 +31,11 @@ void Caobuf::set_buffer()
 	setp(buffer, buffer_end - 1);	// -1 so that overflow doesn't need to be handled specially
 }
 
-size_t Caobuf::count_buffer_size()
+size_t obuf::count_buffer_size()
 {
 	return this->packer->get_size() - (this->offset_beg + sizeof(size_t));
 }
-void Caobuf::update_size()
+void obuf::update_size()
 {
 	this->sync();
 	size_t buffer_size = this->count_buffer_size();
@@ -44,7 +44,7 @@ void Caobuf::update_size()
 	*size = buffer_size;
 }
 
-Caobuf::int_type Caobuf::overflow(int input)
+obuf::int_type obuf::overflow(int input)
 {
 	if (input != traits_type::eof())
 	{
@@ -58,7 +58,7 @@ Caobuf::int_type Caobuf::overflow(int input)
 	else return traits_type::eof();
 }
 
-int Caobuf::sync()	// synchronizes the buffer position in Packer, which also reserves some size
+int obuf::sync()	// synchronizes the buffer position in Packer, which also reserves some size
 {
 	if (this->pptr() == NULL)
 	{
@@ -81,12 +81,12 @@ int Caobuf::sync()	// synchronizes the buffer position in Packer, which also res
 	}
 }
 
-Packer* Caobuf::get_packer()
+Packer* obuf::get_packer()
 {
 	return this->packer;
 }
 
-Caibuf::Caibuf(Unpacker* unpacker) : unpacker(unpacker)
+ibuf::ibuf(Unpacker* unpacker) : unpacker(unpacker)
 {
 	size_t buffer_size;
 	unpacker->direct_unpack(buffer_size);
@@ -98,31 +98,31 @@ Caibuf::Caibuf(Unpacker* unpacker) : unpacker(unpacker)
 	unpacker->move(buffer_size);	// skip the whole stream buffer in unpacker
 }
 
-std::streambuf::int_type Caibuf::underflow()
+std::streambuf::int_type ibuf::underflow()
 {
 	return EOF;
 }
 
-Caostream::Caostream(Packer* packer)
+ostream::ostream(Packer* packer)
 {
-	this->caobuf = new Caobuf(packer);
+	this->caobuf = new obuf(packer);
 	this->rdbuf(this->caobuf);
 }
-Caostream::~Caostream()
+ostream::~ostream()
 {
 	delete this->caobuf;	// synchronizes the buffer
 }
-void Caostream::sync()
+void ostream::sync()
 {
 	this->caobuf->sync();	// synchronizes the buffer
 }
 
-Caistream::Caistream(Unpacker* unpacker)
+istream::istream(Unpacker* unpacker)
 {
-	this->caibuf = new Caibuf(unpacker);
+	this->caibuf = new ibuf(unpacker);
 	this->rdbuf(this->caibuf);
 }
-Caistream::~Caistream()
+istream::~istream()
 {
 	delete this->caibuf;
 }

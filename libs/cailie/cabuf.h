@@ -9,13 +9,13 @@
 
 namespace ca {
 
-class Caobuf : public std::streambuf {
+class obuf : public std::streambuf {
 	private:
 		Packer* packer;
 		size_t offset_beg;
 
-		Caobuf(const Caobuf &caobuf);
-		Caobuf& operator=(Caobuf &caobuf);
+		obuf(const obuf &caobuf);
+		obuf& operator=(obuf &caobuf);
 
 		void set_buffer();
 
@@ -25,48 +25,48 @@ class Caobuf : public std::streambuf {
 		int_type overflow(int input);
 
 	public:
-		Caobuf(Packer* packer);
-		~Caobuf();
+		obuf(Packer* packer);
+		~obuf();
 
 		Packer* get_packer();
 		int sync();
 };
 
-class Caibuf : public std::streambuf {
+class ibuf : public std::streambuf {
 	private:
 		Unpacker* unpacker;
 
-		Caibuf(const Caibuf &caibuf);
-		Caibuf& operator=(Caibuf &caibuf);
+		ibuf(const ibuf &caibuf);
+		ibuf& operator=(ibuf &caibuf);
 
 		std::streambuf::int_type underflow();
 
 	public:
-		Caibuf(Unpacker* unpacker);
+		ibuf(Unpacker* unpacker);
 };
 
-class Caostream : public std::ostream {
+class ostream : public std::ostream {
 	private:
-		Caostream(const Caostream &caostream);
-		Caostream& operator=(Caostream &caostream);
-		Caobuf* caobuf;
+		ostream(const ostream &caostream);
+		ostream& operator=(ostream &caostream);
+		obuf* caobuf;
 
 	public:
-		Caostream(Packer* packer);
-		~Caostream();
+		ostream(Packer* packer);
+		~ostream();
 
 		void sync();
 };
 
-class Caistream : public std::istream {
+class istream : public std::istream {
 	private:
-		Caistream(const Caistream &caistream);
-		Caistream& operator=(Caistream &caistream);
-		Caibuf* caibuf;
+		istream(const istream &caistream);
+		istream& operator=(istream &caistream);
+		ibuf* caibuf;
 
 	public:
-		Caistream(Unpacker* unpacker);
-		~Caistream();
+		istream(Unpacker* unpacker);
+		~istream();
 };
 
 }

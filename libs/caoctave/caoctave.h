@@ -70,7 +70,7 @@ namespace ca {
 	CA_STREAM_TOKEN_NAME(SparseMatrix)
 
 	CA_PACK(Matrix, packer, m) {
-		Caostream os(&packer);
+		ostream os(&packer);
 		write_header(os, LS_BINARY);
 		bool flag = false;
 		octave_value(m).save_binary(os, flag);
@@ -91,7 +91,7 @@ namespace ca {
 	}
 
 	CA_PACK(SparseMatrix, packer, m) {
-		Caostream os(&packer);
+		ostream os(&packer);
 		write_header(os, LS_BINARY);
 		bool flag = false;
 		octave_value(m).save_binary(os, flag);
