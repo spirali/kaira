@@ -20,6 +20,14 @@ void Caobuf::set_buffer()
 	char * buffer = static_cast<char *>(packer->peek());
 	char * buffer_end = buffer + (packer->get_reserved_size() - packer->get_size());
 
+	if (buffer == buffer_end)
+	{
+		packer->reserve(1);	// if the packer is full, reallocate it
+
+		buffer = static_cast<char *>(packer->peek());
+		buffer_end = buffer + (packer->get_reserved_size() - packer->get_size());
+	}
+
 	setp(buffer, buffer_end - 1);	// -1 so that overflow doesn't need to be handled specially
 }
 

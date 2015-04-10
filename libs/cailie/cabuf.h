@@ -14,7 +14,7 @@ class Caobuf : public std::streambuf {
 		Packer* packer;
 		size_t offset_beg;
 
-		Caobuf(Caobuf &caobuf);
+		Caobuf(const Caobuf &caobuf);
 		Caobuf& operator=(Caobuf &caobuf);
 
 		void set_buffer();
@@ -36,7 +36,7 @@ class Caibuf : public std::streambuf {
 	private:
 		Unpacker* unpacker;
 
-		Caibuf(Caibuf &caibuf);
+		Caibuf(const Caibuf &caibuf);
 		Caibuf& operator=(Caibuf &caibuf);
 
 		std::streambuf::int_type underflow();
@@ -47,7 +47,7 @@ class Caibuf : public std::streambuf {
 
 class Caostream : public std::ostream {
 	private:
-		Caostream(Caostream &caostream);
+		Caostream(const Caostream &caostream);
 		Caostream& operator=(Caostream &caostream);
 		Caobuf* caobuf;
 
@@ -60,7 +60,7 @@ class Caostream : public std::ostream {
 
 class Caistream : public std::istream {
 	private:
-		Caistream(Caistream &caistream);
+		Caistream(const Caistream &caistream);
 		Caistream& operator=(Caistream &caistream);
 		Caibuf* caibuf;
 
