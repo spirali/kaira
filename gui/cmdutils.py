@@ -17,13 +17,27 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import argparse
 import sys
+
+# We fake gui libraries, so cmdutils can be used even gtk is not present
+class Empty(object):
+    def __getattribute__(self, name):
+        return Empty()
+
+    def __call__(self, *args, **kw):
+        return Empty()
+
+sys.modules["gtk"] = Empty()
+sys.modules["cairo"] = Empty()
+sys.modules["settingswindow"] = Empty()
+
+import argparse
 import paths
 sys.path.append(paths.PTP_DIR)
 import loader
 import os
 import tracelog
+
 
 def export(filename, directory, trace, lib):
     p = loader.load_project(filename)
