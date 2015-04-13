@@ -3,15 +3,36 @@
 # and makefiles without running gui of Kaira. Designed
 # for deploying applications on a server.'
 
-import subprocess
-import os
-import sys
+import ConfigParser
 import argparse
+import os
+import subprocess
+import sys
+
 
 KAIRA_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KAIRA_GUI = os.path.join(KAIRA_ROOT,"gui")
-PTP_BIN = os.path.join(KAIRA_ROOT, "ptp", "ptp.py")
+PTP = os.path.join(KAIRA_ROOT, "ptp", "ptp.py")
 CMDUTILS = os.path.join(KAIRA_GUI, "cmdutils.py")
+CONFIG_INI = os.path.join(KAIRA_ROOT, "build", "config.ini")
+
+def show_warning(msg):
+    print "Kaira is not correctly installed."
+    print "Run './waf configure' in Kaira top directory"
+    print msg
+    sys.exit(1)
+
+config = ConfigParser.RawConfigParser()
+if not config.read(CONFIG_INI):
+    show_warning("File '{0}' was not found.".format(CONFIG_INI))
+
+def get_config(section, name):
+    try:
+        return config.get(section, name)
+    except ConfigParser.NoOptionError:
+        show_warning("{0}/{1} not found in config.ini".format(section, name))
+
+PYTHON = get_config("Main", "PYTHON")
 
 def main():
 
@@ -24,7 +45,10 @@ def main():
     parser.add_argument("--trace", action='store_true')
     args = parser.parse_args()
 
-    callargs = [ "python" , CMDUTILS, "--export", args.filename, "--output", args.output ]
+    callargs = [ PYTHON, CMDUTILS,
+                 "--export", args.filename,
+                 "--output", args.output ]
+
     if args.trace:
         callargs.append("--trace")
     subprocess.check_output(callargs)
@@ -34,7 +58,7 @@ def main():
             operation = "build"
 
     xmlfile = os.path.join(args.output, os.path.basename(args.filename).split(".")[0] + ".xml")
-    subprocess.check_output([PTP_BIN, "build", xmlfile, "--output", args.output ])
+    subprocess.check_output([PYTHON, PTP, "build", xmlfile, "--output", args.output ])
 
 if __name__ == "__main__":
     main()
