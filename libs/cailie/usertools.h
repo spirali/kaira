@@ -17,12 +17,20 @@ class Context {
 			thread->quit_all();
 		}
 
-		int process_id() const {
+		int pid() const {
 			return thread->get_process_id();
 		}
 
-		int process_count() const {
+		int count() const {
 			return thread->get_process_count();
+		}
+
+		int process_id() const {
+			return pid();
+		}
+
+		int process_count() const {
+			return count();
 		}
 
 		void trace_value(const std::string &str) {

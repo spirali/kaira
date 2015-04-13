@@ -432,8 +432,8 @@ Namespace ca
 Class ca::Context
 ^^^^^^^^^^^^^^^^^
 
-int process_id() :: returns rank of the process
-int process_count() :: returns number of processes
+int pid() :: returns rank of the process
+int count() :: returns number of processes
 void quit() :: terminates the program (or the function call when the project
                is built as a library)
 
