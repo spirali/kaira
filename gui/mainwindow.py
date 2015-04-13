@@ -166,11 +166,11 @@ class MainWindow(gtk.Window):
 
         item = gtk.RadioMenuItem(None, "No grid")
         item.connect("activate", lambda w: self.app.set_grid_size(1))
-        item.set_active(True)
         menu.append(item)
 
         item = gtk.RadioMenuItem(item, "Small grid (6x6)")
         item.connect("activate", lambda w: self.app.set_grid_size(6))
+        item.set_active(True)
         menu.append(item)
 
         item = gtk.RadioMenuItem(item, "Big grid (16x16)")

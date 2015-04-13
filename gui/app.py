@@ -60,7 +60,7 @@ class App:
         self.project = None
         self.sources_repository = extensions.SourcesRepository()
         self._open_welcome_tab()
-        self.grid_size = 1
+        self.grid_size = 6
         self.settings = self.load_settings()
         self.message_parser = re.compile(
             "\*(?P<location>((?P<id_int>\d+)/(?P<section>[^:]*)|(?P<id_string>[^:]+))"
