@@ -35,6 +35,7 @@ def options(ctx):
                     default="")
 
     ctx.load("compiler_cxx")
+    ctx.load("python")
 
 
 def configure(ctx):
@@ -42,6 +43,8 @@ def configure(ctx):
         ctx.load("icpc")
     else:
         ctx.load("g++")
+    ctx.load("python")
+    ctx.check_python_version((2,7,0))
 
     compiler_prefix = ctx.options.compiler_prefix.split()
     if compiler_prefix:
@@ -106,6 +109,13 @@ def configure(ctx):
                     "MPI support is disabled, because "
                     "no MPI implementation was found.")
 
+    # --------- run_python -------------
+
+    run_python = ctx.bldnode.make_node("run_python")
+    run_python.write("#!/bin/sh\n")
+    run_python.write("exec " + ctx.env.PYTHON[0] + " $@\n")
+
+    # --------- config.ini -----------
     conffile = ctx.bldnode.make_node("config.ini")
     conffile.parent.mkdir()
     myconf = []
@@ -113,6 +123,8 @@ def configure(ctx):
     myconf.append("VERSION: " + VERSION)
     myconf.append("CXX: " + " ".join(ctx.env.CXX))
     myconf.append("OCTAVE: " + str(bool(ctx.env.MKOCTFILE)))
+    myconf.append("PYTHON: " + ctx.env.PYTHON[0])
+
     if mpi:
         myconf.append("MPICXX: " + " ".join(ctx.all_envs["mpi"].CXX))
     if ctx.env.MKOCTFILE:
