@@ -21,13 +21,13 @@
 import gtk
 import paths
 import os
-import cProfile
 import gobject
 import clang.cindex as clanglib
-from clangparser import ClangParser
+from clangparser import ClangParser, loaded
 from completionprovider import CompletionProvider
 from proposalitem import ProposalItem
 
+loaded # Do nothing, just make 'use' variable to suppress warning
 
 class ResultKindFilter():
 

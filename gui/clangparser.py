@@ -118,7 +118,7 @@ class ClangParser():
     def set_line_offset(self, offset):
         self.line_offset += offset
 
-    def set_type(self, header, element = None):
+    def set_type(self, header, element=None):
         if header and not element:
             self.element_header = header
             self.parse_function = self._data_from_buffer

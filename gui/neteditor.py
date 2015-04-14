@@ -33,6 +33,7 @@ import undo
 import codeedit
 import objectlist
 import tracing
+import completion
 
 def netname_dialog(net, mainwindow):
     builder = gtkutils.load_ui("netname-dialog")
@@ -564,8 +565,7 @@ class NetEditor(gtk.VBox):
         label = gtk.Label(name)
         self.attribute_box.pack_start(label, False, False)
         editor = self._add_attribute_code_editor(get_fn, set_fn)
-        if label.get_text() == "Type":
-            import completion
+        if label.get_text() == "Type" and completion.loaded:
             editor.view.code_complete = completion.Completion(editor)
             editor.view.set_show_line_numbers(False)
             editor.view.code_complete.clang.set_type("")

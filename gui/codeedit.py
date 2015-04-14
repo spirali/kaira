@@ -188,11 +188,12 @@ class TransitionCodeEditor(CodeEditor):
                             ("", 1, 1),
                             header)
 
-        self.view.code_complete = completion.Completion(self)
-        self.view.code_complete.clang.set_type(header, transition)
-        self.view.code_complete.set_info_box(app.settings.getboolean("code_completion", "enable_info_box"))
-        self.view.code_complete.set_refactoring(True)
-        self.view.code_complete.parse_source_code()
+        if completion.loaded:
+            self.view.code_complete = completion.Completion(self)
+            self.view.code_complete.clang.set_type(header, transition)
+            self.view.code_complete.set_info_box(app.settings.getboolean("code_completion", "enable_info_box"))
+            self.view.code_complete.set_refactoring(True)
+            self.view.code_complete.parse_source_code()
 
     def buffer_changed(self):
         self.transition.set_code(self.get_text())
@@ -214,12 +215,12 @@ class PlaceCodeEditor(CodeEditor):
                             [ section ],
                             ("", 1, 1),
                             header)
-
-        self.view.code_complete = completion.Completion(self)
-        self.view.code_complete.clang.set_type(header, place)
-        self.view.code_complete.set_info_box(app.settings.getboolean("code_completion", "enable_info_box"))
-        self.view.code_complete.set_refactoring(True)
-        self.view.code_complete.parse_source_code()
+        if completion.loaded:
+            self.view.code_complete = completion.Completion(self)
+            self.view.code_complete.clang.set_type(header, place)
+            self.view.code_complete.set_info_box(app.settings.getboolean("code_completion", "enable_info_box"))
+            self.view.code_complete.set_refactoring(True)
+            self.view.code_complete.parse_source_code()
 
     def buffer_changed(self):
         self.place.set_code(self.get_text())
@@ -238,11 +239,12 @@ class HeadCodeEditor(CodeEditor):
                             ("", 1, 0),
                             header)
 
-        self.view.code_complete = completion.Completion(self)
-        self.view.code_complete.clang.set_type(header)
-        self.view.code_complete.set_info_box(app.settings.getboolean("code_completion", "enable_info_box"))
-        self.view.code_complete.set_refactoring(True)
-        self.view.code_complete.parse_source_code()
+        if completion.loaded:
+            self.view.code_complete = completion.Completion(self)
+            self.view.code_complete.clang.set_type(header)
+            self.view.code_complete.set_info_box(app.settings.getboolean("code_completion", "enable_info_box"))
+            self.view.code_complete.set_refactoring(True)
+            self.view.code_complete.parse_source_code()
 
     def save(self):
         self.project.set_head_code(self.get_text())
