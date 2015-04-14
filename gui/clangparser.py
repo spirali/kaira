@@ -78,13 +78,9 @@ class ClangParser():
         return lines.count("\n")
 
     def _load_header(self):
-        #TODO:specific exception PtpException
         header = None
-        try:
-            generator = self.completion.project.get_generator()
-            header = generator.get_param_struct()
-        except Exception, e:
-            self.completion.app.window.console.write(e.message, "error")
+        generator = self.completion.project.get_generator(load_nets=False)
+        header = generator.get_param_struct()
 
         if header:
             self.invisible_code.append(header + "\n")

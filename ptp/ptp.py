@@ -32,8 +32,8 @@ def get_config(section, name, raise_error=True):
                                "It means that Kaira is not properly configured\n"
                                "Run './waf configure' in Kaira top directory".format(section, name))
 
-def get_generator_from_xml(element):
-    return project.load_project(element, target_envs).get_generator()
+def get_generator_from_xml(element, load_nets=True):
+    return project.load_project(element, target_envs, load_nets=load_nets).get_generator()
 
 def main():
     parser = argparse.ArgumentParser(description="PTP - ProjectToProgram compiler")
