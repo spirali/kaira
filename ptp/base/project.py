@@ -306,7 +306,7 @@ def load_configuration(element, project):
     if communication_model_code is not None:
         project.communication_model_code = communication_model_code.text
 
-def load_project(element, target_envs, build_target="build"):
+def load_project(element, target_envs, build_target="build", load_nets=True):
     target_env = utils.xml_str(element, "target_env")
     if target_env not in target_envs:
         raise utils.PtpException("Unknown target environment")
@@ -326,6 +326,9 @@ def load_project(element, target_envs, build_target="build"):
     p.tracing = utils.xml_bool(element, "tracing", False)
 
     load_configuration(element.find("configuration"), p)
+
+    if not load_nets:
+        return p
 
     nets = [ (e, load_net(e, p)) for e in element.findall("net") ]
     p.nets = [ net for e, net in nets ]

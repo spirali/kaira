@@ -36,6 +36,10 @@ How to disable some of subsystems is described below.
 
   $ apt-get install python-gtksourceview2 python-pyparsing g++ python-matplotlib
 
+  - Library for code completion and refactoring
+
+  $ apt-get install libclang1
+
   - Installation of MPI implementation
 
   $ apt-get install mpich2
@@ -70,7 +74,7 @@ How to disable some of subsystems is described below.
 ******************************************************************
 
 These steps describe how to install the a *minimal* version of Kaira,
-where some features are disabled.
+where all optional features are disabled.
 
   - Installation of necessary packages
 
@@ -78,7 +82,7 @@ where some features are disabled.
 
   - Configure Kaira
 
-  $ ./waf configure --disable-octave --disable-verif --disable-doc
+  $ ./waf configure  --disable-clang --disable-octave --disable-verif --disable-doc
 
   - Build Kaira
 
@@ -163,13 +167,15 @@ To run Kaira, you need the following software.
 
 Optional dependencies:
 
+  - libclang (for code completion and refactoring)
   - MPI implementation (tested with: MPICH2, OpenMPI, LAM)
   - Octave
   - sparsehash
   - mhash
   - asciidoc
 
-MPI implementation is necessary if you want to build MPI applications.
+
+A MPI implementation is necessary if you want to build MPI applications.
 Libraries 'sparsehash' and 'mhash' are used by the verification subsystem.
 'asciidoc' is used to build HTML documentation.
 
@@ -200,6 +206,9 @@ More about configuration
 In the configuration step, additional parameters can be specified.
 The basic ones are:
 
+- '--disable-clang' -- Kaira is build without libclang support.
+  It disables code completion and refactoring features.
+- '--clang-path=PATH' -- Manually specify path to 'libclang.so'
 - '--disable-mpi' -- Kaira is built without MPI support
 - '--disable-octave' -- Building Octave modules are disabled
 - '--disable-verif' -- Kaira is built without the verification support,

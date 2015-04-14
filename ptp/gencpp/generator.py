@@ -39,28 +39,56 @@ class CppGenerator:
     def get_filename(self, directory, suffix):
         return os.path.join(directory, self.project.get_name() + suffix)
 
-    def get_place_user_fn_header(self, place_id):
+    def get_place_user_fn_header(self, place_id,unique = False):
         place = self.project.get_place(place_id)
         type_name = place.type
         if type_name[-1] == ">":
             type_name += " "
-        return "void place_fn(ca::Context &ctx, ca::TokenList<{1}> &place)\n" \
+        if not unique:
+            return "void place_fn(ca::Context &ctx, ca::TokenList<{1}> &place)\n" \
                   .format(place, type_name)
+        else:
+            return "void place_fn{0}(ca::Context &ctx, ca::TokenList<{1}> &place)\n" \
+                  .format(place.id, type_name)
 
-    def get_transition_user_fn_header(self, transition_id):
+    def get_transition_user_fn_header(self, transition_id,unique = False):
         transition = self.project.get_transition(transition_id)
         w = writer.CppWriter()
-        w.line("struct Vars {{")
-        for name, t in transition.get_decls().get_list():
-            if name != "ctx":
-                w.line("\t{0} &{1};", t, name)
-        w.line("}};")
-        w.emptyline()
-        args = [ "ca::Context &ctx, Vars &var" ]
-        if transition.clock:
-            args.append("ca::Clock &clock")
-        w.line("void transition_fn({0})".format(", ".join(args)))
-        return w.get_string()
+        if unique:
+            var = "struct Vars{0}".format(str(transition.id))
+            w.line(var + " {{")
+            for name, t in transition.get_decls().get_list():
+                if name != "ctx":
+                    w.line("\t{0} &{1};", t, name)
+            w.line("}};")
+            w.emptyline()
+            args = [ "ca::Context &ctx, Vars &var" ]
+            if transition.clock:
+                args.append("ca::Clock &clock")
+            w.line("void transition_fn{0}({1})".format(transition.id,", ".join(args)))
+            return w.get_string()
+        else:
+            w.line("struct Vars {{")
+            for name, t in transition.get_decls().get_list():
+                if name != "ctx":
+                    w.line("\t{0} &{1};", t, name)
+            w.line("}};")
+            w.emptyline()
+            args = [ "ca::Context &ctx, Vars &var" ]
+            if transition.clock:
+                args.append("ca::Clock &clock")
+            w.line("void transition_fn({0})".format(", ".join(args)))
+            return w.get_string()
+
+    def get_header(self):
+        builder = build.Builder(self.project)
+        build.write_header_file(builder)
+        return builder.get_string()
+
+    def get_param_struct(self):
+        builder = build.Builder(self.project)
+        build.write_parameters_forward(builder)
+        return builder.get_string()
 
     def write_header_file(self, directory):
         builder = build.Builder(self.project, self.get_filename(directory, ".h"))

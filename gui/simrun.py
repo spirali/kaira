@@ -41,6 +41,7 @@ class SimRunConfig(gtk.VBox):
             content = "\t\n"
 
         self.editor = codeedit.CodeEditor(
+            app,
             project.get_syntax_highlight_key(),
              [ ("", header + "{\n", content, "}\n") ])
         self.pack_start(self.editor, True, True)

@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2010 Stanislav Bohm
+#    Copyright (C) 2014 Jan Homola
 #
 #    This file is part of Kaira.
 #
@@ -17,17 +17,14 @@
 #    along with Kaira.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import os
 
-KAIRA_GUI = os.path.dirname(os.path.abspath(__file__))
-KAIRA_ROOT = os.path.dirname(KAIRA_GUI)
+import gtksourceview2 as gtksource
+import gtk
 
-ICONS_DIR = os.path.join(KAIRA_GUI, "icons")
-ICONS_COMPLETION_DIR = os.path.join(ICONS_DIR, "completion")
-UI_DIR = os.path.join(KAIRA_GUI, "ui")
+class View(gtksource.View):
 
-PTP_DIR = os.path.join(KAIRA_ROOT, "ptp")
-PTP_BIN = os.path.join(KAIRA_ROOT, "ptp", "ptp.py")
-
-PACKAGES_DIR = os.path.join(KAIRA_ROOT, "packages")
-EXTENSIONS_DIR = os.path.join(KAIRA_GUI, "extensions")
+    def __init__(self, buffer = None):
+        gtksource.View.__init__(self, buffer)
+        self.buffer = buffer
+        self.code_completion = None
+        self.set_wrap_mode(gtk.WRAP_CHAR)
