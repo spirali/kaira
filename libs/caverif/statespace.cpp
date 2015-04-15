@@ -147,7 +147,7 @@ std::string Core::hashdigest_to_string(hashid hash_id, HashDigest hash)
 }
 
 Node::Node(HashDigest hash, State *state, Node *prev)
-	: hash(hash), state(state), prev(prev), quit(false), final_marking(NULL), tag(0), data(NULL)
+	: hash(hash), state(state), prev(prev), quit(false), quit_flag(false), final_marking(NULL), tag(0), data(NULL)
 {
 	if (prev != NULL) {
 		distance = prev->get_distance() + 1;
@@ -175,6 +175,19 @@ void Node::set_prev(Node *node)
 		prev = node;
 		distance = node->get_distance() + 1;
 	}
+}
+
+void Node::set_quit(bool quit_flag)
+{
+	this->quit_flag = quit_flag;
+	const std::vector<Activation*> &activations = state->get_activations();
+	for (size_t i = 0; i < activations.size(); i++) {
+		if (activations[i] != NULL && activations[i]->transition_def->is_collective()) {
+			quit = false;
+			return;
+		}
+	}
+	quit = quit_flag;
 }
 
 ActionSet Node::compute_enable_set(Core *core)
@@ -227,7 +240,7 @@ ActionSet Node::compute_enable_set(Core *core)
 
 void Node::generate(Core *core)
 {
-	if (state->get_quit_flag()) {
+	if (quit_flag) {
 		return;
 	}
 
@@ -334,7 +347,7 @@ Node * Core::add_state(State *state, Node *prev)
 	Node *node = get_node(hash);
 	if (node == NULL) {
 		node = new Node(hash, state, prev);
-		node->set_quit_flag(state->get_quit_flag());
+		node->set_quit(state->get_quit_flag());
 		nodes[hash] = node;
 		not_processed.push(node);
 		return node;

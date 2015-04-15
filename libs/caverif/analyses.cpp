@@ -103,7 +103,7 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 				}
 			}
 			if (cfg::analyse_deadlock) {
-				if (!node->get_quit_flag()) {
+				if (!node->is_quitted()) {
 					deadlocks++;
 					if (deadlock_node == NULL ||
 						deadlock_node->get_distance() > node->get_distance()) {
@@ -247,7 +247,7 @@ void Core::run_analysis_transition_occurrence(ca::Output &report)
 		Node *node = it->second;
 		ParikhVector *v = (ParikhVector*) node->get_data();
 		if (v != NULL) {
-			if (node->get_quit_flag() && error_node == NULL) {
+			if (node->is_quitted() && error_node == NULL) {
 				if (current == NULL) {
 					current_node = node;
 					current = v;
@@ -362,7 +362,7 @@ void Core::write_dot_file(const std::string &filename)
 		hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
 		hashstr[5] = 0; // Take just prefix
 		const char *quit_flag;
-		if (node->get_quit_flag()) {
+		if (node->is_quitted()) {
 			quit_flag = "!";
 		} else {
 			quit_flag = "";
@@ -446,7 +446,7 @@ void Core::write_xml_statespace(ca::Output &report)
 		if (initial_node == node) {
 			report.set("initial", true);
 		}
-		if (node->get_quit_flag()) {
+		if (node->is_quitted()) {
 			report.set("quit", true);
 		}
 

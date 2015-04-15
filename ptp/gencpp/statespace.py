@@ -178,20 +178,16 @@ def write_dependent(builder):
     builder.line("cass::VerifThread thread(a1.process);")
     builder.line("ca::Context ctx(&thread, NULL);");
 
-    # transitions calling 'guit' are always dependent (violate commutativity)
-    builder.if_begin("a1.type == cass::ActionFire")
-    for tr in builder.project.nets[0].transitions:
-        if tr.calls_quit:
-            builder.if_begin("a1.data.fire.transition_def == &transition_{0.id}", tr)
-            builder.line("return true;")
-            builder.block_end()
-    builder.block_end()
-    builder.if_begin("a2.type == cass::ActionFire")
-    for tr in builder.project.nets[0].transitions:
-        if tr.calls_quit:
-            builder.if_begin("a2.data.fire.transition_def == &transition_{0.id}", tr)
-            builder.line("return true;")
-            builder.block_end()
+    # transitions calling 'guit' and collective transitions are always dependent
+    builder.if_begin("a1.type == cass::ActionFire && a2.type == cass::ActionFire")
+    for tr1 in net.transitions:
+        for tr2 in net.transitions:
+            if tr1.calls_quit and tr2.collective or tr1.collective and tr2.calls_quit:
+                builder.if_begin(
+                     "a1.data.fire.transition_def == &transition_{0.id} && "
+                     "a2.data.fire.transition_def == &transition_{1.id}", tr1, tr2)
+                builder.line("return true; // collective and quit")
+                builder.block_end()
     builder.block_end()
 
     builder.if_begin("a1.process != a2.process")
@@ -202,7 +198,7 @@ def write_dependent(builder):
 
     builder.if_begin("a1.data.fire.transition_def->get_id() == "
                      "a2.data.fire.transition_def->get_id()")
-    builder.line("fprintf(stderr, \"Internal error - The same transitions in POR\");")
+    builder.line("fprintf(stderr, \"Internal error - The same transitions in POR.\\n\");")
     builder.line("abort();")
     builder.block_end()
 

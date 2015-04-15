@@ -108,8 +108,9 @@ namespace cass {
 			void set_prev(Node *prev);
 			const NextNodeInfo& get_next_node_info(Node *node) const;
 
-			bool get_quit_flag() { return quit; }
-			void set_quit_flag(bool quit) { this->quit = quit; }
+			bool is_quitted() { return quit; }
+			bool get_quit_flag() { return quit_flag; }
+			void set_quit(bool quit_flag);
 			HashDigest get_final_marking() { return final_marking; }
 			void set_final_marking(HashDigest hash) { final_marking = hash; }
 			int get_tag() const { return tag; }
@@ -122,6 +123,7 @@ namespace cass {
 			Node* prev;
 			int distance;
 			bool quit;
+			bool quit_flag;
 			HashDigest final_marking;
 
 			// Generic data used during analysis
