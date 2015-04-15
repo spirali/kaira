@@ -1,6 +1,8 @@
 #ifndef CASIMRUN_H
 #define CASIMRUN_H
 
+#define CA_SIMRUN 1
+
 #include "runconfiguration.h"
 #include "context.h"
 
