@@ -531,6 +531,12 @@ def write_enable_check(builder, tr):
     builder.block_begin()
     builder.line("ca::Context ctx($thread, $net);")
     w = CppWriter()
+    for inscription in tr.get_token_inscriptions_in():
+        if inscription.is_conditioned():
+            w.if_begin("!$inscription_if_{0.uid}", inscription)
+            w.line("delete $token_{0.uid};", inscription)
+            w.block_end()
+
     w.line("return true;")
     write_enable_pattern_match(builder, tr, w, "return false;")
     builder.line("return false;")
@@ -646,7 +652,10 @@ def write_pack_binding(builder, tr):
 
     builder.block_end()
 
-def write_enable_pattern_match(builder, tr, fire_code, fail_command):
+def write_enable_pattern_match(builder,
+                               tr,
+                               fire_code,
+                               fail_command):
     def call_fail():
         # Cleanup already allocated conditioned tokens
         for i in prev_inscriptions:
