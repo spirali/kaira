@@ -33,25 +33,6 @@ class Context {
 			return count();
 		}
 
-		void trace_value(const std::string &str) {
-			TraceLog *tracelog = thread->get_tracelog();
-			if (tracelog) {
-				tracelog->trace_value(str);
-			}
-		}
-		void trace(const int value) {
-			TraceLog *tracelog = thread->get_tracelog();
-			if (tracelog) {
-				tracelog->trace_value(value);
-			}
-		}
-		void trace(const double value) {
-			TraceLog *tracelog = thread->get_tracelog();
-			if (tracelog) {
-				tracelog->trace_value(value);
-			}
-		}
-
 	protected:
 		ThreadBase *thread;
 		NetBase *net;
