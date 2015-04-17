@@ -79,7 +79,7 @@ namespace ca {
 	}
 
 	CA_UNPACK(Matrix, unpacker, m) {
-		Caistream is(&unpacker);
+		istream is(&unpacker);
 
 		bool swap;
 		std::string name, doc;
@@ -99,7 +99,7 @@ namespace ca {
 	}
 
 	CA_UNPACK(SparseMatrix, unpacker, m) {
-		Caistream is(&unpacker);
+		istream is(&unpacker);
 		bool swap;
 		std::string name, doc;
 		oct_mach_info::float_format flt_fmt;
