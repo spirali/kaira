@@ -813,14 +813,15 @@ class Completion(gobject.GObject):
             if char == ":":
                 self.parse_source_code()
                 self.view.emit("show-completion")
-        elif text == "(":
-            buffer.insert_interactive(iter, ")", self.view.get_editable())
-            iter.backward_char()
-            buffer.place_cursor(iter)
-        elif text == "{":
-            buffer.insert_interactive(iter, "}", self.view.get_editable())
-            iter.backward_char()
-            buffer.place_cursor(iter)
+        # The following should be configurable by the user
+        #elif text == "(":
+        #    buffer.insert_interactive(iter, ")", self.view.get_editable())
+        #    iter.backward_char()
+        #    buffer.place_cursor(iter)
+        #elif text == "{":
+        #    buffer.insert_interactive(iter, "}", self.view.get_editable())
+        #    iter.backward_char()
+        #    buffer.place_cursor(iter)
 
     def text_changed(self, buffer):
         self.code_changed = True

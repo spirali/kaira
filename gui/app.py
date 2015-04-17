@@ -109,13 +109,13 @@ class App:
 
         # Fill defaults
         settings.add_section("main")
-        settings.add_section("code_completion")
         settings.set("main", "save-before-build", "True")
         settings.set("main", "ptp-debug", "False")
-        settings.set("code_completion","enable_highlight_current_line","True")
-        settings.set("code_completion", "enable_show_line_numbers", "True")
+        settings.add_section("code_completion")
+        settings.set("code_completion","enable_highlight_current_line","False")
+        settings.set("code_completion", "enable_show_line_numbers", "False")
         settings.set("code_completion", "tab_width", "4")
-        settings.set("code_completion","enable_info_box","True")
+        settings.set("code_completion","enable_info_box","False")
         settings.set("code_completion", "delay_info_box", "250.0")
 
         filename = self.get_settings_filename()
