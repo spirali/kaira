@@ -17,7 +17,7 @@ namespace ca {
 		}
 		return s.str();
 	}
-}</head-code></configuration><net id="101" name="Main"><area id="118" sx="120" sy="90" x="-102" y="-66"><init x="-90.0" y="-85.0">all_processes(ctx)</init></area><place id="102" label-x="-66" label-y="-30" name="segment" radius="20" sx="22" sy="4" x="-66" y="-30"><place-type x="-35" y="-2">Segment</place-type><init x="-49" y="-60" /><code>	int s = (param::N() - 2) / ctx.process_count() + 1;
+}</head-code></configuration><net id="101" name="Main"><area id="118" sx="120" sy="90" x="-102" y="-66"><init x="-90" y="-85">ctx.all_processes()</init></area><place id="102" label-x="-66" label-y="-30" name="segment" radius="20" sx="22" sy="4" x="-66" y="-30"><place-type x="-35" y="-2">Segment</place-type><init x="-49" y="-60" /><code>	int s = (param::N() - 2) / ctx.process_count() + 1;
 	Segment segment;	
 	segment.start = ctx.process_id() * s + 2;
 	if (segment.start + s &gt; param::N()) {

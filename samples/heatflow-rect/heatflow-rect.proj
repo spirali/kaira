@@ -42,22 +42,22 @@ bool is_last(ca::Context &amp;ctx)
 	return ctx.process_id() == ctx.process_count() - 1;
 }</head-code><communication-model>         const ca::IntTime latency = 5847;  // [ns]
          return latency + size * 0.5049;
-</communication-model></configuration><net id="101" name="Main"><area id="102" sx="498" sy="280" x="211" y="143"><init x="211.0" y="128.0">all_processes(ctx)</init></area><place id="104" label-x="279.0" label-y="359.0" name="Down row" radius="20" sx="33" sy="0" x="279" y="359"><place-type x="308" y="381">std::vector&lt;double&gt;</place-type><init x="296" y="329" /><code>	if (!is_last(ctx)) {
+</communication-model></configuration><net id="101" name="Main"><area id="102" sx="498" sy="280" x="211" y="143"><init x="211" y="128">ctx.all_processes()</init></area><place id="104" label-x="279" label-y="359" name="Down row" radius="20" sx="33" sy="0" x="279" y="359"><place-type x="308" y="381">std::vector&lt;double&gt;</place-type><init x="296" y="329" /><code>	if (!is_last(ctx)) {
 		std::vector&lt;double&gt; row(param::SIZE_X(), 0);
 		place.add(row);
 	}
-</code><trace trace-tokens="False" /></place><place id="105" label-x="280.0" label-y="286.0" name="Local data" radius="20" sx="33" sy="0" x="280" y="286"><place-type x="318" y="312">DoubleMatrix</place-type><init x="297" y="256" /><code>	int id = ctx.process_id();
+</code><trace trace-tokens="False" /></place><place id="105" label-x="280" label-y="286" name="Local data" radius="20" sx="33" sy="0" x="280" y="286"><place-type x="318" y="312">DoubleMatrix</place-type><init x="297" y="256" /><code>	int id = ctx.process_id();
 	int size = ctx.process_count();
 	int position = id_to_position(param::SIZE_Y(), size, id);
 	DoubleMatrix matrix(param::SIZE_X(), id_to_size(param::SIZE_Y(), size, id));
 	set_fixed_temp(matrix, param::SIZE_Y(), position, param::TEMP());
 	matrix.swap();
 	place.add(matrix);
-</code><trace trace-tokens="False" /></place><place id="106" label-x="281.0" label-y="208.0" name="Up row" radius="20" sx="31" sy="0" x="281" y="208"><place-type x="330" y="228">std::vector&lt;double&gt;</place-type><init x="298" y="178" /><code>	if (!is_first(ctx)) {
+</code><trace trace-tokens="False" /></place><place id="106" label-x="281" label-y="208" name="Up row" radius="20" sx="31" sy="0" x="281" y="208"><place-type x="330" y="228">std::vector&lt;double&gt;</place-type><init x="298" y="178" /><code>	if (!is_first(ctx)) {
 		std::vector&lt;double&gt; row(param::SIZE_X(), 0);
 		place.add(row);
 	}
-</code><trace trace-tokens="False" /></place><place id="107" label-x="642.0" label-y="378.0" name="Counter" radius="20" sx="16" sy="0" x="642" y="378"><place-type x="672" y="395">int</place-type><init x="678" y="348">[0]</init><trace trace-tokens="False" /></place><place id="108" label-x="786.0" label-y="288.0" name="" radius="22" sx="0" sy="0" x="786" y="288"><place-type x="803" y="305">DoubleMatrix</place-type><init x="803" y="258" /><trace trace-tokens="False" /></place><transition clock="False" collective="False" id="111" label-x="653.0" label-y="288.0" name="Send result" priority="" sx="70" sy="35" x="618" y="270"><guard x="618" y="250" /><trace>fire</trace></transition><transition clock="False" collective="False" id="112" label-x="768.0" label-y="204.0" name="Write results" priority="" sx="100" sy="42" x="733" y="186"><guard x="733" y="166" /><code>	const int size = var.results.size();
+</code><trace trace-tokens="False" /></place><place id="107" label-x="642" label-y="378" name="Counter" radius="20" sx="16" sy="0" x="642" y="378"><place-type x="672" y="395">int</place-type><init x="678" y="348">[0]</init><trace trace-tokens="False" /></place><place id="108" label-x="786" label-y="288" name="" radius="22" sx="0" sy="0" x="786" y="288"><place-type x="803" y="305">DoubleMatrix</place-type><init x="803" y="258" /><trace trace-tokens="False" /></place><transition clock="False" collective="False" id="111" label-x="653" label-y="288" name="Send result" priority="" sx="70" sy="35" x="618" y="270"><guard x="618" y="250" /><trace>fire</trace></transition><transition clock="False" collective="False" id="112" label-x="768" label-y="204" name="Write results" priority="" sx="100" sy="42" x="733" y="186"><guard x="733" y="166" /><code>	const int size = var.results.size();
 	DoubleMatrix out(param::SIZE_X(), param::SIZE_Y());
 
 	ca::Token&lt;DoubleMatrix&gt; *t = var.results.begin();
@@ -72,7 +72,7 @@ bool is_last(ca::Context &amp;ctx)
 	out.swap();
 	out.write_to_file("results.html");
 	ctx.quit();
-</code><trace>fire</trace><time-substitution>transitionTime * 4</time-substitution></transition><transition clock="False" collective="False" id="110" label-x="546.0" label-y="288.0" name="Compute" priority="" sx="70" sy="35" x="511" y="270"><guard x="548" y="249">c &lt; param::LIMIT()</guard><code>	if (ctx.process_id() == 0) {
+</code><trace>fire</trace><time-substitution>transitionTime * 4</time-substitution></transition><transition clock="False" collective="False" id="110" label-x="546" label-y="288" name="Compute" priority="" sx="70" sy="35" x="511" y="270"><guard x="548" y="249">c &lt; param::LIMIT()</guard><code>	if (ctx.process_id() == 0) {
 		var.up.resize(param::SIZE_X(), 0);
 	}
 	

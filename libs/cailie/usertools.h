@@ -9,7 +9,10 @@
 
 namespace ca {
 
+std::vector<int> range(int from, int upto);
+
 class Context {
+
 	public:
 		Context(ThreadBase *thread, NetBase *net) : thread(thread), net(net) {}
 
@@ -33,16 +36,14 @@ class Context {
 			return count();
 		}
 
+		std::vector<int> all_processes() const {
+		    return range(0, count());
+		}
+
 	protected:
 		ThreadBase *thread;
 		NetBase *net;
 };
-
-	std::vector<int> range(int from, int upto);
-	inline std::vector<int> all_processes(Context &ctx) {
-		return range(0, ctx.process_count());
-	}
-
 }
 
 #endif // CA_USERTOOLS_H

@@ -138,7 +138,7 @@ bool is_lb(const State &amp;state) {
 	const ca::IntTime latency = 2e6;  // [ns]
 	const ca::IntTime bandwidth = 20; // [byte/ns]
 	return latency + size / bandwidth;
-</communication-model></configuration><net id="101" name="Main"><area id="102" sx="142" sy="264" x="232" y="150"><init x="248.0" y="130.0">ca::all_processes(ctx)</init></area><place id="104" label-x="279" label-y="359" name="Down row" radius="20" sx="33" sy="0" x="279" y="359"><place-type x="308" y="381">Row</place-type><init x="296" y="329" /><code>	Row row;
+</communication-model></configuration><net id="101" name="Main"><area id="102" sx="142" sy="264" x="232" y="150"><init x="248" y="130">ctx.all_processes()</init></area><place id="104" label-x="279" label-y="359" name="Down row" radius="20" sx="33" sy="0" x="279" y="359"><place-type x="308" y="381">Row</place-type><init x="296" y="329" /><code>	Row row;
 	row.resize(param::SIZE_X(), 0);
 	place.add(row);
 </code><trace trace-tokens="False" /></place><place id="105" label-x="288" label-y="282" name="Local state" radius="20" sx="33" sy="0" x="288" y="282"><place-type x="326" y="308">State</place-type><init x="305" y="252" /><code>	int id = ctx.process_id();
