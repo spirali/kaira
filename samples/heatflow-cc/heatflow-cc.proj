@@ -30,7 +30,7 @@ int to_up(ca::Context &amp;ctx)
 {
 	return (ctx.process_id() + ctx.process_count() - 1) 
 			% ctx.process_count();
-}</head-code></configuration><net id="101" name="Main"><area id="102" sx="490" sy="280" x="211" y="143"><init x="211" y="128">all_processes(ctx)</init></area><place id="104" label-x="279" label-y="359" name="Down row" radius="20" sx="33" sy="0" x="279" y="359"><place-type x="308" y="381">std::vector&lt;double&gt;</place-type><init x="296" y="329" /><code>	std::vector&lt;double&gt; row(param::SIZE_X(), 0);
+}</head-code></configuration><net id="101" name="Main"><area id="102" sx="490" sy="280" x="211" y="143"><init x="211" y="128">ctx.all_processes()</init></area><place id="104" label-x="279" label-y="359" name="Down row" radius="20" sx="33" sy="0" x="279" y="359"><place-type x="308" y="381">std::vector&lt;double&gt;</place-type><init x="296" y="329" /><code>	std::vector&lt;double&gt; row(param::SIZE_X(), 0);
 	place.add(row);
 </code><trace trace-tokens="False" /></place><place id="105" label-x="280" label-y="286" name="Local data" radius="20" sx="33" sy="0" x="280" y="286"><place-type x="318" y="312">DoubleMatrix</place-type><init x="297" y="256" /><code>	int id = ctx.process_id();
 	int size = ctx.process_count();
