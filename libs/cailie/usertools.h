@@ -4,6 +4,7 @@
 
 #include "thread.h"
 #include "net.h"
+#include "cabuf.h"
 
 #include <vector>
 

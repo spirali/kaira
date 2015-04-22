@@ -11,7 +11,7 @@ namespace ca {
 
 class obuf : public std::streambuf {
 	private:
-		Packer* packer;
+		Packer& packer;
 		size_t offset_beg;
 
 		obuf(const obuf &caobuf);
@@ -25,16 +25,16 @@ class obuf : public std::streambuf {
 		int_type overflow(int input);
 
 	public:
-		obuf(Packer* packer);
+		obuf(Packer& packer);
 		~obuf();
 
-		Packer* get_packer();
+		Packer& get_packer();
 		int sync();
 };
 
 class ibuf : public std::streambuf {
 	private:
-		Unpacker* unpacker;
+		Unpacker& unpacker;
 
 		ibuf(const ibuf &caibuf);
 		ibuf& operator=(ibuf &caibuf);
@@ -42,17 +42,17 @@ class ibuf : public std::streambuf {
 		std::streambuf::int_type underflow();
 
 	public:
-		ibuf(Unpacker* unpacker);
+		ibuf(Unpacker& unpacker);
 };
 
 class ostream : public std::ostream {
 	private:
 		ostream(const ostream &caostream);
 		ostream& operator=(ostream &caostream);
-		obuf* caobuf;
+		obuf caobuf;
 
 	public:
-		ostream(Packer* packer);
+		ostream(Packer& packer);
 		~ostream();
 
 		void sync();
@@ -62,10 +62,10 @@ class istream : public std::istream {
 	private:
 		istream(const istream &caistream);
 		istream& operator=(istream &caistream);
-		ibuf* caibuf;
+		ibuf caibuf;
 
 	public:
-		istream(Unpacker* unpacker);
+		istream(Unpacker& unpacker);
 		~istream();
 };
 

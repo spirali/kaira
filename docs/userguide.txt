@@ -374,6 +374,32 @@ namespace ca { // namespace 'ca' is important
 }
 -------------------------------------------------------------------------------
 
+Serialization to iostreams
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If a class can be serialized into 'std::ostream' and 'std::istream', then
+'ca::ostream' and 'ca::istream' can be used to efficient packing to
+ca::packer/ca::unpacker.  For example a serialization of the matrix class from
+library Armadillo:
+
+[source,cpp]
+-------------------------------------------------------------------------------
+namespace ca {
+
+	CA_PACK(arma::mat, packer, value) {
+		ca::ostream os(packer);
+		value.save(os, arma::arma_binary);
+		os.sync();
+	}
+
+	CA_UNPACK(arma::mat, unpacker, value) {
+		ca::istream os(unpacker);
+		value.load(os, arma::arma_binary);
+	}
+
+}
+-------------------------------------------------------------------------------
+
 Fixed size
 ^^^^^^^^^^
 
