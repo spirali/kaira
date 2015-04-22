@@ -482,7 +482,9 @@ static void write_control_line(ca::NetDef *def, std::stringstream &s, const Next
 			s << " T ";
 			ca::TransitionDef *t = def->get_transition_def(nninfo.data.fire.transition_id);
 			if (t->get_name().size() > 0) {
-				s << t->get_name();
+				std::string name = t->get_name();
+				std::replace(name.begin(), name.end(), '\n', '_');
+				s << name;
 			} else {
 				s << "#" << nninfo.data.fire.transition_id;
 			}
