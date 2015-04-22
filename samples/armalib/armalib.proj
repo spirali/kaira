@@ -1,0 +1,34 @@
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><build-option name="LIBS">-larmadillo</build-option><build-option name="CFLAGS">-O2</build-option><head-code>
+#include &lt;armadillo&gt;
+
+namespace ca {
+
+	CA_TOKEN_NAME(arma::mat, value) {
+		std::stringstream s;
+		s &lt;&lt; value;
+		return s.str();
+	}
+	
+	CA_PACK(arma::mat, packer, value) {
+		ca::ostream os(packer);
+		value.save(os, arma::arma_binary);
+		os.sync();
+	}
+	
+	CA_UNPACK(arma::mat, unpacker, value) {
+		ca::istream os(unpacker);
+		value.load(os, arma::arma_binary);
+	}
+
+}</head-code></configuration><net id="101" name="armamult"><place id="102" label-x="-168" label-y="-78" name="a" radius="20" sx="0" sy="0" x="-168" y="-78"><place-type x="-151" y="-61">arma::mat</place-type><init x="-151" y="-108" /><code>	arma::mat A;
+	  A &lt;&lt; 1.0 &lt;&lt; 2.0 &lt;&lt; arma::endr
+	    &lt;&lt; 2.0 &lt;&lt; 3.0 &lt;&lt; arma::endr
+	    &lt;&lt; 1.0 &lt;&lt; 3.0 &lt;&lt; arma::endr;		
+	place.add(A);
+</code><interface in="a" x="-193" y="-83" /><trace trace-tokens="False" /></place><place id="105" label-x="-168" label-y="90" name="b" radius="20" sx="0" sy="0" x="-168" y="90"><place-type x="-151" y="107">arma::mat</place-type><init x="-151" y="60" /><code>	arma::mat A;
+	  A &lt;&lt; 1.0 &lt;&lt; 2.0 &lt;&lt; 7.0 &lt;&lt; arma::endr
+	    &lt;&lt; 2.0 &lt;&lt; 0.0 &lt;&lt; 3.0 &lt;&lt; arma::endr;
+	place.add(A);	
+</code><interface in="b" x="-193" y="85" /><trace trace-tokens="False" /></place><transition clock="False" collective="False" id="104" label-x="-13" label-y="0" name="send" priority="" sx="70" sy="36" x="-48" y="-18"><guard x="-48" y="-38" /></transition><edge from_item="102" id="106" to_item="104"><inscription x="0.0" y="-60.0">x</inscription><point x="-12" y="-78" /></edge><edge from_item="105" id="108" to_item="104"><inscription x="0.0" y="54.0">y</inscription><point x="-12" y="90" /></edge><place id="109" label-x="126.0" label-y="132.0" name="a*b" radius="20" sx="0" sy="0" x="126" y="132"><place-type x="143.0" y="149.0">arma::mat</place-type><init x="143.0" y="102.0" /><interface out="out" x="101.0" y="127.0" /><trace trace-tokens="False" /></place><transition clock="False" collective="False" id="110" label-x="125.0" label-y="66.0" name="" priority="" sx="70" sy="36" x="90" y="48"><guard x="90.0" y="28.0" /><code>	var.z = var.x * var.y;
+	ctx.quit();
+</code></transition><place id="111" label-x="126.0" label-y="0.0" name="" radius="20" sx="0" sy="0" x="126.0" y="0.0"><place-type x="156.0" y="12.0">arma::mat</place-type><init x="143.0" y="-30.0" /><trace trace-tokens="False" /></place><edge from_item="104" id="112" to_item="111"><inscription x="42.0" y="-18.0">x@1;y@1</inscription></edge><edge from_item="111" id="113" to_item="110"><inscription x="138.0" y="24.0">x; y</inscription></edge><edge from_item="110" id="114" to_item="109"><inscription x="138.0" y="96.0">z@ 0</inscription></edge></net></project>
