@@ -129,13 +129,15 @@ def configure(ctx):
                     ctx.fatal("libclang.so not found.\n"
                               "Use --disable-clang to disable code complete functions, or "
                               "--clang-path=PATH to specify the path.")
-            libclang = tmp[0]
-        ctx.msg("libclang", libclang.abspath())
+            libclang = tmp[0].abspath()
+        ctx.msg("libclang", libclang)
     else:
         libclang = None
+    ctx.env.LIBCLANG = libclang
 
+
+def _create_files(ctx):
     # --------- run_python -------------
-
     run_python = ctx.bldnode.make_node("run_python")
     run_python.write("#!/bin/sh\n")
     run_python.write("exec " + ctx.env.PYTHON[0] + " $@\n")
@@ -149,28 +151,31 @@ def configure(ctx):
     myconf.append("CXX: " + " ".join(ctx.env.CXX))
     myconf.append("OCTAVE: " + str(bool(ctx.env.MKOCTFILE)))
     myconf.append("PYTHON: " + ctx.env.PYTHON[0])
-    myconf.append("LIBCLANG: " + str(bool(libclang)))
+    myconf.append("LIBCLANG: " + str(bool(ctx.env.LIBCLANG)))
 
-    if mpi:
+    if ctx.env.HAVE_MPI:
         myconf.append("MPICXX: " + " ".join(ctx.all_envs["mpi"].CXX))
     if ctx.env.MKOCTFILE:
         myconf.append("[Octave]")
         incflags = ctx.cmd_and_log([ctx.env.MKOCTFILE[0], "--print", "INCFLAGS" ],
-                                   output=Context.STDOUT)
+                                   output=Context.STDOUT, quiet=Context.BOTH)
         lflags = ctx.cmd_and_log([ctx.env.MKOCTFILE[0], "--print", "LFLAGS" ],
-                                   output=Context.STDOUT)
+                                   output=Context.STDOUT, quiet=Context.BOTH)
         libs = ctx.cmd_and_log([ctx.env.MKOCTFILE[0], "--print", "OCTAVE_LIBS" ],
-                                   output=Context.STDOUT)
+                                   output=Context.STDOUT, quiet=Context.BOTH)
         myconf.append("INCFLAGS: " + incflags)
         myconf.append("LFLAGS: " + lflags)
         myconf.append("LIBS: " + libs)
-    if libclang:
+
+    if ctx.env.LIBCLANG:
         myconf.append("[libclang]")
-        myconf.append("PATH: " + libclang.abspath())
+        myconf.append("PATH: " + ctx.env.LIBCLANG)
+
     conffile.write("\n".join(myconf))
     ctx.env.append_value('cfg_files', conffile.abspath())
 
 def build(ctx):
+    _create_files(ctx)
     ctx.recurse("libs/cailie")
     ctx.recurse("libs/caserver")
     ctx.recurse("libs/caclient")
