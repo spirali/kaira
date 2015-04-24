@@ -440,9 +440,10 @@ def write_is_enabled(builder):
     net = builder.project.nets[0]
 
     def callback(builder, transition):
-        for p in transition.get_input_places():
-            builder.line("if (marking[{0} * process_id + {2}] == 0 && {1.id} != ignored_place) return false;",
-                         len(net.places), p, p.get_pos_id())
+        for edge in transition.edges_in:
+            if not edge.is_bulk():
+                builder.line("if (marking[{0} * process_id + {2}] == 0 && {1.id} != ignored_place) return false;",
+                         len(net.places), edge.place, edge.place.get_pos_id())
 
     builder.write_method_start("bool is_enabled("
                                "int transition_id, int process_id, const std::vector<int> &marking, int ignored_place)")
