@@ -38,7 +38,7 @@ How to disable some of subsystems is described below.
 
   - Library for code completion and refactoring
 
-  $ apt-get install libclang1
+  $ apt-get install libclang1-3.4
 
   - Installation of MPI implementation
 
@@ -46,7 +46,7 @@ How to disable some of subsystems is described below.
 
   - Libraries for verification subsystem
 
-  $ apt-get install sparsehash libmhash-dev
+  $ apt-get install libsparsehash-dev libmhash-dev
 
   - Octave
 
