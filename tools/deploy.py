@@ -51,14 +51,21 @@ def main():
 
     if args.trace:
         callargs.append("--trace")
-    subprocess.check_output(callargs)
+    subprocess.check_output(callargs, stderr=subprocess.STDOUT)
 
     def run_ptp(self, operation=None):
         if operation is None:
             operation = "build"
 
     xmlfile = os.path.join(args.output, os.path.basename(args.filename).split(".")[0] + ".xml")
-    subprocess.check_output([PYTHON, PTP, "build", xmlfile, "--output", args.output ])
+    subprocess.check_output(
+            [PYTHON, PTP, "build", xmlfile, "--output", args.output ],
+            stderr=subprocess.STDOUT)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except subprocess.CalledProcessError, e:
+        print "Command FAILED:", e.cmd
+        print "Output: "
+        print e.output
