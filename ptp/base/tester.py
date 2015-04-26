@@ -19,7 +19,7 @@
 
 import subprocess
 import re
-
+import os
 
 check_id_counter = 30000
 
@@ -67,9 +67,11 @@ class Check:
 
 class Tester:
 
+
+    compiler = "gcc"
+    filename = "/tmp/kaira-{0}.cpp".format(os.getuid())
+
     def __init__(self):
-        self.compiler = "gcc"
-        self.filename = "/tmp/kaira.cpp"
         self.args = ()
         self.message_parser = re.compile(
             "(?P<filename>[^:]*):(?P<line>\d+):(?P<message>.*)")

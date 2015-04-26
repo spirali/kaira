@@ -23,9 +23,8 @@ from ptp import base
 import os
 import ptp
 
-library_path = "/usr/lib/x86_64-linux-gnu"
 temp_file_path = "/tmp/"
-temp_file_name = "kairaclangtemp.cpp"
+temp_file_name = "kairaclangtemp-{0}.cpp".format(os.getuid())
 
 if os.path.exists(temp_file_path):
     if not os.path.isfile(temp_file_path + temp_file_name):
