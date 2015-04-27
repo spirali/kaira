@@ -1,0 +1,9 @@
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><build-option name="LIBS" /><build-option name="CFLAGS">-O2 -fopenmp</build-option><head-code>
+
+#include &lt;omp.h&gt;</head-code></configuration><net id="101" name="openmp"><place id="102" label-x="-270.0" label-y="-48.0" name="" radius="20" sx="0" sy="0" x="-270.0" y="-48.0"><place-type x="-253.0" y="-31.0">int</place-type><init x="-253.0" y="-78.0">[1;2;3]</init><trace trace-tokens="False" /></place><transition clock="False" collective="False" id="103" label-x="-138.0" label-y="-48.0" name="" priority="" sx="70" sy="36" x="-173.0" y="-66.0"><guard x="-173.0" y="-86.0" /><code>  #pragma omp parallel for 
+  for (int i = 0; i &lt; 10; i++) {
+	  int tid = omp_get_thread_num();
+	  printf("Hello World from thread = %d\n", tid);
+  
+  }
+</code></transition><edge from_item="102" id="104" to_item="103"><inscription x="-211.5" y="-48.0">x</inscription></edge></net></project>
