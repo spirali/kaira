@@ -74,29 +74,28 @@ init_kind_map(result_kind_map)
 class KeyPressedMap():
 
     def __init__(self):
-        self.pressed_keys = {}
+        self.pressed_keys = set()
 
     def count(self):
         return len(self.pressed_keys)
 
     def key_pressed(self, key):
-        self.pressed_keys[key.keyval] = key
+        self.pressed_keys.add(key)
 
     def key_released(self, key):
-        if self.pressed_keys.has_key(key.keyval):
-            del self.pressed_keys[key.keyval]
+        self.pressed_keys.discard(key)
 
     def remove_all(self):
         self.pressed_keys.clear()
 
     def has_pressed_keys(self, keys):
         for key in keys:
-            if not self.pressed_keys.has_key(key):
+            if key in self.pressed_keys:
                 return False
         return True
 
     def has_pressed(self, key):
-        return self.pressed_keys.has_key(key)
+        return key in self.pressed_keys
 
 class PlaceHolderObject():
     items = []
@@ -929,10 +928,10 @@ class Completion(gobject.GObject):
                     window.add_tab(tab, True)
 
     def _key_released(self, w, key):
-        self.key_map.key_released(key)
+        self.key_map.key_released(key.hardware_keycode)
 
     def _key_pressed(self, w, key):
-        self.key_map.key_pressed(key)
+        self.key_map.key_pressed(key.hardware_keycode)
 
         if self.active_place_holder:
             if key.keyval == gtk.keysyms.Escape:
@@ -947,7 +946,7 @@ class Completion(gobject.GObject):
                 self.active_place_holder.dismiss()
                 pressed_key = key.keyval
 
-                if (pressed_key == gtk.keysyms.space or 
+                if (pressed_key == gtk.keysyms.space or
                      pressed_key == gtk.keysyms.Return):
                     return True
 
