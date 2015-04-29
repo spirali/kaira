@@ -51,6 +51,9 @@ class TraceLog {
 		virtual void set_time(ca::IntTime time) {}
 		virtual IntTime get_relative_time() { return 0; }
 
+		void trace_value(const int value);
+		void trace_value(const double value);
+		void trace_value(const std::string &str);
 
 	protected:
 

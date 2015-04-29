@@ -51,6 +51,27 @@ TraceLog::TraceLog(int process_id, int thread_id, size_t size)
 	write_key_value("", ""); // Terminate config section
 }
 
+void TraceLog::trace_value(const int value)
+{
+	check_size(1 + sizeof(int32_t) );
+	write_char('i');
+	write_int32(value);
+}
+
+void TraceLog::trace_value(const double value)
+{
+	check_size(1 + sizeof(double) );
+	write_char('d');
+	write_double(value);
+}
+
+void TraceLog::trace_value(const std::string &str)
+{
+	check_size(1 + str.size() + 1);
+	write_char('s');
+	write_string(str);
+}
+
 TraceLog::~TraceLog()
 {
 	write_buffer();
