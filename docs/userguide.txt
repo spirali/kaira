@@ -16,18 +16,21 @@ or start a state-space analysis.
 
 .Prerequisites
 ************
-In this text, we assume that the reader is familiar with C++ and basic use
+In this text, we assume that the reader is familiar with C++ and basics
 of Linux.
 ************
 
 Installation
 ------------
 
+First, instructions for some selected distributions are listed. More detailed 
+instructions for installation can be found below.
+
 Instructions for Debian based distributions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.Full installation - Instructions for Debian based distributions
-***************************************************************
+Full installation
+^^^^^^^^^^^^^^^^^
 
 These steps describe how to install the *full* version of Kaira.
 How to disable some of subsystems is described below.
@@ -68,10 +71,9 @@ How to disable some of subsystems is described below.
 
   $ ./start.sh
 
-************
 
-.Minimal installation - Instructions for Debian based distributions
-******************************************************************
+Minimal installation
+^^^^^^^^^^^^^^^^^^^^
 
 These steps describe how to install the a *minimal* version of Kaira,
 where all optional features are disabled.
@@ -92,13 +94,49 @@ where all optional features are disabled.
 
   $ ./start.sh
 
-************
+Instructions for Fedora (Full installation)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Instruction for Arch
-~~~~~~~~~~~~~~~~~~~~
+  - Basic packages (necessary for minimal installation)
 
-.Full installation - Instructions for Arch based distributions
-**************************************************************
+  $ yum install python python-virtualenv python-matplotlib
+  $ yum install pyparsing pygtk2 pygtksourceview
+
+  - Library for code completion and refactoring
+
+  $ yum install clang
+
+  - Librariries for verification subsystem
+
+  $ yum install sparsehash-devel mhash mhash-devel
+
+  - Octave
+
+  $ yum install octave octave-devel
+
+  - MPI
+
+  $ yum install mpich mpich-devel
+
+  - Documentation
+
+  $ yum install asciidoc source-highlight
+
+  - Configure Kaira
+
+  $ ./waf configure
+
+  - Build Kaira
+
+  $ ./waf
+
+  - Start Kaira
+
+  $ ./start.sh
+
+
+Instructions for Arch (Full instalation)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These steps describe how to install the *full* version of Kaira.
 
@@ -144,8 +182,6 @@ These steps describe how to install the *full* version of Kaira.
 
   $ source venv/bin/activate
   $ ./start.sh
-
-************
 
 The following text covers the installation process in more detail.
 
