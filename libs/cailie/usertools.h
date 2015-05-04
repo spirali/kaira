@@ -21,6 +21,10 @@ class Context {
 			thread->quit_all();
 		}
 
+		void halt() {
+			thread->halt();
+		}
+
 		int pid() const {
 			return thread->get_process_id();
 		}

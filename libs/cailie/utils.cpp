@@ -21,3 +21,4 @@ size_t ca::parse_size_string(const std::string &str)
 		return 0;
 	}
 }
+

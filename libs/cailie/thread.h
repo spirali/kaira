@@ -17,6 +17,7 @@ class ThreadBase {
 		virtual ~ThreadBase() {}
 
 		virtual void quit_all() = 0;
+		virtual void halt() = 0;
 		virtual int get_process_count() const = 0;
 		virtual int get_process_id() const = 0;
 
@@ -85,6 +86,7 @@ class Thread : public ThreadBase {
 		void process_message(ThreadMessage *message);
 		Net * spawn_net(int def_index);
 		void quit_all();
+		void halt();
 
 		#ifdef CA_MPI
 		MpiRequests * get_requests() {

@@ -98,6 +98,11 @@ void Thread::quit_all()
 	process->quit_all();
 }
 
+void Thread::halt()
+{
+	process->halt();
+}
+
 void Thread::run_scheduler()
 {
 	process_messages();

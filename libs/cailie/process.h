@@ -58,6 +58,7 @@ class Process {
 		void send_barriers(pthread_barrier_t *barrier1, pthread_barrier_t *barrier2);
 		void quit_all();
 		void quit();
+		void halt();
 
 		Net *spawn_net(int def_index, bool globally);
 

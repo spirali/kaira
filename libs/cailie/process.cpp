@@ -203,3 +203,8 @@ void Process::quit()
 {
 	quit_flag = true;
 }
+
+void Process::halt()
+{
+	quit();
+}

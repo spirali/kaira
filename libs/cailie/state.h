@@ -11,6 +11,7 @@
 #include "packet.h"
 #include "packing.h"
 #include "output.h"
+#include "utils.h"
 
 namespace ca {
 
@@ -69,6 +70,10 @@ namespace ca {
 
 					void quit_all() {
 							state->set_quit_flag();
+					}
+
+					void halt() {
+							state->mark_halted_thread(process_id);
 					}
 
 					int get_process_count() const {
@@ -178,7 +183,8 @@ namespace ca {
 				net_def(NULL),
 				activations(process_count,
 				(ActivationT*) NULL),
-				quit(false)
+				quit(false),
+				halt_bitfield(process_count, false)
 			{
 				packets = new std::deque<PacketT>[ca::process_count * ca::process_count];
 			}
@@ -198,7 +204,8 @@ namespace ca {
 				nets(nets),
 				net_def(net_def),
 				activations(process_count, (ActivationT*) NULL),
-				quit(false)
+				quit(false),
+				halt_bitfield(process_count, false)
 			{
 				packets = new std::deque<PacketT>[process_count * process_count];
 			}
@@ -207,7 +214,8 @@ namespace ca {
 				: nets(process_count),
 				  net_def(state.net_def),
 				  activations(process_count, (ActivationT*) NULL),
-				  quit(state.quit)
+				  quit(state.quit),
+				  halt_bitfield(process_count, false)
 			{
 				for (int i = 0; i < ca::process_count; i++) {
 					nets[i] = static_cast<NetT*> (state.nets[i]->copy());
@@ -465,11 +473,25 @@ namespace ca {
 			}
 
 			void set_quit_flag() {
-					quit = true;
+				quit = true;
 			}
 
 			bool get_quit_flag() {
-					return quit;
+				return quit;
+			}
+
+			void mark_halted_thread(int thread_id) {
+				halt_bitfield[thread_id] = true;
+
+				for (size_t i = 0; i < halt_bitfield.size(); i++)
+				{
+					if (!halt_bitfield[i])	// some thread is still running, do not quit the program
+					{
+						return;
+					}
+				}
+
+				set_quit_flag();
 			}
 
 		protected:
@@ -481,6 +503,7 @@ namespace ca {
 			PacketQueue *packets;
 			Activations activations;
 			bool quit;
+			std::vector<bool> halt_bitfield;
 	};
 
 	typedef StateBase<Net, Activation, Packet> State;
