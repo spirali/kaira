@@ -1,0 +1,10 @@
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><build-option name="LIBS" /><build-option name="CFLAGS">-g</build-option></configuration><net id="101" name="Main"><place id="104" label-x="72" label-y="174" name="" radius="20" sx="0" sy="0" x="72" y="174"><place-type x="89" y="191">int</place-type><init x="89" y="144">[0]</init><trace trace-tokens="False" /></place><place id="105" label-x="276" label-y="168" name="" radius="20" sx="0" sy="0" x="276" y="168"><place-type x="300" y="186">int</place-type><init x="293" y="138" /><trace trace-tokens="False" /></place><transition clock="False" collective="False" id="106" label-x="179" label-y="222" name="ping" priority="" sx="64" sy="32" x="144" y="204"><guard x="144" y="184" /><code>	if (var.x == 4)
+	{
+		ctx.halt();
+	}
+</code></transition><transition clock="False" collective="False" id="107" label-x="173" label-y="126" name="pong" priority="" sx="74" sy="30" x="138" y="108"><guard x="138" y="88" /><code>	if (ctx.pid() == 1 &amp;&amp; var.x &gt; 2)
+	{
+		ctx.halt();
+	}
+	else printf("%d ", var.x);
+</code></transition><edge from_item="107" id="113" to_item="104"><inscription x="78.0" y="107.0">x + 1@0</inscription><point x="72" y="126" /></edge><edge from_item="106" id="114" to_item="105"><inscription x="246.0" y="222.0">x + 1@1</inscription><point x="276" y="222" /></edge><edge from_item="105" id="115" to_item="107"><inscription x="288.0" y="126.0">x</inscription><point x="276" y="126" /></edge><edge from_item="104" id="116" to_item="106"><inscription x="100.0" y="225.0">x</inscription><point x="72" y="222" /></edge></net></project>
