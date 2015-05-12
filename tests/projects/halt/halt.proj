@@ -1,0 +1,6 @@
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><build-option name="LIBS" /><build-option name="CFLAGS">-O2</build-option><communication-model>	const ca::IntTime latency = 2e6;  // [ns]
+	const ca::IntTime bandwidth = 20; // [byte/ns]
+	return latency + size / bandwidth;
+</communication-model></configuration><net id="101" name="halt"><transition clock="False" collective="False" id="103" label-x="-78" label-y="6" name="" priority="" sx="70" sy="36" x="-113" y="-12"><guard x="-113" y="-32" /><code>	printf("%i\n", ctx.pid());
+	ctx.halt();
+</code></transition></net></project>

@@ -29,7 +29,17 @@ class MpiBuildTest(unittest.TestCase):
         Project("scattergather", mpi=True).quick_test(result, processes=5, params={"SIZE": 5})
 
     def test_allgather(self):
-        Project("allgather").quick_test("Ok\n", processes=5)
+        Project("allgather", mpi=True).quick_test("Ok\n", processes=5)
+
+    def test_halt_pong(self):
+        Project("halt_pong", mpi=True).quick_test("1 ", processes=2)
+
+    def test_halt(self):
+        p = Project("halt", mpi=True)
+        p.build()
+        for i in xrange(1, 6):
+            p.run(result_fn=lambda o: o.count("\n") == i, processes=i)
+
 
 if __name__ == '__main__':
     unittest.main()

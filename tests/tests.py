@@ -160,9 +160,14 @@ class BuildTest(unittest.TestCase):
         result = " 441 462 483 504 525 546\n 1017 1074 1131 1188 1245 1302\n 1593 1686 1779 1872 1965 2058\n 2169 2298 2427 2556 2685 2814\n 2745 2910 3075 3240 3405 3570\n 3321 3522 3723 3924 4125 4326\n"
         Project("matmult_cc").quick_test(result, processes=4)
 
+    def test_halt_pong(self):
+        Project("halt_pong").quick_test("1 ", processes=2)
+
     def test_halt(self):
-        result = "1 "
-        Project("halt_pong").quick_test(result, processes=2)
+        p = Project("halt")
+        p.build()
+        for i in xrange(1, 6):
+            p.run(result_fn=lambda o: o.count("\n") == i, processes=i)
 
 class LibTest(unittest.TestCase):
     def test_lib_parameters(self):
