@@ -507,6 +507,8 @@ int pid() :: returns rank of the process
 int count() :: returns number of processes
 void quit() :: terminates the program (or the function call when the project
                is built as a library)
+void halt() :: terminates the process (when all processes call 'halt' then
+               it has the same effect as 'quit')
 
 Class ca::TokenList<T>
 ^^^^^^^^^^^^^^^^^^^^^^
