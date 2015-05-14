@@ -286,7 +286,7 @@ namespace ca {
 									transitions[t]->get_priority()) {
 								break;
 							}
-							if (transitions[t]->is_enable(&thread, nets[i])) {
+							if (transitions[t]->is_enable(&thread, nets[i]) && !is_process_halted(i)) {
 								enabled = true;
 								output.child("enabled");
 								output.set("id", transitions[t]->get_id());
@@ -331,6 +331,10 @@ namespace ca {
 
 			bool fire_transition_phase1(int process_id, TransitionDef *transition_def)
 			{
+				if (is_process_halted(process_id)) {
+					return false;
+				}
+
 				if (transition_def->is_immediate()) {
 					StateThread thread(this, process_id);
 					return transition_def->full_fire(&thread, nets[process_id]);
@@ -347,6 +351,10 @@ namespace ca {
 
 			bool fire_transition_full(int process_id, TransitionDef *transition_def)
 			{
+				if (is_process_halted(process_id)) {
+					return false;
+				}
+
 				if (!transition_def->is_collective()) {
 					StateThread thread(this, process_id);
 					return transition_def->full_fire(&thread, nets[process_id]);
@@ -374,14 +382,27 @@ namespace ca {
 			bool fire_transition_full_with_binding(int process_id, TransitionDef *transition_def,
 					ca::Packer &packer)
 			{
+				if (is_process_halted(process_id)) {
+					return false;
+				}
+
 				StateThread thread(this, process_id);
 				return transition_def->full_fire_with_binding(&thread, nets[process_id], packer);
 			}
 
 			bool is_transition_enabled(int process_id, TransitionDef *transition_def)
 			{
+				if (is_process_halted(process_id)) {
+					return false;
+				}
+
 				StateThread thread(this, process_id);
 				return transition_def->is_enable(&thread, nets[process_id]);
+			}
+
+			bool is_process_halted(int process_id)
+			{
+				return halt_bitfield[process_id];
 			}
 
 			void finish_transition(int process_id)
