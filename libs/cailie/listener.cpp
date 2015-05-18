@@ -197,10 +197,6 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 		}
 
 		if (check_prefix(line, "FIRE")) {
-			if (processes[0]->quit_flag) {
-				fprintf(comm_out, "Process is terminated\n");
-				continue;
-			}
 			int transition_id;
 			int process_id;
 			int phases;
@@ -212,6 +208,12 @@ void Listener::process_commands(FILE *comm_in, FILE *comm_out)
 				fprintf(comm_out, "There is no such process\n");
 				continue;
 			}
+
+			if (state->is_process_halted(process_id)) {
+				fprintf(comm_out, "Process is halted\n");
+				continue;
+			}
+
 			TransitionDef *transition_def = state->get_net_def()->get_transition_def(transition_id);
 			if (transition_def == NULL) {
 				fprintf(comm_out, "Invalid transition\n");
