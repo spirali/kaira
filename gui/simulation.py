@@ -100,6 +100,12 @@ class Simulation(EventSource):
             runinstance = RunInstance(self.project, self.process_count)
             for process_id, e in enumerate(root.findall("process")):
                 runinstance.event_spawn(process_id, 0, net_id)
+                
+                halted = e.get("halted") == "true"
+                
+                if halted:
+                    runinstance.event_halt(process_id, 0)
+                
                 for pe in e.findall("place"):
                     place_id = utils.xml_int(pe, "id")
                     for te in pe.findall("token"):

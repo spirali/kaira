@@ -274,6 +274,8 @@ namespace ca {
 
 				for (int i = 0; i < process_count; i++) {
 					output.child("process");
+					output.set("halted", is_process_halted(i));
+
 					StateThread thread(this, i);
 					nets[i]->write_reports(&thread, output);
 

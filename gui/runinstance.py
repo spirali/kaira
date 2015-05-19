@@ -34,6 +34,7 @@ class RunInstance:
     def __init__(self, project, process_count):
         self.project = project
         self.process_count = process_count
+        self.halted_processes = [False] * process_count
         self.net = None
         self.net_instances = {}
         self.activites = [None] * self.process_count
@@ -94,6 +95,12 @@ class RunInstance:
             self.last_event_activity.quit = True
         self.last_event_instance = self.net_instances[process_id]
 
+    def event_halt(self, process_id, time):
+        self.last_event = "halt"
+        self.last_event_process = process_id
+        self.last_event_time = time
+        self.halted_processes[process_id] = True
+        
     def event_idle(self, process_id, time):
         self.last_event = "idle"
         self.last_event_process = process_id
@@ -167,8 +174,13 @@ class RunInstance:
         v = self.net_instances.keys()
         v.sort()
         for i in v:
+            process_label = str(i)
+            
+            if self.halted_processes[i]:
+                process_label += " (halted)"
+            
             perspectives.append(
-                Perspective(str(i),
+                Perspective(process_label,
                 self, { i : self.net_instances[i] } ))
         return perspectives
 
