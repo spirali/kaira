@@ -165,6 +165,14 @@ void TraceLog::event_receive(int from_process)
 	write_int32(from_process);
 }
 
+void TraceLog::event_process_halted(int process_id)
+{
+	check_size(1 + sizeof(int32_t) + sizeof(uint64_t));
+	write_char('H');
+	write_time();
+	write_int32(process_id);
+}
+
 void TraceLog::trace_token_add(int place_id, void *pointer)
 {
 	check_size(1 + sizeof(uint32_t) + sizeof(void*));

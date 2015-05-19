@@ -206,5 +206,13 @@ void Process::quit()
 
 void Process::halt()
 {
+	if (!quit_flag) {
+		TraceLog *tracelog = thread->get_tracelog();
+
+		if (tracelog) {
+			tracelog->event_process_halted(process_id);
+		}
+	}
+
 	quit();
 }

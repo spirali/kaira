@@ -31,6 +31,7 @@ class TraceLog {
 		void event_send_part2(const std::vector<int> &target, size_t size, int edge_id);
 		void event_receive(int from_process);
 		void event_idle();
+		void event_process_halted(int process_id);
 
 		void trace_token_add(int place_id, void *pointer);
 		void trace_token_remove(int place_id, void *pointer);

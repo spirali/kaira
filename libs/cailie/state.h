@@ -488,6 +488,15 @@ namespace ca {
 			}
 
 			void mark_halted_thread(int thread_id) {
+				if (!halt_bitfield[thread_id]) {
+					StateThread thread(this, thread_id);
+					TraceLog *tracelog = thread.get_tracelog();
+
+					if (tracelog) {
+						tracelog->event_process_halted(thread_id);
+					}
+				}
+
 				halt_bitfield[thread_id] = true;
 
 				for (size_t i = 0; i < halt_bitfield.size(); i++)
