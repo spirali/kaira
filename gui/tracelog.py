@@ -200,6 +200,7 @@ class Trace:
     struct_spawn = struct.Struct("<Qi")
     struct_send = struct.Struct("<QQii")
     struct_receive = struct.Struct("<Qi")
+    struct_halt = struct.Struct("<Qi")
 
     struct_token_4 = struct.Struct("<Li")
     struct_token_8 = struct.Struct("<Qi")
@@ -248,7 +249,9 @@ class Trace:
             return "Spawn"
         elif t == "I":
             return "Idle "
-        elif t == "H" or t == "Q": # "H" for backward compatability
+        elif t == "H":
+            return "Halt " 
+        elif t == "Q":
             return "Quit "
 
     def process_event(self, runinstance):
@@ -269,6 +272,8 @@ class Trace:
             # This is called only when transition that call ctx.quit is not traced
             self.pointer -= 1 # _process_event_quit expect the pointer at "Q"
             self._process_event_quit(runinstance)
+        elif t == "H":
+            self._process_event_halt(runinstance)
         else:
             raise Exception("Invalid event type '{0}/{1}' (pointer={2}, process={3})"
                                 .format(t, ord(t), hex(self.pointer), self.process_id))
@@ -375,6 +380,11 @@ class Trace:
         self.pointer += self.struct_basic.size
         return values
 
+    def _read_struct_halt(self):
+        values = self.struct_halt.unpack_from(self.data, self.pointer)
+        self.pointer += self.struct_halt.size
+        return values
+
     def _process_end(self, runinstance):
         t = self.data[self.pointer]
         if t != "X":
@@ -432,6 +442,12 @@ class Trace:
         time = self._read_struct_quit()[0]
         runinstance.event_quit(self.process_id,
                                time + self.time_offset)
+
+    def _process_event_halt(self, runinstance):
+        halt_data = self._read_struct_halt()
+        time = halt_data[0]
+        process_id = halt_data[1]
+        runinstance.event_halt(process_id, time + self.time_offset)
 
     def _process_event_receive(self, runinstance):
         time, origin_id = self._read_struct_receive()
