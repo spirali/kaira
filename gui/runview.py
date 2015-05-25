@@ -158,6 +158,16 @@ def process_utilization(table, processes):
     idles = []
     for p in processes:
         idles.append(table.select(columns, filters + [("Process", f_eq, p)]))
+    
+    print(idles)
+        
+    # collect halts
+    filters = [("Event", f_eq, 'H')]
+    halts = []
+    for p in processes:
+        halts.append(table.select(columns, filters + [("Process", f_eq, p)]))
+
+    print(halts)
 
     # collect TETs
     filters = [("Event", f_eq, 'T')]
@@ -170,10 +180,13 @@ def process_utilization(table, processes):
     values.reverse()
     if idles is not None:
         idles.reverse()
+    if halts is not None:
+        halts.reverse()    
+    
     return ("Utilization of processes",
             charts.utilization_chart(
                 names, values,
-                "Utilization of processes", "Time", "Process", idles))
+                "Utilization of processes", "Time", "Process", idles, halts))
 
 def transition_utilization(table, processes, transitions):
     required = ["Event", "ID", "Time", "Duration"]

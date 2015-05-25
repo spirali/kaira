@@ -839,7 +839,8 @@ def utilization_chart(names,
                       title="",
                       xlabel="",
                       ylabel="",
-                      idles=None):
+                      idles=None,
+                      halts=None):
 
     if not names or not values:
         return _empty_chart(title, xlabel, ylabel)
@@ -860,6 +861,13 @@ def utilization_chart(names,
             ax.broken_barh(
                 lidle, (y, ywidth),
                 edgecolor='face', facecolor='#EAA769')
+            
+    if halts is not None:
+        for i, lhalt in enumerate(halts):
+            y = ((i+1) * ywidth) + (i+1)
+            ax.broken_barh(
+                lhalt, (y, ywidth),
+                edgecolor='face', facecolor='red')
 
     for i, ldata in enumerate(values):
         y = (ywidth+1) * (i+ 1)
@@ -880,14 +888,17 @@ def utilization_chart(names,
         label.set_horizontalalignment("left")
         label.set_verticalalignment('center')
 
+    # TODO check rectangles for existence
     p = mpl_Rectangle((0, 0), 1, 1, edgecolor='green', fc='green', alpha=0.75)
+    halted_legend = mpl_Rectangle((0,0), 1, 1, edgecolor='red', fc='red', alpha=0.75)
+    
     if idles is not None:
         idle_leg = mpl_Rectangle((0,0), 1, 1, edgecolor='#eaa769', fc='#eaa769', alpha=0.75)
         ax.plegend = ax.legend(
-            [p,idle_leg], ["Running", "Idle"], loc="upper left", fancybox=True, shadow=True)
+            [p, halted_legend, idle_leg], ["Running", "Halted", "Idle"], loc="upper left", fancybox=True, shadow=True)
     else:
         ax.plegend = ax.legend(
-            [p], ["Running"], loc="upper left", fancybox=True, shadow=True)
+            [p, halted_legend], ["Running", "Halted"], loc="upper left", fancybox=True, shadow=True)
 
     ax.xaxis.grid(True, linestyle="-", which='major', color='black', alpha=0.7)
     ax.xaxis.set_major_formatter(mpl_FuncFormatter(
