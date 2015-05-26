@@ -156,19 +156,33 @@ class ExportRunInstance(RunInstance):
     
     def event_halt(self, process_id, time):
         self.halts[process_id] = time
+        
+        last_halt = True
+        for halt in self.halts:
+            if halt is None:
+                last_halt = False
+                break
+        
+        if last_halt:
+            self.add_halted_events(time)
+        
         RunInstance.event_halt(self, process_id, time)
-
-    def event_end(self, process_id, time):
-        start_time = self.halts[process_id]
-        if start_time is not None:
-            self.add_row('H',
-                         start_time,
-                         time - start_time,
-                         process_id,
+    
+    def event_quit(self, process_id, time):
+        self.add_halted_events(time)
+        RunInstance.event_quit(self, process_id, time)
+    
+    def add_halted_events(self, time):
+        for p in xrange(len(self.halts)):
+            if self.halts[p] is not None:
+                self.add_row('H',
+                         self.halts[p],
+                         time - self.halts[p],
+                         p,
                          None,
-                         (None, None)) 
-        RunInstance.event_end(self, process_id, time)
-
+                         (None, None))
+                self.halts[p] = None
+    
     def add_token(self, place_id, token_pointer, token_value, send_time):
         self._change_place_counter(place_id, +1)
 
