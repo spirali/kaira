@@ -158,16 +158,12 @@ def process_utilization(table, processes):
     idles = []
     for p in processes:
         idles.append(table.select(columns, filters + [("Process", f_eq, p)]))
-    
-    print(idles)
         
     # collect halts
     filters = [("Event", f_eq, 'H')]
     halts = []
     for p in processes:
         halts.append(table.select(columns, filters + [("Process", f_eq, p)]))
-
-    print(halts)
 
     # collect TETs
     filters = [("Event", f_eq, 'T')]

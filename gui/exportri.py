@@ -54,6 +54,7 @@ class ExportRunInstance(RunInstance):
         self.table = self._create_table()
 
         self.idles = [None] * self.process_count
+        self.halts = [None] * self.process_count
         self.tokens_counters = [[0] * len(self.traced_places)
                                 for p in range(tracelog.process_count)]
 
@@ -152,6 +153,21 @@ class ExportRunInstance(RunInstance):
     def event_idle(self, process_id, time):
         self.idles[process_id] = time
         RunInstance.event_idle(self, process_id, time)
+    
+    def event_halt(self, process_id, time):
+        self.halts[process_id] = time
+        RunInstance.event_halt(self, process_id, time)
+
+    def event_end(self, process_id, time):
+        start_time = self.halts[process_id]
+        if start_time is not None:
+            self.add_row('H',
+                         start_time,
+                         time - start_time,
+                         process_id,
+                         None,
+                         (None, None)) 
+        RunInstance.event_end(self, process_id, time)
 
     def add_token(self, place_id, token_pointer, token_value, send_time):
         self._change_place_counter(place_id, +1)
