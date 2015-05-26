@@ -888,17 +888,18 @@ def utilization_chart(names,
         label.set_horizontalalignment("left")
         label.set_verticalalignment('center')
 
-    # TODO check rectangles for existence
-    p = mpl_Rectangle((0, 0), 1, 1, edgecolor='green', fc='green', alpha=0.75)
-    halted_legend = mpl_Rectangle((0,0), 1, 1, edgecolor='red', fc='red', alpha=0.75)
+    rectangles = [ mpl_Rectangle((0, 0), 1, 1, edgecolor='green', fc='green', alpha=0.75) ]
+    labels = [ "Running" ]
     
     if idles is not None:
-        idle_leg = mpl_Rectangle((0,0), 1, 1, edgecolor='#eaa769', fc='#eaa769', alpha=0.75)
-        ax.plegend = ax.legend(
-            [p, halted_legend, idle_leg], ["Running", "Halted", "Idle"], loc="upper left", fancybox=True, shadow=True)
-    else:
-        ax.plegend = ax.legend(
-            [p, halted_legend], ["Running", "Halted"], loc="upper left", fancybox=True, shadow=True)
+        rectangles.append(mpl_Rectangle((0,0), 1, 1, edgecolor='#eaa769', fc='#eaa769', alpha=0.75))
+        labels.append("Idle")
+    
+    if halts is not None:
+        rectangles.append(mpl_Rectangle((0,0), 1, 1, edgecolor='red', fc='red', alpha=0.75))
+        labels.append("Halted")
+    
+    ax.plegend = ax.legend(rectangles, labels, loc="upper left", fancybox=True, shadow=True)
 
     ax.xaxis.grid(True, linestyle="-", which='major', color='black', alpha=0.7)
     ax.xaxis.set_major_formatter(mpl_FuncFormatter(
