@@ -170,7 +170,7 @@ class NewPlaceCanvasConfig(NewElementCanvasConfig):
         item = self.net.add_place(self.get_position(position))
         self.neteditor.set_tool("selection", set_button=True)
         self.canvas.config.select_item(item.box)
-
+        self.neteditor.add_undo_action(UndoAddNetItemAction(self.net, item))
 
 class NewEdgeCanvasConfig(NetEditCanvasConfig):
 
