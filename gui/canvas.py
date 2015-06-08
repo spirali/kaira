@@ -40,6 +40,8 @@ class Canvas(gtk.DrawingArea):
         self.connect("button_release_event", self._button_up)
         self.connect("motion_notify_event", self._mouse_move)
         self.connect("leave-notify-event", self._mouse_leave)
+        
+        self.set_can_focus(True)
 
     def set_config(self, config):
         if config:
@@ -115,6 +117,8 @@ class Canvas(gtk.DrawingArea):
         return self.cr.device_to_user(event.x, event.y)
 
     def _button_down(self, w, event):
+        self.grab_focus()
+        
         if event.button == 1:
             self.config.on_mouse_left_down(event, self._mouse_to_canvas(event))
         elif event.button == 3:
