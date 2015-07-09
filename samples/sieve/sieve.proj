@@ -2,6 +2,14 @@
 struct Segment{
 	std::vector&lt;bool&gt; marks;
 	int start;
+
+	void pack(ca::Packer &amp;packer) const {
+        packer &lt;&lt; start;
+        packer &lt;&lt; marks.size();
+        for (int i = 0; i &lt; marks.size(); i++) {
+			packer &lt;&lt; marks[i];
+        }
+    }
 };
 
 
