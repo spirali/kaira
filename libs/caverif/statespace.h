@@ -3,12 +3,12 @@
 #define CAVERIF_STATESPACE_H
 
 #include <stack>
-#include <google/sparse_hash_map>
-#include <mhash.h>
 #include "cailie.h"
 #include "basictypes.h"
 #include "state.h"
 #include "verifconfiguration.h"
+#include "hasharray.h"
+#include "vertices.h"
 
 #include <set>
 #include <list>
@@ -36,7 +36,6 @@ namespace cass {
 	class Core;
 	class Node;
 	class VerifConfiguration;
-	typedef void* HashDigest;
 	struct Arc;
 	struct ArcCompare;
 	typedef std::map<Arc, int, ArcCompare> ParikhVector;
@@ -102,7 +101,11 @@ namespace cass {
 			Node(HashDigest hash, State *state, Node *prev);
 			~Node();
 			const std::vector<NextNodeInfo> & get_nexts() const { return nexts; }
-			void generate(Core *statespace);
+			//void generate(Core *statespace);
+
+			void compute_ample(Core *core);
+			void fire_ample(Core *core);
+			const ActionSet& get_ample() const { return ample; }
 			HashDigest get_hash() const { return hash; }
 
 			State* get_state() const { return state; }
@@ -112,6 +115,7 @@ namespace cass {
 			void set_data(void* data) { this->data = data; };
 			void set_prev(Node *prev);
 			const NextNodeInfo& get_next_node_info(Node *node) const;
+			size_t get_ample_size() const { return ample.size(); }
 
 			bool is_quitted() { return quit; }
 			bool get_quit_flag() { return quit_flag; }
@@ -130,40 +134,19 @@ namespace cass {
 			bool quit;
 			bool quit_flag;
 			HashDigest final_marking;
+			ActionSet ample;
 
 			// Generic data used during analysis
 			int tag;
 			void* data;
 	};
 
-	struct HashDigestHash
-	{
-		HashDigestHash(hashid hash_id) : size(mhash_get_block_size(hash_id)) {}
-
-		size_t operator()(HashDigest hash) const {
-			size_t *h = (size_t*) hash;
-			return *h;
-		}
-		size_t size;
-	};
-
-	struct HashDigestEq
-	{
-		HashDigestEq(hashid hash_id) : size(mhash_get_block_size(hash_id)) {}
-
-		bool operator()(HashDigest hash1, HashDigest hash2) const {
-			return !memcmp(hash1, hash2, size);
-		}
-		size_t size;
-	};
-
-	typedef google::sparse_hash_map<HashDigest, Node*, HashDigestHash, HashDigestEq>
-		NodeMap;
+	typedef google::sparse_hash_map<HashDigest, Node*, HashDigestHash, HashDigestEq> NodeMap;
 
 	class Core
 	{
 		public:
-			Core(VerifConfiguration &verif_configuration, std::vector<ca::Parameter*> &parameters);
+			Core(int argc, char **argv, VerifConfiguration &verif_configuration, std::vector<ca::Parameter*> &parameters);
 			~Core();
 			void generate();
 			void postprocess();
@@ -176,8 +159,8 @@ namespace cass {
 
 			ActionSet compute_ample_set(State *s, const ActionSet &enable);
 
-			static void hashdigest_to_string(hashid hash_id, HashDigest hash, char *out);
-			static std::string hashdigest_to_string(hashid hash_id, HashDigest hash);
+			static void hashdigest_to_string(HashDigest hash, char *out);
+			static std::string hashdigest_to_string(HashDigest hash);
 		protected:
 			void write_report();
 			void write_control_sequence(std::vector<Node*> &nodes, ca::Output &report);
@@ -196,7 +179,10 @@ namespace cass {
 			void check_C1(const ActionSet &enabled, ActionSet &ample, State *s, std::vector<int> &marking);
 			bool check_C2(const ActionSet &ws);
 			bool check_C3(State *s);
-			std::stack<Node*> not_processed;
+
+			hashid hash_id;
+
+			std::list<Node*> not_processed;
 			NodeMap nodes;
 			Node *initial_node;
 			ca::NetDef *net_def;
@@ -207,6 +193,32 @@ namespace cass {
 			size_t fullyEplored;
 			size_t partlyExplored;
 			size_t singleExplored;
+#ifdef CA_MPI
+			void init_partition();
+			void send_hashes(size_t part);
+			void send_result(size_t part);
+			void partitiate(size_t part);
+
+			void add_part(size_t part, size_t process, size_t node_size, size_t ample_size);
+
+			HashArray hashes;
+			HashArray receives;
+
+			std::vector<std::vector<int> > receive_count;
+			std::vector<std::vector<int> > next_receive;
+			std::vector<int> next_end;
+			std::vector<std::vector<int> > displacement;
+			std::vector<size_t> threshold;
+			std::vector<size_t> next_threshold;
+
+			std::map<HashDigest, HashVertex, HashDigestOrder> hash_processes;
+			std::vector<ProcessVertex> processes;
+
+			int rank;
+			int size;
+
+			int output;
+#endif
 	};
 
 	void init(int argc, char **argv, std::vector<ca::Parameter*> &parameters, bool tracing);

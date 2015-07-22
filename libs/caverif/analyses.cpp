@@ -106,7 +106,7 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 {
 	size_t deadlocks = 0;
 	Node* deadlock_node = NULL;
-	NodeMap final_markings(100, HashDigestHash(MHASH_MD5), HashDigestEq(MHASH_MD5));
+	NodeMap final_markings(100, HashDigestHash(hash_id), HashDigestEq(hash_id));
 
 	NodeMap::const_iterator it;
 	for (it = nodes.begin(); it != nodes.end(); it++)
@@ -373,15 +373,15 @@ void Core::postprocess()
 void Core::write_dot_file(const std::string &filename)
 {
 	FILE *f = fopen(filename.c_str(), "w");
-	char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
+	char *hashstr = (char*) alloca(mhash_get_block_size(hash_id) * 2 + 1);
 	fprintf(f, "digraph X {\n");
 	NodeMap::const_iterator it;
 	for (it = nodes.begin(); it != nodes.end(); it++)
 	{
 		Node *node = it->second;
 		const std::vector<NextNodeInfo> &nexts = node->get_nexts();
-		hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
-		hashstr[5] = 0; // Take just prefix
+		hashdigest_to_string(node->get_hash(), hashstr);
+		//hashstr[5] = 0; // Take just prefix
 		const char *quit_flag;
 		if (node->is_quitted()) {
 			quit_flag = "!";
@@ -455,14 +455,14 @@ void Core::write_report()
 
 void Core::write_xml_statespace(ca::Output &report)
 {
-	char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
+	char *hashstr = (char*) alloca(mhash_get_block_size(hash_id) * 2 + 1);
 	report.child("statespace");
 	NodeMap::const_iterator it;
 	for (it = nodes.begin(); it != nodes.end(); it++)
 	{
 		report.child("state");
 		Node *node = it->second;
-		hashdigest_to_string(MHASH_MD5, node->get_hash(), hashstr);
+		hashdigest_to_string(node->get_hash(), hashstr);
 		report.set("hash", hashstr);
 		if (initial_node == node) {
 			report.set("initial", true);
@@ -474,7 +474,7 @@ void Core::write_xml_statespace(ca::Output &report)
 		const std::vector<NextNodeInfo> &nexts = node->get_nexts();
 		for (size_t i = 0; i < nexts.size(); i++) {
 			report.child("child");
-			hashdigest_to_string(MHASH_MD5, nexts[i].node->get_hash(), hashstr);
+			hashdigest_to_string(nexts[i].node->get_hash(), hashstr);
 			report.set("hash", hashstr);
 			switch(nexts[i].action) {
 				case ActionFire:
@@ -557,7 +557,7 @@ void Core::write_state(const std::string &name, Node *node, ca::Output &report)
 {
 	report.child("state");
 	report.set("name", name);
-	report.set("hash", hashdigest_to_string(MHASH_MD5, node->get_hash()));
+	report.set("hash", hashdigest_to_string(node->get_hash()));
 	report.set("distance", node->get_distance());
 	std::vector<Node*> nodes;
 	nodes.push_back(node);
@@ -569,7 +569,7 @@ void Core::write_suffix(const std::string &name, std::vector<Node*> &nodes, ca::
 {
 	report.child("state");
 	report.set("name", name);
-	report.set("hash", hashdigest_to_string(MHASH_MD5, nodes.back()->get_hash()));
+	report.set("hash", hashdigest_to_string(nodes.back()->get_hash()));
 	report.set("distance", nodes.back()->get_distance());
 	write_control_sequence(nodes, report);
 	report.back();

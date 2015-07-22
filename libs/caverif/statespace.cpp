@@ -9,7 +9,6 @@
 #include <omp.h>
 
 namespace ca {
-	extern ca::NetDef **defs;
 	extern int process_count;
 }
 
@@ -129,9 +128,9 @@ const char hex_chars[16] = {
 	'0', '1', '2', '3', '4', '5', '6', '7',
 	'8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
-void Core::hashdigest_to_string(hashid hash_id, HashDigest hash, char *out)
+void Core::hashdigest_to_string(HashDigest hash, char *out)
 {
-	int size = mhash_get_block_size(hash_id);
+	int size = mhash_get_block_size(CASS_HASH_ID);
 	for (int i = 0; i < size; i++) {
 		char byte = ((char*) hash)[i];
 		out[i*2] = hex_chars[(byte & 0xF0) >> 4];
@@ -140,10 +139,10 @@ void Core::hashdigest_to_string(hashid hash_id, HashDigest hash, char *out)
 	out[size*2] = 0;
 }
 
-std::string Core::hashdigest_to_string(hashid hash_id, HashDigest hash)
+std::string Core::hashdigest_to_string(HashDigest hash)
 {
-	char *hashstr = (char*) alloca(mhash_get_block_size(MHASH_MD5) * 2 + 1);
-	hashdigest_to_string(hash_id, hash, hashstr);
+	char *hashstr = (char*) alloca(mhash_get_block_size(CASS_HASH_ID) * 2 + 1);
+	hashdigest_to_string(hash, hashstr);
 	return hashstr;
 }
 
@@ -356,25 +355,27 @@ ActionSet Node::compute_enable_set(Core *core)
 	return enable;
 }
 
-void Node::generate(Core *core)
+void Node::compute_ample(Core *core)
 {
 	if (quit_flag) {
 		return;
 	}
 
 	ActionSet enabled = compute_enable_set(core);
-	ActionSet ws;
 	if (cfg::partial_order_reduction) {
-		ws = core->compute_ample_set(state, enabled);
+		ample =  core->compute_ample_set(state, enabled);
 	} else {
-		ws = enabled;
+		ample = enabled;
 	}
+}
 
+void Node::fire_ample(Core *core)
+{
 	State *s;
 
 	ActionSet::iterator it;
-	for (it = ws.begin(); it != ws.end(); it++) {
-		if (++it != ws.end()) {
+	for (it = ample.begin(); it != ample.end(); it++) {
+		if (++it != ample.end()) {
 			s = new State(*state);
 		} else {
 			s = state;
@@ -419,35 +420,7 @@ void Node::generate(Core *core)
 			}
 		}
 	}
-}
 
-Core::Core(VerifConfiguration &verif_configuration, std::vector<ca::Parameter*> &parameters):
-	nodes(10000, HashDigestHash(MHASH_MD5), HashDigestEq(MHASH_MD5)),
-	initial_node(NULL),
-	net_def(NULL),
-	verif_configuration(verif_configuration),
-	fullyEplored(0),
-	partlyExplored(0),
-	singleExplored(0)
-{
-	if (cfg::analyse_transition_occurence) {
-		generate_binging_in_nni = true;
-	} else {
-		generate_binging_in_nni = false;
-	}
-	if (cfg::debug) {
-		debug_output.open((cfg::project_name + "_debug_out.txt").c_str(), std::ios::out | std::ios::trunc);
-		debug_output << "Project: " << cfg::project_name << "\n";
-		debug_output << "processes: " << ca::process_count << "\n";
-		debug_output << "Parameters: ";
-		for (size_t i = 0; i < parameters.size(); i++) {
-			debug_output << parameters[i]->get_name() << ": " << parameters[i]->to_string();
-			if (i != parameters.size() - 1) {
-				debug_output << ", ";
-			}
-		}
-		debug_output << "\n";
-	}
 }
 
 Core::~Core()
@@ -459,63 +432,6 @@ Core::~Core()
 	if (cfg::debug) {
 		debug_output.close();
 	}
-}
-
-Node * Core::add_state(State *state, Node *prev)
-{
-	HashDigest hash = state->compute_hash(MHASH_MD5);
-
-	Node *node = get_node(hash);
-	if (node == NULL) {
-		node = new Node(hash, state, prev);
-		node->set_quit(state->get_quit_flag());
-		nodes[hash] = node;
-		not_processed.push(node);
-		return node;
-	} else {
-		free(hash);
-		delete state;
-		if (prev) {
-			node->set_prev(prev);
-		}
-		return node;
-	}
-}
-
-void Core::generate()
-{
-	ca::check_parameters();
-
-	double start = omp_get_wtime();
-
-	net_def = ca::defs[0]; // Take first definition
-	State *initial_state = new State(net_def);
-	initial_node = add_state(initial_state, NULL);
-	int count = 0;
-	do {
-		count++;
-		if (count % 1000 == 0 && !cfg::silent) {
-			fprintf(stderr, "==KAIRA== Nodes %i\n", count);
-		}
-		Node *node = not_processed.top();
-		not_processed.pop();
-		node->generate(this);
-		if (node->get_nexts().size() == 0 && cfg::analyse_final_marking) {
-			node->set_final_marking(pack_marking(node));
-		}
-		if (node->get_quit_flag()) {
-			delete node->get_state();
-		}
-	} while (!not_processed.empty());
-
-	double end = omp_get_wtime();
-
-	printf("total number of explored states: %ld\n", nodes.size());
-	printf("    size(ample) = size(enable) : %ld\n", fullyEplored);
-	printf("1 < size(ample) < size(enable) : %ld\n", partlyExplored);
-	printf("1 = size(ample) < size(enable) : %ld\n", singleExplored);
-	printf("\n");
-	printf("total verification time        : %5.2f\n", end - start);
 }
 
 struct ValidSubset {
@@ -544,7 +460,7 @@ struct ValidSubset {
 ActionSet Core::compute_ample_set(State *s, const ActionSet &enable)
 {
 	if (cfg::debug) {
-		debug_output << "\n" << Core::hashdigest_to_string(MHASH_MD5, s->compute_hash(MHASH_MD5));
+		debug_output << "\n" << Core::hashdigest_to_string(s->compute_hash(hash_id));
 		debug_output << " states: " << nodes.size() << ", on stact: " << not_processed.size();
 		debug_output.setf(std::ios::fixed, std::ios::floatfield);
 		debug_output.precision(2);
