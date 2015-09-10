@@ -40,6 +40,7 @@ class Canvas(gtk.DrawingArea):
         self.connect("button_release_event", self._button_up)
         self.connect("motion_notify_event", self._mouse_move)
         self.connect("leave-notify-event", self._mouse_leave)
+        self.connect("key_press_event", self._key_press)
         
         self.set_can_focus(True)
 
@@ -135,3 +136,7 @@ class Canvas(gtk.DrawingArea):
 
     def _mouse_leave(self, w, event):
         self.config.on_mouse_leave(event)
+
+    def _key_press(self, w, event):
+        if gtk.gdk.keyval_name(event.keyval) == "Delete":
+            self.config.on_delete_press()

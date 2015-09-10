@@ -63,6 +63,10 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
         self.neteditor.add_undo_action(
             undo.ActionSet(item.get_position, item.set_position, original_position))
 
+    def on_delete_press(self):
+        owners = set( i.owner for i in self.selected_items if i.owner )
+        for item in owners:
+            delete_item(self, item)
 
 class SelectionCanvasConfig(NetEditCanvasConfig):
 

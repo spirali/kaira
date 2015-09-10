@@ -260,6 +260,8 @@ class CanvasConfig:
     def on_item_move(self, item, original_position):
         pass
 
+    def on_delete_press(self):
+        pass
 
 class NetCanvasConfig(CanvasConfig):
 
