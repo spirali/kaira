@@ -188,7 +188,9 @@ class NetEditor(gtk.VBox):
             if ctrl:
                 mask |= gtk.gdk.CONTROL_MASK
             
-            accel_group.connect_group(gtk.gdk.keyval_from_name(key), mask, gtk.ACCEL_VISIBLE, lambda a, b, c, d: activate_radio(widget))
+            accel_group.connect_group(gtk.gdk.keyval_from_name(key),
+                                      mask, gtk.ACCEL_VISIBLE,
+                                      lambda a, b, c, d: activate_radio(widget))
         
         def activate_radio(widget):
             widget.set_active(True)
@@ -263,27 +265,27 @@ class NetEditor(gtk.VBox):
 
         button2 = gtk.RadioToolButton(button1, None)
         button2.connect("toggled", lambda w: self.set_tool("transition"))
-        button2.set_tooltip_text("Transition (Ctrl+T)")
+        button2.set_tooltip_text("Transition (Ctrl+R)")
         button2.set_icon_widget(icon_transition)
-        add_radio_shortcut(ag, button2, "t", ctrl = True)
+        add_radio_shortcut(ag, button2, "r", ctrl = True)
 
         button3 = gtk.RadioToolButton(button1,None)
         button3.connect("toggled", lambda w: self.set_tool("place"))
-        button3.set_tooltip_text("Place (Ctrl+P)")
+        button3.set_tooltip_text("Place (Ctrl+E)")
         button3.set_icon_widget(icon_place)
-        add_radio_shortcut(ag, button3, "p", ctrl = True)
+        add_radio_shortcut(ag, button3, "e", ctrl = True)
 
         button4 = gtk.RadioToolButton(button1,None)
         button4.connect("toggled", lambda w: self.set_tool("edge"))
-        button4.set_tooltip_text("Edge (Ctrl+E)")
+        button4.set_tooltip_text("Edge (Ctrl+A)")
         button4.set_icon_widget(icon_arc)
-        add_radio_shortcut(ag, button4, "e", ctrl = True)
+        add_radio_shortcut(ag, button4, "a", ctrl = True)
 
         button5 = gtk.RadioToolButton(button1,None)
         button5.connect("toggled", lambda w: self.set_tool("area"))
-        button5.set_tooltip_text("Area (Ctrl+A)")
+        button5.set_tooltip_text("Area (Ctrl+B)")
         button5.set_icon_widget(icon_area)
-        add_radio_shortcut(ag, button5, "a", ctrl = True)
+        add_radio_shortcut(ag, button5, "b", ctrl = True)
 
         toolbar.add(button1)
         toolbar.add(button2)
