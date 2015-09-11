@@ -64,9 +64,7 @@ class NetEditCanvasConfig(cconfig.NetCanvasConfig):
             undo.ActionSet(item.get_position, item.set_position, original_position))
 
     def on_delete_press(self):
-        owners = set( i.owner for i in self.selected_items if i.owner )
-        for item in owners:
-            delete_item(self, item)
+        delete_items(self, self.selected_items)
 
 class SelectionCanvasConfig(NetEditCanvasConfig):
 
@@ -325,10 +323,14 @@ class UndoRemoveNetItemAction(undo.ActionBase):
         self.net.add_item(self.item)
         return UndoAddNetItemAction(self.net, self.item)
 
+def delete_items(config, items):
+    deleted = []
+    for item in items:
+        if item.owner not in deleted:
+            deleted += item.owner.delete()
 
-def delete_item(config, item):
-    actions = [ UndoRemoveNetItemAction(config.net, deleted)
-                for deleted in item.delete() ]
+    actions = [ UndoRemoveNetItemAction(config.net, item)
+                for item in deleted ]
     config.neteditor.add_undo_action(undo.GroupAction(actions))
     config.select_item(None)
 
@@ -338,28 +340,25 @@ def resize_item(config, item, position):
     config.initial_mouse = position
 
 def contextmenu_place(config, item, position):
-    place = item.owner
     return [
         ("Resize", lambda w: resize_item(config, item, position)),
         ("Edit init code",
             lambda w: config.neteditor.place_edit_callback(place)),
         ("-", None),
-        ("Delete", lambda w: delete_item(config, place)),
+        ("Delete", lambda w: delete_items(config, [item])),
     ]
 
 def contextmenu_transition(config, item, position):
-    transition = item.owner
     return [
         ("Resize", lambda w: resize_item(config, item, position)),
         ("Edit code",
             lambda w: config.neteditor.transition_edit_callback(transition)),
         ("-", None),
-        ("Delete", lambda w: delete_item(config, transition)),
+        ("Delete", lambda w: delete_items(config, [item])),
     ]
 
 def contextmenu_edge(config, item, position):
-    edge = item.owner
-    menu = [ ("Delete", lambda w: delete_item(config, edge)) ]
+    menu = [ ("Delete", lambda w: delete_items(config, [item])) ]
     if item.kind == "point" is not None:
        menu.append(
             ("Remove point",
@@ -375,4 +374,4 @@ def contextmenu_edge(config, item, position):
     return menu
 
 def contextmenu_delete(config, item, position):
-    return [ ("Delete", lambda w: delete_item(config, item.owner)) ]
+    return [ ("Delete", lambda w: delete_item(config, [item])) ]
