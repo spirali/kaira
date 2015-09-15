@@ -105,7 +105,7 @@ class NetEditor(gtk.VBox):
         self.canvas.config.configure()
         self.redraw()
 
-    def switch_to_net(self, net, select_in_netlist = True):
+    def switch_to_net(self, net, select_in_netlist=True):
         self.net = net
         if self.canvas: # Bootstrap problem
             self.canvas.config.set_net(net, None)
@@ -184,17 +184,14 @@ class NetEditor(gtk.VBox):
     def _controls(self):
         def add_radio_shortcut(accel_group, widget, key, ctrl=False):
             mask = 0
-            
             if ctrl:
                 mask |= gtk.gdk.CONTROL_MASK
-            
             accel_group.connect_group(gtk.gdk.keyval_from_name(key),
                                       mask, gtk.ACCEL_VISIBLE,
                                       lambda a, b, c, d: activate_radio(widget))
-        
         def activate_radio(widget):
             widget.set_active(True)
-        
+
         icon_arrow = gtk.image_new_from_file(
                 os.path.join(paths.ICONS_DIR, "arrow.svg"))
         icon_transition = gtk.image_new_from_file(
@@ -261,31 +258,31 @@ class NetEditor(gtk.VBox):
         button1.set_tooltip_text("Selection (Ctrl+S)")
         button1.set_icon_widget(icon_arrow)
         self.button_selection = button1
-        add_radio_shortcut(ag, button1, "s", ctrl = True)
+        add_radio_shortcut(ag, button1, "s", ctrl=True)
 
         button2 = gtk.RadioToolButton(button1, None)
         button2.connect("toggled", lambda w: self.set_tool("transition"))
         button2.set_tooltip_text("Transition (Ctrl+R)")
         button2.set_icon_widget(icon_transition)
-        add_radio_shortcut(ag, button2, "r", ctrl = True)
+        add_radio_shortcut(ag, button2, "r", ctrl=True)
 
         button3 = gtk.RadioToolButton(button1,None)
         button3.connect("toggled", lambda w: self.set_tool("place"))
         button3.set_tooltip_text("Place (Ctrl+E)")
         button3.set_icon_widget(icon_place)
-        add_radio_shortcut(ag, button3, "e", ctrl = True)
+        add_radio_shortcut(ag, button3, "e", ctrl=True)
 
         button4 = gtk.RadioToolButton(button1,None)
         button4.connect("toggled", lambda w: self.set_tool("edge"))
         button4.set_tooltip_text("Edge (Ctrl+A)")
         button4.set_icon_widget(icon_arc)
-        add_radio_shortcut(ag, button4, "a", ctrl = True)
+        add_radio_shortcut(ag, button4, "a", ctrl=True)
 
         button5 = gtk.RadioToolButton(button1,None)
         button5.connect("toggled", lambda w: self.set_tool("area"))
         button5.set_tooltip_text("Area (Ctrl+B)")
         button5.set_icon_widget(icon_area)
-        add_radio_shortcut(ag, button5, "b", ctrl = True)
+        add_radio_shortcut(ag, button5, "b", ctrl=True)
 
         toolbar.add(button1)
         toolbar.add(button2)
