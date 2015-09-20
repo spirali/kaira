@@ -360,6 +360,7 @@ def contextmenu_transition(config, item, position):
     ]
 
 def contextmenu_edge(config, item, position):
+    edge = item.owner
     menu = [ ("Delete", lambda w: delete_items(config, [item])) ]
     if item.kind == "point" is not None:
        menu.append(
