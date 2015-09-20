@@ -340,6 +340,7 @@ def resize_item(config, item, position):
     config.initial_mouse = position
 
 def contextmenu_place(config, item, position):
+    place = item.owner
     return [
         ("Resize", lambda w: resize_item(config, item, position)),
         ("Edit init code",
@@ -349,6 +350,7 @@ def contextmenu_place(config, item, position):
     ]
 
 def contextmenu_transition(config, item, position):
+    transition = item.owner
     return [
         ("Resize", lambda w: resize_item(config, item, position)),
         ("Edit code",
