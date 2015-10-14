@@ -50,6 +50,11 @@ def write_dependent(builder):
             builder.line("return true; // Transitions have different priority")
             return
 
+        for p in t1.get_output_places():
+            for tr in p.get_transitions_out():
+                if (tr.priority > t1.priority):
+                    builder.line("return true; // Transition from ample set enable transition with higher priority" )
+
         # Both transitions send tokens but we don't know exactly where
         if not t1.is_local() and not t2.is_local() and \
                 not (t1.has_fixed_target() and t2.has_fixed_target()):
