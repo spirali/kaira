@@ -23,6 +23,8 @@ import gtkutils
 import objectlist
 import xml.etree.ElementTree as xml
 
+import utils
+
 command_parser = re.compile(
    "(?P<process>\d+) (?P<action>[SFTR])( ((?P<arg_int>\d+)|(?P<arg_str>.*)))?"
 )
@@ -172,17 +174,19 @@ class SequenceView(gtkutils.SimpleList):
 
 class SequenceListWidget(gtk.HPaned):
 
-    def __init__(self, project):
+    def __init__(self, app, project):
         gtk.HPaned.__init__(self)
+        self.app = app
         self.project = project
         buttons = [
-            (None, gtk.STOCK_REMOVE, self._remove_sequence)
+            (None, gtk.STOCK_REMOVE, self._remove_sequence),
+            ("Export", None, self._export_strict_control_sequence)
         ]
 
         self.objlist = objectlist.ObjectList([("_", object), ("Sequences", str) ], buttons)
         self.objlist.object_as_row = lambda obj: [ obj, obj.name ]
         self.objlist.cursor_changed = self.on_cursor_changed
-        self.objlist.set_size_request(150, 0)
+        self.objlist.set_size_request(175, 0)
         self.event = self.project.set_callback(
             "sequences_changed",
             lambda: self.objlist.refresh(project.sequences))
@@ -206,3 +210,80 @@ class SequenceListWidget(gtk.HPaned):
     def _remove_sequence(self, obj):
         if obj:
             self.project.remove_sequence(obj)
+
+    def _export_strict_control_sequence(self, sequence):
+        VERSION = "1.0"
+        TYPE = "strict"
+
+        if sequence:
+            dialog = gtk.FileChooserDialog("Export Control Sequence",
+                                           self.app.window,
+                                           gtk.FILE_CHOOSER_ACTION_SAVE,
+                                           (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                                           gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+            dialog.set_default_response(gtk.RESPONSE_OK)
+            dialog.set_current_name(sequence.name)
+
+            try:
+                response = dialog.run()
+                filename = dialog.get_filename()
+            finally:
+                dialog.destroy()
+
+            net = self.project.build_net
+
+            transitions = {}
+            for t in net.transitions():
+                transitions["#{0}".format(t.id)] = t
+            for t in net.transitions():
+                transitions[utils.sanitize_name(t.get_name())] = t
+
+            running_transitions = {}
+            if response == gtk.RESPONSE_OK:
+                cmdlines = "\n"
+                for command in sequence.commands:
+                    match = command_parser.match(command)
+                    if match is None:
+                        raise ControlSequenceException("Invalid format: ", command)
+
+                    process = int(match.group("process"))
+                    action = match.group("action")
+
+                    if action == "T" or action == "S":
+                        arg = match.group("arg_int")
+                        if arg is None:
+                            arg = match.group("arg_str")
+                        if not transitions.has_key(arg):
+                            raise ControlSequenceException(
+                                    "Transition '{0}' not found.".format(arg))
+
+                        t = transitions[arg]
+                        cmdlines += "{0} {1} {2}\n".format(process, action, t.id)
+                        if action == "S":
+                            if running_transitions.has_key(process):
+                                running_transitions[process].push(t.id)
+                            else:
+                                running_transitions[process] = [t.id]
+                    elif action == "R":
+                        arg_int = match.group("arg_int")
+                        if arg_int is None:
+                            raise ControlSequenceException("Invalid format of receive.")
+                        cmdlines += "{0}\n".format(command)
+                    else: # action == "F":
+                        if not running_transitions.has_key(process) or \
+                                not running_transitions[process]:
+                            raise ControlSequenceException(
+                                "Invalid sequence. Transition fire action is missing.")
+
+                        tid = running_transitions[process].pop()
+                        cmdlines += "{0} {1} {2}\n".format(process, action, tid)
+
+                element = xml.Element("sequence")
+                element.set("name", sequence.name)
+                element.set("type", TYPE)
+                element.set("version", VERSION)
+                element.text = cmdlines
+                if not filename.endswith(".skcs.xml"):
+                    filename += ".skcs.xml" # Strict Kaira Control Sequence
+                tree = xml.ElementTree(element)
+                tree.write(filename)

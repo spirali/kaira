@@ -366,7 +366,7 @@ class App:
     def edit_control_sequences(self):
         if self.window.switch_to_tab_by_key("sequences"):
             return
-        widget = controlseq.SequenceListWidget(self.project)
+        widget = controlseq.SequenceListWidget(self, self.project)
         self.window.add_tab(Tab(
             "Sequences", widget, "sequences",
             mainmenu_groups=("project",), call_close=True))
