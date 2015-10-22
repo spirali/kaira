@@ -222,7 +222,11 @@ class SequenceListWidget(gtk.HPaned):
                                            (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                            gtk.STOCK_SAVE, gtk.RESPONSE_OK))
             dialog.set_default_response(gtk.RESPONSE_OK)
-            dialog.set_current_name(sequence.name)
+            dialog.set_current_name("{0}.skcs.xml".format(sequence.name))
+
+            skcs_filter = gtk.FileFilter() # Strict Kaira Control Sequence
+            skcs_filter.set_name("Strict Control Sequence (.skcs.xml)")
+            dialog.add_filter(skcs_filter)
 
             try:
                 response = dialog.run()
@@ -283,7 +287,6 @@ class SequenceListWidget(gtk.HPaned):
                 element.set("type", TYPE)
                 element.set("version", VERSION)
                 element.text = cmdlines
-                if not filename.endswith(".skcs.xml"):
-                    filename += ".skcs.xml" # Strict Kaira Control Sequence
+
                 tree = xml.ElementTree(element)
                 tree.write(filename)
