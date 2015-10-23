@@ -178,19 +178,36 @@ class SequenceListWidget(gtk.HPaned):
         gtk.HPaned.__init__(self)
         self.app = app
         self.project = project
-        buttons = [
-            (None, gtk.STOCK_REMOVE, self._remove_sequence),
-            ("Export", None, self._export_strict_control_sequence)
-        ]
+        self.export_transition_id = True
 
-        self.objlist = objectlist.ObjectList([("_", object), ("Sequences", str) ], buttons)
+        vbox = gtk.VBox()
+        button = gtk.Button(stock=gtk.STOCK_REMOVE)
+        button.connect("clicked", lambda w: self._remove_sequence(
+                self.objlist.selected_object()))
+        vbox.pack_start(button, False, True)
+
+        btn_box = gtk.HButtonBox()
+        btn_box.set_layout(gtk.BUTTONBOX_START)
+        button = gtk.CheckButton("Use transition's ID")
+        button.set_active(self.export_transition_id)
+        button.connect("toggled", self._cb_export_transition_id)
+        btn_box.add(button)
+
+        button = gtk.Button("Export")
+        button.connect("clicked", lambda w: self._export_control_sequence(
+                self.objlist.selected_object()))
+        btn_box.add(button)
+        vbox.pack_start(btn_box, False, False)
+
+        self.objlist = objectlist.ObjectList([("_", object), ("Sequences", str) ])
         self.objlist.object_as_row = lambda obj: [ obj, obj.name ]
         self.objlist.cursor_changed = self.on_cursor_changed
         self.objlist.set_size_request(175, 0)
         self.event = self.project.set_callback(
             "sequences_changed",
             lambda: self.objlist.refresh(project.sequences))
-        self.pack1(self.objlist, False)
+        vbox.pack_start(self.objlist, True, True)
+        self.pack1(vbox, False)
 
         self.view = SequenceView()
         self.pack2(self.view, True)
@@ -211,9 +228,9 @@ class SequenceListWidget(gtk.HPaned):
         if obj:
             self.project.remove_sequence(obj)
 
-    def _export_strict_control_sequence(self, sequence):
+    def _export_control_sequence(self, sequence):
         VERSION = "1.0"
-        TYPE = "strict"
+        TYPE = "transition_id" if self.export_transition_id else "transition_name"
 
         if sequence:
             dialog = gtk.FileChooserDialog("Export Control Sequence",
@@ -222,10 +239,10 @@ class SequenceListWidget(gtk.HPaned):
                                            (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                            gtk.STOCK_SAVE, gtk.RESPONSE_OK))
             dialog.set_default_response(gtk.RESPONSE_OK)
-            dialog.set_current_name("{0}.skcs.xml".format(sequence.name))
+            dialog.set_current_name("{0}.kcs.xml".format(sequence.name))
 
-            skcs_filter = gtk.FileFilter() # Strict Kaira Control Sequence
-            skcs_filter.set_name("Strict Control Sequence (.skcs.xml)")
+            skcs_filter = gtk.FileFilter() # Kaira Control Sequence
+            skcs_filter.set_name("Control Sequence (.kcs.xml)")
             dialog.add_filter(skcs_filter)
 
             try:
@@ -262,7 +279,11 @@ class SequenceListWidget(gtk.HPaned):
                                     "Transition '{0}' not found.".format(arg))
 
                         t = transitions[arg]
-                        cmdlines += "{0} {1} {2}\n".format(process, action, t.id)
+                        if self.export_transition_id:
+                            tid = t.id
+                        else:
+                            tid = utils.sanitize_name(t.get_name_or_id())
+                        cmdlines += "{0} {1} {2}\n".format(process, action, tid)
                         if action == "S":
                             if running_transitions.has_key(process):
                                 running_transitions[process].push(t.id)
@@ -290,3 +311,6 @@ class SequenceListWidget(gtk.HPaned):
 
                 tree = xml.ElementTree(element)
                 tree.write(filename)
+
+    def _cb_export_transition_id (self, widget):
+        self.export_transition_id = widget.get_active()
