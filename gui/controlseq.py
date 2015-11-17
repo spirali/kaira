@@ -107,7 +107,8 @@ class ControlSequence:
             else:
                 arg = match.group("arg_str")
             return on_transition_start(process, arg)
-        else: # action == "F":
+        else:
+            assert action == "F"
             return on_transition_finish(process)
 
     def get_commands_size(self):
@@ -188,7 +189,7 @@ class SequenceListWidget(gtk.HPaned):
 
         btn_box = gtk.HButtonBox()
         btn_box.set_layout(gtk.BUTTONBOX_START)
-        button = gtk.CheckButton("Use transition's ID")
+        button = gtk.CheckButton("Export transition IDs")
         button.set_active(self.export_transition_id)
         button.connect("toggled", self._cb_export_transition_id)
         btn_box.add(button)
@@ -294,7 +295,8 @@ class SequenceListWidget(gtk.HPaned):
                         if arg_int is None:
                             raise ControlSequenceException("Invalid format of receive.")
                         cmdlines += "{0}\n".format(command)
-                    else: # action == "F":
+                    else:
+                        assert action == "F"
                         if not running_transitions.has_key(process) or \
                                 not running_transitions[process]:
                             raise ControlSequenceException(
