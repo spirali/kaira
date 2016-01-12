@@ -124,7 +124,7 @@ def configure(ctx):
             if libclang is None:
                  ctx.fatal("%s not found" % ctx.options.clang_path)
         else:
-            tmp = ctx.root.ant_glob("usr/lib/**/libclang.so*", dir=True, maxdepth=3)
+            tmp = ctx.root.ant_glob("usr/lib/**/libclang.so*", dir=True, maxdepth=4, excl=["**/ssl*"])
             if not tmp:
                     ctx.fatal("libclang.so not found.\n"
                               "Use --disable-clang to disable code complete functions, or "
