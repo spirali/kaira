@@ -377,4 +377,4 @@ def contextmenu_edge(config, item, position):
     return menu
 
 def contextmenu_delete(config, item, position):
-    return [ ("Delete", lambda w: delete_item(config, [item])) ]
+    return [ ("Delete", lambda w: delete_items(config, [item])) ]
