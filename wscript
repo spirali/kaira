@@ -123,6 +123,7 @@ def configure(ctx):
             libclang = ctx.root.find_node(ctx.options.clang_path)
             if libclang is None:
                  ctx.fatal("%s not found" % ctx.options.clang_path)
+            libclang = ctx.options.clang_path
         else:
             tmp = ctx.root.ant_glob("usr/lib/**/libclang.so*", dir=True, maxdepth=4, excl=["**/ssl*"])
             if not tmp:
