@@ -255,9 +255,9 @@ template<typename T> void unpack_with_displs(Unpacker &unpacker, std::vector<T> 
 
 template<typename T> void unpack(Unpacker &unpacker, std::vector<T> &value) {
 	size_t size;
-       	unpack(unpacker, size);
+	unpack(unpacker, size);
 	if (is_trivially_packable<T>()) {
-		T* data = static_cast<T*>(unpacker.unpack_data(size));
+		T* data = static_cast<T*>(unpacker.unpack_data(size * sizeof(T)));
 		value.assign(data, data + size);
 	} else {
 		value.reserve(size);
