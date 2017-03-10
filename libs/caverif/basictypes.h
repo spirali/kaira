@@ -13,6 +13,7 @@ namespace cass {
 	class Net : public ca::NetBase
 	{
 		public:
+			virtual Net* copy_without_tokens() = 0;
 			virtual void pack(ca::Packer &pack) = 0;
 			virtual void unpack(ca::Unpacker &pack) = 0;
 			void activate_transition_by_pos_id(int pos_id) {}

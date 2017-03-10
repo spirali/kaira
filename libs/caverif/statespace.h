@@ -45,6 +45,13 @@ namespace cass {
 	{
 		public:
 			State(ca::NetDef *net_def) { spawn(net_def); }
+			State(ca::NetDef *net_def, const std::vector<Net*> &nets, std::vector<char> &data)
+			: StateBase(net_def, nets) {
+				for (size_t i = 0; i < nets.size(); i++) {
+					this->nets[i] = nets[i]->copy_without_tokens();
+				}
+				deserialize(data);
+			}
 			State(State &state) : StateBase(state) {}
 			void pack_state(ca::Packer &packer);
 			HashDigest compute_hash(hashid hash_id);
@@ -163,7 +170,7 @@ namespace cass {
 	class Core
 	{
 		public:
-			Core(VerifConfiguration &verif_configuration, std::vector<ca::Parameter*> &parameters);
+			Core(int argc, char **argv, VerifConfiguration &verif_configuration, std::vector<ca::Parameter*> &parameters);
 			~Core();
 			void generate();
 			void postprocess();
@@ -200,6 +207,8 @@ namespace cass {
 			NodeMap nodes;
 			Node *initial_node;
 			ca::NetDef *net_def;
+			std::vector<Net*> nets;
+
 			VerifConfiguration &verif_configuration;
 			bool generate_binging_in_nni;
 			std::ofstream debug_output;
@@ -207,6 +216,11 @@ namespace cass {
 			size_t fullyEplored;
 			size_t partlyExplored;
 			size_t singleExplored;
+
+			int rank;
+			int size;
+			void* data_buffer;
+			std::vector<size_t> communicated;
 	};
 
 	void init(int argc, char **argv, std::vector<ca::Parameter*> &parameters, bool tracing);

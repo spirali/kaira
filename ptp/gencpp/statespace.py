@@ -527,6 +527,11 @@ def write_state_analyzes_method(builder, net):
     builder.write_method_end()
 
 def write_net_class_extension(builder, net):
+    builder.write_method_start("cass::Net * copy_without_tokens()")
+    builder.line("Net_{0.id} *net = new Net_{0.id}();", net)
+    builder.line("return net;")
+    builder.write_method_end()
+
     write_pack_method(builder, net)
     write_unpack_method(builder, net)
     write_state_analyzes_method(builder, net)
@@ -536,7 +541,7 @@ def write_main(builder):
     builder.block_begin()
     buildnet.write_main_setup(builder, "cass::init", start_process=False)
     builder.line("VerifConfiguration verif_configuration;")
-    builder.line("cass::Core core(verif_configuration, parameters);")
+    builder.line("cass::Core core(argc, argv, verif_configuration, parameters);")
     builder.line("core.generate();")
     builder.line("core.postprocess();")
     builder.line("return 0;")
