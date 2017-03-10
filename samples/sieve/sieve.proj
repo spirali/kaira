@@ -1,15 +1,26 @@
 <project library-octave="False" library-rpc="False" target_env="C++"><configuration><parameter default="100" description="" name="N" policy="mandatory" type="int" /><build-option name="LIBS" /><build-option name="CFLAGS">-O0 -ggdb</build-option><head-code>
 struct Segment{
-	std::vector&lt;bool&gt; marks;
+	std::vector&lt;int&gt; marks;
 	int start;
 
 	void pack(ca::Packer &amp;packer) const {
-        packer &lt;&lt; start;
-        packer &lt;&lt; marks.size();
-        for (int i = 0; i &lt; marks.size(); i++) {
+		packer &lt;&lt; start;
+		packer &lt;&lt; marks.size();
+		for (int i = 0; i &lt; marks.size(); i++) {
 			packer &lt;&lt; marks[i];
-        }
-    }
+		}
+	}
+
+	void unpack(ca::Unpacker &amp;unpacker) {
+		unpacker &gt;&gt; start;
+		size_t size;
+		unpacker &gt;&gt; size;
+		marks.resize(size);
+		for (int i = 0; i &lt; marks.size(); i++) {
+			unpacker &gt;&gt; marks[i];
+		}
+	}
+
 };
 
 
