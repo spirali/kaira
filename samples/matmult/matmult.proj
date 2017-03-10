@@ -1,105 +1,104 @@
-<project library-octave="True" library-rpc="True" target_env="C++"><configuration><build-option name="LIBS" /><build-option name="USE_OCTAVE">True</build-option><build-option name="CFLAGS">-O2 -fPIC</build-option><head-code>
-#include &lt;octave/oct.h&gt;
-#include &lt;octave/load-save.h&gt;
-#include &lt;ls-oct-binary.h&gt;
-#include &lt;iostream&gt;
+<project library-octave="False" library-rpc="True" target_env="C++"><configuration><parameter default="3" description="" name="subsize" policy="constant" type="int" /><build-option name="LIBS" /><build-option name="USE_OCTAVE">False</build-option><build-option name="CFLAGS">-g -O2 -fPIC</build-option><head-code>
 #include &lt;cmath&gt;
-#include &lt;cassert&gt;
-#include &lt;sstream&gt;
+#include &lt;iostream&gt;
+
+#include "matrix.h"
 
 inline int steps(int process_count) {
 	return sqrt(process_count);
 }
 
-inline int nextA(ca::Context &amp;ctx) {
-	int n = steps(ctx.process_count());	
-	int r = ctx.process_id() / n;
-	int c = ctx.process_id() % n;
-	return ((r + 1) % n) * n + c;
-}
-
-inline int nextB(ca::Context &amp;ctx) {
+inline int next1(ca::Context &amp;ctx) {
 	int n = steps(ctx.process_count());	
 	int r = ctx.process_id() / n;
 	int c = ctx.process_id() % n;
 	return r * n + ((c + 1) % n);
 }
 
+inline int next2(ca::Context &amp;ctx) {
+	int n = steps(ctx.process_count());	
+	int r = ctx.process_id() / n;
+	int c = ctx.process_id() % n;
+	return ((r + 1) % n) * n + c;
+}
 
-</head-code></configuration><net id="101" name="matmult"><area id="121" sx="90" sy="96" x="402" y="204"><init x="323" y="186">ctx.all_processes()</init></area><place id="103" label-x="-384" label-y="-30" name="input" radius="20" sx="0" sy="0" x="-384" y="-30"><place-type x="-367" y="-13">Matrix</place-type><init x="-367" y="-60" /><code>	Matrix m(4, 4);
-	m(0,0) = 4;
-	m(0,1) = 4;	
-	m(1,0) = 4;		
-	m(1,1) = 4;			
+namespace ca {
+        CA_TOKEN_NAME(Matrix, matrix) {
+		        std::stringstream s;
+		        for (size_t i = 0; i &lt; matrix.data().size(); i++) {
+		        	s &lt;&lt; matrix.data()[i] &lt;&lt; " ";
+		        }
+                return s.str();
+        }
+        
+        CA_PACK(Matrix, packer, matrix) {
+                packer &lt;&lt; matrix.rows() &lt;&lt; matrix.columns();
+                packer &lt;&lt; matrix.data();
+        }
 
-	m(0,2) = 2;
-	m(0,3) = 2;	
-	m(1,2) = 2;		
-	m(1,3) = 2;				
+        CA_UNPACK(Matrix, unpacker, matrix) {
+        		int rows, columns;
+        		unpacker &gt;&gt; rows &gt;&gt; columns;
+        		matrix = Matrix(rows, columns);
+				unpacker &gt;&gt; matrix.data();
+        }
+}
 
-	m(2,0) = 3;
-	m(2,1) = 3;	
-	m(3,0) = 3;		
-	m(3,1) = 3;			
 
-	m(2,2) = 1;
-	m(2,3) = 1;	
-	m(3,2) = 1;		
-	m(3,3) = 1;				
 
-	place.add(m);
-</code><interface in="m1" x="-409" y="-35" /><trace trace-tokens="False" /></place><place id="104" label-x="150" label-y="84" name="m2" radius="20" sx="0" sy="0" x="150" y="84"><place-type x="167" y="101">Matrix</place-type><init x="167" y="54" /><trace trace-tokens="False" /></place><place id="108" label-x="-306" label-y="84" name="" radius="20" sx="0" sy="0" x="-306" y="84"><place-type x="-289" y="101">int</place-type><init x="-289" y="54">[0]</init><trace trace-tokens="False" /></place><place id="118" label-x="444" label-y="252" name="iter" radius="20" sx="0" sy="0" x="444" y="252"><place-type x="461" y="269">int</place-type><init x="450" y="210">[steps(ctx.process_count())]</init><trace trace-tokens="False" /></place><place id="125" label-x="-384" label-y="-84" name="input" radius="20" sx="0" sy="0" x="-384" y="-84"><place-type x="-367" y="-67">Matrix</place-type><init x="-367" y="-114" /><code>	Matrix m(4, 4);
-	m(0,0) = 1;
-	m(0,1) = 1;	
-	m(1,0) = 1;		
-	m(1,1) = 1;			
 
-	m(0,2) = 2;
-	m(0,3) = 2;	
-	m(1,2) = 2;		
-	m(1,3) = 2;				
-
-	m(2,0) = 3;
-	m(2,1) = 3;	
-	m(3,0) = 3;		
-	m(3,1) = 3;			
-
-	m(2,2) = 4;
-	m(2,3) = 4;	
-	m(3,2) = 4;		
-	m(3,3) = 4;				
-
-	place.add(m);
-</code><interface in="m2" x="-409" y="-89" /><trace trace-tokens="False" /></place><place id="128" label-x="144" label-y="-66" name="m1" radius="20" sx="0" sy="0" x="144" y="-66"><place-type x="161" y="-49">Matrix</place-type><init x="161" y="-96" /><trace trace-tokens="False" /></place><place id="133" label-x="48" label-y="174" name="result" radius="20" sx="0" sy="0" x="48" y="174"><place-type x="65" y="191">Matrix</place-type><init x="65" y="144" /><trace trace-tokens="False" /></place><place id="136" label-x="-66" label-y="-66" name="" radius="20" sx="0" sy="0" x="-66" y="-66"><place-type x="-49" y="-49">Matrix</place-type><init x="-49" y="-96" /><trace trace-tokens="False" /></place><place id="137" label-x="-66" label-y="72" name="" radius="20" sx="0" sy="0" x="-66" y="72"><place-type x="-49" y="89">Matrix</place-type><init x="-49" y="42" /><trace trace-tokens="False" /></place><place id="149" label-x="-108" label-y="252" name="" radius="20" sx="0" sy="0" x="-108" y="252"><place-type x="-91" y="269">Matrix</place-type><init x="-91" y="222" /><trace trace-tokens="False" /></place><place id="155" label-x="-378" label-y="252" name="output" radius="20" sx="0" sy="0" x="-378" y="252"><verif-final-marking>True</verif-final-marking><place-type x="-361" y="269">Matrix</place-type><init x="-361" y="222" /><interface out="output" x="-403" y="247" /><trace trace-tokens="False" /></place><transition clock="False" collective="False" id="105" label-x="-211" label-y="6" name="distribute" priority="" sx="70" sy="36" x="-246" y="-12"><guard x="-198" y="-30">p &lt; ctx.process_count()</guard><code>	assert(var.A.rows() == var.B.cols());
-	
-	int n = sqrt(ctx.process_count());
-	int i = var.p / n;
-	int j = var.p % n;
-	int k = ceil((2 * n - 1 - i - j) % n);
-	
-	int sub_rows = var.A.rows() / n;
-	int sub_cols = var.A.cols() / n;
-	var.sub_a = var.A.extract_n(j * sub_rows, k * sub_rows, sub_rows, sub_cols);
-	
-	sub_rows = var.B.rows() / n;
-	sub_cols = var.B.cols() / n;
-	var.sub_b = var.B.extract_n(k * sub_rows, i * sub_rows, sub_rows, sub_cols);	
-</code></transition><transition clock="False" collective="False" id="117" label-x="395" label-y="12" name="compute" priority="" sx="70" sy="36" x="360" y="-6"><guard x="420" y="-24">step &gt; 0</guard><code>	var.result += var.m1 * var.m2;
-</code></transition><transition clock="False" collective="True" id="138" label-x="47" label-y="12" name="prepare" priority="" sx="70" sy="36" x="12" y="-6"><guard x="12" y="-26" /><root x="52" y="34" /></transition><transition clock="False" collective="False" id="146" label-x="47" label-y="252" name="gather" priority="" sx="70" sy="36" x="12" y="234"><guard x="12" y="214" /></transition><transition clock="False" collective="False" id="151" label-x="-265" label-y="252" name="compose&#10;output" priority="" sx="70" sy="36" x="-300" y="234"><guard x="-300" y="214" /><code>	int n = sqrt(ctx.process_count());
-	
-	int rs = var.matrix.rows() / n;
-	int cs = var.matrix.cols() / n;
-	
-	int s = 0;
-	int i, j;
-	for (ca::Token&lt;Matrix&gt; *m = var.results.begin(); m != NULL; m = var.results.next(m), s++) {
-		i = var.sources[s] / n;
-		j = var.sources[s] % n;
-		// the values are composed into resulting matrix (C) in a fasion C(j, i)
-		var.matrix.insert(m-&gt;value, j * rs, i * cs);
+</head-code></configuration><net id="101" name="matmult"><area id="121" sx="90" sy="96" x="402" y="204"><init x="323" y="186">ctx.all_processes()</init></area><place id="103" label-x="-384" label-y="-30" name="input" radius="20" sx="0" sy="0" x="-384" y="-30"><place-type x="-367" y="-13">Matrix</place-type><init x="-367" y="-60" /><code>	int size = steps(ctx.process_count());
+	Matrix m(param::subsize() * size, param::subsize() * size);
+	int number = 1;
+	for (int i = 0; i &lt; param::subsize() * size; i++) {
+		for (int j = 0; j &lt; param::subsize() * size; j++) {
+			m(i, j) = number++;
+		}
 	}
+	place.add(m);		
+</code><interface in="m1" x="-409" y="-35" /><trace trace-tokens="False" /></place><place id="104" label-x="150" label-y="84" name="m2" radius="20" sx="0" sy="0" x="150" y="84"><place-type x="167" y="101">Matrix</place-type><init x="167" y="54" /><trace trace-tokens="False" /></place><place id="108" label-x="-300" label-y="54" name="" radius="20" sx="0" sy="0" x="-300" y="54"><place-type x="-283" y="71">int</place-type><init x="-283" y="24">[0]</init><trace trace-tokens="False" /></place><place id="118" label-x="444" label-y="252" name="iter" radius="20" sx="0" sy="0" x="444" y="252"><place-type x="461" y="269">int</place-type><init x="450" y="210">[steps(ctx.process_count())]</init><trace trace-tokens="False" /></place><place id="125" label-x="-384" label-y="-84" name="input" radius="20" sx="0" sy="0" x="-384" y="-84"><place-type x="-367" y="-67">Matrix</place-type><init x="-367" y="-114" /><code>	int size = steps(ctx.process_count());
+	Matrix m(param::subsize() * size, param::subsize() * size);
+	int number = 1;
+	for (int i = 0; i &lt; param::subsize() * size; i++) {
+		for (int j = 0; j &lt; param::subsize() * size; j++) {
+			m(i, j) = number++;
+		}
+	}
+	place.add(m);
+</code><interface in="m2" x="-409" y="-89" /><trace trace-tokens="False" /></place><place id="128" label-x="144" label-y="-60" name="m1" radius="20" sx="0" sy="0" x="144" y="-60"><place-type x="161" y="-43">Matrix</place-type><init x="161" y="-90" /><trace trace-tokens="False" /></place><place id="133" label-x="48" label-y="174" name="result" radius="20" sx="0" sy="0" x="48" y="174"><place-type x="65" y="191">Matrix</place-type><init x="65" y="144" /><trace trace-tokens="False" /></place><place id="136" label-x="-66" label-y="-66" name="" radius="20" sx="0" sy="0" x="-66" y="-66"><place-type x="-49" y="-49">Matrix</place-type><init x="-49" y="-96" /><trace trace-tokens="False" /></place><place id="137" label-x="-66" label-y="72" name="" radius="20" sx="0" sy="0" x="-66" y="72"><place-type x="-49" y="89">Matrix</place-type><init x="-49" y="42" /><trace trace-tokens="False" /></place><place id="149" label-x="-108" label-y="252" name="" radius="20" sx="0" sy="0" x="-108" y="252"><place-type x="-91" y="269">Matrix</place-type><init x="-91" y="222" /><trace trace-tokens="False" /></place><place id="155" label-x="-378" label-y="252" name="output" radius="20" sx="0" sy="0" x="-378" y="252"><verif-final-marking>True</verif-final-marking><place-type x="-361" y="269">Matrix</place-type><init x="-361" y="222" /><interface out="output" x="-403" y="247" /><trace trace-tokens="False" /></place><transition clock="False" collective="False" id="105" label-x="-205" label-y="6" name="distribute" priority="" sx="70" sy="36" x="-240" y="-12"><guard x="-192" y="-31">step &lt; ctx.process_count()</guard><code>	int size = (int)sqrt(ctx.process_count());
+
+	int row, column;
+	row = var.step / size;
+	column = (var.step % size - var.step / size + size) % size;
+	var.out1 = var.m1.submatrix(
+		row * param::subsize(),
+		column * param::subsize(),
+		param::subsize(),
+		param::subsize()
+	);
+	
+	row = (var.step / size - var.step % size + size) % size;
+	column = var.step % size;
+	var.out2 = var.m2.submatrix(
+		row * param::subsize(),
+		column * param::subsize(),
+		param::subsize(),
+		param::subsize()
+	);
+</code></transition><transition clock="False" collective="False" id="117" label-x="395" label-y="18" name="compute" priority="" sx="70" sy="36" x="360" y="0"><guard x="414" y="-24">step &gt; 0</guard><code>	var.result += var.m1 * var.m2;
+</code></transition><transition clock="False" collective="False" id="138" label-x="47" label-y="12" name="prepare" priority="" sx="70" sy="36" x="12" y="-6"><guard x="12" y="-26" /></transition><transition clock="False" collective="False" id="146" label-x="47" label-y="252" name="gather" priority="" sx="70" sy="36" x="12" y="234"><guard x="12" y="214" /></transition><transition clock="False" collective="False" id="151" label-x="-265" label-y="252" name="compose&#10;output" priority="" sx="70" sy="36" x="-300" y="234"><guard x="-300" y="214" /><code>	int size = steps(ctx.process_count());
+
+	int row, column;
+	int i = 0;
+	for (ca::Token&lt;Matrix&gt; *t = var.results.begin(); t != NULL; t = var.results.next(t), i++) {
+		row = var.sources[i] / size;
+		column = var.sources[i] % size;
+		var.matrix.insert(t-&gt;value, row * param::subsize(), column * param::subsize());
+	}
+	
+	std::cout &lt;&lt; var.matrix;
 	ctx.quit();
-</code></transition><edge bidirectional="true" from_item="103" id="106" to_item="105"><inscription x="-324.0" y="-48.0">B</inscription><point x="-300" y="-30" /></edge><edge from_item="105" id="109" to_item="108"><inscription x="-264.0" y="66.0">p + 1</inscription><point x="-228" y="84" /></edge><edge from_item="108" id="110" to_item="105"><inscription x="-318.0" y="6.0">p</inscription><point x="-306" y="6" /></edge><edge from_item="117" id="119" to_item="118"><inscription x="450.0" y="102.0">step - 1</inscription><point x="444" y="54" /></edge><edge from_item="118" id="120" to_item="117"><inscription x="461.0" y="-1.0">step</inscription><point x="504" y="252" /><point x="504" y="18" /></edge><edge from_item="117" id="123" to_item="104"><inscription x="212.0" y="87.0">[if(step &gt; 1)] m2@nextB(ctx)</inscription><point x="330" y="78" /></edge><edge from_item="104" id="124" to_item="117"><inscription x="192.0" y="36.0">m2</inscription><point x="180" y="30" /></edge><edge bidirectional="true" from_item="125" id="126" to_item="105"><inscription x="-324.0" y="-102.0">A</inscription><point x="-282" y="-84" /></edge><edge from_item="128" id="131" to_item="117"><inscription x="180.0" y="-24.0">m1</inscription><point x="168" y="-6" /></edge><edge from_item="117" id="132" to_item="128"><inscription x="188.0" y="-84.0">[if(step &gt; 1)] m1@nextA(ctx)</inscription><point x="324" y="-66" /></edge><edge bidirectional="true" from_item="133" id="134" to_item="117"><inscription x="224.0" y="153.0">result</inscription><point x="390" y="174" /></edge><edge from_item="105" id="139" to_item="137"><inscription x="-186.0" y="54.0">sub_b@p</inscription><point x="-204" y="72" /></edge><edge from_item="105" id="140" to_item="136"><inscription x="-186.0" y="-84.0">sub_a@p</inscription><point x="-204" y="-66" /></edge><edge from_item="136" id="141" to_item="138"><inscription x="-31.0" y="-84.0">sub_a</inscription><point x="0" y="-66" /></edge><edge from_item="137" id="142" to_item="138"><inscription x="-30.0" y="54.0">sub_b</inscription><point x="6" y="72" /></edge><edge from_item="138" id="143" to_item="128"><inscription x="90.0" y="-84.0">sub_a</inscription><point x="84" y="-66" /></edge><edge from_item="138" id="144" to_item="104"><inscription x="84.0" y="61.0">sub_b</inscription><point x="78" y="84" /></edge><edge from_item="138" id="145" to_item="133"><inscription x="66.0" y="138.0">Matrix(sub_a.rows(), sub_b.cols()).fill(0)</inscription></edge><edge from_item="118" id="147" to_item="146"><inscription x="240.0" y="234.0">0</inscription></edge><edge from_item="133" id="148" to_item="146"><inscription x="59.0" y="211.0">result</inscription></edge><edge from_item="146" id="150" to_item="149"><inscription x="-54.0" y="234.0">result@0</inscription></edge><edge from_item="149" id="152" to_item="151"><inscription x="-224.0" y="198.0">[svar(sources),
+</code></transition><edge bidirectional="true" from_item="103" id="106" to_item="105"><inscription x="-326.0" y="-48.0">m1</inscription><point x="-300" y="-30" /></edge><edge from_item="105" id="109" to_item="108"><inscription x="-258.0" y="60.0">step+1</inscription><point x="-258" y="54" /></edge><edge from_item="108" id="110" to_item="105"><inscription x="-280.0" y="-10.0">step</inscription><point x="-276" y="6" /></edge><edge from_item="117" id="119" to_item="118"><inscription x="450.0" y="102.0">step - 1</inscription><point x="444" y="54" /></edge><edge from_item="118" id="120" to_item="117"><inscription x="462.0" y="0.0">step</inscription><point x="504" y="252" /><point x="504" y="18" /></edge><edge from_item="117" id="123" to_item="104"><inscription x="222.0" y="90.0">[if(step &gt; 1)] m1@next1(ctx)</inscription><point x="342" y="84" /></edge><edge from_item="104" id="124" to_item="117"><inscription x="173.0" y="42.0">m1</inscription><point x="156" y="30" /></edge><edge bidirectional="true" from_item="125" id="126" to_item="105"><inscription x="-321.0" y="-99.0">m2</inscription><point x="-282" y="-84" /></edge><edge from_item="128" id="131" to_item="117"><inscription x="222.0" y="-16.0">m2</inscription><point x="150" y="-12" /></edge><edge from_item="117" id="132" to_item="128"><inscription x="192.0" y="-78.0">[if(step &gt; 1)] m2@next2(ctx)</inscription><point x="348" y="-60" /></edge><edge bidirectional="true" from_item="133" id="134" to_item="117"><inscription x="224.0" y="153.0">result</inscription><point x="390" y="174" /></edge><edge from_item="105" id="139" to_item="137"><inscription x="-175.0" y="54.0">out2@step</inscription><point x="-204" y="72" /></edge><edge from_item="105" id="140" to_item="136"><inscription x="-174.0" y="-84.0">out1@step</inscription><point x="-204" y="-66" /></edge><edge from_item="136" id="141" to_item="138"><inscription x="-20.0" y="-84.0">m1</inscription><point x="36" y="-66" /></edge><edge from_item="137" id="142" to_item="138"><inscription x="-13.0" y="54.0">m2</inscription><point x="30" y="72" /></edge><edge from_item="138" id="143" to_item="128"><inscription x="83.0" y="-47.0">m2</inscription></edge><edge from_item="138" id="144" to_item="104"><inscription x="107.0" y="35.0">m1</inscription></edge><edge from_item="138" id="145" to_item="133"><inscription x="-126.0" y="114.0">Matrix(m1.rows(), m2.columns())</inscription></edge><edge from_item="118" id="147" to_item="146"><inscription x="240.0" y="234.0">0</inscription></edge><edge from_item="133" id="148" to_item="146"><inscription x="59.0" y="211.0">result</inscription></edge><edge from_item="146" id="150" to_item="149"><inscription x="-54.0" y="234.0">result@0</inscription></edge><edge from_item="149" id="152" to_item="151"><inscription x="-224.0" y="198.0">[svar(sources),
  bulk,
  guard(size == ctx.process_count())]
  results</inscription></edge><edge from_item="103" id="154" to_item="151"><inscription x="-372.0" y="122.0">matrix</inscription><point x="-384" y="132" /></edge><edge from_item="151" id="156" to_item="155"><inscription x="-342.0" y="234.0">matrix</inscription></edge></net></project>
