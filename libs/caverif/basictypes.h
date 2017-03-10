@@ -14,6 +14,7 @@ namespace cass {
 	{
 		public:
 			virtual void pack(ca::Packer &pack) = 0;
+			virtual void unpack(ca::Unpacker &pack) = 0;
 			void activate_transition_by_pos_id(int pos_id) {}
 	};
 

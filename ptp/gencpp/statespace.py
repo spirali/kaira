@@ -513,6 +513,12 @@ def write_pack_method(builder, net):
          builder.line("ca::pack(packer, place_{0.id});", place)
     builder.write_method_end()
 
+def write_unpack_method(builder, net):
+    builder.write_method_start("void unpack(ca::Unpacker &unpacker)")
+    for place in net.places:
+         builder.line("ca::unpack(unpacker, place_{0.id});", place)
+    builder.write_method_end()
+
 def write_state_analyzes_method(builder, net):
     builder.write_method_start("size_t get_token_count_in_place(int place_id)")
     for p in net.places:
@@ -522,6 +528,7 @@ def write_state_analyzes_method(builder, net):
 
 def write_net_class_extension(builder, net):
     write_pack_method(builder, net)
+    write_unpack_method(builder, net)
     write_state_analyzes_method(builder, net)
 
 def write_main(builder):

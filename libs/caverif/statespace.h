@@ -39,7 +39,7 @@ namespace cass {
 	struct ArcCompare;
 	typedef std::map<Arc, int, ArcCompare> ParikhVector;
 
-	class State  : public ca::StateBase<Net, Activation, ca::Packet>
+	class State : public ca::StateBase<Net, Activation, ca::Packet>
 	{
 		public:
 			State(ca::NetDef *net_def) { spawn(net_def); }
@@ -50,6 +50,9 @@ namespace cass {
 			void hash_packets(MHASH hash_thread);
 			void pack_activations(ca::Packer &packer);
 			void pack_packets(ca::Packer &packer);
+
+			void serialize(std::vector<char> &data);
+			void deserialize(std::vector<char> &data);
 	};
 
 	struct NextNodeInfo {

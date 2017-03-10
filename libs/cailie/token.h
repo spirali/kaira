@@ -171,7 +171,12 @@ template<typename T> class TokenList {
 		void pack(Packer &packer) const {
 			packer << tokens_count;
 			pack_tokens(packer);
+		}
 
+		void unpack(Unpacker &unpacker) {
+			size_t tokens;
+			unpacker >> tokens;
+			unpack_tokens(unpacker, tokens);
 		}
 
 		void pack_tokens(Packer &packer) const {
@@ -181,6 +186,14 @@ template<typename T> class TokenList {
 					packer << t->value;
 					t = t->next;
 				} while (t != token);
+			}
+		}
+
+		void unpack_tokens(Unpacker &unpacker, size_t tokens) {
+			for (size_t t = 0; t < tokens; t++) {
+				T value;
+				unpacker >> value;
+				add(value);
 			}
 		}
 

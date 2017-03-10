@@ -47,6 +47,10 @@ class TransitionDef {
 			return id;
 		}
 
+		TransitionType get_type() {
+			return type;
+		}
+
 		bool is_immediate() {
 			return type == TRANSITION_IMMEDIATE;
 		}
@@ -72,6 +76,7 @@ class TransitionDef {
 		virtual void fire_phase2(ThreadBase *thread, NetBase *net, Binding *binding) = 0;
 		virtual bool is_enable(ThreadBase *thread, NetBase *net) = 0;
 		virtual void pack_binding(Packer &pack, Binding *binding) {}
+		virtual Binding* unpack_binding(Unpacker &unpack) { return NULL; }
 		virtual bool is_blocked(Binding *binding) {
 			return false;
 		}

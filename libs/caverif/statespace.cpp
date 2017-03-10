@@ -146,6 +146,123 @@ std::string Core::hashdigest_to_string(hashid hash_id, HashDigest hash)
 	return hashstr;
 }
 
+void State::serialize(std::vector<char> &data)
+{
+	data.clear();
+
+	// quit state
+	data.insert(data.end(), reinterpret_cast<const char*>(&quit), reinterpret_cast<const char*>(&quit) + sizeof(quit));
+
+	// nets
+	ca::Packer packer;
+	for (int t = 0; t < ca::process_count; t++) {
+		packer.reset();
+		nets[t]->pack(packer);
+		size_t net_size = packer.get_size();
+		data.insert(data.end(), reinterpret_cast<const char*>(&net_size), reinterpret_cast<const char*>(&net_size) + sizeof(net_size));
+		data.insert(data.end(), packer.get_buffer(), packer.get_buffer() + packer.get_size());
+	}
+	packer.free();
+
+	// activations
+	size_t size = get_activate_process_count();
+	data.insert(data.end(), reinterpret_cast<const char*>(&size), reinterpret_cast<const char*>(&size) + sizeof(size));
+	Activation *a;
+	for (int i = 0; i < ca::process_count; i++) {
+		if (activations[i] == NULL) {
+			continue;
+		}
+
+		a = activations[i];
+		int id = a->transition_def->get_id();
+
+		data.insert(data.end(), reinterpret_cast<const char*>(&i), reinterpret_cast<const char*>(&i) + sizeof(i));
+		data.insert(data.end(), reinterpret_cast<const char*>(&id), reinterpret_cast<const char*>(&id) + sizeof(id));
+		std::string bbb((char*)a->packed_binding, a->packed_binding_size);
+		data.insert(data.end(), reinterpret_cast<const char*>(&a->packed_binding_size), reinterpret_cast<const char*>(&a->packed_binding_size) + sizeof(a->packed_binding_size));
+		data.insert(data.end(), reinterpret_cast<const char*>(a->packed_binding), reinterpret_cast<const char*>(a->packed_binding) + a->packed_binding_size);
+	}
+
+	// packets
+	std::vector<size_t> sizes;
+	for (int pq = 0; pq < ca::process_count * ca::process_count; pq++) {
+		size_t size = packets[pq].size();
+		sizes.push_back(size);
+		data.insert(data.end(), reinterpret_cast<const char*>(&size), reinterpret_cast<const char*>(&size) + sizeof(size));
+		for (size_t p = 0; p < packets[pq].size(); p++) {
+			data.insert(data.end(), reinterpret_cast<const char*>(&packets[pq][p].from_process), reinterpret_cast<const char*>(&packets[pq][p].from_process) + sizeof(packets[pq][p].from_process));
+			data.insert(data.end(), reinterpret_cast<const char*>(&packets[pq][p].size), reinterpret_cast<const char*>(&packets[pq][p].size) + sizeof(packets[pq][p].size));
+			data.insert(data.end(), reinterpret_cast<const char*>(packets[pq][p].data), reinterpret_cast<const char*>(packets[pq][p].data) + packets[pq][p].size);
+		}
+	}
+}
+
+template <typename TType>
+static void readData(TType &data, char* &p)
+{
+	memcpy(&data, p, sizeof(TType));
+	p += sizeof(TType);
+}
+
+void State::deserialize(std::vector<char> &data)
+{
+	char* p = data.data();
+
+	// QUIT FLAG
+	readData(quit, p);
+
+	// NET
+	for (int t = 0; t < ca::process_count; t++) {
+		size_t net_size;
+		readData(net_size, p);
+
+		ca::Unpacker unpacker(p, net_size);
+		nets[t]->unpack(unpacker);
+		p += net_size;
+	}
+
+	// ACTIVATIONS
+	for (int i = 0; i < ca::process_count; i++) {
+		if (activations[i] != NULL) {
+			delete activations[i];
+			activations[i] = NULL;
+		}
+	}
+
+	int index, id;
+	size_t size, binding_size;
+
+	readData(size, p);
+	for (size_t i = 0; i < size; i++) {
+		readData(index, p);
+		readData(id, p);
+		readData(binding_size, p);
+
+		ca::TransitionDef *t = net_def->get_transition_def(id);
+		ca::Unpacker unpacker(p, binding_size);
+		ca::Binding *binding = t->unpack_binding(unpacker);
+		p += binding_size;
+
+		activations[index] = new Activation(t, binding);
+	}
+
+	// PACKETS
+	std::vector<size_t> sizes;
+	for (int pq = 0; pq < ca::process_count * ca::process_count; pq++) {
+		packets[pq].clear();
+		readData(size, p);
+		sizes.push_back(size);
+		for (size_t i = 0; i < size; i++) {
+			packets[pq].push_back(ca::Packet());
+			readData(packets[pq].back().from_process, p);
+			readData(packets[pq].back().size, p);
+			packets[pq].back().data = malloc(packets[pq].back().size);
+			mempcpy(packets[pq].back().data, p, packets[pq].back().size);
+			p += packets[pq].back().size;
+		}
+	}
+}
+
 Node::Node(HashDigest hash, State *state, Node *prev)
 	: hash(hash), state(state), prev(prev), quit(false), quit_flag(false), final_marking(NULL), tag(0), data(NULL)
 {

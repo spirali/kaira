@@ -62,6 +62,11 @@ template <typename T> class Place {
 			packer << this->token_list;
 		}
 
+		void unpack(Unpacker &unpacker) {
+			token_list.clear();
+			unpacker >> this->token_list;
+		}
+
 		bool is_empty() const {
 			return token_list.is_empty();
 		}
@@ -185,12 +190,23 @@ template <typename T> class PlaceWithSource : public Place<T>
 
 		void pack(Packer &packer) const
 		{
-			packer << this->token_list;
 			ca::pack(packer, this->token_list);
 			for (Token<T> *t = this->token_list.begin();
 				t != NULL;
 				t = this->token_list.next(t)) {
 				packer << sources.find(t)->second;
+			}
+		}
+
+		void unpack(Unpacker &unpacker) const
+		{
+			this->token_list.clear();
+			ca::unpack(unpacker, this->token_list);
+			sources.clear();
+			for (Token<T> *t = this->token_list.begin();
+				t != NULL;
+				t = this->token_list.next(t)) {
+				unpacker >> sources[t];
 			}
 		}
 

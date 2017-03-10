@@ -174,6 +174,7 @@ def write_transition_forward(builder, tr):
         builder.line("bool is_blocked(ca::Binding *data);")
     if builder.pack_bindings:
         builder.line("void pack_binding(ca::Packer &packer, ca::Binding *data);")
+        builder.line("ca::Binding* unpack_binding(ca::Unpacker &unpacker);")
         builder.line("ca::FireResult full_fire_with_binding(ca::ThreadBase *thread, ca::NetBase *net, ca::Packer &$packer);")
     builder.write_class_end()
     builder.line("static Transition_{0.id} transition_{0.id};",
@@ -188,6 +189,7 @@ def write_transition_functions(builder,
     write_enable_check(builder, tr)
     if builder.pack_bindings:
         write_pack_binding(builder, tr)
+        write_unpack(builder, tr)
         write_full_fire_with_binding(builder, tr)
     if tr.collective:
         write_is_blocked(builder, tr)
@@ -650,6 +652,34 @@ def write_pack_binding(builder, tr):
     for edge in tr.get_bulk_edges_in():
         builder.line("ca::pack(packer, tokens->tokens_{0.uid});", edge);
 
+    builder.block_end()
+
+def write_unpack(builder, tr):
+    builder.line("ca::Binding* Transition_{0.id}::unpack_binding(ca::Unpacker &unpacker)", tr)
+    builder.block_begin()
+    builder.line("Tokens_{0.id} *tokens = new Tokens_{0.id};", tr)
+
+    if tr.collective:
+        builder.line("ca::unpack(unpacker, tokens->blocked);")
+        if tr.root:
+            builder.line("ca::unpack(unpacker, tokens->root);")
+            builder.line("bool $collective;")
+            builder.line("ca::unpack(unpacker, $collective);")
+            builder.if_begin("$collective")
+            builder.line("tokens->token_collective = new ca::Token<{0} >;", tr.get_collective_inscription().type)
+            builder.line("ca::unpack(unpacker, tokens->token_collective->value);")
+            builder.write_else()
+            builder.line("tokens->token_collective = NULL;")
+            builder.block_end()
+
+    for inscription in tr.get_token_inscriptions_in():
+        builder.line("tokens->token_{0} = new ca::Token<{1} >;", inscription.uid, inscription.type)
+        builder.line("ca::unpack(unpacker, tokens->token_{0}->value);", inscription.uid)
+
+    for edge in tr.get_bulk_edges_in():
+        builder.line("ca::unpack(unpacker, tokens->tokens_{0.uid});", edge)
+
+    builder.line("return tokens;")
     builder.block_end()
 
 def write_enable_pattern_match(builder,
