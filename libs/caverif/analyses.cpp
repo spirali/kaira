@@ -1,5 +1,7 @@
 #include "statespace.h"
 
+#include <string>
+
 static size_t const MAX_STATES_IN_REPORT = 5;
 
 namespace ca {
@@ -17,6 +19,8 @@ bool cfg::analyse_cycle = false;
 bool cfg::partial_order_reduction = true;
 bool cfg::silent = false;
 bool cfg::debug = false;
+bool cfg::only_singletons = false;
+size_t cfg::all_subset_max_size = 10;
 std::string cfg::project_name;
 
 struct CmpByDistance
@@ -61,6 +65,23 @@ static void args_callback(char c, char *optarg, void *data)
 		}
 		if (!strcmp(optarg, "silent")) {
 			cfg::silent = true;
+			return;
+		}
+		if (!strcmp(optarg, "only-singletons")) {
+			cfg::only_singletons = true;
+			return;
+		}
+		std::string str = "all-subset-max-size";
+		if (!strncmp(optarg, str.c_str(), str.size())) {
+			char *s = optarg;
+			while ((*s) != 0 && (*s) != '=') { s++; }
+			if ((*s) == 0) {
+				fprintf(stderr, "Invalid format of -V%s\n", str.c_str());
+				exit(1);
+			}
+			if ((*s) == '=') { s++; }
+
+			cfg::all_subset_max_size = std::stoi(s);
 			return;
 		}
 		if (!strcmp(optarg, "write-statespace")) {

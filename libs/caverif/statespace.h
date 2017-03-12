@@ -28,6 +28,8 @@ namespace cass {
 		extern bool partial_order_reduction;
 		extern bool silent;
 		extern bool debug;
+		extern bool only_singletons;
+		extern size_t all_subset_max_size;
 		extern std::string project_name;
 	};
 
@@ -191,7 +193,7 @@ namespace cass {
 			bool is_known_node(Node *node) const;
 			Node *get_node(HashDigest digest) const;
 
-			bool check_C1(const ActionSet &enabled, const ActionSet &ample, State *s);
+			void check_C1(const ActionSet &enabled, ActionSet &ample, State *s, std::vector<int> &marking);
 			bool check_C2(const ActionSet &ws);
 			bool check_C3(State *s);
 			std::stack<Node*> not_processed;
@@ -202,6 +204,9 @@ namespace cass {
 			bool generate_binging_in_nni;
 			std::ofstream debug_output;
 
+			size_t fullyEplored;
+			size_t partlyExplored;
+			size_t singleExplored;
 	};
 
 	void init(int argc, char **argv, std::vector<ca::Parameter*> &parameters, bool tracing);

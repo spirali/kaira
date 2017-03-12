@@ -424,7 +424,10 @@ Core::Core(VerifConfiguration &verif_configuration, std::vector<ca::Parameter*> 
 	nodes(10000, HashDigestHash(MHASH_MD5), HashDigestEq(MHASH_MD5)),
 	initial_node(NULL),
 	net_def(NULL),
-	verif_configuration(verif_configuration)
+	verif_configuration(verif_configuration),
+	fullyEplored(0),
+	partlyExplored(0),
+	singleExplored(0)
 {
 	if (cfg::analyse_transition_occurence) {
 		generate_binging_in_nni = true;
@@ -501,45 +504,145 @@ void Core::generate()
 			delete node->get_state();
 		}
 	} while (!not_processed.empty());
+
+	printf("total number of explored states: %ld\n", nodes.size());
+	printf("    size(ample) = size(enable) : %ld\n", fullyEplored);
+	printf("1 < size(ample) < size(enable) : %ld\n", partlyExplored);
+	printf("1 = size(ample) < size(enable) : %ld\n", singleExplored);
 }
+
+struct ValidSubset {
+	ValidSubset(const ActionSet &ample, const ActionSet &denied, const std::vector<int> &marking)
+	: ample(ample), denied(denied), marking(marking) { next = this->ample.begin(); }
+
+	ValidSubset(const ValidSubset &other)
+	: ample(other.ample), denied(other.denied), marking(other.marking) { next = this->ample.begin(); }
+
+	ValidSubset& operator=(const ValidSubset &other) {
+		if (&other == this) {
+			ample = other.ample;
+			denied = other.denied;
+			marking = other.marking;
+			next = ample.begin();
+		}
+		return *this;
+	}
+
+	ActionSet ample;
+	ActionSet denied;
+	ActionSet::iterator next;
+	std::vector<int> marking;
+};
 
 ActionSet Core::compute_ample_set(State *s, const ActionSet &enable)
 {
-	ActionSet::iterator it;
-
 	if (cfg::debug) {
 		debug_output << "\n" << Core::hashdigest_to_string(MHASH_MD5, s->compute_hash(MHASH_MD5));
 		debug_output << " states: " << nodes.size() << ", on stact: " << not_processed.size();
 		debug_output.setf(std::ios::fixed, std::ios::floatfield);
 		debug_output.precision(2);
 		debug_output << " " << not_processed.size() / (double)nodes.size() << "%\n";
-		debug_output << "Enabled: " << enable << "\n";
+		debug_output << "ENABLED: " << enable << "\n";
 	}
 
-	for (it = enable.begin(); it != enable.end(); it++) {
-		ActionSet ample;
-		ample.insert(*it);
-		if (cfg::debug) {
-			debug_output << "Ample: " << ample << "\n";
+	if (enable.size() == 1) {
+		fullyEplored++;
+		return enable;
+	}
+
+	std::vector<int> marking;
+
+	if (cfg::only_singletons) {
+		marking = verif_configuration.get_marking(s);
+		for (auto it = enable.begin(); it != enable.end(); it++) {
+			std::vector<int> mcopy = marking;
+			ActionSet ample;
+			ample.insert(*it);
+			if (cfg::debug) {
+				debug_output << "\nTry: " << ample << "\n";
+			}
+			check_C1(enable, ample, s, mcopy);
+			if (ample.size() && check_C2(ample) && check_C3(s)) {
+				singleExplored++;
+				return ample;
+			}
 		}
-		if (check_C1(enable, ample, s) && check_C2(ample) && check_C3(s)) {
-			return ample;
+
+		if (cfg::debug) {
+			debug_output << "AMPLE SET: " << enable << "\n\n";
+		}
+		fullyEplored++;
+		return enable;
+	}
+
+	ActionSet best = enable;
+	std::list<ValidSubset> subset = { ValidSubset(enable, ActionSet(), verif_configuration.get_marking(s)) };
+
+	while (subset.size()) {
+
+		ActionSet denied = subset.back().denied;
+		while (subset.back().next != subset.back().ample.end()) {
+			if (subset.back().denied.find(*subset.back().next) != subset.back().denied.end()) {
+				++subset.back().next;
+				continue;
+			}
+
+			ActionSet ample = subset.back().ample;
+			ample.erase(*subset.back().next);
+			if (cfg::debug) {
+				debug_output << "\nTry: " << ample << "\n";
+			}
+
+			marking = subset.back().marking;
+			check_C1(subset.back().ample, ample, s, marking);
+			if (ample.size() && check_C2(ample) && check_C3(s)) {
+				if (ample.size() == 1) {
+					debug_output << "AMPLE SET: " << ample << "\n\n";
+					singleExplored++;
+					return ample;
+				}
+				if (best.size() > ample.size()) {
+					best = ample;
+				}
+				subset.back().next++;
+				subset.push_back(ValidSubset(ample, denied, marking));
+				if (cfg::debug) {
+					debug_output << "VALID SUBSET: " << subset.back().ample << "\n";
+				}
+				break;
+			} else {
+				denied.insert(*subset.back().next++);
+			}
+		}
+		if (subset.back().next == subset.back().ample.end()) {
+			subset.pop_back();
+			if (subset.back().ample.size() > cfg::all_subset_max_size) {
+				break;
+			}
 		}
 	}
-	return enable;
+
+	if (cfg::debug) {
+		debug_output << "AMPLE SET: " << best << "\n\n";
+	}
+
+	if (enable.size() == best.size()) {
+		fullyEplored++;
+	} else {
+		partlyExplored++;
+	}
+	return best;
 }
 
-bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
+void Core::check_C1(const ActionSet &enabled, ActionSet &ample, State *s, std::vector<int> &marking)
 {
 	ActionSet::iterator it1;
 	ActionSet::iterator it2;
 
 	std::deque<Action> queue;
-	// This assume that there is no optimization for number of tokens in places
 	ActionSet processed = ample;
 	std::vector<bool> receive_blocked(ca::process_count * ca::process_count, false);
 	std::vector<int> enabled_priorities(ca::process_count, 0);
-	std::vector<int> marking = verif_configuration.get_marking(s);
 
 	for (ActionSet::iterator i = enabled.begin(); i != enabled.end(); i++) {
 		if (ample.find(*i) != ample.end()) {
@@ -588,19 +691,27 @@ bool Core::check_C1(const ActionSet &enabled, const ActionSet &ample, State *s)
 		}
 	}
 
-	while(queue.size() > 0) {
-		for (ActionSet::iterator a = ample.begin(); a != ample.end(); a++) {
+	while(queue.size()) {
+		for (ActionSet::iterator a = ample.begin(); a != ample.end(); ) {
 			if (verif_configuration.is_dependent(*a, queue.front(), marking)) {
 				if (cfg::debug) {
-					debug_output << "C1 is violated: " << queue.front() << " is dependent successor\n";
+					debug_output << "C1 remove " << *a << " (" << queue.front() << " is dependent successor)\n";
 				}
-				return false;
+				if (processed.find(*a) == processed.end()) {
+					processed.insert(*a);
+					queue.push_back(*a);
+				}
+				a = ample.erase(a);
+				if (!ample.size()) {
+					return;
+				}
+			} else {
+				++a;
 			}
 		}
 		verif_configuration.compute_successors(queue.front(), queue, processed, receive_blocked, enabled_priorities, marking, ample);
 		queue.pop_front();
 	}
-	return true;
 }
 
 bool Core::check_C2(const ActionSet &ample)
