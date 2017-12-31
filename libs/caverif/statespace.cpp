@@ -6,6 +6,7 @@
 #include <queue>
 #include <algorithm>
 #include <alloca.h>
+#include <omp.h>
 
 namespace ca {
 	extern ca::NetDef **defs;
@@ -485,6 +486,8 @@ void Core::generate()
 {
 	ca::check_parameters();
 
+	double start = omp_get_wtime();
+
 	net_def = ca::defs[0]; // Take first definition
 	State *initial_state = new State(net_def);
 	initial_node = add_state(initial_state, NULL);
@@ -505,10 +508,14 @@ void Core::generate()
 		}
 	} while (!not_processed.empty());
 
+	double end = omp_get_wtime();
+
 	printf("total number of explored states: %ld\n", nodes.size());
 	printf("    size(ample) = size(enable) : %ld\n", fullyEplored);
 	printf("1 < size(ample) < size(enable) : %ld\n", partlyExplored);
 	printf("1 = size(ample) < size(enable) : %ld\n", singleExplored);
+	printf("\n");
+	printf("total verification time        : %5.2f\n", end - start);
 }
 
 struct ValidSubset {

@@ -67,7 +67,7 @@ def prepare_makefile(project, config, directory):
     makefile.set("LIBS",
                  project.get_build_option("LIBS") + " "
                  + " ".join(add_prefix("-l", s) for s in config["libs"])
-                 + " -lcailie -lpthread -lrt ")
+                 + " -lcailie -lpthread -lrt -lgomp")
 
     if ptp.config.has_option("Main", "MPICXX"):
         mpicxx = ptp.config.get("Main", "MPICXX")
@@ -78,7 +78,7 @@ def prepare_makefile(project, config, directory):
     makefile.set("MPILIBS",
                  project.get_build_option("LIBS") + " "
                  + " ".join(add_prefix("-l", s) for s in config["libs"])
-                 + " -lcailiempi -lpthread -lrt ")
+                 + " -lcailiempi -lpthread -lrt -lgomp ")
 
     makefile.rule(".cpp.o", [], "$(CXX) $(CFLAGS) $(INCLUDE) -c $< -o $@")
     makefile.rule(".cc.o", [], "$(CXX) $(CFLAGS) $(INCLUDE) -c $< -o $@")
@@ -136,7 +136,7 @@ def write_statespace_makefile(project, directory):
     #TODO: better solution
     makefile.set("MPIVERIFLIBS",
                  " ".join(s for s in [ "-lcaverifmpi -lmhash" ])
-                 + " -lcailie -lpthread -lrt ")
+                 + " -lcailie -lpthread -lrt -lgomp ")
 
     makefile.rule("mpi", [ name_mpi ], phony=True)
 
