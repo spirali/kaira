@@ -1,0 +1,82 @@
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><parameter default="120" description="" name="LIMIT" policy="mandatory" type="int" /><parameter default="10" description="" name="SIZE" policy="mandatory" type="int" /><build-option name="LIBS" /><build-option name="CFLAGS">-g -O0</build-option><head-code>
+struct Job {
+	Job() {};
+	Job(int start, int end) : start(start), end(end) {}
+	int start;
+	int end;
+
+	void pack(ca::Packer &amp;p) const {
+		p &lt;&lt; start &lt;&lt; end;
+	}
+
+	void unpack(ca::Unpacker &amp;p) {
+		p &gt;&gt; start &gt;&gt; end;
+	}
+	
+	std::string token_name() const {
+		std::stringstream s;
+		s &lt;&lt; "Job [" &lt;&lt; start &lt;&lt; "," &lt;&lt; end &lt;&lt; ")";
+		return s.str();
+	}
+};
+
+struct Results {
+	std::vector&lt;int&gt; primes;
+	int process;
+	
+	Results(): process(-1) { };
+
+	Results(int process): process(process) {};
+
+	void pack(ca::Packer &amp;p) const {
+		p &lt;&lt; process;
+		p &lt;&lt; primes.size();
+		for (size_t i = 0; i &lt; primes.size(); i++) {
+			p &lt;&lt; primes[i];
+		}
+	}
+
+	void unpack(ca::Unpacker &amp;p) {
+		size_t size;
+		p &gt;&gt; process;
+		p &gt;&gt; size;
+		primes.resize(size);
+		for (int i = 0; i &lt; size; i++) {
+			p &gt;&gt; primes[i];
+		}
+	}
+	
+	std::string token_name() const {
+		return "Results";
+	}	
+	
+};</head-code></configuration><net id="0" name="Main"><place id="103" label-x="38" label-y="255" name="counter" radius="20" sx="4" sy="0" x="38" y="255"><place-type x="65" y="271">int</place-type><init x="52" y="222">[0]</init><trace trace-tokens="False" /></place><place id="104" label-x="186" label-y="252" name="ready" radius="20" sx="0" sy="0" x="186" y="252"><place-type x="203" y="269">Results</place-type><init x="203" y="227" /><code>	for (int i = 1; i &lt; ctx.process_count(); i++) {
+		place.add(Results(i));
+	}
+</code><trace trace-tokens="False" /></place><place id="105" label-x="415" label-y="165" name="" radius="22" sx="0" sy="0" x="415" y="165"><place-type x="432" y="182">Job</place-type><init x="432" y="135" /><trace trace-tokens="False" /></place><transition clock="False" collective="False" id="107" label-x="258" label-y="116" name="write and divide" priority="" sx="120" sy="35" x="192" y="90"><guard x="192" y="70">start &lt; param::LIMIT()</guard><code>	for (int i = 0; i &lt; var.results.primes.size(); i++) {
+		printf("%d\n", var.results.primes[i]);
+	}
+</code><trace>fire</trace><verif-occurrence binding="False" process="True" /></transition><transition clock="False" collective="False" id="108" label-x="431" label-y="262" name="compute" priority="" sx="70" sy="35" x="380" y="235"><guard x="380" y="215" /><code>	int t;
+	var.results.process = ctx.process_id();
+	for (t=var.job.start; t &lt; var.job.end; t++) {
+		if (t &lt; 2) continue;
+		int s;
+		s = 2;
+		while( (s*s) &lt;= t) {
+			if ((t % s) == 0) {
+				break;
+			}
+			s++;
+		}
+		if (s*s &gt; t) {
+			var.results.primes.push_back(t);
+		}
+	}
+</code><trace>fire</trace><verif-occurrence binding="True" process="False" /></transition><transition clock="False" collective="False" id="109" label-x="127" label-y="360" name="write final results" priority="" sx="109" sy="37" x="92" y="342"><guard x="92" y="322" /><code>	ca::Token&lt;Results &gt; *t;
+	for (t = var.results.begin(); t != NULL; t = var.results.next(t)) {
+		for (int i = 0; i &lt; t-&gt;value.primes.size(); i++) {
+			printf("%d\n", t-&gt;value.primes[i]);
+		}
+	}
+	ctx.quit();
+</code><trace>fire</trace><verif-occurrence binding="False" process="True" /></transition><edge from_item="103" id="110" to_item="107"><inscription x="138.0" y="192.0">start</inscription></edge><edge from_item="107" id="111" to_item="103"><inscription x="51.0" y="88.0">start + param::SIZE()</inscription><point x="37" y="107" /></edge><edge from_item="104" id="112" to_item="107"><inscription x="224.0" y="180.0">results</inscription></edge><edge from_item="105" id="113" to_item="108"><inscription x="424.0" y="206.0">job</inscription></edge><edge from_item="103" id="114" to_item="109"><inscription x="1.0" y="302.0">param::LIMIT()</inscription></edge><edge from_item="104" id="115" to_item="109"><inscription x="171.0" y="301.0">[bulk, guard(size == ctx.process_count() - 1 ) ]results</inscription></edge><edge from_item="108" id="117" to_item="104"><inscription x="260.0" y="258.0">results@0</inscription></edge><edge from_item="107" id="119" to_item="105"><inscription x="336.0" y="88.0">Job(start, start + param::SIZE())@results.process</inscription><point x="415" y="107" /></edge></net></project>

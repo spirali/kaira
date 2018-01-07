@@ -1,0 +1,60 @@
+<project library-octave="False" library-rpc="False" target_env="C++"><configuration><parameter default="10" description="" name="LIMIT" policy="mandatory" type="int" /><parameter default="4" description="" name="SIZE_X" policy="mandatory" type="int" /><parameter default="4" description="" name="SIZE_Y" policy="mandatory" type="int" /><parameter default="200" description="" name="TEMP" policy="mandatory" type="int" /><build-option name="LIBS" /><build-option name="OTHER_FILES">compute.cpp</build-option><build-option name="CFLAGS">-O0 -g</build-option><head-code>
+#include &lt;compute.h&gt;
+
+namespace ca {
+
+	CA_TOKEN_NAME(DoubleMatrix, m) {
+		return "DoubleMatrix";
+	}
+	
+	CA_PACK(DoubleMatrix, packer, m) {
+		packer &lt;&lt; m.get_size_x() &lt;&lt; m.get_size_y();
+		pack(packer, m.get_data(), m.get_data_size());
+	}
+	
+	CA_UNPACK(DoubleMatrix, unpacker, m) {
+		int size_x, size_y;
+		unpacker &gt;&gt; size_x &gt;&gt; size_y;
+		m.setup(size_x, size_y);
+		m.set_data((double*) unpacker.unpack_data(m.get_data_size()));
+		m.swap();		
+	}		
+}
+
+int to_down(ca::Context &amp;ctx)
+{
+	return (ctx.process_id() + 1) % ctx.process_count();
+}
+
+int to_up(ca::Context &amp;ctx)
+{
+	return (ctx.process_id() + ctx.process_count() - 1) 
+			% ctx.process_count();
+}</head-code></configuration><net id="101" name="Main"><area id="102" sx="490" sy="280" x="211" y="143"><init x="211" y="128">ctx.all_processes()</init></area><place id="104" label-x="279" label-y="359" name="Down row" radius="20" sx="33" sy="0" x="279" y="359"><place-type x="308" y="381">std::vector&lt;double&gt;</place-type><init x="296" y="329" /><code>	std::vector&lt;double&gt; row(param::SIZE_X(), 0);
+	place.add(row);
+</code><trace trace-tokens="False" /></place><place id="105" label-x="280" label-y="286" name="Local data" radius="20" sx="33" sy="0" x="280" y="286"><place-type x="318" y="312">DoubleMatrix</place-type><init x="297" y="256" /><code>	int id = ctx.process_id();
+	int size = ctx.process_count();
+	int position = id_to_position(param::SIZE_Y(), size, id);
+	DoubleMatrix matrix(param::SIZE_X(), id_to_size(param::SIZE_Y(), size, id));
+	set_fixed_temp(matrix, param::SIZE_Y(), position, param::TEMP());
+	matrix.swap();
+	place.add(matrix);
+</code><trace trace-tokens="False" /></place><place id="106" label-x="281" label-y="208" name="Up row" radius="20" sx="31" sy="0" x="281" y="208"><place-type x="330" y="228">std::vector&lt;double&gt;</place-type><init x="298" y="178" /><code>	std::vector&lt;double&gt; row(param::SIZE_X(), 0);
+	place.add(row);
+</code><trace trace-tokens="False" /></place><place id="107" label-x="647" label-y="383" name="Counter" radius="20" sx="16" sy="0" x="647" y="383"><place-type x="677" y="406">int</place-type><init x="683" y="353">[0]</init><trace trace-tokens="False" /></place><place id="108" label-x="800" label-y="287" name="" radius="22" sx="0" sy="0" x="800" y="287"><place-type x="817" y="304">std::vector&lt;DoubleMatrix&gt;</place-type><init x="817" y="257" /><trace trace-tokens="False" /></place><transition clock="False" collective="True" id="111" label-x="653" label-y="288" name="Send &#10;results" priority="" sx="70" sy="35" x="618" y="270"><guard x="618" y="250" /><trace>fire</trace><root x="670" y="310">0</root></transition><transition clock="False" collective="False" id="112" label-x="784" label-y="206" name="Write results" priority="" sx="100" sy="42" x="749" y="188"><guard x="749" y="168" /><code>	const int size = var.results.size();
+	DoubleMatrix out(param::SIZE_X(), param::SIZE_Y());
+
+	for (int i = 0; i &lt; var.results.size(); i++) {
+		int position = id_to_position(param::SIZE_Y(), size, i);
+		int y = id_to_size(param::SIZE_Y(), size, i);
+		memcpy(out.get_write_pointer(0, position),
+		       var.results[i].get_data(), var.results[i].get_data_size());
+	}
+	out.swap();
+	out.write_to_file("results.html");
+	ctx.quit();
+</code><trace>fire</trace><verif-occurrence binding="False" process="True" /></transition><transition clock="False" collective="False" id="110" label-x="546" label-y="288" name="Compute" priority="" sx="70" sy="35" x="511" y="270"><guard x="534" y="252">c &lt; param::LIMIT()</guard><code>	compute_new_values(var.data, &amp;var.up[0], &amp;var.down[0]);
+	int position = id_to_position(param::SIZE_Y(), ctx.process_count(), ctx.process_id());
+	set_fixed_temp(var.data, param::SIZE_Y(), position, param::TEMP());
+	var.data.swap();
+</code><trace>fire</trace><verif-occurrence binding="True" process="True" /></transition><edge from_item="108" id="123" to_item="112"><inscription x="813.0" y="244.0">results</inscription></edge><edge from_item="107" id="124" to_item="111"><inscription x="661.0" y="331.0">param::LIMIT()</inscription></edge><edge from_item="111" id="125" to_item="108"><inscription x="705.0" y="268.0">[gather] data</inscription></edge><edge from_item="105" id="126" to_item="111"><inscription x="444.0" y="161.0">data</inscription><point x="243" y="286" /><point x="242" y="177" /><point x="654" y="180" /></edge><edge from_item="104" id="129" to_item="110"><inscription x="427.0" y="325.0">down</inscription></edge><edge from_item="110" id="127" to_item="107"><inscription x="556.0" y="360.0">c+1</inscription><point x="580" y="350" /></edge><edge from_item="107" id="122" to_item="110"><inscription x="610.0" y="327.0">c</inscription></edge><edge from_item="106" id="121" to_item="110"><inscription x="412.0" y="249.0">up</inscription><point x="328" y="245" /></edge><edge from_item="110" id="119" to_item="106"><inscription x="386.0" y="194.0">down@to_down(ctx)</inscription><point x="498" y="210" /></edge><edge bidirectional="true" from_item="105" id="118" to_item="110"><inscription x="408.0" y="291.0">data</inscription><point x="380" y="285" /></edge><edge from_item="110" id="117" to_item="104"><inscription x="427.0" y="365.0">up@to_up(ctx)</inscription><point x="516" y="360" /></edge></net></project>
