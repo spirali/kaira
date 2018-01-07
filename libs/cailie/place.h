@@ -198,7 +198,7 @@ template <typename T> class PlaceWithSource : public Place<T>
 			}
 		}
 
-		void unpack(Unpacker &unpacker) const
+		void unpack(Unpacker &unpacker)
 		{
 			this->token_list.clear();
 			ca::unpack(unpacker, this->token_list);
