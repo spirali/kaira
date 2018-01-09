@@ -1782,7 +1782,7 @@ void transition_user_fn_112(ca::Context &ctx, Vars_112 &var)
 		       var.results[i].get_data(), var.results[i].get_data_size());
 	}
 	out.swap();
-	out.write_to_file("results.html");
+//	out.write_to_file("results.html");
 	ctx.quit();
 }
 #line 1 "*110/function"

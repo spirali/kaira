@@ -520,7 +520,9 @@ ActionSet Core::compute_ample_set(State *s, const ActionSet &enable)
 			check_C1(subset.back().ample, ample, s, marking);
 			if (ample.size() && check_C2(ample) && check_C3(s)) {
 				if (ample.size() == 1) {
-					debug_output << "AMPLE SET: " << ample << "\n\n";
+					if (cfg::debug) {
+						debug_output << "AMPLE SET: " << ample << "\n\n";
+					}
 					singleExplored++;
 					return ample;
 				}

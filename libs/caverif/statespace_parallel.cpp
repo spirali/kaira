@@ -122,12 +122,14 @@ void Core::generate()
 	std::stringstream ss;
 	ss << rank << ".txt";
 
-	debug_output.open(ss.str().c_str(), std::ios::out | std::ios::trunc);
+	if (cfg::debug) {
+		debug_output.open(ss.str().c_str(), std::ios::out | std::ios::trunc);
+	}
 
 	do {
 		count++;
 		if (count % 1000 == 0 && !cfg::silent) {
-			fprintf(stderr, "==KAIRA== Nodes %ld\n", count);
+//			fprintf(stderr, "==KAIRA== Nodes %ld\n", count);
 		}
 		Node *node = not_processed.front();
 		not_processed.pop_front();
