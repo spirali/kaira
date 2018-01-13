@@ -1,4 +1,5 @@
 #include "statespace.h"
+#include "vertices.h"
 
 #include <cmath>
 #include "mpi.h"
@@ -48,6 +49,8 @@ Core::Core(int argc, char **argv, VerifConfiguration &verif_configuration, std::
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+	HashVertex::rank = rank;
+
 	hashes.resize(ASSUMED_HASHES_SIZE);
 	receives.resize(ASSUMED_HASHES_SIZE * size);
 
@@ -72,6 +75,12 @@ Node * Core::add_state(State *state, Node *prev)
 	HashDigest hash = state->compute_hash(hash_id);
 
 	Node *node = get_node(hash);
+	if (node == NULL) {
+		auto it = hash_processes.find(hash);
+		if (it != hash_processes.end()) {
+			node = it->second.node;
+		}
+	}
 	if (node == NULL) {
 		node = new Node(hash, state, prev);
 		node->set_quit(state->get_quit_flag());
@@ -269,13 +278,12 @@ void Core::send_result(size_t part)
 			if (!(results[byte] & bits[bit])) {
 				it = hash_processes.find(receives[displacement[part][i] + j]);
 				if (it == hash_processes.end()) {
-					hash_processes.insert(
+					it = hash_processes.insert(
 						std::pair<HashDigest, HashVertex>(
 							receives[displacement[part][i] + j],
 							HashVertex(receives[displacement[part][i] + j], receives.ample_size(displacement[part][i] + j))
 						)
-					);
-					it = hash_processes.find(receives[displacement[part][i] + j]);
+					).first;
 				}
 				it->second.processes.push_back(&processes[i]);
 				processes[i].add_vertex(&(it->second));
@@ -354,16 +362,27 @@ void Core::partitiate(size_t part)
 		nodes[(*vit)->hash] = (*vit)->node;
 		not_processed.push_back((*vit)->node);
 	}
+	for (int r = 0; r < rank; r++) {
+		for (vit = processes[r].assigned.begin(); vit != processes[r].assigned.end(); ++vit) {
+			if ((*vit)->node != NULL && (*vit)->clear) {
+				delete (*vit)->node->get_state();
+				delete (*vit)->node;
+			}
+		}
+	}
+	for (int r = rank + 1; r < size; r++) {
+		for (vit = processes[r].assigned.begin(); vit != processes[r].assigned.end(); ++vit) {
+			if ((*vit)->node != NULL && (*vit)->clear) {
+				delete (*vit)->node->get_state();
+				delete (*vit)->node;
+			}
+		}
+	}
 
 	hash_processes.clear();
 	if (receive_count.size() == part + 1) {
-		std::vector<std::vector<int> > &tmp = receive_count;
-		receive_count = next_receive;
-		next_receive = tmp;
-
-		std::vector<size_t> &tmp_t = threshold;
-		threshold = next_threshold;
-		next_threshold = tmp_t;
+		receive_count.swap(next_receive);
+		threshold.swap(next_threshold);
 
 		next_receive.clear();
 		next_receive.push_back(std::vector<int>(size, 0));
@@ -377,6 +396,9 @@ void Core::partitiate(size_t part)
 			displacement[p][0] = 0;
 			for (int i = 1; i < size; i++) {
 				displacement[p][i] = displacement[p][i - 1] + receive_count[p][i - 1];
+			}
+			if (hashes.capacity() < (size_t)receive_count[p][rank]) {
+				hashes.resize(receive_count[p][rank]);
 			}
 		}
 	}

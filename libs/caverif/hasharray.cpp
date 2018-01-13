@@ -46,7 +46,7 @@ void HashArray::realloc(size_t capacity)
 		exit(1);
 	}
 
-	memcpy(new_data, _data, capacity * _element_size);
+	memcpy(new_data, _data, _capacity * _element_size);
 
 	free(_data);
 	_data = new_data;
@@ -60,7 +60,7 @@ void HashArray::resize(size_t size)
 		_capacity = size;
 		return;
 	}
-	if (_capacity <= size) {
+	if (_capacity < size) {
 		realloc(size);
 	}
 
@@ -84,11 +84,6 @@ void HashArray::clear()
 {
 	_size = 0;
 	// memset(_data, 0, _element_size * _capacity);
-}
-
-char* HashArray::operator[](size_t i)
-{
-	return _data + _element_size * i;
 }
 
 HashArray::~HashArray()

@@ -21,10 +21,11 @@ public:
 	void push(HashDigest hash, byte ample_size);
 
 	size_t size() const { return _size; }
+	size_t capacity() const { return _capacity; }
 	size_t hash_size() const { return _hash_size; }
 	size_t element_size() const { return _element_size; }
 
-	char* operator[](size_t i);
+	char* operator[](size_t i) { return _data + _element_size * i; }
 
 	byte ample_size(size_t i) const { return _data[i * _element_size + _hash_size]; }
 

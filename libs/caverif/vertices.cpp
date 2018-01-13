@@ -1,8 +1,12 @@
 #include "vertices.h"
+#include "statespace.h"
 
 using namespace cass;
 
+int HashVertex::rank;
+
 void HashVertex::assign() {
+	clear = 0;
 	if (processes.size()) {
 		owner = processes[0];
 		for (size_t i = 1; i < processes.size(); i++) {
@@ -12,18 +16,24 @@ void HashVertex::assign() {
 		}
 		owner->assign(this);
 		owner->realNodes++;
+		if (owner->rank != HashVertex::rank) {
+			clear = 1;
+		}
 	}
 }
 
 void HashVertex::release(ProcessVertex *process)
 {
-	if (owner->redirectable()) {
+	if (owner->redirectable() && owner->next_size > ample_size) {
 		owner->release(this);
 		owner = process;
 	}
 }
 
+HashVertex::~HashVertex()
+{
 
+}
 
 bool ProcessVertex::redirectable()
 {
@@ -75,6 +85,7 @@ void ProcessVertex::steal() {
 		}
 	}
 	assign(hashes[min]);
+	hashes[min]->clear = 0;
 	hashes[min]->release(this);
 };
 

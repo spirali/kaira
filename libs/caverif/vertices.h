@@ -12,8 +12,11 @@ namespace cass {
 
 	struct HashVertex
 	{
-		HashVertex(HashDigest hash, byte ample_size): node(NULL), ample_size(ample_size), owner(NULL), assigned(0), hash(hash) { };
-		HashVertex(HashDigest hash, Node *node, byte ample_size): node(node), ample_size(ample_size), owner(NULL), assigned(0), hash(hash) { };
+		static int rank;
+
+		HashVertex(HashDigest hash, byte ample_size): node(NULL), ample_size(ample_size), owner(NULL), assigned(0), clear(0), hash(hash) { };
+		HashVertex(HashDigest hash, Node *node, byte ample_size): node(node), ample_size(ample_size), owner(NULL), assigned(0), clear(1), hash(hash) { };
+		~HashVertex();
 
 		void assign();
 		void release(ProcessVertex *process);
@@ -23,6 +26,7 @@ namespace cass {
 		std::vector<ProcessVertex*> processes;
 		ProcessVertex* owner;
 		int assigned;
+		int clear;
 		HashDigest hash;
 	};
 
