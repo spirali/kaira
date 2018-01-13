@@ -6,20 +6,14 @@ using namespace cass;
 int HashVertex::rank;
 
 void HashVertex::assign() {
-	clear = 0;
-	if (processes.size()) {
-		owner = processes[0];
-		for (size_t i = 1; i < processes.size(); i++) {
-			if (owner->nodeCount > processes[i]->nodeCount) {
-				owner = processes[i];
-			}
-		}
-		owner->assign(this);
-		owner->realNodes++;
-		if (owner->rank != HashVertex::rank) {
-			clear = 1;
+	owner = processes[0];
+	for (size_t i = 1; i < processes.size(); i++) {
+		if (owner->nodeCount > processes[i]->nodeCount) {
+			owner = processes[i];
 		}
 	}
+	owner->assign(this);
+	owner->realNodes++;
 }
 
 void HashVertex::release(ProcessVertex *process)
@@ -85,7 +79,6 @@ void ProcessVertex::steal() {
 		}
 	}
 	assign(hashes[min]);
-	hashes[min]->clear = 0;
 	hashes[min]->release(this);
 };
 

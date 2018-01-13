@@ -4,9 +4,9 @@
 #include <cmath>
 #include "mpi.h"
 #include <omp.h>
+#include <iomanip>
 
-#define ASSUMED_HASHES_SIZE 10
-#define HASH_THRESHOLD 1024
+#define ASSUMED_HASHES_SIZE 1024
 
 namespace ca {
 	extern ca::NetDef **defs;
@@ -16,7 +16,7 @@ using namespace cass;
 
 Core::Core(int argc, char **argv, VerifConfiguration &verif_configuration, std::vector<ca::Parameter*> &parameters):
 	hash_id(CASS_HASH_ID),
-	nodes(10000, HashDigestHash(hash_id), HashDigestEq(hash_id)),
+	nodes(10000, HashDigestHash(), HashDigestEq()),
 	initial_node(NULL),
 	net_def(NULL),
 	verif_configuration(verif_configuration),
@@ -24,7 +24,9 @@ Core::Core(int argc, char **argv, VerifConfiguration &verif_configuration, std::
 	partlyExplored(0),
 	singleExplored(0),
 	hashes(hash_id),
-	receives(hash_id)
+	receives(hash_id),
+	realNodes(0),
+	exchanged(0)
 {
 	if (cfg::analyse_transition_occurence) {
 		generate_binging_in_nni = true;
@@ -54,20 +56,26 @@ Core::Core(int argc, char **argv, VerifConfiguration &verif_configuration, std::
 	hashes.resize(ASSUMED_HASHES_SIZE);
 	receives.resize(ASSUMED_HASHES_SIZE * size);
 
-	displacement.push_back(std::vector<int>(size));
-	receive_count.push_back(std::vector<int>(size));
-	threshold.resize(1);
-	threshold[0] = HASH_THRESHOLD;
-	next_end.resize(size, 0);
-	next_receive.push_back(std::vector<int>(size, 0));
-	next_threshold.push_back(0);
+	displacement = std::vector<int>(size);
+	receive_count = std::vector<int>(size);
 
-	processes.resize(size);
+	pvertices.resize(size);
 	for (int i = 0; i < size; i++) {
-		processes[i].rank = i;
+		pvertices[i].rank = i;
 	}
 
 	output = 0;
+}
+
+Core::~Core()
+{
+	NodeMap::iterator it;
+	for (it = nodes.begin(); it != nodes.end(); it++) {
+		delete it->second;
+	}
+	if (cfg::debug) {
+		debug_output.close();
+	}
 }
 
 Node * Core::add_state(State *state, Node *prev)
@@ -76,9 +84,9 @@ Node * Core::add_state(State *state, Node *prev)
 
 	Node *node = get_node(hash);
 	if (node == NULL) {
-		auto it = hash_processes.find(hash);
-		if (it != hash_processes.end()) {
-			node = it->second.node;
+		auto it = std::lower_bound(currentNodes.begin(), currentNodes.end(), hash, [&] (Node *node, HashDigest hash) { return hashOrder(node->get_hash(), hash); });
+		if (it != currentNodes.end() && hashEq(hash, (*it)->get_hash())) {
+			node = *it;
 		}
 	}
 	if (node == NULL) {
@@ -87,10 +95,8 @@ Node * Core::add_state(State *state, Node *prev)
 		//nodes[hash] = node;
 		//not_processed.push(node);
 		node->compute_ample(this);
-		hash_processes.insert(
-			std::pair<HashDigest, HashVertex>(hash, HashVertex(hash, node, node->get_ample_size()))
-		);
-
+		currentNodes.push_back(node);
+		std::sort(currentNodes.begin(), currentNodes.end(), [&] (Node *n1, Node *n2) { return hashOrder(n1->get_hash(), n2->get_hash()); });
 		return node;
 	} else {
 		free(hash);
@@ -115,8 +121,6 @@ void Core::generate()
 
 	// INIT TRANSFER DATA
 	size_t count = 0;
-	size_t last_level = 0;
-	size_t part = 0;
 	init_partition();
 
 	std::stringstream ss;
@@ -141,31 +145,19 @@ void Core::generate()
 			delete node->get_state();
 		}
 
-		if (not_processed.empty() || count - last_level == threshold[part]) {
-			do {
-				size_t size = receive_count.size();
-				send_hashes(part);
-				send_result(part);
-				partitiate(part);
-				if (++part == size) {
-					part = 0;
-				}
-				last_level = count;
-			} while(part > 0 && threshold[part] == 0);
+		if (not_processed.empty()) {
+			send_hashes();
+			send_result();
+			partitiate();
 		}
 
 	} while (!not_processed.empty());
 
 	// FINISH COOPERATION WITH OTHER PROCESSES
-	while (displacement[part][size - 1] + receive_count[part][size - 1] > 0) {
-		size_t size = receive_count.size();
-		send_hashes(part);
-		send_result(part);
-		partitiate(part);
-		if (++part == size) {
-			part = 0;
-			last_level = count;
-		}
+	while (displacement[size - 1] + receive_count[size - 1] > 0) {
+		send_hashes();
+		send_result();
+		partitiate();
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -175,13 +167,11 @@ void Core::generate()
 	MPI_Finalize();
 
 	if (rank == 0) {
-		int sum = 0;
 		std::cout << "nodes: ";
 		for (int i = 0; i < size; i++) {
-			std::cout << processes[i].realNodes << " ";
-			sum += processes[i].realNodes;
+			std::cout << pvertices[i].realNodes << " ";
 		}
-		std::cout << " = " << sum + 1 << "\n";
+		std::cout << "= " << realNodes + 1 << " (" << exchanged << " exchanged)\n";
 
 		printf("\n");
 		printf("total verification time        : %5.2f\n", end - start);
@@ -191,51 +181,50 @@ void Core::generate()
 
 void Core::init_partition()
 {
-	HashVertex &nVertex = hash_processes.begin()->second;
-	nodes[hash_processes.begin()->second.hash] = nVertex.node;
-	not_processed.push_back(nVertex.node);
+	nodes[currentNodes.front()->get_hash()] = currentNodes.front();
+	not_processed.push_back(currentNodes.front());
 
 	for (int i = 0; i < size; i++) {
-		displacement[0][i] = i * nVertex.ample_size;
-		receive_count[0][i] = nVertex.ample_size;
+		displacement[i] = i * currentNodes.front()->get_ample_size();
+		receive_count[i] = currentNodes.front()->get_ample_size();
 	}
-	hash_processes.clear();
+	currentNodes.clear();
+	realNodes = 1;
 }
 
-void Core::send_hashes(size_t part)
+void Core::send_hashes()
 {
 	// Because displacement and receive_count are counted in hashes, while MPI counts in char
 	int receive_size = 0;
 	for (int i = 0; i < size; i++) {
-		receive_size += receive_count[part][i];
-		displacement[part][i] *= hashes.element_size();
-		receive_count[part][i] *= hashes.element_size();
+		receive_size += receive_count[i];
+		displacement[i] *= hashes.element_size();
+		receive_count[i] *= hashes.element_size();
 	}
 
 	hashes.clear();
-	std::map<HashDigest, HashVertex, HashDigestOrder>::const_iterator it;
-	for (it = hash_processes.begin(); it != hash_processes.end(); ++it) {
-		hashes.push(it->first, it->second.ample_size);
+	for (size_t i = 0; i < currentNodes.size(); i++) {
+		hashes.push(currentNodes[i]->get_hash(), currentNodes[i]->get_ample_size());
 	}
 
 	receives.resize(receive_size);
 	MPI_Allgatherv(
-		hashes[0], receive_count[part][rank], MPI_CHAR,
-		receives[0], &receive_count[part][0], &displacement[part][0], MPI_CHAR,
+		hashes[0], receive_count[rank], MPI_CHAR,
+		receives[0], &receive_count[0], &displacement[0], MPI_CHAR,
 		MPI_COMM_WORLD);
 
 	// Return original sizes
 	for (int i = 0; i < size; i++) {
-		displacement[part][i] /= hashes.element_size();
-		receive_count[part][i] /= hashes.element_size();
+		displacement[i] /= hashes.element_size();
+		receive_count[i] /= hashes.element_size();
 	}
 }
 
 unsigned char bits[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
 
-void Core::send_result(size_t part)
+void Core::send_result()
 {
-	int mask_size = ceil((displacement[part][size - 1] + receive_count[part][size - 1]) / 8.);
+	int mask_size = ceil((displacement[size - 1] + receive_count[size - 1]) / 8.);
 	char* mask = new char[mask_size];
 	char* results = new char[mask_size * size];
 
@@ -245,10 +234,10 @@ void Core::send_result(size_t part)
 	int byte, bit;
 	byte = bit = 0;
 	for (int i = 0; i < size; i++) {
-		for (int j = 0; j < receive_count[part][i]; j++) {
+		for (int j = 0; j < receive_count[i]; j++) {
 			if (rank == i && hashes.size() <= (size_t)j) {
 				mask[byte] |= bits[bit];
-			} else if (get_node(receives[displacement[part][i] + j]) != NULL) {
+			} else if (get_node(receives[displacement[i] + j]) != NULL) {
 				mask[byte] |= bits[bit];
 			}
 			(bit == 7) ? byte++, bit = 0 : bit++;
@@ -256,10 +245,7 @@ void Core::send_result(size_t part)
 	}
 
 	// COMMUNICATE
-	MPI_Allgather(
-		mask, mask_size, MPI_CHAR,
-		results, mask_size, MPI_CHAR,
-		MPI_COMM_WORLD);
+	MPI_Allgather(mask, mask_size, MPI_CHAR, results, mask_size, MPI_CHAR, MPI_COMM_WORLD);
 
 	// Put results from all processes together
 	for (int i = 1; i < size; i++) {
@@ -267,30 +253,55 @@ void Core::send_result(size_t part)
 			results[j] |= results[i * mask_size + j];
 		}
 	}
-
 	// COLECT RESULT
-	for (size_t i = 0; i < processes.size(); i++) {
-		processes[i].clear();
+	for (size_t i = 0; i < pvertices.size(); i++) {
+		pvertices[i].clear();
 	}
 
-	std::map<HashDigest, HashVertex, HashDigestOrder>::iterator it;
 	byte = bit = 0;
 	for (int i = 0; i < size; i++) {
-		for (int j = 0; j < receive_count[part][i]; j++) {
+		for (int j = 0; j < receive_count[i]; j++) {
 			if (!(results[byte] & bits[bit])) {
-				it = hash_processes.find(receives[displacement[part][i] + j]);
-				if (it == hash_processes.end()) {
-					it = hash_processes.insert(
-						std::pair<HashDigest, HashVertex>(
-							receives[displacement[part][i] + j],
-							HashVertex(receives[displacement[part][i] + j], receives.ample_size(displacement[part][i] + j))
-						)
-					).first;
+				Node *node = NULL;
+				if (i == rank) {
+					node = *std::lower_bound(currentNodes.begin(), currentNodes.end(), receives[displacement[i] + j], [&] (Node *node, HashDigest hash) { return hashOrder(node->get_hash(), hash); });
+					hvertices.push_back(HashVertex(node->get_hash(), node, receives.ample_size(displacement[i] + j)));
+				} else {
+					hvertices.push_back(HashVertex(receives[displacement[i] + j], receives.ample_size(displacement[i] + j)));
 				}
-				it->second.processes.push_back(&processes[i]);
-				processes[i].add_vertex(&(it->second));
+				hvertices.back().processes.push_back(&pvertices[i]);
 			}
 			(bit == 7) ? byte++, bit = 0 : bit++;
+		}
+	}
+	currentNodes.clear();
+
+	if (hvertices.size()) {
+		std::sort(hvertices.begin(), hvertices.end(), [&] (HashVertex &h1, HashVertex &h2) {
+			if (h1.ample_size == h2.ample_size) {
+				return hashOrder(h1.hash, h2.hash);
+			}
+			return h1.ample_size < h2.ample_size;
+		});
+		size_t unique = 0;
+		for (size_t d = 1; d < hvertices.size(); d++) {
+			if (!hashEq(hvertices[unique].hash, hvertices[d].hash)) {
+				hvertices[++unique] = hvertices[d];
+			} else {
+				hvertices[unique].processes.push_back(hvertices[d].processes.back());
+				if (hvertices[unique].node == NULL) {
+					hvertices[unique].node = hvertices[d].node;
+					hvertices[unique].hash = hvertices[d].hash;
+				}
+			}
+		}
+		hvertices.resize(unique + 1);
+	}
+
+	for (size_t i = 0; i < hvertices.size(); i++) {
+		std::sort(hvertices[i].processes.begin(), hvertices[i].processes.end(), [] (ProcessVertex *p1, ProcessVertex *p2) { return p1->rank < p2->rank; });
+		for (auto it = hvertices[i].processes.begin(); it != hvertices[i].processes.end(); ++it) {
+			(*it)->hashes.push_back(&hvertices[i]);
 		}
 	}
 
@@ -298,111 +309,99 @@ void Core::send_result(size_t part)
 	delete[] results;
 }
 
-void Core::add_part(size_t part, size_t process, size_t node_size, size_t ample_size)
+void Core::partitiate()
 {
-	if (next_receive.size() == part) {
-		next_receive.push_back(std::vector<int>(size, 0));
-		next_threshold.push_back(0);
-
+	long limit = 0;
+	for (auto it = hvertices.begin(); it != hvertices.end(); ++it) {
+		limit += it->ample_size;
 	}
-	if ((int)process == rank) {
-		next_threshold[part] = node_size;
-	}
-	next_receive[part][process] = ample_size;
-	next_end[process] = part;
-}
+	limit = limit / size + limit / hvertices.size();
+	std::vector<int> potential(size);
 
-void Core::partitiate(size_t part)
-{
 	// ASSIGN ALL HASHES TO PROCESSES WITH THE SMALLEST NUMBER OF STATES
-	std::map<HashDigest, HashVertex, HashDigestOrder>::iterator it;
-	for (it = hash_processes.begin(); it != hash_processes.end(); ++it) {
-		it->second.assign();
+//	for (auto it = hvertices.begin(); it != hvertices.end(); ++it) {
+//		it->assign();
+//	}
+
+//	std::vector<int> exchanged(size * size), esize(size * size);
+	for (auto it = hvertices.begin(); it != hvertices.end(); ++it) {
+		auto p = *std::min_element(it->processes.begin(), it->processes.end(), [] (ProcessVertex *p1, ProcessVertex *p2) { return p1->realNodes < p2->realNodes; });
+		if (cfg::balance && potential[p->rank] + it->ample_size > limit) {
+			auto target = std::min_element(pvertices.begin(), pvertices.end(), [] (ProcessVertex &p1, ProcessVertex &p2) { return p1.realNodes < p2.realNodes; });
+			if (potential[target->rank] + it->ample_size <= limit) {
+				++exchanged;
+//				exchanged[p->rank * size + target->rank] += 1;
+//				esize[p->rank * size + target->rank] += it->ample_size;
+				it->processes.push_back(&(*target));
+				if (p->rank == rank) {
+					std::vector<char> data;
+					it->node->get_state()->serialize(data);
+					MPI_Send(data.data(), data.size(), MPI_BYTE, target->rank, 0, MPI_COMM_WORLD);
+				}
+				if (target->rank == rank) {
+					MPI_Status status;
+					std::vector<char> data;
+					int size;
+					MPI_Probe(p->rank, 0, MPI_COMM_WORLD, &status);
+					MPI_Get_count(&status, MPI_BYTE, &size);
+					data.resize(size);
+					MPI_Recv(data.data(), size, MPI_BYTE, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+					State *state = new State(ca::defs[0]);
+					state->deserialize(data);
+					it->hash = state->compute_hash(hash_id);
+					it->node = new Node(it->hash, state, NULL);
+					it->node->set_quit(state->get_quit_flag());
+					it->node->compute_ample(this);
+
+				}
+				p = &(*target);
+			}
+		}
+		potential[p->rank] += (int)it->ample_size;
+		it->owner = p;
+		p->assign(&(*it));
+		p->realNodes++;
 	}
 
 	// PROCESS WITHOUT HASH STEALS SOME FROM NEIGHBOUR
+//	for (int i = 0; i < size; i++) {
+//		pvertices[i].steal();
+//	}
 	for (int i = 0; i < size; i++) {
-		processes[i].steal();
-	}
-
-	// PREPARE NEXT LEVEL
-	int max_size = next_receive[next_end[0]][0] + processes[0].next_size;
-	for (int i = 1; i < size; i++) {
-		if (max_size < next_receive[next_end[i]][i] + processes[i].next_size) {
-			max_size = next_receive[next_end[i]][i] + processes[i].next_size;
+		if (pvertices[i].assigned.size() == 0 && pvertices[i].hashes.size()) {
+			pvertices[i].assign(pvertices[i].hashes.back());
 		}
 	}
 
-	if (max_size > HASH_THRESHOLD) {
-		std::set<HashVertex*, HashVertexEq>::const_iterator it;
-		for (int i = 0; i < size; i++) {
-			size_t node_c = next_threshold[next_end[rank]], ample_c = next_receive[next_end[i]][i], next_part = next_end[i];
-			for (it = processes[i].assigned.begin(); it != processes[i].assigned.end(); ++it) {
-				if (ample_c + (*it)->ample_size > HASH_THRESHOLD) {
-					add_part(next_part, i, node_c, ample_c);
-					ample_c = (*it)->ample_size;
-					node_c = 1;
-					next_part++;
-				} else {
-					node_c++;
-					ample_c += (*it)->ample_size;
-				}
-			}
-			if (processes[i].assigned.size()) {
-				add_part(next_part, i, node_c, ample_c);
-			}
-		}
-	} else {
-		next_threshold[next_end[rank]] += processes[rank].assigned.size();
-		for (int i = 0; i < size; i++) {
-			next_receive[next_end[i]][i] += processes[i].next_size;
-		}
+	for (int i = 0; i < size; i++) {
+		receive_count[i] = pvertices[i].next_size;
 	}
 
 	std::set<HashVertex*, HashVertexEq>::const_iterator vit;
-	for (vit = processes[rank].assigned.begin(); vit != processes[rank].assigned.end(); ++vit) {
+	for (vit = pvertices[rank].assigned.begin(); vit != pvertices[rank].assigned.end(); ++vit) {
 		nodes[(*vit)->hash] = (*vit)->node;
 		not_processed.push_back((*vit)->node);
+		(*vit)->clear = 0;
 	}
-	for (int r = 0; r < rank; r++) {
-		for (vit = processes[r].assigned.begin(); vit != processes[r].assigned.end(); ++vit) {
-			if ((*vit)->node != NULL && (*vit)->clear) {
-				delete (*vit)->node->get_state();
-				delete (*vit)->node;
-			}
-		}
-	}
-	for (int r = rank + 1; r < size; r++) {
-		for (vit = processes[r].assigned.begin(); vit != processes[r].assigned.end(); ++vit) {
-			if ((*vit)->node != NULL && (*vit)->clear) {
-				delete (*vit)->node->get_state();
-				delete (*vit)->node;
-			}
+
+	for (auto it = hvertices.begin(); it != hvertices.end(); ++it) {
+		if (it->clear && it->node != NULL) {
+			delete it->node->get_state();
+			delete it->node;
 		}
 	}
 
-	hash_processes.clear();
-	if (receive_count.size() == part + 1) {
-		receive_count.swap(next_receive);
-		threshold.swap(next_threshold);
+	realNodes = 0;
+	for (int r = 0; r < size; r++) {
+		realNodes += pvertices[r].realNodes;
+	}
 
-		next_receive.clear();
-		next_receive.push_back(std::vector<int>(size, 0));
-		next_threshold.clear();
-		next_threshold.push_back(0);
-		next_end.clear();
-		next_end.resize(size, 0);
-		displacement.resize(receive_count.size());
-		for (size_t p = 0; p < receive_count.size(); p++) {
-			displacement[p].resize(size);
-			displacement[p][0] = 0;
-			for (int i = 1; i < size; i++) {
-				displacement[p][i] = displacement[p][i - 1] + receive_count[p][i - 1];
-			}
-			if (hashes.capacity() < (size_t)receive_count[p][rank]) {
-				hashes.resize(receive_count[p][rank]);
-			}
-		}
+	hvertices.clear();
+	for (int i = 1; i < size; i++) {
+		displacement[i] = displacement[i - 1] + receive_count[i - 1];
+	}
+	if (hashes.capacity() < (size_t)receive_count[rank]) {
+		hashes.resize(receive_count[rank]);
 	}
 }
 

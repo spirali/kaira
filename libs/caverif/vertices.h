@@ -14,7 +14,8 @@ namespace cass {
 	{
 		static int rank;
 
-		HashVertex(HashDigest hash, byte ample_size): node(NULL), ample_size(ample_size), owner(NULL), assigned(0), clear(0), hash(hash) { };
+		HashVertex(): node(NULL), ample_size(0), owner(NULL), assigned(0), clear(1), hash(NULL) { }; // never called
+		HashVertex(HashDigest hash, byte ample_size): node(NULL), ample_size(ample_size), owner(NULL), assigned(0), clear(1), hash(hash) { };
 		HashVertex(HashDigest hash, Node *node, byte ample_size): node(node), ample_size(ample_size), owner(NULL), assigned(0), clear(1), hash(hash) { };
 		~HashVertex();
 
@@ -56,7 +57,7 @@ namespace cass {
 		int nodeCount;
 		int next_size;
 		int rank;
-		int realNodes;
+		long realNodes;
 	};
 
 }

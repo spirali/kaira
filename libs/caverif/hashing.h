@@ -13,7 +13,7 @@ namespace cass {
 
 	struct HashDigestHash
 	{
-		HashDigestHash(hashid hash_id) : size(mhash_get_block_size(hash_id)) {}
+		HashDigestHash() : size(mhash_get_block_size(MHASH_MD5)) {}
 
 		size_t operator()(HashDigest hash) const {
 			size_t *h = (size_t*) hash;
@@ -24,7 +24,7 @@ namespace cass {
 
 	struct HashDigestEq
 	{
-		HashDigestEq(hashid hash_id) : size(mhash_get_block_size(hash_id)) {}
+		HashDigestEq() : size(mhash_get_block_size(MHASH_MD5)) {}
 
 		bool operator()(HashDigest hash1, HashDigest hash2) const {
 			return !memcmp(hash1, hash2, size);

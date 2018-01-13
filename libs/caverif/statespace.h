@@ -2,7 +2,6 @@
 #ifndef CAVERIF_STATESPACE_H
 #define CAVERIF_STATESPACE_H
 
-#include <stack>
 #include "cailie.h"
 #include "basictypes.h"
 #include "state.h"
@@ -28,6 +27,7 @@ namespace cass {
 		extern bool partial_order_reduction;
 		extern bool silent;
 		extern bool debug;
+		extern bool balance;
 		extern bool only_singletons;
 		extern size_t all_subset_max_size;
 		extern std::string project_name;
@@ -195,24 +195,25 @@ namespace cass {
 			size_t singleExplored;
 #ifdef CA_MPI
 			void init_partition();
-			void send_hashes(size_t part);
-			void send_result(size_t part);
-			void partitiate(size_t part);
-
-			void add_part(size_t part, size_t process, size_t node_size, size_t ample_size);
+			void send_hashes();
+			void send_result();
+			void partitiate();
 
 			HashArray hashes;
 			HashArray receives;
 
-			std::vector<std::vector<int> > receive_count;
-			std::vector<std::vector<int> > next_receive;
-			std::vector<int> next_end;
-			std::vector<std::vector<int> > displacement;
-			std::vector<size_t> threshold;
-			std::vector<size_t> next_threshold;
+			std::vector<int> receive_count;
+			std::vector<int> displacement;
 
-			std::map<HashDigest, HashVertex, HashDigestOrder> hash_processes;
-			std::vector<ProcessVertex> processes;
+			std::vector<Node*> currentNodes;
+			std::vector<HashVertex> hvertices;
+			std::vector<ProcessVertex> pvertices;
+
+			HashDigestOrder hashOrder;
+			HashDigestEq hashEq;
+
+			long realNodes;
+			long exchanged;
 
 			int rank;
 			int size;

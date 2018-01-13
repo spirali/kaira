@@ -423,17 +423,6 @@ void Node::fire_ample(Core *core)
 
 }
 
-Core::~Core()
-{
-	NodeMap::iterator it;
-	for (it = nodes.begin(); it != nodes.end(); it++) {
-		delete it->second;
-	}
-	if (cfg::debug) {
-		debug_output.close();
-	}
-}
-
 struct ValidSubset {
 	ValidSubset(const ActionSet &ample, const ActionSet &denied, const std::vector<int> &marking)
 	: ample(ample), denied(denied), marking(marking) { next = this->ample.begin(); }

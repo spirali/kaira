@@ -60,7 +60,7 @@ def configure(ctx):
         ctx.env.prepend_value("CXX", compiler_prefix)
 
     if not ctx.env.CXXFLAGS:
-        ctx.env.append_value("CXXFLAGS", "-O3")
+        ctx.env.append_value("CXXFLAGS", "-O2")
         ctx.env.append_value("CXXFLAGS", "-g")
         ctx.env.append_value("CXXFLAGS", "-fPIC")
 

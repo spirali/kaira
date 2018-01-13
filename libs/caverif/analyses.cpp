@@ -19,6 +19,7 @@ bool cfg::analyse_cycle = false;
 bool cfg::partial_order_reduction = true;
 bool cfg::silent = false;
 bool cfg::debug = false;
+bool cfg::balance = true;
 bool cfg::only_singletons = false;
 size_t cfg::all_subset_max_size = 10;
 std::string cfg::project_name;
@@ -61,6 +62,10 @@ static void args_callback(char c, char *optarg, void *data)
 		}
 		if (!strcmp(optarg, "disable-por")) {
 			cfg::partial_order_reduction = false;
+			return;
+		}
+		if (!strcmp(optarg, "notbalance")) {
+			cfg::balance = false;
 			return;
 		}
 		if (!strcmp(optarg, "silent")) {
@@ -106,7 +111,7 @@ void Core::run_analysis_final_nodes(ca::Output &report)
 {
 	size_t deadlocks = 0;
 	Node* deadlock_node = NULL;
-	NodeMap final_markings(100, HashDigestHash(hash_id), HashDigestEq(hash_id));
+	NodeMap final_markings(100, HashDigestHash(), HashDigestEq());
 
 	NodeMap::const_iterator it;
 	for (it = nodes.begin(); it != nodes.end(); it++)

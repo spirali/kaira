@@ -8,7 +8,7 @@ using namespace cass;
 
 Core::Core(int argc, char **argv, VerifConfiguration &verif_configuration, std::vector<ca::Parameter*> &parameters):
 	hash_id(CASS_HASH_ID),
-	nodes(10000, HashDigestHash(hash_id), HashDigestEq(hash_id)),
+	nodes(10000, HashDigestHash(), HashDigestEq()),
 	initial_node(NULL),
 	net_def(NULL),
 	verif_configuration(verif_configuration),
@@ -33,6 +33,17 @@ Core::Core(int argc, char **argv, VerifConfiguration &verif_configuration, std::
 			}
 		}
 		debug_output << "\n";
+	}
+}
+
+Core::~Core()
+{
+	NodeMap::iterator it;
+	for (it = nodes.begin(); it != nodes.end(); it++) {
+		delete it->second;
+	}
+	if (cfg::debug) {
+		debug_output.close();
 	}
 }
 
