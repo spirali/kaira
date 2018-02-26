@@ -205,7 +205,7 @@ namespace cass {
 			std::vector<int> receive_count;
 			std::vector<int> displacement;
 
-			std::vector<Node*> currentNodes;
+			std::map<HashDigest, Node*, HashDigestOrder> currentNodes;
 			std::vector<HashVertex> hvertices;
 			std::vector<ProcessVertex> pvertices;
 

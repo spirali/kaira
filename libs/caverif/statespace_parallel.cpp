@@ -84,9 +84,8 @@ Node * Core::add_state(State *state, Node *prev)
 
 	Node *node = get_node(hash);
 	if (node == NULL) {
-		auto it = std::lower_bound(currentNodes.begin(), currentNodes.end(), hash, [&] (Node *node, HashDigest hash) { return hashOrder(node->get_hash(), hash); });
-		if (it != currentNodes.end() && hashEq(hash, (*it)->get_hash())) {
-			node = *it;
+		if (currentNodes.find(hash) != currentNodes.end()) {
+			node = currentNodes[hash];
 		}
 	}
 	if (node == NULL) {
@@ -95,8 +94,7 @@ Node * Core::add_state(State *state, Node *prev)
 		//nodes[hash] = node;
 		//not_processed.push(node);
 		node->compute_ample(this);
-		currentNodes.push_back(node);
-		std::sort(currentNodes.begin(), currentNodes.end(), [&] (Node *n1, Node *n2) { return hashOrder(n1->get_hash(), n2->get_hash()); });
+		currentNodes[hash] = node;
 		return node;
 	} else {
 		free(hash);
@@ -181,12 +179,12 @@ void Core::generate()
 
 void Core::init_partition()
 {
-	nodes[currentNodes.front()->get_hash()] = currentNodes.front();
-	not_processed.push_back(currentNodes.front());
+	nodes[currentNodes.begin()->first] = currentNodes.begin()->second;
+	not_processed.push_back(currentNodes.begin()->second);
 
 	for (int i = 0; i < size; i++) {
-		displacement[i] = i * currentNodes.front()->get_ample_size();
-		receive_count[i] = currentNodes.front()->get_ample_size();
+		displacement[i] = i * currentNodes.begin()->second->get_ample_size();
+		receive_count[i] = currentNodes.begin()->second->get_ample_size();
 	}
 	currentNodes.clear();
 	realNodes = 1;
@@ -203,8 +201,8 @@ void Core::send_hashes()
 	}
 
 	hashes.clear();
-	for (size_t i = 0; i < currentNodes.size(); i++) {
-		hashes.push(currentNodes[i]->get_hash(), currentNodes[i]->get_ample_size());
+	for (auto it = currentNodes.begin(); it != currentNodes.end(); ++it) {
+		hashes.push(it->second->get_hash(), it->second->get_ample_size());
 	}
 
 	receives.resize(receive_size);
@@ -262,10 +260,8 @@ void Core::send_result()
 	for (int i = 0; i < size; i++) {
 		for (int j = 0; j < receive_count[i]; j++) {
 			if (!(results[byte] & bits[bit])) {
-				Node *node = NULL;
 				if (i == rank) {
-					node = *std::lower_bound(currentNodes.begin(), currentNodes.end(), receives[displacement[i] + j], [&] (Node *node, HashDigest hash) { return hashOrder(node->get_hash(), hash); });
-					hvertices.push_back(HashVertex(node->get_hash(), node, receives.ample_size(displacement[i] + j)));
+					hvertices.push_back(HashVertex(currentNodes[receives[displacement[i] + j]]->get_hash(), currentNodes[receives[displacement[i] + j]], receives.ample_size(displacement[i] + j)));
 				} else {
 					hvertices.push_back(HashVertex(receives[displacement[i] + j], receives.ample_size(displacement[i] + j)));
 				}
