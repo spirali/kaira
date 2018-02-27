@@ -311,7 +311,11 @@ void Core::partitiate()
 	for (auto it = hvertices.begin(); it != hvertices.end(); ++it) {
 		limit += it->ample_size;
 	}
-	limit = limit / size + limit / hvertices.size();
+	if (hvertices.size()) {
+		limit = limit / size + limit / hvertices.size();
+	} else {
+		limit = limit / size;
+	}
 	std::vector<int> potential(size);
 
 	// ASSIGN ALL HASHES TO PROCESSES WITH THE SMALLEST NUMBER OF STATES
@@ -373,11 +377,10 @@ void Core::partitiate()
 		receive_count[i] = pvertices[i].next_size;
 	}
 
-	std::set<HashVertex*, HashVertexEq>::const_iterator vit;
-	for (vit = pvertices[rank].assigned.begin(); vit != pvertices[rank].assigned.end(); ++vit) {
-		nodes[(*vit)->hash] = (*vit)->node;
-		not_processed.push_back((*vit)->node);
-		(*vit)->clear = 0;
+	for (size_t i = 0; i < pvertices[rank].assigned.size(); i++) {
+		nodes[pvertices[rank].assigned[i]->hash] = pvertices[rank].assigned[i]->node;
+		not_processed.push_back(pvertices[rank].assigned[i]->node);
+		pvertices[rank].assigned[i]->clear = 0;
 	}
 
 	for (auto it = hvertices.begin(); it != hvertices.end(); ++it) {
