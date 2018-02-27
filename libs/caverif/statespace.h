@@ -221,6 +221,7 @@ namespace cass {
 			int size;
 			void* data_buffer;
 			std::vector<size_t> communicated;
+			size_t state_checked;
 	};
 
 	void init(int argc, char **argv, std::vector<ca::Parameter*> &parameters, bool tracing);

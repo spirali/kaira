@@ -98,7 +98,8 @@ Core::Core(int argc, char **argv, VerifConfiguration &verif_configuration, std::
 	verif_configuration(verif_configuration),
 	fullyEplored(0),
 	partlyExplored(0),
-	singleExplored(0)
+	singleExplored(0),
+	state_checked(0)
 {
 
 	MPI_Init(&argc, &argv);
@@ -197,6 +198,7 @@ void Core::generate()
 						run = false;
 					}
 					if (status.MPI_TAG == TAG_STATUS) {
+						++state_checked;
 						// reachable only on root
 						MPI_Recv(communicated.data() + 2 * size * status.MPI_SOURCE, 2 * size * sizeof(size_t), MPI_BYTE, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
@@ -259,6 +261,8 @@ void Core::generate()
 		printf("1 = size(ample) < size(enable) : %ld\n", single[0]);
 		printf("\n");
 		printf("total verification time        : %5.2f\n", end - start);
+
+		printf("state checked %ld times.\n", state_checked);
 	}
 }
 
