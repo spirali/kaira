@@ -3,7 +3,7 @@
 
 KAIRA_PATH=/home/mec059/projects/kaira
 CXX=icpc
-CFLAGS=-g -O3
+CFLAGS=-g -O2
 INCLUDE=-I${KAIRA_PATH}/libs/cailie -I.. -I${KAIRA_PATH}/libs/caverif
 LIBDIR=-L${KAIRA_PATH}/build/libs/cailie -L${KAIRA_PATH}/build/libs/caverif
 LIBS= -lcaverif -lmhash -lcailie -lpthread -lrt -lgomp

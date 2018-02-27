@@ -24,10 +24,11 @@ struct DataBuffer {
 	void clear_sent()
 	{
 		int finished = 1;
-		while (buffer.size() && finished) {
+		while (size && finished) {
 			MPI_Test(&buffer.front().first, &finished, MPI_STATUS_IGNORE);
 			if (finished) {
 				buffer.pop_front();
+				--size;
 			}
 		}
 	}
@@ -35,9 +36,13 @@ struct DataBuffer {
 	std::pair<MPI_Request, std::vector<char> >& create()
 	{
 		buffer.push_back(std::pair<MPI_Request, std::vector<char> >());
+		++size;
 		return buffer.back();
 	}
 
+	DataBuffer(): size(0) {}
+
+	size_t size;
 	std::list<std::pair<MPI_Request, std::vector<char> > > buffer;
 };
 
