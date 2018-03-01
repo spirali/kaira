@@ -8,13 +8,13 @@ source_files = (
 def build(ctx):
     if not ctx.env.HAVE_VERIF:
         return
-    ctx.stlib(source=source_files + ("statespace_sequential.cpp",),
+    ctx.stlib(source=source_files + ("statespace_sequential.cpp", "analyses_sequential.cpp",),
               target="caverif",
               includes="../cailie",
               name="caverif")
     if ctx.env.HAVE_MPI:
         env = ctx.all_envs["mpi"]
-        ctx.stlib(source=source_files + ("statespace_parallel.cpp",),
+        ctx.stlib(source=source_files + ("statespace_parallel.cpp", "analyses_parallel.cpp",),
                   target="caverifmpi",
                   includes="../cailie",
                   cxxflags="-DCA_MPI",

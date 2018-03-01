@@ -12,6 +12,7 @@ Core::Core(int argc, char **argv, VerifConfiguration &verif_configuration, std::
 	initial_node(NULL),
 	net_def(NULL),
 	verif_configuration(verif_configuration),
+	cycle_size(0),
 	fullyEplored(0),
 	partlyExplored(0),
 	singleExplored(0)
@@ -94,6 +95,7 @@ void Core::generate()
 		if (node->get_quit_flag()) {
 			delete node->get_state();
 		}
+		node->delete_ample();
 	} while (!not_processed.empty());
 
 	printf("total number of explored states: %ld\n", nodes.size());

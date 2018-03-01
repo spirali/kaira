@@ -11,6 +11,7 @@
 
 #include <set>
 #include <list>
+#include <stack>
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -53,12 +54,14 @@ namespace cass {
 			void pack_packets(ca::Packer &packer);
 
 			void serialize(std::vector<char> &data);
-			void deserialize(std::vector<char> &data);
+			void deserialize(char* p);
 	};
 
 	struct NextNodeInfo {
 		Node *node;
+		HashDigest hash;
 		ActionType action;
+		int rank;
 		union {
 				struct {
 					int process_id;
@@ -77,9 +80,8 @@ namespace cass {
 
 	struct Arc
 	{
-		Arc(Node *node, const NextNodeInfo *nni): node(node), nni(nni) {};
+		Arc(const NextNodeInfo *nni): nni(nni) {};
 
-		Node *node;
 		NextNodeInfo const *nni;
 	};
 
@@ -95,12 +97,31 @@ namespace cass {
 		VerifConfiguration &verif_configuration;
 	};
 
+	inline bool operator==(const ParikhVector &p1, const ParikhVector &p2) {
+		if (p1.size() != p2.size()) {
+			return false;
+		}
+		for (ParikhVector::const_iterator it = p1.begin(); it != p1.end(); it++) {
+			ParikhVector::const_iterator it2 = p2.find(it->first);
+			if (it2 == p2.end() || it->second != it2->second) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	inline bool operator!=(const ParikhVector &p1, const ParikhVector &p2) {
+		return !(p1 == p2);
+	}
+
 	class Node
 	{
 		public:
 			Node(HashDigest hash, State *state, Node *prev);
+			Node(HashDigest hash, State *state, Node *prev, int distance, int nni);
 			~Node();
 			const std::vector<NextNodeInfo> & get_nexts() const { return nexts; }
+			std::vector<NextNodeInfo> & get_nexts() { return nexts; }
 			//void generate(Core *statespace);
 
 			void compute_ample(Core *core);
@@ -110,10 +131,13 @@ namespace cass {
 
 			State* get_state() const { return state; }
 			Node* get_prev() const { return prev; }
+			int get_prev_rank() const { return prev_rank; }
+			int get_prev_nni() const { return prev_nni; }
 			int get_distance() const { return distance; }
 			void* get_data() const { return data; };
 			void set_data(void* data) { this->data = data; };
 			void set_prev(Node *prev);
+			void set_prev_rank(int rank) { prev_rank = rank; }
 			const NextNodeInfo& get_next_node_info(Node *node) const;
 			size_t get_ample_size() const { return ample.size(); }
 
@@ -130,6 +154,7 @@ namespace cass {
 			State* state;
 			std::vector<NextNodeInfo> nexts;
 			Node* prev;
+			int prev_rank, prev_nni;
 			int distance;
 			bool quit;
 			bool quit_flag;
@@ -142,6 +167,11 @@ namespace cass {
 	};
 
 	typedef google::sparse_hash_map<HashDigest, Node*, HashDigestHash, HashDigestEq> NodeMap;
+
+	struct DFSNode {
+		Node* node;
+		int nni, origin;
+	};
 
 	class Core
 	{
@@ -163,9 +193,10 @@ namespace cass {
 			static std::string hashdigest_to_string(HashDigest hash);
 		protected:
 			void write_report();
-			void write_control_sequence(std::vector<Node*> &nodes, ca::Output &report);
-			void write_state(const std::string &name, Node *node, ca::Output &report);
-			void write_suffix(const std::string &name, std::vector<Node*> &nodes, ca::Output &report);
+			void add_control_line(std::stringstream &s, const NextNodeInfo &nninfo);
+			void write_control_sequence(const std::vector<Node*> &nodes, ca::Output &report);
+			void write_suffix(const std::string &name, const std::vector<Node*> &nodes, ca::Output &report);
+			void write_suffix(const std::string &name, const Node* start, std::stack<DFSNode> &nodes, ca::Output &report);
 			void write_xml_statespace(ca::Output &report);
 
 			void run_analysis_final_nodes(ca::Output &report);
@@ -189,6 +220,8 @@ namespace cass {
 			VerifConfiguration &verif_configuration;
 			bool generate_binging_in_nni;
 			std::ofstream debug_output;
+			std::vector<Node*> cycle_starts;
+			size_t cycle_size;
 
 			size_t fullyEplored;
 			size_t partlyExplored;
@@ -220,6 +253,14 @@ namespace cass {
 
 			int output;
 #endif
+	};
+
+	struct CmpByDistance
+	{
+		bool operator()(Node *a, Node *b) const
+		{
+			return a->get_distance() < b->get_distance();
+		}
 	};
 
 	void init(int argc, char **argv, std::vector<ca::Parameter*> &parameters, bool tracing);

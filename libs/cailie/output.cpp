@@ -88,6 +88,11 @@ void Output::set(const std::string & name, const int value)
 	fprintf(file, " %s='%i'", name.c_str(), value);
 }
 
+void Output::set(const std::string & name, const long value)
+{
+	fprintf(file, " %s='%ld'", name.c_str(), value);
+}
+
 void Output::set(const std::string & name, void *p)
 {
 	fprintf(file, " %s='%p'", name.c_str(), p);

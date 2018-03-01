@@ -148,8 +148,6 @@ std::string Core::hashdigest_to_string(HashDigest hash)
 
 void State::serialize(std::vector<char> &data)
 {
-	data.clear();
-
 	// quit state
 	data.insert(data.end(), reinterpret_cast<const char*>(&quit), reinterpret_cast<const char*>(&quit) + sizeof(quit));
 
@@ -204,10 +202,8 @@ static void readData(TType &data, char* &p)
 	p += sizeof(TType);
 }
 
-void State::deserialize(std::vector<char> &data)
+void State::deserialize(char* p)
 {
-	char* p = data.data();
-
 	// QUIT FLAG
 	readData(quit, p);
 
@@ -264,7 +260,7 @@ void State::deserialize(std::vector<char> &data)
 }
 
 Node::Node(HashDigest hash, State *state, Node *prev)
-	: hash(hash), state(state), prev(prev), quit(false), quit_flag(false), final_marking(NULL), tag(0), data(NULL)
+: hash(hash), state(state), prev(prev), prev_rank(-1), prev_nni(-1), quit(false), quit_flag(false), final_marking(NULL), ample(NULL), tag(0), data(NULL)
 {
 	if (prev != NULL) {
 		distance = prev->get_distance() + 1;
@@ -273,9 +269,14 @@ Node::Node(HashDigest hash, State *state, Node *prev)
 	}
 }
 
+Node::Node(HashDigest hash, State *state, Node *prev, int distance, int nni)
+: hash(hash), state(state), prev(prev), prev_rank(-1), prev_nni(nni), distance(distance), quit(false), quit_flag(false), final_marking(NULL), ample(NULL), tag(0), data(NULL)
+{
+
+}
+
 Node::~Node()
 {
-	free(hash);
 	if (final_marking != NULL) {
 		free(final_marking);
 	}
@@ -393,7 +394,9 @@ void Node::fire_ample(Core *core)
 				Node *n = core->add_state(s, this);
 				NextNodeInfo nninfo;
 				nninfo.node = n;
+				nninfo.hash = n->get_hash();
 				nninfo.action = ActionFire;
+				nninfo.rank = -1;
 				nninfo.data.fire.process_id = it->process;
 				nninfo.data.fire.transition_id = it->data.fire.transition_def->get_id();
 				if (core->generate_binding_in_nni(it->data.fire.transition_def->get_id())) {
@@ -412,7 +415,9 @@ void Node::fire_ample(Core *core)
 				Node *n = core->add_state(s, this);
 				NextNodeInfo nninfo;
 				nninfo.node = n;
+				nninfo.hash = n->get_hash();
 				nninfo.action = ActionReceive;
+				nninfo.rank = -1;
 				nninfo.data.receive.process_id = it->process;
 				nninfo.data.receive.source_id = it->data.receive.source;
 				nexts.push_back(nninfo);

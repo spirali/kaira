@@ -20,6 +20,7 @@ Core::Core(int argc, char **argv, VerifConfiguration &verif_configuration, std::
 	initial_node(NULL),
 	net_def(NULL),
 	verif_configuration(verif_configuration),
+	cycle_size(0),
 	fullyEplored(0),
 	partlyExplored(0),
 	singleExplored(0),
@@ -76,6 +77,8 @@ Core::~Core()
 	if (cfg::debug) {
 		debug_output.close();
 	}
+
+	MPI_Finalize();
 }
 
 Node * Core::add_state(State *state, Node *prev)
@@ -97,6 +100,7 @@ Node * Core::add_state(State *state, Node *prev)
 		currentNodes[hash] = node;
 		return node;
 	} else {
+		cycle_starts.push_back(node);
 		free(hash);
 		delete state;
 		if (prev) {
@@ -160,9 +164,6 @@ void Core::generate()
 
 	MPI_Barrier(MPI_COMM_WORLD);
 	double end = omp_get_wtime();
-
-	debug_output.close();
-	MPI_Finalize();
 
 	if (rank == 0) {
 		std::cout << "nodes: ";
@@ -324,18 +325,50 @@ void Core::partitiate()
 //	}
 
 //	std::vector<int> exchanged(size * size), esize(size * size);
+	std::vector<HashVertex*> postponed;
 	for (auto it = hvertices.begin(); it != hvertices.end(); ++it) {
 		auto p = *std::min_element(it->processes.begin(), it->processes.end(), [] (ProcessVertex *p1, ProcessVertex *p2) { return p1->realNodes < p2->realNodes; });
 		if (cfg::balance && potential[p->rank] + it->ample_size > limit) {
-			auto target = std::min_element(pvertices.begin(), pvertices.end(), [] (ProcessVertex &p1, ProcessVertex &p2) { return p1.realNodes < p2.realNodes; });
-			if (potential[target->rank] + it->ample_size <= limit) {
+			postponed.push_back(&*it);
+		} else {
+			potential[p->rank] += (int)it->ample_size;
+			it->owner = p;
+			p->assign(&(*it));
+			p->realNodes++;
+			if (it->node != NULL) {
+				for (size_t i = 0; i < it->node->get_prev()->get_nexts().size(); i++) {
+					if (it->node->get_prev()->get_nexts()[i].node == it->node) {
+						it->node->get_prev()->get_nexts()[i].rank = p->rank;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	for (size_t i = 0; i < postponed.size(); i++) {
+		auto p = *std::min_element(postponed[i]->processes.begin(), postponed[i]->processes.end(), [] (ProcessVertex *p1, ProcessVertex *p2) { return p1->realNodes < p2->realNodes; });
+		if (cfg::balance && potential[p->rank] + postponed[i]->ample_size > limit) {
+			auto target = std::min_element(pvertices.begin(), pvertices.end(), [&] (ProcessVertex &p1, ProcessVertex &p2) { return potential[p1.rank] < potential[p2.rank]; });
+			if (p->rank != target->rank && potential[target->rank] + postponed[i]->ample_size <= limit) {
 				++exchanged;
-//				exchanged[p->rank * size + target->rank] += 1;
-//				esize[p->rank * size + target->rank] += it->ample_size;
-				it->processes.push_back(&(*target));
+				Node *n;
+				int distance, nni;
 				if (p->rank == rank) {
 					std::vector<char> data;
-					it->node->get_state()->serialize(data);
+					distance = postponed[i]->node->get_distance();
+					n = postponed[i]->node->get_prev();
+					for (size_t j = 0; j < n->get_nexts().size(); j++) {
+						if (n->get_nexts()[j].node == postponed[i]->node) {
+							n->get_nexts()[j].rank = target->rank;
+							nni = j;
+							break;
+						}
+					}
+					data.insert(data.end(), reinterpret_cast<const char*>(&n), reinterpret_cast<const char*>(&n) + sizeof(n));
+					data.insert(data.end(), reinterpret_cast<const char*>(&distance), reinterpret_cast<const char*>(&distance) + sizeof(distance));
+					data.insert(data.end(), reinterpret_cast<const char*>(&nni), reinterpret_cast<const char*>(&nni) + sizeof(nni));
+					postponed[i]->node->get_state()->serialize(data);
 					MPI_Send(data.data(), data.size(), MPI_BYTE, target->rank, 0, MPI_COMM_WORLD);
 				}
 				if (target->rank == rank) {
@@ -346,20 +379,23 @@ void Core::partitiate()
 					MPI_Get_count(&status, MPI_BYTE, &size);
 					data.resize(size);
 					MPI_Recv(data.data(), size, MPI_BYTE, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+					memcpy(&n, data.data(), sizeof(n));
+					memcpy(&distance, data.data() + sizeof(n), sizeof(distance));
+					memcpy(&nni, data.data() + sizeof(n) + sizeof(distance), sizeof(nni));
 					State *state = new State(ca::defs[0]);
-					state->deserialize(data);
-					it->hash = state->compute_hash(hash_id);
-					it->node = new Node(it->hash, state, NULL);
-					it->node->set_quit(state->get_quit_flag());
-					it->node->compute_ample(this);
+					state->deserialize(data.data() + sizeof(Node*) + sizeof(distance) + sizeof(nni));
 
+					postponed[i]->hash = state->compute_hash(hash_id);
+					postponed[i]->node = new Node(postponed[i]->hash, state, n, distance, nni);
+					postponed[i]->node->set_quit(state->get_quit_flag());
+					postponed[i]->node->compute_ample(this);
+					postponed[i]->node->set_prev_rank(status.MPI_SOURCE);
 				}
 				p = &(*target);
 			}
 		}
-		potential[p->rank] += (int)it->ample_size;
-		it->owner = p;
-		p->assign(&(*it));
+		potential[p->rank] += (int)postponed[i]->ample_size;
+		p->assign(&(*postponed[i]));
 		p->realNodes++;
 	}
 
@@ -385,6 +421,12 @@ void Core::partitiate()
 
 	for (auto it = hvertices.begin(); it != hvertices.end(); ++it) {
 		if (it->clear && it->node != NULL) {
+			for (size_t i = cycle_size; i < cycle_starts.size(); i++) {
+				if (cycle_starts[i] == it->node) {
+					cycle_starts[i] = NULL;
+				}
+			}
+			cycle_size = cycle_starts.size();
 			delete it->node->get_state();
 			delete it->node;
 		}
