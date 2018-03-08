@@ -382,6 +382,10 @@ def write_compute_successors(builder):
                 if not multicast:
                     builder.block_end()
                 builder.block_end()
+        for t in net.transitions:
+            if t.priority < transition.priority:
+                builder.line("// transition has lower priority")
+                push_fire(t)
         if transition.collective:
             builder.block_end()
         builder.line("return;")
