@@ -44,7 +44,7 @@ namespace ca {
 	}
 	segment.marks.resize(s, true);
 	place.add(segment);
-</code><trace trace-tokens="False" /></place><place id="104" label-x="66" label-y="60" name="number" radius="20" sx="12" sy="6" x="66" y="60"><place-type x="90" y="84">int</place-type><init x="90" y="30">[2]</init><trace trace-tokens="False" /></place><place id="107" label-x="240" label-y="60" name="next&#10;number" radius="20" sx="12" sy="6" x="240" y="60"><place-type x="270" y="84">int</place-type><init x="257" y="30" /><trace trace-tokens="False" /></place><place id="109" label-x="402" label-y="-30" name="prime" radius="20" sx="12" sy="0" x="402" y="-30"><place-type x="432" y="-6">int</place-type><init x="419" y="-60" /><trace trace-tokens="False" /></place><transition clock="False" collective="False" id="103" label-x="161" label-y="-30" name="Find&#10;prime" priority="" sx="70" sy="36" x="126" y="-48"><guard x="126" y="-68" /><code>
+</code><trace trace-tokens="False" /></place><place id="104" label-x="36" label-y="60" name="number" radius="20" sx="24" sy="0" x="36" y="60"><place-type x="60" y="84">int</place-type><init x="60" y="30">[2]</init><trace trace-tokens="False" /></place><place id="107" label-x="324" label-y="60" name="next&#10;number" radius="20" sx="24" sy="0" x="324" y="60"><place-type x="354" y="84">int</place-type><init x="341" y="30" /><trace trace-tokens="False" /></place><place id="109" label-x="402" label-y="-30" name="prime" radius="20" sx="12" sy="0" x="402" y="-30"><place-type x="432" y="-6">int</place-type><init x="419" y="-60" /><trace trace-tokens="False" /></place><transition clock="False" collective="False" id="103" label-x="161" label-y="-30" name="Find&#10;prime" priority="" sx="70" sy="36" x="126" y="-48"><guard x="126" y="-68" /><code>
 	int end = var.segment.start + var.segment.marks.size();
 
 	if (var.num * var.num &gt; param::N()) {		
@@ -70,16 +70,19 @@ namespace ca {
 	if (next == ctx.process_count()) {
 		ctx.quit();
 	} else {
-		var.targets.push_back(next);
+		var.targets = ca::range(ctx.process_id(), ctx.process_count());
 	}
 </code></transition><transition clock="False" collective="False" id="111" label-x="161" label-y="156" name="Mark&#10;composites" priority="" sx="70" sy="36" x="126" y="138"><guard x="126" y="118" /><code>	if (var.prime == -1) {
-		var.start.add(var.segment.start);	
+		++var.c;
+		if (var.c == ctx.process_id()) {
+			var.start.add(var.segment.start);
+		}
 	} else {
 		for (int i = (var.prime - (var.segment.start % var.prime)) % var.prime; i &lt; var.segment.marks.size(); i += var.prime) {
 			var.segment.marks[i] = false;
 		}
 	}
-</code></transition><edge bidirectional="true" from_item="102" id="105" to_item="103"><inscription x="31.0" y="-47.0">segment</inscription></edge><edge from_item="104" id="106" to_item="103"><inscription x="82.0" y="2.0">num</inscription><point x="72" y="0" /></edge><edge from_item="103" id="108" to_item="107"><inscription x="252.0" y="6.0">[if(next_num &gt; 0)] next_num</inscription><point x="246" y="0" /></edge><edge from_item="103" id="110" to_item="109"><inscription x="225.0" y="-48.0">[multicast] prime@targets</inscription></edge><edge from_item="109" id="113" to_item="111"><inscription x="420.0" y="68.0">prime</inscription><point x="408" y="156" /></edge><edge from_item="107" id="114" to_item="111"><inscription x="252.0" y="108.0">[bulk] start</inscription><point x="246" y="126" /></edge><edge from_item="111" id="115" to_item="104"><inscription x="84.0" y="108.0">[bulk] start</inscription><point x="72" y="126" /></edge><edge bidirectional="true" from_item="111" id="116" to_item="102"><inscription x="-42.0" y="66.0">segment</inscription><point x="-54" y="156" /></edge></net><sequence name="Sequence23">0 0 S #103
+</code></transition><edge bidirectional="true" from_item="102" id="105" to_item="103"><inscription x="31.0" y="-47.0">segment</inscription></edge><edge from_item="104" id="106" to_item="103"><inscription x="61.7219262114" y="1.61141269543">num</inscription><point x="48" y="0" /></edge><edge from_item="103" id="108" to_item="107"><inscription x="168.0" y="-7.75031847134">[if(next_num &gt; 0)] next_num</inscription><point x="336" y="-12" /></edge><edge from_item="103" id="110" to_item="109"><inscription x="225.0" y="-48.0">[multicast] prime@targets</inscription></edge><edge from_item="109" id="113" to_item="111"><inscription x="420.0" y="68.0">prime</inscription><point x="408" y="156" /></edge><edge from_item="107" id="114" to_item="111"><inscription x="254.631518192" y="120.071754642">[bulk] start</inscription><point x="336" y="138" /></edge><edge from_item="111" id="115" to_item="104"><inscription x="60.0" y="117.923076923">[bulk] start</inscription><point x="48" y="138" /></edge><edge bidirectional="true" from_item="111" id="116" to_item="102"><inscription x="-42.0" y="66.0">segment</inscription><point x="-54" y="156" /></edge><place id="120" label-x="150.0" label-y="60.0" name="counter" radius="20" sx="18" sy="0" x="150" y="60"><place-type x="167.0" y="77.0">int</place-type><init x="174" y="30">[0]</init><trace trace-tokens="False" /></place><edge bidirectional="true" from_item="120" id="121" to_item="111"><inscription x="168.0" y="102.0">c</inscription></edge><area id="122" sx="86.0" sy="74.5" x="114" y="24"><init x="114.0" y="9.0">ctx.all_processes()</init></area></net><sequence name="Sequence23">0 0 S #103
 0 0 F
 0 0 R 0
 1 0 R 0
