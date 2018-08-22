@@ -310,7 +310,7 @@ void Core::write_dot_file(const std::string &filename)
 
 void Core::write_report()
 {
-	FILE *f = fopen((cfg::project_name + ".xml").c_str(), "w");
+	FILE *f = fopen((cfg::project_name + ".kreport").c_str(), "w");
 	ca::Output report(f);
 	report.child("report");
 	report.set("version", 1);

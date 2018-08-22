@@ -362,9 +362,9 @@ void Node::compute_ample(Core *core)
 		return;
 	}
 
-	ActionSet enabled = compute_enable_set(core);
+	ActionSet *enabled = new ActionSet(compute_enable_set(core));
 	if (cfg::partial_order_reduction) {
-		ample =  core->compute_ample_set(state, enabled);
+		ample = new ActionSet(core->compute_ample_set(state, *enabled));
 	} else {
 		ample = enabled;
 	}
@@ -372,11 +372,14 @@ void Node::compute_ample(Core *core)
 
 void Node::fire_ample(Core *core)
 {
+	if (ample == NULL) {
+		return;
+	}
 	State *s;
 
 	ActionSet::iterator it;
-	for (it = ample.begin(); it != ample.end(); it++) {
-		if (++it != ample.end()) {
+	for (it = ample->begin(); it != ample->end(); it++) {
+		if (++it != ample->end()) {
 			s = new State(*state);
 		} else {
 			s = state;

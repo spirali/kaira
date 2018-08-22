@@ -126,7 +126,7 @@ namespace cass {
 
 			void compute_ample(Core *core);
 			void fire_ample(Core *core);
-			const ActionSet& get_ample() const { return ample; }
+			const ActionSet& get_ample() const { return *ample; }
 			HashDigest get_hash() const { return hash; }
 
 			State* get_state() const { return state; }
@@ -139,7 +139,7 @@ namespace cass {
 			void set_prev(Node *prev);
 			void set_prev_rank(int rank) { prev_rank = rank; }
 			const NextNodeInfo& get_next_node_info(Node *node) const;
-			size_t get_ample_size() const { return ample.size(); }
+			size_t get_ample_size() const { return ample->size(); }
 
 			bool is_quitted() { return quit; }
 			bool get_quit_flag() { return quit_flag; }
@@ -148,6 +148,7 @@ namespace cass {
 			void set_final_marking(HashDigest hash) { final_marking = hash; }
 			int get_tag() const { return tag; }
 			void set_tag(int tag) { this->tag = tag; }
+			void delete_ample() { delete ample; }
 		protected:
 			ActionSet compute_enable_set(Core *core);
 			HashDigest hash;
@@ -159,7 +160,7 @@ namespace cass {
 			bool quit;
 			bool quit_flag;
 			HashDigest final_marking;
-			ActionSet ample;
+			ActionSet *ample;
 
 			// Generic data used during analysis
 			int tag;

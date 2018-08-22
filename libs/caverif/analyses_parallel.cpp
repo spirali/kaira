@@ -509,7 +509,7 @@ void Core::write_report()
 		ca::Output report(NULL);
 		analyses(report);
 	} else {
-		FILE *f = fopen((cfg::project_name + ".xml").c_str(), "w");
+		FILE *f = fopen((cfg::project_name + ".kreport").c_str(), "w");
 		ca::Output report(f);
 		report.child("report");
 		report.set("version", 1);
