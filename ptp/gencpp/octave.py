@@ -65,7 +65,7 @@ def write_oct_function(builder, net):
             ",".join(inputs),
             ",".join(outputs),
             ",".join(place.type for place in input_places),
-            ",".join(place.type for place in input_places))
+            ",".join(place.type for place in output_places))
 
     builder.line("DEFUN_DLD({0}, $args, , \"{1}\")", net.name, description)
     builder.block_begin()
